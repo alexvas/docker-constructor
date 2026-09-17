@@ -83,7 +83,9 @@ _GATEWAY_ENV_PERSISTENCE: list[tuple[str, re.Pattern[str]]] = [
 _REVIEWED_CACHE_DIR: list[tuple[str, re.Pattern[str]]] = [
     (
         "reviewed cache.dir processed in inventory loading",
-        re.compile(r'"cache\.dir"'),
+        # The typed diagnostic field is authorized metadata; flag any other
+        # production reference to the retired reviewed key.
+        re.compile(r'(?<!field=)"cache\.dir"'),
     ),
 ]
 

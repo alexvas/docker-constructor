@@ -141,7 +141,7 @@ class TestReviewedPiReleaseContract(unittest.TestCase):
         })
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(write_toml(content))
-        self.assertIn("pi-release", str(ctx.exception))
+        self.assertEqual("build.stages.pi-tools.pi.source.type", ctx.exception.field)
 
     def test_unknown_pi_source_metadata_rejected(self):
         content = minimal_toml(**{

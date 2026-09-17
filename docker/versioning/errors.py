@@ -7,11 +7,24 @@ from __future__ import annotations
 
 
 class VersionConfigError(ValueError):
-    """Base for all docker/versioning errors."""
+    """Base for all docker/versioning errors.
+
+    ``field`` optionally carries safe, structured owner metadata (a dot-path)
+    that schema projection may publish without exposing the private message.
+    """
+
+    def __init__(self, message: str, *, field: str | None = None) -> None:
+        super().__init__(message)
+        if field is not None or not hasattr(self, "field"):
+            self.field = field
 
 
 class InventoryError(VersionConfigError):
-    """Inventory structure or value is invalid."""
+    """Inventory structure or value is invalid.
+
+    ``field`` is structured owner metadata for safe diagnostic projection; the
+    message remains private recovery guidance and must not be parsed.
+    """
 
 
 class VersionSyntaxError(VersionConfigError):

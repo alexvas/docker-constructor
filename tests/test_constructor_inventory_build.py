@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import sys
 import tomllib
+
+from docker.versioning.configuration_document_validation import ConfigurationDocumentError
 import unittest
 from pathlib import Path
 from types import MappingProxyType
@@ -299,7 +301,7 @@ metadata_file = "package.json"
         t = _canonical_build_toml().replace(
             "[build.stages.base.node]", "build = 42\n[build.stages.base.node]")
         p = self._write(t)
-        with self.assertRaises(tomllib.TOMLDecodeError):
+        with self.assertRaises(ConfigurationDocumentError):
             load_inventory(p)
 
     def test_build_stages_must_be_table(self):
@@ -353,9 +355,9 @@ metadata_file = "package.json"
         # Inject a legacy stages section after the build section
         t += "\n[stages.extra.something]\nversion = \"1.0\"\n"
         p = self._write(t)
-        with self.assertRaises(InventoryError) as ctx:
+        with self.assertRaises(ConfigurationDocumentError) as ctx:
             load_inventory(p)
-        self.assertIn("stages", str(ctx.exception))
+        self.assertEqual("stages", ctx.exception.field)
 
     # ── key & schema checks ──────────────────────────────────────
 

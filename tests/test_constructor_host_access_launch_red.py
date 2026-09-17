@@ -104,14 +104,14 @@ class TestHostAccessPlanningRed(unittest.TestCase):
 
         policy = '[runtime.host-access]\nenabled = true\nmode = "docker-gateway"\n'
 
-        cases: list[tuple[bytes | None, str]] = [
-            (None, "missing"),
-            (b"not = [", "malformed TOML"),
-            (b"[host-access]\nunknown_key = true\n", "unknown key"),
-            (b"[host-access]\naddress = \"not-an-ip\"\n", "expected IPv4"),
-            (b"[cache]\ndir = 42\n[host-access]\naddress = \"10.0.0.1\"\n", "local.cache.dir: expected string"),
+        cases: list[tuple[bytes | None, str, str | None]] = [
+            (None, "missing", None),
+            (b"not = [", "malformed TOML", None),
+            (b"[host-access]\nunknown_key = true\n", "local.host-access.unknown_key", "unknown_key = true"),
+            (b"[host-access]\naddress = \"not-an-ip\"\n", "local.host-access.address", "not-an-ip"),
+            (b"[cache]\ndir = 42\n[host-access]\naddress = \"10.0.0.1\"\n", "local.cache.dir", "42"),
         ]
-        for local_bytes, expected_fragment in cases:
+        for local_bytes, expected_fragment, rejected_value in cases:
             with self.subTest(local_bytes=local_bytes, expected=expected_fragment), tempfile.TemporaryDirectory() as root:
                 root_path = Path(root)
                 inventory = self._inventory(root_path, policy)
@@ -129,6 +129,8 @@ class TestHostAccessPlanningRed(unittest.TestCase):
                     result = orchestrate_run(req)
                 self.assertEqual(result.exit_kind.value, "config")
                 self.assertIn(expected_fragment, result.message or "")
+                if rejected_value is not None:
+                    self.assertNotIn(rejected_value, result.message or "")
                 self.assertEqual(effects, [])
 
     def test_orchestrate_dry_run_renders_policy_and_never_mutates_companion(self):

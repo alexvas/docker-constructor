@@ -13,6 +13,10 @@ import unittest
 from pathlib import Path
 
 from docker.versions import InventoryError, load_inventory
+from docker.versioning.configuration_document_validation import (
+    ConfigurationDocumentError,
+    DocumentRole,
+)
 from docker.versioning.effective import resolve_build_projection, resolve_runtime, to_plain_data
 from docker.versioning.rendering import serialize_effective_build
 
@@ -241,17 +245,21 @@ class TestLocalCompanionRed(_InventoryTest):
         from docker.versioning.inventory import load_local_config
 
         cases = (
-            ("[host-access]\nfoo = true\n", "local.host-access.foo", "only"),
-            ("[cache]\nfoo = true\n", "local.cache.foo", "only"),
-            ("[host-access]\naddress = 42\n", "local.host-access.address", "IPv4"),
-            ("[cache]\ndir = 42\n", "local.cache.dir", "filesystem path"),
+            ("[host-access]\nfoo = true\n", "local.host-access.foo"),
+            ("[cache]\nfoo = true\n", "local.cache.foo"),
+            ("[host-access]\naddress = 42\n", "local.host-access.address"),
+            ("[cache]\ndir = 42\n", "local.cache.dir"),
         )
-        for content, path, guidance in cases:
+        for content, path in cases:
             with self.subTest(path=path):
-                with self.assertRaises(InventoryError) as raised:
-                    load_local_config(self.local(content))
-                self.assertIn(path, str(raised.exception))
-                self.assertIn(guidance, str(raised.exception))
+                local_path = self.local(content)
+                with self.assertRaises(ConfigurationDocumentError) as raised:
+                    load_local_config(local_path)
+                error = raised.exception
+                self.assertEqual("schema_error", error.classification)
+                self.assertEqual(DocumentRole.LOCAL, error.role)
+                self.assertEqual(local_path.resolve(), error.path)
+                self.assertEqual(path, error.field)
 
     def test_external_address_rejects_host_gateway_token(self) -> None:
         from docker.versioning.inventory import load_local_config
@@ -263,8 +271,11 @@ class TestLocalCompanionRed(_InventoryTest):
 
 class TestCacheAndProjectionRed(_InventoryTest):
     def test_cache_dir_is_local_but_ttl_remains_reviewed(self) -> None:
-        with self.assertRaisesRegex(InventoryError, r"cache\.dir.*local"):
+        with self.assertRaises(ConfigurationDocumentError) as raised:
             load_inventory(self.inventory(cache='dir = "/reviewed"'))
+        self.assertEqual("schema_error", raised.exception.classification)
+        self.assertEqual("cache.dir", raised.exception.field)
+        self.assertNotIn("/reviewed", str(raised.exception))
 
         from docker.versioning.cache_storage import resolve_local_root
         from docker.versioning.inventory import load_local_config

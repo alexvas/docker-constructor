@@ -783,7 +783,7 @@ class TestLocalCompanionFailClosedCommandsRed(_LocalTest):
     def test_unknown_top_level_key_fails_build_and_run(self) -> None:
         self._assert_both_paths_config(
             "[unexpected]\nvalue = true\n",
-            r"local\.unexpected: unknown key",
+            r"local\.unexpected",
         )
 
     def test_invalid_host_access_fails_build_and_run(self) -> None:

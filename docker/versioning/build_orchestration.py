@@ -71,7 +71,12 @@ from docker.versioning.errors import (
     UnsupportedOverrideError,
     VersionConfigError,
 )
-from docker.versioning.inventory import load_inventory, resolve_local_corporate_settings
+from docker.versioning.inventory import (
+    load_inventory,
+    load_project_configuration,
+    resolve_corporate_trust_bundle_path,
+    validate_corporate_trust_bundle,
+)
 from docker.versioning.model import HostAccessPolicy, Inventory
 from docker.versioning.project_state import resolve_project_state
 from docker.versioning.rendering import (
@@ -474,7 +479,7 @@ def plan_build(request: BuildRequest) -> BuildTransactionPlan:
         Path(request.project_root) if request.project_root is not None else None
     )
     try:
-        inventory = load_inventory(inv_path)
+        inventory, local = load_project_configuration(inv_path)
     except (VersionConfigError, OSError, ValueError, KeyError) as exc:
         return BuildTransactionPlan(
             exit_kind=ExitKind.CONFIG,
@@ -487,15 +492,17 @@ def plan_build(request: BuildRequest) -> BuildTransactionPlan:
     # The repository root is mandatory for enabled trust and is never
     # inferred from the inventory path.
     try:
-        local = resolve_local_corporate_settings(
-            inv_path,
-            repository_root=local_project_root,
-        )
+        if local.corporate_trust.enabled:
+            if local_project_root is None:
+                raise InventoryError(
+                    "corporate trust is enabled but project_root is absent; "
+                    "cannot resolve <project-root>/.docker-local/corporate-ca-bundle.crt"
+                )
+            validate_corporate_trust_bundle(
+                resolve_corporate_trust_bundle_path(local_project_root)
+            )
     except InventoryError as exc:
-        return BuildTransactionPlan(
-            exit_kind=ExitKind.CONFIG,
-            message=str(exc),
-        )
+        return BuildTransactionPlan(exit_kind=ExitKind.CONFIG, message=str(exc))
 
     # Resolve the same configured/default cache root used by runtime execution.
     try:

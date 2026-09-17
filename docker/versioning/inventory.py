@@ -1,7 +1,7 @@
 """TOML inventory loader and validator.
 
-No Docker, network, or subprocess.  Uses only tomllib (stdlib 3.11+),
-dataclasses, re, pathlib, and types.
+No Docker, network, or subprocess. Uses the shared configuration-document
+boundary plus dataclasses, re, pathlib, and types.
 """
 from __future__ import annotations
 
@@ -9,12 +9,21 @@ import base64
 import builtins
 import ipaddress
 import re
-import tomllib
 import urllib.parse
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Mapping, Optional, Union
 
+from .configuration_document_validation import (
+    DocumentIdentity,
+    DocumentRole,
+    ParsedConfigurationDocument,
+    ProjectedOwnerResult,
+    capture_owner_result,
+    parse_configuration_document,
+    release_owner_result,
+    validate_configuration_documents,
+)
 from .errors import ConstraintSyntaxError, InventoryError, VersionConfigError, VersionSyntaxError
 from .constraints import (
     parse_numeric_version,
@@ -109,14 +118,16 @@ def require_table(
     for key in path:
         if not isinstance(current, dict):
             raise InventoryError(
-                f"{_dot(path[:path.index(key)])}: expected table, got {type(current).__name__}"
+                f"{_dot(path[:path.index(key)])}: expected table, got {type(current).__name__}",
+                field=_dot(path[:path.index(key)]),
             )
         if key not in current:
-            raise InventoryError(f"{_dot(path)}: missing required key")
+            raise InventoryError(f"{_dot(path)}: missing required key", field=_dot(path))
         current = current[key]
     if not isinstance(current, dict):
         raise InventoryError(
-            f"{_dot(path)}: expected table, got {type(current).__name__}"
+            f"{_dot(path)}: expected table, got {type(current).__name__}",
+            field=_dot(path),
         )
     return current
 
@@ -128,11 +139,12 @@ def require_string(
     *parent_path, key = path
     current = require_table(data, tuple(parent_path)) if parent_path else data
     if key not in current:
-        raise InventoryError(f"{_dot(path)}: missing required key")
+        raise InventoryError(f"{_dot(path)}: missing required key", field=_dot(path))
     value = current[key]
     if not isinstance(value, str):
         raise InventoryError(
-            f"{_dot(path)}: expected string, got {type(value).__name__}"
+            f"{_dot(path)}: expected string, got {type(value).__name__}",
+            field=_dot(path),
         )
     return value
 
@@ -144,11 +156,12 @@ def require_bool(
     *parent_path, key = path
     current = require_table(data, tuple(parent_path)) if parent_path else data
     if key not in current:
-        raise InventoryError(f"{_dot(path)}: missing required key")
+        raise InventoryError(f"{_dot(path)}: missing required key", field=_dot(path))
     value = current[key]
     if not isinstance(value, bool):
         raise InventoryError(
-            f"{_dot(path)}: expected boolean, got {type(value).__name__}"
+            f"{_dot(path)}: expected boolean, got {type(value).__name__}",
+            field=_dot(path),
         )
     return value
 
@@ -160,11 +173,12 @@ def require_int(
     *parent_path, key = path
     current = require_table(data, tuple(parent_path)) if parent_path else data
     if key not in current:
-        raise InventoryError(f"{_dot(path)}: missing required key")
+        raise InventoryError(f"{_dot(path)}: missing required key", field=_dot(path))
     value = current[key]
     if not isinstance(value, int) or isinstance(value, bool):
         raise InventoryError(
-            f"{_dot(path)}: expected integer, got {type(value).__name__}"
+            f"{_dot(path)}: expected integer, got {type(value).__name__}",
+            field=_dot(path),
         )
     return value
 
@@ -175,7 +189,7 @@ def require_nonempty_string(
 ) -> str:
     value = require_string(data, path)
     if not value.strip():
-        raise InventoryError(f"{_dot(path)}: must not be empty")
+        raise InventoryError(f"{_dot(path)}: must not be empty", field=_dot(path))
     return value
 
 
@@ -216,30 +230,30 @@ class _PathReader:
 def _validate_sha256(hex_str: str, path: str) -> None:
     if not SHA256_RE.match(hex_str):
         raise InventoryError(
-            f"{path}: expected 64 hexadecimal characters, got {hex_str!r}"
+            f"{path}: expected 64 hexadecimal characters, got {hex_str!r}", field=path
         )
 
 
 def _validate_node_digest(raw: str, path: str) -> None:
     if ":" not in raw:
         raise InventoryError(
-            f"{path}: expected 'sha256:<hex>', missing colon in {raw!r}"
+            f"{path}: expected 'sha256:<hex>', missing colon in {raw!r}", field=path
         )
     if not NODE_DIGEST_RE.match(raw):
         raise InventoryError(
-            f"{path}: expected 'sha256:<64 lowercase hex>', got {raw!r}"
+            f"{path}: expected 'sha256:<64 lowercase hex>', got {raw!r}", field=path
         )
     hex_part = raw.removeprefix("sha256:")
     if len(set(hex_part)) == 1:
         raise InventoryError(
             f"{path}: checksum looks like a placeholder"
-        )
+        , field=path)
 
 
 def _validate_url_contains_version(url: str, version: str, path: str) -> None:
     if version not in url:
         raise InventoryError(
-            f"{path}: URL must contain the declared version {version!r}"
+            f"{path}: URL must contain the declared version {version!r}", field=path
         )
 
 
@@ -249,16 +263,16 @@ def _validate_admissible_url(url: str, path: str) -> None:
 
     if not url.startswith("https://"):
         raise InventoryError(
-            f"{path}: URL must start with 'https://'"
+            f"{path}: URL must start with 'https://'", field=path
         )
     parsed = _urlsplit(url)
     if not parsed.hostname:
         raise InventoryError(
-            f"{path}: URL must contain a non-empty hostname"
+            f"{path}: URL must contain a non-empty hostname", field=path
         )
     if not parsed.path or parsed.path == "/":
         raise InventoryError(
-            f"{path}: URL must contain a non-empty path"
+            f"{path}: URL must contain a non-empty path", field=path
         )
 
 
@@ -267,7 +281,8 @@ def _validate_linux_amd64_artifact(
 ) -> None:
     if "linux-amd64" not in artifacts:
         raise InventoryError(
-            f"{parent_path}.artifacts: missing required 'linux-amd64' platform artifact"
+            f"{parent_path}.artifacts: missing required 'linux-amd64' platform artifact",
+            field=f"{parent_path}.artifacts",
         )
 
 
@@ -275,14 +290,14 @@ def _reject_placeholder_sha256(sha256: str, path: str) -> None:
     if len(set(sha256)) == 1:
         raise InventoryError(
             f"{path}: checksum looks like a placeholder"
-        )
+        , field=path)
 
 
 def _reject_moving_rust_version(version: str, path: str) -> None:
     base = version.split("-")[0].lower()
     if base in _MOVING_RUST_SELECTORS:
         raise InventoryError(
-            f"{path}: moving selector {version!r} is not allowed, use explicit X.Y.Z"
+            f"{path}: moving selector {version!r} is not allowed, use explicit X.Y.Z", field=path
         )
 
 
@@ -294,7 +309,7 @@ def _validate_rust_version(version: str, path: str) -> None:
     if not VERSION_STRICT_RE.match(version):
         raise InventoryError(
             f"{path}: expected exact X.Y.Z version, got {version!r}"
-        )
+        , field=path)
 
 
 def _validate_npm_version(version: str, path: str) -> None:
@@ -302,7 +317,7 @@ def _validate_npm_version(version: str, path: str) -> None:
     if not VERSION_STRICT_RE.match(version):
         raise InventoryError(
             f"{path}: expected exact X.Y.Z version, got {version!r}"
-        )
+        , field=path)
 
 
 def _validate_uv_version(version: str, path: str) -> None:
@@ -310,7 +325,7 @@ def _validate_uv_version(version: str, path: str) -> None:
     if not VERSION_STRICT_RE.match(version):
         raise InventoryError(
             f"{path}: expected exact X.Y.Z version, got {version!r}"
-        )
+        , field=path)
 
 
 def _validate_prebuilt_version(version: str, path: str) -> None:
@@ -318,7 +333,7 @@ def _validate_prebuilt_version(version: str, path: str) -> None:
     if not PREBUILT_VERSION_RE.match(version):
         raise InventoryError(
             f"{path}: expected vX.Y.Z version, got {version!r}"
-        )
+        , field=path)
 
 
 def _validate_extension_version(version: str, path: str) -> None:
@@ -331,7 +346,7 @@ def _validate_extension_version(version: str, path: str) -> None:
     try:
         _validate_semver(version)
     except SemverError as exc:
-        raise InventoryError(f"{path}: {exc}") from exc
+        raise InventoryError(f"{path}: {exc}", field=path) from exc
 
 
 def _validate_artifact_catalog_key(key: str, path: str) -> None:
@@ -345,7 +360,7 @@ def _validate_artifact_catalog_key(key: str, path: str) -> None:
     try:
         _validate_semver(key)
     except SemverError as exc:
-        raise InventoryError(f"{path}: {exc}") from exc
+        raise InventoryError(f"{path}: {exc}", field=path) from exc
 
 
 def _validate_npm_tarball_url(
@@ -359,7 +374,7 @@ def _validate_npm_tarball_url(
     try:
         _validate_npm_tarball_url_model(url, package, version_key)
     except NpmTarballUrlError as exc:
-        raise InventoryError(f"{path}.url: {exc}") from exc
+        raise InventoryError(f"{path}.url: {exc}", field=f"{path}.url") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -378,20 +393,20 @@ def _load_extension_artifacts(
         if "missing" in str(e).lower():
             raise InventoryError(
                 f"{path_dot}.artifacts: missing required section"
-            ) from e
+            , field=f"{path_dot}.artifacts") from e
         raise
 
     if not artifacts_table:
         raise InventoryError(
             f"{path_dot}.artifacts: must contain at least one version entry"
-        )
+        , field=f"{path_dot}.artifacts")
 
     result: dict[str, NpmArtifact] = {}
     for version_key, artifact_raw in artifacts_table.items():
         if not isinstance(artifact_raw, dict):
             raise InventoryError(
                 f"{path_dot}.artifacts.{version_key}: expected table"
-            )
+            , field=f"{path_dot}.artifacts.{version_key}")
         _validate_artifact_catalog_key(
             version_key, f"{path_dot}.artifacts.{version_key}"
         )
@@ -409,7 +424,7 @@ def _load_extension_artifacts(
         except IntegrityError as exc:
             raise InventoryError(
                 f"{path_dot}.artifacts.{version_key}.integrity: {exc}"
-            ) from exc
+            , field=f"{path_dot}.artifacts.{version_key}.integrity") from exc
 
         # Verify the URL is an exact npm registry tarball path:
         #   https://registry.npmjs.org/<package>/-/<pkg_name>-<version>.tgz
@@ -437,7 +452,7 @@ def _load_extension_validation(
         if "missing" in str(e).lower():
             raise InventoryError(
                 f"{path_dot}.validation: missing required section"
-            ) from e
+            , field=f"{path_dot}.validation") from e
         raise
     metadata_file = require_string(r.root, ext_path + ("validation", "metadata_file"))
     try:
@@ -445,7 +460,7 @@ def _load_extension_validation(
     except ValueError as e:
         raise InventoryError(
             f"{path_dot}.validation.metadata_file: {e}"
-        ) from e
+        , field=f"{path_dot}.validation.metadata_file") from e
 
 
 def _extension_identity(source: NpmSource) -> tuple[str, str]:
@@ -475,7 +490,7 @@ def _check_cross_phase_duplicates(
                 f"duplicate npm package {ext.source.package!r}: "
                 f"previously defined at {build_npm_identities[ext_identity]}, "
                 f"duplicate at {ext_path}"
-            )
+            , field=ext_path)
 
 
 # --------------------------------------------------------------------------
@@ -572,7 +587,8 @@ def _check_unknown_keys(table: Mapping[str, object], path: tuple[str, ...], *, a
         for key in table:
             if key not in allowed:
                 raise InventoryError(
-                    f"{_dot(path + (key,))}: unknown key {key!r}"
+                    f"{_dot(path + (key,))}: unknown key {key!r}",
+                    field=_dot(path + (key,)),
                 )
         return
 
@@ -590,7 +606,8 @@ def _check_unknown_keys(table: Mapping[str, object], path: tuple[str, ...], *, a
     for key in table:
         if key not in registry:
             raise InventoryError(
-                f"{_dot(path + (key,))}: unknown key {key!r}"
+                f"{_dot(path + (key,))}: unknown key {key!r}",
+                field=_dot(path + (key,)),
             )
 
 
@@ -600,8 +617,11 @@ def _parse_override_policy(
     constraint_str = require_string(override_data, ("constraint",))
     try:
         constraint = parse_constraint(constraint_str)
-    except ConstraintSyntaxError as e:
-        raise ConstraintSyntaxError(f"{path_prefix}.constraint: {e}") from e
+    except ConstraintSyntaxError:
+        raise InventoryError(
+            f"{path_prefix}.constraint: invalid constraint",
+            field=f"{path_prefix}.constraint",
+        )
 
     allow_prerelease = require_bool(override_data, ("allow_prerelease",))
     scheme = require_string(override_data, ("scheme",))
@@ -609,17 +629,20 @@ def _parse_override_policy(
     if scheme not in ("numeric",):
         raise InventoryError(
             f"{path_prefix}.scheme: unsupported scheme {scheme!r}, only 'numeric' is allowed"
-        )
+        , field=f"{path_prefix}.scheme")
 
     if scheme == "numeric" and allow_prerelease:
         raise InventoryError(
             f"{path_prefix}.allow_prerelease: numeric scheme does not support prereleases"
-        )
+        , field=f"{path_prefix}.allow_prerelease")
 
     try:
         validate_constraint_consistency(constraint)
-    except ConstraintSyntaxError as e:
-        raise ConstraintSyntaxError(f"{path_prefix}.constraint: {e}") from e
+    except ConstraintSyntaxError:
+        raise InventoryError(
+            f"{path_prefix}.constraint: contradictory constraint",
+            field=f"{path_prefix}.constraint",
+        )
 
     return OverridePolicy(
         constraint=constraint,
@@ -655,7 +678,7 @@ def _load_source(r: _PathReader, path: tuple[str, ...]) -> Any:
             raise InventoryError(
                 f"{dot}.source.release_tag_prefix: must not start with '/', "
                 f"got {release_tag_prefix!r}"
-            )
+            , field=f"{dot}.source.release_tag_prefix")
         return PiReleaseSource(
             package=package,
             release_repository=release_repository,
@@ -675,7 +698,7 @@ def _load_source(r: _PathReader, path: tuple[str, ...]) -> Any:
         if impl != "cpython":
             raise InventoryError(
                 f"{dot}.source.implementation: unsupported implementation {impl!r}, only 'cpython' is allowed"
-            )
+            , field=f"{dot}.source.implementation")
         return UvPythonSource(implementation=impl)
 
     elif stype == "rust-channel":
@@ -703,7 +726,7 @@ def _load_source(r: _PathReader, path: tuple[str, ...]) -> Any:
     else:
         raise InventoryError(
             f"{dot}.source.type: unknown source type {stype!r}"
-        )
+        , field=f"{dot}.source.type")
 
 
 def _load_update(r: _PathReader, path: tuple[str, ...]) -> Any:
@@ -718,12 +741,12 @@ def _load_update(r: _PathReader, path: tuple[str, ...]) -> Any:
         if not isinstance(tag_prefix, str):
             raise InventoryError(
                 f"{dot}.update.tag_prefix: expected string, got {type(tag_prefix).__name__}"
-            )
+            , field=f"{dot}.update.tag_prefix")
         rp_raw = update_data.get("required_platforms", [])
         if not isinstance(rp_raw, list) or not all(isinstance(x, str) for x in rp_raw):
             raise InventoryError(
                 f"{dot}.update.required_platforms: expected list of strings"
-            )
+            , field=f"{dot}.update.required_platforms")
         return GitHubReleaseUpdate(
             stable_only=stable_only,
             tag_prefix=tag_prefix,
@@ -743,7 +766,7 @@ def _load_update(r: _PathReader, path: tuple[str, ...]) -> Any:
         if impl != "cpython":
             raise InventoryError(
                 f"{dot}.update.implementation: unsupported implementation {impl!r}, only 'cpython' is allowed"
-            )
+            , field=f"{dot}.update.implementation")
         stable_only = require_bool(r.root, path + ("update", "stable_only"))
         return UvPythonUpdate(implementation=impl, stable_only=stable_only)
 
@@ -752,7 +775,7 @@ def _load_update(r: _PathReader, path: tuple[str, ...]) -> Any:
         if channel != "stable":
             raise InventoryError(
                 f"{dot}.update.channel: unsupported channel {channel!r}, only 'stable' is allowed"
-            )
+            , field=f"{dot}.update.channel")
         stable_only = require_bool(r.root, path + ("update", "stable_only"))
         return RustChannelUpdate(channel=channel, stable_only=stable_only)
 
@@ -762,7 +785,7 @@ def _load_update(r: _PathReader, path: tuple[str, ...]) -> Any:
         if track != "tag-digest":
             raise InventoryError(
                 f"{dot}.update.track: unsupported track {track!r}, only 'tag-digest' is allowed"
-            )
+            , field=f"{dot}.update.track")
         return DockerRegistryUpdate(stable_only=stable_only, track=track)
 
     elif provider == "git-ref":
@@ -776,7 +799,7 @@ def _load_update(r: _PathReader, path: tuple[str, ...]) -> Any:
     else:
         raise InventoryError(
             f"{dot}.update.provider: unknown provider {provider!r}"
-        )
+        , field=f"{dot}.update.provider")
 
 
 # ---------------------------------------------------------------------------
@@ -802,7 +825,7 @@ def _check_compat(source_type: str, update_provider: str, dot: str) -> None:
         raise InventoryError(
             f"{dot}.update.provider: provider {update_provider!r} "
             f"is incompatible with source type {source_type!r}"
-        )
+        , field=f"{dot}.update.provider")
 
 
 # ---------------------------------------------------------------------------
@@ -842,13 +865,13 @@ def _check_entry_source_update(
         raise InventoryError(
             f"{dot}.source.type: expected {exp_src_cls.type!r} for this entry, "
             f"got {actual_type!r}"
-        )
+        , field=f"{dot}.source.type")
     if type(update) is not exp_upd_cls:
         actual_prov = getattr(update, "provider", type(update).__name__)
         raise InventoryError(
             f"{dot}.update.provider: expected {exp_upd_cls.provider!r} for this entry, "
             f"got {actual_prov!r}"
-        )
+        , field=f"{dot}.update.provider")
 
 
 # ---------------------------------------------------------------------------
@@ -889,7 +912,8 @@ def _validate_required_platforms(
             if rp not in artifacts:
                 raise VersionConfigError(
                     f"{dot}.update.required_platforms: "
-                    f"required platform {rp!r} has no artifact entry"
+                    f"required platform {rp!r} has no artifact entry",
+                    field=f"{dot}.update.required_platforms",
                 )
 
 
@@ -898,15 +922,82 @@ def _validate_required_platforms(
 # ---------------------------------------------------------------------------
 
 def load_inventory_raw(versions_path: Path) -> dict[str, object]:
-    """Load and return the raw TOML inventory mapping without validation."""
-    with versions_path.open("rb") as stream:
-        return tomllib.load(stream)
+    """Load reviewed TOML through the shared document-validation boundary."""
+    document = parse_configuration_document(
+        DocumentIdentity(DocumentRole.REVIEWED, versions_path)
+    )
+    return dict(document.data)
 
 
 def load_inventory(versions_path: Path) -> Inventory:
     """Load and validate a docker-constructor.toml inventory file."""
-    raw = load_inventory_raw(versions_path)
-    return validate_inventory(raw)
+    identity = DocumentIdentity(DocumentRole.REVIEWED, versions_path)
+    return release_owner_result(_load_reviewed_inventory(identity))
+
+
+def _load_reviewed_inventory(
+    identity: DocumentIdentity,
+) -> ProjectedOwnerResult[Inventory]:
+    """Validate the parsed reviewed document without retaining it on failure."""
+    document = parse_configuration_document(identity)
+    return capture_owner_result(
+        identity, lambda: validate_inventory(dict(document.data))
+    )
+
+
+def load_project_configuration(
+    inventory_path: Path,
+    *,
+    host_access_mode: str | None = None,
+) -> tuple[Inventory, LocalConfig]:
+    """Release reviewed and present local configuration only after both validate."""
+    reviewed = DocumentIdentity(DocumentRole.REVIEWED, inventory_path)
+    companion = resolve_local_companion_path(inventory_path)
+    local = DocumentIdentity(DocumentRole.LOCAL, companion)
+    identities = (reviewed, local) if companion.exists() else (reviewed,)
+    outcome = validate_configuration_documents(
+        identities,
+        lambda documents: _validate_project_documents(
+            documents, reviewed, local, host_access_mode
+        ),
+    )
+    return release_owner_result(outcome)
+
+
+def _validate_project_documents(
+    documents: tuple[ParsedConfigurationDocument, ...],
+    reviewed: DocumentIdentity,
+    local: DocumentIdentity,
+    host_access_mode: str | None,
+) -> ProjectedOwnerResult[tuple[Inventory, LocalConfig]]:
+    """Validate both roles and return a safe outcome without raising.
+
+    This frame holds the parsed documents, but it always returns an outcome, so
+    it is never retained by the published owner-schema error.
+    """
+    by_role = {document.identity.role: document for document in documents}
+    reviewed_outcome = capture_owner_result(
+        reviewed,
+        lambda: validate_inventory(dict(by_role[DocumentRole.REVIEWED].data)),
+    )
+    if reviewed_outcome.error is not None:
+        return ProjectedOwnerResult(error=reviewed_outcome.error)
+    inventory = reviewed_outcome.value
+    assert inventory is not None
+    if DocumentRole.LOCAL not in by_role:
+        return ProjectedOwnerResult(value=(inventory, LocalConfig()))
+    local_outcome = capture_owner_result(
+        local,
+        lambda: _validate_local_config(
+            dict(by_role[DocumentRole.LOCAL].data),
+            host_access_mode=host_access_mode,
+        ),
+    )
+    if local_outcome.error is not None:
+        return ProjectedOwnerResult(error=local_outcome.error)
+    local_config = local_outcome.value
+    assert local_config is not None
+    return ProjectedOwnerResult(value=(inventory, local_config))
 
 
 def resolve_local_companion_path(inventory_path: Path) -> Path:
@@ -960,7 +1051,7 @@ def _validate_pem_certificate_blocks(text: str, bundle: Path) -> None:
                 raise InventoryError(
                     f"corporate trust bundle {bundle} has nested or misordered "
                     f"PEM certificate delimiters"
-                )
+                , field=None)
             in_block = True
             payload_lines = []
             blocks += 1
@@ -970,7 +1061,7 @@ def _validate_pem_certificate_blocks(text: str, bundle: Path) -> None:
                 raise InventoryError(
                     f"corporate trust bundle {bundle} has unmatched PEM "
                     f"certificate delimiters"
-                )
+                , field=None)
             compact = "".join(payload_lines)
             try:
                 decoded = base64.b64decode(compact, validate=True)
@@ -978,12 +1069,12 @@ def _validate_pem_certificate_blocks(text: str, bundle: Path) -> None:
                 raise InventoryError(
                     f"corporate trust bundle {bundle} has an invalid Base64 "
                     f"certificate payload"
-                ) from exc
+                , field=None) from exc
             if not decoded:
                 raise InventoryError(
                     f"corporate trust bundle {bundle} has an empty certificate "
                     f"payload"
-                )
+                , field=None)
             in_block = False
             payload_lines = []
             continue
@@ -992,24 +1083,24 @@ def _validate_pem_certificate_blocks(text: str, bundle: Path) -> None:
                 raise InventoryError(
                     f"corporate trust bundle {bundle} has nested or misordered "
                     f"PEM certificate delimiters"
-                )
+                , field=None)
             payload_lines.append(line)
             continue
         if stripped:
             raise InventoryError(
                 f"corporate trust bundle {bundle} contains non-PEM content "
                 f"outside certificate blocks"
-            )
+            , field=None)
 
     if in_block:
         raise InventoryError(
             f"corporate trust bundle {bundle} has an unterminated PEM "
             f"certificate block"
-        )
+        , field=None)
     if blocks == 0:
         raise InventoryError(
             f"corporate trust bundle {bundle} is not PEM certificate material"
-        )
+        , field=None)
 
 
 def validate_corporate_trust_bundle(path: Path | str) -> Path:
@@ -1023,22 +1114,22 @@ def validate_corporate_trust_bundle(path: Path | str) -> Path:
         raise InventoryError(
             f"corporate trust enabled but bundle {bundle} is missing; "
             f"create .docker-local/corporate-ca-bundle.crt"
-        )
+        , field=None)
     try:
         data = bundle.read_bytes()
     except OSError as exc:
         raise InventoryError(
             f"corporate trust bundle {bundle} is unreadable: {exc}"
-        ) from exc
+        , field=None) from exc
     if not data.strip():
-        raise InventoryError(f"corporate trust bundle {bundle} is empty")
+        raise InventoryError(f"corporate trust bundle {bundle} is empty", field=None)
     try:
         text = data.decode("ascii")
     except UnicodeDecodeError as exc:
         raise InventoryError(
             f"corporate trust bundle {bundle} is not PEM certificate material: "
             f"non-ASCII content"
-        ) from exc
+        , field=None) from exc
     # Only space, tab, CR, and LF are legal PEM whitespace.  Other control
     # characters (vertical tab, form feed, NUL, DEL, …) are rejected here so
     # an enabled bundle fails at the command boundary instead of passing host
@@ -1051,7 +1142,7 @@ def validate_corporate_trust_bundle(path: Path | str) -> Path:
         raise InventoryError(
             f"corporate trust bundle {bundle} contains control characters; "
             f"use printable ASCII with space, tab, and LF/CRLF line breaks only"
-        )
+        , field=None)
     _validate_pem_certificate_blocks(text, bundle)
     return bundle
 
@@ -1062,43 +1153,43 @@ def _validate_proxy_url(url: str) -> None:
         parsed = urllib.parse.urlsplit(url)
     except ValueError as exc:
         raise InventoryError(
-            f"local.network.proxy.url: malformed URL {url!r}"
+            f"local.network.proxy.url: malformed URL {url!r}", field="local.network.proxy.url"
         ) from exc
     if parsed.scheme not in {"http", "socks5", "socks5h"}:
         raise InventoryError(
             f"local.network.proxy.url: unsupported scheme {parsed.scheme!r}; "
-            f"use http, socks5, or socks5h"
+            f"use http, socks5, or socks5h", field="local.network.proxy.url"
         )
     if parsed.username is not None or parsed.password is not None:
         raise InventoryError(
             "local.network.proxy.url: credentials are not allowed; "
-            "use a credential-free URL"
+            "use a credential-free URL", field="local.network.proxy.url"
         )
     if parsed.fragment:
         raise InventoryError(
-            "local.network.proxy.url: fragments are not allowed"
+            "local.network.proxy.url: fragments are not allowed", field="local.network.proxy.url"
         )
     if parsed.query:
         raise InventoryError(
-            "local.network.proxy.url: query strings are not allowed"
+            "local.network.proxy.url: query strings are not allowed", field="local.network.proxy.url"
         )
     if parsed.path:
         raise InventoryError(
-            "local.network.proxy.url: URL paths are not allowed"
+            "local.network.proxy.url: URL paths are not allowed", field="local.network.proxy.url"
         )
     if not parsed.hostname:
-        raise InventoryError("local.network.proxy.url: missing host")
+        raise InventoryError("local.network.proxy.url: missing host", field="local.network.proxy.url")
     try:
         port = parsed.port
     except ValueError as exc:
         raise InventoryError(
             f"local.network.proxy.url: invalid port in {url!r}"
-        ) from exc
+        , field="local.network.proxy.url") from exc
     if port is None:
-        raise InventoryError("local.network.proxy.url: missing port")
+        raise InventoryError("local.network.proxy.url: missing port", field="local.network.proxy.url")
     if not 1 <= port <= 65535:
         raise InventoryError(
-            f"local.network.proxy.url: port {port} out of range 1..65535"
+            f"local.network.proxy.url: port {port} out of range 1..65535", field="local.network.proxy.url"
         )
 
 
@@ -1106,20 +1197,20 @@ def _parse_corporate_trust_section(trust_raw: object) -> LocalCorporateTrust:
     """Parse ``[corporate-trust]`` into validated local state."""
     if not isinstance(trust_raw, dict):
         raise InventoryError(
-            "local.corporate-trust: expected table; use [corporate-trust].enabled"
+            "local.corporate-trust: expected table; use [corporate-trust].enabled", field="local.corporate-trust"
         )
     unknown = set(trust_raw) - {"enabled"}
     if unknown:
         key = sorted(unknown)[0]
         raise InventoryError(
             f"local.corporate-trust.{key}: unknown key; "
-            f"use only local.corporate-trust.enabled"
+            f"use only local.corporate-trust.enabled", field=f"local.corporate-trust.{key}"
         )
     enabled = trust_raw.get("enabled", False)
     if not isinstance(enabled, bool):
         raise InventoryError(
             "local.corporate-trust.enabled: expected boolean; "
-            "set enabled = true or enabled = false"
+            "set enabled = true or enabled = false", field="local.corporate-trust.enabled"
         )
     return LocalCorporateTrust(enabled)
 
@@ -1127,13 +1218,13 @@ def _parse_corporate_trust_section(trust_raw: object) -> LocalCorporateTrust:
 def _parse_network_proxy_section(network_raw: object) -> LocalNetworkProxy:
     """Parse ``[network.proxy]`` into validated local state."""
     if network_raw is not None and not isinstance(network_raw, dict):
-        raise InventoryError("local.network: expected table; use [network.proxy]")
+        raise InventoryError("local.network: expected table; use [network.proxy]", field="local.network")
     if isinstance(network_raw, dict):
         unknown_network = set(network_raw) - {"proxy"}
         if unknown_network:
             key = sorted(unknown_network)[0]
             raise InventoryError(
-                f"local.network.{key}: unknown key; use only [network.proxy]"
+                f"local.network.{key}: unknown key; use only [network.proxy]", field=f"local.network.{key}"
             )
         has_proxy = "proxy" in network_raw
         proxy_raw = network_raw.get("proxy")
@@ -1143,73 +1234,67 @@ def _parse_network_proxy_section(network_raw: object) -> LocalNetworkProxy:
     if has_proxy:
         if not isinstance(proxy_raw, dict):
             raise InventoryError(
-                "local.network.proxy: expected table; use [network.proxy]"
+                "local.network.proxy: expected table; use [network.proxy]", field="local.network.proxy"
             )
         unknown_proxy = set(proxy_raw) - {"url", "no_proxy"}
         if unknown_proxy:
             key = sorted(unknown_proxy)[0]
             raise InventoryError(
                 f"local.network.proxy.{key}: unknown key; "
-                f"use only [network.proxy].url and [network.proxy].no_proxy"
+                f"use only [network.proxy].url and [network.proxy].no_proxy", field=f"local.network.proxy.{key}"
             )
         url = proxy_raw.get("url")
         if url is None:
             raise InventoryError(
-                "local.network.proxy.url: missing required key; set [network.proxy].url"
+                "local.network.proxy.url: missing required key; set [network.proxy].url", field="local.network.proxy.url"
             )
         if not isinstance(url, str):
             raise InventoryError(
                 "local.network.proxy.url: expected string; set a credential-free "
-                "http/socks5/socks5h URL"
+                "http/socks5/socks5h URL", field="local.network.proxy.url"
             )
         _validate_proxy_url(url)
         no_proxy = proxy_raw.get("no_proxy")
         if no_proxy is not None and not isinstance(no_proxy, str):
             raise InventoryError(
                 "local.network.proxy.no_proxy: expected string; set a comma-separated "
-                "bypass list"
+                "bypass list", field="local.network.proxy.no_proxy"
             )
         return LocalNetworkProxy(url, no_proxy)
     return LocalNetworkProxy()
 
 
-def load_local_config(
-    path: Path,
+def _validate_local_config(
+    raw: Mapping[str, object],
     *,
     host_access_mode: str | None = None,
 ) -> LocalConfig:
-    """Load the closed machine-local companion without overlaying inventory."""
-    try:
-        with Path(path).open("rb") as stream:
-            raw = tomllib.load(stream)
-    except tomllib.TOMLDecodeError as exc:
-        raise InventoryError(
-            f"local: malformed TOML; correct the companion file: {exc}"
-        ) from exc
+    """Apply local owner schemas to an already parsed companion document."""
     if not isinstance(raw, dict):
-        raise InventoryError("local: expected TOML table")
+        raise InventoryError("local: expected TOML table", field=None)
     unknown = set(raw) - {"host-access", "cache", "corporate-trust", "network"}
     if unknown:
         key = sorted(unknown)[0]
         raise InventoryError(
             f"local.{key}: unknown key; use only [host-access], [cache], "
             f"[corporate-trust], or [network.proxy]"
-        )
+        , field=f"local.{key}")
     host_raw = raw.get("host-access", {})
     if not isinstance(host_raw, dict):
-        raise InventoryError("local.host-access: expected table; use [host-access].address")
+        raise InventoryError("local.host-access: expected table; use [host-access].address", field="local.host-access")
     unknown_host = set(host_raw) - {"address"}
     if unknown_host:
         key = sorted(unknown_host)[0]
         raise InventoryError(
-            f"local.host-access.{key}: unknown key; use only local.host-access.address"
+            f"local.host-access.{key}: unknown key; use only local.host-access.address",
+            field=f"local.host-access.{key}",
         )
     address = host_raw.get("address")
     if address is not None:
         if not isinstance(address, str):
             raise InventoryError(
                 "local.host-access.address: expected string; set an IPv4 or IPv6 address"
-            )
+            , field="local.host-access.address")
         if address == "host-gateway" and host_access_mode == "docker-gateway":
             pass
         else:
@@ -1217,21 +1302,23 @@ def load_local_config(
                 ipaddress.ip_address(address)
             except ValueError as exc:
                 raise InventoryError(
-                    "local.host-access.address: expected IPv4 or IPv6 address; correct [host-access].address"
+                    "local.host-access.address: expected IPv4 or IPv6 address; correct [host-access].address",
+                    field="local.host-access.address",
                 ) from exc
     cache_raw = raw.get("cache", {})
     if not isinstance(cache_raw, dict):
-        raise InventoryError("local.cache: expected table; use [cache].dir")
+        raise InventoryError("local.cache: expected table; use [cache].dir", field="local.cache")
     unknown_cache = set(cache_raw) - {"dir"}
     if unknown_cache:
         key = sorted(unknown_cache)[0]
         raise InventoryError(
             f"local.cache.{key}: unknown key; use only local.cache.dir"
-        )
+        , field=f"local.cache.{key}")
     cache_dir = cache_raw.get("dir")
     if cache_dir is not None and not isinstance(cache_dir, str):
         raise InventoryError(
-            "local.cache.dir: expected string; set [cache].dir to a filesystem path"
+            "local.cache.dir: expected string; set [cache].dir to a filesystem path",
+            field="local.cache.dir",
         )
     trust = _parse_corporate_trust_section(raw.get("corporate-trust", {}))
     proxy = _parse_network_proxy_section(raw.get("network"))
@@ -1240,6 +1327,30 @@ def load_local_config(
         LocalCacheConfig(cache_dir),
         trust,
         proxy,
+    )
+
+
+def load_local_config(
+    path: Path,
+    *,
+    host_access_mode: str | None = None,
+) -> LocalConfig:
+    """Load local TOML and safely project owner-schema diagnostics."""
+    identity = DocumentIdentity(DocumentRole.LOCAL, Path(path))
+    return release_owner_result(_load_local_document(identity, host_access_mode))
+
+
+def _load_local_document(
+    identity: DocumentIdentity,
+    host_access_mode: str | None,
+) -> ProjectedOwnerResult[LocalConfig]:
+    """Validate a parsed local document without retaining it on failure."""
+    document = parse_configuration_document(identity)
+    return capture_owner_result(
+        identity,
+        lambda: _validate_local_config(
+            dict(document.data), host_access_mode=host_access_mode
+        ),
     )
 
 
@@ -1283,7 +1394,7 @@ def resolve_local_corporate_settings(
                 "corporate trust is enabled but project_root is absent; "
                 "cannot resolve <project-root>/.docker-local/"
                 "corporate-ca-bundle.crt"
-            )
+            , field=None)
         validate_corporate_trust_bundle(
             resolve_corporate_trust_bundle_path(repository_root)
         )
@@ -1296,11 +1407,13 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
 
     # Schema
     if "schema" not in raw:
-        raise InventoryError("schema: missing required top-level key")
+        raise InventoryError("schema: missing required top-level key", field="schema")
     schema = r.int(("schema",))
 
     if schema != 1:
-        raise InventoryError(f"schema: unsupported version {schema}, only 1 is supported")
+        raise InventoryError(
+            f"schema: unsupported version {schema}, only 1 is supported", field="schema"
+        )
 
     # --- detect canonical or legacy layout ---
     has_build = "build" in raw
@@ -1309,7 +1422,7 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
     if has_build and has_stages:
         raise InventoryError(
             "cannot use both 'build' and 'stages' top-level keys; "
-            "move all content under [build.stages]"
+            "move all content under [build.stages]", field="stages"
         )
 
     if has_build:
@@ -1318,24 +1431,24 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
         _check_unknown_keys(raw, (), allowed=known_top)
 
         if "runtime" not in raw:
-            raise InventoryError("runtime: missing required key")
+            raise InventoryError("runtime: missing required key", field="runtime")
         # runtime must be a table, not a scalar
         if not isinstance(raw["runtime"], dict):
             raise InventoryError(
                 f"runtime: expected table, got {type(raw['runtime']).__name__}"
-            )
+            , field="runtime")
 
         build_raw = r.tbl(("build",))
         _check_unknown_keys(build_raw, ("build",), allowed={"stages"})
         if "stages" not in build_raw:
-            raise InventoryError("build.stages: missing required key")
+            raise InventoryError("build.stages: missing required key", field="build.stages")
     elif has_stages:
         raise InventoryError(
             "stages: unknown top-level key; "
-            "move build dependencies under [build.stages]"
+            "move build dependencies under [build.stages]", field="stages"
         )
     else:
-        raise InventoryError("build: missing required key — expected [build.stages] table")
+        raise InventoryError("build: missing required key — expected [build.stages] table", field="build")
 
     # --- base ---
     _check_unknown_keys(r.tbl(("build", "stages",)), ("build", "stages",))
@@ -1364,13 +1477,13 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
     rust_data = r.tbl(("build", "stages", "toolchain", "rust"))
     components_raw = rust_data.get("components")
     if not isinstance(components_raw, list):
-        raise InventoryError("build.stages.toolchain.rust.components: expected list")
+        raise InventoryError("build.stages.toolchain.rust.components: expected list", field="build.stages.toolchain.rust.components")
     components: list[str] = []
     for i, c in enumerate(components_raw):
         if not isinstance(c, str):
             raise InventoryError(
                 f"build.stages.toolchain.rust.components[{i}]: expected string"
-            )
+            , field=f"build.stages.toolchain.rust.components[{i}]")
         components.append(c)
     rust_source = _load_source(r, ("build", "stages", "toolchain", "rust"))
     rust_update = _load_update(r, ("build", "stages", "toolchain", "rust"))
@@ -1412,7 +1525,7 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
             "build.stages.toolchain.rust.rustup: static-url sources do not support"
             " multi-platform artifacts — each architecture must declare its"
             " own checksum_url"
-        )
+        , field="build.stages.toolchain.rust.rustup")
     _check_unknown_keys(r.tbl(("build", "stages", "toolchain", "rust", "source",)), ("build", "stages", "toolchain", "rust", "source",))
     _check_unknown_keys(r.tbl(("build", "stages", "toolchain", "rust", "update",)), ("build", "stages", "toolchain", "rust", "update",))
     _check_unknown_keys(r.tbl(("build", "stages", "toolchain", "rust", "rustup", "source",)), ("build", "stages", "toolchain", "rust", "rustup", "source",))
@@ -1434,7 +1547,8 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
     if isinstance(uv_source, GitHubReleaseSource) and uv_source.tag != uv_version:
         raise VersionConfigError(
             f"build.stages.toolchain.uv.source.tag: must equal declared version "
-            f"({uv_source.tag!r} != {uv_version!r})"
+            f"({uv_source.tag!r} != {uv_version!r})",
+            field="build.stages.toolchain.uv.source.tag",
         )
     uv_artifacts = _load_artifacts(r, ("build", "stages", "toolchain", "uv"), uv_version)
     _validate_required_platforms(uv_update, uv_artifacts, "build.stages.toolchain.uv")
@@ -1444,8 +1558,11 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
     py_version = r.str(("build", "stages", "toolchain", "python", "version"))
     try:
         parse_numeric_version(py_version)
-    except VersionSyntaxError as e:
-        raise VersionSyntaxError(f"build.stages.toolchain.python.version: {e}") from e
+    except VersionSyntaxError:
+        raise InventoryError(
+            "build.stages.toolchain.python.version: invalid numeric version",
+            field="build.stages.toolchain.python.version",
+        )
     py_source = _load_source(r, ("build", "stages", "toolchain", "python"))
     py_update = _load_update(r, ("build", "stages", "toolchain", "python"))
     _check_compat(py_source.type, py_update.provider, "build.stages.toolchain.python")
@@ -1463,7 +1580,8 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
         if not py_override.constraint.matches(py_ver):
             raise VersionConfigError(
                 f"build.stages.toolchain.python.version: {py_version} does not satisfy "
-                f"override constraint '{py_override.constraint}'"
+                f"override constraint '{py_override.constraint}'",
+                field="build.stages.toolchain.python.version",
             )
 
     # --- toolchain: ty ---
@@ -1471,8 +1589,11 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
     ty_version = r.str(("build", "stages", "toolchain", "ty", "version"))
     try:
         parse_numeric_version(ty_version)
-    except VersionSyntaxError as e:
-        raise VersionSyntaxError(f"build.stages.toolchain.ty.version: {e}") from e
+    except VersionSyntaxError:
+        raise InventoryError(
+            "build.stages.toolchain.ty.version: invalid numeric version",
+            field="build.stages.toolchain.ty.version",
+        )
     ty_source = _load_source(r, ("build", "stages", "toolchain", "ty"))
     ty_update = _load_update(r, ("build", "stages", "toolchain", "ty"))
     _check_compat(ty_source.type, ty_update.provider, "build.stages.toolchain.ty")
@@ -1499,7 +1620,7 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
     if not GIT_REVISION_RE.match(omz_revision):
         raise InventoryError(
             f"build.stages.runtime.oh-my-zsh.revision: expected 40 hex characters, got {omz_revision!r}"
-        )
+        , field="build.stages.runtime.oh-my-zsh.revision")
     omz_source = _load_source(r, ("build", "stages", "runtime", "oh-my-zsh"))
     omz_update = _load_update(r, ("build", "stages", "runtime", "oh-my-zsh"))
     _check_compat(omz_source.type, omz_update.provider, "build.stages.runtime.oh-my-zsh")
@@ -1516,7 +1637,7 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
     for name, ext_raw in pi_ext_data.items():
         ext_path = f"runtime.pi-extensions.{name}"
         if not isinstance(ext_raw, dict):
-            raise InventoryError(f"{ext_path}: expected table")
+            raise InventoryError(f"{ext_path}: expected table", field=ext_path)
         _check_unknown_keys(ext_raw, ("runtime", "pi-extensions", name,))
 
         # ── version ────────────────────────────────────────────────
@@ -1531,14 +1652,14 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
             raise InventoryError(
                 f"runtime.pi-extensions.{name}.package: "
                 f"entry-level 'package' is forbidden; use [*.source].package instead"
-            )
+            , field=f"runtime.pi-extensions.{name}.package")
         ext_source = _load_source(r, ("runtime", "pi-extensions", name))
         _check_unknown_keys(r.tbl(("runtime", "pi-extensions", name, "source",)), ("runtime", "pi-extensions", name, "source",))
         if type(ext_source) is not NpmSource:
             raise InventoryError(
                 f"runtime.pi-extensions.{name}.source.type: "
                 f"expected 'npm' for pi extensions, got {ext_source.type!r}"
-            )
+            , field=f"runtime.pi-extensions.{name}.source.type")
 
         # ── artifacts ──────────────────────────────────────────────
         ext_artifacts = _load_extension_artifacts(
@@ -1548,7 +1669,7 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
             raise InventoryError(
                 f"runtime.pi-extensions.{name}: default version {ext_version!r} "
                 f"must have a matching entry in artifacts"
-            )
+            , field=f"runtime.pi-extensions.{name}.version")
 
         # ── update ─────────────────────────────────────────────────
         ext_update = _load_update(r, ("runtime", "pi-extensions", name))
@@ -1561,7 +1682,7 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
             raise InventoryError(
                 f"runtime.pi-extensions.{name}.update.provider: "
                 f"expected 'npm' for pi extensions, got {ext_update.provider!r}"
-            )
+            , field=f"runtime.pi-extensions.{name}.update.provider")
 
         # ── validation ─────────────────────────────────────────────
         ext_validation = _load_extension_validation(
@@ -1573,7 +1694,7 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
         if "override" not in ext_raw:
             raise InventoryError(
                 f"runtime.pi-extensions.{name}.override: missing required section"
-            )
+            , field=f"runtime.pi-extensions.{name}.override")
         ext_override = _parse_override_policy(
             r.tbl(("runtime", "pi-extensions", name, "override")),
             f"runtime.pi-extensions.{name}.override",
@@ -1589,14 +1710,15 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
         numeric_ver = ext_version.split("-", 1)[0].split("+", 1)[0]
         try:
             ver = parse_numeric_version(numeric_ver)
-        except VersionSyntaxError as e:
-            raise ConstraintSyntaxError(
-                f"runtime.pi-extensions.{name}.version: {e}"
-            ) from e
+        except VersionSyntaxError:
+            raise InventoryError(
+                f"runtime.pi-extensions.{name}.version: invalid numeric version",
+                field=f"runtime.pi-extensions.{name}.version",
+            )
         if not ext_override.constraint.matches(ver):
-            raise ConstraintSyntaxError(
-                f"runtime.pi-extensions.{name}: version {ext_version!r} "
-                f"does not satisfy override constraint {ext_override.constraint!s}"
+            raise InventoryError(
+                f"runtime.pi-extensions.{name}: version does not satisfy override constraint",
+                field=f"runtime.pi-extensions.{name}.version",
             )
 
         # ── duplicate detection ────────────────────────────────────
@@ -1606,7 +1728,7 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
                 f"duplicate npm package {ext_source.package!r}: "
                 f"previously defined at {_ext_identities[ext_identity]}, "
                 f"duplicate at runtime.pi-extensions.{name}"
-            )
+            , field=f"runtime.pi-extensions.{name}.source.package")
         _ext_identities[ext_identity] = f"runtime.pi-extensions.{name}"
 
         extensions[name] = PiExtensionEntry(
@@ -1677,23 +1799,23 @@ def _load_host_access_policy(raw: Mapping[str, object]) -> HostAccessPolicy:
     if policy is None:
         return HostAccessPolicy()
     if not isinstance(policy, dict):
-        raise InventoryError("runtime.host-access: expected table")
+        raise InventoryError("runtime.host-access: expected table", field="runtime.host-access")
     _check_unknown_keys(policy, ("runtime", "host-access"))
     enabled = policy.get("enabled")
     if not isinstance(enabled, bool):
-        raise InventoryError("runtime.host-access.enabled: expected boolean")
+        raise InventoryError("runtime.host-access.enabled: expected boolean", field="runtime.host-access.enabled")
     mode = policy.get("mode")
     port = policy.get("proxy-port")
     if not enabled:
         if mode is not None:
-            raise InventoryError("runtime.host-access.mode: forbidden when enabled is false")
+            raise InventoryError("runtime.host-access.mode: forbidden when enabled is false", field="runtime.host-access.mode")
         if port is not None:
-            raise InventoryError("runtime.host-access.proxy-port: forbidden when enabled is false")
+            raise InventoryError("runtime.host-access.proxy-port: forbidden when enabled is false", field="runtime.host-access.proxy-port")
         return HostAccessPolicy(enabled=False)
     if mode not in ("docker-gateway", "external-address"):
-        raise InventoryError("runtime.host-access.mode: expected 'docker-gateway' or 'external-address'")
+        raise InventoryError("runtime.host-access.mode: expected 'docker-gateway' or 'external-address'", field="runtime.host-access.mode")
     if port is not None and (not isinstance(port, int) or isinstance(port, bool) or not 1 <= port <= 65535):
-        raise InventoryError("runtime.host-access.proxy-port: expected integer from 1 through 65535")
+        raise InventoryError("runtime.host-access.proxy-port: expected integer from 1 through 65535", field="runtime.host-access.proxy-port")
     return HostAccessPolicy(enabled=True, mode=mode, proxy_port=port)
 
 
@@ -1703,7 +1825,7 @@ def _load_cache_config(raw: Mapping[str, object]) -> CacheConfig | None:
     if cache_raw is None:
         return None
     if not isinstance(cache_raw, dict):
-        raise InventoryError("cache: must be a table")
+        raise InventoryError("cache: must be a table", field="cache")
 
     cache_ttl: int | None = None
 
@@ -1711,13 +1833,13 @@ def _load_cache_config(raw: Mapping[str, object]) -> CacheConfig | None:
         if key == "dir":
             raise InventoryError(
                 "cache.dir: retired reviewed field; move it to [cache].dir in the local companion"
-            )
+            , field="cache.dir")
         elif key == "ttl":
             if not isinstance(val, int) or val <= 0:
-                raise InventoryError("cache.ttl: must be a positive integer")
+                raise InventoryError("cache.ttl: must be a positive integer", field="cache.ttl")
             cache_ttl = val
         else:
-            raise InventoryError(f"cache: unknown key {key!r}")
+            raise InventoryError(f"cache: unknown key {key!r}", field=f"cache.{key}")
 
     return CacheConfig(ttl=cache_ttl)
 
@@ -1739,7 +1861,8 @@ def _load_prebuilt_tool(r: _PathReader, path: tuple[str, ...]) -> PrebuiltToolEn
     if isinstance(src, GitHubReleaseSource) and src.tag != version:
         raise VersionConfigError(
             f"{_dot(path)}.source.tag: must equal declared version "
-            f"({src.tag!r} != {version!r})"
+            f"({src.tag!r} != {version!r})",
+            field=f"{_dot(path)}.source.tag",
         )
     artifacts = _load_artifacts(r, path, version)
     _validate_required_platforms(upd, artifacts, _dot(path))
@@ -1777,5 +1900,5 @@ def _load_pi_tool(r: _PathReader, path: tuple[str, ...]) -> PiToolEntry:
         raise InventoryError(
             f"{_dot(path)}.source.type: expected 'pi-release' for Pi, "
             f"got {src.type!r}"
-        )
+        , field=f"{_dot(path)}.source.type")
     return PiToolEntry(version=version, source=src, update=upd)
