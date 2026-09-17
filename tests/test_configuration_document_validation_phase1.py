@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from docker import constructor_cli
-from docker.versioning import inventory
+from docker.versioning import inventory, local_project_configuration
 from docker.versioning.configuration_document_validation import (
     ConfigurationDocumentError,
     DocumentErrorClassification,
@@ -224,14 +224,22 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
         reviewed = self._write("docker-constructor.toml", "schema = 99\n")
         local = reviewed.with_name("docker-constructor.local.toml")
         local.write_text("[cache]\n")
-        with patch(
-            "docker.versioning.inventory.parse_configuration_document",
-            wraps=parse_configuration_document,
-        ) as boundary:
+        identities: list[DocumentIdentity] = []
+
+        def record(identity: DocumentIdentity):
+            identities.append(identity)
+            return parse_configuration_document(identity)
+
+        with patch.object(
+            inventory, "parse_configuration_document", side_effect=record
+        ), patch.object(
+            local_project_configuration,
+            "parse_configuration_document",
+            side_effect=record,
+        ):
             with self.assertRaises(ConfigurationDocumentError):
                 inventory.load_inventory(reviewed)
             inventory.load_local_config(local)
-        identities = [call.args[0] for call in boundary.call_args_list]
         self.assertEqual(
             [(DocumentRole.REVIEWED, reviewed.resolve()), (DocumentRole.LOCAL, local.resolve())],
             [(item.role, item.path) for item in identities],

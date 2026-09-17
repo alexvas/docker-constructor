@@ -23,6 +23,9 @@ import os
 import stat as _stat
 from pathlib import Path
 
+from .errors import InventoryError
+from .model import LocalCacheConfig
+
 _CACHE_ROOT_NAME = "docker-constructor"
 _VERSIONING_CHILD = Path("versioning")
 _RUNTIME_ARTIFACTS_BLOBS_CHILD = Path("runtime-artifacts") / "blobs"
@@ -113,6 +116,43 @@ def resolve_local_root(
         )
 
     return root
+
+
+# ---------------------------------------------------------------------------
+# Local [cache] table parsing (owned by user-cache-storage)
+# ---------------------------------------------------------------------------
+
+
+def parse_local_cache_config(
+    cache_raw: object,
+    host_access_mode: str | None,
+) -> LocalCacheConfig:
+    """Parse ``[cache]`` into the machine-local cache directory.
+
+    Owns only the table's accepted field and type. An absent table (``None``)
+    yields the owner-defined default. The configured directory's
+    absolute/normalization/dangerous-root safety remains the cache-storage
+    boundary's responsibility before any cache mutation.
+    """
+    del host_access_mode
+    if cache_raw is None:
+        return LocalCacheConfig()
+    if not isinstance(cache_raw, dict):
+        raise InventoryError("local.cache: expected table; use [cache].dir", field="local.cache")
+    unknown_cache = set(cache_raw) - {"dir"}
+    if unknown_cache:
+        key = sorted(unknown_cache)[0]
+        raise InventoryError(
+            f"local.cache.{key}: unknown key; use only local.cache.dir",
+            field=f"local.cache.{key}",
+        )
+    cache_dir = cache_raw.get("dir")
+    if cache_dir is not None and not isinstance(cache_dir, str):
+        raise InventoryError(
+            "local.cache.dir: expected string; set [cache].dir to a filesystem path",
+            field="local.cache.dir",
+        )
+    return LocalCacheConfig(cache_dir)
 
 
 def versioning_child(root: Path) -> Path:

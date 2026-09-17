@@ -7,9 +7,7 @@ from __future__ import annotations
 
 import base64
 import builtins
-import ipaddress
 import re
-import urllib.parse
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Mapping, Optional, Union
@@ -25,6 +23,12 @@ from .configuration_document_validation import (
     validate_configuration_documents,
 )
 from .errors import ConstraintSyntaxError, InventoryError, VersionConfigError, VersionSyntaxError
+from .local_project_configuration import (
+    load_local_project_configuration,
+    load_optional_local_project_configuration,
+    resolve_local_companion_path,
+    validate_local_document,
+)
 from .constraints import (
     parse_numeric_version,
     parse_constraint,
@@ -36,11 +40,7 @@ from .model import (
     BaseStage,
     CacheConfig,
     HostAccessPolicy,
-    LocalCacheConfig,
     LocalConfig,
-    LocalCorporateTrust,
-    LocalHostAccess,
-    LocalNetworkProxy,
     DockerRegistrySource,
     DockerRegistryUpdate,
     FdPrebuiltStage,
@@ -985,10 +985,16 @@ def _validate_project_documents(
     inventory = reviewed_outcome.value
     assert inventory is not None
     if DocumentRole.LOCAL not in by_role:
-        return ProjectedOwnerResult(value=(inventory, LocalConfig()))
+        # Route absent-companion defaults through the aggregate validator so
+        # each domain owner supplies its own default, exactly as for an
+        # existing empty companion.
+        local_config = validate_local_document(
+            {}, host_access_mode=host_access_mode
+        )
+        return ProjectedOwnerResult(value=(inventory, local_config))
     local_outcome = capture_owner_result(
         local,
-        lambda: _validate_local_config(
+        lambda: validate_local_document(
             dict(by_role[DocumentRole.LOCAL].data),
             host_access_mode=host_access_mode,
         ),
@@ -998,14 +1004,6 @@ def _validate_project_documents(
     local_config = local_outcome.value
     assert local_config is not None
     return ProjectedOwnerResult(value=(inventory, local_config))
-
-
-def resolve_local_companion_path(inventory_path: Path) -> Path:
-    """Return the fixed-basename companion beside an inventory path.
-
-    The companion always has the basename ``docker-constructor.local.toml``.
-    """
-    return Path(inventory_path).with_name("docker-constructor.local.toml")
 
 
 def resolve_corporate_trust_bundle_path(repository_root: Path | str) -> Path:
@@ -1147,211 +1145,13 @@ def validate_corporate_trust_bundle(path: Path | str) -> Path:
     return bundle
 
 
-def _validate_proxy_url(url: str) -> None:
-    """Validate a credential-free proxy URL; raise on any unsupported shape."""
-    try:
-        parsed = urllib.parse.urlsplit(url)
-    except ValueError as exc:
-        raise InventoryError(
-            f"local.network.proxy.url: malformed URL {url!r}", field="local.network.proxy.url"
-        ) from exc
-    if parsed.scheme not in {"http", "socks5", "socks5h"}:
-        raise InventoryError(
-            f"local.network.proxy.url: unsupported scheme {parsed.scheme!r}; "
-            f"use http, socks5, or socks5h", field="local.network.proxy.url"
-        )
-    if parsed.username is not None or parsed.password is not None:
-        raise InventoryError(
-            "local.network.proxy.url: credentials are not allowed; "
-            "use a credential-free URL", field="local.network.proxy.url"
-        )
-    if parsed.fragment:
-        raise InventoryError(
-            "local.network.proxy.url: fragments are not allowed", field="local.network.proxy.url"
-        )
-    if parsed.query:
-        raise InventoryError(
-            "local.network.proxy.url: query strings are not allowed", field="local.network.proxy.url"
-        )
-    if parsed.path:
-        raise InventoryError(
-            "local.network.proxy.url: URL paths are not allowed", field="local.network.proxy.url"
-        )
-    if not parsed.hostname:
-        raise InventoryError("local.network.proxy.url: missing host", field="local.network.proxy.url")
-    try:
-        port = parsed.port
-    except ValueError as exc:
-        raise InventoryError(
-            f"local.network.proxy.url: invalid port in {url!r}"
-        , field="local.network.proxy.url") from exc
-    if port is None:
-        raise InventoryError("local.network.proxy.url: missing port", field="local.network.proxy.url")
-    if not 1 <= port <= 65535:
-        raise InventoryError(
-            f"local.network.proxy.url: port {port} out of range 1..65535", field="local.network.proxy.url"
-        )
-
-
-def _parse_corporate_trust_section(trust_raw: object) -> LocalCorporateTrust:
-    """Parse ``[corporate-trust]`` into validated local state."""
-    if not isinstance(trust_raw, dict):
-        raise InventoryError(
-            "local.corporate-trust: expected table; use [corporate-trust].enabled", field="local.corporate-trust"
-        )
-    unknown = set(trust_raw) - {"enabled"}
-    if unknown:
-        key = sorted(unknown)[0]
-        raise InventoryError(
-            f"local.corporate-trust.{key}: unknown key; "
-            f"use only local.corporate-trust.enabled", field=f"local.corporate-trust.{key}"
-        )
-    enabled = trust_raw.get("enabled", False)
-    if not isinstance(enabled, bool):
-        raise InventoryError(
-            "local.corporate-trust.enabled: expected boolean; "
-            "set enabled = true or enabled = false", field="local.corporate-trust.enabled"
-        )
-    return LocalCorporateTrust(enabled)
-
-
-def _parse_network_proxy_section(network_raw: object) -> LocalNetworkProxy:
-    """Parse ``[network.proxy]`` into validated local state."""
-    if network_raw is not None and not isinstance(network_raw, dict):
-        raise InventoryError("local.network: expected table; use [network.proxy]", field="local.network")
-    if isinstance(network_raw, dict):
-        unknown_network = set(network_raw) - {"proxy"}
-        if unknown_network:
-            key = sorted(unknown_network)[0]
-            raise InventoryError(
-                f"local.network.{key}: unknown key; use only [network.proxy]", field=f"local.network.{key}"
-            )
-        has_proxy = "proxy" in network_raw
-        proxy_raw = network_raw.get("proxy")
-    else:
-        has_proxy = False
-        proxy_raw = None
-    if has_proxy:
-        if not isinstance(proxy_raw, dict):
-            raise InventoryError(
-                "local.network.proxy: expected table; use [network.proxy]", field="local.network.proxy"
-            )
-        unknown_proxy = set(proxy_raw) - {"url", "no_proxy"}
-        if unknown_proxy:
-            key = sorted(unknown_proxy)[0]
-            raise InventoryError(
-                f"local.network.proxy.{key}: unknown key; "
-                f"use only [network.proxy].url and [network.proxy].no_proxy", field=f"local.network.proxy.{key}"
-            )
-        url = proxy_raw.get("url")
-        if url is None:
-            raise InventoryError(
-                "local.network.proxy.url: missing required key; set [network.proxy].url", field="local.network.proxy.url"
-            )
-        if not isinstance(url, str):
-            raise InventoryError(
-                "local.network.proxy.url: expected string; set a credential-free "
-                "http/socks5/socks5h URL", field="local.network.proxy.url"
-            )
-        _validate_proxy_url(url)
-        no_proxy = proxy_raw.get("no_proxy")
-        if no_proxy is not None and not isinstance(no_proxy, str):
-            raise InventoryError(
-                "local.network.proxy.no_proxy: expected string; set a comma-separated "
-                "bypass list", field="local.network.proxy.no_proxy"
-            )
-        return LocalNetworkProxy(url, no_proxy)
-    return LocalNetworkProxy()
-
-
-def _validate_local_config(
-    raw: Mapping[str, object],
-    *,
-    host_access_mode: str | None = None,
-) -> LocalConfig:
-    """Apply local owner schemas to an already parsed companion document."""
-    if not isinstance(raw, dict):
-        raise InventoryError("local: expected TOML table", field=None)
-    unknown = set(raw) - {"host-access", "cache", "corporate-trust", "network"}
-    if unknown:
-        key = sorted(unknown)[0]
-        raise InventoryError(
-            f"local.{key}: unknown key; use only [host-access], [cache], "
-            f"[corporate-trust], or [network.proxy]"
-        , field=f"local.{key}")
-    host_raw = raw.get("host-access", {})
-    if not isinstance(host_raw, dict):
-        raise InventoryError("local.host-access: expected table; use [host-access].address", field="local.host-access")
-    unknown_host = set(host_raw) - {"address"}
-    if unknown_host:
-        key = sorted(unknown_host)[0]
-        raise InventoryError(
-            f"local.host-access.{key}: unknown key; use only local.host-access.address",
-            field=f"local.host-access.{key}",
-        )
-    address = host_raw.get("address")
-    if address is not None:
-        if not isinstance(address, str):
-            raise InventoryError(
-                "local.host-access.address: expected string; set an IPv4 or IPv6 address"
-            , field="local.host-access.address")
-        if address == "host-gateway" and host_access_mode == "docker-gateway":
-            pass
-        else:
-            try:
-                ipaddress.ip_address(address)
-            except ValueError as exc:
-                raise InventoryError(
-                    "local.host-access.address: expected IPv4 or IPv6 address; correct [host-access].address",
-                    field="local.host-access.address",
-                ) from exc
-    cache_raw = raw.get("cache", {})
-    if not isinstance(cache_raw, dict):
-        raise InventoryError("local.cache: expected table; use [cache].dir", field="local.cache")
-    unknown_cache = set(cache_raw) - {"dir"}
-    if unknown_cache:
-        key = sorted(unknown_cache)[0]
-        raise InventoryError(
-            f"local.cache.{key}: unknown key; use only local.cache.dir"
-        , field=f"local.cache.{key}")
-    cache_dir = cache_raw.get("dir")
-    if cache_dir is not None and not isinstance(cache_dir, str):
-        raise InventoryError(
-            "local.cache.dir: expected string; set [cache].dir to a filesystem path",
-            field="local.cache.dir",
-        )
-    trust = _parse_corporate_trust_section(raw.get("corporate-trust", {}))
-    proxy = _parse_network_proxy_section(raw.get("network"))
-    return LocalConfig(
-        LocalHostAccess(address),
-        LocalCacheConfig(cache_dir),
-        trust,
-        proxy,
-    )
-
-
 def load_local_config(
     path: Path,
     *,
     host_access_mode: str | None = None,
 ) -> LocalConfig:
-    """Load local TOML and safely project owner-schema diagnostics."""
-    identity = DocumentIdentity(DocumentRole.LOCAL, Path(path))
-    return release_owner_result(_load_local_document(identity, host_access_mode))
-
-
-def _load_local_document(
-    identity: DocumentIdentity,
-    host_access_mode: str | None,
-) -> ProjectedOwnerResult[LocalConfig]:
-    """Validate a parsed local document without retaining it on failure."""
-    document = parse_configuration_document(identity)
-    return capture_owner_result(
-        identity,
-        lambda: _validate_local_config(
-            dict(document.data), host_access_mode=host_access_mode
-        ),
-    )
+    """Load local TOML through the aggregate local-project boundary."""
+    return load_local_project_configuration(path, host_access_mode=host_access_mode)
 
 
 def load_local_config_for_inventory(
@@ -1362,10 +1162,9 @@ def load_local_config_for_inventory(
 ) -> LocalConfig:
     """Load only the fixed companion beside the selected project inventory."""
     del repository_root  # retained compatibility parameter; no fallback is allowed
-    companion = resolve_local_companion_path(inventory_path)
-    if not companion.exists():
-        return LocalConfig()
-    return load_local_config(companion, host_access_mode=host_access_mode)
+    return load_optional_local_project_configuration(
+        inventory_path, host_access_mode=host_access_mode
+    )
 
 
 def resolve_local_corporate_settings(
@@ -1384,10 +1183,9 @@ def resolve_local_corporate_settings(
     additionally validated before any Docker invocation. The selected root
     must be supplied by the build/run boundary and is never discovered.
     """
-    companion = resolve_local_companion_path(inventory_path)
-    if not companion.exists():
-        return LocalConfig()
-    local = load_local_config(companion, host_access_mode=host_access_mode)
+    local = load_optional_local_project_configuration(
+        inventory_path, host_access_mode=host_access_mode
+    )
     if local.corporate_trust.enabled:
         if repository_root is None:
             raise InventoryError(

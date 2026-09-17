@@ -41,15 +41,15 @@ flowchart LR
 
 **Deliverables:** fixed resolution of the optional selected-project `docker-constructor.local.toml`; one shared-boundary read/parse per command transaction; immutable aggregate local result; exactly `[host-access]`, `[cache]`, `[corporate-trust]`, and `[network.proxy]`; domain-owned table parsers; aggregate/domain validation before release; absence-compatible defaults; no `[output]` or other new table.
 
-- [ ] 2.1 **RED:** Add a resolution test requiring exactly `<selected-project>/docker-constructor.local.toml`, with no ancestor, workspace, installation-root, alternate-basename, or custom-option lookup; verify the aggregate owner is absent.
-- [ ] 2.2 **RED:** Add a transaction test requiring all local domain consumers to share one parsed local document; verify repeated or runtime-owned loading fails.
-- [ ] 2.3 **RED:** Add registry tests accepting exactly the four existing local tables and rejecting every unknown top-level table, including `[output]`; verify the closed aggregate registry is absent.
-- [ ] 2.4 **RED:** Add owner-schema tests requiring unknown/misplaced fields and domain-invalid values to retain document path plus field diagnostics from Phase 1; verify aggregate dispatch is absent.
-- [ ] 2.5 **RED:** Add absence tests requiring a missing optional companion to produce immutable domain defaults without creating the file; verify the aggregate result is absent.
-- [ ] 2.6 **GREEN:** Implement fixed optional companion resolution and route it through the Phase 1 document boundary; verify tasks 2.1–2.2 and 2.5 pass.
-- [ ] 2.7 **GREEN:** Implement the immutable aggregate result and explicit four-table domain registry; verify tasks 2.3–2.4 pass.
-- [ ] 2.8 **INTROSPECT:** Review for duplicate TOML parsing/error projection, domain field semantics in the aggregate owner, permissive registration, repeated reads, mutable results, partial domain validation, import cycles, or `[output]`; correct only local aggregate defects.
-- [ ] 2.9 **VALIDATE:** Run focused local resolution, shared parsing, table closure, owner dispatch, unknown/misplaced/domain-invalid input, absent companion, and immutable-default tests; record all Phase 2 deliverables.
+- [x] 2.1 **RED:** Add a resolution test requiring exactly `<selected-project>/docker-constructor.local.toml`, with no ancestor, workspace, installation-root, alternate-basename, or custom-option lookup; verify the aggregate owner is absent.
+- [x] 2.2 **RED:** Add a transaction test requiring all local domain consumers to share one parsed local document; verify repeated or runtime-owned loading fails.
+- [x] 2.3 **RED:** Add registry tests accepting exactly the four existing local tables and rejecting every unknown top-level table, including `[output]`; verify the closed aggregate registry is absent.
+- [x] 2.4 **RED:** Add owner-schema tests requiring unknown/misplaced fields and domain-invalid values to retain document path plus field diagnostics from Phase 1; verify aggregate dispatch is absent.
+- [x] 2.5 **RED:** Add absence tests requiring a missing optional companion to produce immutable domain defaults without creating the file; verify the aggregate result is absent.
+- [x] 2.6 **GREEN:** Implement fixed optional companion resolution and route it through the Phase 1 document boundary; verify tasks 2.1–2.2 and 2.5 pass.
+- [x] 2.7 **GREEN:** Implement the immutable aggregate result and explicit four-table domain registry; verify tasks 2.3–2.4 pass.
+- [x] 2.8 **INTROSPECT:** Review for duplicate TOML parsing/error projection, domain field semantics in the aggregate owner, permissive registration, repeated reads, mutable results, partial domain validation, import cycles, or `[output]`; correct only local aggregate defects.
+- [x] 2.9 **VALIDATE:** Run focused local resolution, shared parsing, table closure, owner dispatch, unknown/misplaced/domain-invalid input, absent companion, and immutable-default tests; record all Phase 2 deliverables.
 
 ## 3. Cache-Root Ownership
 
