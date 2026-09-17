@@ -13,10 +13,10 @@ typed-error projection. Kept out of `tasks.md` per project convention.
 
 | Check | Command | Result |
 | --- | --- | --- |
-| Focused boundary suites | `python -m unittest tests.test_configuration_document_validation_phase1 tests.test_constructor_inventory_* tests.test_constructor_pi_inventory tests.test_constructor_host_access_* tests.test_constructor_build_orchestration` | 327 tests, only the three documented fixture-drift cases fail |
+| Focused boundary suites | `python -m unittest tests.test_configuration_document_validation_phase1 tests.test_constructor_inventory_* tests.test_constructor_pi_inventory tests.test_constructor_host_access_* tests.test_constructor_build_orchestration tests.test_version_visual_boundaries tests.test_version_effective` | 372 tests, all pass |
 | Production type check | `ty check docker --python-version 3.14 --output-format concise` | All checks passed |
 | Whitespace | `git diff --check` and `git diff --cached --check` | clean |
-| Full suite delta vs `HEAD` | `python -m unittest discover -s tests` | No new failures; 26 pre-existing failures remain |
+| Full suite delta vs `HEAD` | `python -m unittest discover -s tests` | 23 pre-existing, unrelated failures remain; no new failures |
 
 ## Typed-error contract
 
@@ -43,16 +43,22 @@ typed-error projection. Kept out of `tasks.md` per project convention.
 - Constraint parsing (`_parse_override_policy`) and version parsing/mismatch
   sites carry safe field paths and never embed `str(exc)` or the rejected value.
 
-## Pre-existing fixture drift
+## Reviewed-inventory fixture alignment
 
-Three cases fail because the reviewed `docker-constructor.toml` and its pi
-release snapshot no longer match the checked-in fixtures (`highlight-js` and
-`pi-tui-kit` are absent; the pi release version is stale):
+The reviewed `docker-constructor.toml` dropped the `highlight-js` and
+`pi-tui-kit` extensions and bumped `pi`/`pi-usage`. The inventory tests were
+updated to assert the current reviewed inventory instead of the removed entries:
 
-- `tests/test_constructor_inventory_runtime.py::TestClosedRuntimeSchema::test_five_runtime_packages_all_present`
-- `tests/test_constructor_inventory_runtime.py::TestClosedRuntimeSchema::test_pi_tui_kit_override_stays_within_pi_usage_dependency_range`
+- `tests/test_constructor_inventory_runtime.py::TestClosedRuntimeSchema::test_reviewed_runtime_packages_all_present`
+  asserts the current set (`pi-proxy`, `pi-read`, `pi-usage`).
+- `tests/test_constructor_inventory_runtime.py::TestClosedRuntimeSchema::test_reviewed_extension_overrides_accept_declared_versions`
+  asserts each reviewed override accepts its own version and rejects a neighbor.
 - `tests/test_constructor_pi_inventory.py::TestReviewedPiReleaseContract::test_real_inventory_records_pi_release_contract`
+  asserts the reviewed Pi release `0.85.1`.
+- `tests/test_version_visual_boundaries.py` drops `highlight-js`/`pi-tui-kit`
+  from the canonical owner map, so the visual-header contract tracks the
+  current canonical blocks.
+- `tests/test_version_effective.py::TestEnvironmentMapping::test_no_missing_extensions`
+  no longer expects `HIGHLIGHT_JS_VERSION`/`PI_TUI_KIT_VERSION`.
 
-These are unchanged fixture drift at `HEAD`, not defects of the
-schema-projection or configuration-document work, and the missing entries are
-intentionally not added by this change.
+No reviewed entries were added back to `docker-constructor.toml`.

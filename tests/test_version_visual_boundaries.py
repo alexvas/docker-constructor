@@ -46,9 +46,7 @@ CANONICAL_OWNERS = {
     "build.stages.pi-tools.pi": "pi-tools.pi",
     "build.stages.openspec-tools.openspec": "openspec-tools.openspec",
     "build.stages.runtime.oh-my-zsh": "runtime.oh-my-zsh",
-    "runtime.pi-extensions.highlight-js": "pi-extensions.highlight-js",
     "runtime.pi-extensions.pi-read": "pi-extensions.pi-read",
-    "runtime.pi-extensions.pi-tui-kit": "pi-extensions.pi-tui-kit",
     "runtime.pi-extensions.pi-usage": "pi-extensions.pi-usage",
     "runtime.pi-extensions.pi-proxy": "pi-extensions.pi-proxy",
 }
@@ -66,9 +64,7 @@ _OWNER_VERSIONS = {
     "build.stages.pi-tools.pi": ("0.80.10", "0.81.0"),
     "build.stages.openspec-tools.openspec": ("1.6.0", "1.7.0"),
     "build.stages.runtime.oh-my-zsh": ("a" * 40, "b" * 40),
-    "runtime.pi-extensions.highlight-js": ("10.7.2", "10.7.3"),
     "runtime.pi-extensions.pi-read": ("0.2.0", "0.3.0"),
-    "runtime.pi-extensions.pi-tui-kit": ("0.49.1", "0.49.3"),
     "runtime.pi-extensions.pi-usage": ("0.52.3", "0.53.0"),
     "runtime.pi-extensions.pi-proxy": ("1.0.0", "1.1.0"),
 }

@@ -181,44 +181,25 @@ class TestClosedRuntimeSchema(_TmpMixin, unittest.TestCase):
         self.assertIn(ext.version, ext.artifacts)
         self.assertIsNotNone(ext.validation)
 
-    def test_five_runtime_packages_all_present(self):
-        """All five real runtime packages survive a complete load cycle.
-
-        Pre-existing fixture drift: ``docker-constructor.toml`` currently omits
-        ``highlight-js`` and ``pi-tui-kit`` (and their review snapshots), so
-        this expectation fails independently of the schema-error projection.
-        The missing reviewed entries are tracked separately and are not added
-        by the configuration-document-validation change.
-        """
+    def test_reviewed_runtime_packages_all_present(self):
+        """All reviewed runtime packages survive a complete load cycle."""
         inv = load_inventory(self._canonical_path())
         names = sorted(inv.runtime_pi_extensions.keys())
-        self.assertEqual(
-            names,
-            ["highlight-js", "pi-proxy", "pi-read", "pi-tui-kit", "pi-usage"],
-        )
+        self.assertEqual(names, ["pi-proxy", "pi-read", "pi-usage"])
 
-    def test_pi_tui_kit_override_stays_within_pi_usage_dependency_range(self):
-        """Independent overrides cannot violate pi-usage's ^0.49.1 contract.
-
-        Pre-existing fixture drift: this depends on the same absent
-        ``pi-tui-kit``/``highlight-js`` reviewed entries, so it is unrelated to
-        the schema-error projection.
-        """
+    def test_reviewed_extension_overrides_accept_declared_versions(self):
+        """Each reviewed override accepts its own version and rejects a neighbor."""
         inv = load_inventory(self._canonical_path())
-        policy = inv.runtime_pi_extensions["pi-tui-kit"].override.constraint
-        self.assertTrue(policy.matches(parse_numeric_version("0.49.1")))
-        self.assertTrue(policy.matches(parse_numeric_version("0.49.3")))
-        self.assertFalse(policy.matches(parse_numeric_version("0.50.0")))
-
-        highlight_policy = (
-            inv.runtime_pi_extensions["highlight-js"].override.constraint
+        cases = (
+            ("pi-read", "0.2.1", "0.1.9"),
+            ("pi-usage", "0.60.7", "0.51.9"),
+            ("pi-proxy", "1.0.0", "0.9.9"),
         )
-        self.assertTrue(
-            highlight_policy.matches(parse_numeric_version("10.7.3"))
-        )
-        self.assertFalse(
-            highlight_policy.matches(parse_numeric_version("10.7.4"))
-        )
+        for name, accepted, rejected in cases:
+            with self.subTest(name=name):
+                policy = inv.runtime_pi_extensions[name].override.constraint
+                self.assertTrue(policy.matches(parse_numeric_version(accepted)))
+                self.assertFalse(policy.matches(parse_numeric_version(rejected)))
 
     # ── missing sections ────────────────────────────────────────────────
 

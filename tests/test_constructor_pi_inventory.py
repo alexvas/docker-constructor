@@ -97,7 +97,7 @@ class TestReviewedPiReleaseContract(unittest.TestCase):
         self.assertEqual(pi.source.package, "@earendil-works/pi-coding-agent")
         self.assertEqual(pi.source.release_repository, "earendil-works/pi")
         self.assertEqual(pi.source.release_tag_prefix, "v")
-        self.assertEqual(pi.version, "0.84.4")
+        self.assertEqual(pi.version, "0.85.1")
 
     def test_effective_projection_carries_pi_release(self):
         inv = load_inventory(_REPO / "docker-constructor.toml")

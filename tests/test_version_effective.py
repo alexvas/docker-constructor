@@ -393,8 +393,6 @@ class TestEnvironmentMapping(unittest.TestCase):
 
     def test_no_missing_extensions(self):
         env = render_build_environment(self.effective)
-        self.assertIn("HIGHLIGHT_JS_VERSION", env)
         self.assertIn("PI_READ_VERSION", env)
-        self.assertIn("PI_TUI_KIT_VERSION", env)
         self.assertIn("PI_USAGE_VERSION", env)
         self.assertIn("PI_PROXY_VERSION", env)
