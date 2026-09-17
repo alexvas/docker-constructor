@@ -375,20 +375,20 @@ class TestInteractiveProgress(unittest.TestCase):
         )
         self.assertEqual(0, rc)
         self.assertIn(
-            "Checking updates [1/16] base.node (docker-registry)…", err,
+            "Checking updates [1/14] base.node (docker-registry)…", err,
         )
         self.assertIn(
-            "Checking updates [16/16] runtime.pi-extensions.pi-usage (npm)…",
+            "Checking updates [14/14] runtime.pi-extensions.pi-usage (npm)…",
             err,
         )
         # Compact target path: the build.stages. prefix never leaks into
         # the progress display.
         self.assertNotIn("build.stages.", err)
-        # One replaceable stderr line: 16 event rewrites, never a newline.
-        self.assertEqual(err.count("Checking updates"), 16)
+        # One replaceable stderr line: 14 event rewrites, never a newline.
+        self.assertEqual(err.count("Checking updates"), 14)
         self.assertNotIn("\n", err)
         # Each event begins with CR + erase-to-end-of-line.
-        self.assertEqual(err.count("\r\x1b[K"), 17)
+        self.assertEqual(err.count("\r\x1b[K"), 15)
 
     def test_non_tty_stderr_emits_no_progress(self):
         """4.2 — non-TTY stderr emits zero progress bytes."""
@@ -432,7 +432,7 @@ class TestInteractiveProgress(unittest.TestCase):
         self.assertEqual(4, rc)
         self.assertIn("[OPERATIONAL] boom", err)
         self.assertIn(
-            "Checking updates [1/16] base.node (docker-registry)…", err,
+            "Checking updates [1/14] base.node (docker-registry)…", err,
         )
         self.assertLess(err.rfind("\r\x1b[K"), err.index("[OPERATIONAL] boom"))
 
@@ -456,7 +456,7 @@ class TestInteractiveProgress(unittest.TestCase):
                 )
         captured = err.getvalue()
         self.assertIn(
-            "Checking updates [1/16] base.node (docker-registry)…", captured,
+            "Checking updates [1/14] base.node (docker-registry)…", captured,
         )
         self.assertTrue(captured.endswith("\r\x1b[K"))
 

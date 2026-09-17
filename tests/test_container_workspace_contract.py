@@ -71,7 +71,11 @@ class TestEntrypointWorkspaceContract(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             workspace_paths = paths or {"WORKSPACE_PATH_1": tmp}
             env = {
-                **os.environ,
+                **{
+                    key: value
+                    for key, value in os.environ.items()
+                    if not key.startswith("WORKSPACE_PATH_")
+                },
                 "_SCENARIO": "workspace-contract",
                 "_ID_MODE": "root",
                 "_MOUNT_RETURN_0": " ".join(mounted),

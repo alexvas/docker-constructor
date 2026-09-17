@@ -66,16 +66,23 @@ def _evidence_path() -> Path:
     return path
 
 
+def _release_fixture_for_projection() -> tuple[str, bytes, bytes]:
+    """Return synthetic release assets matching the reviewed Pi version."""
+    version = _projection().pi_version
+    package = pi_install_package_bytes().replace(b"0.84.4", version.encode())
+    lock = pi_install_lock_bytes().replace(b"0.84.4", version.encode())
+    return version, package, lock
+
+
 class TestMaterializePiOrchestration(unittest.TestCase):
     def test_preflight_precedes_assembly_and_binds_exact_inputs(self):
-        package = pi_install_package_bytes()
-        lock = pi_install_lock_bytes()
+        version, package, lock = _release_fixture_for_projection()
         source = PiReleaseSource(
             package=PI_PACKAGE,
             release_repository="earendil-works/pi",
             release_tag_prefix="v",
         )
-        urls = derive_pi_release_urls(source, "0.84.4")
+        urls = derive_pi_release_urls(source, version)
         transport = FakePiReleaseTransport(urls, package=package, lock=lock)
 
         calls: list[dict] = []
@@ -111,7 +118,7 @@ class TestMaterializePiOrchestration(unittest.TestCase):
 
         validated = calls[0]["validated"]
         self.assertEqual(validated.lockfile_digest, hashlib.sha256(lock).hexdigest())
-        self.assertEqual(validated.roots, (RootSpec(PI_PACKAGE, "0.84.4"),))
+        self.assertEqual(validated.roots, (RootSpec(PI_PACKAGE, version),))
         self.assertEqual(validated.platform, "linux-x64")
         self.assertEqual(validated.node_version, "24.18.0")
         self.assertEqual(validated.npm_version, "11.16.0")
@@ -141,11 +148,10 @@ class TestMaterializePiOrchestration(unittest.TestCase):
         self.assertIn(PI_BIN_TARGET, result.launcher_plan.contents.decode())
 
     def test_materialization_emits_ordered_host_phase_events(self):
-        package = pi_install_package_bytes()
-        lock = pi_install_lock_bytes()
+        version, package, lock = _release_fixture_for_projection()
         source = PiReleaseSource(PI_PACKAGE, "earendil-works/pi", "v")
         transport = FakePiReleaseTransport(
-            derive_pi_release_urls(source, "0.84.4"), package=package, lock=lock
+            derive_pi_release_urls(source, version), package=package, lock=lock
         )
         events = []
 
@@ -177,11 +183,10 @@ class TestMaterializePiOrchestration(unittest.TestCase):
         ])
 
     def test_diagnostics_are_typed_and_precede_assembly_terminal(self):
-        package = pi_install_package_bytes()
-        lock = pi_install_lock_bytes()
+        version, package, lock = _release_fixture_for_projection()
         source = PiReleaseSource(PI_PACKAGE, "earendil-works/pi", "v")
         transport = FakePiReleaseTransport(
-            derive_pi_release_urls(source, "0.84.4"), package=package, lock=lock
+            derive_pi_release_urls(source, version), package=package, lock=lock
         )
         events = []
 
@@ -213,11 +218,10 @@ class TestMaterializePiOrchestration(unittest.TestCase):
         )))
 
     def test_failed_assembly_has_one_terminal_and_starts_no_later_phase(self):
-        package = pi_install_package_bytes()
-        lock = pi_install_lock_bytes()
+        version, package, lock = _release_fixture_for_projection()
         source = PiReleaseSource(PI_PACKAGE, "earendil-works/pi", "v")
         transport = FakePiReleaseTransport(
-            derive_pi_release_urls(source, "0.84.4"), package=package, lock=lock
+            derive_pi_release_urls(source, version), package=package, lock=lock
         )
         events = []
         with patch.object(

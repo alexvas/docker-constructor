@@ -158,7 +158,7 @@ class TestCheckUpdatesAcceptance(unittest.TestCase):
         self.assertEqual(0, rc)
         self.assertIn("TARGET", out)
         self.assertIn(
-            "Checking updates [1/16] base.node (docker-registry)…", err,
+            "Checking updates [1/14] base.node (docker-registry)…", err,
         )
         self.assertTrue(err.endswith("\r\x1b[K"))
         self.assertNotIn("\n", err)
