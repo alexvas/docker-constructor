@@ -1526,9 +1526,13 @@ class TestMovedClauseInventory(unittest.TestCase):
                 )
 
     def test_delta_spec_declares_the_requirement_removed(self) -> None:
-        delta = (
-            _CHANGE_DIR / "specs" / "runtime-host-access" / "spec.md"
-        ).read_text(encoding="utf-8")
+        delta_path = _delta_spec_path("runtime-host-access")
+        self.assertIsNotNone(
+            delta_path,
+            "the runtime-host-access delta spec must remain findable "
+            "whether the change is active or archived",
+        )
+        delta = delta_path.read_text(encoding="utf-8")
         self.assertIn("## REMOVED Requirements", delta)
         self.assertIn(_REMOVED_REQUIREMENT, _parse_removed_requirements(delta))
 
