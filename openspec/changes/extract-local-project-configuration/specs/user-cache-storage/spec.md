@@ -15,18 +15,19 @@ A local `[cache].dir` SHALL be a non-empty absolute path identifying a dedicated
 
 #### Scenario: Rejecting an empty or relative local cache root
 - **WHEN** `[cache].dir` is empty or is not an absolute path
-- **THEN** local configuration validation SHALL reject it before cache mutation
+- **THEN** the cache-storage validation boundary SHALL reject it before releasing cache-owned resolved state or performing cache mutation
+- **AND** aggregate local parsing MAY retain the configured string after validating the `[cache]` table shape and field type
 - **AND** SHALL identify `[cache].dir` as requiring an absolute dedicated directory
 
 #### Scenario: Rejecting XDG_CACHE_HOME as a local cache root
 - **WHEN** normalized `[cache].dir` equals `XDG_CACHE_HOME`
-- **THEN** validation SHALL reject it before cache mutation
+- **THEN** the cache-storage validation boundary SHALL reject it before releasing cache-owned resolved state or performing cache mutation
 - **AND** SHALL instruct the user to select a dedicated child such as `${XDG_CACHE_HOME}/docker-constructor-custom`
 - **AND** SHALL NOT change permissions on `XDG_CACHE_HOME`
 
 #### Scenario: Rejecting shared or dangerous local cache roots
 - **WHEN** normalized `[cache].dir` equals the invoking user's home directory or filesystem root, or is an ancestor of `XDG_CACHE_HOME`
-- **THEN** validation SHALL reject it before cache mutation
+- **THEN** the cache-storage validation boundary SHALL reject it before releasing cache-owned resolved state or performing cache mutation
 - **AND** SHALL identify the configured path and instruct the user to choose a dedicated owned directory
 
 #### Scenario: Rejecting a symlinked local cache root without following it

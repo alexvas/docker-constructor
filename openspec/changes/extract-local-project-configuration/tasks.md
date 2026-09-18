@@ -55,23 +55,23 @@ flowchart LR
 
 **Depends on:** Phase 1
 
-**Deliverables:** `user-cache-storage` solely owns configured/default roots; non-empty absolute `[cache].dir`; lexical normalization before safety checks; rejection of root, home, XDG, and XDG ancestors; no-follow inspection of selected root and every existing encountered cache descendant; unsafe type/ownership rejection before effects; unchanged permissions, XDG/`~/.cache` fallback, named children, and no companion creation; reproducibility retains only source separation, TTL, projection exclusion, and child mapping.
+**Deliverables:** confirm `user-cache-storage` as the existing sole authority for configured/default roots, configured-path syntax, lexical normalization, dangerous-root policy, no-follow root/descendant inspection, permissions, ownership, fallback, and named children; remove any remaining root-selection or child-derivation bypass; release cache-owned resolved or prepared state only after applicable safety checks and before effects; preserve aggregate parsing, diagnostics, timing, XDG/`~/.cache` fallback, layout, permissions, and no-companion-creation behavior; reproducibility retains only source separation, TTL, projection exclusion, and child mapping.
 
-Existing cache behavior is the compatibility oracle. Record passing baseline coverage for path rejection, dangerous roots, descendants, permissions, defaults, fallback, layout, and effect ordering before RED. RED SHALL fail only on missing ownership/dependency assertions.
+Existing cache behavior is the compatibility oracle and already resides primarily in `user-cache-storage`. Record passing baseline coverage for path rejection, dangerous roots, descendants, permissions, defaults, fallback, layout, and effect ordering before RED. Do not manufacture RED failures for ownership that already exists. RED SHALL cover only a concrete remaining dependency or delegation bypass discovered in a consumer; sole-owner architecture enforcement belongs to Phase 5.
 
-- [ ] 3.1 **RED:** Require configured-path syntax and lexical normalization to execute through `user-cache-storage`; reuse empty/relative/normalized baseline cases and verify only ownership fails.
-- [ ] 3.2 **RED:** Require the root/home/XDG/XDG-ancestor matrix to be selected by `user-cache-storage`; reuse passing behavior and verify only ownership fails.
-- [ ] 3.3 **RED:** Require no-follow selected-root inspection behind `user-cache-storage`; reuse symlink baseline behavior and verify only the boundary assertion fails.
-- [ ] 3.4 **RED:** Require each existing encountered cache descendant to be inspected no-follow and rejected for symlink, wrong required type, foreign ownership, or unsecurability by `user-cache-storage`; verify descendant ownership fails while diagnostics/effects remain the baseline oracle.
-- [ ] 3.5 **RED:** Require root/descendant permissions and no-parent-chmod policy to consume cache-owned state; reuse passing `0700`/`0600`/`0444` coverage and verify only ownership fails.
-- [ ] 3.6 **RED:** Require `user-cache-storage` to return the configured/XDG/`~/.cache` decision used by all callers; reuse fallback baselines and verify single ownership fails.
-- [ ] 3.7 **RED:** Require named children and host-access-independent selection to consume only the cache result and never create the companion; verify dependency ownership fails.
-- [ ] 3.8 **RED:** Require root/descendant failures before a configuration result reaches consumers; retain effect probes and verify the release ownership assertion fails.
-- [ ] 3.9 **GREEN:** Move configured syntax, normalization, dangerous-root checks, and no-follow root/descendant inspection to `user-cache-storage`; verify tasks 3.1–3.4 pass.
-- [ ] 3.10 **GREEN:** Consolidate permissions, ownership, configured/default selection, fallback, and child derivation in `user-cache-storage`; verify tasks 3.5–3.8 pass.
-- [ ] 3.11 **GREEN:** Narrow reproducibility to reviewed/local source separation, TTL, projection exclusion, and child mapping; verify unchanged outputs and delegated safety.
-- [ ] 3.12 **INTROSPECT:** Map every removed aggregate cache clause and pre-existing root-or-descendant protection to one owner and focused test; correct omissions, duplicate authority, diagnostics drift, permission/fallback drift, or weakened no-follow/effect ordering.
-- [ ] 3.13 **VALIDATE:** Run configured-root, dangerous-root, no-follow root/descendant, unsafe-type, ownership, permission, fallback, layout, independence, projection, and ordering tests; record all Phase 3 deliverables and mappings.
+- [ ] 3.1 **BASELINE:** Record the existing configured-root contract: empty/relative rejection, lexical normalization, the root/home/XDG/XDG-ancestor matrix, and failure before effects; identify `user-cache-storage` as the current behavioral owner.
+- [ ] 3.2 **BASELINE:** Record existing no-follow selected-root and encountered-descendant coverage for symlinks, wrong required types, foreign ownership, and unsecurability, including unchanged diagnostics and effect ordering.
+- [ ] 3.3 **BASELINE:** Record existing root/descendant permissions, no-parent-chmod behavior, configured/default selection, XDG/`~/.cache` fallback, named children, host-access independence, and no companion creation.
+- [ ] 3.4 **RED:** Inventory cache consumers and add a failing dependency test for each concrete root-selection, fallback, or canonical-child derivation bypass outside `user-cache-storage`; specifically cover `build_cache._resolve_cache_root` if it still makes a default-root decision independently.
+- [ ] 3.5 **RED:** Require reproducibility and every cache consumer with a discovered bypass to obtain root or canonical-child decisions from cache-owned APIs while preserving reviewed/local source separation, TTL, and projection exclusion; verify only the discovered delegation gaps fail.
+- [ ] 3.6 **RED:** Require applicable root and descendant validation to complete before cache-owned resolved or prepared state is released to an effectful consumer; retain probes for cache mutation, network access, artifact publication, container execution, and Docker execution, and fail only for a concrete release bypass.
+- [ ] 3.7 **GREEN:** Redirect each confirmed root-selection, fallback, or canonical-child bypass to `user-cache-storage` without changing accepted configuration, validation timing, diagnostics, paths, or effects; verify tasks 3.4–3.6 pass.
+- [ ] 3.8 **GREEN:** Keep aggregate `[cache]` validation limited to table shape and field type; treat `LocalConfig.cache.dir` as untrusted input until cache storage resolves it, and do not thread home, XDG, or filesystem state into aggregate parsing.
+- [ ] 3.9 **GREEN:** Keep reproducibility limited to reviewed/local source separation, reviewed TTL, projection exclusion, and consumer child-format mapping while delegating root selection and safety to cache storage; verify unchanged outputs.
+- [ ] 3.10 **INTROSPECT:** Review for independent root normalization, dangerous-root policy, XDG/home fallback, no-follow inspection, or canonical child definitions outside `user-cache-storage`; correct concrete Phase 3 consumer bypasses without moving filesystem-sensitive validation into the aggregate.
+- [ ] 3.11 **INTROSPECT:** Map every cache clause and pre-existing root-or-descendant protection to one owner and focused baseline or regression test; correct omissions, duplicate authority, diagnostics drift, permission/fallback drift, changed validation timing, or weakened no-follow/effect ordering.
+- [ ] 3.12 **VALIDATE:** Run configured-root, dangerous-root, no-follow root/descendant, unsafe-type, ownership, permission, fallback, layout, independence, projection, and ordering tests; distinguish pre-existing baseline behavior from newly corrected delegation gaps.
+- [ ] 3.13 **VALIDATE:** Record all Phase 3 mappings and confirm no companion creation, aggregate environment/filesystem dependency, or user-visible behavior change.
 
 ## 4. Domain Consumer Migration
 
@@ -98,7 +98,7 @@ Existing cache behavior is the compatibility oracle. Record passing baseline cov
 
 - [ ] 5.1 **RED:** Add an architecture test rejecting project TOML parsing or parse-error projection outside `configuration-document-validation`; verify old paths fail.
 - [ ] 5.2 **RED:** Add an architecture test rejecting companion parsing or aggregate construction outside `local-project-configuration`; verify old runtime ownership fails.
-- [ ] 5.3 **RED:** Add a dependency test rejecting aggregate-owner imports from domain modules and runtime ownership of cache/network state; verify pre-cutover direction fails.
+- [ ] 5.3 **RED:** Add dependency and sole-owner architecture tests rejecting aggregate-owner imports from domain modules, runtime ownership of cache/network state, and cache-root normalization, dangerous-root policy, XDG/home fallback selection, no-follow cache safety logic, or canonical cache-child definitions outside `user-cache-storage`; verify any remaining pre-cutover direction or duplicate authority fails.
 - [ ] 5.4 **RED:** Add a contract-inventory test requiring every moved clause/scenario to map to a destination capability and passing regression; verify omissions fail.
 - [ ] 5.5 **GREEN:** Remove independent parsing/error wrappers and route both documents exclusively through Phase 1; verify task 5.1 passes.
 - [ ] 5.6 **GREEN:** Remove runtime aggregate ownership and obsolete companion-loading adapters; verify tasks 5.2–5.3 pass.

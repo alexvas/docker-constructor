@@ -46,11 +46,13 @@ CLI, JSON, SDK, and logging callers own presentation and may apply additional de
 
 Combining reviewed and local domain validation in this boundary was rejected because it would blur schema ownership. Failing only when a consumer first uses one document or table was rejected because effects could begin before another applicable input is found invalid.
 
-### Move cache-root semantics intact to user-cache-storage
+### Confirm and complete cache-root ownership in user-cache-storage
 
-`user-cache-storage` becomes authoritative for configured and default root resolution. A configured `[cache].dir` is checked for non-empty absolute form, lexically normalized, and rejected when it is root/home/XDG or an ancestor of XDG. The selected root and every existing constructor cache descendant encountered for preparation or use are inspected no-follow before creation, chmod, mutation, or use and rejected when symlinked, of an unsafe type, foreign-owned, or unsecurable. Existing XDG and `~/.cache` fallback, permissions, ownership, namespaces, children, and failure-before-effects behavior remain unchanged.
+`user-cache-storage` already owns most configured and default root resolution and safety behavior before this change. This change confirms that authority and removes only concrete remaining consumer bypasses. A configured `[cache].dir` remains checked for non-empty absolute form, lexically normalized, and rejected when it is root/home/XDG or an ancestor of XDG. The selected root and every existing constructor cache descendant encountered for preparation or use remain subject to no-follow inspection before creation, chmod, mutation, or use and are rejected when symlinked, of an unsafe type, foreign-owned, or unsecurable. Existing XDG and `~/.cache` fallback, permissions, ownership, namespaces, children, diagnostics, validation timing, and failure-before-effects behavior remain unchanged.
 
-`docker-build-reproducibility` continues to own the reviewed/local source split, reviewed `cache.ttl`, projection exclusion, and consumer child-format mapping, but delegates root safety to cache storage. Keeping safety in reproducibility was rejected because the same root secures update, artifact, generated-state, and assembler consumers beyond image reproducibility.
+Aggregate local validation owns the `[cache]` table shape and the `dir` field type only. Its immutable `LocalConfig.cache.dir` value is untrusted configured input, not an authorized filesystem root. Filesystem-sensitive syntax, normalization, environment-relative dangerous-root policy, ownership, type, and permission checks remain at the cache-storage boundary and complete before cache-owned resolved or prepared state reaches an effectful consumer. Home, XDG, and filesystem state therefore do not become dependencies of aggregate companion parsing.
+
+`docker-build-reproducibility` continues to own the reviewed/local source split, reviewed `cache.ttl`, projection exclusion, and consumer child-format mapping, but delegates root selection and safety to cache storage. Keeping safety in reproducibility was rejected because the same root secures update, artifact, generated-state, and assembler consumers beyond image reproducibility. Moving filesystem-sensitive checks into aggregate parsing was rejected because it would change observable validation timing, add host-environment dependencies to the aggregate, and conflict with the behavior-preserving scope.
 
 ### Leave runtime-host-access with only host-access state
 
@@ -76,7 +78,7 @@ Hard-coding future `[output]` here was rejected because this prerequisite is beh
 
 1. Add characterization tests around the current aggregate parser, cache safety matrix, defaults, host-access independence, corporate-network independence, projection exclusion, and container boundaries.
 2. Introduce immutable aggregate local-project configuration and domain parser registration without changing call sites.
-3. Move cache-root resolution and safety ownership behind `user-cache-storage` while retaining compatibility adapters as needed.
+3. Characterize existing cache-storage ownership, correct only concrete root-selection or child-derivation bypasses, and retain compatibility adapters as needed.
 4. Migrate facade commands and domain consumers to the aggregate result, preserving validation-before-effects ordering.
 5. Remove runtime-host-access ownership and obsolete adapters only after parity tests pass.
 6. Synchronize and archive this change before updating or applying `improve-host-build-observability`.
