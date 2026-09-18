@@ -185,7 +185,7 @@ class ConstructorProjectFacadeAcceptancePhase7Tests(unittest.TestCase):
         import docker.versioning.project_state as project_state
         real_resolve = project_state.resolve_project_state
         real_inventory_path = __import__("docker.constructor_cli", fromlist=["_"])._resolve_inventory_path
-        real_local_settings = inventory.resolve_local_corporate_settings
+        real_load_config = inventory.load_project_configuration
 
         def record_resolve(path, *args, **kwargs):
             identities.append(Path(path).resolve())
@@ -194,16 +194,16 @@ class ConstructorProjectFacadeAcceptancePhase7Tests(unittest.TestCase):
             path = real_inventory_path(request)
             inventory_paths.append(path)
             return path
-        def record_local_settings(path, **kwargs):
+        def record_load_config(path, **kwargs):
             companion_inputs.append(Path(path).with_name("docker-constructor.local.toml"))
-            return real_local_settings(path, **kwargs)
+            return real_load_config(path, **kwargs)
 
         from docker.versioning.verification import BuildVerificationResult
         with _cwd(self.outside), \
              patch("docker.versioning.verification.verify_build", return_value=BuildVerificationResult("test", (), True, ())), \
              patch("docker.versioning.project_state.resolve_project_state", side_effect=record_resolve), \
              patch("docker.constructor_cli._resolve_inventory_path", side_effect=record_inventory_path), \
-             patch("docker.versioning.inventory.resolve_local_corporate_settings", side_effect=record_local_settings):
+             patch("docker.versioning.inventory.load_project_configuration", side_effect=record_load_config):
             explicit_rc = main([
                 "--project-directory", str(self.project), "verify", "--scope", "build",
                 "--collect-evidence", "--output-dir", str(output),

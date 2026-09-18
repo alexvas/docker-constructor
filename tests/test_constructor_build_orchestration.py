@@ -1418,6 +1418,7 @@ class TestMaterializationBoundary(unittest.TestCase):
         (self.repo / "docker-constructor.local.toml").write_text(
             f'[cache]\ndir = "{self.cache}"\n'
         )
+        (self.repo / "Dockerfile").write_text("FROM scratch\n")
 
     def _request(self, *, publish, runner, materialize=None, transport_factory=None):
         return BuildRequest(
@@ -1474,7 +1475,7 @@ class TestMaterializationBoundary(unittest.TestCase):
         self.assertEqual([], list(self.cache.rglob("committed-build.json")))
         # The project checkout is untouched: only our own fixtures remain.
         self.assertEqual(
-            {"docker-constructor.toml", "docker-constructor.local.toml"},
+            {"docker-constructor.toml", "docker-constructor.local.toml", "Dockerfile"},
             {p.name for p in self.repo.iterdir()},
         )
         self.assertFalse((self.repo / ".docker-cache").exists())
@@ -1990,6 +1991,7 @@ class TestPiMaterializationBoundary(unittest.TestCase):
         (self.repo / "docker-constructor.local.toml").write_text(
             f'[cache]\ndir = "{self.cache}"\n'
         )
+        (self.repo / "Dockerfile").write_text("FROM scratch\n")
         # Spies proving snapshot creation never runs for a Pi failure and that
         # cleanup is still invoked with the (never-assigned) snapshot.
         self.snapshot_calls: list[tuple] = []
@@ -2124,6 +2126,7 @@ class TestPiSnapshotAdmissionFailure(unittest.TestCase):
         (self.repo / "docker-constructor.local.toml").write_text(
             f'[cache]\ndir = "{self.cache}"\n'
         )
+        (self.repo / "Dockerfile").write_text("FROM scratch\n")
         # Snapshot admission fails (the derived environment is rejected);
         # ``cleanup_artifact_snapshot`` is recorded so the boundary can assert
         # it ran with the never-assigned snapshot.

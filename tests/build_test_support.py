@@ -19,6 +19,7 @@ from tests.pi_fixtures import (
 
 __all__ = [
     "DIGEST_VALID_ARTIFACT_BYTES",
+    "DOCKERFILE_PATH",
     "INVENTORY_PATH",
     "digest_valid_selected_artifacts",
     "publish_digest_valid_artifacts",
@@ -76,3 +77,9 @@ def publish_digest_valid_artifacts(
 
 INVENTORY_PATH = Path(_TEMPORARY_DIRECTORY.name) / "docker-constructor.toml"
 shutil.copyfile(Path(__file__).resolve().parents[1] / "docker-constructor.toml", INVENTORY_PATH)
+
+# The selected project's Dockerfile is a required build input; builds invoked
+# without the facade still need a readable Dockerfile so build-context
+# confinement can generate its transaction-owned copy.
+DOCKERFILE_PATH = INVENTORY_PATH.parent / "Dockerfile"
+DOCKERFILE_PATH.write_bytes(b"FROM scratch\n")

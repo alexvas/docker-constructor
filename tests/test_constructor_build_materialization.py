@@ -215,6 +215,7 @@ class TestMaterializationOrchestration(unittest.TestCase):
             (repo / "docker-constructor.local.toml").write_text(
                 f'[cache]\ndir = "{cache}"\n'
             )
+            (repo / "Dockerfile").write_text("FROM scratch\n")
             def materialize(*args, **kwargs):
                 effects.append("materialize")
                 return publish_digest_valid_artifacts(*args, **kwargs)
@@ -248,6 +249,7 @@ class TestMaterializationOrchestration(unittest.TestCase):
             (root / "docker-constructor.local.toml").write_text(
                 "[corporate-trust]\nenabled = true\n"
             )
+            (root / "Dockerfile").write_text("FROM scratch\n")
             local = root / ".docker-local"
             local.mkdir()
             bundle = local / "corporate-ca-bundle.crt"

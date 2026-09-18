@@ -3,3 +3,9 @@
 .cursor
 *.md
 !README.md
+# Host-only constructor inputs. Build-context confinement (see
+# docker/versioning/build_context_confinement.py) is the production
+# enforcement for every selected project/context; these entries are defense
+# in depth for this repository's own default context only.
+docker-constructor.toml
+docker-constructor.local.toml

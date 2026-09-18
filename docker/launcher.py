@@ -479,23 +479,17 @@ class RunResult:
 
 def _resolve_host_access(
     policy: object | None,
-    inventory_path: Path,
+    local_host_access: object | None,
 ) -> RunHostAccess | None:
     """Resolve host-access rendering inputs from reviewed policy
-    and the local companion.
+    and the single shared local aggregate result.
 
     Returns ``None`` when the policy is enabled but the local
-    companion is missing or its ``[host-access].address`` is absent.
-    The caller must translate ``None`` into a config-failure
-    ``RunResult``.
-
-    Raises ``InventoryError`` (from ``load_local_config_for_inventory``)
-    when the companion exists but is malformed, contains unknown keys,
-    or holds an invalid address — carrying the path-specific Phase 1
-    diagnostic.
+    ``[host-access]`` slice has no address. The caller must translate
+    ``None`` into a config-failure ``RunResult``. The caller passes only
+    the host-access domain slice; this function never reopens or re-parses
+    the local companion.
     """
-    from docker.versioning.inventory import load_local_config_for_inventory
-
     if policy is None:
         return RunHostAccess.disabled()
     enabled = getattr(policy, "enabled", False)
@@ -507,15 +501,10 @@ def _resolve_host_access(
     if not mode:
         return RunHostAccess.disabled()
 
-    try:
-        local = load_local_config_for_inventory(inventory_path)
-    except FileNotFoundError:
+    if local_host_access is None:
         return None
 
-    if local is None:
-        return None
-
-    addr = getattr(local.host_access, "address", None) if local.host_access else None
+    addr = getattr(local_host_access, "address", None)
     if not addr or not isinstance(addr, str):
         return None
 
@@ -553,9 +542,9 @@ def orchestrate_run(request: RunRequest) -> RunResult:
     )
     from docker.versioning.inventory import (
         InventoryError,
-        load_inventory,
+        load_project_configuration,
         resolve_corporate_trust_bundle_path,
-        resolve_local_corporate_settings,
+        validate_corporate_trust_bundle,
     )
     from docker.versioning.rendering import render_run_vector
 
@@ -572,39 +561,42 @@ def orchestrate_run(request: RunRequest) -> RunResult:
             message="project_root must contain the selected inventory",
         )
 
-    # ── Step 2: load inventory ──────────────────────────────
+    # ── Step 2: load both fixed configuration documents ────
+    # The shared transaction parses and validates the reviewed inventory
+    # and any present local companion before any effect, and returns one
+    # aggregate local result consumed by every domain below.
     try:
-        inventory = load_inventory(Path(request.inventory_path))
-    except Exception as exc:
+        inventory, local_corporate = load_project_configuration(
+            Path(request.inventory_path),
+        )
+    except (InventoryError, OSError, ValueError, KeyError) as exc:
         return RunResult(
             exit_kind=ExitKind.CONFIG,
-            message=f"Failed to load inventory: {exc}",
+            message=f"Failed to load configuration: {exc}",
         )
 
-    # ── Step 1b: validate local corporate settings ──────────
-    host_access_policy = getattr(inventory.runtime, "host_access", None)
-    host_access_mode = (
-        getattr(host_access_policy, "mode", None)
-        if getattr(host_access_policy, "enabled", False)
-        else None
-    )
+    # Corporate trust bundle host path — resolved only on the enabled path.
+    # An enabled but missing or malformed fixed bundle fails closed before
+    # any runtime effect, exactly as for build planning.
     local_project_root = (
         Path(request.project_root) if request.project_root is not None else None
     )
-    try:
-        local_corporate = resolve_local_corporate_settings(
-            Path(request.inventory_path),
-            repository_root=local_project_root,
-            host_access_mode=host_access_mode,
-        )
-    except InventoryError as exc:
-        return RunResult(
-            exit_kind=ExitKind.CONFIG,
-            message=str(exc),
-        )
-
-    # Corporate trust bundle host path — resolved only on the enabled path
-    # (the fixed repository-local bundle was already validated above).
+    if local_corporate.corporate_trust.enabled:
+        if local_project_root is None:
+            return RunResult(
+                exit_kind=ExitKind.CONFIG,
+                message=(
+                    "corporate trust is enabled but project_root is absent; "
+                    "cannot resolve <project-root>/.docker-local/"
+                    "corporate-ca-bundle.crt"
+                ),
+            )
+        try:
+            validate_corporate_trust_bundle(
+                resolve_corporate_trust_bundle_path(local_project_root)
+            )
+        except InventoryError as exc:
+            return RunResult(exit_kind=ExitKind.CONFIG, message=str(exc))
     corporate_trust_bundle: str | None = None
     if local_corporate.corporate_trust.enabled and local_project_root is not None:
         corporate_trust_bundle = os.path.abspath(
@@ -661,16 +653,10 @@ def orchestrate_run(request: RunRequest) -> RunResult:
     runtime_projection_root = str(project_state.runtime_root) if project_state else ""
 
     # ── Step 1c: resolve host-access policy ─────────────────
-    try:
-        host_access = _resolve_host_access(
-            getattr(inventory.runtime, "host_access", None),
-            Path(request.inventory_path),
-        )
-    except InventoryError as exc:
-        return RunResult(
-            exit_kind=ExitKind.CONFIG,
-            message=str(exc),
-        )
+    host_access = _resolve_host_access(
+        getattr(inventory.runtime, "host_access", None),
+        local_corporate.host_access,
+    )
     if host_access is None:
         return RunResult(
             exit_kind=ExitKind.CONFIG,

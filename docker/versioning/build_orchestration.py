@@ -49,6 +49,14 @@ from docker.versioning.build_cache import (
     commit_build_set, maintain_uncommitted_blobs,
     recover_abandoned_snapshots,
 )
+from docker.versioning.build_context_confinement import (
+    BuildContextConfinement,
+    ConfinementError,
+    MaterializedConfinement,
+    cleanup_build_context_confinement,
+    materialize_build_context_confinement,
+    plan_build_context_confinement,
+)
 from docker.versioning.cache_storage import prepare_project_root, resolve_effective_root
 from docker.versioning.build_materialization import (
     HostNetworkPolicy,
@@ -72,7 +80,6 @@ from docker.versioning.errors import (
     VersionConfigError,
 )
 from docker.versioning.inventory import (
-    load_inventory,
     load_project_configuration,
     resolve_corporate_trust_bundle_path,
     validate_corporate_trust_bundle,
@@ -707,7 +714,24 @@ def execute_build(
         )
     constructor_project = Path(request.project_root).resolve()
 
-    # 1. Fail before download, publication, or a Docker build when the local
+    # 1. Confine the host-only constructor documents to the host before any
+    # materialization, publication, or Docker invocation. Fail closed when the
+    # effective context or Dockerfile cannot be confined safely.
+    assert plan.render_inputs is not None
+    try:
+        confinement = plan_build_context_confinement(
+            inventory_path=Path(request.inventory_path),
+            context=plan.render_inputs.build_context,
+            dockerfile=plan.render_inputs.dockerfile,
+        )
+    except ConfinementError as exc:
+        return BuildResult(
+            exit_kind=ExitKind.CONFIG,
+            message=f"build context confinement rejected: {exc}",
+            build_args=build_args, display_string=display_string,
+        )
+
+    # 2. Fail before download, publication, or a Docker build when the local
     # client cannot import BuildKit named contexts.
     supported = request._named_context_supported or _default_named_context_supported
     try:
@@ -736,6 +760,14 @@ def execute_build(
     # Resolve constructor identity once; all implicit build state shares it.
     snapshot: MaterializedSnapshot | None = None
     lock: ConstructorProjectBuildLock | None = None
+    confinement_artifacts: MaterializedConfinement | None = None
+
+    def cleanup_confinement() -> None:
+        nonlocal confinement_artifacts
+        current = confinement_artifacts
+        confinement_artifacts = None
+        cleanup_build_context_confinement(current)
+
     try:
         if plan.cache_root is None:
             raise SnapshotError("missing resolved constructor cache root")
@@ -753,6 +785,13 @@ def execute_build(
             constructor_project, lock=lock, cache_root=project_state.cache_root,
             project_state=project_state,
         )
+        if confinement.active:
+            # Recovery removes every entry in the transaction root, so the
+            # generated confinement state is published only after it runs and
+            # before any artifact materialization, publication, or Docker call.
+            confinement_artifacts = materialize_build_context_confinement(
+                confinement, generated_root=project_state.transactions_root,
+            )
         selected_artifacts = tuple(select_build_artifacts(projection))
         transport_factory = request._transport_factory or UrllibStreamingTransport
         transport = transport_factory(plan.host_network_policy)
@@ -799,9 +838,31 @@ def execute_build(
         render_inputs = dataclass_replace(plan.render_inputs, named_context=Materialized(
             str(snapshot.path), attestation,
         ))
+        if confinement_artifacts is not None:
+            # The generated Dockerfile copy carries the Dockerfile-specific
+            # ignore file that forces the source documents out of the context.
+            render_inputs = dataclass_replace(
+                render_inputs, dockerfile=str(confinement_artifacts.dockerfile),
+            )
         build_args = render_build_vector(render_inputs)
         display_string = render_command_display(build_args)
+    except ConfinementError as exc:
+        try:
+            cleanup_confinement()
+        except BaseException:
+            pass
+        if lock is not None:
+            lock.release()
+        return BuildResult(
+            exit_kind=ExitKind.CONFIG,
+            message=f"build context confinement failed: {exc}",
+            build_args=build_args, display_string=display_string,
+        )
     except (MaterializationError, BuildCacheError, SnapshotError, OSError, ValueError) as exc:
+        try:
+            cleanup_confinement()
+        except BaseException:
+            pass
         try:
             cleanup_artifact_snapshot(snapshot)
         except (SnapshotError, OSError) as cleanup_exc:
@@ -812,6 +873,11 @@ def execute_build(
                            message=f"build artifact materialization failed: {exc}",
                            build_args=build_args, display_string=display_string)
     except BaseException:
+        try:
+            cleanup_confinement()
+        except BaseException:
+            # Never replace interruption/unexpected primary failure with cleanup.
+            pass
         try:
             cleanup_artifact_snapshot(snapshot)
         except BaseException:
@@ -922,6 +988,11 @@ def execute_build(
             process_result=proc, publish_result=publish_result)
     finally:
         primary_exception = sys.exc_info()[0] is not None
+        try:
+            cleanup_confinement()
+        except BaseException:
+            if not primary_exception:
+                raise
         try:
             if snapshot is not None:
                 cleanup_artifact_snapshot(snapshot)
@@ -1130,7 +1201,7 @@ def _resolve_doctor_host_access(
         # be determined — no implicit gateway diagnosis.
         return None, None, None
     try:
-        inv = load_inventory(inventory_path)
+        inv, _local = load_project_configuration(Path(inventory_path))
     except Exception as exc:
         return None, None, f"cannot load inventory: {exc}"
     ha = getattr(inv.runtime, "host_access", None)

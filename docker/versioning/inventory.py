@@ -950,7 +950,16 @@ def load_project_configuration(
     *,
     host_access_mode: str | None = None,
 ) -> tuple[Inventory, LocalConfig]:
-    """Release reviewed and present local configuration only after both validate."""
+    """Release reviewed and present local configuration only after both validate.
+
+    This is the single command transaction: both fixed documents are routed
+    through the shared configuration-document boundary, and every returned
+    value comes from one parsed reviewed document and one parsed local
+    document. When ``host_access_mode`` is not supplied, the inspected
+    reviewed ``[runtime.host-access]`` mode is used so the local
+    ``[host-access]`` owner can accept its reviewed ``docker-gateway``
+    exception without a second reviewed parse.
+    """
     reviewed = DocumentIdentity(DocumentRole.REVIEWED, inventory_path)
     companion = resolve_local_companion_path(inventory_path)
     local = DocumentIdentity(DocumentRole.LOCAL, companion)
@@ -962,6 +971,15 @@ def load_project_configuration(
         ),
     )
     return release_owner_result(outcome)
+
+
+def _reviewed_host_access_mode(inventory: Inventory) -> str | None:
+    """Return the reviewed host-access mode that governs local parsing."""
+    policy = getattr(inventory.runtime, "host_access", None)
+    if not getattr(policy, "enabled", False):
+        return None
+    mode = getattr(policy, "mode", None)
+    return mode if isinstance(mode, str) else None
 
 
 def _validate_project_documents(
@@ -984,19 +1002,22 @@ def _validate_project_documents(
         return ProjectedOwnerResult(error=reviewed_outcome.error)
     inventory = reviewed_outcome.value
     assert inventory is not None
+    effective_mode = host_access_mode
+    if effective_mode is None:
+        effective_mode = _reviewed_host_access_mode(inventory)
     if DocumentRole.LOCAL not in by_role:
         # Route absent-companion defaults through the aggregate validator so
         # each domain owner supplies its own default, exactly as for an
         # existing empty companion.
         local_config = validate_local_document(
-            {}, host_access_mode=host_access_mode
+            {}, host_access_mode=effective_mode
         )
         return ProjectedOwnerResult(value=(inventory, local_config))
     local_outcome = capture_owner_result(
         local,
         lambda: validate_local_document(
             dict(by_role[DocumentRole.LOCAL].data),
-            host_access_mode=host_access_mode,
+            host_access_mode=effective_mode,
         ),
     )
     if local_outcome.error is not None:

@@ -19,6 +19,11 @@ from docker.versioning.runtime_verification import (
 )
 
 
+_CANONICAL_INVENTORY = (
+    Path(__file__).resolve().parents[1] / "docker-constructor.toml"
+).read_text(encoding="utf-8")
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # Minimal fake runner
 # ═══════════════════════════════════════════════════════════════════════
@@ -517,7 +522,7 @@ class TestFacadeVerifyHostAccessRed(unittest.TestCase):
             inv = root / "docker-constructor.toml"
             comp = root / "docker-constructor.local.toml"
             # Write minimal files — validation is mocked
-            inv.write_text('schema = 1\n')
+            inv.write_text(_CANONICAL_INVENTORY)
             from docker.versioning.project_state import resolve_project_state
             cache = root / "constructor-cache"
             cache.mkdir(mode=0o700)
@@ -546,7 +551,7 @@ class TestFacadeVerifyHostAccessRed(unittest.TestCase):
             captured_request = []
             captured_inv_path = []
 
-            def _fake_resolve(inv_path: Any) -> tuple[Any, str | None, str | None]:
+            def _fake_resolve(inv_path: Any, **_kwargs: Any) -> tuple[Any, str | None, str | None]:
                 captured_inv_path.append(inv_path)
                 return _enabled, "10.0.2.100", None
 
@@ -607,7 +612,7 @@ class TestFacadeVerifyHostAccessRed(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             inv = root / "docker-constructor.toml"
-            inv.write_text('schema = 1\n')
+            inv.write_text(_CANONICAL_INVENTORY)
             from docker.versioning.project_state import resolve_project_state
             cache = root / "constructor-cache"
             cache.mkdir(mode=0o700)
@@ -632,7 +637,7 @@ class TestFacadeVerifyHostAccessRed(unittest.TestCase):
 
             captured_request = []
 
-            def _fake_resolve(inv_path: Any) -> tuple[Any, str | None, str | None]:
+            def _fake_resolve(inv_path: Any, **_kwargs: Any) -> tuple[Any, str | None, str | None]:
                 return None, None, None
 
             def _fake_verify_runtime(req: Any) -> Any:
@@ -690,7 +695,7 @@ class TestFacadeVerifyHostAccessRed(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             inv = root / "docker-constructor.toml"
-            inv.write_text('schema = 1\n')
+            inv.write_text(_CANONICAL_INVENTORY)
             from docker.versioning.project_state import resolve_project_state
             cache = root / "constructor-cache"
             cache.mkdir(mode=0o700)
@@ -721,7 +726,7 @@ class TestFacadeVerifyHostAccessRed(unittest.TestCase):
             captured_request = []
             captured_inv_path = []
 
-            def _fake_resolve(inv_path: Any) -> tuple[Any, str | None, str | None]:
+            def _fake_resolve(inv_path: Any, **_kwargs: Any) -> tuple[Any, str | None, str | None]:
                 captured_inv_path.append(inv_path)
                 return _ext_addr, "203.0.113.99", None
 

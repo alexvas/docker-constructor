@@ -50,7 +50,7 @@ def build_transports(
     *,
     no_cache: bool = False,
     inventory_cache: object | None = None,
-    local_config: object | None = None,
+    local_cache: object | None = None,
     suggest_mode: bool = False,
 ) -> TransportConfig:
     """Construct production HTTP/Git transports and collect auth tokens.
@@ -63,6 +63,11 @@ def build_transports(
     inventory_cache:
         Optional ``CacheConfig`` from the validated inventory
         (``[cache]`` section of ``docker-constructor.toml``).
+    local_cache:
+        Optional ``LocalCacheConfig`` cache slice of the shared local
+        aggregate result (``[cache]`` section of the host-only companion).
+        Contains only the untrusted configured ``dir`` string; cache-storage
+        owns resolution, normalization, and safety.
     suggest_mode:
         When ``True``, disk cache is **never** created or written to.
         An in-memory-only caching layer is used instead so that
@@ -126,7 +131,7 @@ def build_transports(
         prepare_local_root,
         versioning_child,
     )
-    from .model import CacheConfig, LocalConfig
+    from .model import CacheConfig, LocalCacheConfig
 
     http = _ProductionHttp()
 
@@ -147,8 +152,8 @@ def build_transports(
             # before constructing DiskCache. cache_storage owns root
             # validation/hardening; DiskCache owns JSON format and TTL.
             local_dir = (
-                local_config.cache.dir
-                if isinstance(local_config, LocalConfig)
+                local_cache.dir
+                if isinstance(local_cache, LocalCacheConfig)
                 else None
             )
             xdg = _os.environ.get("XDG_CACHE_HOME")

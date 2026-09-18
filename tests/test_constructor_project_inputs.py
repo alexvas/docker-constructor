@@ -273,7 +273,7 @@ class TestFixedProjectInputs(unittest.TestCase):
 
             runner = Runner()
 
-            def resolve(inv_path: str, project_root: Path):
+            def resolve(inv_path: str, project_root: Path, **_kwargs: object):
                 seen.append(project_root)
                 return original(inv_path, project_root)
 

@@ -19,7 +19,7 @@ import unittest
 from pathlib import Path
 
 from docker.versioning.cache_storage import CacheStorageError
-from docker.versioning.model import CacheConfig, LocalCacheConfig, LocalConfig
+from docker.versioning.model import CacheConfig, LocalCacheConfig
 
 
 def _mode(path: Path) -> int:
@@ -52,14 +52,14 @@ class _HandoffTestCase(unittest.TestCase):
 
         os.environ["XDG_CACHE_HOME"] = xdg
         local = (
-            LocalConfig(cache=LocalCacheConfig(dir=local_dir))
+            LocalCacheConfig(dir=local_dir)
             if local_dir is not None
             else None
         )
         return build_transports(
             no_cache=no_cache,
             inventory_cache=inventory_cache,
-            local_config=local,
+            local_cache=local,
         )
 
     def _entries(self, directory: Path) -> list[Path]:

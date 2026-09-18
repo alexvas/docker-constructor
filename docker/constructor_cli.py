@@ -36,7 +36,10 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Mapping, Optional, Protocol, Sequence
+from typing import Any, Callable, Mapping, Optional, Protocol, Sequence, TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from docker.versioning.model import Inventory, LocalConfig
 
 from docker.versioning.constructor_project import (
     ConstructorProject,
@@ -264,6 +267,9 @@ def _discover_workspace_paths_from_container(
 
 def _resolve_verify_host_access(
     inv_path: str,
+    *,
+    inventory: "Inventory | None" = None,
+    local_config: "LocalConfig | None" = None,
 ) -> tuple[HostAccessPolicy | None, str | None, str | None]:
     """Resolve host-access expectations for runtime verification.
 
@@ -273,39 +279,42 @@ def _resolve_verify_host_access(
       unreadable/malformed/missing; caller must report CONFIG.
     * ``host_access=None``, ``address=None`` — disabled.
     * ``host_access=...``, ``address=...`` — enabled with addr.
+
+    Callers inside a command transaction pass the already-loaded shared
+    reviewed inventory and local aggregate result so no document is parsed
+    twice. When they are omitted, this helper performs one shared
+    transaction on its own.
     """
     from pathlib import Path
     from docker.versioning.inventory import (
-        load_inventory,
-        load_local_config_for_inventory,
+        load_project_configuration,
         resolve_local_companion_path,
     )
     from docker.versioning.model import HostAccessPolicy
 
     _p = Path(inv_path)
-    try:
-        inv = load_inventory(_p)
-    except Exception as exc:
-        return None, None, f"cannot load inventory {_p}: {exc}"
-    ha = getattr(inv.runtime, "host_access", None)
+    if inventory is None or local_config is None:
+        try:
+            inventory, local_config = load_project_configuration(_p)
+        except Exception as exc:
+            return None, None, f"cannot load inventory {_p}: {exc}"
+    ha = getattr(inventory.runtime, "host_access", None)
     if not isinstance(ha, HostAccessPolicy) or not ha.enabled:
         return None, None, None
     mode = ha.mode
     if not mode:
         return None, None, None
     companion_path = resolve_local_companion_path(_p)
+    address: str | None = None
+    local_host_access = getattr(local_config, "host_access", None)
+    local_address = getattr(local_host_access, "address", None)
+    if local_address and local_address.strip():
+        address = local_address.strip()
     if not companion_path.is_file():
         return None, None, (
             f"host access enabled ({mode}) but local companion "
             f"{companion_path} missing; run 'doctor' or create it"
         )
-    address: str | None = None
-    try:
-        local = load_local_config_for_inventory(_p)
-        if local.host_access.address and local.host_access.address.strip():
-            address = local.host_access.address.strip()
-    except Exception as exc:
-        return None, None, f"cannot load {companion_path}: {exc}"
     if not address:
         return None, None, (
             f"host access enabled ({mode}) but {companion_path} "
@@ -317,6 +326,8 @@ def _resolve_verify_host_access(
 def _resolve_verify_corporate_network(
     inv_path: str,
     repo_root: Path,
+    *,
+    local_config: "LocalConfig | None" = None,
 ) -> tuple[bool, str | None, str | None, str | None]:
     """Resolve corporate trust/proxy expectations for runtime verification.
 
@@ -325,16 +336,29 @@ def _resolve_verify_corporate_network(
     ``error`` is not ``None`` when the companion is malformed or the
     enabled fixed bundle is unusable; the caller must report CONFIG before
     any Docker inspection.
+
+    Callers inside a command transaction pass the shared local aggregate
+    result so the companion is not reopened; otherwise this helper loads it
+    once itself.
     """
     from docker.versioning.inventory import (
+        resolve_corporate_trust_bundle_path,
         resolve_local_corporate_settings,
+        validate_corporate_trust_bundle,
     )
 
     try:
-        local = resolve_local_corporate_settings(
-            Path(inv_path),
-            repository_root=repo_root,
-        )
+        if local_config is None:
+            local = resolve_local_corporate_settings(
+                Path(inv_path),
+                repository_root=repo_root,
+            )
+        else:
+            local = local_config
+            if local.corporate_trust.enabled:
+                validate_corporate_trust_bundle(
+                    resolve_corporate_trust_bundle_path(repo_root)
+                )
     except Exception as exc:
         return False, None, None, str(exc)
     return (
@@ -937,14 +961,21 @@ def _real_dispatcher(
         from pathlib import Path as _Path
         _project_root = request.constructor_project.root
         from docker.versioning.project_state import resolve_project_state
-        from docker.versioning.inventory import resolve_local_corporate_settings
+        from docker.versioning.inventory import load_project_configuration
         from docker.versioning.cache_storage import prepare_resolved_root, resolve_effective_root
+        # One shared reviewed/local transaction for the whole verify command;
+        # host-access, corporate-network, and cache consumers below receive
+        # slices of the same local aggregate result.
         try:
-            _local_cache = resolve_local_corporate_settings(
-                inv_path, repository_root=_project_root,
+            _inventory, _local_config = load_project_configuration(_Path(inv_path))
+        except Exception as exc:
+            return CommandResult(
+                exit_kind=ExitKind.CONFIG,
+                message=f"cannot load inventory {inv_path}: {exc}",
             )
+        try:
             _cache_root = resolve_effective_root(
-                getattr(getattr(_local_cache, "cache", None), "dir", None),
+                getattr(getattr(_local_config, "cache", None), "dir", None),
                 xdg_cache_home=_os_builtin.environ.get("XDG_CACHE_HOME"), home=_Path.home(),
             )
         except Exception as exc:
@@ -985,7 +1016,11 @@ def _real_dispatcher(
 
         if scope in ("runtime", "all"):
             _verify_ha, _verify_ha_addr, _verify_ha_err = \
-                _resolve_verify_host_access(str(inv_path))
+                _resolve_verify_host_access(
+                    str(inv_path),
+                    inventory=_inventory,
+                    local_config=_local_config,
+                )
             if _verify_ha_err is not None:
                 return CommandResult(
                     exit_kind=ExitKind.CONFIG,
@@ -997,7 +1032,9 @@ def _real_dispatcher(
                 _verify_proxy_no_proxy,
                 _verify_net_err,
             ) = _resolve_verify_corporate_network(
-                str(inv_path), request.constructor_project.root
+                str(inv_path),
+                request.constructor_project.root,
+                local_config=_local_config,
             )
             if _verify_net_err is not None:
                 return CommandResult(

@@ -208,19 +208,18 @@ def _handle_check_updates(
     from docker.versioning.providers.base import ProviderContext
 
     # --- resolve transports (production http / git) ---
-    from docker.versioning.inventory import load_local_config_for_inventory
     from docker.versioning.transports import build_transports
 
     inventory_cache = getattr(inventory, "cache", None)
     inventory_path = command_args.get("_inventory_path")
-    local_config = (
-        load_local_config_for_inventory(Path(inventory_path))
-        if isinstance(inventory_path, (str, Path)) else None
-    )
+    # Cache consumers receive only the cache-owned slice of the shared local
+    # aggregate result; they never reopen the companion.
+    local_config = command_args.get("_local_config")
+    local_cache = getattr(local_config, "cache", None)
     config = build_transports(
         no_cache=bool(command_args.get("no_cache", False)),
         inventory_cache=inventory_cache,
-        local_config=local_config,
+        local_cache=local_cache,
         suggest_mode=bool(command_args.get("suggest", False)),
     )
 
@@ -334,10 +333,10 @@ def dispatch(
         EffectiveConfigError,
         UpdateError,
     )
-    from docker.versioning.inventory import load_inventory
+    from docker.versioning.inventory import load_project_configuration
 
     try:
-        inventory = load_inventory(inventory_path)
+        inventory, local_config = load_project_configuration(inventory_path)
     except FileNotFoundError:
         return CommandResult(
             exit_kind=ExitKind.CONFIG,
@@ -359,6 +358,7 @@ def dispatch(
     try:
         handler_args = dict(command_args)
         handler_args["_inventory_path"] = inventory_path
+        handler_args["_local_config"] = local_config
         if command == "check-updates":
             return handler(inventory, handler_args, progress=progress)
         return handler(inventory, handler_args)

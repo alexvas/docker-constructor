@@ -84,6 +84,7 @@ class _ReleaseOrderingTestCase(unittest.TestCase):
         self.checkout.mkdir()
         self.xdg = self.base / "xdg"
         self.inventory = _fixture_inventory(self.checkout)
+        (self.checkout / "Dockerfile").write_text("FROM scratch\n")
         self._saved = {
             key: os.environ.get(key) for key in ("HOME", "XDG_CACHE_HOME")
         }

@@ -433,3 +433,263 @@ already delegated to `cache_storage.resolve_default_root()`, and both that
 selector and `resolve_effective_root()` are owned by `cache_storage`, so no
 policy moved and no selector was replaced. Accepted configuration, cache
 paths, permissions, diagnostics, and effect ordering are unchanged.
+
+# Phase 4 Validation Record
+
+Validation evidence for the domain-consumer migration, kept out of `tasks.md`
+per project convention.
+
+## Scope
+
+- `docker/versioning/inventory.py` — `load_project_configuration()` is the one
+  command transaction: it routes both fixed documents through the Phase 1
+  boundary, returns one reviewed inventory and one aggregate local result, and
+  derives the local parsing mode from the validated reviewed
+  `[runtime.host-access]` policy when the caller does not override it.
+- `docker/versioning/readonly_service.py` — `validate`, `show`, and
+  `check-updates` load both documents once through the shared transaction and
+  pass the aggregate local result to the update-discovery cache consumer.
+- `docker/versioning/transports.py` — `build_transports()` consumes only the
+  `LocalCacheConfig` cache slice (`local_cache=`), never the aggregate.
+- `docker/launcher.py` — `orchestrate_run()` uses the shared transaction and
+  passes only `local.host_access` to `_resolve_host_access()`.
+- `docker/versioning/build_orchestration.py` — `plan_build()` continues to use
+  the shared transaction; `_resolve_doctor_host_access()` now validates both
+  documents before probing or persisting a gateway; `execute_build()` now runs
+  the build-context confinement boundary before materialization, publication,
+  or Docker.
+- `docker/constructor_cli.py` — the `verify` command performs one shared
+  transaction and derives host-access, corporate-network, and cache inputs from
+  it; the two verify helpers accept pre-loaded state and still self-load when
+  invoked directly.
+- `docker/versioning/build_context_confinement.py` (new) — the production
+  build-context confinement boundary: derives the effective context, computes
+  context-relative paths for both fixed documents, preserves existing ignore
+  rules, and materializes a transaction-owned Dockerfile copy plus its
+  Dockerfile-specific ignore file.
+- `.dockerignore` — excludes both fixed source TOML documents from this
+  repository's default context as **defense in depth only**; it is not the
+  enforcement mechanism.
+- `tests/test_domain_consumer_migration_phase4.py` (new) — routing, parse-count,
+  ownership, independence, and no-leak coverage.
+- `tests/test_build_context_confinement.py` (new) — production build-context
+  confinement: default/explicit/nested/outside contexts, ignore-rule
+  preservation, negation override, fail-closed behavior, and transaction
+  cleanup.
+
+## Checks
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Phase 4 consumer suite | `python -m unittest tests.test_domain_consumer_migration_phase4` | 9 tests, `OK` |
+| Build-context confinement suite | `python -m unittest tests.test_build_context_confinement` | 29 tests, `OK` |
+| Build orchestration | `python -m unittest tests.test_constructor_build_orchestration` | 83 tests, `OK` |
+| Build transactions | `python -m unittest tests.test_constructor_build_transactions` | 30 tests, `OK` |
+| Build snapshot | `python -m unittest tests.test_constructor_build_snapshot` | 13 tests, `OK (skipped=2)` |
+| Dockerfile contracts | `python -m unittest tests.test_dockerfile_contracts` | 14 tests, `OK` |
+| Production type check | `ty check docker --python-version 3.14 --output-format concise` | All checks passed |
+| OpenSpec strict | `openspec validate extract-local-project-configuration --strict` | valid |
+| Whitespace | `git diff --check` / `git diff --cached --check` | clean |
+| Full suite | `python -m unittest discover -s tests` | 3526 tests, `OK (skipped=13)` |
+
+## RED → GREEN
+
+- `TestOneSharedDocumentTransaction.test_command_transactions_parse_each_document_once`
+  was RED for `validate` (0 local parses), `show` (0), `doctor` (0), and `run`
+  (2 local parses) and is GREEN after the migration: each command records
+  exactly one `reviewed` and one `local` boundary parse.
+- `TestOneSharedDocumentTransaction.test_verify_transaction_parses_local_document_once`
+  was RED (2 local parses via cache + corporate loaders) and is GREEN (1) after
+  the single shared transaction.
+- `TestMalformedLocalFailsBeforeEffects.test_readonly_and_doctor_commands_reject_malformed_local`
+  was RED for `validate`, `show`, and `doctor` (all returned `SUCCESS`) and is
+  GREEN (all `CONFIG`).
+- `TestDomainSliceOwnership.test_run_does_not_reload_local_companion_for_host_access`
+  was RED (`_resolve_host_access` called `load_local_config_for_inventory()`)
+  and is GREEN (runtime host access consumes the shared `[host-access]` slice).
+- `TestDomainSliceOwnership.test_check_updates_passes_only_the_cache_slice_to_transports`
+  was RED (`build_transports(local_config=LocalConfig)`) and is GREEN
+  (`build_transports(local_cache=LocalCacheConfig)`).
+
+The remaining Phase 4 coverage is compatibility/ownership regression over
+already-correct behavior rather than a RED failure, and is recorded as such:
+
+- `TestCorporateNetworkIndependence.test_proxy_is_usable_without_host_access`
+  proves corporate proxy input remains usable with host access disabled and no
+  host-access variables are emitted. The shared transaction did not change this
+  behavior; the test characterises it after the migration.
+- `TestLocalSourceConfinement.test_local_state_absent_from_serialization_and_vectors`
+  and `test_effective_projections_exclude_local_aggregate` preserve the
+  existing no-leak behavior of reviewed serialization and the effective
+  projections.
+
+## Domain-slice ownership mapping
+
+| Consumer | Owning slice consumed | Source |
+| --- | --- | --- |
+| Runtime host access (`launcher._resolve_host_access`) | `LocalConfig.host_access` | shared transaction |
+| Cache (`transports.build_transports`, build/run/verify root resolution) | `LocalConfig.cache` | shared transaction |
+| Corporate network (build/run planning) | `LocalConfig.corporate_trust`, `LocalConfig.network_proxy` | shared transaction |
+| Reviewed inventory (`validate`, `show`, `check-updates`, build, run, doctor, verify) | `Inventory` | same shared transaction |
+
+`LocalConfig` aggregate values are composed once and never reopened. The
+remaining `resolve_local_corporate_settings()`/`load_local_config_for_inventory()`
+call sites are either the fallback in a directly-invoked verify helper or
+out-of-scope maintenance/acceptance shell scripts.
+
+## Build-context confinement boundary (4.5, corrected)
+
+The earlier Phase 4 revision relied on this repository's `.dockerignore` and a
+test that only inspected that text. That was insufficient: it protected only
+one repository and could not protect external constructor projects, explicit
+build contexts, projects with their own `.dockerignore`, or nested projects.
+The production boundary now lives in
+`docker/versioning/build_context_confinement.py` and runs inside
+`execute_build()`.
+
+- **Effective context.** The planner derives the context from the rendered
+  `BuildRenderInputs.build_context` (default: the selected project root, or an
+  explicit `BuildRequest.context`) and resolves it canonically with
+  `os.path.realpath`. A symlinked context root therefore cannot confuse
+  containment. The caller-supplied lexical context is retained as a secondary
+  root so a symlinked context ancestor cannot make an in-context entry look
+  external. A document entry outside every root is not transmitted and needs no
+  rule.
+- **Lexical document entries.** Both fixed document entries are made absolute
+  lexically (`os.path.abspath`; no `realpath`/`resolve`) and compared against
+  the context roots. Containment is decided by the entry Docker would transmit,
+  never by the symlink target: `docker-constructor.toml` or its companion may be
+  a symlink inside the context whose target lives outside, and the in-context
+  entry is still forced into the ignore file. The ignore rule names the lexical
+  entry (for example `project/docker-constructor.local.toml`), never the
+  resolved target. Because paths are only made absolute (never dereferenced),
+  a missing optional companion and a symlinked reviewed document both yield the
+  correct entry.
+- **Exact relative paths.** Both entries are added as exact context-relative
+  POSIX paths (for example `project/docker-constructor.toml`), never as broad
+  basename globs.
+- **Rule preservation.** The generated ignore file is seeded with the existing
+  applicable rules verbatim. A Dockerfile-specific `<Dockerfile>.dockerignore`
+  takes precedence over the context-root `.dockerignore`, matching Docker, so
+  neither source of project rules is silently discarded.
+- **Requested Dockerfile owns ignore selection.** The plan keeps two explicit
+  paths: `dockerfile_requested` (lexical absolute path passed or implied by the
+  caller, symlinks not followed) and `dockerfile_source` (canonical resolved
+  file). Ignore rules are looked up beside `dockerfile_requested`, exactly where
+  Docker associates them, so a Dockerfile symlink never causes the rules beside
+  its target to be read and never silently discards the project's own rules.
+  `dockerfile_source` is used only to copy the Dockerfile bytes. Relative
+  Dockerfile paths are interpreted relative to the effective context while
+  preserving the lexical requested location for lookup.
+- **Ignore encoding fails closed.** Ignore files are read as UTF-8; filesystem
+  *and* decoding failures are projected to `ConfinementError`. A malformed
+  ignore file never falls back to the context-root file, is never silently
+  skipped, and never escapes `execute_build()` as a raw exception. Error
+  messages name only the path, never the file contents.
+- **Forced exclusions last.** The two forced exclusions are appended after the
+  seed rules, so Docker's last-match-wins semantics make them immune to a later
+  user negation such as `!docker-constructor.local.toml`.
+- **Transaction-owned Dockerfile.** The requested Dockerfile's exact bytes are
+  copied into private constructor transaction state and the generated
+  `<generated-Dockerfile>.dockerignore` is placed beside it. Only the generated
+  Dockerfile path is passed through `--file`; the original context remains the
+  final positional Docker argument, so `COPY` semantics stay context-relative.
+- **Confirming case (`test_build_context_confinement`):**
+  - default context:
+    `TestDefaultAndExplicitContexts.test_default_context_equal_to_project_root`
+  - explicit context:
+    `test_explicit_context_equal_to_project_root`
+  - explicit/nested context:
+    `TestNestedAndOutsideContexts.test_nested_project_uses_context_relative_paths`
+  - inactive case (unrelated external inventory):
+    `test_inventory_outside_build_context_skips_confinement`,
+    `TestUnitPlanning.test_inactive_when_no_document_is_contained`
+  - rule preservation:
+    `TestIgnoreRulePreservation.test_later_negation_cannot_reinclude_local_companion`,
+    `test_existing_project_rules_are_preserved`,
+    `test_dockerfile_specific_ignore_takes_precedence`,
+    `test_missing_optional_companion_still_excludes_both_paths`
+  - symlinked reviewed document:
+    `TestSymlinkedDocuments.test_symlinked_reviewed_document_is_excluded`,
+    `TestUnitPlanning.test_symlinked_documents_keep_lexical_relative_paths`
+  - symlinked local companion:
+    `TestSymlinkedDocuments.test_symlinked_local_companion_is_excluded`
+  - execution-level symlink regression:
+    `TestSymlinkedDocuments.test_symlinked_entries_are_inspected_during_docker_call`
+  - symlinked Dockerfile (requested path owns ignore selection):
+    `TestUnitPlanning.test_symlinked_dockerfile_uses_requested_ignore_file`,
+    `TestSymlinkedDockerfile.test_symlinked_dockerfile_uses_requested_ignore_file`
+  - malformed ignore encoding fails closed:
+    `TestUnitPlanning.test_invalid_utf8_root_ignore_raises`,
+    `test_invalid_utf8_dockerfile_ignore_raises_without_fallback`,
+    `TestFailClosed.test_malformed_ignore_encoding_fails_without_effects`.
+
+  The symlink tests create external targets and symlink the in-context entries
+  to them, then assert confinement stays active, the lexical entries are the
+  forced rules, and the resolved outside targets never appear as rules. The
+  execution-level test drives `execute_build()` with a recording runner and
+  inspects the generated `Dockerfile.dockerignore` while it still exists,
+  proving both lexical entries are ignored and neither target path is named.
+  All other confirming tests capture the final Docker invocation through a
+  recording runner and inspect the generated ignore file while it still exists,
+  asserting the generated `--file`, the presence of `Dockerfile.dockerignore`,
+  the exact exclusion rules, and the original context as the final argument.
+- **Fail-closed (`TestFailClosed`):** a missing/unreadable Dockerfile, an
+  unreadable or invalid-UTF-8 `.dockerignore`, undeterminable containment, or
+  un-publishable generated state returns `CONFIG`/`OPERATIONAL` with empty
+  `build_args` and no runner, publisher, or materializer invocation.
+- **Cleanup (`TestTransactionCleanup`):** generated state is removed after
+  success, a Docker failure, a materialization failure, and an unexpected
+  exception, reusing `cleanup_artifact_snapshot`. Confinement is published only
+  after `recover_abandoned_snapshots()` (which clears the transaction root) and
+  is removed on every exit path.
+- The repository `.dockerignore` entries remain, clearly commented as defense
+  in depth.
+
+## INTROSPECT findings (4.9)
+
+- No command orchestration bypasses the shared transaction. `validate`,
+  `show`, `check-updates`, `build`, `run`, `doctor`, and `verify` all call
+  `load_project_configuration()` exactly once per command.
+- The reviewed raw re-read in `check-updates --suggest`
+  (`load_inventory_raw`) still routes through
+  `configuration_document_validation.parse_configuration_document`; it is a
+  reviewed-document read for suggestion-fragment rendering, never a local
+  companion reopen.
+- `_resolve_verify_host_access()` and `_resolve_verify_corporate_network()` no
+  longer reopen the companion when the command supplies pre-loaded state; the
+  `local_config=None` fallback exists only for direct callers/tests.
+- No cross-domain access was introduced: `transports` reads only
+  `LocalCacheConfig`; `_resolve_host_access` reads only `LocalHostAccess`;
+  corporate consumers read only `LocalCorporateTrust`/`LocalNetworkProxy`.
+- Vector/path drift: the migrated run/build/verify paths continue to produce
+  the same Docker vectors and cache/generated-state paths. The build vector
+  gains `--file <generated-Dockerfile>` only when a fixed document entry is
+  lexically inside the context (including a symlinked entry whose target is
+  outside); when both entries are outside, the original `--file` is
+  preserved unchanged (`test_inventory_outside_build_context_skips_confinement`).
+- Host-access coupling: corporate proxy/trust remain usable with host access
+  disabled; no host-access mapping or proxy port is emitted in that mode.
+- Configuration leakage: reviewed serialization, effective build/runtime
+  projections, the run vector, and the Docker build context exclude the local
+  companion path, its contents, and the aggregate; the separate fixed
+  `.docker-local/corporate-ca-bundle.crt` remains permitted and is still
+  mounted/validated only on the enabled path.
+- Correction applied: broad enforcement replaces the repository-only
+  `.dockerignore` reliance. The Dockerfile COPY-source visibility contract,
+  build transactions, and snapshot suites still pass.
+
+## User-visible behavior
+
+Phase 4 introduces **no accepted-configuration, default, cache-path, or
+container-visible behavior change**. The migration centralises document
+parsing and threads the single aggregate result to domain owners. Two
+observable changes are required by the specifications:
+
+- commands previously did not validate a present-but-malformed local companion
+  (`validate`, `show`, `doctor`, disabled-mode `verify`) and now fail closed
+  before effects, as required by `configuration-document-validation`; and
+- a build whose context contains either fixed document now passes
+  `--file <transaction-owned Dockerfile>` and its generated
+  `<Dockerfile>.dockerignore`, so Docker transmits neither host-only document.
+  The selected context directory itself is never modified.

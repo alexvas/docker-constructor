@@ -1396,12 +1396,12 @@ class TestVerifyBuildMismatchDiagnostics(unittest.TestCase):
             '[oh-my-zsh]\nrevision = "abc1234"\n'
         )
         self._inv_path = self._td / "docker-constructor.toml"
-        self._inv_path.write_text(
-            '[meta]\nversion = 1\n'
-            '[environments.pi-local]\n'
-            'provider = "docker"\n'
-            'name = "pi-cli-pi"\n'
-            'tag = "latest"\n'
+        # Reviewed inventory is validated by the shared transaction, so use
+        # the repository's current schema instead of a legacy stub.
+        import shutil
+        shutil.copy(
+            Path(__file__).resolve().parents[1] / "docker-constructor.toml",
+            self._inv_path,
         )
         self._inv_path.with_name("docker-constructor.local.toml").write_text(
             f'[cache]\ndir = "{self._cache_root}"\n'

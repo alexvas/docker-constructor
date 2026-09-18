@@ -79,16 +79,16 @@ Existing cache behavior is the compatibility oracle and already resides primaril
 
 **Deliverables:** every command—including validate, display, update discovery, build, run, doctor, and verification—uses shared reviewed/local document validation, the Phase 1 release gate, and one local aggregate result; runtime host access consumes only `[host-access]` plus reviewed policy; cache and corporate-network consumers receive only domain state; existing mappings, environment, trust/proxy inputs, cache paths, and Docker vectors remain unchanged; companion and aggregate state remain absent from contexts, projections, and containers. This phase, not Phase 1, owns complete cross-command gate integration.
 
-- [ ] 4.1 **RED:** Require validate, display, update discovery, build, run, doctor, and verification to route applicable reviewed/local files through Phase 1 and share one Phase 2 local result; verify each unmigrated route fails.
-- [ ] 4.2 **RED:** Require runtime host access to consume only local `[host-access]` plus reviewed policy while preserving Docker-gateway, external-address, disabled-mode, `HOST_ACCESS_ADDRESS`, and `HOST_PROXY_PORT` vectors; verify ownership fails.
-- [ ] 4.3 **RED:** Require cache consumers to consume only Phase 3 state while preserving all cache and generated-state paths; verify ownership fails.
-- [ ] 4.4 **RED:** Require corporate-network consumers to consume only trust/proxy state, remain independent from host access, and preserve build/runtime/download/assembler inputs; verify ownership fails.
-- [ ] 4.5 **RED:** Require both source TOML documents, paths, and aggregate values to remain absent from serialization, projections, contexts, and containers while authorized derived values and the separate CA bundle remain permitted; verify confinement wiring fails.
-- [ ] 4.6 **GREEN:** Migrate all command orchestration to shared document validation and the local aggregate result; verify task 4.1 passes.
-- [ ] 4.7 **GREEN:** Migrate runtime host-access, cache, and corporate-network consumers to domain results; verify tasks 4.2–4.4 pass.
-- [ ] 4.8 **GREEN:** Enforce document/aggregate confinement while retaining authorized derived values and separate project inputs; verify task 4.5 passes.
-- [ ] 4.9 **INTROSPECT:** Review for bypassed shared parsing, reopened companion files, cross-domain access, vector/path drift, host-access coupling, configuration leakage, or blocking the separate CA bundle; correct only migration defects.
-- [ ] 4.10 **VALIDATE:** Run command-routing, reviewed/local diagnostics, host-access, cache, corporate-network, serialization, projection, context, and container tests; record unchanged behavior and complete Phase 4 migration.
+- [x] 4.1 **RED:** Require validate, display, update discovery, build, run, doctor, and verification to route applicable reviewed/local files through Phase 1 and share one Phase 2 local result; verify each unmigrated route fails.
+- [x] 4.2 **RED:** Require runtime host access to consume only local `[host-access]` plus reviewed policy while preserving Docker-gateway, external-address, disabled-mode, `HOST_ACCESS_ADDRESS`, and `HOST_PROXY_PORT` vectors; verify ownership fails.
+- [x] 4.3 **RED:** Require cache consumers to consume only Phase 3 state while preserving all cache and generated-state paths; verify ownership fails.
+- [x] 4.4 **RED:** Require corporate-network consumers to consume only trust/proxy state, remain independent from host access, and preserve build/runtime/download/assembler inputs; verify ownership fails.
+- [x] 4.5 **RED:** Require both source TOML documents, paths, and aggregate values to remain absent from serialization, projections, contexts, and containers while authorized derived values and the separate CA bundle remain permitted; verify confinement wiring fails.
+- [x] 4.6 **GREEN:** Migrate all command orchestration to shared document validation and the local aggregate result; verify task 4.1 passes.
+- [x] 4.7 **GREEN:** Migrate runtime host-access, cache, and corporate-network consumers to domain results; verify tasks 4.2–4.4 pass.
+- [x] 4.8 **GREEN:** Enforce document/aggregate confinement while retaining authorized derived values and separate project inputs; verify task 4.5 passes.
+- [x] 4.9 **INTROSPECT:** Review for bypassed shared parsing, reopened companion files, cross-domain access, vector/path drift, host-access coupling, configuration leakage, or blocking the separate CA bundle; correct only migration defects.
+- [x] 4.10 **VALIDATE:** Run command-routing, reviewed/local diagnostics, host-access, cache, corporate-network, serialization, projection, context, and container tests; record unchanged behavior and complete Phase 4 migration.
 
 ## 5. Ownership Cutover
 
