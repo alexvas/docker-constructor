@@ -24,7 +24,6 @@ from .configuration_document_validation import (
 )
 from .errors import ConstraintSyntaxError, InventoryError, VersionConfigError, VersionSyntaxError
 from .local_project_configuration import (
-    load_local_project_configuration,
     load_optional_local_project_configuration,
     resolve_local_companion_path,
     validate_local_document,
@@ -1166,28 +1165,6 @@ def validate_corporate_trust_bundle(path: Path | str) -> Path:
     return bundle
 
 
-def load_local_config(
-    path: Path,
-    *,
-    host_access_mode: str | None = None,
-) -> LocalConfig:
-    """Load local TOML through the aggregate local-project boundary."""
-    return load_local_project_configuration(path, host_access_mode=host_access_mode)
-
-
-def load_local_config_for_inventory(
-    inventory_path: Path,
-    *,
-    repository_root: Path | None = None,
-    host_access_mode: str | None = None,
-) -> LocalConfig:
-    """Load only the fixed companion beside the selected project inventory."""
-    del repository_root  # retained compatibility parameter; no fallback is allowed
-    return load_optional_local_project_configuration(
-        inventory_path, host_access_mode=host_access_mode
-    )
-
-
 def resolve_local_corporate_settings(
     inventory_path: Path,
     *,
@@ -1197,12 +1174,13 @@ def resolve_local_corporate_settings(
     """Load and validate the complete local-companion schema.
 
     Unlike the earlier corporate-only parsing, this runs the same closed
-    local-companion schema validation as :func:`load_local_config`, so unknown
-    top-level keys, invalid ``[host-access]`` values, and invalid ``[cache]``
-    values fail closed with an ``InventoryError`` before build/run execution.
-    When corporate trust is enabled, the fixed constructor-project bundle is
-    additionally validated before any Docker invocation. The selected root
-    must be supplied by the build/run boundary and is never discovered.
+    local-companion schema validation as
+    :func:`~docker.versioning.local_project_configuration.load_local_project_configuration`,
+    so unknown top-level keys, invalid ``[host-access]`` values, and invalid
+    ``[cache]`` values fail closed with an ``InventoryError`` before build/run
+    execution. When corporate trust is enabled, the fixed constructor-project
+    bundle is additionally validated before any Docker invocation. The selected
+    root must be supplied by the build/run boundary and is never discovered.
     """
     local = load_optional_local_project_configuration(
         inventory_path, host_access_mode=host_access_mode

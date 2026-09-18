@@ -1,0 +1,111 @@
+{
+  "$comment": [
+    "Independent semantic-source manifest for the atomic normative obligations",
+    "of the pre-cutover runtime-host-access requirement 'Store",
+    "constructor-project machine-local state separately'.",
+    "",
+    "DERIVATION: this file was derived by hand from the requirement's body in",
+    "openspec/specs/runtime-host-access/spec.md (with the archived copy in",
+    "openspec/changes/archive/2026-09-10-decouple-constructor-project-root/",
+    "retained as a fallback). Each entry captures exactly one atomic",
+    "SHALL-level outcome: a normative verb or an attached subordinate/reviewed",
+    "obligation that shares that verb. The excerpts are verbatim substrings of",
+    "the whitespace-normalized requirement body.",
+    "",
+    "INDEPENDENCE: this file is NOT generated from MOVED_OBLIGATIONS (or any",
+    "other test inventory). tests/test_ownership_cutover_phase5.py loads it as",
+    "the authority for which obligations exist, reconciles every excerpt and",
+    "the non-normative connectors against the spec text, and only then compares",
+    "the manifest's obligation ids with the moved-clause mapping.",
+    "",
+    "non_normative_connectors lists the connective glue (punctuation, ' and ',",
+    "etc.) that legitimately separates normative excerpts. The coverage",
+    "validator requires the excerpt list plus these connectors to tile the",
+    "requirement body exactly; any residue is reported as uncovered normative",
+    "text. A connector must not itself contain a normative marker."
+  ],
+  "requirement_title": "Store constructor-project machine-local state separately",
+  "source_spec": "openspec/specs/runtime-host-access/spec.md",
+  "archive_fallback": "openspec/changes/archive/2026-09-10-decouple-constructor-project-root/specs/runtime-host-access/spec.md",
+  "derivation": "One atomic SHALL-level outcome per entry, derived from the pre-cutover requirement body; each source_excerpt is a unique verbatim substring of the whitespace-normalized body.",
+  "non_normative_connectors": [
+    " ",
+    " and ",
+    ", ",
+    ", and ",
+    ".",
+    ". ",
+    ": ",
+    "; "
+  ],
+  "obligations": [
+    {
+      "obligation_id": "fixed_companion_location",
+      "source_excerpt": "The system SHALL resolve the sole closed local TOML companion as `docker-constructor.local.toml` directly beneath the selected constructor project directory"
+    },
+    {
+      "obligation_id": "closed_local_tables",
+      "source_excerpt": "SHALL use it only for `[host-access].address`, `[cache].dir`, `[corporate-trust].enabled`, and `[network.proxy]` corporate-network settings"
+    },
+    {
+      "obligation_id": "absolute_dedicated_cache_root",
+      "source_excerpt": "`[cache].dir` SHALL be an absolute path identifying a dedicated constructor-owned root for all machine-local persistent constructor caches"
+    },
+    {
+      "obligation_id": "separate_named_cache_children",
+      "source_excerpt": "whose consumers use separate named child directories"
+    },
+    {
+      "obligation_id": "empty_and_relative_rejection",
+      "source_excerpt": "The local configuration resolver SHALL reject an empty or non-absolute value"
+    },
+    {
+      "obligation_id": "lexical_normalization",
+      "source_excerpt": "it SHALL lexically normalize an absolute value before applying unsafe-root checks"
+    },
+    {
+      "obligation_id": "xdg_equality_rejection",
+      "source_excerpt": "the root SHALL NOT equal `XDG_CACHE_HOME`"
+    },
+    {
+      "obligation_id": "home_directory_rejection",
+      "source_excerpt": "the invoking user's home directory"
+    },
+    {
+      "obligation_id": "filesystem_root_rejection",
+      "source_excerpt": "or the filesystem root"
+    },
+    {
+      "obligation_id": "ancestor_of_xdg_rejection",
+      "source_excerpt": "SHALL NOT be an ancestor of `XDG_CACHE_HOME`"
+    },
+    {
+      "obligation_id": "no_follow_inspection",
+      "source_excerpt": "Before the selected root is created, secured, or used by a cache consumer, the cache-storage filesystem layer SHALL inspect any existing selected root with no-follow semantics"
+    },
+    {
+      "obligation_id": "symlink_rejection",
+      "source_excerpt": "and reject a symlink"
+    },
+    {
+      "obligation_id": "reviewed_policy_isolation",
+      "source_excerpt": "The local companion SHALL NOT override reviewed dependency, update, artifact, host-access policy"
+    },
+    {
+      "obligation_id": "reviewed_cache_ttl_isolation",
+      "source_excerpt": "or cache TTL fields"
+    },
+    {
+      "obligation_id": "corporate_trust_independence",
+      "source_excerpt": "Corporate trust and proxy settings SHALL remain independent from host-access policy"
+    },
+    {
+      "obligation_id": "proxy_independence",
+      "source_excerpt": "they SHALL neither require enabled host access"
+    },
+    {
+      "obligation_id": "proxy_url_non_derivation",
+      "source_excerpt": "nor derive an application proxy URL from `HOST_ACCESS_ADDRESS` or `HOST_PROXY_PORT`"
+    }
+  ]
+}

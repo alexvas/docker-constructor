@@ -693,3 +693,299 @@ observable changes are required by the specifications:
   `--file <transaction-owned Dockerfile>` and its generated
   `<Dockerfile>.dockerignore`, so Docker transmits neither host-only document.
   The selected context directory itself is never modified.
+
+# Phase 5 — Ownership Cutover
+
+## Scope
+
+Phase 5 removes the last compatibility surface and locks the Phase 1–4
+ownership in with architecture tests. It does not change accepted
+configuration, defaults, cache paths, Docker vectors, projections, or
+container-visible values.
+
+## Deliverables
+
+- `tests/test_ownership_cutover_phase5.py` (44 tests) — AST-level architecture
+  guards plus the removed-scenario/atomic-obligation contract inventory.
+- `tests/data/moved_local_state_obligations.json` — the independent semantic
+  source for the removed requirement's atomic obligations. It holds the
+  requirement title, the main spec and archived fallback paths, a derivation
+  note, the documented non-normative connector set, and the 17
+  `{obligation_id, source_excerpt}` entries. It was derived by hand from the
+  pre-cutover requirement body and is **not** generated from the test
+  inventory.
+- `tests/test_moved_local_state_obligations_phase5.py` (9 tests) — focused
+  functional regressions for the moved obligations whose earlier coverage was
+  only indirect: no-follow inspection of an existing selected cache root,
+  reviewed dependency/update/artifact/host-access-policy and cache-TTL
+  isolation, dangerous-root diagnostics, corporate trust/proxy usable without
+  host-access state, and a disabled-host-access test proving a configured
+  `[cache].dir` is used as the shared cache root without any `[host-access]`
+  state.
+- `tests/test_malformed_local_state_phase5.py` (7 tests) — one branch-specific
+  regression for each malformed local-companion input (unknown top-level key,
+  unknown nested key, malformed syntax, invalid host address, invalid cache
+  value, invalid corporate-trust value, invalid network proxy). Each asserts
+  the structured field path or fixed `malformed_toml` classification, no
+  rejected-value leak, and failure before network, cache mutation, artifact
+  materialization/publication, and Docker/container execution.
+- `docker/versioning/inventory.py` — removed the two obsolete pure-alias
+  companion loaders `load_local_config` and `load_local_config_for_inventory`.
+  Both were defined only in the reviewed-inventory module, added no policy, and
+  delegated to `local_project_configuration`. `resolve_local_corporate_settings`
+  is retained: it adds fixed-bundle validation and is not a pure alias.
+- Callers migrated to the aggregate owner API:
+  `local_project_configuration.load_local_project_configuration` and
+  `load_optional_local_project_configuration` (tests and the two
+  `docker/collect-runtime-artifact-*.sh` helper scripts). Call sites keep the
+  same behavior; the owner API exposes no `repository_root` or custom-lookup
+  option, so a repository-local fallback is now structurally impossible.
+
+## RED → GREEN
+
+**5.1 RED** — `TestProjectTomlParsingOwnedByBoundary`:
+`test_only_allowlisted_production_modules_parse_toml` scans **every** production
+module under `docker/` and requires any `tomllib`/`tomli` user to appear in the
+explicit non-project allowlist (the boundary plus `effective.py`,
+`verification.py`, `runtime_verification.py`, `runtime_installer.py`, and
+`providers/rust.py`, which parse generated projections or a Cargo manifest).
+`test_project_document_consumers_never_parse_toml` independently flags any
+module that both locates a project document (references
+`LOCAL_COMPANION_BASENAME`, `resolve_local_companion_path`, an aggregate loader,
+or a boundary entrypoint) and parses TOML; the scan is dynamic, so a newly added
+consumer module is covered without editing a hard-coded list.
+`test_parse_error_projection_is_owned_by_the_boundary` keeps the
+`TOMLDecodeError` owners to the boundary and the generated-projection
+round-trip. These passed on first run: Phase 4 already routed both fixed
+documents through `configuration_document_validation`, so the audit records
+**no remaining independent project-TOML parser or parse-error projector**. No
+failing RED was manufactured (per the implementation binding contract).
+`TestProjectTomlDetectorIsNotVacuous` proves the detector flags each parser
+form (`import tomllib`, `import tomllib as parser`, `from tomllib import
+loads`, `import tomli as tomllib`, module attribute chains) and a parsing
+statement introduced in a newly added module, while an explicitly allowlisted
+unrelated parser is not flagged.
+
+**5.2 / 5.3 RED** — `TestLocalAggregateOwnedByAggregateModule` and
+`TestDependencyDirectionAndSoleOwners`:
+- `LocalConfig` is constructed only by the aggregate owner. The detector
+  resolves qualified (model.LocalConfig(...)) and aliased forms (imported or
+  assigned aliases such as `Config = model.LocalConfig`);
+  `TestAggregateConstructionDetectorIsNotVacuous` proves every form is caught
+  and that a non-`LocalConfig` call is not a false positive.
+- `resolve_local_companion_path`, `validate_local_document`, the table registry,
+  and the aggregate loaders are defined only by the aggregate owner.
+- `host_access.py` references no aggregate/cache/corporate/proxy type or parser.
+- Domain modules (`host_access`, `cache_storage`, `corporate_network`) import
+  neither the aggregate owner nor the document boundary.
+- `cache_storage` remains an acyclic leaf (allowed imports only).
+- Phase 2/4 modules add no cache-root normalization/dangerous-root/no-follow
+  policy; the cache authority API is defined only by `cache_storage`.
+- **RED:** `test_inventory_module_exposes_no_legacy_companion_loaders` failed
+  with `['load_local_config', 'load_local_config_for_inventory']`. All other
+  architecture tests passed; they are guards, not drivers.
+
+**5.5 GREEN** — no independent parsing/error wrapper remained to remove; task
+5.1 stays green.
+
+**5.6 GREEN** — the two obsolete companion loaders are removed and every
+caller is migrated; task 5.2 and 5.3 pass. RED count before the change: 1
+failure; after: 17/17 pass.
+
+**5.4 / 5.7 GREEN** — `TestMovedClauseInventory` reconciles an inventory of
+**atomic normative obligations** (not sentences) and scenarios against an
+**independent** semantic source. `_find_authoritative_requirement` parses the
+pre-cutover requirement `Store constructor-project machine-local state
+separately` from `openspec/specs/runtime-host-access/spec.md` (falling back to
+the archived change that introduced it,
+`2026-09-10-decouple-constructor-project-root`).
+
+- Nine **scenario headings** are inventoried (`MOVED_CLAUSES`), each with one or
+  more regression tests.
+- Seventeen **atomic obligations** load from the independent manifest
+  (`_load_obligation_manifest` → `tests/data/moved_local_state_obligations.json`)
+  and are mapped by `MOVED_OBLIGATIONS`. Each carries one SHALL-level outcome:
+  fixed companion location/basename, the closed local table set, absolute
+  dedicated cache root, separate named cache-child directories, empty/relative
+  rejection, lexical normalization, XDG equality, home directory, filesystem
+  root, ancestor-of-XDG, no-follow inspection, symlink rejection, reviewed
+  dependency/update/artifact/host-access-policy isolation, reviewed cache-TTL
+  isolation, corporate trust independence, proxy independence, and proxy-URL
+  non-derivation. There is no sentence-count assumption: the obligation count
+  is the atomic obligation count, not the requirement's six sentences.
+- The manifest is the *only* authority for which obligations exist; the test
+  module declares none inline. `test_every_atomic_obligation_is_inventoried`
+  first checks the manifest's `requirement_title` equals the removed
+  requirement, then that its excerpts each occur exactly once, then runs the
+  source-coverage validator, and only lastly compares the manifest's obligation
+  ids with `MOVED_OBLIGATIONS` for exact equality and uniqueness (rejecting
+  both an omission and an invention).
+- **Source-coverage algorithm** (`_source_coverage_errors` /
+  `_untiled_text`): the requirement body is whitespace-normalized; every
+  manifest excerpt must occur exactly once; the excerpts are ordered by
+  position in the body; and the prefix, every inter-excerpt gap, and the tail
+  must each be tileable — via a dynamic-programming segmentation — by the
+  manifest's documented `non_normative_connectors`. Any residue is reported as
+  **uncovered normative text**. A connector carrying a normative marker is
+  rejected (`test_manifest_connectors_are_documented_as_non_normative`), so the
+  tiling transitively places every `SHALL` / `SHALL NOT` / `neither` / `nor` /
+  `reject` / `derive` / `require` / `enabled` / `override` / `independent`
+  marker inside a manifest excerpt;
+  `test_every_normative_marker_lies_within_a_manifest_excerpt` asserts this
+  directly. This makes completeness independent of the mapping layer: a
+  dropped manifest entry leaves an un-tileable gap that no longer matches any
+  connector, and the omitted text is named in the failure.
+- Every destination capability/requirement/scenario is checked against the
+  capability delta spec, and every referenced regression must resolve and pass.
+- Scenarios whose THEN set names several independent branches declare a required
+  branch set; removing one mapped regression fails the coverage test.
+  - `Rejecting shared or dangerous local cache roots`
+    (`DANGEROUS_ROOT_BRANCH_REGRESSIONS`): home, filesystem root,
+    ancestor-of-XDG, rejection before mutation, and path-naming/
+    dedicated-directory diagnostics.
+  - `Falling back when local cache directory is absent`
+    (`FALLBACK_BRANCH_REGRESSIONS`): absolute-XDG use, missing-XDG creation at
+    `0700`, existing-writable-XDG acceptance, empty/relative fallback,
+    non-directory and unwritable rejection without fallback, and no companion
+    creation.
+  - `Rejecting malformed local state` (`MALFORMED_STATE_BRANCH_REGRESSIONS`):
+    unknown top-level key (`local.output`), unknown nested key
+    (`local.host-access.foo`), malformed TOML syntax (`malformed_toml`),
+    invalid host address (`local.host-access.address`), invalid cache value
+    (`local.cache.dir`), invalid corporate-trust value
+    (`local.corporate-trust.enabled`), and invalid network proxy
+    (`local.network.proxy.url`).  `test_malformed_state_branch_removal_is_detected`
+    proves removing any one required branch is flagged.
+
+**Cache-without-host-access correction.** The earlier mapping for
+`Loading a dedicated local cache root without host access` pointed at
+`test_custom_inventory_with_local_cache`, which sets
+`[runtime.host-access] enabled = true` and therefore could not prove
+independence from host access.  That mapping is removed and replaced by
+`TestLocalCacheRootWithoutHostAccess.test_configured_local_cache_root_is_used_with_host_access_disabled`,
+which loads a project whose reviewed policy sets
+`[runtime.host-access] enabled = false` and a companion declaring only a valid
+absolute `[cache].dir`.  It asserts the resolved `plan.cache_root` equals the
+configured directory, the build vector emits no `HOST_ACCESS_ADDRESS`,
+`HOST_PROXY_PORT`, or `--add-host`, the local `[host-access]` slice has no
+address, and a real cache consumer (`build_transports`) prepares the configured
+root's `versioning` child while the default XDG root is never created.
+`test_cache_without_host_access_scenario_uses_a_disabled_test` additionally
+asserts the discouraged test is absent from the mapping.
+
+**Malformed-state coverage.** The two malformed-TOML command tests are retained
+for the syntax branch but are no longer treated as complete coverage of
+`Rejecting malformed local state`; the scenario now maps to the
+`configuration-document-validation` requirement `Reject invalid project
+configuration before effects` / scenario `Local configuration is invalid` and
+to the branch-specific regressions above.  Each branch regression in
+`tests/test_malformed_local_state_phase5.py` asserts the structured diagnostic
+(field path, or fixed `malformed_toml` classification with no rejected-value
+leak) and drives `orchestrate_run` and `orchestrate_build` with effect probes:
+an exploding `urllib.request.urlopen`, a recording container executor, a
+patched `materialize_selected_artifacts`, a patched `execute_build`, and
+filesystem assertions that no cache root or cache child was created.  Branches
+whose scenario requires recovery guidance (host address, cache value,
+corporate trust, network proxy) also assert the owner message is actionable.
+
+The focused regressions in `tests/test_moved_local_state_obligations_phase5.py`
+close the previously indirect coverage: no-follow inspection (dangling symlink,
+symlinked parent component, existing root secured in place), reviewed-state and
+cache-TTL isolation (schema rejection plus reviewed projection unchanged),
+dangerous-root diagnostics, corporate trust/proxy usable without host-access
+state, and the corrected disabled-host-access cache-root regression.
+`tests/test_malformed_local_state_phase5.py` supplies the branch-specific
+malformed-state diagnostics and effect-ordering regressions.
+
+Non-vacuous omission controls (the manifest, not `MOVED_OBLIGATIONS`, is
+reduced):
+
+- `test_manifest_obligation_omission_fails_source_coverage` removes **every**
+  manifest entry one at a time and asserts the source-coverage validator
+  reports uncovered normative text for each;
+- `test_compound_obligation_omissions_are_detected_from_source` does the same
+  for the list/subordinate obligations `reviewed_cache_ttl_isolation`,
+  `ancestor_of_xdg_rejection`, `proxy_url_non_derivation`,
+  `separate_named_cache_children`, `home_directory_rejection`, and
+  `proxy_independence`, which a set comparison against `MOVED_OBLIGATIONS`
+  alone cannot distinguish;
+- `test_obligation_omission_is_detected` keeps the separate mapping-layer check
+  (removing an entry from `MOVED_OBLIGATIONS`).
+
+RED proofs (temporary mutations, production/test/data files restored
+byte-for-byte after each run):
+
+- a non-allowlisted production module importing `tomllib` → broad parser guard
+  fails;
+- an aliased `LocalConfig` construction outside the owner → construction guard
+  fails;
+- a project-document consumer adding its own `tomllib` parse → consumer guard
+  fails;
+- dropping one inventory scenario → scenario completeness fails;
+- deleting one entry from the checked-in `moved_local_state_obligations.json` →
+  `test_every_atomic_obligation_is_inventoried`,
+  `test_each_obligation_maps_to_a_destination_and_regressions`, and
+  `test_manifest_obligation_omission_fails_source_coverage` fail, with the
+  omitted text reported as uncovered;
+- dropping one atomic obligation from the manifest inside the test → source
+  coverage reports the omitted normative text from the spec alone (verified for
+  all 17, including the compound clauses above);
+- dropping one atomic obligation from `MOVED_OBLIGATIONS` → mapping
+  completeness fails (separate layer);
+- renaming an inventoried source scenario → completeness fails;
+- a drifted obligation excerpt absent from the spec → source reconciliation
+  fails;
+- duplicating an obligation, mapping an unknown id, or mapping an obligation
+  with an empty regression tuple → inventory guard fails;
+- removing one required dangerous-root, fallback, or malformed-state branch
+  regression → branch coverage fails;
+- changing the corrected cache test's companion so `[cache].dir` is absent →
+  `plan.cache_root` falls back to the default XDG root and the cache-root
+  assertion fails (the disabled-host-access cache test is non-vacuous);
+- making a malformed-state branch valid (e.g. `[cache] dir = 5` → a valid
+  absolute path) while keeping the expected field → `assertRaises` fails, and
+  dropping the unknown-key body → the diagnostic assertion fails.
+
+`TestMovedClauseDetectorIsNotVacuous` additionally proves a bogus destination
+requirement/scenario, an unresolvable regression test, a mapping-layer
+omission, a duplicate, an unknown obligation id, a drifted excerpt, and a
+removed branch regression are all flagged. No source clause was weakened.
+
+## INTROSPECT findings (5.8)
+
+- Complete production diff: removal of two pure aliases plus a docstring
+  reference; no behavior change.
+- No `[output]`: the aggregate registry stays closed to the four existing
+  tables and still rejects unknown top-level tables (Phase 2 coverage).
+- No open registration, no new CLI or environment source.
+- No parser duplication: only `configuration_document_validation` parses the
+  fixed documents. Every other production TOML user is explicitly allowlisted
+  as a non-project parser, and any project-document consumer that parses TOML
+  is flagged dynamically (no hard-coded consumer list). `effective.py`'s
+  `TOMLDecodeError` handling is limited to the generated runtime-projection
+  round-trip and is explicitly allow-listed.
+- No aggregate duplication: `LocalConfig` is constructed only by its owner,
+  including qualified and aliased construction forms.
+- No cache-safety loss: `cache_storage` remains the sole root/child authority.
+- No configuration exposure: Phase 4 confinement coverage is unchanged.
+- No duplicate authority and no stale adapter remain.
+- The obligation set has one external authority: the checked-in
+  `tests/data/moved_local_state_obligations.json` manifest. The test module
+  declares no obligation inline and does not regenerate the manifest from
+  `MOVED_OBLIGATIONS`; deleting a manifest entry is therefore a source-text
+  regression, not a self-consistent edit.
+
+## VALIDATE (5.9, 5.10, 5.11)
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Focused named suites | `python -m unittest` (configuration, cache, host-access, corporate-network, inventory, projection, Docker vector, doctor, confinement, architecture, malformed-state) | 988 tests, `OK` |
+| Full unit/integration | `python -m unittest discover -s tests -p 'test_*.py'` | 3586 tests, `OK (skipped=13)` |
+| Typecheck (CI entrypoint) | `sh scripts/check-types` | `All checks passed!` |
+| Lint | not configured for Python (no ruff/flake8/mypy); CI runs types only | n/a |
+| Build checks | included in the suite (build orchestration, Dockerfile contracts, build vector, confinement) | `OK` |
+| Strict OpenSpec | `openspec validate extract-local-project-configuration --strict` | valid |
+| Whitespace | `git diff --check` / `git diff --cached --check` | clean |
+
+Phase 5 leaves the change ready for synchronization and archive before
+`improve-host-build-observability` is applied.

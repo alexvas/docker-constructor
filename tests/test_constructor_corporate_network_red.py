@@ -23,9 +23,9 @@ import unittest
 from pathlib import Path
 
 from docker.versions import InventoryError
-from docker.versioning.inventory import (
-    load_local_config,
-    load_local_config_for_inventory,
+from docker.versioning.local_project_configuration import (
+    load_local_project_configuration as load_local_config,
+    load_optional_local_project_configuration as load_local_config_for_inventory,
     resolve_local_companion_path,
 )
 
@@ -261,17 +261,22 @@ class TestCompanionResolutionRed(_LocalTest):
                 name="docker-constructor.local.toml",
             )
 
-            local = load_local_config_for_inventory(
-                inventory, repository_root=repository
+            # The fixed-companion loader exposes no repository-root or custom
+            # lookup option, so a repository-local companion can never be
+            # consulted; only the workspace-beside inventory is read.
+            import inspect
+
+            self.assertNotIn(
+                "repository_root",
+                inspect.signature(load_local_config_for_inventory).parameters,
             )
+            local = load_local_config_for_inventory(inventory)
             self.assertFalse(local.corporate_trust.enabled)
 
             # Removing the fixed companion must produce absent local state,
             # never the injected repository-local fallback value.
             (workspace / "docker-constructor.local.toml").unlink()
-            absent = load_local_config_for_inventory(
-                inventory, repository_root=repository
-            )
+            absent = load_local_config_for_inventory(inventory)
             self.assertFalse(absent.corporate_trust.enabled)
 
 

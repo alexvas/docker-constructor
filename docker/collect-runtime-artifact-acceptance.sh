@@ -153,7 +153,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from docker.versioning.cache_storage import prepare_default_root, prepare_local_root
-from docker.versioning.inventory import load_local_config_for_inventory
+from docker.versioning.local_project_configuration import load_optional_local_project_configuration as load_local_config_for_inventory
 from docker.versioning.project_state import resolve_project_state
 
 inventory = Path(os.environ["CONSTRUCTOR_INVENTORY"])
@@ -219,7 +219,7 @@ from pathlib import Path
 from docker.versioning.cache_storage import (
     prepare_default_root, prepare_local_root, runtime_artifacts_child,
 )
-from docker.versioning.inventory import load_local_config_for_inventory
+from docker.versioning.local_project_configuration import load_optional_local_project_configuration as load_local_config_for_inventory
 inventory = Path(os.environ["CONSTRUCTOR_INVENTORY"])
 local = load_local_config_for_inventory(inventory)
 configured = local.cache.dir if local is not None else None

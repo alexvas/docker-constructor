@@ -97,8 +97,12 @@ docker info >/dev/null 2>&1 || { DETAIL='Docker daemon is unavailable'; exit 1; 
 HOST_ACCESS_ADDRESS="$(python3 - "$LOCAL_CONFIG" <<'PY'
 import sys
 from pathlib import Path
-from docker.versioning.inventory import load_local_config
-local = load_local_config(Path(sys.argv[1]), host_access_mode="docker-gateway")
+from docker.versioning.local_project_configuration import (
+    load_local_project_configuration,
+)
+local = load_local_project_configuration(
+    Path(sys.argv[1]), host_access_mode="docker-gateway"
+)
 address = local.host_access.address
 if not address or address == "host-gateway":
     raise SystemExit("local [host-access].address must be a concrete diagnosed IP")

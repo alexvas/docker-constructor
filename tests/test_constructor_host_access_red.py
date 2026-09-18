@@ -182,7 +182,7 @@ class TestLocalCompanionRed(_InventoryTest):
         )
 
     def test_custom_inventory_loads_fixed_companion_without_repository_fallback(self) -> None:
-        from docker.versioning.inventory import load_local_config_for_inventory
+        from docker.versioning.local_project_configuration import load_optional_local_project_configuration as load_local_config_for_inventory
 
         with tempfile.TemporaryDirectory() as root:
             root_path = Path(root)
@@ -197,24 +197,27 @@ class TestLocalCompanionRed(_InventoryTest):
                         directory=workspace, name="docker-constructor.local.toml")
 
             # The production default inventory root is an authoritative
-            # boundary, not the process CWD.  Inject it explicitly so a
-            # fallback implementation cannot accidentally pass this test.
-            local = load_local_config_for_inventory(
-                inventory, repository_root=repository
+            # boundary, not the process CWD.  The fixed-companion loader
+            # exposes no repository-root or custom lookup option, so a
+            # repository-local fallback is structurally impossible.
+            import inspect
+
+            self.assertNotIn(
+                "repository_root",
+                inspect.signature(load_local_config_for_inventory).parameters,
             )
+            local = load_local_config_for_inventory(inventory)
             self.assertEqual(local.cache.dir, "/custom-local")
 
             # Removing the fixed companion must produce absent local state,
             # never the injected repository-local fallback value.
             (workspace / "docker-constructor.local.toml").unlink()
-            absent = load_local_config_for_inventory(
-                inventory, repository_root=repository
-            )
+            absent = load_local_config_for_inventory(inventory)
 
         self.assertIsNone(absent.cache.dir)
 
     def test_closed_local_schema_and_values(self) -> None:
-        from docker.versioning.inventory import load_local_config
+        from docker.versioning.local_project_configuration import load_local_project_configuration as load_local_config
 
         valid = self.local('[host-access]\naddress = "10.0.2.2"\n[cache]\ndir = "/tmp/cache"\n')
         local = load_local_config(valid)
@@ -242,7 +245,7 @@ class TestLocalCompanionRed(_InventoryTest):
                     load_local_config(path)
 
     def test_local_validation_errors_name_the_exact_path_and_recovery(self) -> None:
-        from docker.versioning.inventory import load_local_config
+        from docker.versioning.local_project_configuration import load_local_project_configuration as load_local_config
 
         cases = (
             ("[host-access]\nfoo = true\n", "local.host-access.foo"),
@@ -262,7 +265,7 @@ class TestLocalCompanionRed(_InventoryTest):
                 self.assertEqual(path, error.field)
 
     def test_external_address_rejects_host_gateway_token(self) -> None:
-        from docker.versioning.inventory import load_local_config
+        from docker.versioning.local_project_configuration import load_local_project_configuration as load_local_config
 
         path = self.local('[host-access]\naddress = "host-gateway"\n')
         with self.assertRaisesRegex(InventoryError, r"host-access\.address"):
@@ -278,7 +281,7 @@ class TestCacheAndProjectionRed(_InventoryTest):
         self.assertNotIn("/reviewed", str(raised.exception))
 
         from docker.versioning.cache_storage import resolve_local_root
-        from docker.versioning.inventory import load_local_config
+        from docker.versioning.local_project_configuration import load_local_project_configuration as load_local_config
 
         reviewed = load_inventory(self.inventory(cache="ttl = 123"))
         local_cfg = load_local_config(self.local("[cache]\ndir = \"/local-cache\"\n"))
@@ -296,7 +299,7 @@ class TestCacheAndProjectionRed(_InventoryTest):
         self.assertEqual(root, Path("/local-cache"))
 
     def test_host_and_local_state_never_enter_dependency_projections(self) -> None:
-        from docker.versioning.inventory import load_local_config_for_inventory
+        from docker.versioning.local_project_configuration import load_optional_local_project_configuration as load_local_config_for_inventory
 
         with tempfile.TemporaryDirectory() as directory:
             directory_path = Path(directory)

@@ -96,14 +96,14 @@ Existing cache behavior is the compatibility oracle and already resides primaril
 
 **Deliverables:** no independent project TOML parsing/error projection remains; no aggregate local ownership remains in `runtime-host-access`; obsolete adapters are removed; all moved clauses have destination requirements/tests; repository and strict OpenSpec checks pass; the predecessor is ready for synchronization/archive before `improve-host-build-observability`.
 
-- [ ] 5.1 **RED:** Add an architecture test rejecting project TOML parsing or parse-error projection outside `configuration-document-validation`; verify old paths fail.
-- [ ] 5.2 **RED:** Add an architecture test rejecting companion parsing or aggregate construction outside `local-project-configuration`; verify old runtime ownership fails.
-- [ ] 5.3 **RED:** Add dependency and sole-owner architecture tests rejecting aggregate-owner imports from domain modules, runtime ownership of cache/network state, and cache-root normalization, dangerous-root policy, XDG/home fallback selection, no-follow cache safety logic, or canonical cache-child definitions outside `user-cache-storage`; verify any remaining pre-cutover direction or duplicate authority fails.
-- [ ] 5.4 **RED:** Add a contract-inventory test requiring every moved clause/scenario to map to a destination capability and passing regression; verify omissions fail.
-- [ ] 5.5 **GREEN:** Remove independent parsing/error wrappers and route both documents exclusively through Phase 1; verify task 5.1 passes.
-- [ ] 5.6 **GREEN:** Remove runtime aggregate ownership and obsolete companion-loading adapters; verify tasks 5.2–5.3 pass.
-- [ ] 5.7 **GREEN:** Complete the clause-to-owner/test inventory using Phases 1–4 evidence; verify task 5.4 passes without weakening source clauses.
-- [ ] 5.8 **INTROSPECT:** Review the complete diff for behavior changes, `[output]`, open registration, new CLI/environment sources, parser duplication, cache safety loss, configuration exposure, duplicate authority, stale adapters, or unrelated edits; correct all findings.
-- [ ] 5.9 **VALIDATE:** Run complete configuration, cache, host-access, corporate-network, inventory, projection, Docker vector, doctor, confinement, and architecture suites; record success.
-- [ ] 5.10 **VALIDATE:** Run repository typecheck, lint, unit, integration, and build checks; record commands and results.
-- [ ] 5.11 **VALIDATE:** Run `openspec validate extract-local-project-configuration --strict` and `git diff --check`; record clean results and readiness for synchronization/archive before applying `improve-host-build-observability`.
+- [x] 5.1 **RED:** Add an architecture test rejecting project TOML parsing or parse-error projection outside `configuration-document-validation`; verify old paths fail.
+- [x] 5.2 **RED:** Add an architecture test rejecting companion parsing or aggregate construction outside `local-project-configuration`; verify old runtime ownership fails.
+- [x] 5.3 **RED:** Add dependency and sole-owner architecture tests rejecting aggregate-owner imports from domain modules, runtime ownership of cache/network state, and cache-root normalization, dangerous-root policy, XDG/home fallback selection, no-follow cache safety logic, or canonical cache-child definitions outside `user-cache-storage`; verify any remaining pre-cutover direction or duplicate authority fails.
+- [x] 5.4 **RED:** Add a contract-inventory test requiring every moved clause/scenario to map to a destination capability and passing regression; verify omissions fail.
+- [x] 5.5 **GREEN:** Remove independent parsing/error wrappers and route both documents exclusively through Phase 1; verify task 5.1 passes.
+- [x] 5.6 **GREEN:** Remove runtime aggregate ownership and obsolete companion-loading adapters; verify tasks 5.2–5.3 pass.
+- [x] 5.7 **GREEN:** Complete the clause-to-owner/test inventory using Phases 1–4 evidence; verify task 5.4 passes without weakening source clauses.
+- [x] 5.8 **INTROSPECT:** Review the complete diff for behavior changes, `[output]`, open registration, new CLI/environment sources, parser duplication, cache safety loss, configuration exposure, duplicate authority, stale adapters, or unrelated edits; correct all findings.
+- [x] 5.9 **VALIDATE:** Run complete configuration, cache, host-access, corporate-network, inventory, projection, Docker vector, doctor, confinement, and architecture suites; record success.
+- [x] 5.10 **VALIDATE:** Run repository typecheck, lint, unit, integration, and build checks; record commands and results.
+- [x] 5.11 **VALIDATE:** Run `openspec validate extract-local-project-configuration --strict` and `git diff --check`; record clean results and readiness for synchronization/archive before applying `improve-host-build-observability`.

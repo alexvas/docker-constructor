@@ -239,7 +239,7 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
         ):
             with self.assertRaises(ConfigurationDocumentError):
                 inventory.load_inventory(reviewed)
-            inventory.load_local_config(local)
+            local_project_configuration.load_local_project_configuration(local)
         self.assertEqual(
             [(DocumentRole.REVIEWED, reviewed.resolve()), (DocumentRole.LOCAL, local.resolve())],
             [(item.role, item.path) for item in identities],
@@ -285,7 +285,7 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
                 "unsupported version",
             ),
             (
-                inventory.load_local_config, local, DocumentRole.LOCAL,
+                local_project_configuration.load_local_project_configuration, local, DocumentRole.LOCAL,
                 "local.cache.dir",
                 f"local companion configuration {local.resolve()}: "
                 "schema_error (schema_error) (field local.cache.dir)",

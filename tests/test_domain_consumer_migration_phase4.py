@@ -265,7 +265,7 @@ class TestDomainSliceOwnership(_Phase4Harness):
             policy=HOST_ACCESS_POLICY, local=HOST_ACCESS_LOCAL
         )
         with patch(
-            "docker.versioning.inventory.load_local_config_for_inventory",
+            "docker.versioning.local_project_configuration.load_optional_local_project_configuration",
             side_effect=AssertionError(
                 "runtime host access must consume the shared local result"
             ),

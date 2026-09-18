@@ -711,8 +711,8 @@ class TestCustomInventoryWithCache(unittest.TestCase):
 
             # 2. load_local_config_for_inventory uses only the fixed
             #    same-directory companion, not the parent-directory one
-            from docker.versioning.inventory import (
-                load_local_config_for_inventory,
+            from docker.versioning.local_project_configuration import (
+                load_optional_local_project_configuration as load_local_config_for_inventory,
             )
 
             local_cfg = load_local_config_for_inventory(inv)

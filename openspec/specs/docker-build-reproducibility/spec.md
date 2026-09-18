@@ -423,7 +423,7 @@ The closed `runtime` section of `docker-constructor.toml` SHALL own reviewed hos
 - **AND** ordinary inventory serialization and update discovery SHALL NOT incorporate the local companion
 
 ### Requirement: Keep cache directory paths machine-local
-The reviewed `docker-constructor.toml` SHALL NOT accept `cache.dir`; a custom dedicated constructor cache root SHALL be read only from an absolute `[cache].dir` in the resolved local TOML companion. When it is absent, cache consumers SHALL use `${XDG_CACHE_HOME}/docker-constructor` when `XDG_CACHE_HOME` is non-empty and absolute, creating a missing XDG directory with `0700` or requiring an existing writable directory; they SHALL use `~/.cache/docker-constructor` only when XDG is empty or non-absolute, and SHALL reject an explicit absolute non-directory or unwritable XDG path without fallback. Cache consumers SHALL derive their separate named subdirectories beneath the resolved root rather than storing unrelated cache formats in one directory. Reviewed `cache.ttl` SHALL remain supported in `docker-constructor.toml` as portable HTTP cache policy.
+The reviewed `docker-constructor.toml` SHALL NOT accept `cache.dir`; a custom constructor cache root SHALL be selected only from `[cache].dir` in the resolved host-only companion. Cache-root defaults, normalization, safety validation, permissions, and child containment SHALL conform to `user-cache-storage`. Neither the local cache root nor reviewed `cache.ttl` SHALL enter an effective build or runtime dependency projection. Reviewed `cache.ttl` SHALL remain supported in `docker-constructor.toml` as portable HTTP cache policy.
 
 #### Scenario: Migrating a reviewed cache directory
 - **WHEN** validation encounters `cache.dir` in `docker-constructor.toml`
@@ -432,7 +432,7 @@ The reviewed `docker-constructor.toml` SHALL NOT accept `cache.dir`; a custom de
 
 #### Scenario: Resolving cache settings from separate sources
 - **WHEN** reviewed `cache.ttl` and local `[cache].dir` are both configured
-- **THEN** cache consumers SHALL use the reviewed TTL and local cache root together
+- **THEN** cache consumers SHALL use the reviewed TTL and the normalized validated local cache root together
 - **AND** neither value SHALL enter an effective build or runtime projection
 
 #### Scenario: Separating cache formats under a local root
@@ -543,3 +543,16 @@ The canonical direct Docker image-build operation SHALL resolve versioned build 
 - **WHEN** the direct Docker build command is rendered
 - **THEN** all version and artifact arguments SHALL come from the validated effective build projection
 - **AND** missing version inputs SHALL NOT gain concrete Dockerfile or Python fallbacks
+
+### Requirement: Validate reviewed inventory through the shared document boundary
+The reviewed `docker-constructor.toml` SHALL be parsed and diagnosed through `configuration-document-validation` before the reviewed inventory schema is applied. The reviewed inventory owner SHALL retain responsibility for required-document handling, accepted sections and fields, value semantics, defaults, and effective projections; it SHALL NOT implement an independent TOML syntax, duplicate-definition, or parse-error projection path.
+
+#### Scenario: Reviewed inventory TOML is malformed
+- **WHEN** the selected `docker-constructor.toml` cannot be parsed
+- **THEN** the shared configuration-document boundary SHALL reject it with a typed error containing the reviewed document role and path, fixed `malformed_toml` classification, and available numeric line/column coordinates
+- **AND** SHALL NOT expose the raw parser message or source-document excerpt
+- **AND** reviewed inventory schema validation and external effects SHALL NOT begin
+
+#### Scenario: Reviewed inventory field is invalid
+- **WHEN** TOML parsing succeeds and the reviewed schema rejects a field
+- **THEN** the error SHALL identify the reviewed document path and invalid field without exposing unrelated values
