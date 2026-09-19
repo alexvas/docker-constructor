@@ -26,10 +26,10 @@ projection layer for host-pipeline diagnostics.  It:
   ``sanitized oversized token`` marker and
   discarding through the next safe boundary, and finalizing unresolved
   candidates with the fixed ``sanitized incomplete token`` marker: at clean
-  EOF only an entered separator, a complete URL, or a partial secret fails
-  closed and a bare scheme-like word is flushed unchanged, while reader
-  failure or cancellation fails closed for every ambiguous URL or
-  encoded-scheme prefix;
+  EOF a syntactically complete URL is still removed with its hostname fact
+  while an entered separator or a partial secret fails closed, and a bare
+  scheme-like word is flushed unchanged, whereas reader failure or
+  cancellation fails closed for every ambiguous URL or encoded-scheme prefix;
 * projects deterministic exception-type chains of at most four unique names
   without evaluating exception messages; and
 * never accepts output policy, so presentation decisions stay in the facade.
@@ -40,6 +40,7 @@ presentation dependencies.
 from __future__ import annotations
 
 import codecs
+import ipaddress
 import re
 import urllib.parse
 from dataclasses import dataclass
@@ -117,6 +118,10 @@ _URL_START_RE = re.compile(
 _HOSTNAME_OK_RE = re.compile(r"[a-z0-9._:\-]+")
 _TERMINATOR_CHARS = frozenset(" \t\r\n\f\v\"'`<>|\\^{}")
 _FEED_SLICE_BYTES = 4096
+
+#: Authority after any user information, with an optional numeric port.  A
+#: trailing colon or a non-numeric port is malformed, not merely incomplete.
+_AUTHORITY_RE = re.compile(r"(?:\[[0-9A-Fa-f:.]+\]|[^:\[\]]*)(?::[0-9]+)?")
 
 #: Maximum number of additional percent-decoding passes applied when looking
 #: for a URL.  Double-encoded forms such as ``https%253A%252F%252Fhost`` need
@@ -469,6 +474,88 @@ def _candidate_host(candidate: str) -> str | None:
     return None
 
 
+def _is_escape_complete(text: str) -> bool:
+    """Whether every ``%`` in *text* starts a complete ``%XX`` escape.
+
+    A trailing partial escape (``https://example.com/%`` or ``.../%6``) or an
+    invalid one means the token may still be growing or is malformed, so it
+    must never be finalized as a complete URL.
+    """
+    index = 0
+    length = len(text)
+    while index < length:
+        if text[index] != "%":
+            index += 1
+            continue
+        if index + 2 >= length:
+            return False
+        if _HEX_PAIR_RE.fullmatch(text[index + 1 : index + 3]) is None:
+            return False
+        index += 3
+    return True
+
+
+def _is_complete_url_literal(text: str) -> bool:
+    """Whether *text* is one absolute URL with a complete, usable authority.
+
+    The host must normalize safely through the same rules used for a
+    projected hostname and the authority must carry either no port or a
+    complete numeric one, so a trailing colon or a non-numeric port is
+    malformed rather than merely incomplete.  The authority must also be
+    dot-qualified or an IP literal: a single-label authority such as
+    ``https://exam`` may still be a truncated hostname, so it stays
+    unresolved instead of yielding a hostname fact.
+    """
+    try:
+        parsed = urllib.parse.urlsplit(text)
+    except ValueError:
+        return False
+    if not parsed.scheme or not parsed.netloc:
+        return False
+    if _AUTHORITY_RE.fullmatch(parsed.netloc.rpartition("@")[2]) is None:
+        return False
+    try:
+        parsed.port
+    except ValueError:
+        return False
+    host = _normalize_hostname_text(parsed.hostname or "")
+    if host is None:
+        return False
+    if "." in host:
+        return True
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return False
+    return True
+
+
+def _is_complete_url_at_eof(token: str) -> bool:
+    """Whether *token* is one complete URL ending exactly at a clean EOF.
+
+    Only the leftmost URL start counts, and it must cover the whole token so
+    no unparsed remainder is silently discarded.  Percent-encoded scheme
+    characters and separators are recognized through the same bounded
+    decoding passes used elsewhere, and every pass must be escape-complete so
+    a partial escape is never finalized as complete.
+    """
+    if _find_terminator(token) is not None:
+        return False
+    if _find_url_start(token) != 0:
+        return False
+    current = token
+    for _ in range(URL_DECODE_LAYER_LIMIT + 1):
+        if _is_escape_complete(current) and _is_complete_url_literal(current):
+            return True
+        if "%" not in current:
+            return False
+        decoded, _ = _decode_percent_layer(current)
+        if decoded == current:
+            return False
+        current = decoded
+    return False
+
+
 def _canonical_hosts_in_text(value: str) -> set[str]:
     """Return the canonical hostnames carried by one *value* layer.
 
@@ -584,15 +671,18 @@ class DiagnosticProjector:
         return self._feed(text)
 
     def finish(self, *, abort: bool = False) -> tuple[str, ...]:
-        """Flush the decoder and fail closed on any unresolved candidate.
+        """Flush the decoder and finalize any pending candidate.
 
         A pending URL or secret candidate is never flushed as ordinary text;
-        it becomes exactly :data:`INCOMPLETE_TOKEN_MARKER`.  Only at clean
-        EOF may a bare, still syntactically valid scheme prefix (``git``) be
-        ordinary text, and it is then flushed unchanged.  When *abort* is set
-        the stream ended through reader failure or cancellation, so every
-        ambiguous URL prefix -- including bare literal and percent-encoded
-        scheme prefixes -- fails closed instead.
+        it becomes exactly :data:`INCOMPLETE_TOKEN_MARKER`.  The one
+        exception is a syntactically complete URL that ends exactly at a
+        clean EOF: it is removed like any other URL and keeps its normalized
+        hostname fact, because it can no longer grow into a different token.
+        Only at clean EOF may a bare, still syntactically valid scheme prefix
+        (``git``) be ordinary text, and it is then flushed unchanged.  When
+        *abort* is set the stream ended through reader failure or
+        cancellation, so every pending candidate -- including a complete URL
+        -- fails closed and no hostname fact is emitted.
         """
         if self._eof:
             return ()
@@ -605,7 +695,15 @@ class DiagnosticProjector:
             self._overflow = False
             return tuple(chunks)
         if self._pending:
-            if _unresolved_candidate(
+            if (
+                not abort
+                and not _secret_overlap_hold(
+                    self._pending, self._secrets, self._longest
+                )
+                and _is_complete_url_at_eof(self._pending)
+            ):
+                chunks.append(self._sanitize_candidate(self._pending))
+            elif _unresolved_candidate(
                 self._pending, self._secrets, self._longest, abort=abort
             ):
                 chunks.append(INCOMPLETE_TOKEN_MARKER)

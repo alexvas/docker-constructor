@@ -712,3 +712,83 @@ All checks passed!
 python -m unittest discover -s tests -p 'test_*.py'
 Ran 3676 tests ... OK (skipped=13)
 ```
+
+## Follow-up hardening 9 — complete URL finalized at clean EOF
+
+`DiagnosticProjector.finish()` failed closed on **every** detected URL that
+lacked a terminating boundary, so a syntactically complete URL ending exactly
+at a clean EOF was reported as an incomplete token and lost its hostname fact:
+
+```
+sanitize_diagnostic_text("https://example.com")
+pre-fix -> ('[sanitized incomplete token]', ())     # complete URL discarded
+```
+
+### Fix in `docker/versioning/diagnostic_projection.py`
+
+- Added `_is_escape_complete(text)`: every `%` must start a complete `%XX`
+  escape, so a trailing partial escape (`.../%`, `.../%6`, `.../%zz`) can never
+  be finalized as complete.
+- Added the `_AUTHORITY_RE` authority pattern and `_is_complete_url_literal`:
+  the scheme and authority must be present, the authority (after user
+  information) must carry either no port or a complete numeric one, the port
+  (when present) must be in range, and the host must normalize through
+  `_normalize_hostname_text()` and be dot-qualified or an IP literal. A
+  single-label authority (`https://exam`) may still be a truncated hostname,
+  so it stays unresolved.
+- Added `_is_complete_url_at_eof(token)`: the leftmost URL start must cover the
+  whole token, no terminator may remain, and completeness is re-checked across
+  the same bounded percent-decoding passes used for URL detection, so
+  `https%3A%2F%2Fexample.com` is complete while a partial escape is not.
+- `finish()` now distinguishes three clean-EOF outcomes: a complete trailing
+  URL goes through `_sanitize_candidate()` (fixed `<redacted>` plus its
+  normalized hostname fact); an unresolved URL prefix, entered separator,
+  malformed authority, partial escape, or partial secret stays
+  `[sanitized incomplete token]`; a bare scheme-like word is flushed unchanged.
+  A trailing partial secret keeps precedence over the complete-URL path so a
+  still-growing secret is never finalized early.
+- `finish(abort=True)` is unchanged: every pending candidate, including a
+  complete URL, fails closed with no hostname fact. A URL already finalized at
+  a safe boundary before the abort keeps the decision it already made.
+- Module and `finish()` docstrings updated to state the clean-EOF policy.
+
+### New tests (`tests/test_host_diagnostic_projection.py`)
+
+Class `TestCompleteUrlAtCleanEof`:
+
+| Case | Test |
+| --- | --- |
+| `https://example.com` at EOF, plus IDN/IPv4/IPv6/encoded/non-listed schemes | `test_complete_url_at_clean_eof_is_redacted_with_its_hostname` |
+| Complete URL at every decoder/chunk boundary (1–13 bytes) | `test_complete_url_is_complete_at_every_decoder_boundary` |
+| Credentials/path/query at EOF emits only `<redacted>` and the host fact | `test_complete_url_with_credentials_path_query_keeps_only_the_host` |
+| Existing incomplete forms still fail closed (18 cases) | `test_incomplete_eof_forms_still_fail_closed` |
+| Aborted complete/pending URLs stay fail-closed without a host fact | `test_aborted_pending_url_is_fail_closed_without_a_hostname` |
+| Clean EOF matches the boundary-terminated result | `test_eof_completeness_matches_the_boundary_terminated_result` |
+| Registered secret still suppresses the host, with a positive control | `test_complete_eof_url_host_is_still_suppressed_for_a_registered_secret` |
+
+### Pre-fix behavior reproduced
+
+`https://example.com`, `https://example.com:8443/path?q=1#frag`,
+`https://alice:s3cr3t@example.com:8443/path?q=1#frag`, and
+`https%3A%2F%2Fexample.com` all returned
+`('[sanitized incomplete token]', ())` before the fix and now return
+`('<redacted>', ('example.com',))`. The existing incomplete cases (`https:`,
+`https:/`, `https://`, `https:///path`, `https://exam`, `https://exam.`,
+`https://example.com/%`, `https://example.com:notaport`, `https://:8080/x`,
+`https://@/x`, `https://[:::1]/x`, `see git://host`, …) are unchanged.
+
+### Updated validation
+
+```
+python -m unittest tests.test_host_diagnostic_projection
+Ran 83 tests ... OK
+
+focused diagnostic-projection set
+Ran 168 tests ... OK
+
+ty check docker --python-version 3.14 --output-format concise
+All checks passed!
+
+python -m unittest discover -s tests -p 'test_*.py'
+Ran 3716 tests ... OK (skipped=13)
+```

@@ -789,6 +789,117 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
         self.assertEqual((), projector.hostnames)
 
 
+class TestCompleteUrlAtCleanEof(unittest.TestCase):
+    """A syntactically complete URL ending at a clean EOF keeps its host fact."""
+
+    def test_complete_url_at_clean_eof_is_redacted_with_its_hostname(self):
+        for text, host in (
+            ("https://example.com", "example.com"),
+            ("https://example.com/", "example.com"),
+            ("https%3A%2F%2Fexample.com", "example.com"),
+            ("https://Example.COM.", "example.com"),
+            ("https://bücher.example/x", "xn--bcher-kva.example"),
+            ("https://192.0.2.10:443/x", "192.0.2.10"),
+            ("https://[2001:DB8::1]:443/x", "2001:db8::1"),
+            ("git://x.example/p", "x.example"),
+        ):
+            with self.subTest(text=text):
+                safe, hostnames = sanitize_diagnostic_text(text)
+                self.assertEqual("<redacted>", safe)
+                self.assertEqual((host,), hostnames)
+                self.assertNotIn(INCOMPLETE_TOKEN_MARKER, safe)
+
+    def test_complete_url_is_complete_at_every_decoder_boundary(self):
+        text = "https://alice:s3cr3t@example.com:8443/path?q=1#frag"
+        data = text.encode("utf-8")
+        for size in (1, 2, 3, 5, 8, 13):
+            with self.subTest(size=size):
+                projector = DiagnosticProjector(secrets=("s3cr3t",))
+                out: list[str] = []
+                for index in range(0, len(data), size):
+                    out.extend(projector.feed_bytes(data[index : index + size]))
+                    self.assertLessEqual(projector.pending_size, PENDING_LIMIT_BYTES)
+                out.extend(projector.finish())
+                self.assertEqual("<redacted>", "".join(out))
+                self.assertEqual(("example.com",), projector.hostnames)
+
+    def test_complete_url_with_credentials_path_query_keeps_only_the_host(self):
+        text = "https://alice:s3cr3t@example.com:8443/path?q=1#frag"
+        safe, hostnames = sanitize_diagnostic_text(text, secrets=("s3cr3t",))
+        self.assertEqual("<redacted>", safe)
+        self.assertEqual(("example.com",), hostnames)
+        for token in ("alice", "s3cr3t", "example.com", "8443", "path", "q=1", "frag"):
+            self.assertNotIn(token, safe)
+
+    def test_incomplete_eof_forms_still_fail_closed(self):
+        for text in (
+            "https:",
+            "https:/",
+            "https://",
+            "https:///path",
+            "https://exam",
+            "https://exam.",
+            "https://example.com/%",
+            "https://example.com/%6",
+            "https://example.com/%zz",
+            "https://example.com:",
+            "https://example.com:notaport",
+            "https://example.com:99999",
+            "https://:8080/x",
+            "https://@/x",
+            "https://[:::1]/x",
+            "git://host",
+            "git://",
+            "see git://host",
+        ):
+            with self.subTest(text=text):
+                safe, hostnames = sanitize_diagnostic_text(text)
+                prefix = "see " if text.startswith("see ") else ""
+                self.assertEqual(f"{prefix}{INCOMPLETE_TOKEN_MARKER}", safe)
+                self.assertEqual((), hostnames)
+
+    def test_aborted_pending_url_is_fail_closed_without_a_hostname(self):
+        for text in (
+            "https://example.com",
+            "https://alice:s3cr3t@example.com:8443/path?q=1#frag",
+            "git://secret.example/p",
+        ):
+            with self.subTest(text=text):
+                projector = DiagnosticProjector(secrets=("s3cr3t",))
+                out: list[str] = []
+                for character in text:
+                    out.extend(projector.feed_text(character))
+                out.extend(projector.finish(abort=True))
+                joined = "".join(out)
+                self.assertEqual(INCOMPLETE_TOKEN_MARKER, joined)
+                self.assertEqual((), projector.hostnames)
+                for token in ("example.com", "s3cr3t", "8443", "path"):
+                    self.assertNotIn(token, joined)
+
+    def test_eof_completeness_matches_the_boundary_terminated_result(self):
+        for text in ("https://example.com", "https://example.com/p?q=1"):
+            with self.subTest(text=text):
+                at_eof = sanitize_diagnostic_text(text)
+                at_boundary = sanitize_diagnostic_text(f"{text} ")
+                self.assertEqual("<redacted>", at_eof[0])
+                self.assertEqual("<redacted> ", at_boundary[0])
+                self.assertEqual(at_eof[1], at_boundary[1])
+
+    def test_complete_eof_url_host_is_still_suppressed_for_a_registered_secret(self):
+        safe, hostnames = sanitize_diagnostic_text(
+            "https://PROXY.EXAMPLE:8080/svc", secrets=("https://proxy.example:8080",)
+        )
+        self.assertEqual("<redacted>", safe)
+        self.assertEqual((), hostnames)
+        self.assertNotIn("proxy.example", safe)
+        # Positive control: an unrelated source URL still records its host.
+        safe, hostnames = sanitize_diagnostic_text(
+            "https://source.example/svc", secrets=("https://proxy.example:8080",)
+        )
+        self.assertEqual("<redacted>", safe)
+        self.assertEqual(("source.example",), hostnames)
+
+
 class TestCanonicalHostSuppression(unittest.TestCase):
     """A registered proxy/secret host fact must never be emitted.
 
