@@ -84,7 +84,7 @@ from docker.versioning.inventory import (
     resolve_corporate_trust_bundle_path,
     validate_corporate_trust_bundle,
 )
-from docker.versioning.model import HostAccessPolicy, Inventory
+from docker.versioning.model import BuildLocalInputs, HostAccessPolicy, Inventory
 from docker.versioning.project_state import resolve_project_state
 from docker.versioning.rendering import (
     BuildRenderInputs,
@@ -473,25 +473,40 @@ def _publish_projection_default(projection, *, repo_root: Path, project_state) -
         raise PublishError(detail=str(exc)) from exc
 
 
-def plan_build(request: BuildRequest) -> BuildTransactionPlan:
+def plan_build(
+    request: BuildRequest,
+    *,
+    inventory: Inventory | None = None,
+    local_inputs: BuildLocalInputs | None = None,
+) -> BuildTransactionPlan:
     """Load, validate, resolve, and render — no side effects.
 
     Returns a ``BuildTransactionPlan``.  When validation fails the plan
     carries ``exit_kind=CONFIG`` and a diagnostic message; the caller
     must not proceed to execution.
+
+    ``inventory`` and ``local_inputs`` are the domain-owned configuration
+    slices.  When both are supplied (the facade's single-transaction
+    path) no document is read here.  When both are omitted this function
+    performs its own one-shot load so direct callers keep working.  A
+    partial pair is a programming error.
     """
     # 1. Load inventory (CONFIG on missing / invalid TOML / bad schema)
     inv_path = Path(request.inventory_path)
     local_project_root = (
         Path(request.project_root) if request.project_root is not None else None
     )
-    try:
-        inventory, local = load_project_configuration(inv_path)
-    except (VersionConfigError, OSError, ValueError, KeyError) as exc:
-        return BuildTransactionPlan(
-            exit_kind=ExitKind.CONFIG,
-            message=str(exc),
-        )
+    if inventory is None and local_inputs is None:
+        try:
+            inventory, local_config = load_project_configuration(inv_path)
+        except (VersionConfigError, OSError, ValueError, KeyError) as exc:
+            return BuildTransactionPlan(
+                exit_kind=ExitKind.CONFIG,
+                message=str(exc),
+            )
+        local_inputs = BuildLocalInputs.from_local_config(local_config)
+    elif inventory is None or local_inputs is None:
+        raise ValueError("inventory and local_inputs must be supplied together")
 
     # 1b. Validate local corporate settings (proxy + enabled trust bundle)
     # before any side effect; proxy validation raises InventoryError from
@@ -499,7 +514,7 @@ def plan_build(request: BuildRequest) -> BuildTransactionPlan:
     # The repository root is mandatory for enabled trust and is never
     # inferred from the inventory path.
     try:
-        if local.corporate_trust.enabled:
+        if local_inputs.corporate_trust_enabled:
             if local_project_root is None:
                 raise InventoryError(
                     "corporate trust is enabled but project_root is absent; "
@@ -513,9 +528,8 @@ def plan_build(request: BuildRequest) -> BuildTransactionPlan:
 
     # Resolve the same configured/default cache root used by runtime execution.
     try:
-        local_cache_dir = getattr(getattr(local, "cache", None), "dir", None)
         cache_root = resolve_effective_root(
-            local_cache_dir, xdg_cache_home=os.environ.get("XDG_CACHE_HOME"),
+            local_inputs.cache_dir, xdg_cache_home=os.environ.get("XDG_CACHE_HOME"),
             home=Path.home(),
         )
     except Exception as exc:
@@ -552,9 +566,9 @@ def plan_build(request: BuildRequest) -> BuildTransactionPlan:
             dockerfile=request.dockerfile,
             dev_uid=request.uid if request.uid is not None else 1000,
             dev_gid=request.gid if request.gid is not None else 1000,
-            proxy_url=local.network_proxy.url,
-            proxy_no_proxy=local.network_proxy.no_proxy,
-            corporate_trust_enabled=local.corporate_trust.enabled,
+            proxy_url=local_inputs.network_proxy_url,
+            proxy_no_proxy=local_inputs.network_proxy_no_proxy,
+            corporate_trust_enabled=local_inputs.corporate_trust_enabled,
             named_context=Prospective(),
         )
 
@@ -592,10 +606,10 @@ def plan_build(request: BuildRequest) -> BuildTransactionPlan:
         inventory=inventory,
         effective_projection=projection,
         host_network_policy=HostNetworkPolicy(
-            proxy_url=local.network_proxy.url,
+            proxy_url=local_inputs.network_proxy_url,
             ca_bundle=(
                 local_project_root / ".docker-local" / "corporate-ca-bundle.crt"
-                if local.corporate_trust.enabled
+                if local_inputs.corporate_trust_enabled
                 and local_project_root is not None else None
             ),
         ),
@@ -1010,7 +1024,12 @@ def execute_build(
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def orchestrate_build(request: BuildRequest) -> BuildResult:
+def orchestrate_build(
+    request: BuildRequest,
+    *,
+    inventory: Inventory | None = None,
+    local_inputs: BuildLocalInputs | None = None,
+) -> BuildResult:
     """Orchestrate a complete build transaction.
 
     Flow:
@@ -1020,7 +1039,7 @@ def orchestrate_build(request: BuildRequest) -> BuildResult:
     4. If not confirmed: return SUCCESS cancellation
     5. Execute — publish and invoke Docker
     """
-    plan = plan_build(request)
+    plan = plan_build(request, inventory=inventory, local_inputs=local_inputs)
     if plan.exit_kind != ExitKind.SUCCESS:
         return BuildResult(
             exit_kind=plan.exit_kind,

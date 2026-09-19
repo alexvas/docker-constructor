@@ -488,7 +488,7 @@ def _real_dispatcher(
     _create_projection: Any = None,
     _workspace_selector: Any = None,
     _progress_renderer: Any = None,
-    _host_event_sink: Any = None,
+    _host_event_renderer_factory: Any = None,
 ) -> CommandResult:
     """Thin facade wrapper that delegates to the internal services.
 
@@ -526,8 +526,20 @@ def _real_dispatcher(
             BuildRequest,
             orchestrate_build,
         )
+        from docker.versioning.model import BuildLocalInputs
 
         inv_path = _resolve_inventory_path(request)
+        # Single transaction-loading boundary: read reviewed inventory and
+        # local companion exactly once, retain the host-only output policy
+        # at the facade, and hand planning only domain-owned slices.
+        try:
+            from docker.versioning.inventory import load_project_configuration
+            inventory, local_config = load_project_configuration(inv_path)
+        except Exception as exc:
+            return CommandResult(
+                exit_kind=ExitKind.CONFIG,
+                message=f"cannot load build configuration: {exc}",
+            )
         dockerfile = request.constructor_project.dockerfile
         if not dockerfile.is_file():
             return CommandResult(
@@ -551,6 +563,16 @@ def _real_dispatcher(
             c_args = dict(request.command_args)
 
         c_args = _deep_freeze_command_args(c_args)
+
+        # Local output policy remains facade-only: it selects no domain
+        # behavior and is never attached to the build request.  Planning
+        # receives only the narrow domain-owned local slices.
+        host_event_sink = (
+            _host_event_renderer_factory(local_config.output)
+            if _host_event_renderer_factory is not None
+            else None
+        )
+        local_inputs = BuildLocalInputs.from_local_config(local_config)
 
         # Build typed DTO
         raw_overrides = c_args.get("overrides")
@@ -578,10 +600,12 @@ def _real_dispatcher(
             gid=c_args.get("gid") if c_args.get("gid") is not None else None,
             confirmed=_to_bool(c_args.get("yes", False)),
             dry_run=dry_run,
-            event_sink=_host_event_sink,
+            event_sink=host_event_sink,
         )
 
-        result = orchestrate_build(build_request)
+        result = orchestrate_build(
+            build_request, inventory=inventory, local_inputs=local_inputs,
+        )
 
         # BuildResult → CommandResult
         data: dict[str, object] | None = None
@@ -1527,8 +1551,14 @@ def _compact_target(path: str) -> str:
 class _HostEventRenderer:
     """Facade-owned, line-oriented presentation for host build events."""
 
-    def __init__(self, stream: Any = None) -> None:
+    def __init__(self, stream: Any = None, *, output_policy: Any = None) -> None:
         self._stream = stream if stream is not None else sys.stderr
+        self._output_policy = output_policy
+
+    @property
+    def output_policy(self) -> Any:
+        """Immutable presentation policy resolved by the shared transaction."""
+        return self._output_policy
 
     def __call__(self, event: Any) -> None:
         if isinstance(event, HostPhaseEvent):
@@ -2484,14 +2514,16 @@ def main(
     # text-output check-updates whose stderr is a TTY.  JSON output and
     # non-TTY stderr install no renderer and therefore emit no progress.
     progress_renderer: _ProgressRenderer | None = None
-    host_event_sink: _HostEventRenderer | None = None
+    host_event_renderer_factory: Callable[[Any], _HostEventRenderer] | None = None
     if (
         args.command == "build"
         and args.output == "text"
         and _stderr_tty
         and not bool(getattr(args, "dry_run", False))
     ):
-        host_event_sink = _HostEventRenderer()
+        host_event_renderer_factory = lambda policy: _HostEventRenderer(
+            output_policy=policy
+        )
     if (
         args.command == "check-updates"
         and args.output == "text"
@@ -2511,7 +2543,7 @@ def main(
                 _create_projection=_create_projection,
                 _workspace_selector=_workspace_selector,
                 _progress_renderer=progress_renderer,
-                _host_event_sink=host_event_sink,
+                _host_event_renderer_factory=host_event_renderer_factory,
             )
         )
     else:

@@ -3,7 +3,7 @@
 Resolves the single fixed ``docker-constructor.local.toml`` companion for the
 selected constructor project, routes it through the shared
 :mod:`~docker.versioning.configuration_document_validation` boundary exactly
-once per transaction, and composes the four closed domain-owned tables into an
+once per transaction, and composes the five closed domain-owned tables into an
 immutable :class:`~docker.versioning.model.LocalConfig` aggregate.
 
 This module owns only aggregate concerns: fixed companion resolution, the
@@ -16,6 +16,7 @@ their parsers also supply the default for an absent table:
 - ``[cache]`` -- :mod:`~docker.versioning.cache_storage` (user-cache-storage)
 - ``[corporate-trust]`` and ``[network.proxy]`` --
   :mod:`~docker.versioning.corporate_network` (corporate-network)
+- ``[output]`` -- :mod:`~docker.versioning.build_output` (host presentation)
 """
 from __future__ import annotations
 
@@ -23,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+from .build_output import parse_local_output_policy
 from .cache_storage import parse_local_cache_config
 from .configuration_document_validation import (
     DocumentIdentity,
@@ -74,6 +76,7 @@ _LOCAL_DOMAIN_TABLES: tuple[_LocalDomainTable, ...] = (
         "corporate-trust", "corporate_trust", parse_local_corporate_trust
     ),
     _LocalDomainTable("network", "network_proxy", parse_local_network_proxy),
+    _LocalDomainTable("output", "output", parse_local_output_policy),
 )
 
 LOCAL_TABLE_NAMES: frozenset[str] = frozenset(
@@ -87,10 +90,10 @@ def validate_local_document(
     *,
     host_access_mode: str | None = None,
 ) -> LocalConfig:
-    """Compose the four closed domain tables into an immutable aggregate.
+    """Compose the five closed domain tables into an immutable aggregate.
 
     This function owns only aggregate closure, dispatch, and assembly: it
-    rejects unknown top-level tables -- including a future ``[output]`` --
+    rejects unknown top-level tables -- including unregistered future tables --
     before any domain parser runs, then dispatches every registered table to
     its domain-owned parser. Absent tables are dispatched as ``None`` so each
     owning capability supplies its own default; the aggregate never constructs
@@ -103,7 +106,7 @@ def validate_local_document(
         key = sorted(unknown)[0]
         raise InventoryError(
             f"local.{key}: unknown key; use only [host-access], [cache], "
-            f"[corporate-trust], or [network.proxy]",
+            f"[corporate-trust], [network.proxy], or [output]",
             field=f"local.{key}",
         )
     selected: dict[str, Any] = {}

@@ -46,8 +46,8 @@ _PROXY_SECRET = "rejected-proxy-secret-9c3f"
 # failure whose only identity is the ``malformed_toml`` classification)
 BRANCHES: dict[str, tuple[str, str | None]] = {
     "unknown_top_level_key": (
-        '[output]\ndir = "/tmp/local-output"\n',
-        "local.output",
+        '[observability]\ndir = "/tmp/local-output"\n',
+        "local.observability",
     ),
     "unknown_nested_key": (
         '[host-access]\nfoo = "bar"\n',

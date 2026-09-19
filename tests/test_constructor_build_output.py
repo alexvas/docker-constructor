@@ -178,7 +178,7 @@ class TestFacadeOutputPolicyAndRendering(unittest.TestCase):
         if result is None:
             result = BuildResult(ExitKind.SUCCESS, "image build completed",
                                  ("docker", "build", "."), "docker build .")
-        def fake(request):
+        def fake(request, *, inventory, local_inputs):
             captured.append(request)
             return result
         out, err = io.StringIO(), io.StringIO()

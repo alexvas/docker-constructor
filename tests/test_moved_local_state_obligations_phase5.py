@@ -125,7 +125,7 @@ class TestReviewedStateIsolation(unittest.TestCase):
         self.assertEqual("local.cache.ttl", raised.exception.field)
 
     def test_local_companion_cannot_declare_reviewed_inventory_tables(self) -> None:
-        for table in ("build", "runtime", "update", "artifacts", "output"):
+        for table in ("build", "runtime", "update", "artifacts"):
             with self.subTest(table=table):
                 with self.assertRaises(InventoryError) as raised:
                     validate_local_document({table: {"value": 1}})

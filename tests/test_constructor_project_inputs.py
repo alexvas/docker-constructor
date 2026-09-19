@@ -73,7 +73,7 @@ class TestFixedProjectInputs(unittest.TestCase):
             root = Path(temp).resolve()
             captured: list[object] = []
 
-            def orchestrate(request: object) -> object:
+            def orchestrate(request: object, *, inventory: object, local_inputs: object) -> object:
                 from docker.versioning.build_orchestration import BuildResult
                 captured.append(request)
                 return BuildResult(exit_kind=ExitKind.SUCCESS)
@@ -303,7 +303,7 @@ class TestFixedProjectInputs(unittest.TestCase):
             root = Path(temp).resolve()
             captured: list[object] = []
 
-            def orchestrate(request: object) -> object:
+            def orchestrate(request: object, *, inventory: object, local_inputs: object) -> object:
                 from docker.versioning.build_orchestration import BuildResult
                 captured.append(request)
                 return BuildResult(exit_kind=ExitKind.SUCCESS)

@@ -15,7 +15,7 @@ from docker.versioning.configuration_document_validation import (
     DocumentErrorClassification,
     DocumentRole,
 )
-from docker.versioning import cache_storage, corporate_network, host_access
+from docker.versioning import build_output, cache_storage, corporate_network, host_access
 from docker.versioning import inventory
 from docker.versioning import local_project_configuration as local_aggregate
 from docker.versioning.errors import InventoryError
@@ -34,6 +34,7 @@ from docker.versioning.model import (
     LocalCorporateTrust,
     LocalHostAccess,
     LocalNetworkProxy,
+    LocalOutputPolicy,
 )
 
 _ALL_TABLES = (
@@ -163,14 +164,13 @@ class TestSingleParsedDocumentPerTransaction(_LocalTest):
 
 
 class TestClosedLocalTableRegistry(_LocalTest):
-    """Task 2.3: exactly the four existing tables; unknown tables rejected."""
+    """Closed aggregate registry; output is registered by its owning capability."""
 
     def test_registry_is_closed_to_the_four_existing_tables(self) -> None:
         self.assertEqual(
-            frozenset({"host-access", "cache", "corporate-trust", "network"}),
+            frozenset({"host-access", "cache", "corporate-trust", "network", "output"}),
             LOCAL_TABLE_NAMES,
         )
-        self.assertNotIn("output", LOCAL_TABLE_NAMES)
 
     def test_exactly_four_existing_tables_are_accepted(self) -> None:
         local = load_local_project_configuration(self._companion(_ALL_TABLES))
@@ -191,19 +191,11 @@ class TestClosedLocalTableRegistry(_LocalTest):
         )
 
     def test_every_unknown_top_level_table_is_rejected(self) -> None:
-        for table in ("output", "observability", "build", "runtime", "cachex"):
+        for table in ("observability", "build", "runtime", "cachex"):
             with self.subTest(table=table):
                 with self.assertRaises(InventoryError) as raised:
                     validate_local_document({table: {}})
                 self.assertEqual(f"local.{table}", raised.exception.field)
-
-    def test_output_table_is_rejected_through_the_typed_boundary(self) -> None:
-        companion = self._companion('[output]\ndir = "/tmp/output"\n')
-        error = self._load_error(companion)
-        self.assertEqual("local.output", error.field)
-        self.assertIs(DocumentRole.LOCAL, error.role)
-        self.assertIs(DocumentErrorClassification.SCHEMA_ERROR, error.classification)
-        self.assertEqual(companion.resolve(), error.path)
 
     def test_network_table_rejects_unknown_siblings(self) -> None:
         with self.assertRaises(InventoryError) as raised:
@@ -291,7 +283,7 @@ class TestAbsentCompanionDefaults(_LocalTest):
             )
 
         self.assertEqual(
-            ["host-access", "cache", "corporate-trust", "network"],
+            ["host-access", "cache", "corporate-trust", "network", "output"],
             [table for table, _, _ in calls],
         )
         self.assertTrue(all(value is None for _, value, _ in calls))
@@ -331,7 +323,7 @@ class TestAbsentCompanionDefaults(_LocalTest):
                 reviewed, host_access_mode="docker-gateway"
             )
 
-        self.assertEqual([None, None, None, None], calls)
+        self.assertEqual([None, None, None, None, None], calls)
         self.assertEqual(LocalConfig(), local)
         self.assertFalse(companion.exists())
 
@@ -360,6 +352,7 @@ class TestDomainOwnedDispatch(_LocalTest):
             "cache": cache_storage.parse_local_cache_config,
             "corporate-trust": corporate_network.parse_local_corporate_trust,
             "network": corporate_network.parse_local_network_proxy,
+            "output": build_output.parse_local_output_policy,
         }
         self.assertEqual(set(expected), set(LOCAL_TABLE_NAMES))
         for entry in _LOCAL_DOMAIN_TABLES:
@@ -384,13 +377,13 @@ class TestDomainOwnedDispatch(_LocalTest):
         with patch.object(local_aggregate, "_LOCAL_DOMAIN_TABLES", spies):
             local = validate_local_document(raw)
         self.assertEqual(
-            ["host-access", "cache", "corporate-trust", "network"], seen
+            ["host-access", "cache", "corporate-trust", "network", "output"], seen
         )
         self.assertEqual("10.0.2.2", local.host_access.address)
         self.assertEqual("/var/tmp/cache", local.cache.dir)
 
     def test_unknown_table_is_rejected_before_any_registered_parser_runs(self) -> None:
-        raw = tomllib.loads('[output]\ndir = "/tmp"\n')
+        raw = tomllib.loads('[observability]\ndir = "/tmp"\n')
         seen: list[str] = []
         spies = tuple(
             dataclasses.replace(
@@ -447,7 +440,7 @@ class TestAbsentTableDefaults(_LocalTest):
         with patch.object(local_aggregate, "_LOCAL_DOMAIN_TABLES", spies):
             local = validate_local_document({})
         self.assertEqual(
-            ["host-access", "cache", "corporate-trust", "network"], seen
+            ["host-access", "cache", "corporate-trust", "network", "output"], seen
         )
         self.assertEqual(LocalConfig(), local)
 
@@ -466,6 +459,9 @@ class TestAbsentTableDefaults(_LocalTest):
             LocalNetworkProxy(),
             corporate_network.parse_local_network_proxy(None, None),
         )
+        self.assertEqual(
+            LocalOutputPolicy(), build_output.parse_local_output_policy(None, None)
+        )
 
     def test_present_table_does_not_change_absent_table_defaults(self) -> None:
         local = validate_local_document({"cache": {"dir": "/var/tmp/cache"}})
@@ -473,6 +469,7 @@ class TestAbsentTableDefaults(_LocalTest):
         self.assertEqual(LocalHostAccess(), local.host_access)
         self.assertEqual(LocalCorporateTrust(), local.corporate_trust)
         self.assertEqual(LocalNetworkProxy(), local.network_proxy)
+        self.assertEqual(LocalOutputPolicy(), local.output)
 
     def test_explicit_non_table_values_are_still_rejected(self) -> None:
         for table, field in (
@@ -480,6 +477,7 @@ class TestAbsentTableDefaults(_LocalTest):
             ("cache", "local.cache"),
             ("corporate-trust", "local.corporate-trust"),
             ("network", "local.network"),
+            ("output", "local.output"),
         ):
             with self.subTest(table=table):
                 with self.assertRaises(InventoryError) as raised:

@@ -686,12 +686,45 @@ class LocalNetworkProxy:
 
 
 @dataclass(frozen=True)
+class LocalOutputPolicy:
+    """Host-only facade presentation policy from local ``[output]``."""
+    host_heartbeat: str = "interactive"
+    show_network_hosts: bool = False
+
+
+@dataclass(frozen=True)
 class LocalConfig:
     """Closed local companion state."""
     host_access: LocalHostAccess = LocalHostAccess()
     cache: LocalCacheConfig = LocalCacheConfig()
     corporate_trust: LocalCorporateTrust = LocalCorporateTrust()
     network_proxy: LocalNetworkProxy = LocalNetworkProxy()
+    output: LocalOutputPolicy = LocalOutputPolicy()
+
+
+@dataclass(frozen=True)
+class BuildLocalInputs:
+    """Domain-owned local slices consumed by build planning.
+
+    This is the *only* local-companion projection that may cross into
+    build orchestration.  It deliberately excludes the host-only
+    ``[output]`` presentation policy (``host_heartbeat`` /
+    ``show_network_hosts``), which is retained by the facade.
+    """
+    corporate_trust_enabled: bool = False
+    cache_dir: str | None = None
+    network_proxy_url: str | None = None
+    network_proxy_no_proxy: str | None = None
+
+    @classmethod
+    def from_local_config(cls, local: "LocalConfig") -> "BuildLocalInputs":
+        """Project aggregate local state onto build-planning inputs only."""
+        return cls(
+            corporate_trust_enabled=local.corporate_trust.enabled,
+            cache_dir=local.cache.dir,
+            network_proxy_url=local.network_proxy.url,
+            network_proxy_no_proxy=local.network_proxy.no_proxy,
+        )
 
 
 @dataclass(frozen=True)

@@ -57,12 +57,12 @@ class TestHostEventFacade(unittest.TestCase):
         self.assertIn("locked assembly: started", rendered)
         self.assertIn("locked_assembly [stderr]: warning", rendered)
 
-    def test_only_interactive_text_non_dry_run_constructs_host_renderer(self):
+    def test_dispatcher_override_does_not_construct_a_host_renderer(self):
         cases = (
             (["--output", "json", "build", "--dry-run"], True, 0),
             (["--output", "text", "build", "--dry-run"], True, 0),
             (["--output", "text", "build", "--dry-run"], False, 0),
-            (["--output", "text", "build", "-y"], True, 1),
+            (["--output", "text", "build", "-y"], True, 0),
         )
         for argv, tty, expected in cases:
             with self.subTest(argv=argv, tty=tty), patch.object(

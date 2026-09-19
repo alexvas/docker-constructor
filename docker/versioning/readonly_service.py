@@ -213,9 +213,9 @@ def _handle_check_updates(
     inventory_cache = getattr(inventory, "cache", None)
     inventory_path = command_args.get("_inventory_path")
     # Cache consumers receive only the cache-owned slice of the shared local
-    # aggregate result; they never reopen the companion.
-    local_config = command_args.get("_local_config")
-    local_cache = getattr(local_config, "cache", None)
+    # aggregate result; they never reopen the companion and never receive the
+    # aggregate (which would carry host-only presentation policy).
+    local_cache = command_args.get("_local_cache")
     config = build_transports(
         no_cache=bool(command_args.get("no_cache", False)),
         inventory_cache=inventory_cache,
@@ -358,7 +358,7 @@ def dispatch(
     try:
         handler_args = dict(command_args)
         handler_args["_inventory_path"] = inventory_path
-        handler_args["_local_config"] = local_config
+        handler_args["_local_cache"] = getattr(local_config, "cache", None)
         if command == "check-updates":
             return handler(inventory, handler_args, progress=progress)
         return handler(inventory, handler_args)
