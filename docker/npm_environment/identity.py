@@ -20,6 +20,15 @@ from dataclasses import dataclass
 from .errors import LockedNpmError
 from .model import RootSpec, ValidatedAssemblyInput
 
+#: Length of the canonical digest prefix in the assembler container name.
+#:
+#: The standalone assembler runs in a container named
+#: ``npm-assembler-<digest[:ASSEMBLER_DIGEST_PREFIX_LENGTH]>``.  This single
+#: constant keeps the producer (:mod:`docker.npm_environment.execution`) and
+#: every validator of that name (for example
+#: :mod:`docker.versioning.diagnostic_projection`) in agreement.
+ASSEMBLER_DIGEST_PREFIX_LENGTH = 16
+
 
 def _sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()

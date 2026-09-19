@@ -32,7 +32,11 @@ from .assembler import (
     EXIT_NPM_VERSION_MISMATCH,
 )
 from .errors import AssemblyTimeoutError, LockedNpmError
-from .identity import AssemblerIdentity, compute_assembler_input_identity
+from .identity import (
+    ASSEMBLER_DIGEST_PREFIX_LENGTH,
+    AssemblerIdentity,
+    compute_assembler_input_identity,
+)
 from .lifecycle import (
     DeadlineSupervisor,
     LifecyclePolicy,
@@ -1095,7 +1099,9 @@ def assemble(
 
     namespace = prepare_assembler_namespace(cache_root, assembler.digest)
     staging_name = input_identity.digest
-    container_name = f"npm-assembler-{input_identity.digest[:16]}"
+    container_name = (
+        f"npm-assembler-{input_identity.digest[:ASSEMBLER_DIGEST_PREFIX_LENGTH]}"
+    )
 
     staging: Path | None = None
     container_started = False
