@@ -114,12 +114,12 @@ flowchart LR
 
 **Deliverables:** a reproducible controlled harness for pinned npm 11.16.0 in the reviewed Node image; captured raw and safely projected cache-hit, cache-miss, retry, and timeout observations under `loglevel=http`; measured live timing and output volume; one committed research report with an explicit accept/reject decision against design criteria; no production policy change in this phase.
 
-- [ ] 6.1 **RED:** Add a controlled local registry/failure harness test that requires deterministic cache-hit, cache-miss, retry, and timeout scenarios without public-registry timing; verify the harness test fails before its fixtures are implemented.
-- [ ] 6.2 **RED:** Add research-contract checks requiring the report to identify exact Node/npm/image inputs, command/environment, raw fixtures, projected fixtures, first-observation timing, line volume, sanitization result, and one accept/reject decision; verify failure while the report is absent.
-- [ ] 6.3 **GREEN:** Implement only the deterministic research harness and fixtures needed by task 6.1; verify all four controlled scenarios execute against pinned npm 11.16.0.
-- [ ] 6.4 **GREEN:** Run baseline and `loglevel=http` experiments through the existing stdout/stderr pipe model and write the research report with captured evidence and a binary decision; verify task 6.2 passes.
-- [ ] 6.5 **INTROSPECT:** Review raw/projected evidence for delayed-until-exit output, unstable fields, unsanitized network tokens, warning/error suppression, unbounded repetition, public-network dependence, or insufficient differentiation; correct the report or reject the mode rather than weakening acceptance criteria.
-- [ ] 6.6 **VALIDATE:** Re-run the research harness from a clean controlled cache and validate the report contract; record that another developer can reproduce the decision and that no production npm invocation, policy digest, evidence, or cache identity changed in Phase 6.
+- [x] 6.1 **RED:** Add a controlled local registry/failure harness test that requires deterministic cache-hit, cache-miss, retry, and timeout scenarios without public-registry timing; verify the harness test fails before its fixtures are implemented.
+- [x] 6.2 **RED:** Add research-contract checks requiring the report to identify exact Node/npm/image inputs, command/environment, raw fixtures, projected fixtures, first-observation timing, line volume, sanitization result, and one accept/reject decision; verify failure while the report is absent.
+- [x] 6.3 **GREEN:** Implement only the deterministic research harness and fixtures needed by task 6.1; verify all four controlled scenarios execute against pinned npm 11.16.0.
+- [x] 6.4 **GREEN:** Run baseline and `loglevel=http` experiments through the existing stdout/stderr pipe model and write the research report with captured evidence and a binary decision; verify task 6.2 passes.
+- [x] 6.5 **INTROSPECT:** Review raw/projected evidence for delayed-until-exit output, unstable fields, unsanitized network tokens, warning/error suppression, unbounded repetition, public-network dependence, or insufficient differentiation; correct the report or reject the mode rather than weakening acceptance criteria.
+- [x] 6.6 **VALIDATE:** Re-run the research harness from a clean controlled cache and validate the report contract; record that another developer can reproduce the decision and that no production npm invocation, policy digest, evidence, or cache identity changed in Phase 6.
 
 ## 7. Locked Assembly Observability
 
