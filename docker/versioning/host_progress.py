@@ -7,6 +7,8 @@ from enum import StrEnum
 from threading import Lock
 from typing import Any, Callable
 
+from docker.versioning.logical_resource import require_approved_logical_resource
+
 
 class HostPhase(StrEnum):
     RELEASE_ACQUISITION = "release_acquisition"
@@ -109,32 +111,48 @@ class HostDiagnosticEvent:
 
 @dataclass(frozen=True)
 class HostStepEvent:
-    """Operational step transition; never a lifecycle event."""
+    """Operational step transition; never a lifecycle event.
+
+    ``logical_resource`` carries the closed safe asset name when the step is
+    scoped to one reviewed artifact or Pi release asset (`acquisition` steps);
+    it is ``None`` for non-asset steps such as npm execution or validation.
+    Only approved reviewed-artifact, Pi-release, and assembler-container names
+    are accepted.
+    """
 
     phase: HostPhase
     step: HostStep
     state: HostStepState
     expects_diagnostic_stream: bool
+    logical_resource: str | None = None
 
     def __post_init__(self) -> None:
         _require_member(self.phase, HostPhase, "phase")
         _require_member(self.step, HostStep, "step")
         _require_member(self.state, HostStepState, "state")
         _require_flag(self.expects_diagnostic_stream, "expects_diagnostic_stream")
+        require_approved_logical_resource(self.logical_resource, "logical_resource")
 
 
 @dataclass(frozen=True)
 class HostTransportProgressEvent:
-    """Observed streamed transport progress with cumulative whole bytes."""
+    """Observed streamed transport progress with cumulative whole bytes.
+
+    ``logical_resource`` identifies the approved reviewed or Pi-release asset
+    whose body yielded the chunks; it is ``None`` only for callers that do not
+    scope the progress to one closed logical asset.
+    """
 
     phase: HostPhase
     step: HostStep
     received_bytes: int
+    logical_resource: str | None = None
 
     def __post_init__(self) -> None:
         _require_member(self.phase, HostPhase, "phase")
         _require_member(self.step, HostStep, "step")
         _require_int(self.received_bytes, "received_bytes", minimum=0)
+        require_approved_logical_resource(self.logical_resource, "logical_resource")
 
 
 @dataclass(frozen=True)
@@ -203,8 +221,7 @@ class HostStructuredDiagnostic:
             isinstance(hostname, str) for hostname in self.hostnames
         ):
             raise TypeError("normalized hostnames must be a tuple of strings")
-        if self.logical_resource is not None and not isinstance(self.logical_resource, str):
-            raise TypeError("logical resource must be a string or None")
+        require_approved_logical_resource(self.logical_resource, "logical resource")
 
 
 HostOperationalEvent = (

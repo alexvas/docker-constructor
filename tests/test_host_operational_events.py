@@ -35,6 +35,12 @@ from docker.versioning.host_progress import (
 )
 
 
+from docker.versioning.logical_resource import (
+    PI_RELEASE_ASSET_NAMES,
+    REVIEWED_ARTIFACT_NAMES,
+)
+
+
 def _step_event() -> HostStepEvent:
     return HostStepEvent(
         HostPhase.LOCKED_ASSEMBLY, HostStep.NPM_EXECUTION, HostStepState.STARTED, True
@@ -83,6 +89,81 @@ class TestOperationalEventConstruction(unittest.TestCase):
             HostStepEvent(HostPhase.LOCKED_ASSEMBLY, HostStep.NPM_EXECUTION, HostStepState.STARTED, 1)  # type: ignore[arg-type]
         with self.assertRaises(dataclasses.FrozenInstanceError):
             event.state = HostStepState.FAILED  # type: ignore[misc]
+
+    def test_step_and_progress_accept_every_approved_logical_resource(self):
+        approved = sorted(REVIEWED_ARTIFACT_NAMES | PI_RELEASE_ASSET_NAMES)
+        approved.append("npm-assembler-0123456789abcdef")
+        for name in approved:
+            with self.subTest(name=name):
+                step = HostStepEvent(
+                    HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION,
+                    HostStepState.STARTED, False, name,
+                )
+                self.assertEqual(name, step.logical_resource)
+                progress = HostTransportProgressEvent(
+                    HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION,
+                    1, name,
+                )
+                self.assertEqual(name, progress.logical_resource)
+
+    def test_step_event_rejects_arbitrary_logical_resource_values(self):
+        for value in (
+            "definitely-not-an-artifact",
+            "../../etc/passwd",
+            "rustup\n",
+            "SHA256SUMS ",
+            "npm-assembler-",
+            "npm-assembler-XYZ",
+            "",
+        ):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                HostStepEvent(
+                    HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION,
+                    HostStepState.STARTED, False, value,
+                )
+        with self.assertRaises(TypeError):
+            HostStepEvent(
+                HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION,
+                HostStepState.STARTED, False, 5,  # type: ignore[arg-type]
+            )
+
+    def test_transport_progress_rejects_arbitrary_logical_resource_values(self):
+        for value in (
+            "definitely-not-an-artifact",
+            "../../etc/passwd",
+            "SHA256SUMS\n",
+            "npm-assembler-0123456789abcde",
+            "npm-assembler-0123456789ABCDEF",
+            "",
+        ):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                HostTransportProgressEvent(
+                    HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION,
+                    1, value,
+                )
+        with self.assertRaises(TypeError):
+            HostTransportProgressEvent(
+                HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION,
+                1, object(),  # type: ignore[arg-type]
+            )
+
+    def test_structured_diagnostic_rejects_arbitrary_logical_resource(self):
+        with self.assertRaises(ValueError):
+            _structured_diagnostic(logical_resource="evil")
+        with self.assertRaises(TypeError):
+            _structured_diagnostic(logical_resource=5)
+
+    def test_none_logical_resource_remains_valid_for_non_asset_steps(self):
+        step = HostStepEvent(
+            HostPhase.LOCKED_ASSEMBLY, HostStep.NPM_EXECUTION,
+            HostStepState.STARTED, True,
+        )
+        self.assertIsNone(step.logical_resource)
+        progress = HostTransportProgressEvent(
+            HostPhase.LOCKED_ASSEMBLY, HostStep.NPM_EXECUTION, 0,
+        )
+        self.assertIsNone(progress.logical_resource)
+        self.assertIsNone(_structured_diagnostic().logical_resource)
 
     def test_closed_step_membership(self):
         self.assertEqual(

@@ -809,9 +809,37 @@ def execute_build(
         selected_artifacts = tuple(select_build_artifacts(projection))
         transport_factory = request._transport_factory or UrllibStreamingTransport
         transport = transport_factory(plan.host_network_policy)
-        materialized = materialize(
-            projection, constructor_project_root=constructor_project, cache_root=project_state.cache_root,
+        materialize_kwargs: dict[str, object] = dict(
+            constructor_project_root=constructor_project, cache_root=project_state.cache_root,
             project_state=project_state, transport=transport, lock=lock,
+        )
+        # The event protocol is optional: old injected materializers keep their
+        # existing call shape, while sink-aware implementations opt in.  Each
+        # optional keyword is forwarded independently so an implementation that
+        # accepts ``event_sink`` but not ``failure_secrets`` still works.
+        try:
+            import inspect
+            materialize_parameters = inspect.signature(materialize).parameters
+        except (TypeError, ValueError):
+            materialize_parameters = {}
+        accepts_kwargs = any(
+            parameter.kind is parameter.VAR_KEYWORD
+            for parameter in materialize_parameters.values()
+        )
+        if accepts_kwargs or "event_sink" in materialize_parameters:
+            materialize_kwargs["event_sink"] = request.event_sink
+        if accepts_kwargs or "failure_secrets" in materialize_parameters:
+            materialize_kwargs["failure_secrets"] = tuple(
+                value for value in (
+                    plan.host_network_policy.proxy_url,
+                    (
+                        str(plan.host_network_policy.ca_bundle)
+                        if plan.host_network_policy.ca_bundle is not None else None
+                    ),
+                ) if value is not None
+            )
+        materialized = cast(Callable[..., object], materialize)(
+            projection, **materialize_kwargs
         )
         if not isinstance(materialized, (tuple, list)) or not all(
             isinstance(path, Path) for path in materialized

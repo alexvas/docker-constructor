@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import inspect
 import unittest
+import urllib.error
 import urllib.parse
 
 from docker.npm_environment.streaming import REDACTED
@@ -43,6 +44,25 @@ from docker.versioning.pi_release import (
 
 class _MessageBombError(Exception):
     """Exception whose message evaluation fails loudly if ever attempted."""
+
+    def __str__(self) -> str:  # noqa: D105 - deliberately unavailable
+        raise AssertionError("exception message must never be evaluated")
+
+
+class _HostileRelationshipError(Exception):
+    """Exception that raises when one named relationship attribute is read."""
+
+    _RELATIONSHIPS = frozenset({"reason", "__cause__", "__context__"})
+
+    def __init__(self, hostile: str) -> None:
+        super().__init__("hostile message must never be evaluated")
+        object.__setattr__(self, "_hostile", hostile)
+
+    def __getattribute__(self, name: str):
+        if name in _HostileRelationshipError._RELATIONSHIPS:
+            if name == object.__getattribute__(self, "_hostile"):
+                raise RuntimeError("hostile relationship access")
+        return object.__getattribute__(self, name)
 
     def __str__(self) -> str:  # noqa: D105 - deliberately unavailable
         raise AssertionError("exception message must never be evaluated")
@@ -1051,6 +1071,93 @@ class TestExceptionTypeChain(unittest.TestCase):
         outer.__context__ = OSError("context")
         self.assertEqual(
             ("RuntimeError", "OSError"), project_exception_type_chain(outer)
+        )
+
+    def test_exception_reason_is_traversed(self):
+        outer = urllib.error.URLError(TimeoutError("timed out"))
+        self.assertEqual(
+            ("URLError", "TimeoutError"), project_exception_type_chain(outer)
+        )
+
+    def test_exception_reason_takes_precedence_over_cause_and_context(self):
+        outer = urllib.error.URLError(TimeoutError("reason"))
+        outer.__cause__ = OSError("cause")
+        outer.__context__ = KeyError("context")
+        self.assertEqual(
+            ("URLError", "TimeoutError"), project_exception_type_chain(outer)
+        )
+
+    def test_non_exception_reason_falls_back_to_cause_then_context(self):
+        with_cause = urllib.error.URLError("connection refused")
+        with_cause.__cause__ = OSError("cause")
+        with_cause.__context__ = KeyError("context")
+        self.assertEqual(
+            ("URLError", "OSError"), project_exception_type_chain(with_cause)
+        )
+        context_only = urllib.error.URLError(b"bytes are not exceptions")
+        context_only.__context__ = KeyError("context")
+        self.assertEqual(
+            ("URLError", "KeyError"), project_exception_type_chain(context_only)
+        )
+
+    def test_reason_cycle_terminates(self):
+        outer = urllib.error.URLError(TimeoutError("first"))
+        nested = outer.reason
+        nested.reason = outer
+        self.assertEqual(
+            ("URLError", "TimeoutError"), project_exception_type_chain(outer)
+        )
+
+    def test_reason_messages_are_never_evaluated(self):
+        outer = urllib.error.URLError(_MessageBombError("nested"))
+        self.assertEqual(
+            ("URLError", "_MessageBombError"),
+            project_exception_type_chain(outer),
+        )
+
+    def test_hostile_reason_access_terminates_without_raising(self):
+        hostile = _HostileRelationshipError("reason")
+        self.assertEqual(
+            ("_HostileRelationshipError",),
+            project_exception_type_chain(hostile),
+        )
+
+    def test_hostile_reason_falls_back_to_safe_cause(self):
+        hostile = _HostileRelationshipError("reason")
+        hostile.__cause__ = KeyError("cause")
+        self.assertEqual(
+            ("_HostileRelationshipError", "KeyError"),
+            project_exception_type_chain(hostile),
+        )
+
+    def test_hostile_reason_falls_back_to_safe_context(self):
+        hostile = _HostileRelationshipError("reason")
+        hostile.__context__ = OSError("context")
+        self.assertEqual(
+            ("_HostileRelationshipError", "OSError"),
+            project_exception_type_chain(hostile),
+        )
+
+    def test_hostile_cause_falls_back_to_safe_context(self):
+        hostile = _HostileRelationshipError("__cause__")
+        hostile.__context__ = KeyError("context")
+        self.assertEqual(
+            ("_HostileRelationshipError", "KeyError"),
+            project_exception_type_chain(hostile),
+        )
+
+    def test_hostile_cause_terminates_without_raising(self):
+        hostile = _HostileRelationshipError("__cause__")
+        self.assertEqual(
+            ("_HostileRelationshipError",),
+            project_exception_type_chain(hostile),
+        )
+
+    def test_hostile_context_terminates_without_raising(self):
+        hostile = _HostileRelationshipError("__context__")
+        self.assertEqual(
+            ("_HostileRelationshipError",),
+            project_exception_type_chain(hostile),
         )
 
     def test_relationship_cycle_terminates(self):

@@ -6,11 +6,16 @@ thread, and emits only presentation-neutral immutable facts:
 
 * one step-started transition when the step begins, and exactly one
   succeeded/failed transition once heartbeat production is confirmed stopped
-  when it terminally ends,
+  when it terminally ends, each carrying the optional closed
+  ``logical_resource`` of a single reviewed asset step,
 * an activity-independent heartbeat beginning exactly 3 seconds after
   operation start and thereafter scheduled one second apart from the previous
   *scheduled* deadline, so sink or callback latency can never stretch
-  start-to-start intervals, and
+  start-to-start intervals,
+* at most one cumulative ``HostTransportProgressEvent`` per heartbeat when new
+  body bytes were observed, plus one immediately before the terminal fact, so
+  every already-yielded chunk contributes to cumulative bytes without emitting
+  a presentation event per chunk, and
 * heartbeat facts carrying elapsed whole seconds, an applicability-gated
   diagnostic-silence duration, the latest observed ``diagnostic`` or
   ``transport_progress`` activity kind with its whole monotonic age, and
@@ -51,8 +56,10 @@ from docker.versioning.host_progress import (
     HostStep,
     HostStepEvent,
     HostStepState,
+    HostTransportProgressEvent,
     emit,
 )
+from docker.versioning.logical_resource import require_approved_logical_resource
 
 #: Seconds after operation start before the first heartbeat fact.
 FIRST_HEARTBEAT_SECONDS = 3.0
@@ -123,6 +130,7 @@ class HostActivityMonitor:
         waiter: HeartbeatWaiter | None = None,
         deadline_seconds: float | None = None,
         shutdown_clock: Callable[[], float] = time.monotonic,
+        logical_resource: str | None = None,
     ) -> None:
         if not isinstance(phase, HostPhase):
             raise TypeError("phase must be a HostPhase member")
@@ -130,6 +138,7 @@ class HostActivityMonitor:
             raise TypeError("step must be a HostStep member")
         if not isinstance(expects_diagnostic_stream, bool):
             raise TypeError("expects_diagnostic_stream must be a boolean")
+        require_approved_logical_resource(logical_resource, "logical_resource")
         if sink is not None and not callable(sink):
             raise TypeError("sink must be callable or None")
         if not callable(clock):
@@ -155,6 +164,7 @@ class HostActivityMonitor:
         self._phase = phase
         self._step = step
         self._expects_diagnostic_stream = expects_diagnostic_stream
+        self._logical_resource = logical_resource
         self._sink = sink
         self._clock = clock
         # The shutdown bound is enforced with its own real monotonic clock:
@@ -177,6 +187,7 @@ class HostActivityMonitor:
         self._last_activity_kind: HostLastActivityKind | None = None
         self._last_activity_at: float | None = None
         self._received_bytes = 0
+        self._published_bytes = 0
         self._terminal_requested = False
         self._terminal_delivered = False
         self._requested_terminal_state: HostStepState | None = None
@@ -192,7 +203,8 @@ class HostActivityMonitor:
         emit(
             self._sink,
             HostStepEvent(
-                phase, step, HostStepState.STARTED, expects_diagnostic_stream
+                phase, step, HostStepState.STARTED, expects_diagnostic_stream,
+                logical_resource,
             ),
         )
         self._thread.start()
@@ -300,10 +312,32 @@ class HostActivityMonitor:
             if requested_state is None:
                 return
             self._terminal_delivered = True
+        # The final cumulative byte count is published exactly once before the
+        # terminal fact so a short download still exposes observed bytes.
+        self._publish_progress_event()
         emit(
             self._sink,
             HostStepEvent(
-                self._phase, self._step, requested_state, self._expects_diagnostic_stream
+                self._phase, self._step, requested_state,
+                self._expects_diagnostic_stream, self._logical_resource,
+            ),
+        )
+
+    def _publish_progress_event(self) -> None:
+        """Publish pending cumulative bytes outside a heartbeat cycle."""
+        with self._lock:
+            self._publish_progress_locked()
+
+    def _publish_progress_locked(self) -> None:
+        """Emit the latest cumulative bytes once; the caller holds the lock."""
+        received = self._received_bytes
+        if received <= self._published_bytes:
+            return
+        self._published_bytes = received
+        emit(
+            self._sink,
+            HostTransportProgressEvent(
+                self._phase, self._step, received, self._logical_resource
             ),
         )
 
@@ -436,6 +470,9 @@ class HostActivityMonitor:
         with self._lock:
             if self._terminal_requested:
                 return False
+            # Byte progress is published at heartbeat cadence, never once per
+            # observed chunk, and immediately before the heartbeat fact.
+            self._publish_progress_locked()
             emit(self._sink, self._heartbeat_event(float(self._clock())))
             return True
 

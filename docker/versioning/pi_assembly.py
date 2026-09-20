@@ -18,6 +18,7 @@ injectable, so tests can drive the full pipeline without a Docker daemon.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 import hashlib
 from pathlib import Path
@@ -33,7 +34,13 @@ from docker.npm_environment import (
     npm_policy_digest,
     preflight,
 )
+from docker.versioning.activity_monitor import HostActivityMonitor
 from docker.versioning.build_materialization import StreamingTransport
+from docker.versioning.diagnostic_projection import (
+    DiagnosticLogicalResource,
+    DiagnosticResourceKind,
+    project_host_acquisition_failure,
+)
 from docker.versioning.host_progress import (
     HostDiagnosticEvent,
     HostDiagnosticStream,
@@ -41,6 +48,8 @@ from docker.versioning.host_progress import (
     HostPhase,
     HostPhaseEvent,
     HostPhaseState,
+    HostStep,
+    HostStepState,
     emit,
     guard_sink,
 )
@@ -53,7 +62,11 @@ from docker.versioning.pi_consumer import (
     select_pi_metadata,
 )
 from docker.versioning.pi_release import (
+    INSTALL_PACKAGE_FILENAME,
+    INSTALL_PACKAGE_LOCK_FILENAME,
+    SHA256SUMS_FILENAME,
     PiReleaseError,
+    ProgressCallback,
     acquire_install_assets,
     derive_pi_release_urls,
     download_bytes,
@@ -129,9 +142,57 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
     # 1. Exact release-asset URLs and checksum-verified acquisition.
     emit(request.event_sink, HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.STARTED))
     urls = derive_pi_release_urls(source, projection.pi_version)
+    asset_urls = {
+        SHA256SUMS_FILENAME: urls.sha256sums,
+        INSTALL_PACKAGE_FILENAME: urls.install_package,
+        INSTALL_PACKAGE_LOCK_FILENAME: urls.install_package_lock,
+    }
+    failure_secrets = tuple(
+        value for value in (request.proxy_url, request.corporate_trust_bundle)
+        if value is not None
+    )
+
+    @contextmanager
+    def _asset_activity(name: str):
+        """Scope one reviewed Pi asset's acquisition with safe failure context."""
+        resource = DiagnosticLogicalResource(
+            DiagnosticResourceKind.PI_RELEASE_ASSET, name
+        )
+        monitor = HostActivityMonitor(
+            phase=HostPhase.RELEASE_ACQUISITION,
+            step=HostStep.RELEASE_ACQUISITION,
+            expects_diagnostic_stream=False,
+            sink=request.event_sink,
+            logical_resource=resource.name,
+        )
+        try:
+            yield monitor.record_transport_progress
+        except BaseException as exc:
+            emit(
+                request.event_sink,
+                project_host_acquisition_failure(
+                    phase=HostPhase.RELEASE_ACQUISITION,
+                    step=HostStep.RELEASE_ACQUISITION,
+                    logical_resource=resource,
+                    reason=exc,
+                    url=asset_urls[name],
+                    secrets=failure_secrets,
+                ),
+            )
+            monitor.finish(HostStepState.FAILED)
+            raise
+        else:
+            monitor.finish(HostStepState.SUCCEEDED)
+
+    def _download(url: str, progress: ProgressCallback | None = None) -> bytes:
+        return download_bytes(request.transport, url, progress=progress)
+
     try:
         package_bytes, lock_bytes = acquire_install_assets(
-            urls, lambda url: download_bytes(request.transport, url)
+            urls, _download,
+            activity=(
+                _asset_activity if request.event_sink is not None else None
+            ),
         )
     except BaseException as exc:
         emit(request.event_sink, HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.FAILED))

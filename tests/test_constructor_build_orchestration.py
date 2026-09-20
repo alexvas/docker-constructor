@@ -1971,6 +1971,98 @@ class TestMaterializationBoundary(unittest.TestCase):
         self.assertEqual(sorted(f"sha256:{item.identity.hex_digest()}" for item in selected), committed["blobs"])
         self.assertTrue(old_identities.isdisjoint({DigestIdentity.from_hex(*item.split(":", 1)) for item in committed["blobs"]}))
 
+    # Task 5 — optional materializer keywords are forwarded independently.
+
+    def _keyword_request(self, materialize):
+        return self._request(
+            materialize=materialize,
+            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+            runner=FakeBuildExecutor(),
+        )
+
+    def test_materializer_accepting_only_event_sink_still_executes(self):
+        """``event_sink`` must not imply ``failure_secrets`` support."""
+        seen: dict[str, object] = {}
+
+        def materialize(
+            projection, *, constructor_project_root, cache_root=None,
+            project_state=None, transport=None, lock=None, event_sink=None,
+        ):
+            seen["event_sink"] = event_sink
+            return publish_digest_valid_artifacts(
+                projection, constructor_project_root=constructor_project_root,
+                cache_root=cache_root, project_state=project_state,
+            )
+
+        sink = lambda event: None
+        request = self._keyword_request(materialize)
+        object.__setattr__(request, "event_sink", sink)
+        result = orchestrate_build(request)
+        self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
+        self.assertIs(sink, seen["event_sink"])
+
+    def test_legacy_materializer_accepting_neither_keyword_still_executes(self):
+        seen: dict[str, object] = {}
+
+        def materialize(
+            projection, *, constructor_project_root, cache_root=None,
+            project_state=None, transport=None, lock=None,
+        ):
+            seen["called"] = True
+            return publish_digest_valid_artifacts(
+                projection, constructor_project_root=constructor_project_root,
+                cache_root=cache_root, project_state=project_state,
+            )
+
+        result = orchestrate_build(self._keyword_request(materialize))
+        self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
+        self.assertTrue(seen["called"])
+
+    def test_materializer_accepting_both_keywords_receives_expected_values(self):
+        seen: dict[str, object] = {}
+
+        def materialize(
+            projection, *, constructor_project_root, cache_root=None,
+            project_state=None, transport=None, lock=None, event_sink=None,
+            failure_secrets=(),
+        ):
+            seen["event_sink"] = event_sink
+            seen["failure_secrets"] = failure_secrets
+            return publish_digest_valid_artifacts(
+                projection, constructor_project_root=constructor_project_root,
+                cache_root=cache_root, project_state=project_state,
+            )
+
+        sink = lambda event: None
+        request = self._keyword_request(materialize)
+        object.__setattr__(request, "event_sink", sink)
+        result = orchestrate_build(request)
+        self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
+        self.assertIs(sink, seen["event_sink"])
+        self.assertEqual((), seen["failure_secrets"])
+
+    def test_materializer_accepting_var_keywords_receives_expected_values(self):
+        seen: dict[str, object] = {}
+
+        def materialize(
+            projection, *, constructor_project_root, cache_root=None,
+            project_state=None, **kwargs,
+        ):
+            seen["event_sink"] = kwargs.get("event_sink", "<missing>")
+            seen["failure_secrets"] = kwargs.get("failure_secrets", "<missing>")
+            return publish_digest_valid_artifacts(
+                projection, constructor_project_root=constructor_project_root,
+                cache_root=cache_root, project_state=project_state,
+            )
+
+        sink = lambda event: None
+        request = self._keyword_request(materialize)
+        object.__setattr__(request, "event_sink", sink)
+        result = orchestrate_build(request)
+        self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
+        self.assertIs(sink, seen["event_sink"])
+        self.assertEqual((), seen["failure_secrets"])
+
 
 class TestPiMaterializationBoundary(unittest.TestCase):
     """Pi/assembler/consumer failures become OPERATIONAL materialization

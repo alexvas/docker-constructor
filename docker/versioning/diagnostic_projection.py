@@ -43,11 +43,8 @@ import codecs
 import ipaddress
 import re
 import urllib.parse
-from dataclasses import dataclass
-from enum import StrEnum
 from typing import Sequence
 
-from docker.npm_environment.identity import ASSEMBLER_DIGEST_PREFIX_LENGTH
 from docker.npm_environment.streaming import (
     REDACTED,
     dedupe_secrets,
@@ -60,6 +57,12 @@ from docker.versioning.host_progress import (
     HostStep,
     HostStructuredDiagnostic,
 )
+from docker.versioning.logical_resource import (
+    PI_RELEASE_ASSET_NAMES,
+    REVIEWED_ARTIFACT_NAMES,
+    DiagnosticLogicalResource,
+    DiagnosticResourceKind,
+)
 
 #: Maximum retained ambiguous URL/secret pending state (UTF-8 bytes).
 PENDING_LIMIT_BYTES = 8 * 1024
@@ -70,33 +73,9 @@ OVERSIZED_TOKEN_MARKER = "[sanitized oversized token]"
 #: Fixed fail-closed marker for an unresolved candidate at stream termination.
 INCOMPLETE_TOKEN_MARKER = "[sanitized incomplete token]"
 
-#: Closed logical names of the reviewed build artifacts.
-REVIEWED_ARTIFACT_NAMES = frozenset({"rustup", "uv", "rtk", "fd"})
-
-#: Closed logical names of the authoritative Pi release assets.
-PI_RELEASE_ASSET_NAMES = frozenset(
-    {
-        "SHA256SUMS",
-        "pi-coding-agent-install-package.json",
-        "pi-coding-agent-install-package-lock.json",
-    }
-)
-
 #: Maximum number of unique exception type names a projected chain may carry.
 EXCEPTION_TYPE_LIMIT = 4
 
-
-class DiagnosticResourceKind(StrEnum):
-    """Closed kind of a validated diagnostic logical resource."""
-
-    REVIEWED_ARTIFACT = "reviewed_artifact"
-    PI_RELEASE_ASSET = "pi_release_asset"
-    ASSEMBLER_CONTAINER = "assembler_container"
-
-
-_ASSEMBLER_CONTAINER_RE = re.compile(
-    rf"npm-assembler-[0-9a-f]{{{ASSEMBLER_DIGEST_PREFIX_LENGTH}}}"
-)
 
 _SCHEME_CHAR_CLASS = r"[A-Za-z0-9+.\-]"
 _SCHEME_CHAR_RE = re.compile(_SCHEME_CHAR_CLASS)
@@ -128,43 +107,6 @@ _AUTHORITY_RE = re.compile(r"(?:\[[0-9A-Fa-f:.]+\]|[^:\[\]]*)(?::[0-9]+)?")
 #: two passes; the extra pass keeps a small margin.  Decoding always stops
 #: early once a pass no longer changes the text.
 URL_DECODE_LAYER_LIMIT = 3
-
-
-@dataclass(frozen=True, slots=True)
-class DiagnosticLogicalResource:
-    """Validated safe logical identity for a host diagnostic.
-
-    Only the closed reviewed artifact names, the closed Pi release asset
-    names, and the fixed
-    ``npm-assembler-<digest[:ASSEMBLER_DIGEST_PREFIX_LENGTH]>`` container form
-    (the authoritative lowercase hexadecimal prefix produced by
-    :mod:`docker.npm_environment.execution`) are accepted; arbitrary resource
-    labels are rejected before they can enter an event.
-    """
-
-    kind: DiagnosticResourceKind
-    name: str
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.kind, DiagnosticResourceKind):
-            raise TypeError("kind must be a DiagnosticResourceKind member")
-        if not isinstance(self.name, str):
-            raise TypeError("logical resource name must be a string")
-        if self.kind is DiagnosticResourceKind.REVIEWED_ARTIFACT:
-            if self.name not in REVIEWED_ARTIFACT_NAMES:
-                raise ValueError(
-                    f"reviewed artifact name {self.name!r} is not a closed asset"
-                )
-        elif self.kind is DiagnosticResourceKind.PI_RELEASE_ASSET:
-            if self.name not in PI_RELEASE_ASSET_NAMES:
-                raise ValueError(
-                    f"Pi release asset name {self.name!r} is not a closed asset"
-                )
-        elif _ASSEMBLER_CONTAINER_RE.fullmatch(self.name) is None:
-            raise ValueError(
-                "assembler container name must be the fixed "
-                "'npm-assembler-<digest-prefix>' form"
-            )
 
 
 def _is_terminator(character: str) -> bool:
@@ -876,17 +818,41 @@ def project_structured_diagnostic(
     )
 
 
+def _read_exception_relationship(
+    current: BaseException, attribute: str
+) -> BaseException | None:
+    """Read one exception relationship without letting it break projection.
+
+    Hostile exception objects may raise from attribute access or expose a
+    non-exception value.  Either outcome yields ``None`` so traversal falls
+    through to the next relationship instead of replacing the original
+    acquisition failure.  The value and any caught exception are never
+    converted to a string.
+    """
+    try:
+        value = getattr(current, attribute)
+    except BaseException:
+        return None
+    return value if isinstance(value, BaseException) else None
+
+
 def project_exception_type_chain(
     reason: BaseException | None, *, limit: int = EXCEPTION_TYPE_LIMIT
 ) -> tuple[str, ...]:
     """Return at most *limit* unique exception type names for *reason*.
 
-    Traversal is deterministic: the reason itself, then ``__cause__`` when
-    present, otherwise ``__context__``.  Object identity terminates cycles and
-    duplicate class names are suppressed while traversal continues, so the
-    result is a bounded chain of unique types.  Exception messages are never
-    evaluated (``type(reason).__name__`` is the only attribute read besides the
-    relationship links).
+    Traversal is deterministic.  At each step the next exception is selected in
+    this order: an exception-valued ``reason`` attribute (for example the
+    ``URLError.reason`` that wraps the underlying transport failure), then
+    ``__cause__`` when present, otherwise ``__context__``.  A non-exception
+    ``reason`` value is ignored without ever being converted to a string.  A
+    relationship read that raises (hostile exception object) is treated the
+    same way and traversal continues to the next relationship, so projection
+    stays non-throwing and the original acquisition failure is preserved.
+    Object identity terminates cycles and duplicate class names are suppressed
+    while traversal continues, so the result is a bounded chain of unique
+    types.  Exception messages are never evaluated (``type(reason).__name__``
+    is the only attribute read besides the relationship links).
 
     *limit* may lower the size of the returned chain but never raise it above
     :data:`EXCEPTION_TYPE_LIMIT`; requesting more is a validation error so the
@@ -916,12 +882,52 @@ def project_exception_type_chain(
         name = type(current).__name__
         if name not in names:
             names.append(name)
-        current = (
-            current.__cause__
-            if current.__cause__ is not None
-            else current.__context__
-        )
+        nested = _read_exception_relationship(current, "reason")
+        if nested is None:
+            nested = _read_exception_relationship(current, "__cause__")
+        if nested is None:
+            nested = _read_exception_relationship(current, "__context__")
+        current = nested
     return tuple(names)
+
+
+def project_host_acquisition_failure(
+    *,
+    phase: HostPhase,
+    step: HostStep,
+    logical_resource: DiagnosticLogicalResource,
+    reason: BaseException | None,
+    url: str | None = None,
+    secrets: Sequence[str] = (),
+) -> HostStructuredDiagnostic:
+    """Project one host acquisition failure into a safe structured diagnostic.
+
+    The reviewed logical asset name identifies the failure. The bounded
+    exception-type chain is built from *reason* without evaluating any
+    exception message. The optional *url* is passed through the shared URL
+    projection: it is removed from the text and only its normalized hostname
+    survives as a host fact. *secrets* are redacted first as defense in depth.
+    """
+    if not isinstance(logical_resource, DiagnosticLogicalResource):
+        raise TypeError(
+            "logical_resource must be a validated DiagnosticLogicalResource"
+        )
+    chain = project_exception_type_chain(reason)
+    detail = "acquisition failed"
+    if chain:
+        detail += " (" + " -> ".join(chain) + ")"
+    text = f"{logical_resource.name}: {detail}"
+    if url is not None:
+        text += f" {url}"
+    return project_structured_diagnostic(
+        phase=phase,
+        step=step,
+        stream=HostDiagnosticStream.STDERR,
+        classification=HostDiagnosticClassification.ERROR,
+        text=text,
+        secrets=secrets,
+        logical_resource=logical_resource,
+    )
 
 
 __all__ = [
@@ -935,6 +941,7 @@ __all__ = [
     "DiagnosticProjector",
     "DiagnosticResourceKind",
     "project_exception_type_chain",
+    "project_host_acquisition_failure",
     "project_structured_diagnostic",
     "sanitize_diagnostic_text",
 ]
