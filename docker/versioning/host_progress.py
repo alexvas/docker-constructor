@@ -86,6 +86,36 @@ def _require_optional_int(value: object, label: str, *, minimum: int) -> None:
     _require_int(value, label, minimum=minimum)
 
 
+#: Fixed width of every opaque URL fingerprint, in hexadecimal characters.
+URL_FINGERPRINT_LENGTH = 64
+
+#: Lowercase hexadecimal alphabet accepted in a URL fingerprint.
+URL_FINGERPRINT_ALPHABET = frozenset("0123456789abcdef")
+
+
+def require_approved_url_fingerprints(value: object) -> None:
+    """Validate the shared ephemeral URL-fingerprint contract.
+
+    Fingerprints cross the structured DTO boundary, so they must be a tuple of
+    strings that are each exactly :data:`URL_FINGERPRINT_LENGTH` lowercase
+    hexadecimal characters.  Invalid values are rejected rather than
+    lowercased, truncated, padded, or otherwise normalized so unsafe data
+    cannot reach the fingerprint surface.
+    """
+    if not isinstance(value, tuple):
+        raise TypeError("url_fingerprints must be a tuple")
+    for fingerprint in value:
+        if not isinstance(fingerprint, str):
+            raise TypeError("url fingerprints must be strings")
+        if len(fingerprint) != URL_FINGERPRINT_LENGTH or not set(
+            fingerprint
+        ) <= URL_FINGERPRINT_ALPHABET:
+            raise ValueError(
+                "url fingerprints must be exactly "
+                f"{URL_FINGERPRINT_LENGTH} lowercase hexadecimal characters"
+            )
+
+
 @dataclass(frozen=True)
 class HostPhaseEvent:
     phase: HostPhase
@@ -200,7 +230,14 @@ class HostHeartbeatEvent:
 
 @dataclass(frozen=True)
 class HostStructuredDiagnostic:
-    """Structured safe diagnostic: URL-free text plus normalized host facts."""
+    """Structured safe diagnostic: URL-free text plus normalized host facts.
+
+    ``url_fingerprints`` carries the ordered tuple of ephemeral, fixed-width,
+    session-keyed opaque fingerprints for complete URLs that were removed from
+    ``text``.  Multiplicity is preserved.  Fingerprints are presentation
+    identity only: they MUST NOT enter rendered text, retained tails, failure
+    reports, persistence, evidence, or policy identity.
+    """
 
     phase: HostPhase
     step: HostStep
@@ -209,6 +246,7 @@ class HostStructuredDiagnostic:
     text: str
     hostnames: tuple[str, ...] = ()
     logical_resource: str | None = None
+    url_fingerprints: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _require_member(self.phase, HostPhase, "phase")
@@ -221,6 +259,7 @@ class HostStructuredDiagnostic:
             isinstance(hostname, str) for hostname in self.hostnames
         ):
             raise TypeError("normalized hostnames must be a tuple of strings")
+        require_approved_url_fingerprints(self.url_fingerprints)
         require_approved_logical_resource(self.logical_resource, "logical resource")
 
 

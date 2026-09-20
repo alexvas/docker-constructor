@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import codecs
 import ipaddress
+import json
 import re
 import urllib.parse
 from typing import Sequence
@@ -50,6 +51,7 @@ from docker.npm_environment.streaming import (
     dedupe_secrets,
     longest_secret_length,
 )
+from docker.versioning.diagnostic_identity import SessionUrlIdentity
 from docker.versioning.host_progress import (
     HostDiagnosticClassification,
     HostDiagnosticStream,
@@ -416,6 +418,81 @@ def _candidate_host(candidate: str) -> str | None:
     return None
 
 
+def _explicit_authority_port(authority: str) -> int | None:
+    """Return the port explicitly written in *authority*, or ``None``.
+
+    The authority must already have any user information removed.  An absent
+    port stays absent so an implicit default port is never synthesized, while
+    an explicit default port stays explicit.  A trailing colon, an empty
+    port, or a non-numeric port is malformed and yields ``None``.
+    """
+    if authority.startswith("["):
+        end = authority.find("]")
+        if end == -1:
+            return None
+        remainder = authority[end + 1 :]
+        if not remainder.startswith(":") or not remainder[1:].isdigit():
+            return None
+        return int(remainder[1:])
+    _, separator, tail = authority.rpartition(":")
+    if not separator or not tail.isdigit():
+        return None
+    return int(tail)
+
+
+def _canonical_url_identity_literal(text: str) -> str | None:
+    """Build the fingerprint digest input for one literal URL layer.
+
+    The input preserves the lowercased scheme, the normalized hostname, the
+    path exactly as written, and the port exactly when one was explicitly
+    supplied -- including an explicit default port.  User information, query,
+    fragment, and every other authority detail are excluded by construction,
+    so they cannot contribute to the fingerprint.  An absent port is never
+    synthesized.
+    """
+    try:
+        parsed = urllib.parse.urlsplit(text)
+    except ValueError:
+        return None
+    if not parsed.scheme or not parsed.netloc:
+        return None
+    host = _normalize_hostname_text(parsed.hostname or "")
+    if host is None:
+        return None
+    authority = parsed.netloc.rpartition("@")[2]
+    explicit_port = _explicit_authority_port(authority)
+    try:
+        parsed.port
+    except ValueError:
+        return None
+    return json.dumps(
+        [parsed.scheme.lower(), host, explicit_port, parsed.path],
+        ensure_ascii=True,
+        separators=(",", ":"),
+    )
+
+
+def _canonical_url_identity(candidate: str) -> str | None:
+    """Return the canonical fingerprint input for *candidate*.
+
+    Percent-encoded schemes, separators, and hosts are recognized through the
+    same bounded decoding passes used for URL detection, so an encoded URL
+    yields the same fingerprint as its literal form.
+    """
+    current = candidate
+    for _ in range(URL_DECODE_LAYER_LIMIT + 1):
+        identity = _canonical_url_identity_literal(current)
+        if identity is not None:
+            return identity
+        if "%" not in current:
+            return None
+        decoded = _decode_percent(current)
+        if decoded is None or decoded == current:
+            return None
+        current = decoded
+    return None
+
+
 def _is_escape_complete(text: str) -> bool:
     """Whether every ``%`` in *text* starts a complete ``%XX`` escape.
 
@@ -585,7 +662,14 @@ class DiagnosticProjector:
     next safe token boundary before normal processing resumes.
     """
 
-    def __init__(self, secrets: Sequence[str] = ()) -> None:
+    def __init__(
+        self,
+        secrets: Sequence[str] = (),
+        *,
+        url_identity: SessionUrlIdentity | None = None,
+    ) -> None:
+        if url_identity is not None and not isinstance(url_identity, SessionUrlIdentity):
+            raise TypeError("url_identity must be a SessionUrlIdentity or None")
         self._secrets = dedupe_secrets(secrets)
         self._longest = longest_secret_length(self._secrets)
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
@@ -593,6 +677,8 @@ class DiagnosticProjector:
         self._overflow = False
         self._eof = False
         self._hostnames: list[str] = []
+        self._url_identity = url_identity
+        self._fingerprints: list[str] = []
 
     # -- public surface -------------------------------------------------
 
@@ -660,6 +746,11 @@ class DiagnosticProjector:
     def hostnames(self) -> tuple[str, ...]:
         """Normalized hostnames observed so far, in first-occurrence order."""
         return tuple(self._hostnames)
+
+    @property
+    def url_fingerprints(self) -> tuple[str, ...]:
+        """Ordered ephemeral URL fingerprints with multiplicity preserved."""
+        return tuple(self._fingerprints)
 
     @property
     def pending_size(self) -> int:
@@ -765,6 +856,12 @@ class DiagnosticProjector:
         if host is not None and not _host_contains_secret(host, self._secrets):
             if host not in self._hostnames:
                 self._hostnames.append(host)
+            if self._url_identity is not None:
+                digest_input = _canonical_url_identity(candidate)
+                if digest_input is not None:
+                    self._fingerprints.append(
+                        self._url_identity.fingerprint(digest_input)
+                    )
         return REDACTED
 
 
@@ -791,12 +888,15 @@ def project_structured_diagnostic(
     text: str,
     secrets: Sequence[str] = (),
     logical_resource: DiagnosticLogicalResource | None = None,
+    url_identity: SessionUrlIdentity | None = None,
 ) -> HostStructuredDiagnostic:
     """Project *text* into one structured, URL-free safe diagnostic.
 
     Accepts only a validated :class:`DiagnosticLogicalResource` (or ``None``);
     raw resource labels are rejected so an arbitrary label cannot enter the
-    event.  No output policy is accepted or consulted.
+    event.  No output policy is accepted or consulted. When *url_identity* is
+    supplied, every removed complete URL contributes an ordered ephemeral
+    fingerprint for presentation identity only.
     """
     if logical_resource is not None and not isinstance(
         logical_resource, DiagnosticLogicalResource
@@ -804,17 +904,20 @@ def project_structured_diagnostic(
         raise TypeError(
             "logical_resource must be a validated DiagnosticLogicalResource"
         )
-    safe_text, hostnames = sanitize_diagnostic_text(text, secrets)
+    projector = DiagnosticProjector(secrets, url_identity=url_identity)
+    chunks = list(projector.feed_text(text))
+    chunks.extend(projector.finish())
     return HostStructuredDiagnostic(
         phase=phase,
         step=step,
         stream=stream,
         classification=classification,
-        text=safe_text,
-        hostnames=hostnames,
+        text="".join(chunks),
+        hostnames=projector.hostnames,
         logical_resource=(
             logical_resource.name if logical_resource is not None else None
         ),
+        url_fingerprints=projector.url_fingerprints,
     )
 
 
@@ -940,6 +1043,7 @@ __all__ = [
     "DiagnosticLogicalResource",
     "DiagnosticProjector",
     "DiagnosticResourceKind",
+    "SessionUrlIdentity",
     "project_exception_type_chain",
     "project_host_acquisition_failure",
     "project_structured_diagnostic",
