@@ -34,6 +34,7 @@ from docker.npm_environment import (
     DockerRunExecutor,
     LockedNpmError,
     ProcessResult,
+    REDACTED,
     RootSpec,
     STREAM_STDOUT,
     StreamReaderFailure,
@@ -49,6 +50,8 @@ from docker.npm_environment import (
     publication,
     publish_environment,
 )
+from docker.versioning.npm_diagnostic_stream import make_stream_factory, project_tail
+from docker.versioning.diagnostic_projection import INCOMPLETE_TOKEN_MARKER
 
 _IMAGE = "sha256:" + "a" * 64
 _NODE = "24.18.0"
@@ -123,11 +126,13 @@ class _DeadlinePipe:
         blocked_event: threading.Event | None = None,
         fail_read: bool = False,
         eof: bool = False,
+        close_failure: BaseException | None = None,
     ):
         self._data = data
         self._blocked_event = blocked_event
         self._fail_read = fail_read
         self._eof = eof
+        self._close_failure = close_failure
         self._terminated = threading.Event()
         self.close_attempts = 0
 
@@ -146,7 +151,11 @@ class _DeadlinePipe:
 
     def close(self) -> None:
         self.close_attempts += 1
+        # Unblock the reader before any failure so a raising close can never
+        # strand a blocked reader.
         self._terminated.set()
+        if self._close_failure is not None:
+            raise self._close_failure
 
     def unblock(self) -> None:
         self._terminated.set()
@@ -168,6 +177,7 @@ class _DeadlineProc:
         never_exit: bool = False,
         stdout_fail_read: bool = False,
         pipes_eof: bool = False,
+        terminate_failure: BaseException | None = None,
     ):
         self.stdout = _DeadlinePipe(
             stdout_data,
@@ -183,6 +193,7 @@ class _DeadlineProc:
         self._resist_terminate = resist_terminate
         self._unblock_pipes_on_terminate = unblock_pipes_on_terminate
         self._never_exit = never_exit
+        self._terminate_failure = terminate_failure
         self._exited = threading.Event()
         self._wait_failure = wait_failure
         self._wait_failure_raised = False
@@ -197,6 +208,8 @@ class _DeadlineProc:
         if self._unblock_pipes_on_terminate:
             self.stdout.unblock()
             self.stderr.unblock()
+        if self._terminate_failure is not None:
+            raise self._terminate_failure
         if not self._resist_terminate:
             self._exited.set()
 
@@ -338,17 +351,29 @@ class DeadlineTestCase(unittest.TestCase):
             cache_root, _assembler().digest
         )
 
-    def _run_streaming(self, proc, *, deadline, grace=1.0, sink=None, secrets=()):
+    def _run_streaming(
+        self,
+        proc,
+        *,
+        deadline,
+        grace=1.0,
+        sink=None,
+        secrets=(),
+        tail_projector=None,
+        stream_factory=None,
+    ):
         result: dict = {}
 
         def run() -> None:
             try:
-                DockerRunExecutor().run_streaming(
+                result["capture"] = DockerRunExecutor().run_streaming(
                     ("docker", "run", "--rm", "alpine", "true"),
                     secrets=secrets,
                     sink=sink,
                     deadline_seconds=deadline,
                     grace_seconds=grace,
+                    tail_projector=tail_projector,
+                    stream_factory=stream_factory,
                 )
             except BaseException as exc:  # pragma: no cover - test aid
                 result["error"] = exc
@@ -494,6 +519,134 @@ class TestSupervisorFailure(DeadlineTestCase):
         notes = "\n".join(getattr(exc, "__notes__", ()))
         self.assertIn("supervisor cleanup failed", notes)
         self.assertNotIn("SUPERSECRET", notes)
+        _assert_no_workers(self)
+
+
+class TestUrlFreeFailureNotes(DeadlineTestCase):
+    """URL-bearing cleanup/close failures never leak into attached notes."""
+
+    _URL = "https://user:pass@registry.example.com/pkg?token=abc#frag"
+
+    def _assert_url_free(self, text: str) -> None:
+        for fragment in (
+            self._URL,
+            "https://",
+            "registry.example.com",
+            "user:pass",
+            "token=abc",
+            "#frag",
+            "SUPERSECRET",
+        ):
+            self.assertNotIn(fragment, text)
+
+    def test_timeout_cleanup_note_is_url_free_and_timeout_primary(self):
+        proc = _DeadlineProc(
+            terminate_failure=OSError(
+                f"terminate failed fetching {self._URL} (SUPERSECRET)"
+            )
+        )
+        result = self._run_streaming(
+            proc,
+            deadline=0.2,
+            grace=0.3,
+            secrets=("SUPERSECRET",),
+            tail_projector=project_tail,
+        )
+        exc = result.get("error")
+        # The constructor-owned timeout classification stays primary.
+        self.assertIsInstance(exc, AssemblyTimeoutError)
+        self.assertEqual("assembly_timeout", exc.reason)
+        rendered = "\n".join([str(exc), *getattr(exc, "__notes__", ())])
+        self.assertIn("deadline cleanup failed", rendered)
+        self.assertIn(REDACTED, rendered)
+        self._assert_url_free(rendered)
+        _assert_no_workers(self)
+
+    def test_timeout_pipe_close_note_is_url_free(self):
+        proc = _DeadlineProc(stdout_data=b"working\n")
+        proc.stdout = _DeadlinePipe(
+            close_failure=OSError(f"close failed {self._URL} SUPERSECRET")
+        )
+        proc.stderr = _DeadlinePipe(
+            close_failure=OSError(f"close failed {self._URL} SUPERSECRET")
+        )
+        result = self._run_streaming(
+            proc,
+            deadline=0.2,
+            grace=0.3,
+            secrets=("SUPERSECRET",),
+            tail_projector=project_tail,
+        )
+        exc = result.get("error")
+        self.assertIsInstance(exc, AssemblyTimeoutError)
+        self.assertEqual("assembly_timeout", exc.reason)
+        rendered = "\n".join([str(exc), *getattr(exc, "__notes__", ())])
+        self.assertIn("pipe close failed", rendered)
+        self.assertIn(REDACTED, rendered)
+        self._assert_url_free(rendered)
+        _assert_no_workers(self)
+
+    def test_supervisor_wait_failure_detail_is_url_free(self):
+        proc = _DeadlineProc(
+            stdout_data=b"working\n",
+            wait_failure=OSError(
+                f"timed wait exploded {self._URL} SUPERSECRET"
+            ),
+        )
+        result = self._run_streaming(
+            proc,
+            deadline=0.2,
+            grace=0.3,
+            secrets=("SUPERSECRET",),
+            tail_projector=project_tail,
+        )
+        exc = result.get("error")
+        self.assertIsInstance(exc, OSError)
+        rendered = "\n".join([str(exc), *getattr(exc, "__notes__", ())])
+        self.assertIn("timed wait exploded", rendered)
+        self.assertIn(REDACTED, rendered)
+        self._assert_url_free(rendered)
+        _assert_no_workers(self)
+
+
+class TestForcedEofFinalization(DeadlineTestCase):
+    """A deadline-forced EOF finalizes pending candidates as aborted."""
+
+    def test_timeout_forces_abort_finalization_of_pending_prefix(self):
+        # The reader holds an ambiguous percent-encoded scheme prefix when the
+        # deadline terminates the client; the retained timeout tail must fail
+        # closed rather than flushing ``%68%74`` as ordinary text.
+        proc = _DeadlineProc(stdout_data=b"npm status %68%74")
+        result = self._run_streaming(
+            proc,
+            deadline=0.2,
+            grace=0.3,
+            stream_factory=make_stream_factory(()),
+            tail_projector=project_tail,
+        )
+        exc = result.get("error")
+        self.assertIsInstance(exc, AssemblyTimeoutError)
+        self.assertEqual("assembly_timeout", exc.reason)
+        rendered = "\n".join([str(exc), *getattr(exc, "__notes__", ())])
+        self.assertIn(INCOMPLETE_TOKEN_MARKER, rendered)
+        self.assertNotIn("%68%74", rendered)
+        _assert_no_workers(self)
+
+    def test_clean_unforced_eof_keeps_the_prefix(self):
+        # Control: without a deadline/cancellation the same prefix is a clean
+        # EOF and stays ordinary text (unchanged historical behavior).
+        proc = _DeadlineProc(stdout_data=b"npm status %68%74", pre_exited=True)
+        result = self._run_streaming(
+            proc,
+            deadline=5.0,
+            grace=0.3,
+            stream_factory=make_stream_factory(()),
+            tail_projector=project_tail,
+        )
+        self.assertNotIn("error", result)
+        capture = result["capture"]
+        self.assertIn("%68%74", capture.stdout)
+        self.assertNotIn(INCOMPLETE_TOKEN_MARKER, capture.stdout)
         _assert_no_workers(self)
 
 

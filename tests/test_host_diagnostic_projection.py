@@ -15,6 +15,7 @@ import urllib.error
 import urllib.parse
 
 from docker.npm_environment.streaming import REDACTED
+from docker.versioning.diagnostic_identity import SessionUrlIdentity
 from docker.versioning.diagnostic_projection import (
     EXCEPTION_TYPE_LIMIT,
     INCOMPLETE_TOKEN_MARKER,
@@ -1230,6 +1231,42 @@ class TestExceptionTypeChain(unittest.TestCase):
     def test_rejects_non_exception_reason(self):
         with self.assertRaises(TypeError):
             project_exception_type_chain("boom")  # type: ignore[arg-type]
+
+
+class TestConsumableFacts(unittest.TestCase):
+    """Per-diagnostic fact consumption without whole-stream retention."""
+
+    def test_take_facts_drains_and_preserves_order_and_multiplicity(self):
+        identity = SessionUrlIdentity()
+        projector = DiagnosticProjector(url_identity=identity)
+        list(
+            projector.feed_text(
+                "a https://a.example/one https://b.example/two "
+                "https://a.example/one"
+            )
+        )
+        list(projector.finish())
+        hostnames, fingerprints = projector.take_facts()
+        self.assertEqual(("a.example", "b.example"), hostnames)
+        self.assertEqual(3, len(fingerprints))
+        self.assertEqual(fingerprints[0], fingerprints[2])
+        self.assertNotEqual(fingerprints[0], fingerprints[1])
+        # Drained: the next diagnostic starts with no retained history.
+        self.assertEqual(((), ()), projector.take_facts())
+        self.assertEqual((), projector.hostnames)
+        self.assertEqual((), projector.url_fingerprints)
+
+    def test_undrained_single_diagnostic_keeps_the_complete_view(self):
+        # Callers that never drain (sanitize_diagnostic_text,
+        # project_structured_diagnostic) keep the historical whole-diagnostic
+        # behavior, including hostname dedup across the diagnostic.
+        identity = SessionUrlIdentity()
+        projector = DiagnosticProjector(url_identity=identity)
+        list(projector.feed_text("x https://a.example/1"))
+        list(projector.feed_text(" y https://a.example/2"))
+        list(projector.finish())
+        self.assertEqual(("a.example",), projector.hostnames)
+        self.assertEqual(2, len(projector.url_fingerprints))
 
 
 if __name__ == "__main__":

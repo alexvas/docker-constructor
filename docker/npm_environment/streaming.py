@@ -25,7 +25,7 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import Callable, Protocol, Sequence
+from typing import Callable, Iterable, Protocol, Sequence
 
 REDACTED = "<redacted>"
 
@@ -234,13 +234,24 @@ def redact_tail(
 
 @dataclass(frozen=True)
 class StreamChunk:
-    """One already-redacted, stream-tagged diagnostic chunk."""
+    """One already-projected, stream-tagged diagnostic chunk.
+
+    ``text`` is always URL-free safe text.  ``hostnames`` and
+    ``url_fingerprints`` are populated only by the structured collector branch;
+    the retained tail never carries them.
+    """
 
     stream: str
     """``"stdout"`` or ``"stderr"``."""
 
     text: str
-    """Redacted text chunk (never a complete secret)."""
+    """URL-free safe text chunk (never a complete secret or URL)."""
+
+    hostnames: tuple[str, ...] = ()
+    """Normalized hostnames removed from ``text`` (structured branch only)."""
+
+    url_fingerprints: tuple[str, ...] = ()
+    """Ordered ephemeral URL fingerprints (structured branch only)."""
 
 
 class DiagnosticSink(Protocol):
@@ -249,6 +260,22 @@ class DiagnosticSink(Protocol):
     def __call__(self, chunk: StreamChunk) -> None:
         """Handle one redacted chunk; return promptly (no blocking I/O)."""
         ...
+
+
+class DiagnosticStream(Protocol):
+    """Per-stream incremental decoder/projector consumed by the collector.
+
+    ``feed_bytes`` and ``finish`` may yield either plain ``str`` fragments
+    (the default :class:`RedactingStream`) or fully formed
+    :class:`StreamChunk` items (the structured projection branch).  ``tail``
+    returns the retained, already-projected tail for that stream.
+    """
+
+    def feed_bytes(self, data: bytes) -> Iterable[str | StreamChunk]: ...
+
+    def finish(self, *, abort: bool = False) -> Iterable[str | StreamChunk]: ...
+
+    def tail(self) -> str: ...
 
 
 @dataclass(frozen=True)
@@ -478,13 +505,14 @@ class SinkDispatcher:
 
 
 def _redacted_exception_detail(
-    exc: BaseException, secrets: Sequence[str]
+    exc: BaseException, secrets: Sequence[str], tail_projector=None
 ) -> str:
-    """Render *exc* — including any attached notes — as bounded, redacted detail."""
+    """Render *exc* — including any attached notes — as bounded safe detail."""
     parts = [str(exc) or repr(exc)]
     notes = getattr(exc, "__notes__", ())
     parts.extend(str(note) for note in notes)
-    return redact_tail(
+    project = tail_projector if tail_projector is not None else redact_tail
+    return project(
         "; ".join(parts), secrets, tail_bytes=READER_FAILURE_DETAIL_BYTES
     )
 
@@ -497,6 +525,9 @@ def collect_streams(
     sink: DiagnosticSink | None = None,
     on_reader_failure: Callable[[str], None] | None = None,
     on_interruption: Callable[[], None] | None = None,
+    stream_factory: Callable[[str], DiagnosticStream] | None = None,
+    tail_projector: Callable[..., str] | None = None,
+    abort_event: threading.Event | None = None,
 ) -> StreamingCapture:
     """Drain two byte pipes concurrently through redacting streams.
 
@@ -532,9 +563,30 @@ def collect_streams(
     error becomes a bounded, redacted note.  Callers without
     *on_interruption* must ensure the readers are independently unblocked,
     otherwise the interruption handler cannot join them.
+
+    *abort_event* is the shared cancellation signal visible to both reader
+    workers.  A caller that can force the readers to EOF (a deadline
+    supervisor terminating the producer, for example) receives the same event
+    and sets it before terminating the process or closing the pipes; the
+    collector itself sets it before unblocking a blocked sibling on reader
+    failure and before invoking *on_interruption*.  Any reader that reaches
+    EOF while the signal is set finalizes with ``abort=True`` so a forced EOF
+    can never flush an ambiguous secret/URL prefix as ordinary text, while a
+    reader that genuinely reaches a clean, unsignalled EOF still finalizes
+    unchanged.  When ``None``, a private event is created.
     """
-    stdout_stream = RedactingStream(secrets)
-    stderr_stream = RedactingStream(secrets)
+    if abort_event is None:
+        abort_event = threading.Event()
+    stdout_stream = (
+        stream_factory(STREAM_STDOUT)
+        if stream_factory is not None
+        else RedactingStream(secrets)
+    )
+    stderr_stream = (
+        stream_factory(STREAM_STDERR)
+        if stream_factory is not None
+        else RedactingStream(secrets)
+    )
     dispatcher = SinkDispatcher(sink) if sink is not None else None
 
     failures: list[StreamReaderFailure] = []
@@ -545,7 +597,11 @@ def collect_streams(
     done_lock = threading.Lock()
 
     def record_failure(stream: str, exc: Exception) -> None:
-        detail = _redacted_exception_detail(exc, secrets)
+        detail = _redacted_exception_detail(exc, secrets, tail_projector)
+        # Signal cancellation before the coordinator unblocks a blocked
+        # sibling (via *on_reader_failure*): the forced EOF must finalize
+        # with ``abort=True`` rather than flushing an ambiguous prefix.
+        abort_event.set()
         with failures_lock:
             failures.append(
                 StreamReaderFailure(
@@ -561,12 +617,15 @@ def collect_streams(
             if done == 2:
                 terminal.set()
 
-    def submit_chunk(tag: str, chunk: str) -> None:
+    def submit_chunk(tag: str, chunk: str | StreamChunk) -> None:
         if dispatcher is not None:
-            dispatcher.submit(StreamChunk(tag, chunk))
+            if isinstance(chunk, StreamChunk):
+                dispatcher.submit(chunk)
+            else:
+                dispatcher.submit(StreamChunk(tag, chunk))
 
     def drain(
-        read_fn: Callable[[int], bytes], stream: RedactingStream, tag: str
+        read_fn: Callable[[int], bytes], stream: DiagnosticStream, tag: str
     ) -> None:
         failed = False
         try:
@@ -584,7 +643,11 @@ def collect_streams(
             # readers are joined before the structured failure is surfaced.
             failed = True
             record_failure(tag, exc)
-        for chunk in stream.finish(abort=failed):
+        # A clean EOF uses ``abort=False``; a reader failure or any shared
+        # cancellation (interruption, deadline termination) uses
+        # ``abort=True`` so a pending candidate fails closed instead of being
+        # flushed as ordinary text.
+        for chunk in stream.finish(abort=failed or abort_event.is_set()):
             submit_chunk(tag, chunk)
         note_done()
 
@@ -630,6 +693,9 @@ def collect_streams(
         # hook — even one that raises its own KeyboardInterrupt/SystemExit —
         # never masks the interruption; it is recorded as secondary context.
         interrupted = exc
+        # Signal cancellation before the hook terminates/closes so a reader
+        # forced to EOF by the unblocking finalizes with ``abort=True``.
+        abort_event.set()
         if on_interruption is not None:
             try:
                 on_interruption()
@@ -648,7 +714,7 @@ def collect_streams(
             interrupted.add_note(
                 "interruption cleanup failed "
                 f"({type(exc).__name__}): "
-                f"{_redacted_exception_detail(exc, secrets)}"
+                f"{_redacted_exception_detail(exc, secrets, tail_projector)}"
             )
         raise interrupted
 
@@ -660,7 +726,7 @@ def collect_streams(
             primary.add_note(
                 "on_reader_failure cleanup failed "
                 f"({type(exc).__name__}): "
-                f"{_redacted_exception_detail(exc, secrets)}"
+                f"{_redacted_exception_detail(exc, secrets, tail_projector)}"
             )
         raise primary
     return StreamingCapture(
@@ -673,6 +739,7 @@ def collect_streams(
 __all__ = [
     "DISPATCHER_DRAIN_BUDGET_SECONDS",
     "DiagnosticSink",
+    "DiagnosticStream",
     "READ_CHUNK_BYTES",
     "READER_FAILURE_DETAIL_BYTES",
     "REDACTED",

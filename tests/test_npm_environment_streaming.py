@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import queue
+import signal
 import subprocess
 import sys
 import tempfile
@@ -56,6 +57,7 @@ from docker.npm_environment import (
     redact_tail,
     redact_text,
 )
+from docker.versioning.npm_diagnostic_stream import project_tail
 
 _IMAGE = "sha256:" + "a" * 64
 _NODE = "24.18.0"
@@ -704,11 +706,13 @@ class _CloseTrackingPipe:
         fail_read: bool = False,
         fail_close: bool = False,
         block: bool = False,
+        close_error: str = "SUPERSECRET close failed",
     ) -> None:
         self.close_attempts = 0
         self._fail_read = fail_read
         self._fail_close = fail_close
         self._block = block
+        self._close_error = close_error
         self._terminated = threading.Event()
 
     def read(self, n: int) -> bytes:
@@ -721,7 +725,7 @@ class _CloseTrackingPipe:
     def close(self) -> None:
         self.close_attempts += 1
         if self._fail_close:
-            raise OSError("SUPERSECRET close failed")
+            raise OSError(self._close_error)
 
     def unblock(self) -> None:
         self._terminated.set()
@@ -963,6 +967,114 @@ class TestReaderFailure(unittest.TestCase):
         self.assertTrue(any(c.stream == STREAM_STDERR for c in delivered))
         _assert_no_workers(self)
 
+    def test_reader_failure_cleanup_note_is_url_free(self):
+        unblock = threading.Event()
+        remaining = [b"remaining stderr\n"]
+
+        def stdout_read(n: int) -> bytes:
+            raise OSError("stdout reader failure")
+
+        def stderr_read(n: int) -> bytes:
+            unblock.wait(5.0)
+            if not remaining[0]:
+                return b""
+            data, remaining[0] = remaining[0][:n], remaining[0][n:]
+            return data
+
+        def on_reader_failure(stream: str) -> None:
+            # Unblock the sibling reader, then fail cleanup with a URL that
+            # carries credentials, a query, and a fragment.
+            unblock.set()
+            raise RuntimeError(
+                "cleanup failed fetching "
+                "https://user:pass@registry.example.com/pkg?token=abc#frag"
+            )
+
+        with self.assertRaises(StreamReaderFailure) as ctx:
+            collect_streams(
+                stdout_read=stdout_read,
+                stderr_read=stderr_read,
+                secrets=("SUPERSECRET",),
+                on_reader_failure=on_reader_failure,
+                tail_projector=project_tail,
+            )
+
+        exc = ctx.exception
+        rendered = "\n".join([str(exc), *getattr(exc, "__notes__", ())])
+        for fragment in (
+            "registry.example.com",
+            "https://",
+            "user:pass",
+            "token=",
+            "#frag",
+            "SUPERSECRET",
+        ):
+            self.assertNotIn(fragment, rendered)
+        self.assertIn("on_reader_failure cleanup failed", rendered)
+        _assert_no_workers(self)
+
+    @unittest.skipUnless(
+        hasattr(signal, "pthread_kill"), "requires signal.pthread_kill"
+    )
+    def test_interruption_cleanup_note_is_url_free(self):
+        blocked = threading.Event()
+        unblock = threading.Event()
+
+        def stdout_read(n: int) -> bytes:
+            blocked.set()
+            unblock.wait(5.0)
+            return b""
+
+        def stderr_read(n: int) -> bytes:
+            unblock.wait(5.0)
+            return b""
+
+        def sink(chunk: StreamChunk) -> None:
+            pass
+
+        def on_interruption() -> None:
+            # Unblock the readers so the coordinator can join them, then fail
+            # cleanup with a URL that carries credentials, a query, and a
+            # fragment.
+            unblock.set()
+            raise RuntimeError(
+                "cleanup failed fetching "
+                "https://user:pass@registry.example.com/pkg?token=abc#frag"
+            )
+
+        def interrupt() -> None:
+            self.assertTrue(blocked.wait(5.0))
+            time.sleep(0.1)
+            signal.pthread_kill(threading.main_thread().ident, signal.SIGINT)
+
+        timer = threading.Thread(target=interrupt, daemon=True)
+        timer.start()
+        with self.assertRaises(KeyboardInterrupt) as ctx:
+            collect_streams(
+                stdout_read=stdout_read,
+                stderr_read=stderr_read,
+                sink=sink,
+                secrets=("SUPERSECRET",),
+                on_interruption=on_interruption,
+                tail_projector=project_tail,
+            )
+        timer.join(5.0)
+
+        rendered = "\n".join(
+            [str(ctx.exception), *getattr(ctx.exception, "__notes__", ())]
+        )
+        for fragment in (
+            "registry.example.com",
+            "https://",
+            "user:pass",
+            "token=",
+            "#frag",
+            "SUPERSECRET",
+        ):
+            self.assertNotIn(fragment, rendered)
+        self.assertIn("interruption cleanup failed", rendered)
+        _assert_no_workers(self)
+
     def test_run_streaming_close_failure_is_secondary_context(self):
         import docker.npm_environment.execution as execution_module
 
@@ -1054,6 +1166,122 @@ class TestReaderFailure(unittest.TestCase):
         self.assertGreaterEqual(stderr_pipe.close_attempts, 1)
         _assert_no_workers(self)
 
+    def test_run_streaming_reader_failure_close_note_is_url_free(self):
+        import docker.npm_environment.execution as execution_module
+
+        url = "https://user:pass@registry.example.com/pkg?token=abc#frag"
+        # stdout fails to read, then fails to close with a URL; stderr blocks
+        # until the client is terminated during reader-failure cleanup.
+        stdout_pipe = _CloseTrackingPipe(
+            fail_read=True,
+            fail_close=True,
+            close_error=f"close failed {url} SUPERSECRET",
+        )
+        stderr_pipe = _CloseTrackingPipe(block=True)
+        proc = _CloseTrackingProc(stdout_pipe, stderr_pipe)
+
+        result: dict = {}
+
+        def run() -> None:
+            try:
+                DockerRunExecutor().run_streaming(
+                    ("docker", "run", "--rm", "alpine", "true"),
+                    secrets=("SUPERSECRET",),
+                    tail_projector=project_tail,
+                )
+            except BaseException as exc:  # pragma: no cover - test aid
+                result["error"] = exc
+
+        with mock.patch.object(
+            execution_module.subprocess, "Popen", return_value=proc
+        ):
+            thread = threading.Thread(
+                target=run, name="test-run-streaming-reader-url"
+            )
+            thread.start()
+            thread.join(5.0)
+        self.assertFalse(
+            thread.is_alive(), "run_streaming hung during cleanup"
+        )
+
+        exc = result.get("error")
+        # The structured reader failure stays primary; the URL-bearing close
+        # failure is only bounded secondary context.
+        self.assertIsInstance(exc, StreamReaderFailure)
+        assert isinstance(exc, StreamReaderFailure)
+        rendered = "\n".join(
+            [str(exc), exc.detail, *getattr(exc, "__notes__", ())]
+        )
+        self.assertIn("on_reader_failure cleanup failed", rendered)
+        self.assertIn(REDACTED, rendered)
+        for fragment in (
+            url,
+            "https://",
+            "registry.example.com",
+            "user:pass",
+            "token=abc",
+            "#frag",
+            "SUPERSECRET",
+        ):
+            self.assertNotIn(fragment, rendered)
+        _assert_no_workers(self)
+
+    def test_run_streaming_close_failure_detail_is_url_free(self):
+        import docker.npm_environment.execution as execution_module
+
+        url = "https://user:pass@registry.example.com/pkg?token=abc#frag"
+        # Both readers reach EOF normally; only stderr's close() raises a
+        # credential-bearing URL.
+        stdout_pipe = _CloseTrackingPipe()
+        stderr_pipe = _CloseTrackingPipe(
+            fail_close=True, close_error=f"close failed {url} SUPERSECRET"
+        )
+        proc = _CloseTrackingProc(stdout_pipe, stderr_pipe)
+
+        result: dict = {}
+
+        def run() -> None:
+            try:
+                DockerRunExecutor().run_streaming(
+                    ("docker", "run", "--rm", "alpine", "true"),
+                    secrets=("SUPERSECRET",),
+                    tail_projector=project_tail,
+                )
+            except BaseException as exc:  # pragma: no cover - test aid
+                result["error"] = exc
+
+        with mock.patch.object(
+            execution_module.subprocess, "Popen", return_value=proc
+        ):
+            thread = threading.Thread(
+                target=run, name="test-run-streaming-close-url"
+            )
+            thread.start()
+            thread.join(5.0)
+        self.assertFalse(
+            thread.is_alive(), "run_streaming hung during cleanup"
+        )
+
+        exc = result.get("error")
+        self.assertIsInstance(exc, OSError)
+        assert isinstance(exc, OSError)
+        rendered = "\n".join([str(exc), *getattr(exc, "__notes__", ())])
+        self.assertIn("close failed", rendered)
+        self.assertIn(REDACTED, rendered)
+        for fragment in (
+            url,
+            "https://",
+            "registry.example.com",
+            "user:pass",
+            "token=abc",
+            "#frag",
+            "SUPERSECRET",
+        ):
+            self.assertNotIn(fragment, rendered)
+        # The subprocess was still reaped before the close failure surfaced.
+        self.assertTrue(proc.reaped)
+        _assert_no_workers(self)
+
     def test_reader_failure_cannot_publish(self):
         executor = _FailingStreamingExecutor()
         cache_root = self._cache_root()
@@ -1070,6 +1298,23 @@ class TestReaderFailure(unittest.TestCase):
         self.assertNotIn("SUPERSECRET", ctx.exception.detail)
         outputs = assembler_namespace_path(cache_root, assembler.digest) / "outputs"
         self.assertEqual(list(outputs.iterdir()), [])
+
+    def test_executor_failure_detail_is_url_free(self):
+        executor = _UrlLeakingStreamingExecutor()
+        with self.assertRaises(LockedNpmError) as ctx:
+            assemble_environment(
+                validated=_validated(),
+                assembler=_assembler(),
+                cache_root=self._cache_root(),
+                executor=executor,
+                secrets=("SUPERSECRET",),
+                tail_projector=project_tail,
+            )
+        self.assertEqual(ctx.exception.reason, "executor_failure")
+        detail = ctx.exception.detail
+        self.assertNotIn("registry.example.com", detail)
+        self.assertNotIn("SUPERSECRET", detail)
+        self.assertIn(REDACTED, detail)
 
 
 class _StreamingExecutor:
@@ -1128,6 +1373,21 @@ class _FailingStreamingExecutor:
     ) -> ProcessResult:
         raise StreamReaderFailure(
             STREAM_STDOUT, "OSError", "SUPERSECRET leaked", TRUNCATION_NOTICE
+        )
+
+
+class _UrlLeakingStreamingExecutor:
+    """Injected executor whose streaming path raises a URL-bearing failure."""
+
+    def run(self, argv: tuple[str, ...]) -> ProcessResult:
+        return ProcessResult(argv, 0, "", "")
+
+    def run_streaming(
+        self, argv: tuple[str, ...], *, secrets=(), sink=None
+    ) -> ProcessResult:
+        raise RuntimeError(
+            "worker failed fetching "
+            "https://registry.example.com/pkg?token=abc (secret SUPERSECRET)"
         )
 
 

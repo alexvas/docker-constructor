@@ -27,8 +27,8 @@ from docker.versioning.inventory import load_inventory
 from docker.versioning.pi_assembly import PiAssemblyRequest, materialize_pi
 from docker.versioning.pi_release import PiReleaseSource, derive_pi_release_urls
 from docker.versioning.host_progress import (
-    HostDiagnosticEvent, HostDiagnosticStream, HostPhase, HostPhaseEvent,
-    HostPhaseState,
+    HostDiagnosticClassification, HostDiagnosticStream, HostPhase,
+    HostPhaseEvent, HostPhaseState, HostStep, HostStructuredDiagnostic,
 )
 from docker.npm_environment.streaming import StreamChunk
 from docker.npm_environment.errors import LockedNpmError
@@ -208,9 +208,12 @@ class TestMaterializePiOrchestration(unittest.TestCase):
                 event_sink=events.append,
             ))
 
-        diagnostic = HostDiagnosticEvent(
-            HostPhase.LOCKED_ASSEMBLY, HostDiagnosticStream.STDERR,
-            "already-redacted EOF partial",
+        diagnostic = HostStructuredDiagnostic(
+            phase=HostPhase.LOCKED_ASSEMBLY,
+            step=HostStep.NPM_EXECUTION,
+            stream=HostDiagnosticStream.STDERR,
+            classification=HostDiagnosticClassification.STATUS,
+            text="already-redacted EOF partial",
         )
         self.assertIn(diagnostic, events)
         self.assertLess(events.index(diagnostic), events.index(HostPhaseEvent(

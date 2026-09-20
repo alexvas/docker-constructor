@@ -17,6 +17,7 @@ and every failure detail is redacted before it is raised or attached.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import inspect
 import os
@@ -24,7 +25,7 @@ import subprocess
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, Protocol, Sequence
+from typing import IO, Callable, Protocol, Sequence
 
 from .assembler import (
     ASSEMBLY_TOTAL_TIMEOUT_SECONDS,
@@ -46,6 +47,7 @@ from .lifecycle import (
 )
 from .model import ValidatedAssemblyInput
 from .network import CorporateNetworkPolicy
+from .observability import NULL_ACTIVITY, AssemblyActivity
 from .run_vector import (
     DockerRunVector,
     Mount,
@@ -301,10 +303,30 @@ def _close_stream_pipes(pipes: Sequence[IO[bytes]]) -> list[Exception]:
     return close_errors
 
 
-def _render_close_failure(exc: BaseException, secrets: Sequence[str]) -> str:
-    """Render a close failure as a bounded, redacted message."""
-    return redact_tail(
-        str(exc) or repr(exc),
+def _render_close_failure(
+    exc: BaseException,
+    secrets: Sequence[str],
+    *,
+    tail_projector: Callable[..., str] | None = None,
+) -> str:
+    """Render a close failure as a bounded, redacted message.
+
+    When a URL-safe *tail_projector* is supplied (by the assembler), it
+    replaces the secret-only :func:`redact_tail` fallback so a URL-bearing
+    cleanup/close failure cannot leak the host, credentials, query, or
+    fragment into an attached note.  The bounded
+    :data:`READER_FAILURE_DETAIL_BYTES` limit and the fallback behavior are
+    preserved.
+    """
+    detail = str(exc) or repr(exc)
+    if tail_projector is None:
+        return redact_tail(
+            detail,
+            secrets,
+            tail_bytes=READER_FAILURE_DETAIL_BYTES,
+        )
+    return tail_projector(
+        detail,
         secrets,
         tail_bytes=READER_FAILURE_DETAIL_BYTES,
     )
@@ -314,28 +336,36 @@ def _attach_close_failure_notes(
     target: BaseException,
     close_errors: Sequence[BaseException],
     secrets: Sequence[str],
+    *,
+    tail_projector: Callable[..., str] | None = None,
 ) -> None:
     """Attach bounded, redacted close failures to *target* as notes."""
     for exc in close_errors:
         target.add_note(
             f"pipe close failed ({type(exc).__name__}): "
-            f"{_render_close_failure(exc, secrets)}"
+            f"{_render_close_failure(exc, secrets, tail_projector=tail_projector)}"
         )
 
 
 def _raise_close_failures(
-    close_errors: Sequence[BaseException], secrets: Sequence[str]
+    close_errors: Sequence[BaseException],
+    secrets: Sequence[str],
+    *,
+    tail_projector: Callable[..., str] | None = None,
 ) -> None:
     """Raise the first close failure, redacted; note any further ones."""
     primary = close_errors[0]
-    message = _render_close_failure(primary, secrets)
+    message = _render_close_failure(
+        primary, secrets, tail_projector=tail_projector
+    )
     try:
         raised: BaseException = type(primary)(message)
     except Exception:
         raised = RuntimeError(message)
     for exc in close_errors[1:]:
         raised.add_note(
-            f"also ({type(exc).__name__}): {_render_close_failure(exc, secrets)}"
+            f"also ({type(exc).__name__}): "
+            f"{_render_close_failure(exc, secrets, tail_projector=tail_projector)}"
         )
     raise raised
 
@@ -347,17 +377,18 @@ def _attach_bounded_cleanup_notes(
     secrets: Sequence[str],
     *,
     cleanup_prefix: str,
+    tail_projector: Callable[..., str] | None = None,
 ) -> None:
     """Attach bounded, redacted cleanup and pipe-close failures as notes."""
     for exc in cleanup_errors:
         target.add_note(
             f"{cleanup_prefix} ({type(exc).__name__}): "
-            f"{_render_close_failure(exc, secrets)}"
+            f"{_render_close_failure(exc, secrets, tail_projector=tail_projector)}"
         )
     for exc in close_errors:
         target.add_note(
             f"pipe close failed ({type(exc).__name__}): "
-            f"{_render_close_failure(exc, secrets)}"
+            f"{_render_close_failure(exc, secrets, tail_projector=tail_projector)}"
         )
 
 
@@ -366,6 +397,8 @@ def _attach_deadline_notes(
     cleanup_errors: Sequence[BaseException],
     close_errors: Sequence[BaseException],
     secrets: Sequence[str],
+    *,
+    tail_projector: Callable[..., str] | None = None,
 ) -> None:
     """Attach deadline cleanup and pipe-close failures to a timeout error."""
     _attach_bounded_cleanup_notes(
@@ -374,6 +407,7 @@ def _attach_deadline_notes(
         close_errors,
         secrets,
         cleanup_prefix="deadline cleanup failed",
+        tail_projector=tail_projector,
     )
 
 
@@ -382,6 +416,8 @@ def _raise_supervisor_failure(
     cleanup_errors: Sequence[BaseException],
     close_errors: Sequence[BaseException],
     secrets: Sequence[str],
+    *,
+    tail_projector: Callable[..., str] | None = None,
 ) -> None:
     """Raise an unexpected supervisor failure as the primary error.
 
@@ -393,7 +429,9 @@ def _raise_supervisor_failure(
     if isinstance(wait_failure, _CONTROL_FLOW_EXCEPTIONS):
         raised = wait_failure
     else:
-        message = _render_close_failure(wait_failure, secrets)
+        message = _render_close_failure(
+            wait_failure, secrets, tail_projector=tail_projector
+        )
         try:
             raised = type(wait_failure)(message)
         except Exception:
@@ -404,6 +442,7 @@ def _raise_supervisor_failure(
         close_errors,
         secrets,
         cleanup_prefix="supervisor cleanup failed",
+        tail_projector=tail_projector,
     )
     raise raised
 
@@ -490,6 +529,9 @@ class DockerRunExecutor:
         container_name: str | None = None,
         grace_seconds: float = 5.0,
         cleanup_outcome: _StreamingCleanupOutcome | None = None,
+        stream_factory=None,
+        tail_projector=None,
+        on_launched: Callable[[], None] | None = None,
     ) -> ProcessResult:
         """Run *argv*, draining stdout/stderr concurrently with redaction.
 
@@ -538,8 +580,16 @@ class DockerRunExecutor:
         assert proc.stdout is not None and proc.stderr is not None
         stdout_pipe = proc.stdout
         stderr_pipe = proc.stderr
+        #: Shared cancellation signal handed to the collector.  It is set
+        #: before any forced termination or pipe closure so a reader that
+        #: reaches forced EOF finalizes with ``abort=True`` instead of
+        #: flushing an ambiguous secret/URL prefix as ordinary text.
+        abort_event = threading.Event()
 
         def bounded_streaming_cleanup() -> list[BaseException]:
+            # Signal forced termination before terminating the client or
+            # closing pipes so the readers finalize as aborted.
+            abort_event.set()
             if cleanup_outcome is not None and container_name is not None:
                 cleanup_outcome.container_removal_attempted.set()
             return _terminate_and_remove(
@@ -644,6 +694,13 @@ class DockerRunExecutor:
             supervisor.start()
 
         try:
+            # Report the launch boundary now that the container client process
+            # exists, so CONTAINER_STARTUP ends at launch and NPM_EXECUTION
+            # spans stream collection and process completion.  The call is
+            # inside the collection try so a callback failure still runs the
+            # normal supervisor/pipe cleanup below.
+            if on_launched is not None:
+                on_launched()
             capture: StreamingCapture = collect_streams(
                 stdout_read=stdout_pipe.read,
                 stderr_read=stderr_pipe.read,
@@ -651,6 +708,9 @@ class DockerRunExecutor:
                 sink=sink,
                 on_reader_failure=react_to_reader_failure,
                 on_interruption=react_to_interruption,
+                stream_factory=stream_factory,
+                tail_projector=tail_projector,
+                abort_event=abort_event,
             )
         except BaseException as exc:
             supervisor_failures = _join_supervisor(
@@ -676,7 +736,11 @@ class DockerRunExecutor:
                 assert deadline_seconds is not None
                 timeout = _timeout_error(deadline_seconds)
                 _attach_deadline_notes(
-                    timeout, timeout_errors, close_errors, secrets
+                    timeout,
+                    timeout_errors,
+                    close_errors,
+                    secrets,
+                    tail_projector=tail_projector,
                 )
                 _attach_bounded_cleanup_notes(
                     timeout,
@@ -684,20 +748,23 @@ class DockerRunExecutor:
                     (),
                     secrets,
                     cleanup_prefix="supervisor shutdown failed",
+                    tail_projector=tail_projector,
                 )
                 timeout.add_note(
                     f"also interrupted by {type(exc).__name__}: "
-                    f"{_render_close_failure(exc, secrets)}"
+                    f"{_render_close_failure(exc, secrets, tail_projector=tail_projector)}"
                 )
                 raise timeout
             # The reader/interruption failure stays primary; pipe-close, any
             # unexpected supervisor wait failure, and any supervisor-shutdown
             # failure are secondary context.
-            _attach_close_failure_notes(exc, close_errors, secrets)
+            _attach_close_failure_notes(
+                exc, close_errors, secrets, tail_projector=tail_projector
+            )
             if wait_failure is not None:
                 exc.add_note(
                     f"supervisor wait failed ({type(wait_failure).__name__}): "
-                    f"{_render_close_failure(wait_failure, secrets)}"
+                    f"{_render_close_failure(wait_failure, secrets, tail_projector=tail_projector)}"
                 )
             _attach_bounded_cleanup_notes(
                 exc,
@@ -705,6 +772,7 @@ class DockerRunExecutor:
                 (),
                 secrets,
                 cleanup_prefix="supervisor shutdown failed",
+                tail_projector=tail_projector,
             )
             raise
 
@@ -750,7 +818,11 @@ class DockerRunExecutor:
                 truncation_notice=capture.truncation_notice,
             )
             _attach_deadline_notes(
-                timeout, timeout_errors, close_errors, secrets
+                timeout,
+                timeout_errors,
+                close_errors,
+                secrets,
+                tail_projector=tail_projector,
             )
             _attach_bounded_cleanup_notes(
                 timeout,
@@ -758,6 +830,7 @@ class DockerRunExecutor:
                 (),
                 secrets,
                 cleanup_prefix="supervisor shutdown failed",
+                tail_projector=tail_projector,
             )
             raise timeout
 
@@ -767,7 +840,11 @@ class DockerRunExecutor:
             # that operational/control-flow failure as primary without an
             # unbounded reaping wait.
             _raise_supervisor_failure(
-                wait_failure, timeout_errors, close_errors, secrets
+                wait_failure,
+                timeout_errors,
+                close_errors,
+                secrets,
+                tail_projector=tail_projector,
             )
 
         if supervisor_failures:
@@ -776,7 +853,9 @@ class DockerRunExecutor:
             # redacted) with pipe-close failures as notes instead of an
             # unbounded proc.wait() that could block past the deadline.
             primary = supervisor_failures[0]
-            message = _render_close_failure(primary, secrets)
+            message = _render_close_failure(
+                primary, secrets, tail_projector=tail_projector
+            )
             try:
                 raised: BaseException = type(primary)(message)
             except Exception:
@@ -784,9 +863,11 @@ class DockerRunExecutor:
             for extra in supervisor_failures[1:]:
                 raised.add_note(
                     f"also ({type(extra).__name__}): "
-                    f"{_render_close_failure(extra, secrets)}"
+                    f"{_render_close_failure(extra, secrets, tail_projector=tail_projector)}"
                 )
-            _attach_close_failure_notes(raised, close_errors, secrets)
+            _attach_close_failure_notes(
+                raised, close_errors, secrets, tail_projector=tail_projector
+            )
             raise raised
 
         if supervisor is None:
@@ -795,7 +876,12 @@ class DockerRunExecutor:
             try:
                 return_code = proc.wait()
             except BaseException as wait_exc:
-                _attach_close_failure_notes(wait_exc, close_errors, secrets)
+                _attach_close_failure_notes(
+                    wait_exc,
+                    close_errors,
+                    secrets,
+                    tail_projector=tail_projector,
+                )
                 raise
         else:
             # The supervisor observed a normal exit and reaped the client;
@@ -804,7 +890,9 @@ class DockerRunExecutor:
             assert return_code is not None
 
         if close_errors:
-            _raise_close_failures(close_errors, secrets)
+            _raise_close_failures(
+                close_errors, secrets, tail_projector=tail_projector
+            )
         return ProcessResult(
             argv,
             return_code,
@@ -938,6 +1026,7 @@ def _cleanup_container(
     secrets: Sequence[str],
     *,
     grace_seconds: float = 5.0,
+    tail_projector: Callable[..., str] | None = None,
 ) -> CleanupFailure | None:
     """Force-remove the assembler container and return any cleanup failure.
 
@@ -945,7 +1034,14 @@ def _cleanup_container(
     absent (idempotent cleanup success).  A nonzero exit or a raised
     exception (including cancellation during cleanup) is reported as a
     structured :class:`CleanupFailure` rather than being swallowed.
+
+    Exception and captured-output details are routed through the injected
+    ``tail_projector`` (falling back to the secret-redacting ``redact_tail``)
+    so Docker cleanup output can never leak a URL through the attached note.
+    Container-absence detection uses the original output so sanitization
+    never changes control flow.
     """
+    project = tail_projector if tail_projector is not None else redact_tail
     try:
         if isinstance(executor, DockerRunExecutor):
             result = subprocess.run(
@@ -969,14 +1065,14 @@ def _cleanup_container(
         return CleanupFailure(
             operation="container",
             reason="docker_rm_exception",
-            detail=redact(f"{type(exc).__name__}: {exc}", secrets),
+            detail=project(f"{type(exc).__name__}: {exc}", secrets),
         )
     if return_code != 0:
         if _is_container_absent(f"{stderr}\n{stdout}"):
             return None
         detail = (
-            redact(stderr, secrets).strip()
-            or redact(stdout, secrets).strip()
+            project(stderr, secrets).strip()
+            or project(stdout, secrets).strip()
             or f"exit {return_code}"
         )
         return CleanupFailure(
@@ -992,6 +1088,8 @@ def _remove_staging_safely(
     name: str,
     staging_path: Path,
     secrets: Sequence[str],
+    *,
+    tail_projector: Callable[..., str] | None = None,
 ) -> CleanupFailure | None:
     """Remove one staging workspace and return any cleanup failure.
 
@@ -999,17 +1097,22 @@ def _remove_staging_safely(
     cancellation during cleanup) is reported as a structured
     :class:`CleanupFailure` naming the staging path and noting that mutable
     residue may remain.  Prior committed environments are never touched.
+
+    Exception-derived detail is routed through the injected
+    ``tail_projector`` (falling back to the secret-redacting ``redact_tail``)
+    so an underlying failure carrying a URL cannot leak it via the note.
     """
+    project = tail_projector if tail_projector is not None else redact_tail
     try:
         remove_staging_workspace(namespace, name)
         return None
     except BaseException as exc:
         if isinstance(exc, LockedNpmError):
             reason = exc.reason
-            detail = redact(exc.detail, secrets)
+            detail = project(exc.detail, secrets)
         else:
             reason = type(exc).__name__
-            detail = redact(str(exc) or repr(exc), secrets)
+            detail = project(str(exc) or repr(exc), secrets)
         return CleanupFailure(
             operation="staging",
             reason=reason,
@@ -1034,13 +1137,18 @@ def _streaming_kwargs(
     sink: DiagnosticSink | None,
     container_name: str,
     cleanup_outcome: _StreamingCleanupOutcome,
+    stream_factory=None,
+    tail_projector=None,
+    on_launched=None,
 ) -> dict:
     """Build the streaming call arguments the *runner* actually accepts.
 
     The real :class:`DockerRunExecutor.run_streaming` accepts the
-    constructor-owned deadline and container name; injected test executors
-    that only implement the Phase 2 signature receive just ``secrets`` and
-    ``sink`` so they remain usable without a deadline.
+    constructor-owned deadline, container name, and launch callback; injected
+    test executors that only implement the Phase 2 signature receive just
+    ``secrets`` and ``sink`` so they remain usable without a deadline.
+    Structured projection arguments are forwarded only when the runner
+    declares them.
     """
     kwargs: dict = {"secrets": secrets, "sink": sink}
     try:
@@ -1053,6 +1161,12 @@ def _streaming_kwargs(
         kwargs["container_name"] = container_name
     if "cleanup_outcome" in params:
         kwargs["cleanup_outcome"] = cleanup_outcome
+    if "stream_factory" in params:
+        kwargs["stream_factory"] = stream_factory
+    if "tail_projector" in params:
+        kwargs["tail_projector"] = tail_projector
+    if "on_launched" in params:
+        kwargs["on_launched"] = on_launched
     return kwargs
 
 
@@ -1067,6 +1181,9 @@ def assemble(
     secrets: Sequence[str] = (),
     corporate_network: CorporateNetworkPolicy | None = None,
     sink: DiagnosticSink | None = None,
+    stream_factory=None,
+    tail_projector=None,
+    activity: AssemblyActivity | None = None,
 ) -> AssemblyRun:
     """Run one standalone pinned assembler container.
 
@@ -1106,95 +1223,135 @@ def assemble(
     staging: Path | None = None
     container_started = False
     streaming_cleanup_outcome = _StreamingCleanupOutcome()
-    try:
-        staging = prepare_staging_workspace(namespace, staging_name)
-        _write_lockfile(staging, validated.lockfile_bytes)
-        vector = render_run_vector(
-            validated=validated,
-            assembler=assembler,
-            staging=staging,
-            npm_cache=namespace.npm_cache,
-            uid=uid,
-            gid=gid,
-            name=container_name,
-            corporate_network=corporate_network,
+    scoped = activity if activity is not None else NULL_ACTIVITY
+    with contextlib.ExitStack() as activity_stack:
+        activity_stack.enter_context(
+            scoped.step("container_startup", container_name=container_name)
         )
-        argv = render_docker_argv(vector)
-        container_started = True
-        executor_failure_detail: str | None = None
-        truncation_notice: str | None = None
-        streaming_runner = getattr(executor, "run_streaming", None)
+        npm_execution_started = False
+
+        def begin_npm_execution() -> None:
+            nonlocal npm_execution_started
+            if npm_execution_started:
+                return
+            # End CONTAINER_STARTUP at the launch boundary (success) and open
+            # NPM_EXECUTION without disturbing any other scope.
+            activity_stack.pop_all().close()
+            npm_execution_started = True
+            activity_stack.enter_context(
+                scoped.step("npm_execution", container_name=container_name)
+            )
+
         try:
-            if streaming_runner is not None:
-                result = streaming_runner(
-                    argv,
-                    **_streaming_kwargs(
+            staging = prepare_staging_workspace(namespace, staging_name)
+            _write_lockfile(staging, validated.lockfile_bytes)
+            vector = render_run_vector(
+                validated=validated,
+                assembler=assembler,
+                staging=staging,
+                npm_cache=namespace.npm_cache,
+                uid=uid,
+                gid=gid,
+                name=container_name,
+                corporate_network=corporate_network,
+            )
+            argv = render_docker_argv(vector)
+            container_started = True
+            executor_failure_detail: str | None = None
+            truncation_notice: str | None = None
+            streaming_runner = getattr(executor, "run_streaming", None)
+            project = (
+                tail_projector if tail_projector is not None else redact_tail
+            )
+            try:
+                if streaming_runner is not None:
+                    streaming_kwargs = _streaming_kwargs(
                         streaming_runner,
                         effective_secrets,
                         sink,
                         container_name,
                         streaming_cleanup_outcome,
-                    ),
+                        stream_factory,
+                        tail_projector,
+                        begin_npm_execution,
+                    )
+                    if "on_launched" not in streaming_kwargs:
+                        # The runner cannot report the launch boundary, so the
+                        # step is bracketed around its whole call.
+                        begin_npm_execution()
+                    result = streaming_runner(argv, **streaming_kwargs)
+                    stdout = result.stdout
+                    stderr = result.stderr
+                    truncation_notice = getattr(result, "truncation_notice", None)
+                else:
+                    begin_npm_execution()
+                    result = executor.run(argv)
+                    stdout = project(result.stdout, effective_secrets)
+                    stderr = project(result.stderr, effective_secrets)
+            except _CONTROL_FLOW_EXCEPTIONS:
+                raise
+            except AssemblyTimeoutError:
+                # Timeout classification is constructor-owned and distinct; the
+                # outer boundary still force-removes the container and staging
+                # before the error propagates.
+                raise
+            except BaseException as exc:
+                # Capture only the sanitized detail here.  The structured error
+                # is raised after leaving the except block so Python does not
+                # assign the original exception to __context__.  The detail is
+                # routed through the same URL-free tail projector used for
+                # assembled output so an executor exception can never leak a
+                # URL into the failure representation.
+                executor_failure_detail = project(
+                    f"{type(exc).__name__}: {str(exc) or repr(exc)}",
+                    effective_secrets,
                 )
-                stdout = result.stdout
-                stderr = result.stderr
-                truncation_notice = getattr(result, "truncation_notice", None)
-            else:
-                result = executor.run(argv)
-                stdout = redact_tail(result.stdout, effective_secrets)
-                stderr = redact_tail(result.stderr, effective_secrets)
-        except _CONTROL_FLOW_EXCEPTIONS:
-            raise
-        except AssemblyTimeoutError:
-            # Timeout classification is constructor-owned and distinct; the
-            # outer boundary still force-removes the container and staging
-            # before the error propagates.
-            raise
-        except BaseException as exc:
-            # Capture only the sanitized detail here.  The structured error
-            # is raised after leaving the except block so Python does not
-            # assign the original exception to __context__.
-            executor_failure_detail = redact(
-                f"{type(exc).__name__}: {str(exc) or repr(exc)}",
-                effective_secrets,
-            )
 
-        if executor_failure_detail is not None:
-            raise LockedNpmError(
-                "executor_failure",
-                executor_failure_detail,
-            ) from None
-        if result.return_code != 0:
-            raise _exit_failure(
-                result.return_code,
-                stderr=stderr,
+            if executor_failure_detail is not None:
+                raise LockedNpmError(
+                    "executor_failure",
+                    executor_failure_detail,
+                ) from None
+            if result.return_code != 0:
+                raise _exit_failure(
+                    result.return_code,
+                    stderr=stderr,
+                    stdout=stdout,
+                    truncation_notice=truncation_notice,
+                )
+            return AssemblyRun(
+                run_vector=redact_run_vector(vector, effective_secrets),
+                argv=redact_docker_argv(argv, effective_secrets),
+                staging=staging,
                 stdout=stdout,
+                stderr=stderr,
                 truncation_notice=truncation_notice,
             )
-        return AssemblyRun(
-            run_vector=redact_run_vector(vector, effective_secrets),
-            argv=redact_docker_argv(argv, effective_secrets),
-            staging=staging,
-            stdout=stdout,
-            stderr=stderr,
-            truncation_notice=truncation_notice,
-        )
-    except BaseException as exc:
-        failures: list[CleanupFailure] = []
-        if (
-            container_started
-            and not streaming_cleanup_outcome.container_removal_attempted.is_set()
-        ):
-            container_failure = _cleanup_container(
-                executor, container_name, effective_secrets
-            )
-            if container_failure is not None:
-                failures.append(container_failure)
-        if staging is not None:
-            staging_failure = _remove_staging_safely(
-                namespace, staging_name, staging, effective_secrets
-            )
-            if staging_failure is not None:
-                failures.append(staging_failure)
-        _attach_cleanup_notes(exc, failures)
-        raise
+        except BaseException as exc:
+            failures: list[CleanupFailure] = []
+            if (
+                container_started
+                and not streaming_cleanup_outcome.container_removal_attempted.is_set()
+            ):
+                container_failure = _cleanup_container(
+                    executor,
+                    container_name,
+                    effective_secrets,
+                    tail_projector=tail_projector,
+                )
+                if container_failure is not None:
+                    failures.append(container_failure)
+            if staging is not None:
+                staging_failure = _remove_staging_safely(
+                    namespace,
+                    staging_name,
+                    staging,
+                    effective_secrets,
+                    tail_projector=tail_projector,
+                )
+                if staging_failure is not None:
+                    failures.append(staging_failure)
+            _attach_cleanup_notes(exc, failures)
+            raise
+
+    raise AssertionError("assembly activity scope must return or raise")

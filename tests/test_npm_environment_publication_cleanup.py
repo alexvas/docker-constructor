@@ -36,6 +36,9 @@ from docker.npm_environment import (
     publication,
     publish_environment,
 )
+from docker.versioning.npm_diagnostic_stream import project_tail
+
+_URL = "https://user:pass@registry.example.com/pkg?token=abc#frag"
 
 _IMAGE = "sha256:" + "a" * 64
 _NODE = "24.18.0"
@@ -142,7 +145,13 @@ class PublicationCleanupTestCase(unittest.TestCase):
             input_identity=prior_identity,
         )
 
-    def _run_failing(self, publication_exc: BaseException):
+    def _run_failing(
+        self,
+        publication_exc: BaseException,
+        *,
+        tail_projector=None,
+        secrets=(),
+    ):
         with mock.patch.object(
             publication, "publish_environment", side_effect=publication_exc
         ):
@@ -151,6 +160,8 @@ class PublicationCleanupTestCase(unittest.TestCase):
                 assembler=self.assembler,
                 cache_root=self.cache_root,
                 executor=FakeExecutor(),
+                secrets=secrets,
+                tail_projector=tail_projector,
             )
 
     def _assert_prior_untouched(self, prior) -> None:
@@ -235,6 +246,44 @@ class TestPublicationCleanup(PublicationCleanupTestCase):
         self.assertIn("cannot remove residue", notes[0])
         self.assertIn("residue may remain at", notes[0])
         self.assertIn(str(self.staging_path), notes[0])
+        self._assert_prior_untouched(prior)
+
+    def test_publication_cleanup_url_is_projected(self):
+        # A publication-cleanup failure whose exception text carries a URL
+        # must not leak it through the attached note when the host injects the
+        # URL-free projector.
+        prior = self._publish_prior()
+        with mock.patch.object(
+            execution_module,
+            "remove_staging_workspace",
+            side_effect=LockedNpmError(
+                "unsafe_staging_path", f"cannot remove {_URL} (SUPERSECRET)"
+            ),
+        ):
+            with self.assertRaises(LockedNpmError) as ctx:
+                self._run_failing(
+                    LockedNpmError("output_validation_failed", "publication boom"),
+                    tail_projector=project_tail,
+                    secrets=("SUPERSECRET",),
+                )
+        self.assertEqual(ctx.exception.reason, "output_validation_failed")
+        notes = ctx.exception.__notes__
+        self.assertEqual(len(notes), 1)
+        self.assertIn("staging", notes[0])
+        self.assertIn("unsafe_staging_path", notes[0])
+        self.assertIn("residue may remain at", notes[0])
+        self.assertIn(str(self.staging_path), notes[0])
+        for fragment in (
+            _URL,
+            "https://",
+            "registry.example.com",
+            "user:pass",
+            "token=abc",
+            "#frag",
+            "SUPERSECRET",
+        ):
+            self.assertNotIn(fragment, notes[0])
+        self.assertIn("<redacted>", notes[0])
         self._assert_prior_untouched(prior)
 
 

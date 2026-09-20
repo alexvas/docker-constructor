@@ -128,9 +128,16 @@ class TestResearchReportContract(unittest.TestCase):
                        "<redacted> attempt 1 failed", "timeout at: <redacted>"):
             self.assertIn(marker, projected)
 
-    def test_canonical_production_command_has_no_research_loglevel(self) -> None:
-        from docker.npm_environment.assembler import NPM_CI_COMMAND
-        self.assertNotIn("--loglevel=http", NPM_CI_COMMAND)
+    def test_canonical_production_command_has_accepted_loglevel(self) -> None:
+        from docker.npm_environment.assembler import (
+            ASSEMBLER_SCRIPT,
+            NPM_CI_COMMAND,
+            NPM_CI_FLAGS,
+        )
+
+        self.assertIn("--loglevel=http", NPM_CI_COMMAND)
+        self.assertIn("--loglevel=http", NPM_CI_FLAGS)
+        self.assertIn("--loglevel=http", ASSEMBLER_SCRIPT)
 
 
 if __name__ == "__main__":

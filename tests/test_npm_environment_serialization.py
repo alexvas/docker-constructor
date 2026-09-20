@@ -216,7 +216,13 @@ class TestCoversEveryRequiredField(_SerializationTestCase):
         self.assertEqual(raw["lockfile_digest"], self.validated.lockfile_digest)
         self.assertEqual(
             raw["npm_policy_flags"],
-            ["--ignore-scripts", "--no-bin-links", "--no-audit", "--no-fund"],
+            [
+                "--ignore-scripts",
+                "--no-bin-links",
+                "--no-audit",
+                "--no-fund",
+                "--loglevel=http",
+            ],
         )
         # Every input, package, integrity omission, flag, and path present.
         self.assertEqual(

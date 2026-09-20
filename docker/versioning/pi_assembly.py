@@ -35,14 +35,15 @@ from docker.npm_environment import (
     preflight,
 )
 from docker.versioning.activity_monitor import HostActivityMonitor
+from docker.versioning.assembly_activity import HostAssemblyActivity
 from docker.versioning.build_materialization import StreamingTransport
+from docker.versioning.diagnostic_identity import SessionUrlIdentity
 from docker.versioning.diagnostic_projection import (
     DiagnosticLogicalResource,
     DiagnosticResourceKind,
     project_host_acquisition_failure,
 )
 from docker.versioning.host_progress import (
-    HostDiagnosticEvent,
     HostDiagnosticStream,
     HostEventSink,
     HostPhase,
@@ -50,8 +51,14 @@ from docker.versioning.host_progress import (
     HostPhaseState,
     HostStep,
     HostStepState,
+    HostStructuredDiagnostic,
     emit,
     guard_sink,
+)
+from docker.versioning.npm_diagnostic_stream import (
+    classify_npm_diagnostic,
+    make_stream_factory,
+    project_tail,
 )
 from docker.versioning.model import EffectiveBuildProjection, PiReleaseSource
 from docker.versioning.pi_consumer import (
@@ -227,6 +234,30 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
         platform=_ASSEMBLER_PLATFORM,
     )
     emit(request.event_sink, HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.STARTED))
+    corporate_network = _corporate_network(request)
+    session_identity = SessionUrlIdentity()
+    activity = (
+        HostAssemblyActivity(request.event_sink)
+        if request.event_sink is not None
+        else None
+    )
+
+    def _structured_sink(chunk) -> None:
+        assert activity is not None
+        emit(
+            request.event_sink,
+            HostStructuredDiagnostic(
+                phase=HostPhase.LOCKED_ASSEMBLY,
+                step=HostStep.NPM_EXECUTION,
+                stream=HostDiagnosticStream(chunk.stream),
+                classification=classify_npm_diagnostic(chunk.text),
+                text=chunk.text,
+                hostnames=chunk.hostnames,
+                logical_resource=activity.current_container_name,
+                url_fingerprints=chunk.url_fingerprints,
+            ),
+        )
+
     try:
         result = assemble_environment(
             validated=validated,
@@ -235,16 +266,17 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
             executor=request.executor,
             uid=request.uid,
             gid=request.gid,
-            corporate_network=_corporate_network(request),
-            sink=(
-                lambda chunk: emit(
-                    request.event_sink,
-                    HostDiagnosticEvent(
-                        HostPhase.LOCKED_ASSEMBLY,
-                        HostDiagnosticStream(chunk.stream), chunk.text,
-                    ),
-                )
-            ) if request.event_sink is not None else None,
+            corporate_network=corporate_network,
+            sink=_structured_sink if request.event_sink is not None else None,
+            stream_factory=make_stream_factory(
+                corporate_network.secrets(),
+                session_identity,
+                on_chunk=(
+                    activity.record_diagnostic if activity is not None else None
+                ),
+            ),
+            tail_projector=project_tail,
+            activity=activity,
         )
     except BaseException:
         emit(request.event_sink, HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.FAILED))

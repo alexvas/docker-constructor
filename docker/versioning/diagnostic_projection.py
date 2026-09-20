@@ -744,13 +744,36 @@ class DiagnosticProjector:
 
     @property
     def hostnames(self) -> tuple[str, ...]:
-        """Normalized hostnames observed so far, in first-occurrence order."""
+        """Unconsumed normalized hostnames, in first-occurrence order.
+
+        A caller that projects a single complete diagnostic and never drains
+        facts sees every hostname exactly once (the historical behavior).  A
+        long-running streaming consumer drains facts per diagnostic line via
+        :meth:`take_facts`, so only the line currently being assembled keeps
+        hostname metadata.
+        """
         return tuple(self._hostnames)
 
     @property
     def url_fingerprints(self) -> tuple[str, ...]:
-        """Ordered ephemeral URL fingerprints with multiplicity preserved."""
+        """Unconsumed ordered URL fingerprints, with multiplicity preserved."""
         return tuple(self._fingerprints)
+
+    def take_facts(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        """Return and clear the facts extracted since the previous call.
+
+        Yields ``(hostnames, fingerprints)``.  Hostnames are deduplicated
+        within the accumulated window; fingerprints keep their order and
+        multiplicity.  Draining keeps a long-running consumer from retaining
+        the metadata history of already-completed diagnostics, while a caller
+        that never drains (such as :func:`sanitize_diagnostic_text` and
+        :func:`project_structured_diagnostic`) still observes the complete
+        set for one diagnostic.
+        """
+        facts = (tuple(self._hostnames), tuple(self._fingerprints))
+        self._hostnames = []
+        self._fingerprints = []
+        return facts
 
     @property
     def pending_size(self) -> int:

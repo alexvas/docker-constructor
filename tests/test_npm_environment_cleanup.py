@@ -29,6 +29,9 @@ from docker.npm_environment import (
     npm_policy_digest,
     preflight,
 )
+from docker.versioning.npm_diagnostic_stream import project_tail
+
+_URL = "https://user:pass@registry.example.com/pkg?token=abc#frag"
 
 _IMAGE = "sha256:" + "a" * 64
 _NODE = "24.18.0"
@@ -134,7 +137,9 @@ class CleanupTestCase(unittest.TestCase):
             return []
         return [p for p in staging_parent.iterdir() if p.is_dir()]
 
-    def _assemble(self, executor, cache_root: Path, *, validated=None):
+    def _assemble(
+        self, executor, cache_root: Path, *, validated=None, tail_projector=None
+    ):
         if validated is None:
             validated = _validated()
         return assemble(
@@ -143,6 +148,7 @@ class CleanupTestCase(unittest.TestCase):
             cache_root=cache_root,
             executor=executor,
             secrets=("SUPERSECRET",),
+            tail_projector=tail_projector,
         )
 
     def _run_failure(self) -> ProcessResult:
@@ -266,6 +272,121 @@ class TestNoCleanupAttemptedBeforeContainer(CleanupTestCase):
         self.assertEqual(ctx.exception.reason, "node_version_mismatch")
         self.assertFalse(any(c[1] == "rm" for c in executor.calls))
         self.assertEqual(self._staging_workspaces(cache_root), [])
+
+
+class TestCleanupDetailProjection(CleanupTestCase):
+    """URL-bearing cleanup output must not leak through attached notes."""
+
+    def _assert_url_free(self, note: str) -> None:
+        for fragment in (
+            _URL,
+            "https://",
+            "registry.example.com",
+            "user:pass",
+            "token=abc",
+            "#frag",
+            "SUPERSECRET",
+        ):
+            self.assertNotIn(fragment, note)
+        # The sanitized replacement must still be observable in the note.
+        self.assertIn("<redacted>", note)
+
+    def test_container_cleanup_exception_note_is_url_free(self):
+        executor = ScriptedExecutor(
+            run_result=self._run_failure(),
+            rm_exc=OSError(f"docker rm failed fetching {_URL} (secret SUPERSECRET)"),
+        )
+        cache_root = self._cache_root()
+        with self.assertRaises(LockedNpmError) as ctx:
+            self._assemble(executor, cache_root, tail_projector=project_tail)
+        # The original failure stays primary.
+        self.assertEqual(ctx.exception.reason, "npm_exit_nonzero")
+        notes = ctx.exception.__notes__
+        self.assertEqual(len(notes), 1)
+        self.assertIn("container", notes[0])
+        self.assertIn("docker_rm_exception", notes[0])
+        self._assert_url_free(notes[0])
+
+    def test_container_cleanup_stderr_note_is_url_free(self):
+        executor = ScriptedExecutor(
+            run_result=self._run_failure(),
+            rm_result=ProcessResult(
+                ("docker", "rm"),
+                1,
+                "",
+                f"failed to remove {_URL} (secret SUPERSECRET)",
+            ),
+        )
+        cache_root = self._cache_root()
+        with self.assertRaises(LockedNpmError) as ctx:
+            self._assemble(executor, cache_root, tail_projector=project_tail)
+        self.assertEqual(ctx.exception.reason, "npm_exit_nonzero")
+        notes = ctx.exception.__notes__
+        self.assertEqual(len(notes), 1)
+        self.assertIn("container", notes[0])
+        self.assertIn("docker_rm_nonzero", notes[0])
+        self._assert_url_free(notes[0])
+
+    def test_staging_cleanup_exception_note_is_url_free(self):
+        executor = ScriptedExecutor(
+            run_result=self._run_failure(),
+            rm_result=ProcessResult(("docker", "rm"), 0, "", ""),
+        )
+        cache_root = self._cache_root()
+        with mock.patch.object(
+            execution_module,
+            "remove_staging_workspace",
+            side_effect=LockedNpmError(
+                "unsafe_staging_path",
+                f"cannot remove {_URL} (secret SUPERSECRET)",
+            ),
+        ):
+            with self.assertRaises(LockedNpmError) as ctx:
+                self._assemble(executor, cache_root, tail_projector=project_tail)
+        self.assertEqual(ctx.exception.reason, "npm_exit_nonzero")
+        notes = ctx.exception.__notes__
+        self.assertEqual(len(notes), 1)
+        # The note still identifies the operation and the residue risk.
+        self.assertIn("staging", notes[0])
+        self.assertIn("unsafe_staging_path", notes[0])
+        self.assertIn("residue may remain at", notes[0])
+        self._assert_url_free(notes[0])
+
+    def test_staging_cleanup_arbitrary_exception_note_is_url_free(self):
+        executor = ScriptedExecutor(
+            run_result=self._run_failure(),
+            rm_result=ProcessResult(("docker", "rm"), 0, "", ""),
+        )
+        cache_root = self._cache_root()
+        with mock.patch.object(
+            execution_module,
+            "remove_staging_workspace",
+            side_effect=RuntimeError(f"rm failed {_URL} SUPERSECRET"),
+        ):
+            with self.assertRaises(LockedNpmError) as ctx:
+                self._assemble(executor, cache_root, tail_projector=project_tail)
+        self.assertEqual(ctx.exception.reason, "npm_exit_nonzero")
+        notes = ctx.exception.__notes__
+        self.assertEqual(len(notes), 1)
+        self.assertIn("staging", notes[0])
+        self.assertIn("RuntimeError", notes[0])
+        self.assertIn("residue may remain at", notes[0])
+        self._assert_url_free(notes[0])
+
+    def test_fallback_projector_keeps_secret_redaction(self):
+        # With no injected projector the existing secret-redacted behavior is
+        # preserved; host callers always inject the URL-free projector.
+        executor = ScriptedExecutor(
+            run_result=self._run_failure(),
+            rm_exc=OSError("docker rm failed with SUPERSECRET"),
+        )
+        cache_root = self._cache_root()
+        with self.assertRaises(LockedNpmError) as ctx:
+            self._assemble(executor, cache_root)
+        notes = ctx.exception.__notes__
+        self.assertEqual(len(notes), 1)
+        self.assertNotIn("SUPERSECRET", notes[0])
+        self.assertIn("docker rm failed", notes[0])
 
 
 if __name__ == "__main__":

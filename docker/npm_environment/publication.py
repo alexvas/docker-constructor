@@ -51,6 +51,7 @@ from .execution import (
 from .identity import AssemblerIdentity, compute_assembler_input_identity
 from .model import ValidatedAssemblyInput
 from .network import CorporateNetworkPolicy
+from .observability import NULL_ACTIVITY, AssemblyActivity
 from .run_vector import recheck_assembler_bindings
 from .storage import (
     AssemblerNamespace,
@@ -473,6 +474,7 @@ def publish_environment(
     tree_root: str | Path,
     namespace: AssemblerNamespace,
     input_identity,
+    activity: AssemblyActivity | None = None,
 ) -> AssemblyResult:
     """Validate, seal, and atomically publish one assembled environment.
 
@@ -487,9 +489,11 @@ def publish_environment(
     overwriting any committed output.
     """
     root = Path(tree_root)
-    pre_manifest = validate_assembled_tree(validated, root)
-    make_tree_read_only(root, pre_manifest)
-    final_manifest = build_tree_manifest(root)
+    scoped = activity if activity is not None else NULL_ACTIVITY
+    with scoped.step("validation"):
+        pre_manifest = validate_assembled_tree(validated, root)
+        make_tree_read_only(root, pre_manifest)
+        final_manifest = build_tree_manifest(root)
 
     body = AssemblerEvidenceBody(
         input_identity=input_identity,
@@ -514,54 +518,65 @@ def publish_environment(
     )
     evidence_bytes = serialize_evidence(evidence)
 
-    try:
-        published = _atomic_publish(
-            namespace, output_identity.digest, root, final_manifest, evidence_bytes
-        )
-    except _AlreadyPublished:
-        existing = verify_output(
-            namespace, output_identity.digest, input_identity=input_identity
-        )
-        if existing is not None:
-            # Verified collision: heal the non-authoritative input index so
-            # a later lookup can find this output, then drop the redundant
-            # staging tree.  The committed immutable output is untouched.
-            _append_index(namespace, input_identity.digest, output_identity.digest)
-            if os.path.lexists(root):
-                try:
-                    _remove_redundant_tree(root, final_manifest)
-                except BaseException as exc:
-                    raise LockedNpmError(
-                        "collision_cleanup_failed",
-                        f"existing output {output_identity.digest!r} verified "
-                        f"successfully, but removing the redundant staging tree "
-                        f"{root} failed: {type(exc).__name__}: {exc}; mutable or "
-                        "redundant residue may remain",
-                    ) from exc
-            return existing
+    def _publish_once() -> AssemblyResult:
+        try:
+            published = _atomic_publish(
+                namespace, output_identity.digest, root, final_manifest, evidence_bytes
+            )
+        except _AlreadyPublished:
+            existing = verify_output(
+                namespace, output_identity.digest, input_identity=input_identity
+            )
+            if existing is not None:
+                # Verified collision: heal the non-authoritative input index so
+                # a later lookup can find this output, then drop the redundant
+                # staging tree.  The committed immutable output is untouched.
+                _append_index(
+                    namespace, input_identity.digest, output_identity.digest
+                )
+                if os.path.lexists(root):
+                    try:
+                        _remove_redundant_tree(root, final_manifest)
+                    except BaseException as exc:
+                        raise LockedNpmError(
+                            "collision_cleanup_failed",
+                            f"existing output {output_identity.digest!r} verified "
+                            "successfully, but removing the redundant staging tree "
+                            f"{root} failed: {type(exc).__name__}: {exc}; mutable or "
+                            "redundant residue may remain",
+                        ) from exc
+                return existing
 
-        # Corrupt collision: the existing bytes do not verify.  Quarantine
-        # only that single output directory, then republish the already
-        # validated reconstruction.  If quarantine cannot be performed
-        # safely, the corrupt bytes stay in place and publication fails
-        # without overwriting anything.
-        if _quarantine_corrupt_output(namespace, output_identity.digest) is None:
-            raise LockedNpmError(
-                "output_collision_corrupt",
-                f"output identity {output_identity.digest!r} already exists "
-                "but does not verify and could not be safely quarantined; "
-                "immutable outputs are never overwritten",
-            ) from None
-        # The reconstruction is already validated.  If this replacement
-        # fails, the quarantined corrupt bytes remain preserved.
-        published = _atomic_publish(
-            namespace, output_identity.digest, root, final_manifest, evidence_bytes
+            # Corrupt collision: the existing bytes do not verify.  Quarantine
+            # only that single output directory, then republish the already
+            # validated reconstruction.  If quarantine cannot be performed
+            # safely, the corrupt bytes stay in place and publication fails
+            # without overwriting anything.
+            if (
+                _quarantine_corrupt_output(namespace, output_identity.digest)
+                is None
+            ):
+                raise LockedNpmError(
+                    "output_collision_corrupt",
+                    f"output identity {output_identity.digest!r} already exists "
+                    "but does not verify and could not be safely quarantined; "
+                    "immutable outputs are never overwritten",
+                ) from None
+            # The reconstruction is already validated.  If this replacement
+            # fails, the quarantined corrupt bytes remain preserved.
+            published = _atomic_publish(
+                namespace, output_identity.digest, root, final_manifest, evidence_bytes
+            )
+
+        _append_index(namespace, input_identity.digest, output_identity.digest)
+        return _make_result(
+            evidence, published / TREE_CHILD, published / EVIDENCE_FILE
         )
 
-    _append_index(namespace, input_identity.digest, output_identity.digest)
-    return _make_result(
-        evidence, published / TREE_CHILD, published / EVIDENCE_FILE
-    )
+    with scoped.step("publication"):
+        return _publish_once()
+
+    raise AssertionError("publication scope must return or raise")
 
 
 # ── orchestration ───────────────────────────────────────────────────────
@@ -578,6 +593,9 @@ def assemble_environment(
     secrets: Sequence[str] = (),
     corporate_network: CorporateNetworkPolicy | None = None,
     sink=None,
+    stream_factory=None,
+    tail_projector=None,
+    activity: AssemblyActivity | None = None,
 ) -> AssemblyResult:
     """Assemble (or reuse) one locked npm environment and publish it.
 
@@ -602,18 +620,31 @@ def assemble_environment(
         corporate_network.secrets() if corporate_network is not None else ()
     )
     effective_secrets = tuple(secrets) + policy_secrets
+    scoped = activity if activity is not None else NULL_ACTIVITY
 
-    with identity_coordination_lock(namespace, input_identity.digest):
-        cached = find_cached_result(
-            namespace=namespace, input_identity=input_identity
-        )
+    with contextlib.ExitStack() as lock_stack:
+        # Enter the coordination lock while the lock-wait activity is active,
+        # then end LOCK_WAIT immediately after acquisition and retain the lock
+        # for the remaining non-authoritative lookup, assembly, validation, and
+        # publication work.  The retained lock is released when that work ends.
+        with scoped.step("lock_wait"):
+            lock_stack.enter_context(
+                identity_coordination_lock(namespace, input_identity.digest)
+            )
+
+        with scoped.step("cache_lookup"):
+            cached = find_cached_result(
+                namespace=namespace, input_identity=input_identity
+            )
         if cached is not None:
+            scoped.cache_reuse()
             return cached
 
         # Securely replace any abandoned same-input staging left by a prior
-        # interrupted run: no-follow removal under the lock, never adopted as
-        # a completed environment.  Unsafe entries fail closed.
-        remove_staging_workspace(namespace, staging_name)
+        # interrupted run: no-follow removal under the lock, never adopted
+        # as a completed environment.  Unsafe entries fail closed.
+        with scoped.step("stale_stage_cleanup"):
+            remove_staging_workspace(namespace, staging_name)
 
         run = assemble(
             validated=validated,
@@ -625,6 +656,9 @@ def assemble_environment(
             secrets=secrets,
             corporate_network=corporate_network,
             sink=sink,
+            stream_factory=stream_factory,
+            tail_projector=tail_projector,
+            activity=activity,
         )
         try:
             return publish_environment(
@@ -632,6 +666,7 @@ def assemble_environment(
                 tree_root=run.staging,
                 namespace=namespace,
                 input_identity=input_identity,
+                activity=activity,
             )
         except BaseException as exc:
             # ``publish_environment`` moves the staging tree on success; on
@@ -640,8 +675,14 @@ def assemble_environment(
             # cleanup failure (if any) is attached as a note, and the
             # original publication failure stays primary.
             failure = _remove_staging_safely(
-                namespace, staging_name, run.staging, effective_secrets
+                namespace,
+                staging_name,
+                run.staging,
+                effective_secrets,
+                tail_projector=tail_projector,
             )
             if failure is not None:
                 _attach_cleanup_notes(exc, [failure])
             raise
+
+    raise AssertionError("locked-assembly scope must return or raise")

@@ -136,7 +136,13 @@ class TestFixedNpmPolicy(unittest.TestCase):
     def test_policy_flags_exact(self):
         self.assertEqual(
             npm_policy_flags(),
-            ("--ignore-scripts", "--no-bin-links", "--no-audit", "--no-fund"),
+            (
+                "--ignore-scripts",
+                "--no-bin-links",
+                "--no-audit",
+                "--no-fund",
+                "--loglevel=http",
+            ),
         )
 
     def test_policy_digest_deterministic(self):

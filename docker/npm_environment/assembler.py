@@ -4,9 +4,12 @@ The assembler runs one canonical shell script inside the reviewed Node image.
 The script first asserts the container's actual Node and npm versions equal
 the caller-reviewed values, then synthesizes a project manifest in sync with
 the mounted lockfile, and finally runs exactly
-``npm ci --ignore-scripts --no-bin-links --no-audit --no-fund``.  Lifecycle
-scripts never run, ``engine-strict`` stays disabled, and no reviewed-root
-``bin`` metadata creates an executable link.
+``npm ci --ignore-scripts --no-bin-links --no-audit --no-fund
+--loglevel=http``.  Lifecycle scripts never run, ``engine-strict`` stays
+disabled, no reviewed-root ``bin`` metadata creates an executable link, and
+``--loglevel=http`` is the accepted Phase 6 decision that makes timely
+cache-hit, cache-miss, retry, timeout, and HTTP-status observations available
+on the existing stdout/stderr pipes.
 
 The script bytes and the npm policy flags are canonical constants so callers
 derive ``script_digest``/``policy_digest`` for :class:`AssemblerIdentity`
@@ -20,8 +23,19 @@ import json
 
 #: The one fixed npm invocation policy.  ``--ignore-scripts`` disables all
 #: lifecycle scripts, ``--no-bin-links`` prevents executable-link creation,
-#: and ``--no-audit``/``--no-fund`` disable network advisory/funding probes.
-NPM_CI_FLAGS = ("--ignore-scripts", "--no-bin-links", "--no-audit", "--no-fund")
+#: ``--no-audit``/``--no-fund`` disable network advisory/funding probes, and
+#: ``--loglevel=http`` is the accepted Phase 6 logging decision that exposes
+#: cache-hit, cache-miss, retry, timeout, and HTTP-status observations on the
+#: existing stdout/stderr pipes.  Adding it changes the policy and script
+#: digests, so outputs assembled under the prior policy identity are never
+#: reused.
+NPM_CI_FLAGS = (
+    "--ignore-scripts",
+    "--no-bin-links",
+    "--no-audit",
+    "--no-fund",
+    "--loglevel=http",
+)
 
 NPM_CI_COMMAND = ("npm", "ci") + NPM_CI_FLAGS
 
@@ -89,7 +103,7 @@ cd /work
 
 node -e 'const fs=require("fs");const lock=JSON.parse(fs.readFileSync("/work/package-lock.json","utf8"));const r=lock.packages[""];const pkg={name:r.name||"npm-assembler",version:r.version||"0.0.0",private:true};for(const k of ["dependencies","devDependencies","optionalDependencies"]){if(r[k]&&typeof r[k]==="object")pkg[k]=r[k];}fs.writeFileSync("/work/package.json",JSON.stringify(pkg,null,2)+"\\n");'
 
-exec npm ci --ignore-scripts --no-bin-links --no-audit --no-fund
+exec npm ci --ignore-scripts --no-bin-links --no-audit --no-fund --loglevel=http
 """
 
 
