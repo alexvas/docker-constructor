@@ -1,6 +1,8 @@
 ## MODIFIED Requirements
 
 ### Requirement: Report host-side build materialization progress
+Live display cadence and coalescing guarantees in this requirement apply to healthy, promptly serviced presentation. Live delivery and deduplication SHALL be best effort under saturation, state reset, or presentation failure; repeated diagnostics or unavailable live output are permitted in those cases. Sanitization, capture bounds, authoritative domain heartbeat/deadline facts, and primary-result isolation SHALL remain mandatory. Presentation SHALL NOT infer diagnostic silence or execution timeout from the number of consecutive consumed heartbeat events.
+
 Before the main Docker build starts, the constructor SHALL report the current host-side build-materialization phase when text output is presented interactively, including Pi release acquisition, reviewed build-artifact acquisition, locked dependency assembly, derived-environment validation, publication, and transition to the Docker build. It SHALL expose observable operational steps within those phases, including coordination-lock wait, cache lookup, assembler-container startup, `npm ci`, validation, and publication. A long-running operation SHALL become visible before it completes and SHALL report elapsed time; when diagnostic or transport-progress activity has been observed for at least one second it SHALL identify the last observed activity kind and whole monotonic age in seconds, and when a fixed deadline applies it SHALL report remaining time. Before any qualifying activity is observed, or while its age is less than one second, it SHALL omit last-activity reporting without delaying heartbeat emission. It SHALL produce the first heartbeat 3 seconds after the operation starts and subsequent heartbeat facts at intervals no greater than 1 second, regardless of diagnostic or transport-progress activity. Separately, an operation that declares an expected diagnostic stream SHALL identify the duration specifically as diagnostic silence exactly at 2 minutes without stdout or stderr and SHALL continue updating that duration in subsequent heartbeat facts. An operation without an expected diagnostic stream, including host artifact/release downloads, SHALL omit diagnostic silence entirely. Transport progress SHALL update last activity but SHALL NOT reset applicable diagnostic silence or the heartbeat schedule. Diagnostic silence SHALL NOT be represented as proof that execution or networking is inactive, and neither silence nor human-readable npm output SHALL be represented as proof that npm is currently downloading.
 
 Presented host progress, live diagnostics, and rendered retained diagnostics SHALL obey the same facade-owned hostname-display policy, while all underlying structured diagnostics SHALL already satisfy output-policy-independent redaction and URL sanitization. The configured heartbeat presentation SHALL be one of `interactive`, `lines`, or `off`: `interactive` SHALL use replaceable terminal progress only for interactive text output, render the first status at 3 seconds, and refresh it at intervals no greater than 1 second; `lines` SHALL use durable newline-terminated text events, render the first status at 3 seconds, emit each ordinary status line exactly 30 seconds after the preceding durable status, emit a distinct diagnostic-silence transition exactly at 120 seconds, and restart its 30-second line interval from that transition; `off` SHALL suppress heartbeat presentation without suppressing domain heartbeat-event production, phase terminal states, or actionable warnings and errors. JSON execution SHALL create no live presentation sink. Noninteractive text execution SHALL create a live host-event sink only when `lines` is explicitly configured; otherwise it SHALL retain only bounded diagnostics for failure reporting.
@@ -32,8 +34,9 @@ Presented host progress, live diagnostics, and rendered retained diagnostics SHA
 - **AND** SHALL NOT alter the heartbeat schedule
 
 #### Scenario: Build advances to Docker
-- **WHEN** host artifact and Pi materialization complete successfully
-- **THEN** the constructor SHALL finalize and clear host-materialization progress before presenting native Docker build progress
+- **WHEN** host artifact and Pi materialization complete successfully and presentation remains healthy
+- **THEN** the constructor SHALL drain accepted host events, finalize and clear host progress, and terminate/join the presentation worker before native Docker build progress
+- **AND** if presentation stalls, the constructor SHALL continue after the shared five-second presentation completion budget without promising clean terminal handoff
 
 #### Scenario: Structured build output
 - **WHEN** a build runs with JSON output
@@ -55,11 +58,22 @@ Presented host progress, live diagnostics, and rendered retained diagnostics SHA
 #### Scenario: Host materialization fails
 - **WHEN** any host materialization operation fails before the main Docker build starts
 - **THEN** output SHALL identify the failed phase and logical operation
-- **AND** SHALL include the existing bounded redacted diagnostic tail when it is nonempty
+- **AND** SHALL include the existing bounded redacted diagnostic tail once in the final report when it is nonempty, explicitly labeled as retained context that may repeat live output
+- **AND** SHALL NOT filter that tail using live-delivery history or substitute a failure summary for an empty tail
+- **AND** an empty tail SHALL produce no diagnostic section
+- **AND** report visibility is best effort if presentation has failed, but the structured failure result SHALL remain intact
 - **AND** the main Docker build SHALL NOT execute
 
 ### Requirement: Integrate host progress through typed presentation-neutral events
-The constructor SHALL convey host-materialization lifecycle and live assembler diagnostics through immutable typed event interfaces between the facade, build orchestration, Pi materialization, artifact acquisition, and assembler execution. Existing lifecycle events SHALL retain fixed phase and started/succeeded/failed classifications. A separate operational activity event hierarchy SHALL represent step transitions, observed transport progress, diagnostics, and heartbeats without changing lifecycle-event semantics. Each step start SHALL carry a closed declaration of whether that operation expects a diagnostic stream, and heartbeat facts SHALL omit diagnostic-silence duration when it does not. Structured safe diagnostic events SHALL identify their fixed phase, step, stdout/stderr source, closed classification, optional safe logical resource, already-redacted URL-free text, zero or more normalized hostnames from which every other URL component has already been removed, and an ordered tuple of ephemeral session-keyed opaque URL fingerprints for presentation identity. Collection and failure boundaries SHALL produce the same structured facts independently of output configuration. The facade alone SHALL apply hostname-display policy by ignoring normalized host facts when disabled or rendering them when enabled; output configuration SHALL NOT alter domain event production. Activity events SHALL use an activity-independent monotonic heartbeat cadence beginning at 3 seconds with subsequent intervals no greater than 1 second and a separate monotonic diagnostic-silence duration reset only by stdout/stderr and exposed exactly from 120 seconds, SHALL carry optional closed last-activity kind and whole monotonic age in seconds together only after diagnostic or transport-progress activity is at least one second old, SHALL reject last-activity ages below one second, SHALL expose no wall-clock activity timestamp, and SHALL carry a remaining deadline only when one exists. The facade SHALL own output-mode selection and rendering; domain modules SHALL NOT print directly or depend on terminal presentation details. The sink SHALL remain optional for SDK and injected callers, and a sink failure SHALL NOT replace or change the build result. A facade sink installed behind `GuardedHostEventSink` SHALL perform only bounded non-blocking admission while guarded serialization is held; it SHALL NOT render, flush, wait for a presentation barrier, or stop/join presentation machinery. Its bounded presentation mailbox SHALL reserve independently bounded reliable capacity for lifecycle, step-transition, terminal, timeout, cancellation, and barrier events, while diagnostics and replaceable telemetry use separately bounded best-effort capacity. Diagnostic saturation SHALL NOT consume or evict reliable capacity. If reliable admission fails, including for a terminal or shutdown barrier, the sink SHALL signal a capacity-independent emergency worker stop and return the admission failure without waiting under guarded serialization. The facade SHALL perform barrier or worker-stopped acknowledgement waits and presentation-worker join only after returning from guarded sink invocation; it SHALL skip acknowledgement of an unadmitted barrier, await worker-stopped acknowledgement instead, and ensure no presentation worker remains alive before continuing to BuildKit or returning.
+Coalescing, refresh, and finalization scenarios in this requirement describe healthy presentation; overload or presentation failure MAY cause safe repeated groups or unavailable display as specified by the degradation scenarios below. This qualification SHALL NOT weaken event safety, bounded capture, authoritative activity facts, or primary-result isolation.
+
+The constructor SHALL convey host-materialization lifecycle and live assembler diagnostics through immutable typed event interfaces between the facade, build orchestration, Pi materialization, artifact acquisition, and assembler execution. Existing lifecycle events SHALL retain fixed phase and started/succeeded/failed classifications. A separate operational activity event hierarchy SHALL represent step transitions, observed transport progress, diagnostics, and heartbeats without changing lifecycle-event semantics. Each step start SHALL carry a closed declaration of whether that operation expects a diagnostic stream, and heartbeat facts SHALL omit diagnostic-silence duration when it does not. Structured safe diagnostic events SHALL identify their fixed phase, step, stdout/stderr source, closed classification, optional safe logical resource, already-redacted URL-free text, zero or more normalized hostnames from which every other URL component has already been removed, and an ordered tuple of ephemeral session-keyed opaque URL fingerprints for presentation identity. Collection and failure boundaries SHALL produce the same structured facts independently of output configuration. The facade alone SHALL apply hostname-display policy by ignoring normalized host facts when disabled or rendering them when enabled; output configuration SHALL NOT alter domain event production. Activity events SHALL use an activity-independent monotonic heartbeat cadence beginning at 3 seconds with subsequent intervals no greater than 1 second and a separate monotonic diagnostic-silence duration reset only by stdout/stderr and exposed exactly from 120 seconds, SHALL carry optional closed last-activity kind and whole monotonic age in seconds together only after diagnostic or transport-progress activity is at least one second old, SHALL reject last-activity ages below one second, SHALL expose no wall-clock activity timestamp, and SHALL carry a remaining deadline only when one exists. The facade SHALL own output-mode selection and rendering; domain modules SHALL NOT print directly or depend on terminal presentation details. The sink SHALL remain optional for SDK and injected callers, and a sink failure SHALL NOT replace or change the build result. The internal facade path SHALL use one bounded ordered inbox and one presentation actor, with independently bounded admission budgets for control and telemetry. Short mutex-protected admission is permitted; producers SHALL NOT wait for queue capacity, rendering, I/O, or consumer acknowledgement. On the internal enqueue path, no rendering, flushing, arbitrary callback invocation, completion wait, or join SHALL occur under inbox or producer serialization locks. External SDK callback serialization and isolation SHALL retain their existing contract. Diagnostic saturation SHALL NOT consume reserved control capacity. Control events SHALL preserve admission order; accepted diagnostic events SHALL preserve that order unless explicitly discarded on presentation failure. Optional supersession of replaceable telemetry SHALL NOT move a newer observation before intervening control events or cross an operation terminal/restart boundary.
+
+Orchestration SHALL finish diagnostic readers and sanitizer finalization, drain any upstream dispatcher, and stop/join heartbeat production before admitting the corresponding operation terminal event. Session close SHALL atomically end acceptance and wake the actor independently of queue capacity; it SHALL NOT require admission of a shutdown message. Normal completion SHALL drain accepted events, finalize display, signal completion, and join the worker before BuildKit or return. Control-admission failure SHALL explicitly disable presentation and wake its consumer without waiting under producer locks; it SHALL NOT silently discard control as ordinary telemetry or change the primary result.
+
+All presentation completion waits and joins SHALL share one five-second monotonic budget, which repeated cleanup calls SHALL NOT restart. Renderer exceptions SHALL disable further output and discard pending display state while allowing completion. If terminal I/O stalls beyond the budget, the facade SHALL cancel further presentation and continue without an unbounded wait/join or synchronous retry to the failed stream. A daemon worker and an already-started write MAY outlive that degraded return; after unblocking, the worker SHALL check cancellation before any further renderer operation. No clean native-output handoff, final-message visibility, or worker-termination guarantee applies to indefinitely blocked I/O. Healthy and returning-error paths SHALL still terminate the worker, and no rendering SHALL occur after successful completion acknowledgement.
+
+During a live session the actor SHALL be the sole host terminal writer, including the facade-prepared final host failure report. The normal CLI result printer SHALL NOT write that report a second time or retry it after presentation failure. Structured result data SHALL remain available independently of rendering. Without a live session, ordinary text/JSON result formatting SHALL remain responsible for the report; JSON SHALL create no presentation inbox or worker.
 
 #### Scenario: Text output is noninteractive
 - **WHEN** text output is redirected or otherwise runs without interactive presentation
@@ -82,7 +96,7 @@ The constructor SHALL convey host-materialization lifecycle and live assembler d
 - **AND** collection and domain event emission SHALL remain identical
 
 #### Scenario: Diagnostic interrupts transient progress
-- **WHEN** a diagnostic of any closed classification arrives while interactive transient progress is active
+- **WHEN** a diagnostic of any closed classification arrives while healthy interactive transient progress is active
 - **THEN** the facade SHALL make its first admitted occurrence immediately visible only in one mutable diagnostic slot, without a durable write
 - **AND** identical admitted repeats SHALL update only that slot with the latest admitted-occurrence count on the next TUI refresh
 - **AND** an otherwise identical diagnostic whose one changed field is a single strict maximal numeric token as defined by `locked-npm-environment-assembly` SHALL replace that slot without a repetition suffix and reset the exact-repeat count
@@ -107,32 +121,72 @@ The constructor SHALL convey host-materialization lifecycle and live assembler d
 #### Scenario: Diagnostic presentation capacity is exhausted
 - **WHEN** diagnostic production exhausts the bounded best-effort presentation capacity
 - **THEN** further ordinary diagnostics MAY be dropped without blocking the producer
-- **AND** lifecycle, step-transition, terminal, timeout, cancellation, and barrier events SHALL remain admissible within their independently reserved protocol bound
+- **AND** lifecycle, step-transition, terminal, timeout, cancellation, and final-report events SHALL remain admissible within their independently reserved protocol bound
 - **AND** the facade SHALL preserve ordering across all admitted events
 - **AND** a repetition suffix SHALL count only admitted occurrences and SHALL NOT claim an exact producer-side total
-- **AND** the facade SHALL present a bounded non-coalesced omission notice before the next admitted diagnostic or terminal event
-- **AND** a saturated omission count SHALL be presented as a lower bound
+- **AND** functioning presentation SHALL present a bounded non-coalesced omission notice with a subsequent admitted diagnostic/control event or normal close
+- **AND** exact counts SHALL be shown only when known; saturation or uncertainty SHALL use a lower bound or generic omission notice
+- **AND** presentation SHALL NOT claim to reconstruct every lost occurrence or an exact original transcript
 
 #### Scenario: Injected caller omits presentation
 - **WHEN** an SDK or injected materializer or executor does not provide the optional event sink
 - **THEN** its existing non-presenting behavior SHALL remain compatible
 - **AND** domain execution SHALL NOT print directly
 
-#### Scenario: Reliable barrier admission fails
-- **WHEN** the producer-facing adapter cannot admit a terminal or shutdown barrier to the reliable lane
-- **THEN** it SHALL atomically signal capacity-independent emergency stop and return admission failure without blocking
-- **AND** the producer callback SHALL NOT render, wait for acknowledgement or worker termination, flush, or join presentation machinery under `GuardedHostEventSink` serialization
-- **AND** the worker SHALL wake, disable rendering, discard pending presentation and queued events, publish worker-stopped acknowledgement, and exit without waiting for the unadmitted barrier
-- **AND** after guarded invocation returns, the facade SHALL skip the missing barrier acknowledgement, await worker-stopped acknowledgement, and join the worker
-- **AND** no presentation worker SHALL remain alive before BuildKit starts or the facade returns
+#### Scenario: Control admission fails
+- **WHEN** reserved control capacity is exhausted while admitting a lifecycle, terminal, or final-report event
+- **THEN** the adapter SHALL explicitly disable presentation and wake the actor without consuming another queue slot
+- **AND** producers SHALL NOT wait for output, acknowledgement, or worker termination
+- **AND** close SHALL remain available and no acknowledgement of the unadmitted event SHALL be awaited
+- **AND** completion waiting SHALL stay within the shared five-second budget
 - **AND** the failure SHALL NOT mask or change success, timeout, interruption, assembler failure, or Docker result
 
+#### Scenario: Full inbox closes normally
+- **WHEN** all producers have finished and the presentation inbox is full
+- **THEN** close SHALL end acceptance and wake the consumer without requiring a free slot
+- **AND** events accepted before close SHALL drain in order on the healthy path
+- **AND** later admissions SHALL be rejected and repeated close SHALL be idempotent
+- **AND** pending diagnostics and omission information SHALL finalize before completion acknowledgement
+
 #### Scenario: Presentation sink fails
-- **WHEN** the producer-facing enqueue adapter rejects an event or the asynchronous presentation worker fails while rendering host progress, activity, or diagnostics
-- **THEN** the failure SHALL remain secondary
-- **AND** producer callbacks SHALL return without rendering, acknowledgement or worker-termination waiting, flushing, or worker/timer joining under `GuardedHostEventSink` serialization
-- **AND** an unadmitted barrier SHALL NOT be awaited
-- **AND** the failure SHALL NOT mask a timeout, interruption, assembler failure, or Docker result
+- **WHEN** an injected presentation sink raises or the internal presentation path fails
+- **THEN** the failure SHALL remain secondary to the primary operation result
+- **AND** external SDK callback isolation and optional-sink behavior SHALL remain compatible
+- **AND** internal producer callbacks SHALL NOT render or wait for presentation completion under serialization locks
+- **AND** presentation completion waiting SHALL use only the shared five-second budget, with no wait for an unadmitted event
+
+#### Scenario: Renderer raises an exception
+- **WHEN** the presentation renderer raises while writing host output
+- **THEN** the actor SHALL disable subsequent rendering and discard pending display state without retrying the failed stream
+- **AND** it SHALL continue consuming or discarding accepted events so normal close can complete
+- **AND** the primary result and bounded retained diagnostics SHALL remain unchanged
+
+#### Scenario: Renderer stalls indefinitely
+- **WHEN** a host terminal write or flush remains blocked while the build continues or completes
+- **THEN** producers SHALL continue independently and presentation memory SHALL remain bounded
+- **AND** the facade SHALL spend at most one shared five-second budget on presentation completion, including repeated cleanup calls
+- **AND** on expiry it SHALL cancel further presentation and continue without an unbounded join or synchronous fallback write
+- **AND** an already-started write MAY finish later, but no subsequent renderer operation SHALL begin after cancellation is observed
+- **AND** worker absence and clean terminal handoff SHALL NOT be required on this degraded path
+
+#### Scenario: Final host failure report has one writer
+- **WHEN** host execution fails during an authorized live session
+- **THEN** the facade SHALL submit its safe final failure report to the actor before close
+- **AND** the normal CLI result printer SHALL NOT repeat that report
+- **AND** retained diagnostics MAY repeat earlier live output with an explicit retained-context warning
+- **AND** a failed report admission or rendering attempt SHALL preserve the primary structured result without synchronous retry to the failed stream
+
+#### Scenario: Transient diagnostic exceeds terminal width
+- **WHEN** a healthy interactive renderer receives a diagnostic wider than the terminal, including wide Unicode characters
+- **THEN** transient output SHALL fit within one physical row without automatic wrapping
+- **AND** replacement, finalization, and normal BuildKit handoff SHALL leave no stale transient rows
+- **AND** durable diagnostic text SHALL remain complete
+
+#### Scenario: Delivered heartbeats do not determine execution timeout
+- **WHEN** presentation drops diagnostics, supersedes heartbeats, or processes a backlog of consecutive heartbeats
+- **THEN** diagnostic silence SHALL still derive from collector-observed stdout/stderr activity and authoritative monotonic heartbeat facts
+- **AND** presentation SHALL NOT infer or trigger execution timeout from consumed heartbeat counts
+- **AND** the existing executor-owned total deadline SHALL remain unchanged
 
 ## ADDED Requirements
 

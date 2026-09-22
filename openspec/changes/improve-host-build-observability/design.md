@@ -1,231 +1,223 @@
 ## Context
 
-See `proposal.md` for motivation. The current immutable `HostPhaseEvent`/`HostDiagnosticEvent` boundary gives coarse liveness and streams redacted assembler chunks, while the facade decides whether an interactive text sink exists. One locked-assembly phase currently contains blocking coordination, cache lookup, Docker startup, npm execution, validation, and publication. Host artifact transports stream bytes but emit no progress, and their display-safe failures preserve only the outer exception type. Existing constraints require clean JSON, no direct domain printing, optional failure-isolated sinks, bounded retained diagnostics, secret redaction before presentation or persistence, fixed npm/deadline policy, and unchanged cleanup and locking semantics.
+See `proposal.md` for motivation. Phases 1–8 and an initial Phase 9 implementation already exist. The current code is the migration baseline, not the target architecture: `docker/npm_environment/streaming.py` has two reader threads, independent bounded tails, and a `SinkDispatcher` queue/thread; `docker/versioning/activity_monitor.py` produces presentation-neutral heartbeat facts; `docker/versioning/host_presentation.py` has a two-lane mailbox, sequence merge, omission fallback generations, one presentation worker, and shutdown-barrier/emergency paths. `docker/constructor_cli.py` currently reconciles a failure tail with the worker's bounded delivery-hash history. Session shutdown first waits five seconds but can subsequently wait indefinitely for the worker.
+
+Review scenarios exposed four distinct concerns: FIFO cannot repair a terminal event admitted before upstream producers finish; a shutdown message can fail admission; exact replay suppression cannot be reconstructed from safe-text hashes after loss and tail truncation; a blocked terminal write cannot be cancelled safely in a Python thread. These are not all coalescing defects. The agreed revision simplifies the contracts around the existing actor instead of introducing another coordinator.
+
+Existing security, SDK, domain heartbeat, fixed npm deadline, locking, cache, and cleanup contracts remain authoritative. `verification-phase9.md` records the previous implementation's checks; it is not acceptance evidence for this revised architecture. New migration evidence belongs in a separate verification file during implementation.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Add detailed, deterministic host activity without weakening the stable lifecycle event contract.
-- Make last observed activity, silence, elapsed duration, and deadlines accurately observable across all host pipeline steps.
-- Centralize safe network diagnostic presentation and contextual failure rendering.
-- Keep heartbeat concurrency testable and harmless to execution.
-- Define intentional noninteractive line output as an explicit specification change rather than an accidental consequence of renderer reuse.
+- Keep one facade presentation actor as the sole owner of grouping, presentation deadlines, mutable terminal state, and host terminal writes.
+- Reduce the internal reader-to-presentation path to one bounded ordered inbox; keep retained diagnostics independent of presentation speed and success.
+- Preserve normal interactive/lines coalescing while permitting safe repeated diagnostics under degradation and explicitly labeled retained-context replay for every failure.
+- Define a simple producer-completion/close protocol and a single five-second presentation completion budget.
+- Preserve testable activity facts, privacy, bounded memory, SDK compatibility, and primary execution results.
 
 **Non-Goals:**
 
-- Parse npm output into authoritative package-level progress or classify every npm failure as network-related.
-- Inspect Docker CPU, network counters, sockets, or container filesystems.
-- Add percentages, rates, or totals when the executing boundary cannot observe them cheaply.
-- Change the 30-minute assembly deadline, blocking lock behavior, or cleanup ownership; npm policy identity changes only as the deliberate consequence of the accepted pinned-version logging decision.
-- Adapt or apply `reconstructed-from-photos.patch`; only its safe logical-asset and nested-type ideas are carried forward.
+- Exactly-once diagnostic display, occurrence-aware delivery receipts, or reconciliation of live output with retained tails.
+- Wait-free/lock-free queue guarantees or real-time terminal delivery under overload.
+- Guaranteed termination of a thread blocked indefinitely in terminal I/O, or perfect terminal handoff after such failure.
+- A new combined activity/presentation coordinator, asyncio conversion, terminal subprocess, or nonblocking terminal backend.
+- Changes to acquisition effects, the 30-minute assembly deadline, blocking coordination, cleanup ownership, or the already accepted npm logging policy/identity.
+- Docker CPU/network/filesystem probes, inferred npm download activity, unavailable percentages/rates, or adaptation of `reconstructed-from-photos.patch`.
 
 ## Decisions
 
-### Keep lifecycle stable and add a perpendicular operational event union
+### Current and target ownership
 
-Do not add states or detail fields to `HostPhaseEvent`. Extend the internal host event union with immutable operational facts: step transition, transport byte progress, heartbeat, and selected diagnostic. Each step-start fact declares through a closed field whether that operation has an expected diagnostic stream; this is true for `npm ci` and false for host downloads. Heartbeat facts carry an optional closed last-activity kind (`diagnostic` or `transport_progress`) and its whole monotonic age in seconds, which MUST be at least one; they never carry a wall-clock timestamp. Before either kind has been observed, or while its age is less than one second, both fields are absent and presentation reports only step elapsed and any separately applicable diagnostic silence. Steps use a closed enum spanning artifact acquisition, lock wait, cache lookup/reuse, stale-stage cleanup, container startup, npm execution, validation, publication, and Docker transition. Events contain no terminal escapes and no exception objects.
-
-This preserves existing lifecycle consumers and lets the facade evolve presentation separately. A free-form message-only event was rejected because it would make ordering, redaction, and timing assertions fragile. Encoding every step as a new host phase was rejected because steps do not share the phase lifecycle and would break the stable phase contract.
-
-### Use an orchestration-owned activity monitor
-
-A reusable activity monitor wraps potentially long host operations. It receives an injected monotonic clock and waiter, observes step entry/exit, diagnostic activity, and transport progress, and emits its first heartbeat 3 seconds after operation start followed by heartbeats at intervals no greater than 1 second, independent of intervening activity. It tracks diagnostic silence separately only for a step that declared an expected diagnostic stream: only stdout/stderr resets that clock, transport progress does not, and the heartbeat exposes diagnostic silence exactly when it reaches 2 minutes and thereafter. Steps without an expected diagnostic stream carry no diagnostic-silence value. It also records the kind and monotonic observation time of the latest diagnostic or transport-progress activity, rounds their age down to whole seconds, and projects it into each heartbeat only when the result is at least one second; before the first observation or during its first second it emits no last-activity value. Neither activity nor last-activity reporting delays or suppresses the fixed heartbeat cadence. It includes remaining time only when the wrapped operation has an existing fixed deadline. It never represents diagnostic silence as inferred process or network inactivity.
-
-The monitor owns its bounded heartbeat timer/thread lifecycle and joins that heartbeat producer before the step returns or raises. `GuardedHostEventSink` serialization protects only prompt producer callback invocation and bounded non-blocking mailbox enqueue; no callback renders, waits for presentation acknowledgement, flushes, or joins any presentation worker/timer while the guarded serialization lock is held. Monitor/enqueue/renderer failure remains secondary. For blocking lock acquisition, the monitor observes around the unchanged blocking call; it neither polls nor times out the lock. For npm, the streaming collector marks activity for every received stdout/stderr chunk. For host downloads, each yielded body chunk can update bytes and activity without another probe.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant I as Action initiator<br/>(download / lock / npm)
-    participant H as Heartbeat coordinator
-    participant S as Guarded enqueue sink
-    participant Q as Bounded presentation mailbox
-    participant P as Single presentation worker
-    participant T as TUI / line renderer
-
-    I->>H: enter(step, diagnostic-stream applicability,<br/>optional deadline)
-    H->>S: StepStarted
-    S->>Q: enqueue immutable event
-    P->>Q: take(next window deadline)
-    Q-->>P: StepStarted
-    P->>T: render initial state
-
-    par Action and reader producers
-        I->>S: safe progress / diagnostic events
-        S->>Q: enqueue immutable events
-    and Heartbeat production
-        H->>S: heartbeat events
-        S->>Q: enqueue immutable events
-    and Single-threaded presentation
-        loop Until presentation-session terminal
-            P->>Q: take(timeout to grouping/refresh deadline)
-            alt event received
-                Q-->>P: next FIFO event
-                P->>P: apply hostname policy<br/>update coalescing group
-            else deadline reached
-                P->>P: refresh mutable slot or<br/>flush lines summary
-            end
-            P->>T: serialized render when required
-        end
-    end
-
-    I->>H: complete / fail / cancel step
-    H->>H: atomically mark terminal<br/>reject activity → stop → join heartbeat producer
-    H->>S: publish step-terminal event
-    S->>Q: non-blocking enqueue of ordered terminal barrier
-    S-->>H: return while guarded serialization is held
-    H-->>I: domain step complete
-    P->>Q: consume events preceding barrier
-    P->>P: freeze latest total count<br/>finalize diagnostic group
-    P->>T: render final diagnostic, then terminal state
-    P->>P: record barrier acknowledgement
-
-    opt Host presentation session ends
-        I->>S: publish session-shutdown control
-        S->>Q: non-blocking enqueue
-        S-->>I: return from guarded callback
-        I->>P: outside GuardedHostEventSink:<br/>await shutdown acknowledgement
-        P->>P: finalize pending state and stop
-        P-->>I: acknowledge shutdown
-        I->>I: join presentation worker before BuildKit/return
-    end
-```
-
-The initiator reports execution facts but owns neither heartbeat timing nor terminal presentation. The heartbeat coordinator tracks an activity-independent heartbeat schedule, an applicability-gated diagnostic-silence clock reset only by stdout/stderr, and the latest observed diagnostic-or-transport activity kind/time; it emits only monotonic durations, never an absolute timestamp, and neither renders output nor interprets silence as process or network inactivity. Producer threads call a prompt-returning `GuardedHostEventSink` adapter; while guarded serialization is held, the adapter performs only failure-isolated bounded non-blocking enqueue of an immutable event and returns. It never renders, waits for a barrier, flushes, or stops/joins presentation machinery. Exactly one facade presentation worker drains that mailbox and exclusively owns hostname selection, coalescing state, mutable TUI state, window deadlines, and renderer calls, so those mutable concerns require no cross-thread locking. The renderer performs only worker-directed region updates and durable writes. On completion/failure the heartbeat coordinator atomically marks the step terminal, rejects later activity, cancels and joins heartbeat production, and only then publishes the terminal event; therefore terminal presentation cannot be followed by a racing heartbeat. Before that publication, an executor that owns stdout/stderr readers drains and joins them so no diagnostic producer remains able to enqueue behind the terminal. The guarded adapter enqueues an ordered terminal barrier and returns immediately. The single presentation worker later consumes all preceding producer events in mailbox order, freezes and finalizes the latest repetition count, renders the terminal state, and records acknowledgement. No producer waits for that acknowledgement inside its sink callback. At the facade/native-output or facade/return boundary, the owning initiator performs shutdown acknowledgement waiting and worker join only after the guarded sink call has returned.
+Current implementation (internal live path; external SDK variants omitted):
 
 ```mermaid
 flowchart LR
-    subgraph Producers[Producer threads]
-        O[Orchestration / action thread]
-        H[Heartbeat coordinator thread]
-        SO[stdout reader thread]
-        SE[stderr reader thread]
-        D[Existing deadline supervisor]
+    R[stdout / stderr readers] --> S[Sanitization and activity observation]
+    S --> T[(Bounded retained tails)]
+    S --> Q1[[SinkDispatcher queue]]
+    Q1 --> D[Dispatcher thread]
+    D --> G[Guarded sink]
+    H[Heartbeat producer] --> G
+    O[Orchestration] --> G
+    G --> C[[Control lane]]
+    G --> Q2[[Telemetry lane]]
+    C --> M[Admission-sequence merge]
+    Q2 --> M
+    M --> A[Presentation worker]
+    A --> W[Terminal renderer]
+    A --> DH[Delivery-hash history]
+    T --> F[CLI failure formatter]
+    DH --> F
+    F --> W
+    O --> SH[Enqueued session shutdown]
+    SH --> C
+    SH -. admission failure .-> E[Emergency stop]
+    E --> A
+```
+
+Target internal path:
+
+```mermaid
+flowchart LR
+    R[stdout / stderr readers] --> S[Sanitization and activity observation]
+    S --> T[(Existing bounded retained tails)]
+    S --> I[Short mutex-protected admission]
+    H[Existing domain heartbeat producer] --> I
+    O[Orchestration lifecycle events] --> I
+    I --> Q[[One ordered bounded inbox]]
+    I --> L[Bounded loss accounting]
+    Q --> A[Single facade presentation actor]
+    L --> A
+    A --> W[Host terminal renderer]
+    T --> F[Structured failure context]
+    F --> O
+    O --> FR[Facade final-report command]
+    FR --> I
+    O --> CLOSE[Close after producers finish]
+    CLOSE -. capacity independent .-> Q
+    Q -->|closed and drained| A
+    A --> DONE[Completion signal]
+    DONE --> O
+    O --> B[BuildKit / return]
+    F -. no live actor .-> N[Normal text / JSON result formatter]
+```
+
+The collector owns sanitization and the retained tail. The activity monitor owns observed activity and heartbeat facts. The actor owns presentation only. The orchestrator owns producer lifetimes and terminal ordering. A stalled actor must not become a collector or executor dependency.
+
+The target bypasses the existing asynchronous `SinkDispatcher` only for the explicitly identified facade-owned enqueue path. Preserve its isolation and callback behavior for arbitrary external SDK sinks. Do not infer that an arbitrary callable is a safe enqueue adapter or expose output policy to the assembler. Verify the internal path has one asynchronous presentation hop and the external path retains its existing contract.
+
+### Keep lifecycle and domain activity stable
+
+Keep `HostPhaseEvent` classifications and the immutable operational event union. Operational facts retain phase, step, diagnostic-stream applicability, stream, safe logical resource, sanitized text, normalized host facts, and ephemeral URL identity where applicable. No domain event contains terminal escapes or output policy. Facade-only final-report commands and inbox lifecycle state are not new domain events; remove the old facade shutdown marker from the domain union if it has no remaining caller.
+
+Keep `HostActivityMonitor` rather than merging it into presentation. It observes every stdout/stderr chunk before live admission; host transport chunks update cumulative bytes and last transport activity without extra requests or buffering. First heartbeat remains at 3 seconds, then at intervals no greater than one second, independent of activity. Diagnostic silence is applicable only to declared diagnostic streams, resets only on stdout/stderr, and is exposed from 120 seconds. Last-activity age is omitted before one whole second; remaining deadline exists only where execution already owns one.
+
+Never infer silence or timeout by counting consecutive heartbeats consumed by the actor. Diagnostics can be dropped, heartbeats can be superseded, and the actor can lag. Silence is an observation, not proof of inactivity. The executor's existing monotonic total deadline remains the authority for termination. Tests retain exact injected-clock domain cadence while presentation timing expectations apply to a healthy, promptly serviced actor.
+
+### One ordered inbox with short critical sections
+
+Use one physical FIFO with independently bounded admission budgets for control and telemetry. Diagnostic traffic cannot consume the control reservation. Size and test the reservation against the supported maximum outstanding control set, including repeated acquisitions, phase/step transitions, and a final report; do not infer that an enum member can occur only once. Capacity exhaustion outside that bound disables presentation explicitly rather than blocking execution or silently dropping a control.
+
+One short mutex/condition critical section owns acceptance state, enqueue/dequeue, bounded drop accounting, and wakeup state. Admission may briefly contend for this mutex; it does not wait for queue capacity, rendering, I/O, callbacks, or consumer acknowledgement. This is not a wait-free or hard real-time promise. Render, flush, callback invocation, completion waiting, and thread join occur outside every mailbox/producer serialization lock. Do not retain redundant nested facade guards merely to protect a thread-safe inbox; preserve external sink serialization compatibility.
+
+Retained FIFO events are processed in admission order. If heartbeat/progress supersession is retained, remove the older eligible update and append the replacement at the current admission point; never overwrite an earlier position with a later observation or supersede across operation terminal/restart boundaries. Dropping replaceable updates is an acceptable alternative. It must not inflate diagnostic omission accounting.
+
+Diagnostic admission is best effort. Keep one bounded count or loss flag, not identity-indexed maps or fallback marker generations. Associate pending loss information with a subsequent admitted diagnostic/control or final close using the same mutex as admission, so it cannot be retroactively attached ahead of older events already taken by the consumer. The actor renders a non-coalesced notice when possible. Report an exact count only when known; saturation or uncertainty uses a lower bound or a generic omission notice. No exact reconstruction of producer ordering/multiplicity is promised. Pending loss must also be surfaced on normal close when no later diagnostic arrives.
+
+Control-admission failure explicitly marks presentation aborted, rejects further admissions, wakes the consumer without consuming a slot, and preserves the primary result. This signal does not wait for rendering or worker termination. Brief mailbox mutex contention is not an emergency or a drop by itself.
+
+### Producer completion, terminal events, and inbox close
+
+A FIFO orders admissions, not the completion of independent producers. An exited npm process may still have unread pipe data; a finished reader may leave events in an external dispatcher. Orchestration must establish completion before publishing a terminal event:
+
+```mermaid
+sequenceDiagram
+    participant O as Orchestration / facade thread
+    participant R as Readers and sanitizer
+    participant D as External dispatcher, if present
+    participant H as Heartbeat producer
+    participant Q as Ordered inbox
+    participant A as Presentation actor
+
+    O->>R: Observe process termination; drain and join
+    R-->>O: EOF / safe finalization complete
+    opt External callback path has dispatcher
+        O->>D: Drain accepted callbacks and finish
+        D-->>O: No more diagnostic callbacks
     end
-
-    O -->|step, progress, barriers| E[Guarded prompt-returning enqueue adapter]
-    H -->|heartbeat| E
-    SO -->|structured safe diagnostics| E
-    SE -->|structured safe diagnostics| E
-    D -->|timeout / cancellation control| O
-    E --> Q[(Bounded event mailbox)]
-
-    Q --> P[Single facade presentation worker]
-    P --> C[Coalescing state + deadlines]
-    P --> R[TUI / lines renderer]
-    C --> R
-
-    P -. terminal acknowledgement .-> O
-
-    classDef owner fill:#e8f4ff,stroke:#3778a8
-    class P,C,R owner
+    O->>H: Mark terminal, reject activity, stop and join
+    H-->>O: No more heartbeat callbacks
+    O->>Q: Admit step terminal
+    A->>Q: Consume earlier admitted events, then terminal
+    A->>A: Finalize group, render terminal; persist for next step
+    opt End of host presentation session
+        O->>Q: Admit facade final failure report, if any
+        O->>Q: Close acceptance and wake consumer
+        Note over O,A: One shared five-second monotonic completion budget
+        A->>Q: Drain accepted events until closed and empty
+        A->>A: Finalize, clear region, stop
+        A-->>O: Completion signal
+        O->>A: Join using only remaining budget
+        O->>O: BuildKit / return
+    end
 ```
 
-Only the presentation worker mutates coalescing and renderer state. The bounded mailbox has two independently capacity-limited logical lanes. The reliable control lane admits lifecycle events, step transitions, terminal/shutdown barriers, timeout, and cancellation; its reserved capacity is sized from the protocol's bounded maximum number of outstanding controls and cannot be consumed by diagnostics or replaceable telemetry. The best-effort telemetry lane admits diagnostics, heartbeats, byte progress, and other replaceable operational updates. Diagnostic overflow drops the incoming diagnostic; replaceable heartbeat or progress updates MAY supersede an older update for the same step and kind. Thus diagnostic floods cannot evict control events or consume their reservation.
+Session `close()` is idempotent inbox state, not an enqueued shutdown event and not subject to capacity. Admission and close linearize under the same short lock: an accepted event precedes close; later attempts are rejected. Step terminals remain control events in the FIFO and do not stop the session actor. Per-step acknowledgement is not required for domain execution; final session completion establishes normal terminal handoff.
 
-`GuardedHostEventSink` assigns one monotonic sequence number to each admitted event while producer callbacks are serialized. The worker selects the lowest sequence number at the heads of the two lanes, establishing one consumption order across all admitted events. Causal terminal ordering additionally comes from joining heartbeat and stream-reader producers before admitting the terminal barrier, which is consequently processed after every earlier admitted event. A dropped diagnostic consumes no sequence position and cannot delay a terminal event.
+Normal completion drains accepted events, finalizes grouping and pending loss notices, clears transient state, signals completion, and joins the actor before native BuildKit output or return. No rendering occurs after successful completion acknowledgement. Cancellation and host failure use the same orchestration-owned completion ordering without changing producer cleanup or the primary exception/result.
 
-Admission to both lanes is bounded and non-blocking. In particular, the reliable lane MUST NOT wait for capacity while `GuardedHostEventSink` serialization is held: blocking there could stall domain execution or deadlock shutdown. Tests derive the reservation bound, saturate the telemetry lane, and prove that the protocol's maximum outstanding control set remains admissible. Barrier acknowledgement is consumed only outside `GuardedHostEventSink` serialization; on ordinary renderer failure the disabled worker continues consuming and acknowledging admitted control until session shutdown.
+### One five-second completion budget, including renderer stalls
 
-Reliable-lane exhaustion is a protocol-invariant violation with a separate capacity-independent recovery path. If any reliable event, including a terminal or shutdown barrier, cannot be admitted, the adapter atomically marks the presentation session failed, sets an idempotent emergency-stop signal, wakes the mailbox condition, records that the attempted barrier has no acknowledgement to await, and returns the admission failure immediately. Signalling performs no rendering, acknowledgement wait, flush, stop wait, or join while `GuardedHostEventSink` serialization is held. The emergency signal occupies no mailbox slot and therefore remains available when either lane is full. On observing it, the worker disables rendering, discards pending coalescing state and queued events, publishes a distinct worker-stopped acknowledgement, and exits without waiting for or acknowledging the unadmitted barrier. After the guarded callback returns, the facade branches on admission failure: it skips the missing barrier acknowledgement, waits for worker-stopped acknowledgement, and joins the worker before continuing the primary BuildKit, success, failure, timeout, or cancellation path. Thus reliable exhaustion cannot turn an absent barrier into an indefinite wait or leave a presentation worker alive.
+All presentation shutdown waits, drain confirmation, completion acknowledgement, and join share one real monotonic deadline of five seconds. Repeated cleanup calls are idempotent and must not restart that deadline. Producer/subprocess cleanup retains its existing separate contract; this budget covers presentation only.
 
-Renderer-owned timers were rejected because presentation lacks authoritative step/deadline state and complicates cleanup. Executor-only timers were rejected because they cannot cover acquisition, locks, validation, or publication.
+A renderer exception disables further rendering, discards grouping/transient pending state without retrying the failed stream, and lets the actor consume/discard remaining events until close. Control-capacity failure or unexpected actor failure also disables the session and wakes waiters; no absent event acknowledgement is awaited. The primary operation result is unchanged.
 
-### Separate activity observation from presentation policy
+If a renderer blocks indefinitely, producers continue, memory remains bounded, and shutdown returns when the shared budget expires. Signal cancellation and do not enter an unbounded `wait()` or `join()`. A blocked daemon thread may remain alive; it may complete the already-started write if I/O later unblocks. Check cancellation before any further renderer operation, including flush/clear/fallback attempts. Do not synchronously retry the final report through CLI to the same failed stream. Clean terminal handoff, final-message visibility, and absence of a live presentation thread are explicitly not guaranteed on this degraded path. These guarantees remain required on healthy and returning-error paths.
 
-This change depends on `extract-local-project-configuration` being implemented, synchronized, and archived first. The predecessor owns fixed companion resolution, aggregate closed composition, reviewed/local isolation, cache-clause preservation, and host-only confinement. This change only registers the new `[output]` table through that boundary and keeps its field semantics in `docker-build-output`; it does not reopen host-access, cache, or corporate-network ownership.
+A thread cannot safely cancel arbitrary blocking Python I/O. A presentation subprocess or interruptible output backend would be a separate change if stronger guarantees become necessary.
 
-Add local output settings with closed values:
+### Best-effort coalescing, independent retained context
 
-```toml
-[output]
-host_heartbeat = "interactive" # interactive | lines | off
-show_network_hosts = false
-```
+Keep the existing pure coalescer and its normal-path tests. With healthy rendering and admitted events, interactive diagnostics use one mutable slot, exact repeats increment the admitted count, and strict one-token numeric variants replace the latest value and reset its count. Finalization writes the latest value once before the next diagnostic/terminal. `lines` emits the first line immediately and the canonical ` (repeated N times)` summary within a fixed one-second window; numeric values remain separate lines. Warnings/errors do not bypass grouping. The precise numeric grammar and URL identity/security rules remain in the locked-assembly delta spec.
 
-`interactive` is the default and creates replaceable progress only when text stderr is a TTY: it renders the first heartbeat at 3 seconds and refreshes at least once per second thereafter. `lines` creates newline-terminated live host events in text mode, including explicitly selected noninteractive execution: it renders the first heartbeat at 3 seconds, emits ordinary durable heartbeat lines exactly 30 seconds after the preceding durable status, emits the diagnostic-silence transition exactly at 120 seconds, and restarts the 30-second durable-line interval from that transition. `off` makes the facade ignore heartbeat events for presentation but does not alter coordinator heartbeat production, lifecycle terminal states, or actionable diagnostics where a live sink is otherwise authorized. JSON never creates a live sink. SDK/injected callers remain opt-in by passing a sink.
+These are normal-path behavior, not an exactly-once delivery protocol. Loss, state reset, or presentation failure may produce extra groups/repeats or no live display. A displayed repetition count must never claim dropped producer occurrences. Privacy, identity-safe grouping, bounded memory, and primary-result isolation are not best effort.
 
-The noninteractive `lines` behavior intentionally modifies the current no-live-sink specification and receives explicit parser, facade, and acceptance coverage. Environment-variable aliases and new CLI flags are excluded; the existing verbose mode remains independent.
+Reuse the existing byte-bounded sanitized failure tail without comparing it to live delivery. Include it once in each final report under an explicit retained-context label stating that live output may be repeated, for ordinary exit failures as well as timeouts. An empty tail produces no diagnostics section. Keep summary, tail, and phase/step/resource/type context structurally separate; do not append a legacy message that already embeds the tail, or infer a tail from an explicitly empty structured field. Transport failures without stream output use safe resource/type context instead.
 
-### Separate mutable diagnostic display from durable finalization
+Remove `DeliveredDiagnostic`, `_unseen_tail`, delivery-hash windows, and facade reads of actor delivery history. No replacement occurrence receipt protocol or second capture buffer is needed. Truncation notices remain collection facts, distinct from best-effort presentation omission notices.
 
-The single facade presentation worker directs one transient status line and one mutable diagnostic slot in interactive mode. The first diagnostic of any classification becomes visible immediately in the mutable slot; identical repeats update its total on the next at-most-one-second refresh without durable repeat lines, while an admitted conservative one-token numeric variant replaces the slot without a suffix and resets the exact-repeat count. When an identity/template mismatch, omission notice, step terminal, session shutdown, or BuildKit transition finalizes the slot, the worker performs `freeze latest count → clear transient region → write final durable diagnostic → clear slot → restore remaining status when applicable` under its exclusive renderer ownership. Terminal/session finalization does not restore obsolete status. Heartbeats update the transient status line in `interactive`, become durable lines in `lines`, and are ignored in `off`. No domain component emits control characters.
+### Single terminal writer and native handoff
 
-Making warnings/errors bypass the slot would make coalescing classification-dependent and permit floods. Treating mutable updates as durable writes would duplicate diagnostics. Buffering the first diagnostic until finalization would recreate current opacity. Letting stream readers print directly would bypass mailbox ordering and presentation policy.
+During an authorized live session the facade actor is the sole host terminal writer, including the facade-prepared final failure report. Enqueue a facade-only immutable final-report command before close. Preserve the structured result for SDK/JSON, but prevent the normal CLI result printer from writing that same report again; record explicit routing/ownership, not text matching or inferred delivery. If report admission/rendering fails, preserve the result without synchronous fallback to the failed stream. Audit ancillary host-build messages for writes that would bypass this owner.
 
-### Treat stdout/stderr as the npm activity proxy
+Without a live session, retain ordinary text/JSON result formatting; JSON never creates an actor or inbox and remains one valid document. Default noninteractive text has no live sink; explicit `lines` does. `off` suppresses displayed heartbeats only. Output mode and hostname policy stay in the facade; domain activity collection is identical for every mode.
 
-For `npm ci`, which declares an expected diagnostic stream, any assembler stdout/stderr chunk resets diagnostic-silence timing and becomes the latest `diagnostic` activity. Host downloads declare no diagnostic stream: each yielded body chunk updates cumulative bytes and becomes the latest `transport_progress` activity, while no diagnostic-silence clock or value exists for that step. Transport activity never resets an applicable diagnostic-silence clock, and neither activity kind resets the heartbeat schedule. Heartbeats expose the latest kind and whole monotonic age only from one second onward so the facade can render `last diagnostic 1s ago` or `last byte progress 4s ago`; sub-second ages are omitted rather than rendered. No heartbeat is delayed to reach the reporting threshold. No conclusion is drawn from absent output. In particular, neither silence nor human-readable npm HTTP text proves that npm is currently downloading; presentation may report only observed diagnostics and MUST NOT label npm as actively downloading. Safe npm warning, error, retry, timeout, and status lines are presented after sanitization. npm human-readable text never becomes a Constructor lifecycle/control event. The assembler emits classified structured safe diagnostics without coalescing, while the uncoalesced secret-redacted and URL-sanitized stream continues feeding the existing bounded tail. The facade presentation worker coalesces every sequence of diagnostics with identical final safe rendered text and matching presentation identity, regardless of warning/error/retry/status classification, and counts admitted occurrences including the first. In interactive mode only, the conservative numeric-variant rule replaces one mutable value without treating it as an exact repeat. Constructor lifecycle events are typed control events rather than diagnostic lines and are never coalesced. This explicitly relaxes the occurrence-count guarantee at mailbox saturation: because ordinary diagnostics are best-effort, a rendered `N` is exact only for occurrences admitted to the telemetry lane and MUST NOT be described as the total emitted by npm or observed by producers.
+Transient terminal output is clipped to one physical line using terminal display width, leaving room to avoid automatic wrap; full durable diagnostics are not clipped. Preserve the current narrow-terminal/wide-character regression coverage and add actual terminal-state checks for replacement/finalization/handoff. A single-line erase cannot remove previous wrapped rows. Renderer tests must not confuse this layout defect with a synchronization defect.
 
-In `lines` mode, the worker uses fixed one-second monotonic windows: the first occurrence is rendered immediately, each identity-matching exact repeat increments the total, every changed numeric value remains a separate line, and a group with total greater than one emits `<diagnostic> (repeated N times)` at window end or immediately before a different diagnostic or terminal event. A different diagnostic first flushes the pending summary so observable order is preserved. A single-occurrence group emits no summary.
+### Preserve established security and execution decisions
 
-In interactive mode, the presentation worker owns one mutable diagnostic slot rendered by the TUI. The first admitted occurrence populates it without a suffix; identical admitted repeats increment the total and the next one-second TUI refresh replaces the slot with `<diagnostic> (repeated N times)`. The group remains mutable until a different diagnostic or terminal event finalizes it; continuous admitted repeats therefore update one line rather than creating durable output. Finalized single-occurrence diagnostics have no suffix. A later identical diagnostic starts a new group. The canonical suffix is exactly ` (repeated N times)`, with `N >= 2` denoting total admitted occurrences, not additional repeats.
+The shared output-policy-independent projector remains before both branches. Preserve secret redaction, URL-free retained/live text, normalized optional hostname facts, the 8 KiB pending sanitizer limit, 64 KiB line assembly limit, fail-closed oversized/incomplete markers, continued drain and recovery, existing per-stream tail byte limits, and bounded exception-type projection without nested exception-message evaluation.
 
-The enqueue adapter records diagnostic drops in a fixed-width saturating omission counter, independent of diagnostic identity. The worker emits one ordered, non-coalesced omission notice before the next admitted diagnostic or terminal barrier and then resets the reported counter. At counter saturation the notice states a lower bound rather than an exact value. The notice does not reconstruct diagnostic identity or add dropped occurrences to a group's `N`; therefore no bounded producer-side per-diagnostic map is required and presentation never makes a false exact-multiplicity claim. Retained assembler tails remain independent of this presentation mailbox and keep their existing byte-bound and original admitted-to-the-collector ordering.
+Preserve ephemeral session-keyed URL fingerprints and strict numeric matching from Phase 7. They never enter rendered output, retained tails, evidence, persistence, or failure reports. Best-effort grouping permits failure to group, not unsafe grouping of distinct hidden identities or disclosure.
 
-The implementation uses conservative line classification only for presentation priority, not domain failure classification. Unknown lines remain available to bounded diagnostics and may be presented when existing policy requires it; they are never treated as trusted merely because npm emitted them.
+Keep local `[output]` parsing/defaults and host-only confinement from Phase 4; no CLI/environment aliases. Preserve the accepted Phase 6 `--loglevel=http` policy and Phase 8 policy/evidence/cache identity change. This architecture revision introduces no further policy identity change. Acquisition uses only already-observed chunks, with no extra request, total-size requirement, buffering, checksum reordering, or cleanup changes.
 
-### Gate npm HTTP logging on a pinned-version research spike
+## Test Expectation Migration
 
-Before fixing the live-line source, run the exact pinned npm 11.16.0 in the reviewed Node image with `loglevel=http` under controlled cache-hit, cache-miss, retry, and timeout cases. Capture whether observations arrive through the existing stdout/stderr pipes before process exit, whether they distinguish useful HTTP/cache outcomes, whether repetition can be bounded, and whether every emitted URL form passes the shared sanitizer. The spike must use fixtures or a controlled local endpoint rather than depending on public-registry timing, and it must record representative raw and projected output plus a binary accept/reject decision.
+Tests are changed with implementation, not merely weakened until the old code passes. Retain deterministic normal-path assertions; replace assertions whose guarantees were deliberately removed.
 
-Accept `loglevel=http` only if all cases produce timely useful observations, sanitization tests cover every observed network token, and the resulting volume can be aggregated without suppressing warnings/errors. On acceptance, add the loglevel to the canonical reviewed npm policy and policy digest, update exact invocation/evidence expectations, and intentionally invalidate outputs assembled under the prior identity. On rejection, preserve the current command and identity and use existing stdout/stderr solely for diagnostic-silence reset, last diagnostic activity, and safe diagnostics. In neither branch may human-readable npm lines become authoritative failure classification or a claimed total download percentage.
+| Current tests / assumption | Revised expectation |
+| --- | --- |
+| `test_host_presentation_phase9.py`: physical lane layout and cross-lane merge | One FIFO preserves accepted-event order; independent control/telemetry admission limits; saturation cannot spend control reserve |
+| Same file: mailbox-lock contention triggers emergency; omission fallback generations | Short mutex contention is allowed; no capacity/I/O/ack wait or rendering under locks; bounded honest omission accounting without generation-specific seams |
+| Same file: shutdown sentinel admission and unadmitted-shutdown ack | Full inbox closes without a slot; close/admission race is linearized; repeated close is idempotent; healthy drain ends in completion and join |
+| Same file: unconditional worker termination / stop wait | Healthy and returning-error workers stop; blocked renderer cannot extend the shared five-second deadline; cancellation prevents subsequent writes after release |
+| Same file: normal coalescing, URL identity, modes, clock cadence, hostname formatting | Keep these assertions on the healthy path; do not assert exactly-once output across loss/reset/failure |
+| `test_host_failure_output_regression.py`: `DeliveredDiagnostic`, `_delivered`, partial-delivery filtering and no-live-replay tests | Full bounded retained tail appears once per final report with a repeat warning, regardless of prior live output, drops, more than 512 occurrences, or earlier identical lines; no delivery receipts |
+| Same file: empty exit/timeout and narrow-terminal regressions | Preserve no empty section/no summary-as-tail and complete durable text with clipped transients |
+| `test_host_operational_events.py` / `test_constructor_host_progress.py`: old facade mailbox assumptions | Update internal adapter tests; preserve optional sink serialization and failure isolation for external callers |
+| `test_npm_environment_streaming.py` and Phase 8 collector tests | Internal known enqueue path bypasses dispatcher, external SDK callback path retains it; both preserve safe drain, tails, activity, cleanup, and producer-before-terminal ordering |
+| CLI/orchestration integration | Live actor alone writes final host report before close; no duplicate CLI write or failed-stream fallback; no-live text/JSON still formats the same structured failure |
 
-Choosing `verbose` or `silly` without a gate was rejected because of unstable noise and increased disclosure surface. Parsing npm's TTY progress bar or relying on `--json` was rejected because neither is a stable live download-event interface.
-
-### Distinguish hidden URL identity and numeric diagnostic updates
-
-Sanitization deliberately removes URL paths and other disallowed components from rendered text, but diagnostics referring to different hidden resources must not become one exact-repeat or numeric-update group merely because both render as `<redacted>`. For each complete URL token, derive an opaque fixed-width fingerprint with a cryptographic keyed digest and a fresh random presentation-session key. Build the digest input from the scheme, normalized hostname, path, and the explicit port exactly when one was present, including an explicitly written default port. Remove userinfo, query, and fragment before fingerprinting; exclude proxy information. Preserve URL fingerprint order and multiplicity when a diagnostic contains more than one URL. The key and fingerprints are ephemeral: they MUST NOT enter rendered text, retained tails, failure reports, persisted evidence, policy identity, or cross-session correlation. Normalized hostnames remain separate structured facts solely for facade hostname-display policy and are not a separate coalescing-key component after final rendered text is formed.
-
-Coalescing identity includes phase, step, stdout/stderr stream, closed diagnostic classification, logical resource, final safe rendered text or its numeric template, and the ordered URL-fingerprint tuple. Exact-repeat behavior remains unchanged. In interactive mode only, two consecutive diagnostics form one numeric-variant group when all identity metadata matches, the final rendered texts contain the same number of numeric tokens, all nonnumeric text and all but exactly one numeric token are byte-identical, and that one token changes. Numeric-token extraction SHALL examine the entire maximal numeric-looking sequence rather than accept a valid-looking substring. A valid token consists of one or more ASCII digits followed by zero or more `.` plus one-or-more-digit segments (for example `1`, `42`, `1.2`, or `10.20.30`). Neither adjacent boundary may be an ASCII letter, digit, underscore, dot, plus, or minus, so embedded identifiers such as `item1` and signed forms such as `-1`, `+1`, or `-1.2` are not tokens. A maximal sequence containing a leading or trailing dot, an empty dot-separated segment, or an adjacent sign is invalid in full; `.1`, `1.`, and `1..2` MUST NOT yield a valid substring token. The changed diagnostic replaces the mutable slot, resets its exact-repeat count to one, and carries no repetition suffix; an exact repeat of that latest value resumes canonical ` (repeated N times)` behavior. Numeric values need not be monotonic. At finalization only the latest interactive value is durably written. An omission notice or any identity/template mismatch finalizes the group.
-
-`lines` mode never applies numeric-variant grouping: each changed numeric value remains a separate durable line so redirected and CI logs preserve observable progress. Its existing exact-repeat window remains unchanged. The bounded retained tail likewise preserves every sanitized occurrence without either form of presentation grouping. Every stdout/stderr chunk marks diagnostic activity before mailbox admission and presentation, so numeric grouping and telemetry drops cannot suppress diagnostic-silence reset or latest-activity observation.
-
-A plain fast hash was rejected because stable hashes of predictable or secret-bearing URLs create an offline guessing oracle. A process-stable or persisted digest was rejected because it would permit cross-session correlation. Grouping solely by redacted rendered text was rejected because distinct hidden resources could collapse into one misleading diagnostic.
-
-### Keep diagnostic coalescing in one facade worker
-
-Use no separate coalescing timer thread. The single presentation worker computes the nearest `lines` window or interactive refresh deadline from an injected monotonic clock and blocks on the two-lane mailbox `take(timeout=remaining)`. Event arrival and deadline expiry are therefore serialized in one thread; each incoming identical admitted diagnostic increments the in-memory count, while an admitted interactive numeric variant replaces the latest mutable value and resets its exact-repeat count. Terminal writes occur only when mode rules require them. The count is intentionally not an occurrence count for diagnostics dropped before admission.
-
-The worker lives for the complete host-presentation session across successful step terminals. An admitted step-terminal barrier freezes and durably finalizes the current diagnostic group before rendering the step terminal state, then records barrier acknowledgement; the producer callback has already returned and does not wait for it. The barrier does not stop the worker when another host step follows. Host-pipeline completion before BuildKit, host failure, timeout, and cancellation first attempt to enqueue a session-shutdown barrier through a prompt-returning guarded callback. After that callback returns, the facade either waits for the admitted barrier's ordered finalization/acknowledgement or, if reliable admission failed, skips that nonexistent acknowledgement and follows the emergency worker-stopped acknowledgement path; it joins the worker before native output or return in either branch. Renderer failure is caught in the worker, atomically disables further rendering, discards pending presentation state, and leaves the worker draining control barriers so producers cannot block; the primary operation is unchanged. Reliable-lane exhaustion instead wakes and terminates the worker through the capacity-independent emergency signal. No render occurs after session-shutdown or worker-stopped acknowledgement. JSON/absent-sink execution creates no presentation worker.
-
-Keeping coalescing in assembler execution was rejected because window-end flush requires presentation lifecycle and policy ownership, would make Phase 8 depend on facade configuration, and could leak a timer beyond the domain operation. Flushing line mode only on the next event was rejected because a final repeated burst could remain invisible indefinitely. Printing every interactive repeat was rejected because it defeats coalescing at the terminal-write boundary; the mutable slot exposes the latest total on the existing one-second TUI refresh.
-
-### Report host download bytes only at the existing streaming boundary
-
-Whenever the existing acquisition boundary yields a body chunk, it MUST add that chunk length to cumulative received bytes and update latest `transport_progress`; the coordinator publishes the latest cumulative value at heartbeat cadence rather than emitting one presentation event per chunk. These host-download steps do not declare a diagnostic stream and therefore never emit diagnostic-silence duration. They do not issue HEAD requests, require `Content-Length`, buffer bodies, or calculate rates/percentages. Omission is permitted only for a compatible injected transport that cannot expose chunk observation without an additional operation, buffering, or semantic change. Logical start and terminal activity remain mandatory.
-
-### Centralize safe network and exception-type projection
-
-Introduce one boundary-safe diagnostic projection layer used by host artifact acquisition, Pi release acquisition, npm live lines, retained tails, and failure reports. It does not accept output policy. It produces a structured safe diagnostic containing phase/step/stream, sanitized text, optional safe logical resource, closed classification, and a tuple of normalized hostnames. It performs existing secret redaction first, then incrementally identifies URL-shaped tokens across arbitrary decoder/chunk boundaries. Ambiguous trailing URL or secret prefixes may be withheld only in a pending sanitizer buffer capped at 8 KiB; the projector MUST NOT buffer an entire unbounded token while waiting for a delimiter. It removes each complete URL from text and records only its normalized hostname separately. It always discards userinfo, port, path, query, fragment, and proxy information. Hostnames are normalized with the standard URL parser; malformed candidates are fully replaced without producing a host fact rather than partially exposed.
-
-Diagnostic-line assembly is independently capped at 64 KiB of decoded UTF-8 text per unterminated line. If a pending sanitizer candidate exceeds 8 KiB, the projector emits exactly `[sanitized oversized token]` and discards the candidate's remaining content until a safe token boundary. If a newline-free diagnostic exceeds 64 KiB, the collector emits exactly `[sanitized oversized diagnostic]` and continues draining while discarding that diagnostic's remaining content until a newline or stream termination. After a safe boundary, processing resumes normally. At EOF, reader failure, or cancellation, an unresolved URL or secret candidate is replaced exactly with `[sanitized incomplete token]` and is never flushed as ordinary text; a pending diagnostic line is finalized only through the same bounded redaction and URL-projection path. These overflow and terminal paths reveal no candidate fragment, split URL, credential, or secret, and all pending sanitizer and line-assembly state remains within the fixed limits even across arbitrarily many small chunks.
-
-Transport exception projection traverses `reason`, `__cause__`, and `__context__` in deterministic precedence, tracks object identity to stop cycles, emits at most four unique class names, and never calls or retains nested exception messages for display. Known resource URLs and proxy values remain registered redaction secrets as defense in depth. The collector sends URL-free sanitized text into both branches before either leaves the collection boundary: one branch updates the existing per-stream byte-bounded tail without coalescing, and the other creates structured diagnostic events with normalized-host facts. Existing tail byte limits and truncation semantics remain unchanged and are applied to the UTF-8 encoded sanitized text; the new pending-state limits neither enlarge nor replace those retained-tail bounds. No returned, persisted, attached, or failure representation may receive merely secret-redacted pre-projection text. Collection and failure boundaries may emit only structured sanitized text, normalized-host facts, fixed safe replacement markers, and the bounded URL-free tail, never source URLs or output-policy-dependent text. The facade alone applies `show_network_hosts`: disabled presentation ignores the tuple, while enabled presentation appends normalized hostnames. An opt-in SDK sink may therefore observe normalized structured host facts but never a full URL or local output-policy decision.
-
-String matching such as `if "artifact transport failed" in str(exc)` was rejected. Use structured transport failure context or a dedicated internal error subtype so logical asset attribution cannot depend on message wording.
-
-### Reuse the existing bounded redacted tail in every host failure report
-
-Do not introduce a second capture buffer or change current bounds. The failure facade receives the active phase/step plus the existing redacted tail. It renders `Last diagnostics` only when nonempty and never replays a diagnostic already durably streamed unless the output mode did not stream it or the terminal timeout summary explicitly labels it as retained context. Transport failures without stream output use logical asset, optional hostname, and bounded type chain instead.
+Use deterministic clocks and thread gates rather than scheduler luck. Stall the renderer with a releasable gate: assert domain progress and bounded session return before releasing it, then release and join the test thread to avoid test-suite leaks. Check one cumulative budget across repeated cleanup calls. Tests of control failure must preserve success, operational failure, timeout, and cancellation independently of whether output is visible. Busy-queue tests must keep actor deadlines from starving.
 
 ## Risks / Trade-offs
 
-- **[Heartbeat thread outlives work or interleaves output]** → Give the monitor explicit cancellation/join ownership, monotonic fake-clock tests, and one serialized renderer operation.
-- **[A URL-like token evades sanitization or an unterminated token/line grows without bound]** → Redact configured secrets first, use conservative whole-token replacement, cap pending sanitizer candidates at 8 KiB and diagnostic-line assembly at 64 KiB, discard overflow through the next safe boundary, replace overflow and unresolved terminal state with fixed generic markers, fuzz URL/secret forms and chunking, and never flush an ambiguous prefix as ordinary text.
-- **[Hostname opt-in reveals internal infrastructure]** → Default rendering off, permit only normalized hostname facts internally, strip every other URL component before event emission, and test that disabled facade presentation ignores all host facts.
-- **[Line classification changes across npm versions]** → Use classification only for display selection/coalescing; retain the existing unparsed bounded diagnostic tail and do not derive failure reason from text.
-- **[One-second heartbeat facts, coalescer timers, or durable output flood/leak resources]** → Keep heartbeat facts bounded to one per second, let interactive rendering replace one line, emit ordinary `lines` heartbeats on a 30-second durable-status interval, preserve the exact 120-second diagnostic-silence transition, preserve every diagnostic occurrence in the independent bounded tail, count only mailbox-admitted occurrences in live groups, and require barrier acknowledgement plus worker join on every presentation-session terminal path.
-- **[Diagnostic saturation makes a repetition suffix undercount producer occurrences]** → Explicitly define `N` as admitted occurrences only, report bounded omission notices separately, use lower-bound wording if the omission counter saturates, and never claim exact producer-side multiplicity after drops.
-- **[Reliable control capacity is exhausted]** → Size and test its independent reservation from the protocol's maximum outstanding control set; on invariant violation, atomically signal capacity-independent emergency stop and return admission failure without waiting under guarded serialization, skip acknowledgement for any unadmitted barrier, and wait/join only on the worker-stopped path after leaving the callback so the primary result is unchanged and no worker survives.
-- **[Noninteractive `lines` surprises automation]** → Require explicit local configuration, emit plain newline records only, document the specification change, and keep default/JSON behavior unchanged.
-- **[Byte counting adds callback overhead]** → Count existing chunks and publish only at heartbeat cadence, not once per chunk.
+- **[Retained context repeats live output]** → Label it explicitly; retain normal coalescing; do not silently hide unseen errors to avoid cosmetic repetition.
+- **[Brief mutex contention]** → Keep critical sections bounded and free of I/O, callbacks, waits for capacity, and joins; do not claim wait-free behavior.
+- **[Control bound is underestimated]** → Test supported repeated operations and final-report admission; disable presentation explicitly on exhaustion without changing the primary result.
+- **[Stalled output leaves a daemon thread or late in-flight write]** → Use one five-second deadline, cancellation checks before subsequent writes, no synchronous retry, and document degraded handoff. Stronger I/O isolation is out of scope.
+- **[Bypassing dispatcher affects SDK callers]** → Explicitly distinguish the internal enqueue capability and preserve arbitrary-callback isolation and existing injection signatures.
+- **[Lost diagnostics distort silence inference]** → Observe chunks before admission and use authoritative monotonic facts, never consumed heartbeat counts.
+- **[Privacy or capture bounds regress during simplification]** → Keep projection, tail, identity, confidentiality, and cleanup suites unchanged except for transport-path seams.
 
 ## Migration Plan
 
-1. Add event/configuration types and parsing with compatibility defaults (`interactive`, hostname hidden).
-2. Introduce diagnostic projection and activity monitoring behind optional sinks.
-3. Instrument host acquisition and locked assembly step boundaries without changing execution semantics.
-4. Enable renderer modes and enhanced failure reports, then update examples/documentation.
-5. Rollback is configuration- and data-neutral: reverting restores coarse presentation; no cache, evidence, lock, or assembled-output migration is required.
+1. Treat completed Phases 1–8 and retained normal Phase 9 behavior as the baseline. Reopen incompatible Phase 9 tasks; do not claim old verification proves the new contract.
+2. Add RED tests for the revised inbox, close/control failure, single completion budget, retained-context reporting, and final-writer routing. Replace obsolete white-box lane/fallback/receipt tests with behavioral tests; preserve normal coalescing and security coverage.
+3. Simplify the inbox and session lifecycle behind the existing facade actor. Retire redundant Phase 1 mailbox scaffolding if unused; preserve external sink compatibility.
+4. Add the explicit internal direct-enqueue path and verify producer completion ordering; retain the SDK dispatcher path.
+5. Remove delivery reconciliation and route final failure reports through the live actor or ordinary no-live formatter, never both.
+6. Validate blocked-renderer degradation, normal native handoff, all mode/privacy/SDK matrices, collector/executor regressions, and repository checks. Store new evidence separately from this design and the old Phase 9 report.
+7. Update user-facing documentation with retained-context replay and bounded presentation-failure behavior. This revision needs no data/cache migration; rollback of presentation changes must not revert the already accepted npm policy/evidence identity.
