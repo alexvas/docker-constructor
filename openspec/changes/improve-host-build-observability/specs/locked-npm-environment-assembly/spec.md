@@ -68,14 +68,14 @@ Control-admission failure SHALL explicitly disable presentation and wake its act
 #### Scenario: Diagnostic mailbox saturates
 - **WHEN** diagnostic producers fill the bounded best-effort telemetry capacity
 - **THEN** further ordinary diagnostics MAY be dropped without blocking a producer
-- **AND** diagnostic saturation SHALL NOT consume capacity reserved for lifecycle, terminal, timeout, cancellation, or final-report events within the supported protocol bound
+- **AND** diagnostic saturation SHALL NOT consume the fixed bounded control capacity used for lifecycle, terminal, timeout, cancellation, or final-report events
 - **AND** repetition suffixes SHALL count only admitted occurrences and SHALL NOT claim exact producer-side multiplicity
 - **AND** functioning presentation SHALL emit a bounded non-coalesced omission notice with a subsequent admitted diagnostic/control or normal close
 - **AND** the notice SHALL state the count only when known, otherwise a lower bound or a generic loss warning
 - **AND** terminal processing SHALL remain ordered after every earlier admitted event
 
-#### Scenario: Reserved control capacity is exhausted
-- **WHEN** a terminal or final-report control event cannot be admitted within the reserved capacity
+#### Scenario: Fixed bounded control capacity is exhausted
+- **WHEN** a terminal or final-report control event cannot be admitted within the fixed bounded control capacity
 - **THEN** the adapter SHALL explicitly disable presentation and wake its actor without another queue slot
 - **AND** no producer SHALL wait for rendering or an unadmitted event's acknowledgement
 - **AND** close SHALL remain available and all presentation completion waiting SHALL share the five-second budget
