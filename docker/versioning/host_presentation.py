@@ -68,6 +68,9 @@ OMISSION_COUNTER_LIMIT = 9999
 #: Best-effort telemetry lane capacity (diagnostics, heartbeats, progress).
 TELEMETRY_CAPACITY = 256
 
+#: Fixed control-event hard limit: bounded-memory/runaway protection, not a transcript size.
+CONTROL_CAPACITY = 1024
+
 #: Bounded wait, in seconds, for shutdown acknowledgement or worker join.
 WORKER_JOIN_SECONDS = 5.0
 
@@ -130,29 +133,6 @@ def select_presentation(
     if mode is HostPresentationMode.LINES:
         return PresentationPlan(mode, PresentationSelection.LIVE, show_network_hosts)
     return PresentationPlan(mode, PresentationSelection.NONE, show_network_hosts)
-
-
-def control_reservation() -> int:
-    """Maximum supported build transcript while the consumer is stalled.
-
-    Four reviewed artifact cache hits each emit acquisition start/terminal plus
-    cache reuse (12); three Pi release assets emit start/terminal (6); seven
-    locked-assembly steps emit start/terminal (14); and four facade phases emit
-    start/terminal (8).  A failure may follow the same 40-control prefix and
-    additionally enqueue the facade-owned final report, for 41 total controls.
-    """
-    artifact_cache_hit_controls = 4 * 3
-    release_acquisition_controls = 3 * 2
-    assembly_step_controls = 7 * 2
-    phase_controls = 4 * 2
-    final_failure_report_controls = 1
-    return (
-        artifact_cache_hit_controls
-        + release_acquisition_controls
-        + assembly_step_controls
-        + phase_controls
-        + final_failure_report_controls
-    )
 
 
 # --------------------------------------------------------------------------
@@ -377,7 +357,7 @@ class PresentationMailbox:
         if not isinstance(capacity, int) or isinstance(capacity, bool) or capacity <= 0:
             raise ValueError("mailbox capacity must be a positive integer")
         if control_capacity is None:
-            control_capacity = control_reservation()
+            control_capacity = CONTROL_CAPACITY
         if not isinstance(control_capacity, int) or isinstance(control_capacity, bool) or control_capacity <= 0:
             raise ValueError("control capacity must be a positive integer")
         self._queue: deque[AdmittedEvent] = deque()
@@ -1319,6 +1299,7 @@ __all__ = [
     "FIRST_HEARTBEAT_SECONDS",
     "HostEventEnqueueAdapter",
     "HostPresentationMode",
+    "CONTROL_CAPACITY",
     "HostPresentationRenderer",
     "HostPresentationSession",
     "HostPresentationState",
@@ -1335,7 +1316,6 @@ __all__ = [
     "TELEMETRY_CAPACITY",
     "TerminalHostRenderer",
     "WORKER_JOIN_SECONDS",
-    "control_reservation",
     "format_diagnostic_text",
     "format_elapsed",
     "format_failure_report",

@@ -31,15 +31,16 @@ from docker.versioning.host_presentation import (
     PresentationWorker,
     HostEventEnqueueAdapter,
     HostPresentationMode,
+    CONTROL_CAPACITY,
     HostPresentationSession,
     HostPresentationState,
     TerminalHostRenderer,
-    control_reservation,
     format_elapsed,
     format_failure_report,
     format_heartbeat,
     select_presentation,
 )
+from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.host_progress import (
     HostBuildEvent,
     HostDiagnosticEvent,
@@ -265,7 +266,7 @@ class TestOrderedInbox(unittest.TestCase):
         self.assertTrue(mailbox.admit_telemetry(second))
         self.assertEqual([first, terminal, second], [mailbox.take(0).event for _ in range(3)])
 
-    def test_diagnostics_cannot_consume_control_reservation(self):
+    def test_diagnostics_cannot_consume_control_capacity(self):
         mailbox = PresentationMailbox(capacity=1, control_capacity=1)
         self.assertTrue(mailbox.admit_telemetry(_diagnostic("kept")))
         self.assertFalse(mailbox.admit_telemetry(_diagnostic("dropped")))
@@ -291,84 +292,171 @@ class TestOrderedInbox(unittest.TestCase):
     def test_supported_success_and_failure_transcripts_fit_while_stalled(self):
         from docker.versioning.host_presentation import PresentationFinalReport
 
-        controls: list[object] = []
-        for _ in range(4):
-            controls.extend((
-                HostStepEvent(
-                    HostPhase.RELEASE_ACQUISITION,
-                    HostStep.ARTIFACT_ACQUISITION,
-                    HostStepState.STARTED,
-                    False,
-                ),
-                HostStepEvent(
-                    HostPhase.RELEASE_ACQUISITION,
-                    HostStep.CACHE_REUSE,
-                    HostStepState.SUCCEEDED,
-                    False,
-                ),
-                HostStepEvent(
-                    HostPhase.RELEASE_ACQUISITION,
-                    HostStep.ARTIFACT_ACQUISITION,
-                    HostStepState.SUCCEEDED,
-                    False,
-                ),
-            ))
-        for _ in range(3):
-            controls.extend((
-                HostStepEvent(
-                    HostPhase.RELEASE_ACQUISITION,
-                    HostStep.RELEASE_ACQUISITION,
-                    HostStepState.STARTED,
-                    False,
-                ),
-                HostStepEvent(
-                    HostPhase.RELEASE_ACQUISITION,
-                    HostStep.RELEASE_ACQUISITION,
-                    HostStepState.SUCCEEDED,
-                    False,
-                ),
-            ))
-        assembly_steps = (
-            HostStep.LOCK_WAIT,
-            HostStep.CACHE_LOOKUP,
-            HostStep.STALE_STAGE_CLEANUP,
-            HostStep.CONTAINER_STARTUP,
-            HostStep.NPM_EXECUTION,
-            HostStep.VALIDATION,
-            HostStep.PUBLICATION,
-        )
-        for step in assembly_steps:
-            controls.extend((
-                HostStepEvent(
-                    HostPhase.LOCKED_ASSEMBLY, step, HostStepState.STARTED,
-                    step is HostStep.NPM_EXECUTION,
-                ),
-                HostStepEvent(
-                    HostPhase.LOCKED_ASSEMBLY, step, HostStepState.SUCCEEDED,
-                    step is HostStep.NPM_EXECUTION,
-                ),
-            ))
-        for phase in HostPhase:
-            controls.extend((
-                HostPhaseEvent(phase, HostPhaseState.STARTED),
-                HostPhaseEvent(phase, HostPhaseState.SUCCEEDED),
-            ))
+        def step(
+            phase: HostPhase, name: HostStep, state: HostStepState,
+            expects_diagnostic_stream: bool = False,
+        ) -> HostStepEvent:
+            return HostStepEvent(phase, name, state, expects_diagnostic_stream)
 
-        self.assertEqual(40, len(controls))
-        success_mailbox = PresentationMailbox(capacity=1)
-        for event in controls:
-            self.assertTrue(success_mailbox.admit_control(event))
-
-        failure_controls = [
-            *controls[:-1],
-            HostPhaseEvent(HostPhase.DOCKER_TRANSITION, HostPhaseState.FAILED),
+        artifact_steps = [
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.STARTED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.CACHE_REUSE, HostStepState.SUCCEEDED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.SUCCEEDED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.STARTED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.CACHE_REUSE, HostStepState.SUCCEEDED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.SUCCEEDED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.STARTED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.CACHE_REUSE, HostStepState.SUCCEEDED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.SUCCEEDED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.STARTED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.CACHE_REUSE, HostStepState.SUCCEEDED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.SUCCEEDED),
+        ]
+        release_asset_steps = [
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.STARTED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.SUCCEEDED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.STARTED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.SUCCEEDED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.STARTED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.SUCCEEDED),
+        ]
+        assembly_steps = [
+            step(HostPhase.LOCKED_ASSEMBLY, HostStep.LOCK_WAIT, HostStepState.STARTED),
+            step(HostPhase.LOCKED_ASSEMBLY, HostStep.LOCK_WAIT, HostStepState.SUCCEEDED),
+            step(HostPhase.LOCKED_ASSEMBLY, HostStep.CACHE_LOOKUP, HostStepState.STARTED),
+            step(HostPhase.LOCKED_ASSEMBLY, HostStep.CACHE_LOOKUP, HostStepState.SUCCEEDED),
+            step(HostPhase.LOCKED_ASSEMBLY, HostStep.STALE_STAGE_CLEANUP, HostStepState.STARTED),
+            step(HostPhase.LOCKED_ASSEMBLY, HostStep.STALE_STAGE_CLEANUP, HostStepState.SUCCEEDED),
+            step(HostPhase.LOCKED_ASSEMBLY, HostStep.CONTAINER_STARTUP, HostStepState.STARTED),
+            step(HostPhase.LOCKED_ASSEMBLY, HostStep.CONTAINER_STARTUP, HostStepState.SUCCEEDED),
+            step(HostPhase.LOCKED_ASSEMBLY, HostStep.NPM_EXECUTION, HostStepState.STARTED, True),
+            step(HostPhase.LOCKED_ASSEMBLY, HostStep.NPM_EXECUTION, HostStepState.SUCCEEDED, True),
+            step(HostPhase.LOCKED_ASSEMBLY, HostStep.VALIDATION, HostStepState.STARTED),
+            step(HostPhase.LOCKED_ASSEMBLY, HostStep.VALIDATION, HostStepState.SUCCEEDED),
+            step(HostPhase.LOCKED_ASSEMBLY, HostStep.PUBLICATION, HostStepState.STARTED),
+            step(HostPhase.LOCKED_ASSEMBLY, HostStep.PUBLICATION, HostStepState.SUCCEEDED),
+        ]
+        success_controls = [
+            *artifact_steps,
+            HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.STARTED),
+            *release_asset_steps,
+            HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.SUCCEEDED),
+            HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.STARTED),
+            *assembly_steps,
+            HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.SUCCEEDED),
+            HostPhaseEvent(HostPhase.DERIVED_VALIDATION, HostPhaseState.STARTED),
+            HostPhaseEvent(HostPhase.DERIVED_VALIDATION, HostPhaseState.SUCCEEDED),
+            HostPhaseEvent(HostPhase.DOCKER_TRANSITION, HostPhaseState.STARTED),
+            HostPhaseEvent(HostPhase.DOCKER_TRANSITION, HostPhaseState.SUCCEEDED),
+        ]
+        late_docker_failure_controls = [
+            *success_controls,
             PresentationFinalReport("final failure report"),
         ]
-        self.assertEqual(41, len(failure_controls))
-        failure_mailbox = PresentationMailbox(capacity=1)
-        for event in failure_controls:
-            self.assertTrue(failure_mailbox.admit_control(event))
-        self.assertEqual(41, control_reservation())
+        release_failure_controls = [
+            *artifact_steps,
+            HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.STARTED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.STARTED),
+            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.FAILED),
+            HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.FAILED),
+            PresentationFinalReport("release failure report"),
+        ]
+
+        self.assertEqual(40, len(success_controls))
+        self.assertEqual(41, len(late_docker_failure_controls))
+        self.assertEqual(17, len(release_failure_controls))
+        for expected in (
+            success_controls,
+            late_docker_failure_controls,
+            release_failure_controls,
+        ):
+            with self.subTest(events=len(expected)):
+                mailbox = PresentationMailbox(capacity=1)
+                for event in expected:
+                    self.assertTrue(mailbox.admit_control(event))
+                actual = [admitted.event for admitted in mailbox.drain()]
+                self.assertEqual(expected, actual)
+                self.assertEqual(len(expected), len(actual))
+        self.assertEqual(1024, CONTROL_CAPACITY)
+
+    def test_control_hard_limit_aborts_on_1025th(self):
+        mailbox = PresentationMailbox(capacity=1)
+        control = HostPhaseEvent(
+            HostPhase.LOCKED_ASSEMBLY, HostPhaseState.STARTED
+        )
+
+        for _ in range(1024):
+            self.assertTrue(mailbox.admit_control(control))
+        self.assertFalse(mailbox.admit_control(control))
+        self.assertTrue(mailbox.admission_failed)
+        self.assertFalse(mailbox.admit_control(control))
+        mailbox.close()
+        self.assertTrue(mailbox.closed)
+
+    def test_facade_control_exhaustion_preserves_actual_build_result(self):
+        from pathlib import Path
+
+        from docker.constructor_cli import CommandRequest, _real_dispatcher
+        from docker.versioning.build_orchestration import BuildResult
+        from docker.versioning.constructor_project import ConstructorProject
+
+        entered = threading.Event()
+        release = threading.Event()
+
+        class StalledRenderer(RecordingRenderer):
+            def clear_all(self) -> None:
+                entered.set()
+                release.wait(2)
+
+        session = HostPresentationSession(
+            StalledRenderer(),
+            PresentationPlan(HostPresentationMode.INTERACTIVE, PresentationSelection.LIVE),
+        )
+        control = HostPhaseEvent(
+            HostPhase.LOCKED_ASSEMBLY, HostPhaseState.SUCCEEDED
+        )
+        actual_result = BuildResult(
+            exit_kind=ExitKind.SUCCESS,
+            message="actual build result",
+        )
+
+        def exhausted_orchestration(request, **_kwargs):
+            assert request.event_sink is session.sink
+            request.event_sink(control)
+            self.assertTrue(entered.wait(1))
+            for _ in range(1024):
+                request.event_sink(control)
+            request.event_sink(control)
+            self.assertTrue(session.mailbox.admission_failed)
+            self.assertFalse(session.mailbox.admit_control(control))
+            session.mailbox.close()
+            self.assertTrue(session.mailbox.closed)
+            return actual_result
+
+        request = CommandRequest(
+            command="build",
+            constructor_project=ConstructorProject(Path.cwd().resolve()),
+            output="text",
+            verbose=False,
+            color="never",
+            command_args={"yes": True},
+        )
+        try:
+            with mock.patch(
+                "docker.versioning.build_orchestration.orchestrate_build",
+                side_effect=exhausted_orchestration,
+            ), mock.patch(
+                "docker.versioning.host_presentation.WORKER_JOIN_SECONDS", 0.01,
+            ):
+                result = _real_dispatcher(
+                    "build", request, _host_presentation_factory=lambda _policy: session
+                )
+            self.assertEqual(actual_result.exit_kind, result.exit_kind)
+            self.assertEqual(actual_result.message, result.message)
+        finally:
+            release.set()
+            session.worker.join(1)
+        self.assertFalse(session.worker.is_alive)
 
     def test_control_exhaustion_aborts_without_changing_domain_result(self):
         mailbox = PresentationMailbox(capacity=1, control_capacity=1)
@@ -530,7 +618,7 @@ class TestCapacityIndependentSessionClose(unittest.TestCase):
         try:
             session.sink(terminal)
             self.assertTrue(clear_entered.wait(1))
-            for _ in range(session.mailbox.control_capacity):
+            for _ in range(1024):
                 self.assertTrue(session.mailbox.admit_control(terminal))
             self.assertFalse(session.mailbox.admit_control(terminal))
             self.assertTrue(session.mailbox.admission_failed)
