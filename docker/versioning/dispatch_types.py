@@ -31,3 +31,9 @@ class CommandResult:
     data: object | None = None
     message: str | None = None
     debug: str | None = None
+    message_owned_by_presentation: bool = False
+    """Whether a live actor owns final text output for ``message``.
+
+    The message remains available for structured consumers and JSON; generic
+    text rendering suppresses it to avoid duplicate output or fallback retry.
+    """

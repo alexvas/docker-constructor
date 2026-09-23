@@ -106,8 +106,10 @@ from docker.versioning.pi_assembly import (
 )
 from docker.versioning.pi_consumer import PiConsumerError
 from docker.versioning.host_progress import (
-    HostEventSink, HostPhase, HostPhaseEvent, HostPhaseState, emit, guard_sink,
+    HostDiagnosticStream, HostEventSink, HostFailureContext, HostPhase,
+    HostPhaseEvent, HostPhaseState, HostStep, lookup_host_failure, emit, guard_sink,
 )
+from docker.versioning.diagnostic_projection import project_exception_type_chain
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -280,6 +282,14 @@ class BuildRequest:
     event_sink: HostEventSink | None = None
     """Optional facade-owned host materialization presentation sink."""
 
+    host_presentation_complete: Callable[[], None] | None = None
+    """Facade-owned shutdown hook run before Docker/native output.
+
+    It carries no presentation policy; the facade uses it to finalize the
+    transient host region and join its single presentation worker before any
+    native BuildKit output.  It is always secondary to the build result.
+    """
+
     def __post_init__(self) -> None:
         """Normalize ``overrides`` to an immutable mapping.
 
@@ -332,6 +342,9 @@ class BuildResult:
 
     publish_result: PublishResult | None = None
     """Publication outcome when projection was written."""
+
+    host_failure: HostFailureContext | None = None
+    """Structured host failure context for the facade failure report."""
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -638,6 +651,80 @@ _PI_MATERIALIZATION_ERRORS = (
 )
 
 
+def _exception_chain(reason: BaseException):
+    """Yield *reason* and its cause/context chain without repeats."""
+    seen: set[int] = set()
+    current: BaseException | None = reason
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        yield current
+        current = getattr(current, "__cause__", None) or getattr(
+            current, "__context__", None
+        )
+
+
+def _host_failure_context(reason: BaseException) -> HostFailureContext:
+    """Build structured failure context from the preserved active step.
+
+    Attribution is structural: the active phase, step, safe logical resource,
+    and normalized host facts are attached at the boundary where they were
+    known and retrieved through the exception's cause/context chain.  Nothing
+    here inspects exception classes or message wording.  The bounded sanitized
+    tail is reused verbatim from the deepest failure that already carries one
+    (for example a locked-assembly ``detail``).
+    """
+    marker = lookup_host_failure(reason)
+    if marker is not None:
+        phase = marker.phase
+        step = marker.step
+        logical_resource = marker.logical_resource
+        hostnames = marker.hostnames
+    else:
+        phase = HostPhase.RELEASE_ACQUISITION
+        step = HostStep.ARTIFACT_ACQUISITION
+        logical_resource = None
+        hostnames = ()
+    summary = "host operation failed"
+    tail = ""
+    tail_stream = None
+    timeout_retained_context = False
+    missing = object()
+    for current in _exception_chain(reason):
+        candidate_summary = getattr(current, "summary", None)
+        candidate_tail = getattr(current, "diagnostic_tail", missing)
+        if isinstance(candidate_summary, str) and candidate_summary:
+            summary = candidate_summary
+        if candidate_tail is not missing:
+            # An explicitly empty structured tail is authoritative.  It means
+            # the assembler produced no retained diagnostics.
+            if isinstance(candidate_tail, str):
+                tail = candidate_tail
+                raw_stream = getattr(current, "diagnostic_stream", None)
+                if raw_stream in ("stdout", "stderr"):
+                    tail_stream = HostDiagnosticStream(raw_stream)
+        elif isinstance(current, LockedNpmError):
+            # Compatibility is restricted to genuinely legacy objects lacking
+            # the structured field, never an explicitly empty tail.
+            detail = getattr(current, "detail", None)
+            if isinstance(detail, str) and detail:
+                tail = detail
+        if getattr(current, "reason", None) == "assembly_timeout":
+            timeout_retained_context = True
+        if summary != "host operation failed" or candidate_tail is not missing or tail:
+            break
+    return HostFailureContext(
+        phase=phase,
+        step=step,
+        summary=summary,
+        tail=tail,
+        logical_resource=logical_resource,
+        hostnames=hostnames,
+        exception_types=project_exception_type_chain(reason),
+        tail_stream=tail_stream,
+        timeout_retained_context=timeout_retained_context,
+    )
+
+
 def _materialize_pi_for_build(
     request: BuildRequest,
     plan: BuildTransactionPlan,
@@ -901,19 +988,27 @@ def execute_build(
             build_args=build_args, display_string=display_string,
         )
     except (MaterializationError, BuildCacheError, SnapshotError, OSError, ValueError) as exc:
+        failure = _host_failure_context(exc)
         try:
             cleanup_confinement()
         except BaseException:
             pass
+        cleanup_detail = ""
         try:
             cleanup_artifact_snapshot(snapshot)
         except (SnapshotError, OSError) as cleanup_exc:
-            exc = SnapshotError(f"{exc}; snapshot cleanup failed: {cleanup_exc}")
+            cleanup_detail = f"; snapshot cleanup failed: {cleanup_exc}"
         if lock is not None:
             lock.release()
-        return BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                           message=f"build artifact materialization failed: {exc}",
-                           build_args=build_args, display_string=display_string)
+        return BuildResult(
+            exit_kind=ExitKind.OPERATIONAL,
+            message=(
+                f"build artifact materialization failed: {exc}{cleanup_detail}"
+            ),
+            build_args=build_args,
+            display_string=display_string,
+            host_failure=failure,
+        )
     except BaseException:
         try:
             cleanup_confinement()
@@ -960,11 +1055,23 @@ def execute_build(
                 exit_kind=ExitKind.OPERATIONAL,
                 message=f"failed to publish effective projection: {getattr(exc, 'detail', str(exc))}",
                 build_args=build_args, display_string=display_string,
+                host_failure=HostFailureContext(
+                    phase=HostPhase.DERIVED_VALIDATION,
+                    step=HostStep.PUBLICATION,
+                    summary="failed to publish effective projection",
+                    exception_types=project_exception_type_chain(exc),
+                ),
             )
 
         runner = request.runner or SubprocessBuildExecutor(request.output_policy)
         emit(request.event_sink, HostPhaseEvent(HostPhase.DOCKER_TRANSITION, HostPhaseState.STARTED))
         emit(request.event_sink, HostPhaseEvent(HostPhase.DOCKER_TRANSITION, HostPhaseState.SUCCEEDED))
+        if request.host_presentation_complete is not None:
+            try:
+                request.host_presentation_complete()
+            except Exception:
+                # Host presentation shutdown is always secondary to the build.
+                pass
         try:
             proc = runner.run(build_args)
         except FileNotFoundError as exc:

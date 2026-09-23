@@ -262,6 +262,23 @@ class DiagnosticSink(Protocol):
         ...
 
 
+class _InternalDirectEnqueueSink:
+    """Nominal internal wrapper authorizing reader-thread sink invocation."""
+
+    def __init__(self, sink: DiagnosticSink) -> None:
+        self._sink = sink
+
+    def __call__(self, chunk: StreamChunk) -> None:
+        self._sink(chunk)
+
+
+def _internal_direct_enqueue_sink(
+    sink: DiagnosticSink,
+) -> _InternalDirectEnqueueSink:
+    """Wrap a facade-owned enqueue callback for direct collector admission."""
+    return _InternalDirectEnqueueSink(sink)
+
+
 class DiagnosticStream(Protocol):
     """Per-stream incremental decoder/projector consumed by the collector.
 
@@ -587,7 +604,12 @@ def collect_streams(
         if stream_factory is not None
         else RedactingStream(secrets)
     )
-    dispatcher = SinkDispatcher(sink) if sink is not None else None
+    direct_sink = isinstance(sink, _InternalDirectEnqueueSink)
+    dispatcher = (
+        SinkDispatcher(sink)
+        if sink is not None and not direct_sink
+        else None
+    )
 
     failures: list[StreamReaderFailure] = []
     failures_lock = threading.Lock()
@@ -618,11 +640,16 @@ def collect_streams(
                 terminal.set()
 
     def submit_chunk(tag: str, chunk: str | StreamChunk) -> None:
+        live_chunk = (
+            chunk if isinstance(chunk, StreamChunk) else StreamChunk(tag, chunk)
+        )
         if dispatcher is not None:
-            if isinstance(chunk, StreamChunk):
-                dispatcher.submit(chunk)
-            else:
-                dispatcher.submit(StreamChunk(tag, chunk))
+            dispatcher.submit(live_chunk)
+        elif direct_sink and sink is not None:
+            # The explicitly marked facade path admits directly into its own
+            # thread-safe inbox. Arbitrary SDK callbacks retain dispatcher
+            # isolation and are never inferred to be safe from callability.
+            sink(live_chunk)
 
     def drain(
         read_fn: Callable[[int], bytes], stream: DiagnosticStream, tag: str

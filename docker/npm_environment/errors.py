@@ -39,10 +39,29 @@ class LockedNpmError(Exception):
     detail: str
     """Human-readable detail suitable for diagnostics."""
 
-    def __init__(self, reason: str, detail: str) -> None:
+    def __init__(
+        self,
+        reason: str,
+        detail: str,
+        *,
+        summary: str | None = None,
+        diagnostic_tail: str = "",
+        diagnostic_stream: str | None = None,
+    ) -> None:
         super().__init__(detail)
         object.__setattr__(self, "reason", reason)
         object.__setattr__(self, "detail", detail)
+        object.__setattr__(
+            self,
+            "summary",
+            summary or (
+                "locked npm assembly timed out"
+                if reason == "assembly_timeout"
+                else "locked npm assembly failed"
+            ),
+        )
+        object.__setattr__(self, "diagnostic_tail", diagnostic_tail)
+        object.__setattr__(self, "diagnostic_stream", diagnostic_stream)
 
     def __setattr__(self, name: str, value: object) -> None:
         if name in _EXC_INTERNAL_ATTRS:
@@ -63,5 +82,18 @@ class AssemblyTimeoutError(LockedNpmError):
     assembler diagnostics.
     """
 
-    def __init__(self, detail: str) -> None:
-        super().__init__("assembly_timeout", detail)
+    def __init__(
+        self,
+        detail: str,
+        *,
+        summary: str | None = None,
+        diagnostic_tail: str = "",
+        diagnostic_stream: str | None = None,
+    ) -> None:
+        super().__init__(
+            "assembly_timeout",
+            detail,
+            summary=summary,
+            diagnostic_tail=diagnostic_tail,
+            diagnostic_stream=diagnostic_stream,
+        )

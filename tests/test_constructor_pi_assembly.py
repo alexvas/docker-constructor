@@ -21,14 +21,26 @@ from unittest.mock import patch
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
+from docker.npm_environment import streaming as npm_streaming
 from docker.versioning import pi_assembly
+from docker.versioning.build_orchestration import BuildRequest, _host_failure_context
 from docker.versioning.effective import resolve_build_projection
 from docker.versioning.inventory import load_inventory
-from docker.versioning.pi_assembly import PiAssemblyRequest, materialize_pi
+from docker.versioning.pi_assembly import (
+    PiAssemblyError, PiAssemblyRequest, materialize_pi,
+)
 from docker.versioning.pi_release import PiReleaseSource, derive_pi_release_urls
+from docker.versioning.host_presentation import (
+    HostPresentationMode,
+    HostPresentationSession,
+    PresentationPlan,
+    PresentationSelection,
+)
 from docker.versioning.host_progress import (
-    HostDiagnosticClassification, HostDiagnosticStream, HostPhase,
-    HostPhaseEvent, HostPhaseState, HostStep, HostStructuredDiagnostic,
+    GuardedHostEventSink, HostDiagnosticClassification, HostDiagnosticStream,
+    HostPhase, HostPhaseEvent, HostPhaseState, HostStep,
+    HostStructuredDiagnostic, InternalDirectHostEventSink,
+    lookup_host_failure,
 )
 from docker.npm_environment.streaming import StreamChunk
 from docker.npm_environment.errors import LockedNpmError
@@ -220,6 +232,73 @@ class TestMaterializePiOrchestration(unittest.TestCase):
             HostPhase.LOCKED_ASSEMBLY, HostPhaseState.SUCCEEDED,
         )))
 
+    def test_no_sink_release_failure_keeps_asset_context(self):
+        class FailingTransport:
+            policy = None
+
+            def stream(self, url):
+                raise OSError("release unavailable")
+                yield b""  # pragma: no cover
+
+        with self.assertRaises(PiAssemblyError) as caught:
+            materialize_pi(PiAssemblyRequest(
+                projection=_projection(),
+                transport=FailingTransport(),
+                cache_root=Path(tempfile.mkdtemp()),
+                executor=SimpleNamespace(),
+                event_sink=None,
+            ))
+        marker = lookup_host_failure(caught.exception)
+        self.assertIsNotNone(marker)
+        assert marker is not None
+        self.assertIs(HostPhase.RELEASE_ACQUISITION, marker.phase)
+        self.assertIs(HostStep.RELEASE_ACQUISITION, marker.step)
+        self.assertEqual("SHA256SUMS", marker.logical_resource)
+
+    def test_no_sink_npm_failure_keeps_step_resource_and_tail(self):
+        version, package, lock = _release_fixture_for_projection()
+        source = PiReleaseSource(PI_PACKAGE, "earendil-works/pi", "v")
+        transport = FakePiReleaseTransport(
+            derive_pi_release_urls(source, version), package=package, lock=lock
+        )
+        failure = LockedNpmError(
+            "npm_exit_nonzero",
+            "npm failed",
+            summary="locked npm execution failed",
+            diagnostic_tail="retained npm tail",
+            diagnostic_stream="stderr",
+        )
+
+        def fail_assemble(*, activity, assembler, **kwargs):
+            with activity.step(
+                "npm_execution", container_name="npm-assembler-0123456789abcdef"
+            ):
+                raise failure
+
+        with patch.object(
+            pi_assembly, "assemble_environment", side_effect=fail_assemble
+        ):
+            with self.assertRaises(LockedNpmError) as caught:
+                materialize_pi(PiAssemblyRequest(
+                    projection=_projection(),
+                    transport=transport,
+                    cache_root=Path(tempfile.mkdtemp()),
+                    executor=SimpleNamespace(),
+                    event_sink=None,
+                ))
+        marker = lookup_host_failure(caught.exception)
+        self.assertIsNotNone(marker)
+        assert marker is not None
+        self.assertIs(HostPhase.LOCKED_ASSEMBLY, marker.phase)
+        self.assertIs(HostStep.NPM_EXECUTION, marker.step)
+        self.assertEqual(
+            "npm-assembler-0123456789abcdef", marker.logical_resource
+        )
+        context = _host_failure_context(caught.exception)
+        self.assertEqual("locked npm execution failed", context.summary)
+        self.assertEqual("retained npm tail", context.tail)
+        self.assertEqual("npm-assembler-0123456789abcdef", context.logical_resource)
+
     def test_failed_assembly_has_one_terminal_and_starts_no_later_phase(self):
         version, package, lock = _release_fixture_for_projection()
         source = PiReleaseSource(PI_PACKAGE, "earendil-works/pi", "v")
@@ -353,6 +432,99 @@ class TestInstallPackageBinding(unittest.TestCase):
         with self.assertRaises(LockedNpmError) as ctx:
             self._preflight(substituted)
         self.assertEqual(ctx.exception.reason, "package_lock_root_disagreement")
+
+
+class TestFacadeStreamingNormalization(unittest.TestCase):
+    def _exercise(self, event_sink):
+        version, package, lock = _release_fixture_for_projection()
+        source = PiReleaseSource(
+            package=PI_PACKAGE,
+            release_repository="earendil-works/pi",
+            release_tag_prefix="v",
+        )
+        urls = derive_pi_release_urls(source, version)
+        transport = FakePiReleaseTransport(urls, package=package, lock=lock)
+        build_request = BuildRequest(
+            inventory_path="docker-constructor.toml",
+            project_root=_REPO,
+            event_sink=event_sink,
+        )
+        request = PiAssemblyRequest(
+            projection=_projection(),
+            transport=transport,
+            cache_root=Path(tempfile.mkdtemp()),
+            executor=SimpleNamespace(run=lambda argv: None),
+            event_sink=build_request.event_sink,
+        )
+
+        normalized_sink = request.event_sink
+        self.assertIsNotNone(normalized_sink)
+        streamed: list[str] = []
+
+        def fake_assemble(*, sink, **kwargs):
+            stdout = iter((b"streamed status\n", b""))
+            stderr = iter((b"",))
+            npm_streaming.collect_streams(
+                stdout_read=lambda _size: next(stdout),
+                stderr_read=lambda _size: next(stderr),
+                secrets=(),
+                sink=sink,
+            )
+            streamed.append("complete")
+            env_root = assembled_pi_tree()
+            return SimpleNamespace(
+                environment_root=env_root,
+                tree_digest=build_tree_manifest(env_root).digest,
+                evidence_digest="e" * 64,
+                output_identity="o" * 64,
+                evidence_path=_evidence_path(),
+            )
+
+        with (
+            patch.object(pi_assembly, "assemble_environment", side_effect=fake_assemble),
+            patch.object(
+                npm_streaming,
+                "SinkDispatcher",
+                wraps=npm_streaming.SinkDispatcher,
+            ) as dispatcher,
+        ):
+            materialize_pi(request)
+
+        self.assertEqual(["complete"], streamed)
+        return normalized_sink, dispatcher.call_count
+
+    def test_facade_sink_keeps_direct_enqueue_through_both_requests(self):
+        renderer = SimpleNamespace(
+            set_status=lambda text: None,
+            set_slot=lambda text: None,
+            clear_slot=lambda: None,
+            clear_status=lambda: None,
+            clear_all=lambda: None,
+            durable=lambda text: None,
+            finalize_diagnostic=lambda text, restore_status=None: None,
+        )
+        session = HostPresentationSession(
+            renderer,
+            PresentationPlan(HostPresentationMode.LINES, PresentationSelection.LIVE),
+        )
+        try:
+            normalized_sink, dispatcher_calls = self._exercise(session.sink)
+            self.assertIs(normalized_sink, session.sink)
+            self.assertIsInstance(normalized_sink, InternalDirectHostEventSink)
+            self.assertNotIsInstance(normalized_sink, GuardedHostEventSink)
+            self.assertEqual(0, dispatcher_calls)
+        finally:
+            session.shutdown()
+
+    def test_external_callback_stays_dispatched_after_both_requests(self):
+        delivered = []
+        normalized_sink, dispatcher_calls = self._exercise(delivered.append)
+        self.assertIsInstance(normalized_sink, GuardedHostEventSink)
+        self.assertNotIsInstance(normalized_sink, InternalDirectHostEventSink)
+        self.assertEqual(1, dispatcher_calls)
+        self.assertTrue(
+            any(isinstance(event, HostStructuredDiagnostic) for event in delivered)
+        )
 
 
 class TestInstallPackageDependencies(unittest.TestCase):

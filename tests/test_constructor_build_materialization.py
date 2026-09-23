@@ -16,7 +16,8 @@ from tests.build_test_support import (
 from docker.versioning.build_snapshot import MaterializedSnapshot
 from docker.versioning.build_materialization import (
     HostNetworkPolicy, MaterializationError, SelectedBuildArtifact,
-    UrllibStreamingTransport, materialize_artifact, select_build_artifacts,
+    UrllibStreamingTransport, materialize_artifact,
+    materialize_build_artifacts, select_build_artifacts,
 )
 from docker.versioning.digest_identity import DigestIdentity
 from docker.versioning.effective import resolve_build_projection
@@ -26,6 +27,9 @@ from docker.versioning.build_orchestration import (
 )
 from docker.networking import ProcessResult
 from docker.versioning.dispatch_types import ExitKind
+from docker.versioning.host_progress import (
+    HostPhase, HostStep, lookup_host_failure,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -69,6 +73,27 @@ class TestBuildArtifactSelection(unittest.TestCase):
     def test_rejects_every_unsupported_platform(self):
         with self.assertRaisesRegex(MaterializationError, "unsupported"):
             select_build_artifacts(replace(selection(), platform="linux-arm64"))
+
+
+class TestNoSinkFailureAttribution(unittest.TestCase):
+    def test_artifact_failure_keeps_resource_without_live_sink(self):
+        with tempfile.TemporaryDirectory() as td:
+            cache = Path(td) / "cache"
+            cache.mkdir(mode=0o700)
+            with self.assertRaises(MaterializationError) as caught:
+                materialize_build_artifacts(
+                    selection(),
+                    constructor_project_root=td,
+                    cache_root=cache,
+                    transport=RecordingTransport(error=OSError("offline")),
+                    event_sink=None,
+                )
+        marker = lookup_host_failure(caught.exception)
+        self.assertIsNotNone(marker)
+        assert marker is not None
+        self.assertIs(HostPhase.RELEASE_ACQUISITION, marker.phase)
+        self.assertIs(HostStep.ARTIFACT_ACQUISITION, marker.step)
+        self.assertEqual("rustup", marker.logical_resource)
 
 
 class TestStreamingMaterializer(unittest.TestCase):

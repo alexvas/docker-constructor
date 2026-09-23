@@ -34,6 +34,7 @@ from docker.npm_environment import (
     npm_policy_digest,
     preflight,
 )
+from docker.npm_environment.streaming import _internal_direct_enqueue_sink
 from docker.versioning.activity_monitor import HostActivityMonitor
 from docker.versioning.assembly_activity import HostAssemblyActivity
 from docker.versioning.build_materialization import StreamingTransport
@@ -46,12 +47,14 @@ from docker.versioning.diagnostic_projection import (
 from docker.versioning.host_progress import (
     HostDiagnosticStream,
     HostEventSink,
+    InternalDirectHostEventSink,
     HostPhase,
     HostPhaseEvent,
     HostPhaseState,
     HostStep,
     HostStepState,
     HostStructuredDiagnostic,
+    attach_host_failure,
     emit,
     guard_sink,
 )
@@ -165,16 +168,30 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
         resource = DiagnosticLogicalResource(
             DiagnosticResourceKind.PI_RELEASE_ASSET, name
         )
-        monitor = HostActivityMonitor(
-            phase=HostPhase.RELEASE_ACQUISITION,
-            step=HostStep.RELEASE_ACQUISITION,
-            expects_diagnostic_stream=False,
-            sink=request.event_sink,
-            logical_resource=resource.name,
+        monitor = (
+            HostActivityMonitor(
+                phase=HostPhase.RELEASE_ACQUISITION,
+                step=HostStep.RELEASE_ACQUISITION,
+                expects_diagnostic_stream=False,
+                sink=request.event_sink,
+                logical_resource=resource.name,
+            )
+            if request.event_sink is not None
+            else None
         )
         try:
-            yield monitor.record_transport_progress
+            yield (
+                monitor.record_transport_progress
+                if monitor is not None
+                else lambda _received_bytes: None
+            )
         except BaseException as exc:
+            attach_host_failure(
+                exc,
+                phase=HostPhase.RELEASE_ACQUISITION,
+                step=HostStep.RELEASE_ACQUISITION,
+                logical_resource=resource.name,
+            )
             emit(
                 request.event_sink,
                 project_host_acquisition_failure(
@@ -186,10 +203,12 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
                     secrets=failure_secrets,
                 ),
             )
-            monitor.finish(HostStepState.FAILED)
+            if monitor is not None:
+                monitor.finish(HostStepState.FAILED)
             raise
         else:
-            monitor.finish(HostStepState.SUCCEEDED)
+            if monitor is not None:
+                monitor.finish(HostStepState.SUCCEEDED)
 
     def _download(url: str, progress: ProgressCallback | None = None) -> bytes:
         return download_bytes(request.transport, url, progress=progress)
@@ -197,9 +216,7 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
     try:
         package_bytes, lock_bytes = acquire_install_assets(
             urls, _download,
-            activity=(
-                _asset_activity if request.event_sink is not None else None
-            ),
+            activity=_asset_activity,
         )
     except BaseException as exc:
         emit(request.event_sink, HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.FAILED))
@@ -236,14 +253,9 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
     emit(request.event_sink, HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.STARTED))
     corporate_network = _corporate_network(request)
     session_identity = SessionUrlIdentity()
-    activity = (
-        HostAssemblyActivity(request.event_sink)
-        if request.event_sink is not None
-        else None
-    )
+    activity = HostAssemblyActivity(request.event_sink)
 
     def _structured_sink(chunk) -> None:
-        assert activity is not None
         emit(
             request.event_sink,
             HostStructuredDiagnostic(
@@ -258,6 +270,14 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
             ),
         )
 
+    # Only the nominal facade-owned inbox adapter is safe for reader-thread
+    # direct admission. Arbitrary SDK callbacks remain behind the dispatcher.
+    stream_sink = (
+        _internal_direct_enqueue_sink(_structured_sink)
+        if isinstance(request.event_sink, InternalDirectHostEventSink)
+        else _structured_sink
+    )
+
     try:
         result = assemble_environment(
             validated=validated,
@@ -267,12 +287,12 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
             uid=request.uid,
             gid=request.gid,
             corporate_network=corporate_network,
-            sink=_structured_sink if request.event_sink is not None else None,
+            sink=stream_sink if request.event_sink is not None else None,
             stream_factory=make_stream_factory(
                 corporate_network.secrets(),
                 session_identity,
                 on_chunk=(
-                    activity.record_diagnostic if activity is not None else None
+                    activity.record_diagnostic
                 ),
             ),
             tail_projector=project_tail,
@@ -291,7 +311,12 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
         recomputed_tree_digest = build_tree_manifest(result.environment_root).digest
         if recomputed_tree_digest != result.tree_digest:
             raise PiAssemblyError("assembled Pi tree digest does not match the attested value")
-    except BaseException:
+    except BaseException as exc:
+        attach_host_failure(
+            exc,
+            phase=HostPhase.DERIVED_VALIDATION,
+            step=HostStep.VALIDATION,
+        )
         emit(request.event_sink, HostPhaseEvent(HostPhase.DERIVED_VALIDATION, HostPhaseState.FAILED))
         raise
     emit(request.event_sink, HostPhaseEvent(HostPhase.DERIVED_VALIDATION, HostPhaseState.SUCCEEDED))

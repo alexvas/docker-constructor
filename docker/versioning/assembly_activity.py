@@ -36,6 +36,7 @@ from docker.versioning.host_progress import (
     HostStep,
     HostStepEvent,
     HostStepState,
+    attach_host_failure,
     emit,
 )
 
@@ -107,29 +108,42 @@ class HostAssemblyActivity:
         expects_diagnostic_stream = step is HostStep.NPM_EXECUTION
         if container_name is not None:
             self._container_name = container_name
-        monitor = HostActivityMonitor(
-            phase=self._phase,
-            step=step,
-            expects_diagnostic_stream=expects_diagnostic_stream,
-            sink=self._sink,
-            clock=self._clock,
-            waiter=(
-                self._waiter_factory() if self._waiter_factory is not None else None
-            ),
-            deadline_seconds=(
-                self._deadline_seconds if expects_diagnostic_stream else None
-            ),
-            logical_resource=container_name,
+        monitor = (
+            HostActivityMonitor(
+                phase=self._phase,
+                step=step,
+                expects_diagnostic_stream=expects_diagnostic_stream,
+                sink=self._sink,
+                clock=self._clock,
+                waiter=(
+                    self._waiter_factory()
+                    if self._waiter_factory is not None
+                    else None
+                ),
+                deadline_seconds=(
+                    self._deadline_seconds if expects_diagnostic_stream else None
+                ),
+                logical_resource=container_name,
+            )
+            if self._sink is not None
+            else None
         )
-        if expects_diagnostic_stream:
+        if expects_diagnostic_stream and monitor is not None:
             self._npm_monitor = monitor
         try:
             yield
-        except BaseException:
-            monitor.finish(HostStepState.FAILED)
+        except BaseException as exc:
+            # Preserve the active phase/step/resource structurally while the
+            # failure propagates (including through later wrapping).
+            attach_host_failure(
+                exc, phase=self._phase, step=step, logical_resource=container_name
+            )
+            if monitor is not None:
+                monitor.finish(HostStepState.FAILED)
             raise
         else:
-            monitor.finish(HostStepState.SUCCEEDED)
+            if monitor is not None:
+                monitor.finish(HostStepState.SUCCEEDED)
         finally:
             if expects_diagnostic_stream:
                 self._npm_monitor = None

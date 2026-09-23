@@ -1,11 +1,11 @@
 """Presentation-neutral host materialization events."""
 from __future__ import annotations
 
-from collections import deque
 from dataclasses import dataclass
 from enum import StrEnum
 from threading import Lock
 from typing import Any, Callable
+import weakref
 
 from docker.versioning.logical_resource import require_approved_logical_resource
 
@@ -263,6 +263,48 @@ class HostStructuredDiagnostic:
         require_approved_logical_resource(self.logical_resource, "logical resource")
 
 
+@dataclass(frozen=True)
+class HostFailureContext:
+    """Structured, presentation-neutral context for one host failure report.
+
+    It identifies the active phase and operational step, an optional safe
+    logical asset, normalized host facts, a bounded exception-type chain, and
+    the existing bounded redacted diagnostic tail.  It carries no output
+    policy: the facade alone decides hostname display when rendering.
+    """
+
+    phase: HostPhase
+    step: HostStep
+    summary: str = "host operation failed"
+    tail: str = ""
+    logical_resource: str | None = None
+    hostnames: tuple[str, ...] = ()
+    exception_types: tuple[str, ...] = ()
+    tail_stream: HostDiagnosticStream | None = None
+    timeout_retained_context: bool = False
+
+    def __post_init__(self) -> None:
+        _require_member(self.phase, HostPhase, "phase")
+        _require_member(self.step, HostStep, "step")
+        if not isinstance(self.summary, str) or not self.summary:
+            raise TypeError("summary must be a nonempty string")
+        if not isinstance(self.tail, str):
+            raise TypeError("tail must be a string")
+        if self.tail_stream is not None:
+            _require_member(self.tail_stream, HostDiagnosticStream, "tail_stream")
+        if not isinstance(self.timeout_retained_context, bool):
+            raise TypeError("timeout_retained_context must be a bool")
+        if not isinstance(self.hostnames, tuple) or not all(
+            isinstance(hostname, str) for hostname in self.hostnames
+        ):
+            raise TypeError("hostnames must be a tuple of strings")
+        if not isinstance(self.exception_types, tuple) or not all(
+            isinstance(name, str) for name in self.exception_types
+        ):
+            raise TypeError("exception_types must be a tuple of strings")
+        require_approved_logical_resource(self.logical_resource, "logical_resource")
+
+
 HostOperationalEvent = (
     HostStepEvent
     | HostTransportProgressEvent
@@ -271,6 +313,114 @@ HostOperationalEvent = (
 )
 HostBuildEvent = HostPhaseEvent | HostDiagnosticEvent | HostOperationalEvent
 HostEventSink = Callable[[HostBuildEvent], None]
+
+
+#: Private carrier attribute for structural host failure context.
+_HOST_FAILURE_CONTEXT_ATTR = "_host_failure_context"
+
+
+class _FailureContextRegistry:
+    """Ephemeral structural host failure context carried on the exception.
+
+    Context is attached at the boundary where the active phase and step are
+    known and looked up while an exception propagates, including through
+    exception wrapping.  It is stored on the exception object itself (via
+    ``object.__setattr__`` so the locked assembler's frozen value fields stay
+    frozen); exceptions without an instance ``__dict__`` fall back to a weak
+    registry.  Re-attaching an already-described exception is a no-op so the
+    innermost (most specific) boundary wins.
+    """
+
+    def __init__(self) -> None:
+        self._lock = Lock()
+        self._contexts: weakref.WeakKeyDictionary[
+            BaseException, HostFailureContext
+        ] = weakref.WeakKeyDictionary()
+
+    def attach(
+        self, reason: BaseException, context: HostFailureContext
+    ) -> None:
+        if not isinstance(reason, BaseException):
+            raise TypeError("reason must be an exception")
+        if not isinstance(context, HostFailureContext):
+            raise TypeError("context must be a HostFailureContext")
+        if getattr(reason, _HOST_FAILURE_CONTEXT_ATTR, None) is not None:
+            return
+        try:
+            object.__setattr__(reason, _HOST_FAILURE_CONTEXT_ATTR, context)
+            return
+        except (AttributeError, TypeError):
+            pass
+        with self._lock:
+            if reason not in self._contexts:
+                try:
+                    self._contexts[reason] = context
+                except TypeError:
+                    # Non-weak-referenceable exception: context is best-effort.
+                    pass
+
+    def lookup(self, reason: BaseException) -> HostFailureContext | None:
+        seen: set[int] = set()
+        current: BaseException | None = reason
+        while current is not None and id(current) not in seen:
+            seen.add(id(current))
+            found = getattr(current, _HOST_FAILURE_CONTEXT_ATTR, None)
+            if isinstance(found, HostFailureContext):
+                return found
+            with self._lock:
+                try:
+                    found = self._contexts.get(current)
+                except TypeError:
+                    found = None
+            if found is not None:
+                return found
+            current = getattr(current, "__cause__", None) or getattr(
+                current, "__context__", None
+            )
+        return None
+
+
+#: Process-wide registry shared by every host failure boundary.
+FAILURE_CONTEXT_REGISTRY = _FailureContextRegistry()
+
+
+def attach_host_failure(
+    reason: BaseException,
+    *,
+    phase: HostPhase,
+    step: HostStep,
+    logical_resource: str | None = None,
+    hostnames: tuple[str, ...] = (),
+) -> None:
+    """Attach structural phase/step context to a propagating failure.
+
+    Called at the boundary where the active phase and operational step are
+    known.  The context survives later wrapping because it is retrieved while
+    walking the exception's cause/context chain.
+    """
+    FAILURE_CONTEXT_REGISTRY.attach(
+        reason,
+        HostFailureContext(
+            phase=phase,
+            step=step,
+            logical_resource=logical_resource,
+            hostnames=hostnames,
+        ),
+    )
+
+
+def lookup_host_failure(reason: BaseException) -> HostFailureContext | None:
+    """Return the nearest attached structural context for *reason*, if any."""
+    return FAILURE_CONTEXT_REGISTRY.lookup(reason)
+
+
+class InternalDirectHostEventSink:
+    """Nominal marker for the facade's thread-safe mailbox enqueue adapter.
+
+    This intentionally has no attribute-based or structural equivalent:
+    request normalization authorizes direct admission only for instances of
+    this internal type.
+    """
 
 
 class GuardedHostEventSink:
@@ -283,7 +433,11 @@ class GuardedHostEventSink:
     presentation machinery while this lock is held.
     """
 
-    def __init__(self, sink: HostEventSink, lock: Any | None = None) -> None:
+    def __init__(
+        self,
+        sink: HostEventSink,
+        lock: Any | None = None,
+    ) -> None:
         self._sink = sink
         self._lock = lock if lock is not None else Lock()
         self._enabled = True
@@ -299,7 +453,9 @@ class GuardedHostEventSink:
 
 
 def guard_sink(sink: HostEventSink | None) -> HostEventSink | None:
-    if sink is None or isinstance(sink, GuardedHostEventSink):
+    if sink is None or isinstance(
+        sink, (InternalDirectHostEventSink, GuardedHostEventSink)
+    ):
         return sink
     return GuardedHostEventSink(sink)
 
@@ -313,71 +469,3 @@ def emit(sink: HostEventSink | None, event: HostBuildEvent) -> None:
             # Direct SDK callers remain insulated; orchestration uses the
             # stateful guard above so one failure also disables later calls.
             pass
-
-
-class HostEventMailbox:
-    """Bounded non-blocking producer-facing mailbox for facade presentation.
-
-    Phase 1 owns only the prompt-returning admission boundary. Independent
-    reliable/best-effort lane reservation, sequencing, omission accounting,
-    the single presentation worker, and worker lifecycle are introduced with
-    facade rendering; this boundary admits or drops without ever blocking a
-    producer that holds ``GuardedHostEventSink`` serialization.
-    """
-
-    def __init__(self, capacity: int = 256) -> None:
-        if not isinstance(capacity, int) or isinstance(capacity, bool) or capacity <= 0:
-            raise ValueError("mailbox capacity must be a positive integer")
-        self._events: deque[HostBuildEvent] = deque()
-        self._capacity = capacity
-        self._lock = Lock()
-        self.dropped = 0
-
-    @property
-    def capacity(self) -> int:
-        return self._capacity
-
-    def try_admit(self, event: HostBuildEvent) -> bool:
-        """Admit without ever blocking; drop and report ``False`` otherwise.
-
-        Lock acquisition is explicitly non-blocking: a producer that already
-        holds ``GuardedHostEventSink`` serialization must return promptly even
-        when the mailbox lock is contended, so contention is itself an
-        admission failure. ``dropped`` counts only capacity drops observed
-        while holding the admission lock; the contention path therefore touches
-        no shared counter and stays non-blocking.
-        """
-        if not self._lock.acquire(blocking=False):
-            return False
-        try:
-            if len(self._events) >= self._capacity:
-                self.dropped += 1
-                return False
-            self._events.append(event)
-            return True
-        finally:
-            self._lock.release()
-
-    def drain(self) -> tuple[HostBuildEvent, ...]:
-        with self._lock:
-            events = tuple(self._events)
-            self._events.clear()
-            return events
-
-    def __len__(self) -> int:
-        with self._lock:
-            return len(self._events)
-
-
-class HostEventEnqueueAdapter:
-    """Facade sink adapter: bounded non-blocking enqueue and nothing else."""
-
-    def __init__(self, mailbox: HostEventMailbox) -> None:
-        self._mailbox = mailbox
-
-    @property
-    def mailbox(self) -> HostEventMailbox:
-        return self._mailbox
-
-    def __call__(self, event: HostBuildEvent) -> None:
-        self._mailbox.try_admit(event)

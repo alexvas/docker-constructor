@@ -275,16 +275,19 @@ def _timeout_error(
     truncation_notice: str | None = None,
 ) -> AssemblyTimeoutError:
     """Build the actionable structured timeout failure from redacted tails."""
-    detail = f"assembly exceeded the {deadline_seconds:g}-second total deadline"
+    summary = f"assembly exceeded the {deadline_seconds:g}-second total deadline"
     stderr_tail = stderr.strip()
     stdout_tail = stdout.strip()
-    if stderr_tail:
-        detail += f": {stderr_tail}"
-    elif stdout_tail:
-        detail += f": {stdout_tail}"
+    tail = stderr_tail or stdout_tail
     if truncation_notice:
-        detail += f" {truncation_notice}"
-    return AssemblyTimeoutError(detail)
+        tail = f"{tail} {truncation_notice}".strip()
+    detail = f"{summary}: {tail}" if tail else summary
+    return AssemblyTimeoutError(
+        detail,
+        summary=summary,
+        diagnostic_tail=tail,
+        diagnostic_stream=("stderr" if stderr_tail else "stdout" if stdout_tail else None),
+    )
 
 
 def _close_stream_pipes(pipes: Sequence[IO[bytes]]) -> list[Exception]:
@@ -983,14 +986,18 @@ def _exit_failure(
 
     stderr = stderr.strip()
     stdout = stdout.strip()
-    detail = f"assembler exited {return_code}"
-    if stderr:
-        detail += f": {stderr}"
-    elif stdout:
-        detail += f": {stdout}"
+    summary = f"assembler exited {return_code}"
+    tail = stderr or stdout
     if truncation_notice:
-        detail += f" {truncation_notice}"
-    return LockedNpmError(reason, detail)
+        tail = f"{tail} {truncation_notice}".strip()
+    detail = f"{summary}: {tail}" if tail else summary
+    return LockedNpmError(
+        reason,
+        detail,
+        summary=summary,
+        diagnostic_tail=tail,
+        diagnostic_stream=("stderr" if stderr else "stdout" if stdout else None),
+    )
 
 
 def _write_lockfile(staging: Path, lockfile_bytes: bytes) -> None:

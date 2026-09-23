@@ -23,7 +23,8 @@ from docker.versioning.diagnostic_projection import (
 )
 from docker.versioning.digest_identity import DigestIdentity
 from docker.versioning.host_progress import (
-    HostEventSink, HostPhase, HostStep, HostStepEvent, HostStepState, emit,
+    HostEventSink, HostPhase, HostStep, HostStepEvent, HostStepState,
+    attach_host_failure, emit,
 )
 from docker.versioning.project_state import ProjectState
 from docker.versioning.model import EffectiveBuildProjection
@@ -218,11 +219,10 @@ def materialize_build_artifacts(
             )
             if observed else None
         )
-        logical_name: str | None = None
+        logical_name: str | None = resource.name if resource is not None else None
         monitor: HostActivityMonitor | None = None
         if observed:
-            assert resource is not None
-            logical_name = resource.name
+            assert logical_name is not None
             if monitor_factory is not None:
                 monitor = monitor_factory(logical_name)
             else:
@@ -254,14 +254,22 @@ def materialize_build_artifacts(
                 on_cache_hit=on_cache_hit,
             ))
         except BaseException as exc:
+            failure_resource = resource or DiagnosticLogicalResource(
+                DiagnosticResourceKind.REVIEWED_ARTIFACT, selected.name
+            )
+            attach_host_failure(
+                exc,
+                phase=HostPhase.RELEASE_ACQUISITION,
+                step=HostStep.ARTIFACT_ACQUISITION,
+                logical_resource=failure_resource.name,
+            )
             if observed:
-                assert resource is not None
                 emit(
                     event_sink,
                     project_host_acquisition_failure(
                         phase=HostPhase.RELEASE_ACQUISITION,
                         step=HostStep.ARTIFACT_ACQUISITION,
-                        logical_resource=resource,
+                        logical_resource=failure_resource,
                         reason=exc,
                         url=selected.url,
                         secrets=failure_secrets,

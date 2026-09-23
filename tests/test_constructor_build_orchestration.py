@@ -63,6 +63,11 @@ from docker.versioning.build_orchestration import (
     repair_rootless,
 )
 from docker.versioning.dispatch_types import ExitKind
+from docker.versioning.host_progress import (
+    HostPhase,
+    HostStep,
+    attach_host_failure,
+)
 
 # ═══════════════════════════════════════════════════════════════════════
 # Fakes — injectable, no Docker/systemd/fs/network
@@ -2187,6 +2192,56 @@ class TestPiMaterializationBoundary(unittest.TestCase):
             materialize_pi=fail_assembly,
             message_substr="assembler exited 1",
         )
+
+    def test_cleanup_failure_preserves_original_structured_failure(self):
+        original = LockedNpmError(
+            "npm_exit_nonzero",
+            "original assembly failure",
+            summary="npm assembly failed safely",
+            diagnostic_tail="npm warn retained safe diagnostic",
+            diagnostic_stream="stderr",
+        )
+        attach_host_failure(
+            original,
+            phase=HostPhase.LOCKED_ASSEMBLY,
+            step=HostStep.NPM_EXECUTION,
+            logical_resource="npm-assembler-abcdef1234567890",
+        )
+
+        def fail_assembly(*args, **kwargs):
+            raise original
+
+        def fail_cleanup(snapshot):
+            raise SnapshotError("cleanup storage unavailable")
+
+        runner = FakeBuildExecutor()
+        with patch(
+            "docker.versioning.build_orchestration.cleanup_artifact_snapshot",
+            side_effect=fail_cleanup,
+        ):
+            result = orchestrate_build(
+                self._request(
+                    publish=lambda *_args, **_kwargs: PublishResult(
+                        "/tmp/effective.toml"
+                    ),
+                    runner=runner,
+                    materialize_pi=fail_assembly,
+                )
+            )
+
+        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
+        self.assertIn("original assembly failure", result.message or "")
+        self.assertIn("snapshot cleanup failed", result.message or "")
+        self.assertIn("cleanup storage unavailable", result.message or "")
+        failure = result.host_failure
+        self.assertIsNotNone(failure)
+        assert failure is not None
+        self.assertIs(HostPhase.LOCKED_ASSEMBLY, failure.phase)
+        self.assertIs(HostStep.NPM_EXECUTION, failure.step)
+        self.assertEqual("npm-assembler-abcdef1234567890", failure.logical_resource)
+        self.assertEqual("npm assembly failed safely", failure.summary)
+        self.assertEqual("npm warn retained safe diagnostic", failure.tail)
+        self.assertNotIn("cleanup storage unavailable", failure.tail)
 
     def test_consumer_launcher_failure_is_operational(self):
         def fail_consumer(*args, **kwargs):

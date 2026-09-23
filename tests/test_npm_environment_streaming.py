@@ -385,6 +385,97 @@ class TestCollectStreams(unittest.TestCase):
         self.assertIsNone(harness.capture.truncation_notice)
 
 
+class TestFacadeDirectEnqueuePath(unittest.TestCase):
+    def test_lookalike_attributes_cannot_bypass_dispatcher(self):
+        for attribute in (
+            "internal_direct_enqueue",
+            "_constructor_direct_enqueue",
+        ):
+            with self.subTest(attribute=attribute):
+                threads: list[str] = []
+
+                def sink(chunk: StreamChunk) -> None:
+                    threads.append(threading.current_thread().name)
+
+                setattr(sink, attribute, True)
+                stdout = iter((b"output", b""))
+                stderr = iter((b"",))
+                capture = collect_streams(
+                    stdout_read=lambda size: next(stdout),
+                    stderr_read=lambda size: next(stderr),
+                    sink=sink,
+                )
+                self.assertEqual("output", capture.stdout_tail)
+                self.assertEqual(["npm-sink-dispatcher"], threads)
+
+    def test_throwing_lookalike_callback_remains_isolated(self):
+        def sink(chunk: StreamChunk) -> None:
+            raise RuntimeError("external callback failed")
+
+        sink.internal_direct_enqueue = True
+        sink._constructor_direct_enqueue = True
+        stdout = iter((b"safe output", b""))
+        stderr = iter((b"",))
+        capture = collect_streams(
+            stdout_read=lambda size: next(stdout),
+            stderr_read=lambda size: next(stderr),
+            sink=sink,
+        )
+        self.assertEqual("safe output", capture.stdout_tail)
+
+    def test_blocking_lookalike_does_not_block_reader_threads(self):
+        callback_entered = threading.Event()
+        release_callback = threading.Event()
+        readers_finished = threading.Event()
+        eof_count = 0
+        eof_lock = threading.Lock()
+
+        def sink(chunk: StreamChunk) -> None:
+            callback_entered.set()
+            release_callback.wait(2)
+
+        sink.internal_direct_enqueue = True
+        stdout = iter((b"output", b""))
+        stderr = iter((b"",))
+
+        def read(source, size):
+            nonlocal eof_count
+            value = next(source)
+            if not value:
+                with eof_lock:
+                    eof_count += 1
+                    if eof_count == 2:
+                        readers_finished.set()
+            return value
+
+        thread = threading.Thread(
+            target=lambda: collect_streams(
+                stdout_read=lambda size: read(stdout, size),
+                stderr_read=lambda size: read(stderr, size),
+                sink=sink,
+            )
+        )
+        thread.start()
+        try:
+            self.assertTrue(callback_entered.wait(1))
+            self.assertTrue(readers_finished.wait(1))
+        finally:
+            release_callback.set()
+            thread.join(2)
+        self.assertFalse(thread.is_alive())
+
+    def test_arbitrary_callback_retains_dispatcher_isolation(self):
+        threads: list[str] = []
+        stdout = iter((b"output", b""))
+        stderr = iter((b"",))
+        collect_streams(
+            stdout_read=lambda size: next(stdout),
+            stderr_read=lambda size: next(stderr),
+            sink=lambda chunk: threads.append(threading.current_thread().name),
+        )
+        self.assertEqual(["npm-sink-dispatcher"], threads)
+
+
 class TestSinkDispatcher(unittest.TestCase):
     def test_slow_compliant_sink_delivers_all_in_order(self):
         delivered: list[str] = []

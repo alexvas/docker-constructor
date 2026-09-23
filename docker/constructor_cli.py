@@ -49,6 +49,12 @@ from docker.versioning.dispatch_types import CommandResult, ExitKind
 from docker.versioning.immutable import deep_freeze
 from docker.versioning.model import HostAccessPolicy
 from docker.versioning.host_progress import HostDiagnosticEvent, HostPhaseEvent
+from docker.versioning.host_presentation import (
+    HostPresentationSession,
+    TerminalHostRenderer,
+    format_failure_report,
+    select_presentation,
+)
 
 _INSTALLATION_ROOT = Path(__file__).resolve().parent.parent
 
@@ -488,7 +494,7 @@ def _real_dispatcher(
     _create_projection: Any = None,
     _workspace_selector: Any = None,
     _progress_renderer: Any = None,
-    _host_event_renderer_factory: Any = None,
+    _host_presentation_factory: Any = None,
 ) -> CommandResult:
     """Thin facade wrapper that delegates to the internal services.
 
@@ -566,12 +572,15 @@ def _real_dispatcher(
 
         # Local output policy remains facade-only: it selects no domain
         # behavior and is never attached to the build request.  Planning
-        # receives only the narrow domain-owned local slices.
-        host_event_sink = (
-            _host_event_renderer_factory(local_config.output)
-            if _host_event_renderer_factory is not None
+        # receives only the narrow domain-owned local slices.  The facade
+        # owns the presentation session (mailbox + worker) and installs only
+        # its prompt-returning guarded sink on the request.
+        session = (
+            _host_presentation_factory(local_config.output)
+            if _host_presentation_factory is not None
             else None
         )
+        host_event_sink = session.sink if session is not None else None
         local_inputs = BuildLocalInputs.from_local_config(local_config)
 
         # Build typed DTO
@@ -601,11 +610,19 @@ def _real_dispatcher(
             confirmed=_to_bool(c_args.get("yes", False)),
             dry_run=dry_run,
             event_sink=host_event_sink,
+            host_presentation_complete=(
+                session.shutdown if session is not None else None
+            ),
         )
 
-        result = orchestrate_build(
-            build_request, inventory=inventory, local_inputs=local_inputs,
-        )
+        try:
+            result = orchestrate_build(
+                build_request, inventory=inventory, local_inputs=local_inputs,
+            )
+        except BaseException:
+            if session is not None:
+                session.shutdown()
+            raise
 
         # BuildResult → CommandResult
         data: dict[str, object] | None = None
@@ -638,10 +655,63 @@ def _real_dispatcher(
                     f"published_path: {result.publish_result.published_path}"
                 )
 
+        message = result.message
+        message_owned_by_presentation = False
+        if (
+            result.host_failure is not None
+            and result.exit_kind is not ExitKind.SUCCESS
+        ):
+            report = format_failure_report(
+                result.host_failure.phase,
+                result.host_failure.step,
+                summary=result.host_failure.summary,
+                tail=result.host_failure.tail,
+                tail_stream=result.host_failure.tail_stream,
+                timeout_retained_context=(
+                    result.host_failure.timeout_retained_context
+                ),
+                logical_resource=result.host_failure.logical_resource,
+                hostnames=result.host_failure.hostnames,
+                show_network_hosts=local_config.output.show_network_hosts,
+                exception_types=result.host_failure.exception_types,
+            )
+            # The contextual report owns both the concise summary and the
+            # structurally separate retained tail.  Appending ``result.message``
+            # here would replay assembler details that are already represented
+            # by that tail.
+            message = report
+            if request.output == "json":
+                if data is None:
+                    data = {}
+                data["host_failure"] = {
+                    "phase": result.host_failure.phase.value,
+                    "step": result.host_failure.step.value,
+                    "summary": result.host_failure.summary,
+                    "tail": result.host_failure.tail,
+                    "tail_stream": (
+                        result.host_failure.tail_stream.value
+                        if result.host_failure.tail_stream is not None
+                        else None
+                    ),
+                    "logical_resource": result.host_failure.logical_resource,
+                    "hostnames": list(result.host_failure.hostnames),
+                    "exception_types": list(result.host_failure.exception_types),
+                    "timeout_retained_context": (
+                        result.host_failure.timeout_retained_context
+                    ),
+                }
+            if session is not None:
+                session.submit_final_report(report)
+                # A live actor owns the attempt even if admission or rendering
+                # fails; retain the report but never retry it synchronously.
+                message_owned_by_presentation = True
+        if session is not None:
+            session.shutdown()
         return CommandResult(
             exit_kind=result.exit_kind,
-            message=result.message,
+            message=message,
             data=data,
+            message_owned_by_presentation=message_owned_by_presentation,
         )
 
     # ── doctor confirmation ──────────────────────────────────────────
@@ -1548,11 +1618,17 @@ def _compact_target(path: str) -> str:
     return path
 
 
-class _HostEventRenderer:
-    """Facade-owned, line-oriented presentation for host build events."""
+class _HostEventRenderer(TerminalHostRenderer):
+    """Facade-owned presentation renderer for host build events.
+
+    Durable lines keep the historical ``Pi <phase>: <state>`` and
+    ``Pi <phase> [<stream>]: <text>`` shape for direct callers, while the
+    replaceable interactive status/slot methods are inherited from the shared
+    terminal renderer used by the single presentation worker.
+    """
 
     def __init__(self, stream: Any = None, *, output_policy: Any = None) -> None:
-        self._stream = stream if stream is not None else sys.stderr
+        super().__init__(stream)
         self._output_policy = output_policy
 
     @property
@@ -1569,6 +1645,27 @@ class _HostEventRenderer:
             return
         self._stream.write(text if text.endswith("\n") else f"{text}\n")
         self._stream.flush()
+
+
+def _make_presentation_session(
+    policy: Any, *, text_output: bool, stderr_is_tty: bool
+) -> HostPresentationSession | None:
+    """Build one facade presentation session, or ``None`` when none is live.
+
+    JSON and default noninteractive text create no live sink; explicit
+    noninteractive ``lines`` and every interactive text mode do.  The policy's
+    mode and hostname flag are retained only here, never on the domain request.
+    """
+    plan = select_presentation(
+        policy.host_heartbeat,
+        text_output=text_output,
+        stderr_is_tty=stderr_is_tty,
+        show_network_hosts=policy.show_network_hosts,
+    )
+    if not plan.live_sink:
+        return None
+    renderer = _HostEventRenderer(output_policy=policy)
+    return HostPresentationSession(renderer, plan)
 
 
 class _ProgressRenderer:
@@ -1925,7 +2022,7 @@ def _render(
         target: list[str] = err_lines if is_error else out_lines
 
         # Render message and data — both when present
-        if result.message:
+        if result.message and not result.message_owned_by_presentation:
             target.append(f"{prefix} {result.message}")
         if result.data is not None:
             if command == "check-updates":
@@ -2514,15 +2611,14 @@ def main(
     # text-output check-updates whose stderr is a TTY.  JSON output and
     # non-TTY stderr install no renderer and therefore emit no progress.
     progress_renderer: _ProgressRenderer | None = None
-    host_event_renderer_factory: Callable[[Any], _HostEventRenderer] | None = None
+    host_presentation_factory: Callable[[Any], Any] | None = None
     if (
         args.command == "build"
         and args.output == "text"
-        and _stderr_tty
         and not bool(getattr(args, "dry_run", False))
     ):
-        host_event_renderer_factory = lambda policy: _HostEventRenderer(
-            output_policy=policy
+        host_presentation_factory = lambda policy: _make_presentation_session(
+            policy, text_output=True, stderr_is_tty=_stderr_tty
         )
     if (
         args.command == "check-updates"
@@ -2543,7 +2639,7 @@ def main(
                 _create_projection=_create_projection,
                 _workspace_selector=_workspace_selector,
                 _progress_renderer=progress_renderer,
-                _host_event_renderer_factory=host_event_renderer_factory,
+                _host_presentation_factory=host_presentation_factory,
             )
         )
     else:

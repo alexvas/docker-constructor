@@ -18,8 +18,6 @@ from docker.versioning.host_progress import (
     GuardedHostEventSink,
     HostDiagnosticClassification,
     HostDiagnosticStream,
-    HostEventEnqueueAdapter,
-    HostEventMailbox,
     HostHeartbeatEvent,
     HostLastActivityKind,
     HostPhase,
@@ -396,72 +394,8 @@ class TestFailureIsolatedSerializedDelivery(unittest.TestCase):
 
         emit(unguarded_raising, _step_event())
 
-    def test_adapter_only_enqueues_without_render_wait_flush_or_join(self):
-        presentation = _ForbiddenPresentation()
-        mailbox = HostEventMailbox(capacity=8)
-        adapter = HostEventEnqueueAdapter(mailbox)
-        guard_lock = _RecordingLock()
-        observed_depths: list[int] = []
 
-        def instrumented(event: object) -> None:
-            observed_depths.append(guard_lock.depth)
-            adapter(event)  # type: ignore[arg-type]
 
-        guarded = GuardedHostEventSink(instrumented, lock=guard_lock)
-        flood = [_heartbeat() for _ in range(1000)]
-        flood.append(HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.STARTED))
-        flood.append(_structured_diagnostic())
-
-        started_at = time.monotonic()
-        for event in flood:
-            guarded(event)
-        elapsed = time.monotonic() - started_at
-
-        self.assertEqual([], presentation.calls)
-        self.assertTrue(observed_depths)
-        self.assertTrue(all(depth == 1 for depth in observed_depths))
-        self.assertEqual(1, guard_lock.max_depth)
-        self.assertLess(elapsed, 2.0)
-        self.assertLessEqual(len(mailbox), mailbox.capacity)
-        self.assertGreater(mailbox.dropped, 0)
-
-    def test_lock_contention_is_a_prompt_non_blocking_drop(self):
-        """A held mailbox lock must not block a serialized producer callback."""
-        presentation = _ForbiddenPresentation()
-        mailbox = HostEventMailbox(capacity=8)
-        adapter = HostEventEnqueueAdapter(mailbox)
-        guard_lock = _RecordingLock()
-        guarded = GuardedHostEventSink(adapter, lock=guard_lock)
-
-        holding = threading.Event()
-        release = threading.Event()
-
-        def hold_mailbox_lock() -> None:
-            with mailbox._lock:  # type: ignore[attr-defined]
-                holding.set()
-                release.wait(timeout=2.0)
-
-        holder = threading.Thread(target=hold_mailbox_lock, daemon=True)
-        holder.start()
-        try:
-            self.assertTrue(holding.wait(timeout=5.0), "holder must hold the mailbox lock")
-            started_at = time.monotonic()
-            guarded(_structured_diagnostic())
-            elapsed = time.monotonic() - started_at
-        finally:
-            release.set()
-            holder.join(timeout=5.0)
-
-        self.assertFalse(holder.is_alive())
-        self.assertEqual([], presentation.calls)
-        self.assertLess(elapsed, 0.5)
-        self.assertEqual(0, len(mailbox), "a contended event must not be admitted")
-        self.assertEqual(0, mailbox.dropped, "contention is not counted as a capacity drop")
-
-    def test_mailbox_rejects_nonpositive_capacity(self):
-        for capacity in (0, -1, 1.5, True, "8"):
-            with self.subTest(capacity=capacity), self.assertRaises((TypeError, ValueError)):
-                HostEventMailbox(capacity=capacity)  # type: ignore[arg-type]
 
 
 if __name__ == "__main__":
