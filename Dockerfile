@@ -227,6 +227,7 @@ COPY --from=constructor-artifacts --chmod=0444 derived-environments/pi/pi-launch
 COPY docker/verify-pi.mjs /tmp/verify-pi.mjs
 RUN node /tmp/verify-pi.mjs \
     && rm -f /tmp/verify-pi.mjs /tmp/pi-assembler-evidence.json /tmp/pi-launcher-evidence.json
+USER dev
 
 FROM base AS openspec-tools
 

@@ -320,6 +320,7 @@ _LOCAL_EXAMPLE_FILE: pathlib.Path = REPO / "docker-constructor.local.example.tom
 _LOCAL_EXAMPLE_EXPECTED = {
     "host-access": frozenset({"address"}),
     "cache": frozenset({"dir"}),
+    "output": frozenset({"host_heartbeat", "show_network_hosts"}),
 }
 
 
@@ -367,7 +368,7 @@ class TestLocalExampleExists(unittest.TestCase):
             f"{rel} must be tracked by git (not in .gitignore)",
         )
 
-    def test_example_contains_exactly_two_sections(self) -> None:
+    def test_example_contains_exactly_documented_sections(self) -> None:
         if not _LOCAL_EXAMPLE_FILE.is_file():
             self.skipTest("example file missing")
         import tomllib

@@ -21,9 +21,19 @@
 #   [network.proxy]
 #   url = "http://proxy.corp.example:3128"  # also: socks5, socks5h
 #   no_proxy = "localhost,.corp.example"    # optional; explicit only
+#
+#   [output]
+#   # interactive (default), lines (explicit noninteractive output), or off
+#   host_heartbeat = "interactive"
+#   # Privacy default: normalized network hostnames remain hidden.
+#   show_network_hosts = false
 
 [host-access]
 address = "10.0.2.2"
 
 [cache]
 dir = "/home/dev/.cache/docker-constructor-custom"
+
+[output]
+host_heartbeat = "interactive"
+show_network_hosts = false

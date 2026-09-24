@@ -26,7 +26,10 @@ SRI integrity, and a safe deterministic installation path; `file:`, `git:`,
 ## Fixed npm policy
 
 The container runs `npm ci` with exactly the fixed policy flags
-`--ignore-scripts --no-bin-links --no-audit --no-fund`. Lifecycle scripts
+`--ignore-scripts --no-bin-links --no-audit --no-fund --loglevel=http`.
+The HTTP logging mode was accepted by the pinned npm 11.16.0 research because
+its live observations remained useful and sanitizable; it is part of the
+canonical policy digest and not a user-facing override. Lifecycle scripts
 never execute, even when a locked package declares an install script, and no
 reviewed root's `bin` metadata causes the assembler or npm to create an
 executable link. `engine-strict` remains disabled; only `engines.node`
