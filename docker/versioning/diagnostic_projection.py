@@ -20,6 +20,15 @@ projection layer for host-pipeline diagnostics.  It:
   decoding applied to diagnostic URL candidates and with the same case,
   trailing-dot, and IDNA normalization -- so an uppercase, encoded, or IDN
   proxy secret cannot leak its host;
+* additionally derives a bounded internal :class:`SafeHostPath` fact
+  (normalized hostname plus a canonical safe encoded path) for local
+  presentation only, excluding scheme, user information, explicit port, query,
+  fragment, and proxy detail, never decoding percent-encoded controls into
+  active text, percent-encoding every raw non-ASCII character (including bidi
+  and format controls such as U+202E) from its UTF-8 bytes, and failing closed
+  to :data:`REDACTED_PATH_MARKER` when the path is ambiguous, secret-bearing,
+  or otherwise unsafe.  This fact is deliberately absent from the external SDK
+  DTO, evidence, persistence, and semantic identities;
 * keeps ambiguous trailing URL/secret state in a pending buffer capped at
   8 KiB, appending only UTF-8-byte-bounded slices so a multibyte feed cannot
   transiently exceed the bound, emitting the fixed
@@ -44,6 +53,7 @@ import ipaddress
 import json
 import re
 import urllib.parse
+from dataclasses import dataclass
 from typing import Sequence
 
 from docker.npm_environment.streaming import (
@@ -75,8 +85,54 @@ OVERSIZED_TOKEN_MARKER = "[sanitized oversized token]"
 #: Fixed fail-closed marker for an unresolved candidate at stream termination.
 INCOMPLETE_TOKEN_MARKER = "[sanitized incomplete token]"
 
+#: Fixed fail-closed path used when safe path derivation cannot be established.
+#: It always starts with ``/`` so a fact renders as ``host/<redacted-path>``.
+REDACTED_PATH_MARKER = "/<redacted-path>"
+
 #: Maximum number of unique exception type names a projected chain may carry.
 EXCEPTION_TYPE_LIMIT = 4
+
+
+@dataclass(frozen=True, slots=True)
+class SafeHostPath:
+    """Bounded internal host/path presentation fact.
+
+    ``hostname`` is the same normalized hostname carried by the hostname fact.
+    ``path`` is either a canonical safe *ASCII* encoded path that always begins
+    with ``/`` or :data:`REDACTED_PATH_MARKER`.  Scheme, user information,
+    explicit port, query, fragment, proxy detail, credentials, and caller
+    secrets are excluded by construction; percent-encoded content is never
+    decoded into active text; and every raw non-ASCII character (including
+    bidi and format controls such as U+202E) is UTF-8 percent-encoded, so no
+    active Unicode control can appear in ``path`` or ``text``.  ``text`` is
+    the renderable ``hostname + path`` form.
+
+    The fact is local-presentation metadata only: it MUST NOT enter the
+    external SDK DTO, verification or assembler evidence, persistence, or any
+    semantic identity.
+    """
+
+    hostname: str
+    path: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.hostname, str) or not self.hostname:
+            raise ValueError("hostname must be a nonempty string")
+        if not isinstance(self.path, str) or not self.path.startswith("/"):
+            raise ValueError("path must be an absolute encoded path")
+        # A canonical safe path is ASCII: raw C0/DEL controls and every
+        # non-ASCII character (including bidi and format controls such as
+        # U+202E) must have been percent-encoded before the fact is built, so
+        # active Unicode controls can never reach ``path`` or ``text``.
+        if not self.path.isascii() or any(
+            character < " " or character == "\x7f" for character in self.path
+        ):
+            raise ValueError("path must be a terminal-safe ASCII encoded path")
+
+    @property
+    def text(self) -> str:
+        """Return the renderable ``hostname + path`` presentation value."""
+        return f"{self.hostname}{self.path}"
 
 
 _SCHEME_CHAR_CLASS = r"[A-Za-z0-9+.\-]"
@@ -99,6 +155,28 @@ _URL_START_RE = re.compile(
 _HOSTNAME_OK_RE = re.compile(r"[a-z0-9._:\-]+")
 _TERMINATOR_CHARS = frozenset(" \t\r\n\f\v\"'`<>|\\^{}")
 _FEED_SLICE_BYTES = 4096
+
+#: RFC 3986 unreserved bytes decode to text; every other percent escape stays
+#: encoded (with uppercase hex) so percent-encoded controls never become active.
+_UNRESERVED_CHARS = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~"
+)
+#: RFC 3986 ``pchar`` plus ``/``: the ASCII bytes a canonical safe path keeps
+#: literal.  Every other ASCII byte is percent-encoded, and every non-ASCII
+#: character -- including Unicode bidi and format controls such as U+202E -- is
+#: UTF-8 percent-encoded with uppercase hex so it can never stay active.
+_PATH_SAFE_ASCII = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "abcdefghijklmnopqrstuvwxyz"
+    "0123456789"
+    "-._~"
+    "!$&'()*+,;="
+    ":@/"
+)
+#: Raw C0, DEL, and C1 controls are unsafe whenever they survive to a path.
+_CONTROL_CODES = frozenset(
+    [*range(0x00, 0x20), 0x7F, *range(0x80, 0xA0)]
+)
 
 #: Authority after any user information, with an optional numeric port.  A
 #: trailing colon or a non-numeric port is malformed, not merely incomplete.
@@ -396,26 +474,199 @@ def _decode_percent(text: str) -> str | None:
         return None
 
 
-def _candidate_host(candidate: str) -> str | None:
-    """Return the normalized host of *candidate*, decoding encoded URLs.
+def _candidate_url_layer(candidate: str) -> str | None:
+    """Return the first candidate layer whose host normalizes safely.
 
-    Literal URLs are normalized directly.  Otherwise percent-decoding is
-    applied in bounded repeated passes (the same bound as URL detection), and
-    a host fact is emitted only for the first layer that normalizes safely.
+    Literal URLs are accepted directly.  Otherwise percent-decoding is applied
+    in bounded repeated passes (the same bound as URL detection), and a layer
+    is accepted only when its host normalizes safely.  Returning the layer --
+    not just the host -- lets host/path derivation read the same encoded path
+    that produced the host fact.
     """
-    host = _normalized_host(candidate)
-    if host is not None:
-        return host
+    if _normalized_host(candidate) is not None:
+        return candidate
     current = candidate
     for _ in range(URL_DECODE_LAYER_LIMIT):
         decoded = _decode_percent(current)
         if decoded is None or decoded == current:
             return None
-        host = _normalized_host(decoded)
-        if host is not None:
-            return host
+        if _normalized_host(decoded) is not None:
+            return decoded
         current = decoded
     return None
+
+
+def _candidate_host(candidate: str) -> str | None:
+    """Return the normalized host of *candidate*, decoding encoded URLs."""
+    layer = _candidate_url_layer(candidate)
+    if layer is None:
+        return None
+    return _normalized_host(layer)
+
+
+def _percent_encode_utf8(character: str) -> str | None:
+    """Return the uppercase UTF-8 percent-encoding of *character*.
+
+    Returns ``None`` for text that cannot be UTF-8 encoded (such as a lone
+    surrogate), which fails the path closed.
+    """
+    try:
+        payload = character.encode("utf-8")
+    except UnicodeEncodeError:
+        return None
+    return "".join(f"%{byte:02X}" for byte in payload)
+
+
+def _normalize_percent_encoding(path: str) -> str | None:
+    """Return *path* with canonical terminal-safe percent-encoding, or ``None``.
+
+    Percent escapes must be complete ``%XX`` units.  An escape for an RFC 3986
+    unreserved byte decodes to text; every other escape -- including
+    percent-encoded controls -- stays encoded with uppercase hex digits so it
+    can never become active terminal text.  A literal RFC 3986 path character
+    is kept verbatim, while every other ASCII byte and every non-ASCII
+    character (including Unicode bidi and format controls such as U+202E) is
+    percent-encoded from its UTF-8 bytes with uppercase hex.  A trailing
+    partial escape, an invalid escape, or unencodable text fails closed.
+    """
+    out: list[str] = []
+    index = 0
+    length = len(path)
+    while index < length:
+        character = path[index]
+        if character == "%":
+            if index + 2 >= length:
+                return None
+            pair = path[index + 1 : index + 3]
+            if _HEX_PAIR_RE.fullmatch(pair) is None:
+                return None
+            decoded = chr(int(pair, 16))
+            if decoded in _UNRESERVED_CHARS:
+                out.append(decoded)
+            else:
+                out.append("%" + pair.upper())
+            index += 3
+            continue
+        if character in _PATH_SAFE_ASCII:
+            out.append(character)
+        else:
+            encoded = _percent_encode_utf8(character)
+            if encoded is None:
+                return None
+            out.append(encoded)
+        index += 1
+    return "".join(out)
+
+
+def _remove_dot_segments(path: str) -> str:
+    """Apply RFC 3986 section 5.2.4 dot-segment removal to an encoded path."""
+    output = ""
+    while path:
+        if path.startswith("../"):
+            path = path[3:]
+        elif path.startswith("./"):
+            path = path[2:]
+        elif path.startswith("/./"):
+            path = "/" + path[3:]
+        elif path == "/.":
+            path = "/"
+        elif path.startswith("/../"):
+            path = "/" + path[4:]
+            output = output.rpartition("/")[0]
+        elif path == "/..":
+            path = "/"
+            output = output.rpartition("/")[0]
+        elif path in (".", ".."):
+            path = ""
+        else:
+            slash = path.find("/", 1) if path.startswith("/") else path.find("/")
+            if slash == -1:
+                output += path
+                path = ""
+            else:
+                output += path[:slash]
+                path = path[slash:]
+    return output
+
+
+def _path_contains_secret(
+    path: str, secrets: tuple[str, ...]
+) -> bool:
+    """Whether *path* exposes *secrets* in any bounded decoded layer.
+
+    The original encoded path and each bounded percent-decoded layer are
+    compared case-insensitively against every registered secret, mirroring the
+    conservative hostname suppression rules so a secret-bearing path can never
+    be disclosed.  Over-suppression is acceptable; disclosure is not.
+    """
+    if not secrets:
+        return False
+    layers = {path.lower()}
+    current = path
+    for _ in range(URL_DECODE_LAYER_LIMIT):
+        if "%" not in current:
+            break
+        decoded = _decode_percent(current)
+        if decoded is None or decoded == current:
+            break
+        current = decoded
+        layers.add(current.lower())
+    for secret in secrets:
+        if not secret:
+            continue
+        lowered = secret.lower()
+        for layer in layers:
+            if lowered in layer or layer in lowered:
+                return True
+    return False
+
+
+def _canonical_safe_path(path: str, secrets: tuple[str, ...]) -> str | None:
+    """Return the canonical safe encoded path, or ``None`` when unsafe.
+
+    Raw terminal controls, incomplete or invalid percent escapes, and
+    secret-bearing content all fail closed.  An empty path becomes ``/``.
+    Raw non-ASCII text is UTF-8 percent-encoded rather than kept active, so the
+    result is always ASCII.  Confidentiality is checked on the original path,
+    each bounded decoded layer, *and* the canonicalized result, since
+    canonicalization can both create and erase a secret.
+    """
+    if any(ord(character) in _CONTROL_CODES for character in path):
+        return None
+    normalized = _normalize_percent_encoding(path)
+    if normalized is None:
+        return None
+    if _path_contains_secret(path, secrets):
+        return None
+    canonical = _remove_dot_segments(normalized)
+    if not canonical.startswith("/"):
+        canonical = "/" + canonical
+    # Recheck the canonical path: dot-segment removal and unreserved percent
+    # decoding can *create* a secret that neither the original encoded path nor
+    # an intermediate layer contained (`/sec/x/../ret` -> `/sec/ret`), so the
+    # confidentiality check must also run after canonicalization.  The check on
+    # the original path is retained because canonicalization can equally erase
+    # a secret-bearing segment that must still trigger redaction.
+    if _path_contains_secret(canonical, secrets):
+        return None
+    return canonical
+
+
+def _safe_host_path(
+    layer: str, hostname: str, secrets: tuple[str, ...]
+) -> SafeHostPath:
+    """Derive the bounded host/path fact for one safe URL layer.
+
+    The path always fails closed to :data:`REDACTED_PATH_MARKER` rather than
+    omitting the fact, so a safe host remains visible when only its path is
+    unsafe.
+    """
+    try:
+        raw_path = urllib.parse.urlsplit(layer).path
+    except ValueError:
+        return SafeHostPath(hostname, REDACTED_PATH_MARKER)
+    canonical = _canonical_safe_path(raw_path, secrets)
+    return SafeHostPath(hostname, canonical or REDACTED_PATH_MARKER)
 
 
 def _explicit_authority_port(authority: str) -> int | None:
@@ -677,6 +928,7 @@ class DiagnosticProjector:
         self._overflow = False
         self._eof = False
         self._hostnames: list[str] = []
+        self._host_paths: list[SafeHostPath] = []
         self._url_identity = url_identity
         self._fingerprints: list[str] = []
 
@@ -759,15 +1011,34 @@ class DiagnosticProjector:
         """Unconsumed ordered URL fingerprints, with multiplicity preserved."""
         return tuple(self._fingerprints)
 
+    @property
+    def host_paths(self) -> tuple[SafeHostPath, ...]:
+        """Unconsumed normalized host/path facts, in first-occurrence order.
+
+        These are internal-presentation metadata only.  A streaming consumer
+        drains them with :meth:`take_host_paths` so the projector never retains
+        completed-line facts, and they are deliberately absent from the
+        external SDK DTO and from every evidence, persistence, or semantic
+        identity path.
+        """
+        return tuple(self._host_paths)
+
+    def take_host_paths(self) -> tuple[SafeHostPath, ...]:
+        """Return and clear the host/path facts extracted since the last call."""
+        facts = tuple(self._host_paths)
+        self._host_paths = []
+        return facts
+
     def take_facts(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
         """Return and clear the facts extracted since the previous call.
 
         Yields ``(hostnames, fingerprints)``.  Hostnames are deduplicated
         within the accumulated window; fingerprints keep their order and
-        multiplicity.  Draining keeps a long-running consumer from retaining
-        the metadata history of already-completed diagnostics, while a caller
-        that never drains (such as :func:`sanitize_diagnostic_text` and
-        :func:`project_structured_diagnostic`) still observes the complete
+        multiplicity.  Host/path facts are drained separately with
+        :meth:`take_host_paths`.  Draining keeps a long-running consumer from
+        retaining the metadata history of already-completed diagnostics, while
+        a caller that never drains (such as :func:`sanitize_diagnostic_text`
+        and :func:`project_structured_diagnostic`) still observes the complete
         set for one diagnostic.
         """
         facts = (tuple(self._hostnames), tuple(self._fingerprints))
@@ -875,10 +1146,18 @@ class DiagnosticProjector:
         return chunks
 
     def _sanitize_candidate(self, candidate: str) -> str:
-        host = _candidate_host(candidate)
-        if host is not None and not _host_contains_secret(host, self._secrets):
+        layer = _candidate_url_layer(candidate)
+        host = _normalized_host(layer) if layer is not None else None
+        if (
+            layer is not None
+            and host is not None
+            and not _host_contains_secret(host, self._secrets)
+        ):
             if host not in self._hostnames:
                 self._hostnames.append(host)
+            fact = _safe_host_path(layer, host, self._secrets)
+            if fact not in self._host_paths:
+                self._host_paths.append(fact)
             if self._url_identity is not None:
                 digest_input = _canonical_url_identity(candidate)
                 if digest_input is not None:
@@ -900,6 +1179,21 @@ def sanitize_diagnostic_text(
     chunks = list(projector.feed_text(text))
     chunks.extend(projector.finish())
     return "".join(chunks), projector.hostnames
+
+
+def sanitize_host_paths(
+    text: str, secrets: Sequence[str] = ()
+) -> tuple[SafeHostPath, ...]:
+    """Return the ordered internal host/path facts for complete *text*.
+
+    Pure and output-policy independent, like :func:`sanitize_diagnostic_text`.
+    The result is local-presentation metadata only and is deliberately not part
+    of any external SDK event, evidence, persistence, or semantic identity.
+    """
+    projector = DiagnosticProjector(secrets)
+    chunks = list(projector.feed_text(text))
+    chunks.extend(projector.finish())
+    return projector.host_paths
 
 
 def project_structured_diagnostic(
@@ -1062,13 +1356,16 @@ __all__ = [
     "OVERSIZED_TOKEN_MARKER",
     "PENDING_LIMIT_BYTES",
     "PI_RELEASE_ASSET_NAMES",
+    "REDACTED_PATH_MARKER",
     "REVIEWED_ARTIFACT_NAMES",
     "DiagnosticLogicalResource",
     "DiagnosticProjector",
     "DiagnosticResourceKind",
+    "SafeHostPath",
     "SessionUrlIdentity",
     "project_exception_type_chain",
     "project_host_acquisition_failure",
     "project_structured_diagnostic",
     "sanitize_diagnostic_text",
+    "sanitize_host_paths",
 ]

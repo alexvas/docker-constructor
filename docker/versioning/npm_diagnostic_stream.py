@@ -301,6 +301,10 @@ class NpmDiagnosticStream:
         never retain metadata for completed lines.
         """
         hostnames, fingerprints = self._projector.take_facts()
+        # Host/path facts are internal-presentation metadata.  Binding the one
+        # selected local representation is Phase 6 work; draining them here
+        # keeps the projector's per-line metadata bounded in the meantime.
+        self._projector.take_host_paths()
         for hostname in hostnames:
             # Deduplicate within the line only; the same host is re-attached
             # on any subsequent line that contains it.
