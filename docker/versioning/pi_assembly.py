@@ -45,6 +45,8 @@ from docker.versioning.diagnostic_projection import (
     project_host_acquisition_failure,
 )
 from docker.versioning.host_progress import (
+    HostDiagnosticClassification,
+    HostDiagnosticPrefix,
     HostDiagnosticStream,
     HostEventSink,
     InternalDirectHostEventSink,
@@ -260,7 +262,88 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
     session_identity = SessionUrlIdentity()
     activity = HostAssemblyActivity(request.event_sink)
 
+    #: Provisional prefix text accumulated per stream for the internal
+    #: presentation route.  Each emitted snapshot is self-contained, so
+    #: moving a prefix event never loses an earlier committed segment.
+    prefix_buffers: dict[str, list[str]] = {}
+
+    def _admit_prefix(
+        chunk, *, text: str, finalized: bool, overflowed: bool
+    ) -> None:
+        """Route one presentation-only prefix to the internal actor only."""
+        if internal_sink is None:
+            return
+        prefix = HostDiagnosticPrefix(
+            phase=HostPhase.LOCKED_ASSEMBLY,
+            step=HostStep.NPM_EXECUTION,
+            stream=HostDiagnosticStream(chunk.stream),
+            text=text,
+            logical_resource=activity.current_container_name,
+            finalized=finalized,
+            overflowed=overflowed,
+        )
+        try:
+            internal_sink.admit_prefix(prefix)
+        except Exception:
+            # Best-effort live presentation never affects assembly.
+            pass
+
+    def _emit_overflow_diagnostic(chunk) -> None:
+        """Emit one bounded safe truncation line to an external SDK sink.
+
+        An oversized line is not a complete npm diagnostic: it is classified
+        as a neutral status and carries no hostname or URL-fingerprint
+        metadata, so nothing derived from the discarded suffix escapes and no
+        warning, retry, timeout, error, or npm-fetch event can be inferred
+        from the incomplete text.
+        """
+        emit(
+            request.event_sink,
+            HostStructuredDiagnostic(
+                phase=HostPhase.LOCKED_ASSEMBLY,
+                step=HostStep.NPM_EXECUTION,
+                stream=HostDiagnosticStream(chunk.stream),
+                classification=HostDiagnosticClassification.STATUS,
+                text=chunk.text,
+                hostnames=(),
+                logical_resource=activity.current_container_name,
+                url_fingerprints=(),
+            ),
+        )
+
     def _structured_sink(chunk) -> None:
+        if not chunk.finalized:
+            # A committed prefix is not a complete npm diagnostic: it reaches
+            # only the authorized internal presentation actor and is never
+            # routed to an external SDK callback.
+            if internal_sink is None:
+                return
+            buffer = prefix_buffers.setdefault(chunk.stream, [])
+            buffer.append(chunk.text)
+            _admit_prefix(
+                chunk,
+                text="".join(buffer),
+                finalized=False,
+                overflowed=chunk.overflowed,
+            )
+            return
+        # A finalized line ends the logical record; its prefix snapshot is no
+        # longer needed.
+        prefix_buffers.pop(chunk.stream, None)
+        if chunk.overflowed:
+            if internal_sink is not None:
+                # The actor already displayed the committed prefix and the
+                # overflow marker provisionally; it only needs the record
+                # boundary so it never renders the line twice.
+                _admit_prefix(
+                    chunk,
+                    text=chunk.text,
+                    finalized=True,
+                    overflowed=True,
+                )
+                return
+            _emit_overflow_diagnostic(chunk)
+            return
         emit(
             request.event_sink,
             HostStructuredDiagnostic(
@@ -274,6 +357,12 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
                 url_fingerprints=chunk.url_fingerprints,
             ),
         )
+
+    internal_sink = (
+        request.event_sink
+        if isinstance(request.event_sink, InternalDirectHostEventSink)
+        else None
+    )
 
     # Only the nominal facade-owned inbox adapter is safe for reader-thread
     # direct admission. Arbitrary SDK callbacks remain behind the dispatcher.

@@ -264,6 +264,43 @@ class HostStructuredDiagnostic:
 
 
 @dataclass(frozen=True)
+class HostDiagnosticPrefix:
+    """Internal presentation-only committed prefix of one diagnostic line.
+
+    A committed prefix is terminal-safe projected text released before its
+    record boundary.  It is never a complete npm diagnostic: it carries no
+    classification, normalized hostnames, or URL fingerprints, and
+    complete-line parsing, classification, identity, grouping, SDK delivery,
+    and durable ``lines`` output MUST NOT consume it.
+
+    ``finalized`` marks the provisional line's record boundary when no
+    complete diagnostic will follow -- an oversized line truncated with the
+    fixed overflow marker.  ``overflowed`` marks that the accumulated text was
+    truncated by the bounded line limit.  This event stays inside the facade
+    presentation actor and is deliberately absent from :data:`HostBuildEvent`,
+    the external SDK event model.
+    """
+
+    phase: HostPhase
+    step: HostStep
+    stream: HostDiagnosticStream
+    text: str
+    logical_resource: str | None = None
+    finalized: bool = False
+    overflowed: bool = False
+
+    def __post_init__(self) -> None:
+        _require_member(self.phase, HostPhase, "phase")
+        _require_member(self.step, HostStep, "step")
+        _require_member(self.stream, HostDiagnosticStream, "stream")
+        if not isinstance(self.text, str):
+            raise TypeError("diagnostic prefix text must be a string")
+        _require_flag(self.finalized, "finalized")
+        _require_flag(self.overflowed, "overflowed")
+        require_approved_logical_resource(self.logical_resource, "logical resource")
+
+
+@dataclass(frozen=True)
 class HostFailureContext:
     """Structured, presentation-neutral context for one host failure report.
 
@@ -312,6 +349,11 @@ HostOperationalEvent = (
     | HostStructuredDiagnostic
 )
 HostBuildEvent = HostPhaseEvent | HostDiagnosticEvent | HostOperationalEvent
+
+#: Internal presentation-actor event union.  ``HostDiagnosticPrefix`` is
+#: intentionally excluded from :data:`HostBuildEvent` so external SDK callbacks
+#: can never observe a provisional prefix.
+HostPresentationEvent = HostBuildEvent | HostDiagnosticPrefix
 HostEventSink = Callable[[HostBuildEvent], None]
 
 
@@ -419,8 +461,16 @@ class InternalDirectHostEventSink:
 
     This intentionally has no attribute-based or structural equivalent:
     request normalization authorizes direct admission only for instances of
-    this internal type.
+    this internal type.  Besides ordinary host events, the adapter owns one
+    presentation-only entry point for a committed diagnostic prefix, which is
+    never routed to external SDK callbacks.
     """
+
+    def __call__(self, event: HostBuildEvent) -> None:
+        raise NotImplementedError
+
+    def admit_prefix(self, prefix: HostDiagnosticPrefix) -> bool:
+        raise NotImplementedError
 
 
 class GuardedHostEventSink:

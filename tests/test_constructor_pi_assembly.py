@@ -13,6 +13,7 @@ import hashlib
 import json
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -37,12 +38,16 @@ from docker.versioning.host_presentation import (
     PresentationSelection,
 )
 from docker.versioning.host_progress import (
-    GuardedHostEventSink, HostDiagnosticClassification, HostDiagnosticStream,
-    HostPhase, HostPhaseEvent, HostPhaseState, HostStep,
+    GuardedHostEventSink, HostDiagnosticClassification, HostDiagnosticPrefix,
+    HostDiagnosticStream, HostPhase, HostPhaseEvent, HostPhaseState, HostStep,
     HostStructuredDiagnostic, InternalDirectHostEventSink,
     lookup_host_failure,
 )
 from docker.npm_environment.streaming import StreamChunk
+from docker.npm_environment.streaming import (
+    DIAGNOSTIC_LINE_LIMIT_BYTES,
+    OVERSIZED_DIAGNOSTIC_MARKER,
+)
 from docker.npm_environment.errors import LockedNpmError
 from docker.npm_environment.preflight import _parse_install_package
 from docker.npm_environment import (
@@ -524,6 +529,389 @@ class TestFacadeStreamingNormalization(unittest.TestCase):
         self.assertEqual(1, dispatcher_calls)
         self.assertTrue(
             any(isinstance(event, HostStructuredDiagnostic) for event in delivered)
+        )
+
+
+class _RecordingPresentationRenderer:
+    """Renderer recording worker calls and signalling provisional visibility."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[object, ...]] = []
+        self.slot_visible = threading.Event()
+        self.marker_visible = threading.Event()
+        self.marker_durable = threading.Event()
+
+    def set_status(self, text: str) -> None:
+        self.calls.append(("status", text))
+
+    def set_slot(self, text: str) -> None:
+        self.calls.append(("slot", text))
+        self.slot_visible.set()
+        if OVERSIZED_DIAGNOSTIC_MARKER in text:
+            self.marker_visible.set()
+
+    def clear_slot(self) -> None:
+        self.calls.append(("clear_slot",))
+
+    def clear_status(self) -> None:
+        self.calls.append(("clear_status",))
+
+    def clear_all(self) -> None:
+        self.calls.append(("clear_all",))
+
+    def durable(self, text: str) -> None:
+        self.calls.append(("durable", text))
+        if OVERSIZED_DIAGNOSTIC_MARKER in text:
+            self.marker_durable.set()
+
+    def finalize_diagnostic(
+        self, text: str, *, restore_status: str | None
+    ) -> None:
+        self.calls.append(("finalize", text))
+
+
+def _durable_text(calls: list[tuple[object, ...]]) -> str:
+    return "\n".join(
+        str(call[1]) for call in calls if call[0] == "durable"
+    )
+
+
+class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
+    """Task 2.10/2.11 -- the production presentation route shows prefixes.
+
+    Exercises the real path
+    ``NpmDiagnosticStream -> collect_streams -> pi_assembly._structured_sink
+    -> host event sink -> presentation actor -> renderer``.
+    """
+
+    def _materialize(self, event_sink, stdout_read, captures):
+        version, package, lock = _release_fixture_for_projection()
+        source = PiReleaseSource(
+            package=PI_PACKAGE,
+            release_repository="earendil-works/pi",
+            release_tag_prefix="v",
+        )
+        urls = derive_pi_release_urls(source, version)
+        transport = FakePiReleaseTransport(urls, package=package, lock=lock)
+        build_request = BuildRequest(
+            inventory_path="docker-constructor.toml",
+            project_root=_REPO,
+            event_sink=event_sink,
+        )
+        request = PiAssemblyRequest(
+            projection=_projection(),
+            transport=transport,
+            cache_root=Path(tempfile.mkdtemp()),
+            executor=SimpleNamespace(run=lambda argv: None),
+            event_sink=build_request.event_sink,
+        )
+
+        def fake_assemble(*, sink, stream_factory=None, **kwargs):
+            captures.append(
+                npm_streaming.collect_streams(
+                    stdout_read=stdout_read,
+                    stderr_read=lambda _size: b"",
+                    secrets=(),
+                    sink=sink,
+                    stream_factory=stream_factory,
+                )
+            )
+            env_root = assembled_pi_tree()
+            return SimpleNamespace(
+                environment_root=env_root,
+                tree_digest=build_tree_manifest(env_root).digest,
+                evidence_digest="e" * 64,
+                output_identity="o" * 64,
+                evidence_path=_evidence_path(),
+            )
+
+        with patch.object(
+            pi_assembly, "assemble_environment", side_effect=fake_assemble
+        ):
+            return materialize_pi(request)
+
+    def test_no_newline_prefix_is_visible_before_the_record_boundary(self):
+        renderer = _RecordingPresentationRenderer()
+        session = HostPresentationSession(
+            renderer,
+            PresentationPlan(
+                HostPresentationMode.INTERACTIVE,
+                PresentationSelection.LIVE,
+            ),
+        )
+        captures: list = []
+        sent = {"prefix": False, "newline": False}
+        snapshot: dict = {}
+
+        def stdout_read(_size):
+            if not sent["prefix"]:
+                sent["prefix"] = True
+                return b"npm warn partial"
+            if not sent["newline"]:
+                # The committed prefix must reach the renderer before the
+                # record boundary is released.
+                self.assertTrue(renderer.slot_visible.wait(5.0))
+                snapshot["calls"] = list(renderer.calls)
+                sent["newline"] = True
+                return b"\n"
+            return b""
+
+        try:
+            self._materialize(session.sink, stdout_read, captures)
+        finally:
+            session.shutdown()
+
+        self.assertTrue(renderer.slot_visible.is_set())
+        # The diagnostic line itself must not have been written durably or
+        # finalized before its record boundary; lifecycle lines may appear.
+        before_durable = _durable_text(snapshot["calls"])
+        self.assertNotIn("npm warn partial", before_durable)
+        self.assertFalse(
+            any(call[0] == "finalize" for call in snapshot["calls"])
+        )
+        # The complete line is finalized exactly once and the retained tail
+        # carries it exactly once.
+        finalizes = [
+            call[1] for call in renderer.calls if call[0] == "finalize"
+        ]
+        self.assertEqual(["npm warn partial"], finalizes)
+        self.assertEqual(
+            captures[0].stdout_tail.count("npm warn partial"), 1
+        )
+
+    def test_external_callback_receives_only_the_finalized_diagnostic(self):
+        delivered: list = []
+        chunks = iter((b"npm warn partial\n", b""))
+
+        def stdout_read(_size):
+            return next(chunks)
+
+        self._materialize(delivered.append, stdout_read, [])
+
+        structured = [
+            event
+            for event in delivered
+            if isinstance(event, HostStructuredDiagnostic)
+        ]
+        self.assertEqual(1, len(structured))
+        self.assertEqual("npm warn partial", structured[0].text)
+        # A committed prefix must never reach an external SDK callback.
+        self.assertFalse(
+            any(
+                isinstance(event, HostDiagnosticPrefix)
+                for event in delivered
+            )
+        )
+
+    def test_external_overflow_is_one_bounded_safe_truncation_after_the_boundary(self):
+        delivered: list = []
+        limit = DIAGNOSTIC_LINE_LIMIT_BYTES
+        oversized = (
+            b"npm warn leading "
+            + b"pad " * (limit // 4)
+            + b"DISCARDED" * 100
+        )
+        state = {"stage": 0}
+        before: list = []
+
+        def stdout_read(_size):
+            if state["stage"] == 0:
+                state["stage"] = 1
+                return oversized
+            if state["stage"] == 1:
+                # The committed prefix and marker were emitted provisionally;
+                # no external event may arrive before the record boundary.
+                before.extend(delivered)
+                state["stage"] = 2
+                return b"\n"
+            if state["stage"] == 2:
+                state["stage"] = 3
+                return b"npm warn recovered\n"
+            return b""
+
+        self._materialize(delivered.append, stdout_read, [])
+
+        # No provisional prefix and no provisional line reached the SDK before
+        # the oversized line was finalized.
+        self.assertEqual(
+            [],
+            [
+                event
+                for event in before
+                if isinstance(event, HostStructuredDiagnostic)
+            ],
+        )
+        self.assertFalse(
+            any(
+                isinstance(event, HostDiagnosticPrefix)
+                for event in delivered
+            )
+        )
+        structured = [
+            event
+            for event in delivered
+            if isinstance(event, HostStructuredDiagnostic)
+        ]
+        overflow = [
+            event
+            for event in structured
+            if OVERSIZED_DIAGNOSTIC_MARKER in event.text
+        ]
+        self.assertEqual(1, len(overflow))
+        event = overflow[0]
+        self.assertIn("npm warn leading", event.text)
+        self.assertTrue(event.text.endswith(OVERSIZED_DIAGNOSTIC_MARKER))
+        self.assertEqual(1, event.text.count(OVERSIZED_DIAGNOSTIC_MARKER))
+        self.assertNotIn("DISCARDED", event.text)
+        # No discarded-suffix metadata and no incomplete-line inference: the
+        # truncation is delivered as a neutral bounded status diagnostic.
+        self.assertEqual((), event.hostnames)
+        self.assertEqual((), event.url_fingerprints)
+        self.assertEqual(
+            HostDiagnosticClassification.STATUS, event.classification
+        )
+        # A complete line still produces exactly one finalized diagnostic.
+        recovered = [
+            item for item in structured if "recovered" in item.text
+        ]
+        self.assertEqual(1, len(recovered))
+
+    def test_external_overflow_finalizes_once_at_eof_without_a_second_marker(self):
+        delivered: list = []
+        limit = DIAGNOSTIC_LINE_LIMIT_BYTES
+        oversized = b"npm warn " + b"pad " * (limit // 4) + b"DISCARDED" * 100
+        chunks = iter((oversized, b""))
+
+        def stdout_read(_size):
+            return next(chunks)
+
+        self._materialize(delivered.append, stdout_read, [])
+
+        structured = [
+            event
+            for event in delivered
+            if isinstance(event, HostStructuredDiagnostic)
+        ]
+        self.assertEqual(1, len(structured))
+        self.assertEqual(
+            1, structured[0].text.count(OVERSIZED_DIAGNOSTIC_MARKER)
+        )
+        self.assertNotIn("DISCARDED", structured[0].text)
+
+    def test_overflow_marker_is_visible_in_lines_mode_without_the_suffix(self):
+        renderer = _RecordingPresentationRenderer()
+        session = HostPresentationSession(
+            renderer,
+            PresentationPlan(
+                HostPresentationMode.LINES,
+                PresentationSelection.LIVE,
+            ),
+        )
+        captures: list = []
+        limit = DIAGNOSTIC_LINE_LIMIT_BYTES
+        oversized = b"pad " * (limit // 4) + b"DISCARDED" * 100
+        sent = {"oversized": False, "newline": False}
+        snapshot: dict = {}
+
+        def stdout_read(_size):
+            if not sent["oversized"]:
+                sent["oversized"] = True
+                return oversized
+            if not sent["newline"]:
+                self.assertTrue(renderer.marker_durable.wait(5.0))
+                snapshot["calls"] = list(renderer.calls)
+                sent["newline"] = True
+                return b"\nrecovered line\n"
+            return b""
+
+        try:
+            self._materialize(session.sink, stdout_read, captures)
+        finally:
+            session.shutdown()
+
+        before = _durable_text(snapshot["calls"])
+        self.assertIn(OVERSIZED_DIAGNOSTIC_MARKER, before)
+        self.assertNotIn("DISCARDED", before)
+        joined = _durable_text(renderer.calls)
+        self.assertEqual(joined.count(OVERSIZED_DIAGNOSTIC_MARKER), 1)
+        self.assertNotIn("DISCARDED", joined)
+        self.assertIn("recovered line", joined)
+        tail = captures[0].stdout_tail
+        self.assertEqual(tail.count(OVERSIZED_DIAGNOSTIC_MARKER), 1)
+        self.assertNotIn("DISCARDED", tail)
+
+    def test_internal_overflow_provisional_finalization_is_not_duplicated(self):
+        renderer = _RecordingPresentationRenderer()
+        session = HostPresentationSession(
+            renderer,
+            PresentationPlan(
+                HostPresentationMode.LINES,
+                PresentationSelection.LIVE,
+            ),
+        )
+        captures: list = []
+        limit = DIAGNOSTIC_LINE_LIMIT_BYTES
+        oversized = b"npm warn " + b"pad " * (limit // 4) + b"DISCARDED" * 100 + b"\n"
+        chunks = iter((oversized, b""))
+
+        def stdout_read(_size):
+            return next(chunks)
+
+        try:
+            self._materialize(session.sink, stdout_read, captures)
+        finally:
+            session.shutdown()
+
+        durable = _durable_text(renderer.calls)
+        self.assertEqual(durable.count(OVERSIZED_DIAGNOSTIC_MARKER), 1)
+        self.assertEqual(durable.count("npm warn"), 1)
+        self.assertNotIn("DISCARDED", durable)
+        # The internal actor received the provisional finalization only; it
+        # never also renders an ordinary structured duplicate.
+        self.assertFalse(
+            any(
+                call[0] == "finalize"
+                and OVERSIZED_DIAGNOSTIC_MARKER in str(call[1])
+                for call in renderer.calls
+            )
+        )
+        self.assertEqual(
+            captures[0].stdout_tail.count(OVERSIZED_DIAGNOSTIC_MARKER), 1
+        )
+
+    def test_internal_overflow_interactive_finalizes_once(self):
+        renderer = _RecordingPresentationRenderer()
+        session = HostPresentationSession(
+            renderer,
+            PresentationPlan(
+                HostPresentationMode.INTERACTIVE,
+                PresentationSelection.LIVE,
+            ),
+        )
+        captures: list = []
+        limit = DIAGNOSTIC_LINE_LIMIT_BYTES
+        oversized = b"npm warn " + b"pad " * (limit // 4) + b"DISCARDED" * 100 + b"\n"
+        chunks = iter((oversized, b""))
+
+        def stdout_read(_size):
+            return next(chunks)
+
+        try:
+            self._materialize(session.sink, stdout_read, captures)
+        finally:
+            session.shutdown()
+
+        finalized = [
+            call[1]
+            for call in renderer.calls
+            if call[0] == "finalize"
+        ]
+        self.assertEqual(1, len(finalized))
+        self.assertIn("npm warn", finalized[0])
+        self.assertTrue(finalized[0].endswith(OVERSIZED_DIAGNOSTIC_MARKER))
+        self.assertNotIn("DISCARDED", finalized[0])
+        self.assertEqual(
+            captures[0].stdout_tail.count(OVERSIZED_DIAGNOSTIC_MARKER), 1
         )
 
 

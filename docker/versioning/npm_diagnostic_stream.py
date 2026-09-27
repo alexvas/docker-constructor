@@ -6,18 +6,22 @@ stdout/stderr collector to the shared safe diagnostic projector:
 * every raw stdout/stderr chunk is observed (for diagnostic-silence reset and
   latest-activity tracking) before any redaction, URL projection, line
   assembly, or mailbox admission;
-* decoded text is secret-redacted and URL-sanitized incrementally, so a
-  sensitive token split across decoder/input chunks never reaches the
-  structured live branch or the retained tail;
+* the shared framer decodes UTF-8 incrementally, frames bounded source lines
+  at 64 KiB of decoded source text (before any control expansion), neutralizes
+  terminal controls per line, and only then is the URL/secret projector
+  applied, so a sensitive token split across decoder/input chunks never
+  reaches the structured live branch or the retained tail;
 * normalized hostnames are attached to every structured line that contains
   that host (not only its first occurrence), and ephemeral ordered URL
   fingerprints are attached with multiplicity preserved; both live only on
-  the structured chunks, and the collector drains the projector's fact buffer
-  after each line so completed-line metadata is never retained;
-* decoded diagnostic-line assembly is independently bounded at 64 KiB of
-  UTF-8 text per unterminated line, emits exactly
-  ``[sanitized oversized diagnostic]`` and discards through the next safe
-  boundary, and recovers afterward;
+  the finalized structured line, and the collector drains the projector's
+  fact buffer after each line segment so completed-line metadata is never
+  retained;
+* projected text is released as a non-finalized committed prefix as soon as
+  the decoder, neutralizer, and projector commit it -- before any newline --
+  and the retained per-stream tail is appended from those committed prefixes
+  immediately; the record boundary then emits one finalized line carrying the
+  complete text and the accumulated metadata, without re-appending the text;
 * the retained per-stream tail keeps its existing byte bound and truncation
   semantics, preserves the URL-free sanitized ordering and occurrences without
   grouping, and excludes discarded overflow fragments and host metadata.
@@ -34,9 +38,12 @@ from collections import deque
 from typing import Callable
 
 from docker.npm_environment.streaming import (
-    REDACTED,
+    DIAGNOSTIC_LINE_LIMIT_BYTES,
+    OVERSIZED_DIAGNOSTIC_MARKER,
     StreamChunk,
     TAIL_BYTES,
+    TerminalSafeLineFramer,
+    _OverflowMarker,
 )
 from docker.versioning.diagnostic_identity import SessionUrlIdentity
 from docker.versioning.diagnostic_projection import (
@@ -44,12 +51,6 @@ from docker.versioning.diagnostic_projection import (
     sanitize_diagnostic_text,
 )
 from docker.versioning.host_progress import HostDiagnosticClassification
-
-#: Maximum decoded UTF-8 bytes retained while assembling one diagnostic line.
-DIAGNOSTIC_LINE_LIMIT_BYTES = 64 * 1024
-
-#: Fixed fail-closed marker for a diagnostic line that exceeds the line limit.
-OVERSIZED_DIAGNOSTIC_MARKER = "[sanitized oversized diagnostic]"
 
 _WARNING_RE = re.compile(r"(?i)(?:^|\s)npm\s+warn\b|(?:^|\s)warn(?:ing)?\b")
 _TIMEOUT_RE = re.compile(r"(?i)\btime(?:d)?[ _-]?out\b|\btimeout\b")
@@ -103,18 +104,34 @@ def project_tail(
     The signature matches :func:`docker.npm_environment.streaming.redact_tail`
     so callers can inject it wherever the merely secret-redacted tail was used
     and guarantee that no pre-projection text reaches a returned, attached,
-    persisted, or failure representation.
+    persisted, or failure representation.  The text is decoded, framed, and
+    terminal-neutralized in the same order as the streaming collector.
     """
-    safe, _hostnames = sanitize_diagnostic_text(text, secrets)
+    framer = TerminalSafeLineFramer()
+    neutralized = "".join(framer.feed_text(text))
+    neutralized += "".join(framer.finish())
+    safe, _hostnames = sanitize_diagnostic_text(neutralized, secrets)
     return _bounded_tail(safe, tail_bytes)
 
 
 class NpmDiagnosticStream:
-    """Incremental URL-free projector, bounded line assembler, and bounded tail.
+    """Incremental bounded framer, URL-free projector, and bounded tail.
 
-    ``feed_bytes`` returns one :class:`StreamChunk` per completed diagnostic
-    line (or fixed safe replacement marker).  ``tail`` returns the retained
-    URL-free text with the existing per-stream byte bound.
+    ``feed_bytes`` returns two kinds of :class:`StreamChunk`:
+
+    * a committed safe prefix (``finalized=False``) as soon as the decoder,
+      terminal neutralizer, and URL/secret projector commit projected text --
+      without waiting for a newline -- which is also appended to the retained
+      tail immediately;
+    * a finalized diagnostic line (``finalized=True``) at a newline or at EOF,
+      carrying the complete URL-free line text plus the normalized hostnames
+      and ordered URL fingerprints gathered while that logical line was open.
+
+    A committed prefix is never a complete npm diagnostic: complete-line
+    parsing, classification, identity, and grouping must consume only
+    finalized lines.  ``tail`` returns the retained URL-free text with the
+    existing per-stream byte bound; the finalized line never re-appends its
+    text, so a prefix is retained exactly once.
     """
 
     def __init__(
@@ -136,13 +153,12 @@ class NpmDiagnosticStream:
         if on_chunk is not None and not callable(on_chunk):
             raise TypeError("on_chunk must be callable or None")
         self._stream = stream
+        self._framer = TerminalSafeLineFramer(line_limit_bytes=line_limit)
         self._projector = DiagnosticProjector(secrets, url_identity=fingerprinter)
         self._on_chunk = on_chunk
         self._tail_bytes_limit = tail_bytes
-        self._line_limit = line_limit
         self._line_chars: list[str] = []
-        self._line_bytes = 0
-        self._overflow = False
+        self._line_overflowed = False
         self._eof = False
         self._tail: deque[str] = deque()
         self._tail_byte_count = 0
@@ -154,43 +170,36 @@ class NpmDiagnosticStream:
     # -- public surface -------------------------------------------------
 
     def feed_bytes(self, data: bytes) -> tuple[StreamChunk, ...]:
-        """Observe one raw chunk and return any completed URL-free lines."""
+        """Observe one raw chunk and return committed prefixes and lines."""
         if self._eof:
             raise RuntimeError("stream is already finished")
         if not data:
             return ()
         if self._on_chunk is not None:
             self._on_chunk()
-        # Feed the projector one newline-delimited segment at a time so each
-        # removed URL's normalized host/fingerprint is associated with the
-        # diagnostic line that contained it.  ``0x0A`` is never part of a
-        # multibyte UTF-8 sequence, so splitting the raw bytes is safe.
         chunks: list[StreamChunk] = []
-        start = 0
-        length = len(data)
-        while start < length:
-            newline = data.find(b"\n", start)
-            if newline == -1:
-                chunks.extend(self._feed_segment(data[start:]))
-                break
-            chunks.extend(self._feed_segment(data[start : newline + 1]))
-            start = newline + 1
+        for text in self._framer.feed_bytes(data):
+            chunks.extend(self._emit_neutralized(text))
         return tuple(chunks)
 
     def finish(self, *, abort: bool = False) -> tuple[StreamChunk, ...]:
-        """Flush the projector and finalize any pending line or overflow."""
+        """Flush the framer and projector, finalizing any pending line."""
         if self._eof:
             return ()
         self._eof = True
         chunks: list[StreamChunk] = []
+        for text in self._framer.finish(abort=abort):
+            chunks.extend(self._emit_neutralized(text))
         projected = self._projector.finish(abort=abort)
         self._absorb_projector_facts()
         for text in projected:
-            chunks.extend(self._feed_url_free(text))
-        if self._overflow:
-            chunks.append(self._finish_overflow())
-        elif self._line_chars:
-            chunks.append(self._finalize_line(newline=False))
+            chunks.extend(self._emit_projected(text))
+        if (
+            self._line_chars
+            or self._line_hostnames
+            or self._line_fingerprints
+        ):
+            chunks.append(self._finalize_line())
         return tuple(chunks)
 
     def tail(self) -> str:
@@ -204,76 +213,94 @@ class NpmDiagnosticStream:
 
     @property
     def pending_line_bytes(self) -> int:
-        """Retained decoded diagnostic-line bytes for the current line."""
-        return self._line_bytes
+        """Retained decoded source-line bytes for the current line."""
+        return self._framer.pending_line_bytes
 
     # -- internals ------------------------------------------------------
 
-    def _feed_segment(self, segment: bytes) -> list[StreamChunk]:
-        """Project one newline-delimited raw segment and assemble its lines."""
+    def _emit_neutralized(self, text: str) -> list[StreamChunk]:
+        """Project one already-neutralized source segment and assemble chunks."""
+        if isinstance(text, _OverflowMarker):
+            # The framer appended its one fixed marker for this line: every
+            # chunk of the truncated line is tagged so complete-line consumers
+            # refuse to classify or group it.  A source line that merely
+            # contains the marker's characters is an ordinary ``str``.
+            self._line_overflowed = True
         chunks: list[StreamChunk] = []
-        projected = self._projector.feed_bytes(segment)
-        self._absorb_projector_facts()
-        for text in projected:
-            chunks.extend(self._feed_url_free(text))
+        start = 0
+
+        while start < len(text):
+            newline = text.find("\n", start)
+            end = len(text) if newline == -1 else newline + 1
+            projected = self._projector.feed_text(text[start:end])
+            self._absorb_projector_facts()
+            for projected_text in projected:
+                chunks.extend(self._emit_projected(projected_text))
+            start = end
         return chunks
 
-    def _feed_url_free(self, text: str) -> list[StreamChunk]:
+    def _emit_projected(self, text: str) -> list[StreamChunk]:
+        """Deliver committed safe prefixes and finalized line events.
+
+        Projected text is delivered immediately as a non-finalized committed
+        prefix -- and retained in the bounded tail -- as soon as the projector
+        commits it.  A newline is the record boundary: it is appended to the
+        retained tail, finalizes the accumulated logical line together with its
+        metadata, and resets line-local state.  ``_finalize_line`` never
+        re-appends the line text, so a prefix retained once is not retained
+        twice when the line completes.
+        """
         chunks: list[StreamChunk] = []
-        for character in text:
-            if self._overflow:
-                if character == "\n":
-                    chunks.append(self._finish_overflow())
-                continue
-            if character == "\n":
-                if self._line_chars:
-                    chunks.append(self._finalize_line(newline=True))
-                else:
-                    self._append_tail("\n")
-                    self._reset_line_facts()
-                continue
-            width = len(character.encode("utf-8"))
-            if self._line_bytes + width > self._line_limit:
-                self._begin_overflow()
-                continue
-            self._line_chars.append(character)
-            self._line_bytes += width
+        start = 0
+        while start < len(text):
+            newline = text.find("\n", start)
+            if newline == -1:
+                segment = text[start:]
+                if segment:
+                    chunks.append(self._emit_prefix(segment))
+                break
+            segment = text[start:newline]
+            if segment:
+                chunks.append(self._emit_prefix(segment))
+            self._append_tail("\n")
+            if (
+                self._line_chars
+                or self._line_hostnames
+                or self._line_fingerprints
+            ):
+                chunks.append(self._finalize_line())
+            else:
+                # An empty logical line preserves only its record boundary.
+                self._resync_line_facts()
+            start = newline + 1
         return chunks
 
-    def _begin_overflow(self) -> None:
-        # Discard the already-assembled oversized fragment and everything up to
-        # the next safe newline; the marker is emitted at that boundary.
-        self._line_chars = []
-        self._line_bytes = 0
-        self._resync_line_facts()
-        self._overflow = True
+    def _emit_prefix(self, segment: str) -> StreamChunk:
+        """Accumulate, immediately retain, and return one committed prefix."""
+        self._line_chars.append(segment)
+        self._append_tail(segment)
+        return StreamChunk(
+            self._stream, segment, overflowed=self._line_overflowed,
+            finalized=False,
+        )
 
-    def _finish_overflow(self) -> StreamChunk:
-        self._overflow = False
-        self._append_tail(OVERSIZED_DIAGNOSTIC_MARKER + "\n")
-        self._reset_line_facts()
-        return StreamChunk(self._stream, OVERSIZED_DIAGNOSTIC_MARKER)
-
-    def _finalize_line(self, *, newline: bool) -> StreamChunk:
+    def _finalize_line(self) -> StreamChunk:
         text = "".join(self._line_chars)
         hostnames = tuple(self._line_hostnames)
         fingerprints = tuple(self._line_fingerprints)
+        overflowed = self._line_overflowed
         self._reset_line_facts()
-        self._append_tail(text + ("\n" if newline else ""))
-        return StreamChunk(self._stream, text, hostnames, fingerprints)
+        return StreamChunk(
+            self._stream, text, hostnames, fingerprints, overflowed=overflowed
+        )
 
     def _absorb_projector_facts(self) -> None:
         """Consume newly extracted facts for the current diagnostic line.
 
         The projector's facts are drained on every segment, so its buffers
-        never retain metadata for completed lines.  While the current line is
-        overflowing, incoming facts are discarded alongside its text so the
-        fixed oversized marker carries none of them; a later line resumes
-        normal collection.
+        never retain metadata for completed lines.
         """
         hostnames, fingerprints = self._projector.take_facts()
-        if self._overflow:
-            return
         for hostname in hostnames:
             # Deduplicate within the line only; the same host is re-attached
             # on any subsequent line that contains it.
@@ -285,9 +312,9 @@ class NpmDiagnosticStream:
 
     def _reset_line_facts(self) -> None:
         self._line_chars = []
-        self._line_bytes = 0
         self._line_hostnames = []
         self._line_fingerprints = []
+        self._line_overflowed = False
 
     def _resync_line_facts(self) -> None:
         self._line_hostnames = []

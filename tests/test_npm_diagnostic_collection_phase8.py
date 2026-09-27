@@ -57,7 +57,24 @@ _REDACTED = "<redacted>"
 
 
 def _collect(chunks, *, secrets=(), fingerprinter=None, tail_bytes=TAIL_BYTES):
-    """Feed *chunks* through one stream and return (chunks, tail)."""
+    """Feed *chunks* through one stream and return (finalized lines, tail).
+
+    Only finalized complete-line events are returned; committed prefixes are
+    exercised separately by :func:`_collect_all`.
+    """
+    stream = NpmDiagnosticStream(
+        "stdout", secrets, fingerprinter=fingerprinter, tail_bytes=tail_bytes
+    )
+    live: list[StreamChunk] = []
+    for chunk in chunks:
+        live.extend(stream.feed_bytes(chunk))
+    live.extend(stream.finish())
+    finalized = [chunk for chunk in live if chunk.finalized]
+    return finalized, stream.tail()
+
+
+def _collect_all(chunks, *, secrets=(), fingerprinter=None, tail_bytes=TAIL_BYTES):
+    """Feed *chunks* through one stream and return (all chunks, tail)."""
     stream = NpmDiagnosticStream(
         "stdout", secrets, fingerprinter=fingerprinter, tail_bytes=tail_bytes
     )
@@ -148,16 +165,23 @@ class TestCollectorBranch(unittest.TestCase):
         stream = NpmDiagnosticStream("stdout", ())
         observed: list[int] = []
         live: list[StreamChunk] = []
-        payload = b"npm notice " + b"word " * (20 * 1024)
+        limit = DIAGNOSTIC_LINE_LIMIT_BYTES
+        payload = (
+            b"npm notice "
+            + b"word " * ((limit - 11) // 5)
+            + b"DISCARDME" * 2000
+        )
         for index in range(0, len(payload), 1024):
             live.extend(stream.feed_bytes(payload[index : index + 1024]))
             observed.append(stream.pending_line_bytes)
         live.extend(stream.finish())
-        self.assertLessEqual(max(observed), DIAGNOSTIC_LINE_LIMIT_BYTES)
+        self.assertLessEqual(max(observed), limit)
         joined = "".join(chunk.text for chunk in live)
         self.assertIn(OVERSIZED_DIAGNOSTIC_MARKER, joined)
-        self.assertNotIn("word word word", joined)
-        self.assertNotIn("word word word", stream.tail())
+        # The committed prefix is delivered; only the suffix is discarded.
+        self.assertIn("word word", joined)
+        self.assertNotIn("DISCARDME", joined)
+        self.assertNotIn("DISCARDME", stream.tail())
 
     def test_recovery_after_safe_boundary(self):
         payload = b"npm notice " + b"chunk " * (20 * 1024) + b"\nrecovered line\n"
@@ -207,9 +231,15 @@ class TestBoundedTail(unittest.TestCase):
         self.assertTrue(tail.endswith("npm notice padding line\n"))
 
     def test_tail_excludes_discarded_overflow_fragment(self):
-        payload = b"npm notice " + b"frag " * (20 * 1024) + b"\nok\n"
+        limit = DIAGNOSTIC_LINE_LIMIT_BYTES
+        payload = (
+            b"npm notice "
+            + b"frag " * ((limit - 11) // 5)
+            + b"DISCARDED" * 2000
+            + b"\nok\n"
+        )
         _, tail = _collect([payload])
-        self.assertNotIn("frag frag", tail)
+        self.assertNotIn("DISCARDED", tail)
         self.assertIn(OVERSIZED_DIAGNOSTIC_MARKER, tail)
         self.assertIn("ok", tail)
 
@@ -380,7 +410,11 @@ class TestConsumablePerLineFacts(unittest.TestCase):
         stream = NpmDiagnosticStream("stdout", (), fingerprinter=identity)
         line = b"npm warn see https://registry.example.com/pkg/a\n"
         for _ in range(2000):
-            produced = stream.feed_bytes(line)
+            produced = [
+                chunk
+                for chunk in stream.feed_bytes(line)
+                if chunk.finalized
+            ]
             self.assertEqual(len(produced), 1)
             self.assertEqual(produced[0].hostnames, ("registry.example.com",))
             # The projector was drained for the completed line, so no metadata
@@ -393,14 +427,12 @@ class TestConsumablePerLineFacts(unittest.TestCase):
 
     def test_oversized_url_heavy_line_discards_metadata_and_recovers(self):
         identity = SessionUrlIdentity()
-        # Enough URL-bearing and plain text to exceed the 64 KiB *projected*
-        # line limit, followed by a fresh line that must recover metadata.
-        oversized = (
-            b"npm warn "
-            + b"https://a.example/p " * 100
-            + b"pad " * 20000
-            + b"\n"
-        )
+        limit = DIAGNOSTIC_LINE_LIMIT_BYTES
+        # A plain committed prefix at the bound followed by an oversized
+        # URL-bearing suffix that must be discarded, then a fresh line that
+        # must recover metadata.
+        prefix = b"npm warn " + b"pad " * ((limit - 9) // 4) + b"pad"[: (limit - 9) % 4]
+        oversized = prefix + b" https://a.example/secret" * 100 + b"\n"
         stream = NpmDiagnosticStream("stdout", (), fingerprinter=identity)
         live: list[StreamChunk] = []
         observed_sanitizer: list[int] = []
@@ -412,19 +444,24 @@ class TestConsumablePerLineFacts(unittest.TestCase):
             observed_line.append(stream.pending_line_bytes)
         live.extend(stream.finish())
         self.assertLessEqual(max(observed_sanitizer), 8 * 1024)
-        self.assertLessEqual(max(observed_line), DIAGNOSTIC_LINE_LIMIT_BYTES)
+        self.assertLessEqual(max(observed_line), limit)
+        finalized = [chunk for chunk in live if chunk.finalized]
         markers = [
-            chunk for chunk in live if chunk.text == OVERSIZED_DIAGNOSTIC_MARKER
+            chunk for chunk in finalized if OVERSIZED_DIAGNOSTIC_MARKER in chunk.text
         ]
         self.assertEqual(len(markers), 1)
         # The fixed marker carries none of the discarded line's metadata.
         self.assertEqual(markers[0].hostnames, ())
         self.assertEqual(markers[0].url_fingerprints, ())
         self.assertNotIn(
-            "a.example", [host for chunk in live for host in chunk.hostnames]
+            "a.example", [host for chunk in finalized for host in chunk.hostnames]
         )
         self.assertNotIn("a.example", stream.tail())
-        recovered = [chunk for chunk in live if chunk.text.startswith("npm warn see")]
+        recovered = [
+            chunk
+            for chunk in finalized
+            if chunk.text.startswith("npm warn see")
+        ]
         self.assertEqual(len(recovered), 1)
         self.assertEqual(recovered[0].hostnames, ("b.example",))
         self.assertEqual(len(recovered[0].url_fingerprints), 1)
@@ -599,6 +636,173 @@ class TestCollectionAbortFinalization(unittest.TestCase):
         _assert_no_workers(self)
 
 
+class TestCommittedPrefixDelivery(unittest.TestCase):
+    """Task 2.9/2.10 -- prompt committed-prefix release, structured path.
+
+    The structured stream must expose terminal-safe committed prefixes as soon
+    as the decoder, neutralizer, and projector commit them -- before any
+    newline or ``finish()`` -- while withholding incomplete control
+    sequences, split UTF-8, partial secrets, and unresolved URL candidates.
+    """
+
+    def test_safe_prefix_is_observable_before_newline(self):
+        stream = NpmDiagnosticStream("stdout")
+        chunks = stream.feed_bytes(b"npm warn partial")
+        self.assertTrue(chunks)
+        self.assertTrue(all(not chunk.finalized for chunk in chunks))
+        # The trailing scheme-like word is conservatively withheld as a
+        # possible URL prefix; the already-committed text is released now.
+        self.assertEqual("npm warn ", "".join(chunk.text for chunk in chunks))
+        self.assertEqual(stream.tail(), "npm warn ")
+        self.assertEqual(stream.pending_line_bytes, len(b"npm warn partial"))
+        final = stream.finish()
+        self.assertEqual(
+            "partial",
+            "".join(chunk.text for chunk in final if not chunk.finalized),
+        )
+        self.assertEqual(
+            [chunk.text for chunk in final if chunk.finalized],
+            ["npm warn partial"],
+        )
+        # The withheld suffix is retained exactly once when it is committed.
+        self.assertEqual(stream.tail(), "npm warn partial")
+
+    def test_split_utf8_prefix_releases_only_committed_bytes(self):
+        stream = NpmDiagnosticStream("stdout")
+        first = "".join(
+            chunk.text for chunk in stream.feed_bytes(b"npm \xe2")
+        )
+        self.assertEqual(first, "npm ")
+        second = "".join(
+            chunk.text for chunk in stream.feed_bytes(b"\x82\xac")
+        )
+        self.assertEqual(second, "\u20ac")
+        self.assertEqual(stream.tail(), "npm \u20ac")
+
+    def test_fragmented_terminal_control_releases_only_committed_text(self):
+        stream = NpmDiagnosticStream("stdout")
+        first = "".join(
+            chunk.text for chunk in stream.feed_bytes(b"npm \x1b[31")
+        )
+        self.assertEqual(first, "npm ")
+        self.assertNotIn("\x1b", first)
+        second = "".join(
+            chunk.text
+            for chunk in stream.feed_bytes(b"mred\x1b[0m")
+        )
+        self.assertEqual(second, r"\x1b[31mred\x1b[0m")
+        self.assertNotIn("\x1b", second)
+
+    def test_secret_prefix_is_withheld_until_committed(self):
+        stream = NpmDiagnosticStream("stdout", ("s3cr3t",))
+        first = "".join(
+            chunk.text for chunk in stream.feed_bytes(b"npm token s3c")
+        )
+        self.assertEqual(first, "npm token ")
+        self.assertNotIn("s3c", first)
+        second = "".join(
+            chunk.text
+            for chunk in stream.feed_bytes(b"r3t done\n")
+        )
+        self.assertIn(_REDACTED, second)
+        self.assertNotIn("s3cr3t", second)
+        self.assertNotIn("s3cr3t", stream.tail())
+
+    def test_url_candidate_is_withheld_until_committed(self):
+        identity = SessionUrlIdentity()
+        stream = NpmDiagnosticStream("stdout", (), fingerprinter=identity)
+        first = "".join(
+            chunk.text
+            for chunk in stream.feed_bytes(
+                b"npm see https://registry.example.com"
+            )
+        )
+        self.assertEqual(first, "npm see ")
+        self.assertNotIn("registry.example.com", first)
+        second = "".join(
+            chunk.text for chunk in stream.feed_bytes(b"/pkg done\n")
+        )
+        self.assertNotIn("registry.example.com", second)
+        self.assertIn(_REDACTED, second)
+        self.assertNotIn("registry.example.com", stream.tail())
+
+    def test_finalization_does_not_retain_or_deliver_prefix_twice(self):
+        stream = NpmDiagnosticStream("stdout")
+        all_chunks = list(stream.feed_bytes(b"npm warn one\n"))
+        all_chunks.extend(stream.finish())
+        self.assertEqual(stream.tail(), "npm warn one\n")
+        finalized = [chunk for chunk in all_chunks if chunk.finalized]
+        self.assertEqual([chunk.text for chunk in finalized], ["npm warn one"])
+        prefixes = "".join(
+            chunk.text for chunk in all_chunks if not chunk.finalized
+        )
+        self.assertEqual(prefixes, "npm warn one")
+
+
+class TestCompleteLineConsumers(unittest.TestCase):
+    """Task 2.10 -- complete-line consumers see only finalized lines.
+
+    npm fetch parsing, classification, identity, and grouping are bound to the
+    ``finalized`` record boundary; a committed prefix never becomes a partial
+    diagnostic event, and finalization never rewrites the retained tail.
+    """
+
+    _FIXTURE = (
+        b"npm http fetch GET 200 "
+        b"https://registry.npmjs.org/npm-http-research-fixture/-/"
+        b"npm-http-research-fixture-1.0.0.tgz 15ms (cache miss)\n"
+    )
+
+    def test_partial_prefix_produces_no_complete_line(self):
+        stream = NpmDiagnosticStream("stdout")
+        chunks = stream.feed_bytes(
+            b"npm http fetch GET 200 https://registry.npmjs.org/npm-http"
+        )
+        self.assertTrue(chunks)
+        self.assertTrue(all(not chunk.finalized for chunk in chunks))
+        self.assertEqual(
+            [chunk for chunk in chunks if chunk.finalized], []
+        )
+
+    def test_prefix_then_newline_yields_one_finalized_line(self):
+        stream = NpmDiagnosticStream("stdout")
+        produced = list(stream.feed_bytes(b"npm warn part"))
+        self.assertTrue(produced)
+        self.assertTrue(all(not chunk.finalized for chunk in produced))
+        produced.extend(stream.feed_bytes(b"ial\n"))
+        finalized = [chunk for chunk in produced if chunk.finalized]
+        self.assertEqual([chunk.text for chunk in finalized], ["npm warn partial"])
+        self.assertEqual(stream.tail(), "npm warn partial\n")
+
+    def test_research_fixture_is_one_finalized_event(self):
+        identity = SessionUrlIdentity()
+        all_chunks, _tail = _collect_all(
+            [self._FIXTURE], fingerprinter=identity
+        )
+        finalized = [chunk for chunk in all_chunks if chunk.finalized]
+        self.assertEqual(len(finalized), 1)
+        text = finalized[0].text
+        self.assertIn("npm http fetch GET 200", text)
+        self.assertNotIn("registry.npmjs.org", text)
+        self.assertEqual(finalized[0].hostnames, ("registry.npmjs.org",))
+        self.assertEqual(len(finalized[0].url_fingerprints), 1)
+
+    def test_three_lines_yield_three_finalized_events(self):
+        identity = SessionUrlIdentity()
+        payload = (
+            b"npm warn see https://a.example/one\n"
+            b"npm warn see https://b.example/two\n"
+            b"npm warn see https://a.example/three\n"
+        )
+        live, tail = _collect([payload], fingerprinter=identity)
+        self.assertEqual(len(live), 3)
+        self.assertEqual(
+            [chunk.hostnames for chunk in live],
+            [("a.example",), ("b.example",), ("a.example",)],
+        )
+        self.assertEqual(tail.count("npm warn see"), 3)
+
+
 def _assert_no_workers(testcase: unittest.TestCase) -> None:
     """Assert the collector's reader and dispatcher workers have exited."""
     live = {thread.name for thread in threading.enumerate()}
@@ -608,6 +812,74 @@ def _assert_no_workers(testcase: unittest.TestCase) -> None:
         "npm-sink-dispatcher",
     ):
         testcase.assertNotIn(name, live)
+
+
+class TestOverflowBoundaryTagging(unittest.TestCase):
+    """An oversized line is tagged so it is never classified or grouped."""
+
+    def test_overflow_finalized_line_is_tagged(self):
+        stream = NpmDiagnosticStream("stdout")
+        limit = DIAGNOSTIC_LINE_LIMIT_BYTES
+        prefix = b"pad " * (limit // 4)
+        chunks = list(stream.feed_bytes(prefix + b"DISCARDED" * 100))
+        # The committed prefix and the one fixed marker are already
+        # observable; the record boundary finalizes the truncated line.
+        self.assertTrue(any(chunk.overflowed for chunk in chunks))
+        self.assertEqual(stream.tail().count(OVERSIZED_DIAGNOSTIC_MARKER), 1)
+        chunks.extend(stream.feed_bytes(b"\n"))
+        finalized = [chunk for chunk in chunks if chunk.finalized]
+        self.assertEqual(1, len(finalized))
+        self.assertTrue(finalized[0].overflowed)
+        self.assertIn(OVERSIZED_DIAGNOSTIC_MARKER, finalized[0].text)
+        self.assertNotIn("DISCARDED", finalized[0].text)
+        # Recovery: the following complete line is an ordinary diagnostic.
+        recovered = [
+            chunk
+            for chunk in stream.feed_bytes(b"npm warn ok\n")
+            if chunk.finalized
+        ]
+        self.assertEqual(1, len(recovered))
+        self.assertFalse(recovered[0].overflowed)
+
+    def test_source_text_containing_the_marker_is_not_an_overflow(self):
+        stream = NpmDiagnosticStream("stdout")
+        payload = f"npm warn {OVERSIZED_DIAGNOSTIC_MARKER}\n".encode()
+        finalized = [
+            chunk for chunk in stream.feed_bytes(payload) if chunk.finalized
+        ]
+        self.assertEqual(1, len(finalized))
+        self.assertFalse(finalized[0].overflowed)
+
+    def test_overflow_suffix_and_metadata_never_reach_the_tail(self):
+        identity = SessionUrlIdentity()
+        limit = DIAGNOSTIC_LINE_LIMIT_BYTES
+        prefix = b"pad " * (limit // 4)
+        payload = prefix + b" https://a.example/secret" * 100 + b"\n"
+        live, tail = _collect_all([payload], fingerprinter=identity)
+        finalized = [chunk for chunk in live if chunk.finalized]
+        truncated = [chunk for chunk in finalized if chunk.overflowed]
+        self.assertEqual(1, len(truncated))
+        self.assertEqual(truncated[0].hostnames, ())
+        self.assertEqual(truncated[0].url_fingerprints, ())
+        self.assertNotIn("a.example", tail)
+        self.assertEqual(tail.count(OVERSIZED_DIAGNOSTIC_MARKER), 1)
+
+
+class TestOverflowFinalization(unittest.TestCase):
+    """Stream termination after overflow never emits a second marker."""
+
+    def test_eof_after_overflow_adds_no_second_marker(self):
+        stream = NpmDiagnosticStream("stdout")
+        limit = DIAGNOSTIC_LINE_LIMIT_BYTES
+        prefix = b"pad " * (limit // 4)
+        stream.feed_bytes(prefix + b"DISCARDED" * 100)
+        finalized = [
+            chunk for chunk in stream.finish() if chunk.finalized
+        ]
+        self.assertEqual(1, len(finalized))
+        self.assertTrue(finalized[0].overflowed)
+        self.assertEqual(stream.tail().count(OVERSIZED_DIAGNOSTIC_MARKER), 1)
+        self.assertNotIn("DISCARDED", stream.tail())
 
 
 if __name__ == "__main__":

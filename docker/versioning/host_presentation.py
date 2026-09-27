@@ -34,8 +34,10 @@ from docker.versioning.model import NetworkUrlDisplay
 from docker.versioning.host_progress import (
     HostBuildEvent,
     HostDiagnosticEvent,
+    HostDiagnosticPrefix,
     HostDiagnosticStream,
     HostHeartbeatEvent,
+    HostPresentationEvent,
     InternalDirectHostEventSink,
     HostLastActivityKind,
     HostPhase,
@@ -292,7 +294,7 @@ class AdmittedEvent:
 
     sequence: int
     lane: PresentationLane
-    event: HostBuildEvent | PresentationFinalReport
+    event: HostPresentationEvent | PresentationFinalReport
     acknowledgement: threading.Event | None = None
 
 
@@ -316,7 +318,9 @@ def _is_diagnostic(event: object) -> bool:
 
     Heartbeats and transport-progress updates are replaceable telemetry: losing
     them never means a diagnostic line was suppressed, so they must not inflate
-    the diagnostic omission counter.
+    the diagnostic omission counter.  A provisional prefix is likewise not a
+    diagnostic line: its complete record boundary still follows, so a dropped
+    prefix never warrants an omission notice.
     """
     return isinstance(event, (HostStructuredDiagnostic, HostDiagnosticEvent))
 
@@ -342,6 +346,21 @@ def _supersede_key(event: object) -> tuple[object, ...] | None:
         return ("heartbeat", event.phase, event.step)
     if isinstance(event, HostTransportProgressEvent):
         return ("progress", event.phase, event.step)
+    return None
+
+
+def _prefix_supersede_key(event: object) -> tuple[object, ...] | None:
+    """Replacement key for a replaceable committed diagnostic prefix.
+
+    Only a provisional (non-finalized) prefix is replaceable: a finalized
+    overflow boundary must never be superseded, because it is the only event
+    that ends the provisional display.  Prefixes are best-effort and carry no
+    line history, so replacing a pending prefix of the same stream keeps the
+    bounded inbox from being consumed by redundant provisional updates while
+    the complete finalized line remains authoritative.
+    """
+    if isinstance(event, HostDiagnosticPrefix) and not event.finalized:
+        return ("prefix", event.phase, event.step, event.stream)
     return None
 
 
@@ -415,7 +434,7 @@ class PresentationMailbox:
 
     def admit_control(
         self,
-        event: HostBuildEvent | PresentationFinalReport,
+        event: HostPresentationEvent | PresentationFinalReport,
         *,
         acknowledgement: threading.Event | None = None,
     ) -> bool:
@@ -441,11 +460,30 @@ class PresentationMailbox:
         else:
             self._omission_uncertain = True
 
-    def admit_telemetry(self, event: HostBuildEvent) -> bool:
+    def admit_telemetry(self, event: HostPresentationEvent) -> bool:
         diagnostic = _is_diagnostic(event)
+        supersede = _prefix_supersede_key(event)
         with self._condition:
             if self._closed or self._aborted:
                 return False
+            if supersede is not None:
+                for index, admitted in enumerate(self._queue):
+                    if (
+                        admitted.lane is PresentationLane.TELEMETRY
+                        and _prefix_supersede_key(admitted.event) == supersede
+                    ):
+                        # Replace in place so FIFO ordering relative to the
+                        # finalized record boundary is preserved and the
+                        # bounded inbox is not consumed by redundant
+                        # provisional updates.
+                        self._queue[index] = AdmittedEvent(
+                            admitted.sequence,
+                            PresentationLane.TELEMETRY,
+                            event,
+                        )
+                        self.superseded += 1
+                        self._condition.notify()
+                        return True
             if self._telemetry_count >= self._capacity:
                 self.dropped += 1
                 if diagnostic:
@@ -456,7 +494,7 @@ class PresentationMailbox:
             self._condition.notify()
             return True
 
-    def try_admit(self, event: HostBuildEvent) -> bool:
+    def try_admit(self, event: HostPresentationEvent) -> bool:
         return self.admit_control(event) if _is_control(event) else self.admit_telemetry(event)
 
     def consume_omission_notice(self) -> str | None:
@@ -542,6 +580,17 @@ class HostEventEnqueueAdapter(InternalDirectHostEventSink):
     def __call__(self, event: HostBuildEvent) -> None:
         self._mailbox.try_admit(event)
 
+    def admit_prefix(self, prefix: HostDiagnosticPrefix) -> bool:
+        """Admit one presentation-only committed prefix.
+
+        This entry point is reachable only through the nominal internal sink
+        marker, so an external SDK callback can never observe a prefix.  It
+        performs bounded non-blocking admission and returns.
+        """
+        if not isinstance(prefix, HostDiagnosticPrefix):
+            raise TypeError("prefix must be a HostDiagnosticPrefix")
+        return self._mailbox.try_admit(prefix)
+
 
 # --------------------------------------------------------------------------
 # Renderer protocol
@@ -614,6 +663,14 @@ class HostPresentationState:
         self._received_bytes: int | None = None
         self._group_hostnames: tuple[str, ...] = ()
         self._rendering_failed = False
+        # Committed prefix snapshot of the current unterminated line, per
+        # stream.  They are presentation-only provisional state: never
+        # coalesced, classified, retained, or delivered to external SDK
+        # callbacks.
+        self._provisional: dict[HostDiagnosticStream, str] = {}
+        # Streams whose truncated provisional line was already rendered
+        # durably in ``lines`` mode at the overflow boundary.
+        self._overflow_presented: set[HostDiagnosticStream] = set()
 
     @property
     def mode(self) -> HostPresentationMode:
@@ -653,6 +710,8 @@ class HostPresentationState:
             self._rendering_failed = True
             self._coalescer.finalize()
             self._group_hostnames = ()
+            self._provisional.clear()
+            self._overflow_presented.clear()
             self._status = None
             self._refresh_deadline = None
             self._window_deadline = None
@@ -675,6 +734,74 @@ class HostPresentationState:
             )
         )
 
+    # -- provisional committed prefixes -----------------------------------
+
+    def admit_prefix(self, prefix: HostDiagnosticPrefix) -> None:
+        """Present one committed prefix, or finalize a truncated line.
+
+        A provisional prefix updates only live presentation.  It never enters
+        the complete-line coalescer, is never classified or identity-matched,
+        and is never written as a durable ``lines`` record before its record
+        boundary.  In interactive mode it replaces the mutable diagnostic
+        slot immediately; in ``lines`` mode it stays pending until the record
+        boundary, except that an overflow marker is made visible at once.
+        """
+        if self._mode is HostPresentationMode.OFF:
+            return
+        if prefix.finalized:
+            self._finalize_provisional(prefix)
+            return
+        # Each prefix event carries the whole committed line so far; storing
+        # the latest snapshot means a superseded event never loses text.
+        self._provisional[prefix.stream] = prefix.text
+        if self._mode is HostPresentationMode.INTERACTIVE:
+            self._safe(partial(self._renderer.set_slot, prefix.text))
+        if (
+            prefix.overflowed
+            and self._mode is HostPresentationMode.LINES
+        ):
+            self._present_provisional_overflow(prefix.stream)
+
+    def _present_provisional_overflow(self, stream: HostDiagnosticStream) -> None:
+        """Render a truncated provisional line durably as an explicit boundary.
+
+        Overflow discards the remaining source content, so the committed
+        prefix plus the single fixed marker is the whole record.  ``lines``
+        mode therefore makes it visible immediately instead of waiting for a
+        newline the source may never send.
+        """
+        if stream in self._overflow_presented:
+            return
+        text = self._provisional.get(stream)
+        if not text:
+            return
+        self._finalize_group(restore_status=None)
+        self._durable_diagnostic(text)
+        self._overflow_presented.add(stream)
+
+    def _finalize_provisional(self, prefix: HostDiagnosticPrefix) -> None:
+        """Finalize a provisional line at its record boundary.
+
+        This path is reached only for an oversized line truncated by the
+        bounded line limit: a complete diagnostic arrives through
+        :meth:`admit_diagnostic` instead.  The already-visible prefix is never
+        re-appended.
+        """
+        self._provisional.pop(prefix.stream, None)
+        text = prefix.text
+        if self._mode is HostPresentationMode.LINES:
+            if prefix.stream in self._overflow_presented:
+                self._overflow_presented.discard(prefix.stream)
+                return
+            self._finalize_group(restore_status=None)
+            if text:
+                self._durable_diagnostic(text)
+            return
+        # Interactive: the mutable slot already shows the provisional line, so
+        # finalizing writes the record once and clears the slot.
+        self._finalize_group(restore_status=None)
+        self._finalize_diagnostic(text, restore_status=self._status)
+
     # -- diagnostics -------------------------------------------------------
 
     def admit_diagnostic(
@@ -684,6 +811,11 @@ class HostPresentationState:
         now: float,
         omission_notice: str | None = None,
     ) -> None:
+        # The complete line supersedes any provisional prefix for its stream:
+        # the finalized text is authoritative and the mutable slot is replaced
+        # rather than appended, so the visible prefix is never duplicated.
+        self._provisional.pop(diagnostic.stream, None)
+        self._overflow_presented.discard(diagnostic.stream)
         previous_hostnames = self._group_hostnames
         if omission_notice is not None:
             # An omission notice finalizes the current group and is emitted
@@ -809,6 +941,7 @@ class HostPresentationState:
             # silence.
             self._received_bytes = None
             self._silence_announced = False
+            self._discard_provisional()
             # Each step's first heartbeat status must be eligible at that
             # step's three-second mark: a preceding step's cadence must not
             # suppress it.  The subsequent 30-second cadence and the
@@ -869,6 +1002,7 @@ class HostPresentationState:
         self, text: str, *, omission_notice: str | None = None
     ) -> None:
         self._finalize_group(restore_status=None)
+        self._discard_provisional()
         if omission_notice is not None:
             # A pending notice is rendered as its own durable line after the
             # finalized group and before the terminal state.
@@ -924,19 +1058,26 @@ class HostPresentationState:
     def write_final_report(self, text: str) -> None:
         self._safe(partial(self._renderer.durable, text))
 
+    def _discard_provisional(self) -> None:
+        self._provisional.clear()
+        self._overflow_presented.clear()
+
     def finish(self) -> None:
         self._status = None
+        self._discard_provisional()
         self._reset_deadlines()
         self._safe(lambda: self._renderer.clear_all())
 
     def cancel(self) -> None:
         self._rendering_failed = True
         self._status = None
+        self._discard_provisional()
         self._reset_deadlines()
 
     def discard(self) -> None:
         self._coalescer.finalize()
         self._status = None
+        self._discard_provisional()
         self._reset_deadlines()
         self._safe(lambda: self._renderer.clear_all())
 
@@ -980,7 +1121,11 @@ class PresentationWorker:
         self._thread.join(timeout)
 
     def _dispatch(self, event: object, omission_notice: str | None, now: float) -> None:
-        if isinstance(event, HostStructuredDiagnostic):
+        if isinstance(event, HostDiagnosticPrefix):
+            # Provisional presentation only: never classification, identity,
+            # grouping, or SDK delivery.
+            self._state.admit_prefix(event)
+        elif isinstance(event, HostStructuredDiagnostic):
             self._state.admit_diagnostic(
                 event, now=now, omission_notice=omission_notice
             )

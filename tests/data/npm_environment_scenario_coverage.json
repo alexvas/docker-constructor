@@ -119,5 +119,9 @@
   ],
   "Assembler evidence enters the build snapshot": [
     "tests.test_constructor_pi_snapshot.TestPiSnapshotAdmission"
+  ],
+  "Arbitrarily long diagnostic has no newline": [
+    "tests.test_npm_diagnostic_collection_phase8.TestCollectorBranch",
+    "tests.test_npm_environment_streaming.TestTerminalNeutralizationLineFraming"
   ]
 }

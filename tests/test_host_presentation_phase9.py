@@ -45,6 +45,7 @@ from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.host_progress import (
     HostBuildEvent,
     HostDiagnosticEvent,
+    HostDiagnosticPrefix,
     HostDiagnosticStream,
     HostHeartbeatEvent,
     InternalDirectHostEventSink,
@@ -59,6 +60,7 @@ from docker.versioning.host_progress import (
     HostTransportProgressEvent,
     HostDiagnosticClassification,
 )
+from docker.npm_environment.streaming import OVERSIZED_DIAGNOSTIC_MARKER
 
 
 def _diagnostic(text: str, **overrides: object) -> HostStructuredDiagnostic:
@@ -71,6 +73,17 @@ def _diagnostic(text: str, **overrides: object) -> HostStructuredDiagnostic:
     }
     values.update(overrides)
     return HostStructuredDiagnostic(**values)  # type: ignore[arg-type]
+
+
+def _prefix(text: str, **overrides: object) -> HostDiagnosticPrefix:
+    values: dict[str, object] = {
+        "phase": HostPhase.LOCKED_ASSEMBLY,
+        "step": HostStep.NPM_EXECUTION,
+        "stream": HostDiagnosticStream.STDOUT,
+        "text": text,
+    }
+    values.update(overrides)
+    return HostDiagnosticPrefix(**values)  # type: ignore[arg-type]
 
 
 def _heartbeat(**overrides: object) -> HostHeartbeatEvent:
@@ -1648,6 +1661,199 @@ class TestFailureBoundaryAttachment(unittest.TestCase):
         marker = lookup_host_failure(exc)
         self.assertIsNotNone(marker)
         self.assertIs(HostStep.VALIDATION, marker.step)
+
+
+class TestProvisionalPrefixPresentation(unittest.TestCase):
+    """Task 2.10 -- committed prefixes update live presentation only.
+
+    A committed prefix is provisional: it must never start a coalescing,
+    numeric-variant, or npm-fetch group, never be written as a durable
+    ``lines`` record before its record boundary, and never be appended a
+    second time when its complete line arrives.
+    """
+
+    def _interactive(self) -> tuple[RecordingRenderer, HostPresentationState]:
+        renderer = RecordingRenderer()
+        state = HostPresentationState(
+            renderer, mode=HostPresentationMode.INTERACTIVE
+        )
+        return renderer, state
+
+    def _lines(self) -> tuple[RecordingRenderer, HostPresentationState]:
+        renderer = RecordingRenderer()
+        state = HostPresentationState(
+            renderer, mode=HostPresentationMode.LINES
+        )
+        return renderer, state
+
+    def test_interactive_prefix_updates_slot_before_boundary(self):
+        renderer, state = self._interactive()
+        state.admit_prefix(_prefix("npm warn part"))
+        self.assertEqual([("slot", "npm warn part")], renderer.calls)
+        self.assertNotIn("durable", renderer.kinds())
+
+    def test_interactive_prefix_snapshots_replace_the_slot(self):
+        renderer, state = self._interactive()
+        state.admit_prefix(_prefix("npm warn "))
+        state.admit_prefix(_prefix("npm warn partial"))
+        self.assertEqual(
+            [("slot", "npm warn "), ("slot", "npm warn partial")],
+            renderer.calls,
+        )
+
+    def test_prefixes_never_start_a_group_or_postpone_a_window(self):
+        renderer, state = self._interactive()
+        state.admit_prefix(_prefix("retry"))
+        state.admit_prefix(_prefix("retry"))
+        # A prefix never owns a coalescing refresh deadline.
+        self.assertIsNone(state.next_deadline)
+        self.assertNotIn("durable", renderer.kinds())
+
+    def test_complete_line_replaces_provisional_without_duplicate_write(self):
+        renderer, state = self._interactive()
+        state.admit_prefix(_prefix("npm warn partial"))
+        state.admit_diagnostic(_diagnostic("npm warn partial"), now=0.0)
+        state.admit_diagnostic(_diagnostic("other"), now=0.1)
+        finalizes = [
+            call[1] for call in renderer.calls if call[0] == "finalize"
+        ]
+        self.assertEqual(["npm warn partial"], finalizes)
+
+    def test_lines_prefix_stays_pending_until_the_record_boundary(self):
+        renderer, state = self._lines()
+        state.admit_prefix(_prefix("npm warn partial"))
+        self.assertEqual([], renderer.calls)
+        state.admit_diagnostic(_diagnostic("npm warn partial"), now=0.0)
+        durables = [
+            call[1] for call in renderer.calls if call[0] == "durable"
+        ]
+        self.assertEqual(["npm warn partial"], durables)
+
+    def test_lines_overflow_marker_becomes_visible_once_at_the_boundary(self):
+        renderer, state = self._lines()
+        full = "npm warn part" + OVERSIZED_DIAGNOSTIC_MARKER
+        state.admit_prefix(_prefix("npm warn part"))
+        state.admit_prefix(
+            _prefix(full, overflowed=True)
+        )
+        durables = [
+            call[1] for call in renderer.calls if call[0] == "durable"
+        ]
+        self.assertEqual([full], durables)
+        # The record boundary must not write the truncated line again.
+        state.admit_prefix(
+            _prefix(full, overflowed=True, finalized=True)
+        )
+        durables = [
+            call[1] for call in renderer.calls if call[0] == "durable"
+        ]
+        self.assertEqual([full], durables)
+
+    def test_interactive_overflow_marker_visible_then_finalized_once(self):
+        renderer, state = self._interactive()
+        full = "npm warn part" + OVERSIZED_DIAGNOSTIC_MARKER
+        state.admit_prefix(_prefix("npm warn part"))
+        state.admit_prefix(
+            _prefix(full, overflowed=True)
+        )
+        slots = [call[1] for call in renderer.calls if call[0] == "slot"]
+        self.assertIn(full, slots)
+        state.admit_prefix(
+            _prefix(full, overflowed=True, finalized=True)
+        )
+        finalizes = [
+            call[1] for call in renderer.calls if call[0] == "finalize"
+        ]
+        self.assertEqual([full], finalizes)
+
+    def test_overflow_lines_are_not_coalesced(self):
+        renderer, state = self._lines()
+        full = "npm warn part" + OVERSIZED_DIAGNOSTIC_MARKER
+        for _ in range(2):
+            state.admit_prefix(
+                _prefix(full, overflowed=True, finalized=True)
+            )
+        durables = [
+            call[1] for call in renderer.calls if call[0] == "durable"
+        ]
+        self.assertEqual([full, full], durables)
+
+    def test_prefix_for_one_stream_does_not_leak_into_another(self):
+        renderer, state = self._interactive()
+        state.admit_prefix(_prefix("stdout part"))
+        state.admit_prefix(
+            _prefix("stderr part", stream=HostDiagnosticStream.STDERR)
+        )
+        state.admit_diagnostic(
+            _diagnostic(
+                "stderr line", stream=HostDiagnosticStream.STDERR
+            ),
+            now=0.0,
+        )
+        slots = [call[1] for call in renderer.calls if call[0] == "slot"]
+        self.assertEqual("stderr line", slots[-1])
+
+    def test_terminal_discards_pending_provisional_state(self):
+        renderer, state = self._interactive()
+        state.admit_prefix(_prefix("stale"))
+        state.observe_step(
+            HostStepEvent(
+                HostPhase.LOCKED_ASSEMBLY,
+                HostStep.NPM_EXECUTION,
+                HostStepState.SUCCEEDED,
+                True,
+            ),
+            now=0.0,
+        )
+        state.admit_prefix(_prefix("fresh"))
+        slots = [call[1] for call in renderer.calls if call[0] == "slot"]
+        self.assertEqual("fresh", slots[-1])
+
+
+class TestPrefixMailboxAdmission(unittest.TestCase):
+    """Committed prefixes are replaceable telemetry, never control."""
+
+    def test_adapter_admits_prefix_on_the_telemetry_lane(self):
+        mailbox = PresentationMailbox(capacity=8, control_capacity=2)
+        adapter = HostEventEnqueueAdapter(mailbox)
+        self.assertTrue(adapter.admit_prefix(_prefix("part")))
+        item = mailbox.take(timeout=0.1)
+        self.assertIsNotNone(item)
+        self.assertIs(PresentationLane.TELEMETRY, item.lane)
+        self.assertIsInstance(item.event, HostDiagnosticPrefix)
+
+    def test_pending_prefix_is_superseded_not_duplicated(self):
+        mailbox = PresentationMailbox(capacity=8, control_capacity=2)
+        adapter = HostEventEnqueueAdapter(mailbox)
+        adapter.admit_prefix(_prefix("one"))
+        adapter.admit_prefix(_prefix("two"))
+        first = mailbox.take(timeout=0.1)
+        self.assertEqual("two", first.event.text)
+        self.assertIsNone(mailbox.take(timeout=0.05))
+        self.assertEqual(1, mailbox.superseded)
+
+    def test_finalized_overflow_prefix_is_never_superseded(self):
+        mailbox = PresentationMailbox(capacity=8, control_capacity=2)
+        adapter = HostEventEnqueueAdapter(mailbox)
+        full = "part" + OVERSIZED_DIAGNOSTIC_MARKER
+        adapter.admit_prefix(_prefix(full, overflowed=True, finalized=True))
+        adapter.admit_prefix(_prefix("next", stream=HostDiagnosticStream.STDERR))
+        first = mailbox.take(timeout=0.1)
+        self.assertTrue(first.event.finalized)
+        self.assertIsNotNone(mailbox.take(timeout=0.1))
+
+    def test_dropped_prefix_is_not_reported_as_a_diagnostic_loss(self):
+        mailbox = PresentationMailbox(capacity=1, control_capacity=2)
+        adapter = HostEventEnqueueAdapter(mailbox)
+        self.assertTrue(adapter.admit_prefix(_prefix("one")))
+        # A different stream cannot supersede, so this is dropped.
+        self.assertFalse(
+            adapter.admit_prefix(
+                _prefix("two", stream=HostDiagnosticStream.STDERR)
+            )
+        )
+        mailbox.take(timeout=0.1)
+        self.assertIsNone(mailbox.consume_omission_notice())
 
 
 if __name__ == "__main__":
