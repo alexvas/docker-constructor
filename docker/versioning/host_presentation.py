@@ -34,6 +34,7 @@ from docker.versioning.model import NetworkUrlDisplay
 from docker.versioning.host_progress import (
     HostBuildEvent,
     HostDiagnosticEvent,
+    HostDiagnosticEnvelope,
     HostDiagnosticPrefix,
     HostDiagnosticStream,
     HostHeartbeatEvent,
@@ -649,6 +650,7 @@ class HostPresentationState:
         self._cancellation = cancellation or threading.Event()
         self._mode = mode
         self._show = network_url_display is NetworkUrlDisplay.HOST_PATH
+        self._network_url_display = network_url_display
         self._coalescer = DiagnosticCoalescer(
             PresentationMode.INTERACTIVE
             if mode is HostPresentationMode.INTERACTIVE
@@ -678,8 +680,7 @@ class HostPresentationState:
 
     @property
     def network_url_display(self) -> NetworkUrlDisplay:
-        return (NetworkUrlDisplay.HOST_PATH if self._show
-                else NetworkUrlDisplay.REDACTED)
+        return self._network_url_display
 
     @property
     def rendering_failed(self) -> bool:
@@ -806,7 +807,7 @@ class HostPresentationState:
 
     def admit_diagnostic(
         self,
-        diagnostic: HostStructuredDiagnostic,
+        diagnostic: HostStructuredDiagnostic | HostDiagnosticEnvelope,
         *,
         now: float,
         omission_notice: str | None = None,
@@ -814,8 +815,46 @@ class HostPresentationState:
         # The complete line supersedes any provisional prefix for its stream:
         # the finalized text is authoritative and the mutable slot is replaced
         # rather than appended, so the visible prefix is never duplicated.
-        self._provisional.pop(diagnostic.stream, None)
-        self._overflow_presented.discard(diagnostic.stream)
+        # A recognized fetch arrives as the internal presentation-only
+        # envelope; a plain external diagnostic is normalized to the same
+        # shape with no fetch identity, preserving ordinary behavior.
+        if isinstance(diagnostic, HostDiagnosticEnvelope):
+            envelope = diagnostic
+        else:
+            envelope = HostDiagnosticEnvelope.for_diagnostic(diagnostic)
+        # A fetch identity is policy-specific: a redacted key must never render
+        # under host-path (or the reverse).  Reject the mismatch up front, before
+        # any provisional, coalescer, renderer, or deadline state is touched.
+        if (
+            envelope.fetch_key is not None
+            and envelope.fetch_key.display is not self._network_url_display
+        ):
+            raise ValueError(
+                "fetch envelope display policy "
+                f"{envelope.fetch_key.display!r} does not match presentation "
+                f"policy {self._network_url_display!r}"
+            )
+        self._provisional.pop(envelope.stream, None)
+        self._overflow_presented.discard(envelope.stream)
+        if self._network_url_display is NetworkUrlDisplay.EXACT:
+            # Exact mode never aggregates: finalize anything pending (there is
+            # nothing, because exact admissions bypass the coalescer) and make
+            # every admitted terminal-safe source line visible durably.
+            self._finalize_group(restore_status=None)
+            if omission_notice is not None:
+                self._safe(partial(self._renderer.durable, omission_notice))
+            if self._mode is HostPresentationMode.INTERACTIVE:
+                # The mutable slot may still hold this line's provisional
+                # prefix.  ``durable()`` leaves that slot in place, so a later
+                # heartbeat would redraw the stale prefix; finalizing the
+                # diagnostic clears the slot, writes the completed line once,
+                # and restores only a still-applicable status.
+                self._finalize_diagnostic(
+                    envelope.presentation_text, restore_status=self._status
+                )
+            else:
+                self._durable_diagnostic(envelope.presentation_text)
+            return
         previous_hostnames = self._group_hostnames
         if omission_notice is not None:
             # An omission notice finalizes the current group and is emitted
@@ -832,8 +871,11 @@ class HostPresentationState:
                     if attached is not None:
                         self._durable_diagnostic(attached)
             self._safe(partial(self._renderer.durable, omission_notice))
-        decision = self._coalescer.admit(diagnostic)
-        self._group_hostnames = diagnostic.hostnames
+        decision = self._coalescer.admit(envelope)
+        # A recognized host-path fetch canonical line already carries the
+        # selected hostname/path, so it bypasses the legacy bracketed-hostname
+        # attachment by keeping no attachable hostnames for its group.
+        self._group_hostnames = () if envelope.is_fetch else envelope.hostnames
         if self._mode is HostPresentationMode.INTERACTIVE:
             if decision.finalized_text is not None:
                 finalized = self._attach_hosts(
@@ -844,7 +886,7 @@ class HostPresentationState:
                         finalized,
                         restore_status=self._status,
                     )
-            slot = self._attach_hosts(decision.slot_text, diagnostic.hostnames)
+            slot = self._attach_hosts(decision.slot_text, self._group_hostnames)
             if decision.disposition is not DiagnosticDisposition.EXACT_REPEAT:
                 if slot is not None:
                     self._safe(partial(self._renderer.set_slot, slot))
@@ -858,12 +900,13 @@ class HostPresentationState:
                 )
                 if attached is not None:
                     self._durable_diagnostic(attached)
-            durable = self._attach_hosts(decision.durable_text, diagnostic.hostnames)
+            durable = self._attach_hosts(decision.durable_text, self._group_hostnames)
             if durable is not None:
                 self._durable_diagnostic(durable)
-            if decision.disposition is not DiagnosticDisposition.EXACT_REPEAT:
+            if decision.disposition is DiagnosticDisposition.NEW_GROUP:
                 # The window starts when its group begins and stays fixed, so
-                # continuous exact repeats cannot postpone the summary.
+                # neither continuous exact repeats nor later fetch members can
+                # postpone the summary.
                 self._window_deadline = now + LINES_WINDOW_SECONDS
 
     def _attach_hosts(
@@ -926,6 +969,19 @@ class HostPresentationState:
 
     # -- lifecycle ---------------------------------------------------------
 
+    def _finalize_pending_fetch_group(self) -> None:
+        """Flush a pending recognized-fetch group at a lifecycle boundary.
+
+        A fetch group is policy-specific and must not span a STARTED phase or
+        step, or a later fetch would keep counting under the previous
+        lifecycle.  Ordinary diagnostic groups keep their existing behavior,
+        so only a keyed fetch group is flushed here.
+        """
+        group = self._coalescer.group
+        if group is None or group.identity.fetch_key is None:
+            return
+        self._finalize_group(restore_status=None)
+
     def observe_step(
         self,
         event: HostStepEvent,
@@ -934,6 +990,10 @@ class HostPresentationState:
         omission_notice: str | None = None,
     ) -> None:
         if event.state is HostStepState.STARTED:
+            # A STARTED step closes any pending recognized-fetch group first,
+            # so its ordered summary precedes the lifecycle output and the
+            # next matching fetch starts a fresh one-request count.
+            self._finalize_pending_fetch_group()
             # Each operational step owns its transport progress and its
             # diagnostic-silence transition: byte counts observed by an earlier
             # step must never surface in a heartbeat for a step that has not
@@ -972,6 +1032,10 @@ class HostPresentationState:
     ) -> None:
         text = f"{_phase_label(event.phase)}: {event.state.value}"
         if event.state is HostPhaseState.STARTED:
+            # A STARTED phase closes any pending recognized-fetch group first,
+            # so its ordered summary precedes the lifecycle output and the
+            # next matching fetch starts a fresh one-request count.
+            self._finalize_pending_fetch_group()
             if self._mode is HostPresentationMode.INTERACTIVE:
                 self._status = text
                 self._safe(partial(self._renderer.set_status, text))

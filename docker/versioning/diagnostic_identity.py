@@ -24,9 +24,11 @@ import secrets
 from dataclasses import dataclass
 from enum import StrEnum
 
+from docker.versioning.fetch_identity import FetchGroupKey
 from docker.versioning.host_progress import (
     URL_FINGERPRINT_LENGTH,
     HostDiagnosticClassification,
+    HostDiagnosticEnvelope,
     HostDiagnosticStream,
     HostPhase,
     HostStep,
@@ -43,6 +45,10 @@ MINIMUM_SESSION_KEY_BYTES = 16
 
 #: Canonical suffix appended to a finalized repeated diagnostic.
 REPETITION_SUFFIX_TEMPLATE = " (repeated {count} times)"
+
+#: Canonical separator and template for a recognized fetch request count.
+REQUEST_COUNT_SEPARATOR = " \u2014 "
+REQUEST_COUNT_TEMPLATE = " \u2014 {count} requests"
 
 
 class SessionUrlIdentity:
@@ -103,6 +109,7 @@ class DiagnosticIdentity:
     text: str
     url_fingerprints: tuple[str, ...] = ()
     logical_resource: str | None = None
+    fetch_key: FetchGroupKey | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.phase, HostPhase):
@@ -117,6 +124,8 @@ class DiagnosticIdentity:
             raise TypeError("diagnostic identity text must be a string")
         require_approved_url_fingerprints(self.url_fingerprints)
         require_approved_logical_resource(self.logical_resource, "logical_resource")
+        if self.fetch_key is not None and not isinstance(self.fetch_key, FetchGroupKey):
+            raise TypeError("fetch_key must be a FetchGroupKey or None")
 
     @property
     def presentation_metadata(self) -> tuple[object, ...]:
@@ -128,23 +137,52 @@ class DiagnosticIdentity:
             self.classification,
             self.logical_resource,
             self.url_fingerprints,
+            self.fetch_key,
         )
 
 
-def identity_for(diagnostic: HostStructuredDiagnostic) -> DiagnosticIdentity:
+def _as_envelope(
+    diagnostic: HostStructuredDiagnostic | HostDiagnosticEnvelope,
+) -> HostDiagnosticEnvelope:
+    """Normalize the external DTO or internal envelope to one internal shape."""
+    if isinstance(diagnostic, HostDiagnosticEnvelope):
+        return diagnostic
+    if isinstance(diagnostic, HostStructuredDiagnostic):
+        return HostDiagnosticEnvelope.for_diagnostic(diagnostic)
+    raise TypeError(
+        "diagnostic must be a HostStructuredDiagnostic or HostDiagnosticEnvelope"
+    )
+
+
+def identity_for(
+    diagnostic: HostStructuredDiagnostic | HostDiagnosticEnvelope,
+) -> DiagnosticIdentity:
     """Return the pure presentation identity for *diagnostic*.
 
-    The normalized ``hostnames`` tuple is deliberately dropped; only the final
-    safe text and ordered fingerprint tuple participate in grouping.
+    A recognized fetch envelope contributes its canonical, latency-free
+    ``fetch_text`` and its policy-specific ``fetch_key``; its URL fingerprints
+    are intentionally dropped because the fetch key -- not the hidden URL
+    identity -- delimits the group.  The normalized ``hostnames`` tuple is
+    deliberately dropped for every input: it is a facade hostname-display
+    input, not a post-render coalescing-key component.
     """
+    envelope = _as_envelope(diagnostic)
+    fetch_key = envelope.fetch_key
+    if fetch_key is None:
+        text = envelope.text
+        fingerprints = envelope.url_fingerprints
+    else:
+        text = envelope.presentation_text
+        fingerprints = ()
     return DiagnosticIdentity(
-        phase=diagnostic.phase,
-        step=diagnostic.step,
-        stream=diagnostic.stream,
-        classification=diagnostic.classification,
-        text=diagnostic.text,
-        url_fingerprints=diagnostic.url_fingerprints,
-        logical_resource=diagnostic.logical_resource,
+        phase=envelope.phase,
+        step=envelope.step,
+        stream=envelope.stream,
+        classification=envelope.classification,
+        text=text,
+        url_fingerprints=fingerprints,
+        logical_resource=envelope.logical_resource,
+        fetch_key=fetch_key,
     )
 
 
@@ -258,6 +296,17 @@ def format_repetition(text: str, count: int) -> str:
     return text + REPETITION_SUFFIX_TEMPLATE.format(count=count)
 
 
+def format_request_count(text: str, count: int) -> str:
+    """Return *text* with the canonical ``\u2014 N requests`` fetch suffix."""
+    if not isinstance(text, str):
+        raise TypeError("text must be a string")
+    if not isinstance(count, int) or isinstance(count, bool) or count < 1:
+        raise ValueError("count must be a positive integer")
+    if count < 2:
+        return text
+    return text + REQUEST_COUNT_TEMPLATE.format(count=count)
+
+
 @dataclass
 class DiagnosticGroup:
     """Mutable state for one admitted diagnostic group."""
@@ -270,6 +319,8 @@ class DiagnosticGroup:
         return self.identity.text
 
     def final_text(self) -> str:
+        if self.identity.fetch_key is not None:
+            return format_request_count(self.text, self.exact_count)
         return format_repetition(self.text, self.exact_count)
 
 
@@ -286,6 +337,7 @@ class DiagnosticDisposition(StrEnum):
     NEW_GROUP = "new_group"
     EXACT_REPEAT = "exact_repeat"
     NUMERIC_VARIANT = "numeric_variant"
+    FETCH_REQUEST = "fetch_request"
 
 
 @dataclass(frozen=True)
@@ -330,7 +382,10 @@ class DiagnosticCoalescer:
     def group(self) -> DiagnosticGroup | None:
         return self._group
 
-    def admit(self, diagnostic: HostStructuredDiagnostic) -> AdmissionDecision:
+    def admit(
+        self,
+        diagnostic: HostStructuredDiagnostic | HostDiagnosticEnvelope,
+    ) -> AdmissionDecision:
         """Admit *diagnostic* and return the pure state transition."""
         candidate = identity_for(diagnostic)
         if self._group is None:
@@ -339,6 +394,8 @@ class DiagnosticCoalescer:
         comparison = compare_diagnostics(self._group.identity, candidate)
         if comparison is DiagnosticComparison.EXACT_REPEAT:
             self._group.exact_count += 1
+            if candidate.fetch_key is not None:
+                return self._fetch_request_decision()
             return self._exact_repeat_decision()
         if (
             comparison is DiagnosticComparison.NUMERIC_VARIANT
@@ -394,6 +451,19 @@ class DiagnosticCoalescer:
             admitted_count=self._group.exact_count,
         )
 
+    def _fetch_request_decision(self) -> AdmissionDecision:
+        assert self._group is not None
+        if self._mode is PresentationMode.INTERACTIVE:
+            return AdmissionDecision(
+                disposition=DiagnosticDisposition.FETCH_REQUEST,
+                slot_text=self._group.final_text(),
+                admitted_count=self._group.exact_count,
+            )
+        return AdmissionDecision(
+            disposition=DiagnosticDisposition.FETCH_REQUEST,
+            admitted_count=self._group.exact_count,
+        )
+
     def _finalize_current(self) -> str | None:
         if self._group is None:
             return None
@@ -417,6 +487,7 @@ __all__ = [
     "URL_FINGERPRINT_LENGTH",
     "compare_diagnostics",
     "format_repetition",
+    "format_request_count",
     "identity_for",
     "numeric_template_match",
     "strict_numeric_spans",

@@ -62,6 +62,7 @@ from docker.versioning.diagnostic_projection import (
     normalized_url_host,
     sanitize_host_paths,
 )
+from docker.versioning.fetch_identity import FetchGroupKey
 from docker.versioning.model import NetworkUrlDisplay
 
 #: Literal source prefix that every recognized successful fetch must carry.
@@ -134,28 +135,6 @@ class NpmFetchRecord:
             raise ValueError("attempt must be a non-negative integer or None")
         if self.cache_outcome is not None and not isinstance(self.cache_outcome, str):
             raise ValueError("cache_outcome must be a string or None")
-
-
-@dataclass(frozen=True, slots=True)
-class FetchGroupKey:
-    """Policy-specific request-count group identity for one recognized fetch.
-
-    ``display`` keeps ``redacted`` and ``host-path`` identities from ever
-    comparing equal.  ``host_path`` is the normalized hostname plus canonical
-    safe path for ``host-path`` mode and ``None`` for ``redacted`` mode, where
-    the URL is intentionally excluded from the key.
-    """
-
-    display: NetworkUrlDisplay
-    method: str
-    status: int
-    attempt: int | None
-    cache_outcome: str | None
-    host_path: str | None = None
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.display, NetworkUrlDisplay):
-            raise TypeError("display must be a NetworkUrlDisplay member")
 
 
 def _bounded_numeric(text: str) -> int | None:

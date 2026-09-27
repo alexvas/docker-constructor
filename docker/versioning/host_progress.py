@@ -7,7 +7,9 @@ from threading import Lock
 from typing import Any, Callable
 import weakref
 
+from docker.versioning.fetch_identity import FetchGroupKey
 from docker.versioning.logical_resource import require_approved_logical_resource
+from docker.versioning.model import NetworkUrlDisplay
 
 
 class HostPhase(StrEnum):
@@ -261,6 +263,112 @@ class HostStructuredDiagnostic:
             raise TypeError("normalized hostnames must be a tuple of strings")
         require_approved_url_fingerprints(self.url_fingerprints)
         require_approved_logical_resource(self.logical_resource, "logical resource")
+
+
+@dataclass(frozen=True)
+class HostDiagnosticEnvelope:
+    """Internal collection-to-presentation diagnostic envelope.
+
+    This type is the collection-to-presentation interface.  It carries the
+    ordinary presentation metadata, the one mode-selected *local* text, and --
+    only for a recognized successful fetch in ``redacted`` or ``host-path`` --
+    the policy-specific :class:`~docker.versioning.fetch_identity.FetchGroupKey`
+    and the canonical (latency-free) fetch text.
+
+    The envelope is presentation-only and is deliberately distinct from
+    :class:`HostStructuredDiagnostic`: it is NEVER delivered to an optional
+    external SDK sink, and it is absent from :data:`HostBuildEvent`.  The
+    external DTO therefore never carries a fetch key, canonical local text,
+    safe path, or terminal-safe source text.
+
+    ``text`` is the local representation (for example the URL-free projected
+    line, which retains the source latency).  ``fetch_text`` is the canonical
+    rendering that live presentation displays and counts; when present it
+    already includes the selected ``redacted`` or ``host-path`` detail and
+    therefore bypasses the legacy bracketed-hostname attachment.  In ``exact``
+    mode ``text`` is the terminal-safe source line and ``fetch_key`` is
+    ``None`` so every aggregation path stays bypassed.
+    """
+
+    phase: HostPhase
+    step: HostStep
+    stream: HostDiagnosticStream
+    classification: HostDiagnosticClassification
+    text: str
+    hostnames: tuple[str, ...] = ()
+    logical_resource: str | None = None
+    url_fingerprints: tuple[str, ...] = ()
+    fetch_key: FetchGroupKey | None = None
+    fetch_text: str | None = None
+
+    def __post_init__(self) -> None:
+        _require_member(self.phase, HostPhase, "phase")
+        _require_member(self.step, HostStep, "step")
+        _require_member(self.stream, HostDiagnosticStream, "stream")
+        _require_member(self.classification, HostDiagnosticClassification, "classification")
+        if not isinstance(self.text, str):
+            raise TypeError("envelope text must be a string")
+        if not isinstance(self.hostnames, tuple) or not all(
+            isinstance(hostname, str) for hostname in self.hostnames
+        ):
+            raise TypeError("normalized hostnames must be a tuple of strings")
+        require_approved_url_fingerprints(self.url_fingerprints)
+        require_approved_logical_resource(self.logical_resource, "logical resource")
+        if self.fetch_key is not None and not isinstance(self.fetch_key, FetchGroupKey):
+            raise TypeError("fetch_key must be a FetchGroupKey or None")
+        if self.fetch_key is None:
+            if self.fetch_text is not None:
+                raise ValueError("fetch_text requires a fetch_key")
+            return
+        if self.fetch_key.display is NetworkUrlDisplay.EXACT:
+            raise ValueError(
+                "exact mode never carries a fetch key; keep fetch_key=None and "
+                "supply the terminal-safe source line as text"
+            )
+        if not isinstance(self.fetch_text, str) or not self.fetch_text:
+            raise ValueError("a recognized fetch requires canonical fetch_text")
+
+    @property
+    def presentation_text(self) -> str:
+        """The canonical live text: fetch canonical when present, else local."""
+        if self.fetch_key is not None:
+            assert self.fetch_text is not None
+            return self.fetch_text
+        return self.text
+
+    @property
+    def is_fetch(self) -> bool:
+        return self.fetch_key is not None
+
+    @classmethod
+    def for_diagnostic(
+        cls,
+        diagnostic: HostStructuredDiagnostic,
+        *,
+        text: str | None = None,
+        fetch_key: FetchGroupKey | None = None,
+        fetch_text: str | None = None,
+    ) -> "HostDiagnosticEnvelope":
+        """Build an envelope from an external-safe structured diagnostic.
+
+        ``text``/``fetch_key``/``fetch_text`` supply the internal presentation
+        inputs that the external DTO intentionally omits; when ``text`` is
+        omitted the diagnostic's own safe text is the local representation.
+        """
+        if not isinstance(diagnostic, HostStructuredDiagnostic):
+            raise TypeError("diagnostic must be a HostStructuredDiagnostic")
+        return cls(
+            phase=diagnostic.phase,
+            step=diagnostic.step,
+            stream=diagnostic.stream,
+            classification=diagnostic.classification,
+            text=diagnostic.text if text is None else text,
+            hostnames=diagnostic.hostnames,
+            logical_resource=diagnostic.logical_resource,
+            url_fingerprints=diagnostic.url_fingerprints,
+            fetch_key=fetch_key,
+            fetch_text=fetch_text,
+        )
 
 
 @dataclass(frozen=True)
