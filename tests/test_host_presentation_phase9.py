@@ -17,6 +17,7 @@ import time
 import unittest
 from unittest import mock
 
+from docker.versioning.model import NetworkUrlDisplay
 from docker.versioning.host_presentation import (
     DIAGNOSTIC_SILENCE_SECONDS,
     FIRST_HEARTBEAT_SECONDS,
@@ -236,13 +237,13 @@ class TestFailureReport(unittest.TestCase):
             HostPhase.RELEASE_ACQUISITION,
             HostStep.ARTIFACT_ACQUISITION,
             hostnames=("registry.example.com",),
-            show_network_hosts=False,
+            network_url_display=NetworkUrlDisplay.REDACTED,
         )
         shown = format_failure_report(
             HostPhase.RELEASE_ACQUISITION,
             HostStep.ARTIFACT_ACQUISITION,
             hostnames=("registry.example.com",),
-            show_network_hosts=True,
+            network_url_display=NetworkUrlDisplay.HOST_PATH,
         )
         self.assertNotIn("registry.example.com", hidden)
         self.assertIn("registry.example.com", shown)
@@ -1253,10 +1254,10 @@ class TestHostnamePolicy(unittest.TestCase):
         hidden = RecordingRenderer()
         shown = RecordingRenderer()
         HostPresentationState(
-            hidden, mode=HostPresentationMode.LINES, show_network_hosts=False
+            hidden, mode=HostPresentationMode.LINES, network_url_display=NetworkUrlDisplay.REDACTED
         ).admit_diagnostic(diagnostic, now=0.0)
         HostPresentationState(
-            shown, mode=HostPresentationMode.LINES, show_network_hosts=True
+            shown, mode=HostPresentationMode.LINES, network_url_display=NetworkUrlDisplay.HOST_PATH
         ).admit_diagnostic(diagnostic, now=0.0)
         self.assertEqual(
             [("durable", "npm warn see <redacted>")], hidden.calls
@@ -1279,7 +1280,7 @@ class TestLinesHostnameFinalization(unittest.TestCase):
         state = HostPresentationState(
             renderer,
             mode=HostPresentationMode.LINES,
-            show_network_hosts=show,
+            network_url_display=(NetworkUrlDisplay.HOST_PATH if show else NetworkUrlDisplay.REDACTED),
         )
         diagnostic = _diagnostic("retry", hostnames=self.HOSTS)
         state.admit_diagnostic(diagnostic, now=0.0)

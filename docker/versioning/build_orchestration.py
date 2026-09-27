@@ -84,7 +84,9 @@ from docker.versioning.inventory import (
     resolve_corporate_trust_bundle_path,
     validate_corporate_trust_bundle,
 )
-from docker.versioning.model import BuildLocalInputs, HostAccessPolicy, Inventory
+from docker.versioning.model import (
+    BuildLocalInputs, HostAccessPolicy, Inventory, NetworkUrlDisplay,
+)
 from docker.versioning.project_state import resolve_project_state
 from docker.versioning.rendering import (
     BuildRenderInputs,
@@ -282,6 +284,9 @@ class BuildRequest:
     event_sink: HostEventSink | None = None
     """Optional facade-owned host materialization presentation sink."""
 
+    network_url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED
+    """Immutable host-only diagnostic policy passed to collection."""
+
     host_presentation_complete: Callable[[], None] | None = None
     """Facade-owned shutdown hook run before Docker/native output.
 
@@ -299,6 +304,8 @@ class BuildRequest:
         ``MappingProxyType``."""
         if not isinstance(self.output_policy, BuildOutputPolicy):
             raise ValueError("output_policy must be a BuildOutputPolicy")
+        if not isinstance(self.network_url_display, NetworkUrlDisplay):
+            raise ValueError("network_url_display must be a NetworkUrlDisplay")
         object.__setattr__(self, "event_sink", guard_sink(self.event_sink))
         if not isinstance(self.overrides, MappingProxyType):
             object.__setattr__(self, "overrides", MappingProxyType(
@@ -769,6 +776,11 @@ def _materialize_pi_for_build(
                 for parameter in parameters.values()
             ):
                 kwargs["event_sink"] = request.event_sink
+            if "network_url_display" in parameters or any(
+                parameter.kind is parameter.VAR_KEYWORD
+                for parameter in parameters.values()
+            ):
+                kwargs["network_url_display"] = request.network_url_display
             return cast(PiMaterialization, request._materialize_pi(projection, **kwargs))
         from docker.npm_environment.execution import DockerRunExecutor
         return materialize_pi(PiAssemblyRequest(
@@ -788,6 +800,7 @@ def _materialize_pi_for_build(
                 if plan.host_network_policy.ca_bundle is not None else None
             ),
             event_sink=request.event_sink,
+            network_url_display=request.network_url_display,
         ))
     except _PI_MATERIALIZATION_ERRORS as exc:
         raise SnapshotError(f"Pi materialization failed: {exc}") from exc

@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import json
 import tempfile
 import unittest
 from collections.abc import Mapping
+from types import SimpleNamespace
 from unittest import mock
 from pathlib import Path
 
@@ -17,12 +19,18 @@ from docker.versioning.local_project_configuration import (
     load_local_project_configuration,
     validate_local_document,
 )
-from docker.versioning.model import BuildLocalInputs, LocalConfig, LocalOutputPolicy
+from docker.versioning.model import (
+    BuildLocalInputs, LocalConfig, LocalOutputPolicy, NetworkUrlDisplay,
+)
 from docker.versioning.build_orchestration import BuildResult
 from docker.versioning.dispatch_types import ExitKind
+from docker.versioning.pi_assembly import PiAssemblyRequest
+from docker.npm_environment.execution import assemble
+from docker.npm_environment.publication import assemble_environment
+from docker.npm_environment.streaming import collect_streams
 
 
-PROHIBITED_FIELDS = frozenset({"output", "host_heartbeat", "show_network_hosts"})
+PROHIBITED_FIELDS = frozenset({"output", "host_heartbeat"})
 
 
 def assert_no_presentation_policy(case: unittest.TestCase, obj: object, *, path: str = "input") -> None:
@@ -55,6 +63,100 @@ def assert_no_presentation_policy(case: unittest.TestCase, obj: object, *, path:
                 seen.append((child, f"{where}.{name}"))
 
 
+class TestNetworkUrlDisplayDirectEntryPoints(unittest.TestCase):
+    def test_pi_request_defaults_to_redacted_and_rejects_non_enum(self) -> None:
+        request = PiAssemblyRequest(None, None, None, None)  # type: ignore[arg-type]
+        self.assertIs(NetworkUrlDisplay.REDACTED, request.network_url_display)
+        with self.assertRaisesRegex(ValueError, "NetworkUrlDisplay"):
+            PiAssemblyRequest(  # type: ignore[arg-type]
+                None, None, None, None, network_url_display="exact"
+            )
+
+    def test_direct_assembler_and_collector_reject_before_effects(self) -> None:
+        reads = 0
+
+        def read(_size: int) -> bytes:
+            nonlocal reads
+            reads += 1
+            return b""
+
+        with self.assertRaisesRegex(ValueError, "NetworkUrlDisplay"):
+            collect_streams(
+                stdout_read=read, stderr_read=read, network_url_display="exact"
+            )
+        self.assertEqual(0, reads)
+        with self.assertRaisesRegex(ValueError, "NetworkUrlDisplay"):
+            assemble(  # type: ignore[arg-type]
+                validated=None, assembler=None, cache_root="/unused", executor=None,
+                network_url_display="exact",
+            )
+
+    def test_sdk_boundary_defaults_to_redacted(self) -> None:
+        captured: dict[str, object] = {}
+        with (
+            mock.patch("docker.npm_environment.publication.recheck_assembler_bindings"),
+            mock.patch(
+                "docker.npm_environment.publication.compute_assembler_input_identity",
+                return_value=SimpleNamespace(digest="identity"),
+            ),
+            mock.patch("docker.npm_environment.publication.prepare_assembler_namespace"),
+            mock.patch(
+                "docker.npm_environment.publication.identity_coordination_lock",
+                return_value=contextlib.nullcontext(),
+            ),
+            mock.patch("docker.npm_environment.publication.find_cached_result", return_value=None),
+            mock.patch("docker.npm_environment.publication.remove_staging_workspace"),
+            mock.patch(
+                "docker.npm_environment.publication.assemble",
+                side_effect=lambda **kwargs: captured.update(kwargs) or SimpleNamespace(staging="/unused"),
+            ),
+            mock.patch(
+                "docker.npm_environment.publication.publish_environment",
+                return_value=object(),
+            ),
+        ):
+            assemble_environment(  # type: ignore[arg-type]
+                validated=None, assembler=SimpleNamespace(digest="assembler"),
+                cache_root="/unused", executor=None,
+            )
+        self.assertIs(NetworkUrlDisplay.REDACTED, captured["network_url_display"])
+
+    def test_sdk_boundary_rejects_invalid_selector_before_effects(self) -> None:
+        effects = (
+            "recheck_assembler_bindings",
+            "compute_assembler_input_identity",
+            "prepare_assembler_namespace",
+            "identity_coordination_lock",
+            "find_cached_result",
+            "remove_staging_workspace",
+            "assemble",
+        )
+        with contextlib.ExitStack() as stack:
+            mocks = [
+                stack.enter_context(mock.patch(
+                    f"docker.npm_environment.publication.{effect}"
+                ))
+                for effect in effects
+            ]
+            with self.assertRaisesRegex(ValueError, "NetworkUrlDisplay"):
+                assemble_environment(  # type: ignore[arg-type]
+                    validated=None, assembler=None, cache_root="/unused", executor=None,
+                    network_url_display="exact",
+                )
+        self.assertTrue(all(not item.called for item in mocks))
+
+    def test_host_side_requests_declare_the_same_enum_field(self) -> None:
+        from docker.versioning.build_orchestration import BuildRequest
+
+        for request in (BuildRequest, PiAssemblyRequest):
+            with self.subTest(request=request.__name__):
+                field = next(
+                    item for item in dataclasses.fields(request)
+                    if item.name == "network_url_display"
+                )
+                self.assertIs(NetworkUrlDisplay.REDACTED, field.default)
+
+
 class TestOutputAggregateRegistration(unittest.TestCase):
     def test_output_is_accepted_independently_of_every_other_local_table(self) -> None:
         combinations = (
@@ -70,11 +172,13 @@ class TestOutputAggregateRegistration(unittest.TestCase):
                     **companion,
                     "output": {
                         "host_heartbeat": "lines",
-                        "show_network_hosts": True,
+                        "network_url_display": "host-path",
                     },
                 })
                 self.assertEqual("lines", local.output.host_heartbeat)
-                self.assertTrue(local.output.show_network_hosts)
+                self.assertIs(
+                    NetworkUrlDisplay.HOST_PATH, local.output.network_url_display
+                )
 
     def test_every_top_level_table_except_registered_output_and_predecessors_is_rejected(self) -> None:
         for table in ("build", "runtime", "observability", "outputx"):
@@ -95,26 +199,30 @@ class TestOutputOwner(unittest.TestCase):
     def test_absent_output_uses_immutable_defaults(self) -> None:
         self.assertEqual(LocalOutputPolicy(), validate_local_document({}).output)
         self.assertEqual("interactive", validate_local_document({}).output.host_heartbeat)
-        self.assertFalse(validate_local_document({}).output.show_network_hosts)
+        self.assertIs(
+            NetworkUrlDisplay.REDACTED,
+            validate_local_document({}).output.network_url_display,
+        )
 
     def test_all_closed_output_values_are_accepted_exactly(self) -> None:
         for heartbeat in ("interactive", "lines", "off"):
-            for show_hosts in (False, True):
-                with self.subTest(heartbeat=heartbeat, show_hosts=show_hosts):
+            for display in NetworkUrlDisplay:
+                with self.subTest(heartbeat=heartbeat, display=display):
                     local = validate_local_document({"output": {
                         "host_heartbeat": heartbeat,
-                        "show_network_hosts": show_hosts,
+                        "network_url_display": display.value,
                     }})
-                    self.assertEqual(LocalOutputPolicy(heartbeat, show_hosts), local.output)
+                    self.assertEqual(LocalOutputPolicy(heartbeat, display), local.output)
 
     def test_invalid_output_values_have_safe_path_specific_errors(self) -> None:
         cases = (
             ('[output]\nunknown = true\n', "local.output.unknown"),
             ('[output]\nhost_heartbeat = "verbose"\n', "local.output.host_heartbeat"),
             ('[output]\nhost_heartbeat = true\n', "local.output.host_heartbeat"),
-            ('[output]\nshow_network_hosts = "true"\n', "local.output.show_network_hosts"),
+            ('[output]\nnetwork_url_display = true\n', "local.output.network_url_display"),
+            ('[output]\nnetwork_url_display = "unknown"\n', "local.output.network_url_display"),
             ('host_heartbeat = "lines"\n', "local.host_heartbeat"),
-            ('show_network_hosts = true\n', "local.show_network_hosts"),
+            ('network_url_display = "host-path"\n', "local.network_url_display"),
             ('[output]\nhost_heartbeat = "lines"\nhost_heartbeat = "off"\n', None),
         )
         for content, field in cases:
@@ -126,7 +234,7 @@ class TestOutputOwner(unittest.TestCase):
 
     def test_reviewed_inventory_rejects_output_settings(self) -> None:
         source = Path("docker-constructor.toml").read_text()
-        for key, value in (("host_heartbeat", '"lines"'), ("show_network_hosts", "true")):
+        for key, value in (("host_heartbeat", '"lines"'), ("network_url_display", '"host-path"')):
             with self.subTest(key=key), tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / "docker-constructor.toml"
                 path.write_text(f"{source}\n[output]\n{key} = {value}\n")
@@ -179,7 +287,7 @@ class TestFacadeOutputPolicyDispatch(unittest.TestCase):
         from docker import constructor_cli
 
         project = self._project(
-            '[output]\nhost_heartbeat = "lines"\nshow_network_hosts = true\n'
+            '[output]\nhost_heartbeat = "lines"\nnetwork_url_display = "host-path"\n'
         )
         rendered: list[object] = []
         original_read_bytes = Path.read_bytes
@@ -213,7 +321,7 @@ class TestFacadeOutputPolicyDispatch(unittest.TestCase):
                 stderr_isatty=lambda: True,
             )
         self.assertEqual(0, exit_code)
-        self.assertEqual([LocalOutputPolicy("lines", True)], rendered)
+        self.assertEqual([LocalOutputPolicy("lines", NetworkUrlDisplay.HOST_PATH)], rendered)
         # The exact instance produced by the single read reaches only the
         # facade renderer factory.
         self.assertEqual(1, len(observed_policies))
@@ -225,7 +333,7 @@ class TestFacadeOutputPolicyDispatch(unittest.TestCase):
         self.assertEqual(
             BuildLocalInputs.from_local_config(
                 validate_local_document({
-                    "output": {"host_heartbeat": "lines", "show_network_hosts": True},
+                    "output": {"host_heartbeat": "lines", "network_url_display": "host-path"},
                 })
             ),
             orchestrate.call_args.kwargs["local_inputs"],
@@ -302,7 +410,7 @@ class TestOutputPolicyConfinement(unittest.TestCase):
     def test_facade_renderer_accepts_immutable_output_policy_without_domain_request_leakage(self) -> None:
         from docker.constructor_cli import _HostEventRenderer
 
-        policy = LocalOutputPolicy("off", True)
+        policy = LocalOutputPolicy("off", NetworkUrlDisplay.HOST_PATH)
         renderer = _HostEventRenderer(output_policy=policy)
         self.assertIs(policy, renderer.output_policy)
 
@@ -322,17 +430,17 @@ class TestOutputPolicyConfinement(unittest.TestCase):
                 )
 
     def test_narrow_build_inputs_projection_drops_output_only(self) -> None:
-        local = LocalConfig(output=LocalOutputPolicy("off", True))
+        local = LocalConfig(output=LocalOutputPolicy("off", NetworkUrlDisplay.HOST_PATH))
         projected = BuildLocalInputs.from_local_config(local)
         self.assertEqual(BuildLocalInputs(), projected)
         self.assertFalse(hasattr(projected, "output"))
         self.assertFalse(hasattr(projected, "host_heartbeat"))
-        self.assertFalse(hasattr(projected, "show_network_hosts"))
+        self.assertFalse(hasattr(projected, "network_url_display"))
 
 
 
 POLICY_TOKENS = (
-    "host_heartbeat", "show_network_hosts",
+    "host_heartbeat", "network_url_display",
     "host-heartbeat", "show-network-hosts",
     "[output]",
     LOCAL_COMPANION_BASENAME,
@@ -362,8 +470,8 @@ def assert_no_policy_strings(
 class _IntegrationProject:
     """A real project whose companion declares nondefault output and cache."""
 
-    OUTPUT_OFF = 'host_heartbeat = "off"\nshow_network_hosts = true\n'
-    OUTPUT_LINES = 'host_heartbeat = "lines"\nshow_network_hosts = false\n'
+    OUTPUT_OFF = 'host_heartbeat = "off"\nnetwork_url_display = "host-path"\n'
+    OUTPUT_LINES = 'host_heartbeat = "lines"\nnetwork_url_display = "redacted"\n'
 
     def __init__(self, case: unittest.TestCase, *, output_body: str | None = None) -> None:
         directory = tempfile.TemporaryDirectory()
@@ -384,9 +492,9 @@ class _IntegrationProject:
         self.inventory, self.local = load_project_configuration(self.inventory_path)
         self.local_inputs = BuildLocalInputs.from_local_config(self.local)
         case.assertEqual(
-            LocalOutputPolicy("lines", False)
+            LocalOutputPolicy("lines", NetworkUrlDisplay.REDACTED)
             if output_body == self.OUTPUT_LINES
-            else LocalOutputPolicy("off", True),
+            else LocalOutputPolicy("off", NetworkUrlDisplay.HOST_PATH),
             self.local.output,
         )
 

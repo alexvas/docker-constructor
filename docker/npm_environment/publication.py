@@ -31,6 +31,8 @@ import uuid
 from pathlib import Path
 from typing import Iterator, Sequence
 
+from docker.versioning.model import NetworkUrlDisplay
+
 from .assembler import npm_policy_flags
 from .errors import LockedNpmError
 from .evidence import (
@@ -596,6 +598,7 @@ def assemble_environment(
     stream_factory=None,
     tail_projector=None,
     activity: AssemblyActivity | None = None,
+    network_url_display: NetworkUrlDisplay | None = None,
 ) -> AssemblyResult:
     """Assemble (or reuse) one locked npm environment and publish it.
 
@@ -611,6 +614,11 @@ def assemble_environment(
     always re-raised unchanged.  Previously committed immutable outputs are
     never touched.
     """
+    if network_url_display is None:
+        network_url_display = NetworkUrlDisplay.REDACTED
+    if not isinstance(network_url_display, NetworkUrlDisplay):
+        raise ValueError("network_url_display must be a NetworkUrlDisplay")
+
     recheck_assembler_bindings(assembler)
     input_identity = compute_assembler_input_identity(validated, assembler)
     namespace = prepare_assembler_namespace(cache_root, assembler.digest)
@@ -659,6 +667,7 @@ def assemble_environment(
             stream_factory=stream_factory,
             tail_projector=tail_projector,
             activity=activity,
+            network_url_display=network_url_display,
         )
         try:
             return publish_environment(

@@ -610,6 +610,7 @@ def _real_dispatcher(
             confirmed=_to_bool(c_args.get("yes", False)),
             dry_run=dry_run,
             event_sink=host_event_sink,
+            network_url_display=local_config.output.network_url_display,
             host_presentation_complete=(
                 session.shutdown if session is not None else None
             ),
@@ -672,7 +673,7 @@ def _real_dispatcher(
                 ),
                 logical_resource=result.host_failure.logical_resource,
                 hostnames=result.host_failure.hostnames,
-                show_network_hosts=local_config.output.show_network_hosts,
+                network_url_display=local_config.output.network_url_display,
                 exception_types=result.host_failure.exception_types,
             )
             # The contextual report owns both the concise summary and the
@@ -1660,7 +1661,7 @@ def _make_presentation_session(
         policy.host_heartbeat,
         text_output=text_output,
         stderr_is_tty=stderr_is_tty,
-        show_network_hosts=policy.show_network_hosts,
+        network_url_display=policy.network_url_display,
     )
     if not plan.live_sink:
         return None

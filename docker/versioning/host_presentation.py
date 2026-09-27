@@ -30,6 +30,7 @@ from docker.versioning.diagnostic_identity import (
     DiagnosticDisposition,
     PresentationMode,
 )
+from docker.versioning.model import NetworkUrlDisplay
 from docker.versioning.host_progress import (
     HostBuildEvent,
     HostDiagnosticEvent,
@@ -96,7 +97,7 @@ class PresentationPlan:
 
     mode: HostPresentationMode
     selection: PresentationSelection
-    show_network_hosts: bool = False
+    network_url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED
 
     @property
     def live_sink(self) -> bool:
@@ -108,7 +109,7 @@ def select_presentation(
     *,
     text_output: bool,
     stderr_is_tty: bool,
-    show_network_hosts: bool = False,
+    network_url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED,
 ) -> PresentationPlan:
     """Resolve the facade presentation plan from the local output policy.
 
@@ -127,12 +128,12 @@ def select_presentation(
             "host_heartbeat must be one of interactive, lines, or off"
         ) from exc
     if not text_output:
-        return PresentationPlan(mode, PresentationSelection.NONE, show_network_hosts)
+        return PresentationPlan(mode, PresentationSelection.NONE, network_url_display)
     if stderr_is_tty:
-        return PresentationPlan(mode, PresentationSelection.LIVE, show_network_hosts)
+        return PresentationPlan(mode, PresentationSelection.LIVE, network_url_display)
     if mode is HostPresentationMode.LINES:
-        return PresentationPlan(mode, PresentationSelection.LIVE, show_network_hosts)
-    return PresentationPlan(mode, PresentationSelection.NONE, show_network_hosts)
+        return PresentationPlan(mode, PresentationSelection.LIVE, network_url_display)
+    return PresentationPlan(mode, PresentationSelection.NONE, network_url_display)
 
 
 # --------------------------------------------------------------------------
@@ -214,7 +215,7 @@ def format_progress(event: HostTransportProgressEvent) -> str:
 def format_diagnostic_text(
     diagnostic: HostStructuredDiagnostic,
     *,
-    show_network_hosts: bool,
+    network_url_display: NetworkUrlDisplay,
 ) -> str:
     """Apply the facade hostname policy to one structured safe diagnostic.
 
@@ -222,7 +223,7 @@ def format_diagnostic_text(
     only when the display policy enables them.
     """
     text = diagnostic.text
-    if show_network_hosts and diagnostic.hostnames:
+    if network_url_display is NetworkUrlDisplay.HOST_PATH and diagnostic.hostnames:
         return f"{text} [{' '.join(diagnostic.hostnames)}]"
     return text
 
@@ -237,7 +238,7 @@ def format_failure_report(
     timeout_retained_context: bool = False,
     logical_resource: str | None = None,
     hostnames: tuple[str, ...] = (),
-    show_network_hosts: bool = False,
+    network_url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED,
     exception_types: tuple[str, ...] = (),
 ) -> str:
     """Render one contextual host failure, reusing the bounded redacted tail.
@@ -254,7 +255,7 @@ def format_failure_report(
         lines.append(f"logical asset: {logical_resource}")
     if exception_types:
         lines.append(f"error types: {' -> '.join(exception_types)}")
-    if show_network_hosts and hostnames:
+    if network_url_display is NetworkUrlDisplay.HOST_PATH and hostnames:
         lines.append(f"network hosts: {', '.join(hostnames)}")
     if tail:
         lines.append("Retained diagnostics (may repeat live output):")
@@ -590,7 +591,7 @@ class HostPresentationState:
         renderer: HostPresentationRenderer,
         *,
         mode: HostPresentationMode,
-        show_network_hosts: bool = False,
+        network_url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED,
         cancellation: threading.Event | None = None,
     ) -> None:
         if not isinstance(mode, HostPresentationMode):
@@ -598,7 +599,7 @@ class HostPresentationState:
         self._renderer = renderer
         self._cancellation = cancellation or threading.Event()
         self._mode = mode
-        self._show = bool(show_network_hosts)
+        self._show = network_url_display is NetworkUrlDisplay.HOST_PATH
         self._coalescer = DiagnosticCoalescer(
             PresentationMode.INTERACTIVE
             if mode is HostPresentationMode.INTERACTIVE
@@ -619,8 +620,9 @@ class HostPresentationState:
         return self._mode
 
     @property
-    def show_network_hosts(self) -> bool:
-        return self._show
+    def network_url_display(self) -> NetworkUrlDisplay:
+        return (NetworkUrlDisplay.HOST_PATH if self._show
+                else NetworkUrlDisplay.REDACTED)
 
     @property
     def rendering_failed(self) -> bool:
@@ -1240,7 +1242,7 @@ class HostPresentationSession:
         self._state = HostPresentationState(
             renderer,
             mode=plan.mode,
-            show_network_hosts=plan.show_network_hosts,
+            network_url_display=plan.network_url_display,
             cancellation=self._cancellation,
         )
         self._worker = PresentationWorker(self._mailbox, self._state, clock=clock)

@@ -6,19 +6,20 @@ This checklist is the binding implementation contract for this change. A phase i
 
 **Depends on:** none.
 
-**Deliverables:** a closed `NetworkUrlDisplay` model; aggregate local-schema support for `[output].network_url_display`; typed presentation-only propagation from facade through every host-side assembly request to stream collector configuration; `redacted` defaults for local and direct callers; no semantic identity inputs.
+**Deliverables:** a closed `NetworkUrlDisplay` model; aggregate local-schema support for `[output].network_url_display`; typed presentation-only propagation from facade through every host-side assembly request to stream collector configuration; `redacted` defaults for local and direct callers; no semantic identity inputs; this project's local configuration migrated to `network_url_display = "host-path"`.
 
-- [ ] 1.1 **RED:** Add focused local parsing tests for `redacted`, `host-path`, and `exact`, and verify each test fails because the enum is not implemented.
-- [ ] 1.2 **RED:** Add focused local validation tests for the absent-value `redacted` default, non-string values, values outside the closed set, and ordinary rejection of undeclared `[output]` fields; verify each new case fails for the intended missing behavior.
-- [ ] 1.3 **RED:** Add propagation tests asserting one `NetworkUrlDisplay` enum field named `network_url_display` flows through facade resolution, host materialization request, Pi assembly request, assembler execution request, and stream collector configuration; verify the assertions fail at the first missing DTO boundary.
-- [ ] 1.4 **RED:** Add direct assembler, SDK, and injected-caller request tests for omitted-value `redacted` default and closed rejection of invalid values before effects; verify the missing request/API behavior fails.
-- [ ] 1.5 **RED:** Add request-model tests proving the presentation field is absent from reviewed/effective projections and cannot be supplied by CLI, environment, or container input; verify the new host-only boundary assertions fail before implementation.
-- [ ] 1.6 **GREEN:** Implement the closed `NetworkUrlDisplay` model and `[output]` schema composition; verify the parsing, default, type, value, and unknown-field tests from 1.1–1.2 pass.
-- [ ] 1.7 **GREEN:** Add the same enum-typed `network_url_display` field to each host materialization and assembly DTO and bind it immutably into collector configuration before stream capture; verify the end-to-end propagation tests from 1.3 pass without string or boolean conversion.
-- [ ] 1.8 **GREEN:** Implement `redacted` defaulting and closed validation at direct assembler, SDK, and injected entry points; verify the tests from 1.4 pass before npm, Docker, network, cache, container, or stream effects.
-- [ ] 1.9 **GREEN:** Preserve reviewed/effective/container and alias exclusions while permitting only host-side request propagation; verify the boundary tests from 1.5 pass.
-- [ ] 1.10 **INTROSPECT:** Audit every intermediate DTO plus serialization, equality, hashing, cache-key, reviewed projection, and effective projection path touched by the selector; add a regression assertion for each discovered path and verify the enum reaches collection but never becomes a semantic input.
-- [ ] 1.11 **VALIDATE:** Run the focused local-configuration, aggregate-schema, propagation, direct-caller, projection, request-model, alias-exclusion, and DTO-type suites; record the exact commands and passing results in the change verification evidence.
+- [x] 1.1 **RED:** Add focused local parsing tests for `redacted`, `host-path`, and `exact`, and verify each test fails because the enum is not implemented.
+- [x] 1.2 **RED:** Add focused local validation tests for the absent-value `redacted` default, non-string values, values outside the closed set, and ordinary rejection of undeclared `[output]` fields; verify each new case fails for the intended missing behavior.
+- [x] 1.3 **RED:** Add propagation tests asserting one `NetworkUrlDisplay` enum field named `network_url_display` flows through facade resolution, host materialization request, Pi assembly request, assembler execution request, and stream collector configuration; verify the assertions fail at the first missing DTO boundary.
+- [x] 1.4 **RED:** Add direct assembler, SDK, and injected-caller request tests for omitted-value `redacted` default and closed rejection of invalid values before effects; verify the missing request/API behavior fails.
+- [x] 1.5 **RED:** Add request-model tests proving the presentation field is absent from reviewed/effective projections and cannot be supplied by CLI, environment, or container input; verify the new host-only boundary assertions fail before implementation.
+- [x] 1.6 **GREEN:** Implement the closed `NetworkUrlDisplay` model and `[output]` schema composition; verify the parsing, default, type, value, and unknown-field tests from 1.1–1.2 pass.
+- [x] 1.7 **GREEN:** Add the same enum-typed `network_url_display` field to each host materialization and assembly DTO and bind it immutably into collector configuration before stream capture; verify the end-to-end propagation tests from 1.3 pass without string or boolean conversion.
+- [x] 1.8 **GREEN:** Implement `redacted` defaulting and closed validation at direct assembler, SDK, and injected entry points; verify the tests from 1.4 pass before npm, Docker, network, cache, container, or stream effects.
+- [x] 1.9 **GREEN:** Preserve reviewed/effective/container and alias exclusions while permitting only host-side request propagation; verify the boundary tests from 1.5 pass.
+- [x] 1.10 **GREEN:** Change this project's local configuration once from `show_network_hosts` to `network_url_display = "host-path"`; verify the project-local companion parses under the new closed schema without compatibility or generalized migration logic.
+- [x] 1.11 **INTROSPECT:** Audit every intermediate DTO plus serialization, equality, hashing, cache-key, reviewed projection, and effective projection path touched by the selector; add a regression assertion for each discovered path and verify the enum reaches collection but never becomes a semantic input.
+- [x] 1.12 **VALIDATE:** Run the focused local-configuration, aggregate-schema, propagation, direct-caller, projection, request-model, alias-exclusion, and DTO-type suites with this project's migrated local companion in place; verify its resolved policy is `host-path` and record the exact commands and passing results in the change verification evidence.
 
 ## 2. Terminal-Safe Diagnostic Framing
 
@@ -125,14 +126,14 @@ This checklist is the binding implementation contract for this change. A phase i
 
 **Depends on:** Phases 1 and 6.
 
-**Deliverables:** one project-local configuration update to `network_url_display = "host-path"`; accurate mode, disclosure, channel, and safety documentation without generalized migration behavior.
+**Deliverables:** accurate mode, disclosure, channel, and safety documentation plus an updated local example, without generalized migration behavior.
 
-- [ ] 8.1 **RED:** Add or update documentation/example assertions for the three closed values, the absent-value `redacted` default, and this project's required `host-path` setting; verify the assertions fail against the current documents and example.
+- [ ] 8.1 **RED:** Add or update documentation/example assertions for the three closed values and the absent-value `redacted` default; verify the assertions fail against the current documents and example.
 - [ ] 8.2 **RED:** Add documentation assertions for host-path disclosure, exact credential/secret disclosure, mandatory terminal safety and bounds, text/JSON channel behavior, one selected retained tail, typed presentation-only propagation, direct-caller `redacted` default, SDK/evidence/identity exclusions, and operator responsibility; verify each missing statement is reported.
-- [ ] 8.3 **GREEN:** Change this project's local configuration once to `network_url_display = "host-path"` and update the local example; verify configuration parsing and example checks pass without compatibility or generalized migration logic.
+- [ ] 8.3 **GREEN:** Update the local example for `network_url_display`; verify example checks pass without compatibility or generalized migration logic.
 - [ ] 8.4 **GREEN:** Update host-build-output documentation with the required mode semantics, typed host-side propagation path, direct-caller `redacted` default, disclosures, channel matrix, retention model, semantic-identity exclusions, and safety boundaries; verify the documentation assertions from 8.1–8.2 pass.
-- [ ] 8.5 **INTROSPECT:** Search project configuration, examples, and user documentation for stale boolean-setting guidance, claims of multiple retained tails, or claims that exact is secret-safe; resolve every match and verify remaining historical references are limited to the explicit one-time project configuration replacement.
-- [ ] 8.6 **VALIDATE:** Run documentation tests, parse every shipped example, and verify this project's resolved local policy is `host-path`; record the exact commands and passing results in the change verification evidence.
+- [ ] 8.5 **INTROSPECT:** Search examples and user documentation for stale boolean-setting guidance, claims of multiple retained tails, or claims that exact is secret-safe; resolve every match and verify remaining historical references are limited to the explicit one-time project configuration replacement.
+- [ ] 8.6 **VALIDATE:** Run documentation tests and parse every shipped example; record the exact commands and passing results in the change verification evidence.
 
 ## 9. Release Integration
 

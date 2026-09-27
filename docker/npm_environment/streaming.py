@@ -27,6 +27,8 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Callable, Iterable, Protocol, Sequence
 
+from docker.versioning.model import NetworkUrlDisplay
+
 REDACTED = "<redacted>"
 
 #: Fixed literal recording that live output was not fully delivered.  It is
@@ -545,6 +547,7 @@ def collect_streams(
     stream_factory: Callable[[str], DiagnosticStream] | None = None,
     tail_projector: Callable[..., str] | None = None,
     abort_event: threading.Event | None = None,
+    network_url_display: NetworkUrlDisplay | None = None,
 ) -> StreamingCapture:
     """Drain two byte pipes concurrently through redacting streams.
 
@@ -592,6 +595,10 @@ def collect_streams(
     reader that genuinely reaches a clean, unsignalled EOF still finalizes
     unchanged.  When ``None``, a private event is created.
     """
+    if network_url_display is None:
+        network_url_display = NetworkUrlDisplay.REDACTED
+    if not isinstance(network_url_display, NetworkUrlDisplay):
+        raise ValueError("network_url_display must be a NetworkUrlDisplay")
     if abort_event is None:
         abort_event = threading.Event()
     stdout_stream = (

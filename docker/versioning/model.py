@@ -14,6 +14,7 @@ from __future__ import annotations
 import base64
 import re
 from dataclasses import dataclass, field
+from enum import StrEnum
 from types import MappingProxyType
 from typing import Any, Mapping, Optional, Protocol
 
@@ -685,11 +686,19 @@ class LocalNetworkProxy:
     no_proxy: str | None = None
 
 
+class NetworkUrlDisplay(StrEnum):
+    """Closed host-only network diagnostic presentation policy."""
+
+    REDACTED = "redacted"
+    HOST_PATH = "host-path"
+    EXACT = "exact"
+
+
 @dataclass(frozen=True)
 class LocalOutputPolicy:
     """Host-only facade presentation policy from local ``[output]``."""
     host_heartbeat: str = "interactive"
-    show_network_hosts: bool = False
+    network_url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED
 
 
 @dataclass(frozen=True)
@@ -709,7 +718,7 @@ class BuildLocalInputs:
     This is the *only* local-companion projection that may cross into
     build orchestration.  It deliberately excludes the host-only
     ``[output]`` presentation policy (``host_heartbeat`` /
-    ``show_network_hosts``), which is retained by the facade.
+    ``network_url_display``), which is retained by the facade.
     """
     corporate_trust_enabled: bool = False
     cache_dir: str | None = None

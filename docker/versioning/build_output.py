@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 from .errors import InventoryError
-from .model import LocalOutputPolicy
+from .model import LocalOutputPolicy, NetworkUrlDisplay
 
 
 _VALID_HEARTBEAT_MODES = frozenset({"interactive", "lines", "off"})
+_VALID_NETWORK_URL_DISPLAYS = frozenset(value.value for value in NetworkUrlDisplay)
 
 
 def parse_local_output_policy(
@@ -21,12 +22,12 @@ def parse_local_output_policy(
             "local.output: expected table; use [output]",
             field="local.output",
         )
-    unknown = set(output_raw) - {"host_heartbeat", "show_network_hosts"}
+    unknown = set(output_raw) - {"host_heartbeat", "network_url_display"}
     if unknown:
         key = sorted(unknown)[0]
         raise InventoryError(
             f"local.output.{key}: unknown key; use only "
-            "local.output.host_heartbeat and local.output.show_network_hosts",
+            "local.output.host_heartbeat and local.output.network_url_display",
             field=f"local.output.{key}",
         )
     heartbeat = output_raw.get("host_heartbeat", "interactive")
@@ -40,10 +41,17 @@ def parse_local_output_policy(
             "local.output.host_heartbeat: unsupported value; use interactive, lines, or off",
             field="local.output.host_heartbeat",
         )
-    show_hosts = output_raw.get("show_network_hosts", False)
-    if not isinstance(show_hosts, bool):
+    network_url_display = output_raw.get(
+        "network_url_display", NetworkUrlDisplay.REDACTED.value
+    )
+    if not isinstance(network_url_display, str):
         raise InventoryError(
-            "local.output.show_network_hosts: expected boolean",
-            field="local.output.show_network_hosts",
+            "local.output.network_url_display: expected string; use redacted, host-path, or exact",
+            field="local.output.network_url_display",
         )
-    return LocalOutputPolicy(heartbeat, show_hosts)
+    if network_url_display not in _VALID_NETWORK_URL_DISPLAYS:
+        raise InventoryError(
+            "local.output.network_url_display: unsupported value; use redacted, host-path, or exact",
+            field="local.output.network_url_display",
+        )
+    return LocalOutputPolicy(heartbeat, NetworkUrlDisplay(network_url_display))

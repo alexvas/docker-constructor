@@ -63,7 +63,9 @@ from docker.versioning.npm_diagnostic_stream import (
     make_stream_factory,
     project_tail,
 )
-from docker.versioning.model import EffectiveBuildProjection, PiReleaseSource
+from docker.versioning.model import (
+    EffectiveBuildProjection, NetworkUrlDisplay, PiReleaseSource,
+)
 from docker.versioning.pi_consumer import (
     LauncherEvidence,
     LauncherPlan,
@@ -105,8 +107,11 @@ class PiAssemblyRequest:
     proxy_no_proxy: str | None = None
     corporate_trust_bundle: str | None = None
     event_sink: HostEventSink | None = None
+    network_url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED
 
     def __post_init__(self) -> None:
+        if not isinstance(self.network_url_display, NetworkUrlDisplay):
+            raise ValueError("network_url_display must be a NetworkUrlDisplay")
         object.__setattr__(self, "event_sink", guard_sink(self.event_sink))
 
 
@@ -297,6 +302,7 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
             ),
             tail_projector=project_tail,
             activity=activity,
+            network_url_display=request.network_url_display,
         )
     except BaseException:
         emit(request.event_sink, HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.FAILED))

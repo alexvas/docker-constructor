@@ -27,6 +27,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Callable, Protocol, Sequence
 
+from docker.versioning.model import NetworkUrlDisplay
+
 from .assembler import (
     ASSEMBLY_TOTAL_TIMEOUT_SECONDS,
     EXIT_NODE_VERSION_MISMATCH,
@@ -534,6 +536,7 @@ class DockerRunExecutor:
         cleanup_outcome: _StreamingCleanupOutcome | None = None,
         stream_factory=None,
         tail_projector=None,
+        network_url_display: NetworkUrlDisplay | None = None,
         on_launched: Callable[[], None] | None = None,
     ) -> ProcessResult:
         """Run *argv*, draining stdout/stderr concurrently with redaction.
@@ -714,6 +717,7 @@ class DockerRunExecutor:
                 stream_factory=stream_factory,
                 tail_projector=tail_projector,
                 abort_event=abort_event,
+                network_url_display=network_url_display,
             )
         except BaseException as exc:
             supervisor_failures = _join_supervisor(
@@ -1146,6 +1150,7 @@ def _streaming_kwargs(
     cleanup_outcome: _StreamingCleanupOutcome,
     stream_factory=None,
     tail_projector=None,
+    network_url_display=None,
     on_launched=None,
 ) -> dict:
     """Build the streaming call arguments the *runner* actually accepts.
@@ -1172,6 +1177,8 @@ def _streaming_kwargs(
         kwargs["stream_factory"] = stream_factory
     if "tail_projector" in params:
         kwargs["tail_projector"] = tail_projector
+    if "network_url_display" in params:
+        kwargs["network_url_display"] = network_url_display
     if "on_launched" in params:
         kwargs["on_launched"] = on_launched
     return kwargs
@@ -1191,6 +1198,7 @@ def assemble(
     stream_factory=None,
     tail_projector=None,
     activity: AssemblyActivity | None = None,
+    network_url_display: NetworkUrlDisplay | None = None,
 ) -> AssemblyRun:
     """Run one standalone pinned assembler container.
 
@@ -1211,6 +1219,10 @@ def assemble(
     it before process exit; an absent *sink* produces no live output and
     only bounded diagnostics are retained.
     """
+    if network_url_display is None:
+        network_url_display = NetworkUrlDisplay.REDACTED
+    if not isinstance(network_url_display, NetworkUrlDisplay):
+        raise ValueError("network_url_display must be a NetworkUrlDisplay")
     recheck_assembler_bindings(assembler)
     input_identity = compute_assembler_input_identity(validated, assembler)
 
@@ -1280,6 +1292,7 @@ def assemble(
                         streaming_cleanup_outcome,
                         stream_factory,
                         tail_projector,
+                        network_url_display,
                         begin_npm_execution,
                     )
                     if "on_launched" not in streaming_kwargs:
