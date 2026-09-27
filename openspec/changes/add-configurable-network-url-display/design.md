@@ -51,28 +51,34 @@ Alternative: keep the selector only in facade formatting. Rejected because mode-
 
 ### Retain one mode-selected representation
 
-The resolved local policy is fixed before collection starts. After incremental UTF-8 decoding, line bounding, and terminal-control neutralization, collection will retain exactly one bounded per-stream tail:
+The resolved local policy is fixed before collection starts. Collection uses incremental UTF-8 decoding, bounded source-line byte accounting, and terminal-control neutralization while retaining exactly one bounded per-stream tail. It does not atomically buffer a whole line before delivery: terminal-safe committed prefixes within the 64 KiB line bound continue through the selected transformation promptly without waiting for newline.
 
 ```text
 npm bytes
    |
    v
-incremental decode + line bound + terminal-control neutralizer
+incremental decode + source-line byte counter
    |
-   +--> source-safe line ---------------------------> exact live + retained tail
+   +-- within 64 KiB --> terminal-control neutralizer
+   |                          |
+   |                          +--> source-safe committed prefix ------> exact live + retained tail
+   |                          |
+   |                          +--> secret redaction + URL projector
+   |                                   |                    |
+   |                                   |                    +--> URL-free external SDK event
+   |                                   +--> redacted render --> redacted live + retained tail
+   |                                   +--> host/path render -> host-path live + retained tail
    |
-   +--> secret redaction + URL projector
-            |                         |
-            |                         +-------------> URL-free external SDK event
-            |
-            +--> redacted render -------------------> redacted live + retained tail
-            |
-            +--> safe host/path render -------------> host-path live + retained tail
+   +-- first byte over 64 KiB --> append one `[sanitized oversized diagnostic]`
+                                  discard source suffix through newline or EOF
+                                  resume normal processing after newline
 ```
+
+Previously emitted safe prefixes are never retracted. Overflow therefore notifies the user by appending a marker rather than atomically replacing the entire line. The overflow state retains no discarded suffix, emits no second marker at EOF, preserves a subsequent newline as the record boundary, and starts fresh after that boundary. Complete-line parsing and fetch grouping may wait for the record boundary; bounded stream capture, selected-tail retention, and prompt safe-prefix delivery do not.
 
 Only the branch selected by `network_url_display` enters the single retained-tail buffer and internal presentation actor. Non-selected local representations are not retained. In `exact`, the projected-safe form is still computed transiently when required for external SDK delivery, but it is not placed in another retained tail. In `redacted` and `host-path`, source-safe content is not retained. "Source-safe" means content-exact except for terminal-control neutralization and existing overflow markers; it is not secret-safe. The projector remains the only source for external SDK diagnostics, fingerprints, safe host/path facts, and evidence-safe data.
 
-Alternative: retain source-safe and projected-safe tails simultaneously, or add a third host-path tail. Rejected because the immutable policy is known before collection, parallel retention duplicates byte accounting and memory, and retaining non-selected exact content would unnecessarily preserve credentials and secrets. Passing raw text through the existing diagnostic DTO is also rejected because it would expose source URLs to external callbacks and make sink behavior part of the security boundary.
+Alternative: buffer each complete source line and replace an oversized line atomically with one marker. Rejected because it removes the established guarantee that committed safe prefixes are delivered without waiting for newline and can make a long-running partial diagnostic appear silent. Retaining source-safe and projected-safe tails simultaneously, adding a third host-path tail, and passing raw text through the external diagnostic DTO are also rejected because they duplicate bounded state or broaden disclosure boundaries.
 
 ### Carry a dedicated safe host/path presentation fact
 
@@ -98,7 +104,7 @@ Alternative: generalize all numeric variants to increment counts. Rejected becau
 
 ### Neutralize terminal controls before every selectable representation
 
-The source-safe branch recognizes complete ANSI CSI, OSC, and DCS/control-string forms and renders controls as visible inert escapes. It also renders CR, backspace, NUL, and remaining C0/C1 terminal-affecting controls inertly; newline remains the record boundary and ordinary tabs are retained. Incomplete or oversized control sequences fail closed to a fixed inert marker under a bounded incremental state. JSON serialization then performs normal JSON escaping over the same terminal-safe retained text.
+The source-safe branch recognizes complete ANSI CSI, OSC, and DCS/control-string forms and renders controls as visible inert escapes. It also renders CR, backspace, NUL, and remaining C0/C1 terminal-affecting controls inertly; newline remains the record boundary and ordinary tabs are retained. Incomplete or oversized control sequences fail closed to a fixed inert marker under a bounded incremental state. The 8 KiB control-sequence bound and 64 KiB source-line bound are independent: a control-sequence marker may form part of a committed safe prefix, and a later line overflow may append the line-overflow marker. If line overflow occurs while a control sequence is pending, that pending sequence is discarded with the source suffix and the line-overflow marker is sufficient; no ambiguous control content is released. JSON serialization then performs normal JSON escaping over the same terminal-safe retained text.
 
 Alternative: strip controls silently. Rejected because visible escapes preserve more of the exact diagnostic and aid debugging.
 
@@ -114,6 +120,7 @@ The selected representation applies to live text, explicit noninteractive lines,
 - **[A count understates producer events after admission drops]** → Count admitted requests only and preserve existing omission notices; do not claim exact producer multiplicity.
 - **[Path display leaks private package names]** → Make `host-path` explicit opt-in, exclude sensitive URL components, and fail closed for unsafe paths.
 - **[Terminal escape parser misses an exotic sequence]** → Test fragmented CSI/OSC/DCS/C0/C1 forms and use fail-closed bounded incomplete-sequence handling.
+- **[An oversized line has already exposed its safe prefix]** → Define overflow as an appended notification rather than atomic replacement, discard only the suffix after overflow, and preserve mode-specific disclosure rules for every committed prefix.
 - **[Breaking local configuration surprises users]** → Let ordinary closed-schema validation reject unrecognized fields and update this project's configuration and the documentation in the same change.
 
 ## Deployment Plan
