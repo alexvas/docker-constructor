@@ -504,6 +504,47 @@ def _candidate_host(candidate: str) -> str | None:
     return _normalized_host(layer)
 
 
+def normalized_url_host(url: str) -> str | None:
+    """Return the normalized hostname of a complete supported URL.
+
+    This is the single shared authority/hostname rule used by host/path
+    projection and by the npm fetch parser, so the two can never disagree
+    about which hosts are valid.  It reuses the candidate-layer percent
+    decoding and hostname normalization that produce a
+    :class:`SafeHostPath`, so an uppercase host, a trailing FQDN dot, an
+    IPv4/IPv6 literal, a punycode or raw IDNA host, a percent-encoded host,
+    and an underscore-bearing reg-name normalize exactly as they do for a
+    host fact.
+
+    Returns ``None`` when *url* is not a string with an authority or when the
+    *decoded* candidate layer's authority or hostname cannot be normalized
+    safely; ``https://%``, ``https://[``, ``https://?x``, ``https:///x``,
+    ``http://:80/x``, a trailing-colon authority such as
+    ``https://example.com:/x``, an encoded trailing colon such as
+    ``https://example.com%3A/x``, and a non-numeric or out-of-range port all
+    return ``None``.  The caller is responsible for scheme structural checks.
+    """
+    if not isinstance(url, str) or not url:
+        return None
+    layer = _candidate_url_layer(url)
+    if layer is None:
+        return None
+    try:
+        parsed = urllib.parse.urlsplit(layer)
+        parsed.port
+    except ValueError:
+        return None
+    if not parsed.netloc:
+        return None
+    authority = parsed.netloc.rpartition("@")[2]
+    if not authority or _AUTHORITY_RE.fullmatch(authority) is None:
+        return None
+    host = parsed.hostname
+    if not host:
+        return None
+    return _normalize_hostname_text(host)
+
+
 def _percent_encode_utf8(character: str) -> str | None:
     """Return the uppercase UTF-8 percent-encoding of *character*.
 
@@ -1363,6 +1404,7 @@ __all__ = [
     "DiagnosticResourceKind",
     "SafeHostPath",
     "SessionUrlIdentity",
+    "normalized_url_host",
     "project_exception_type_chain",
     "project_host_acquisition_failure",
     "project_structured_diagnostic",

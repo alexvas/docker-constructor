@@ -31,6 +31,7 @@ from docker.versioning.diagnostic_projection import (
     REDACTED_PATH_MARKER,
     DiagnosticProjector,
     SafeHostPath,
+    normalized_url_host,
     project_structured_diagnostic,
     sanitize_diagnostic_text,
     sanitize_host_paths,
@@ -122,6 +123,78 @@ class TestSafeHostPathProjection(unittest.TestCase):
     def test_non_url_text_yields_no_facts(self):
         self.assertEqual((), _facts("added 3 packages in 2s"))
         self.assertEqual((), _facts("token=topsecret", secrets=("topsecret",)))
+
+
+class TestNormalizedUrlHostHelper(unittest.TestCase):
+    """The shared authority/hostname helper also used by the fetch parser.
+
+    It must apply the projector's authority validation, not just hostname
+    normalization, so a structurally malformed authority cannot yield a host
+    that host/path projection refuses to emit.
+    """
+
+    def test_malformed_authorities_return_no_host(self):
+        for url in (
+            "https://example.com:/x",
+            "https://example.com:",
+            "https://[2001:db8::1]:/x",
+            "https://user@example.com:/x",
+            "https://%",
+            "https://[",
+            "http://:80/x",
+        ):
+            with self.subTest(url=url):
+                self.assertIsNone(normalized_url_host(url))
+                self.assertEqual((), _facts(url))
+
+    def test_nonnumeric_and_out_of_range_ports_return_no_host(self):
+        for url in (
+            "http://127.0.0.1:0x50/x",
+            "http://127.0.0.1:-1/x",
+            "http://127.0.0.1:70000/x",
+            "http://127.0.0.1:99999/x",
+            "http://registry.npmjs.org:65536/a",
+        ):
+            with self.subTest(url=url):
+                self.assertIsNone(normalized_url_host(url))
+                self.assertEqual((), _facts(url))
+
+    def test_encoded_malformed_authorities_return_no_host(self):
+        for url in (
+            "https://example.com%3A/x",
+            "https://example.com%3Aabc/x",
+            "https://example.com%3A99999/x",
+            "https://example.com%3A0x50/x",
+            "https://user@example.com%3A/x",
+        ):
+            with self.subTest(url=url):
+                self.assertIsNone(normalized_url_host(url))
+                self.assertEqual((), _facts(url))
+
+    def test_encoded_host_uses_the_validated_decoded_layer(self):
+        url = "https://%65xample.com/x"
+        self.assertEqual("example.com", normalized_url_host(url))
+        self.assertEqual(
+            [SafeHostPath("example.com", "/x")], list(_facts(url))
+        )
+
+    def test_supported_host_forms_still_normalize(self):
+        cases = {
+            "https://example.com/x": "example.com",
+            "HTTPS://EXAMPLE.COM/x": "example.com",
+            "https://example.com./x": "example.com",
+            "https://example.com:443/x": "example.com",
+            "https://192.0.2.10:443/x": "192.0.2.10",
+            "https://[2001:DB8::1]:443/x": "2001:db8::1",
+            "https://xn--bcher-kva.example/x": "xn--bcher-kva.example",
+            "https://b\u00fccher.example/x": "xn--bcher-kva.example",
+            "https://%65xample.com/x": "example.com",
+            "https://a_b.example/x": "a_b.example",
+            "https://user:pw@example.com:443/x?q=1#f": "example.com",
+        }
+        for url, expected in cases.items():
+            with self.subTest(url=url):
+                self.assertEqual(expected, normalized_url_host(url))
 
 
 class TestConfidentialityPreserved(unittest.TestCase):
