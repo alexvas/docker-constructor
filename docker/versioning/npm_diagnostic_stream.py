@@ -23,8 +23,14 @@ stdout/stderr collector to the shared safe diagnostic projector:
   immediately; the record boundary then emits one finalized line carrying the
   complete text and the accumulated metadata, without re-appending the text;
 * the retained per-stream tail keeps its existing byte bound and truncation
-  semantics, preserves the URL-free sanitized ordering and occurrences without
-  grouping, and excludes discarded overflow fragments and host metadata.
+  semantics, preserves the selected representation's ordering and occurrences
+  without grouping, and excludes discarded overflow fragments and host
+  metadata.  Exactly one tail is retained: ``redacted`` retains the URL-free
+  sanitized projection, ``host-path`` retains a safely rendered normalized
+  hostname/path render of the same projection, and ``exact`` retains
+  terminal-safe source.  The projected-safe form used for external SDK events
+  is transient in ``host-path`` and ``exact`` and never becomes a second
+  retained tail.
 
 Nothing here renders, coalesces diagnostics, schedules a timer, or owns a
 presentation worker.  ``classify_npm_diagnostic`` is a conservative,
@@ -48,9 +54,16 @@ from docker.npm_environment.streaming import (
 from docker.versioning.diagnostic_identity import SessionUrlIdentity
 from docker.versioning.diagnostic_projection import (
     DiagnosticProjector,
+    SafeHostPath,
     sanitize_diagnostic_text,
 )
 from docker.versioning.host_progress import HostDiagnosticClassification
+from docker.versioning.model import NetworkUrlDisplay
+
+
+def _host_path_formatter(fact: SafeHostPath) -> str:
+    """Render one validated safe host/path fact for the retained `host-path` tail."""
+    return fact.text
 
 _WARNING_RE = re.compile(r"(?i)(?:^|\s)npm\s+warn\b|(?:^|\s)warn(?:ing)?\b")
 _TIMEOUT_RE = re.compile(r"(?i)\btime(?:d)?[ _-]?out\b|\btimeout\b")
@@ -97,19 +110,38 @@ def _bounded_tail(text: str, tail_bytes: int) -> str:
 
 
 def project_tail(
-    text: str, secrets=(), *, tail_bytes: int = TAIL_BYTES
+    text: str,
+    secrets=(),
+    *,
+    tail_bytes: int = TAIL_BYTES,
+    network_url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED,
 ) -> str:
-    """Return bounded, secret-redacted, URL-free text for a retained tail.
+    """Return bounded text for the single retained tail under *network_url_display*.
 
-    The signature matches :func:`docker.npm_environment.streaming.redact_tail`
-    so callers can inject it wherever the merely secret-redacted tail was used
-    and guarantee that no pre-projection text reaches a returned, attached,
-    persisted, or failure representation.  The text is decoded, framed, and
-    terminal-neutralized in the same order as the streaming collector.
+    The signature remains compatible with
+    :func:`docker.npm_environment.streaming.redact_tail` so callers can inject
+    it wherever a retained tail is rendered.  The one selected representation
+    is produced under the same decode/frame/neutralize order as the streaming
+    collector: URL-free sanitized text for ``redacted``, safely rendered
+    normalized hostname/path text for ``host-path``, or terminal-safe source
+    text for ``exact``.  No non-selected representation is retained.
     """
+    if not isinstance(network_url_display, NetworkUrlDisplay):
+        raise ValueError("network_url_display must be a NetworkUrlDisplay")
     framer = TerminalSafeLineFramer()
     neutralized = "".join(framer.feed_text(text))
     neutralized += "".join(framer.finish())
+    if network_url_display is NetworkUrlDisplay.EXACT:
+        # Source content is exactly what the selected representation wants;
+        # the projected-safe form is never retained in this mode.
+        return _bounded_tail(neutralized, tail_bytes)
+    if network_url_display is NetworkUrlDisplay.HOST_PATH:
+        projector = DiagnosticProjector(
+            secrets, url_formatter=_host_path_formatter
+        )
+        safe = "".join(projector.feed_text(neutralized))
+        safe += "".join(projector.finish())
+        return _bounded_tail(safe, tail_bytes)
     safe, _hostnames = sanitize_diagnostic_text(neutralized, secrets)
     return _bounded_tail(safe, tail_bytes)
 
@@ -129,9 +161,11 @@ class NpmDiagnosticStream:
 
     A committed prefix is never a complete npm diagnostic: complete-line
     parsing, classification, identity, and grouping must consume only
-    finalized lines.  ``tail`` returns the retained URL-free text with the
-    existing per-stream byte bound; the finalized line never re-appends its
-    text, so a prefix is retained exactly once.
+    finalized lines.  ``tail`` returns the single mode-selected retained text
+    (URL-free ``redacted``, normalized hostname/path ``host-path``, or
+    terminal-safe ``exact``) with the existing per-stream byte bound; the
+    finalized line never re-appends its text, so a prefix is retained exactly
+    once.
     """
 
     def __init__(
@@ -143,6 +177,7 @@ class NpmDiagnosticStream:
         tail_bytes: int = TAIL_BYTES,
         line_limit: int = DIAGNOSTIC_LINE_LIMIT_BYTES,
         on_chunk: Callable[[], None] | None = None,
+        network_url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED,
     ) -> None:
         if stream not in ("stdout", "stderr"):
             raise ValueError("stream must be 'stdout' or 'stderr'")
@@ -152,9 +187,22 @@ class NpmDiagnosticStream:
             raise ValueError("line_limit must be positive")
         if on_chunk is not None and not callable(on_chunk):
             raise TypeError("on_chunk must be callable or None")
+        if not isinstance(network_url_display, NetworkUrlDisplay):
+            raise ValueError("network_url_display must be a NetworkUrlDisplay")
         self._stream = stream
+        self._network_url_display = network_url_display
         self._framer = TerminalSafeLineFramer(line_limit_bytes=line_limit)
         self._projector = DiagnosticProjector(secrets, url_identity=fingerprinter)
+        # The single retained tail is mode-selected.  ``redacted`` retains the
+        # URL-free projection directly; ``host-path`` derives its render from
+        # a dedicated projector over the same terminal-safe source; ``exact``
+        # appends the neutralized source itself.  At most one of these feeds
+        # the one retained buffer -- no second tail is created.
+        self._retained_projector = (
+            DiagnosticProjector(secrets, url_formatter=_host_path_formatter)
+            if network_url_display is NetworkUrlDisplay.HOST_PATH
+            else None
+        )
         self._on_chunk = on_chunk
         self._tail_bytes_limit = tail_bytes
         self._line_chars: list[str] = []
@@ -193,7 +241,18 @@ class NpmDiagnosticStream:
         projected = self._projector.finish(abort=abort)
         self._absorb_projector_facts()
         for text in projected:
-            chunks.extend(self._emit_projected(text))
+            chunks.extend(
+                self._emit_projected(
+                    text,
+                    retain=(
+                        self._network_url_display is NetworkUrlDisplay.REDACTED
+                    ),
+                )
+            )
+        if self._retained_projector is not None:
+            for retained in self._retained_projector.finish(abort=abort):
+                self._append_tail(retained)
+            self._drain_retained_facts()
         if (
             self._line_chars
             or self._line_hostnames
@@ -203,7 +262,7 @@ class NpmDiagnosticStream:
         return tuple(chunks)
 
     def tail(self) -> str:
-        """Return the retained URL-free, bounded diagnostic tail."""
+        """Return the single retained, mode-selected, bounded diagnostic tail."""
         return "".join(self._tail)
 
     @property
@@ -232,21 +291,56 @@ class NpmDiagnosticStream:
         while start < len(text):
             newline = text.find("\n", start)
             end = len(text) if newline == -1 else newline + 1
-            projected = self._projector.feed_text(text[start:end])
+            source_segment = text[start:end]
+            projected = self._projector.feed_text(source_segment)
             self._absorb_projector_facts()
             for projected_text in projected:
-                chunks.extend(self._emit_projected(projected_text))
+                chunks.extend(
+                    self._emit_projected(
+                        projected_text,
+                        retain=(
+                            self._network_url_display
+                            is NetworkUrlDisplay.REDACTED
+                        ),
+                    )
+                )
+            self._retain_source_segment(source_segment)
             start = end
         return chunks
 
-    def _emit_projected(self, text: str) -> list[StreamChunk]:
+    def _retain_source_segment(self, segment: str) -> None:
+        """Feed the one retained buffer for ``host-path`` and ``exact``.
+
+        ``redacted`` is already retained from the URL-free projection as it is
+        emitted, so it is intentionally omitted here.  Each mode appends to the
+        same single bounded tail; no non-selected representation is retained.
+        """
+        mode = self._network_url_display
+        if mode is NetworkUrlDisplay.HOST_PATH:
+            assert self._retained_projector is not None
+            for retained in self._retained_projector.feed_text(segment):
+                self._append_tail(retained)
+            self._drain_retained_facts()
+        elif mode is NetworkUrlDisplay.EXACT:
+            # Terminal-safe source, bounded by the existing tail byte limit.
+            self._append_tail(segment)
+
+    def _drain_retained_facts(self) -> None:
+        """Discard the alternate projector's facts; its text already carries them."""
+        assert self._retained_projector is not None
+        self._retained_projector.take_facts()
+        self._retained_projector.take_host_paths()
+
+    def _emit_projected(self, text: str, *, retain: bool) -> list[StreamChunk]:
         """Deliver committed safe prefixes and finalized line events.
 
         Projected text is delivered immediately as a non-finalized committed
-        prefix -- and retained in the bounded tail -- as soon as the projector
-        commits it.  A newline is the record boundary: it is appended to the
-        retained tail, finalizes the accumulated logical line together with its
-        metadata, and resets line-local state.  ``_finalize_line`` never
+        prefix as soon as the projector commits it.  A newline is the record
+        boundary: it finalizes the accumulated logical line together with its
+        metadata and resets line-local state.  When *retain* is set the
+        ``redacted`` selected representation is appended to the one bounded
+        tail; ``host-path`` and ``exact`` retain through
+        :meth:`_retain_source_segment` instead.  ``_finalize_line`` never
         re-appends the line text, so a prefix retained once is not retained
         twice when the line completes.
         """
@@ -257,12 +351,13 @@ class NpmDiagnosticStream:
             if newline == -1:
                 segment = text[start:]
                 if segment:
-                    chunks.append(self._emit_prefix(segment))
+                    chunks.append(self._emit_prefix(segment, retain=retain))
                 break
             segment = text[start:newline]
             if segment:
-                chunks.append(self._emit_prefix(segment))
-            self._append_tail("\n")
+                chunks.append(self._emit_prefix(segment, retain=retain))
+            if retain:
+                self._append_tail("\n")
             if (
                 self._line_chars
                 or self._line_hostnames
@@ -275,10 +370,11 @@ class NpmDiagnosticStream:
             start = newline + 1
         return chunks
 
-    def _emit_prefix(self, segment: str) -> StreamChunk:
-        """Accumulate, immediately retain, and return one committed prefix."""
+    def _emit_prefix(self, segment: str, *, retain: bool) -> StreamChunk:
+        """Accumulate, optionally retain, and return one committed prefix."""
         self._line_chars.append(segment)
-        self._append_tail(segment)
+        if retain:
+            self._append_tail(segment)
         return StreamChunk(
             self._stream, segment, overflowed=self._line_overflowed,
             finalized=False,
@@ -301,9 +397,9 @@ class NpmDiagnosticStream:
         never retain metadata for completed lines.
         """
         hostnames, fingerprints = self._projector.take_facts()
-        # Host/path facts are internal-presentation metadata.  Binding the one
-        # selected local representation is Phase 6 work; draining them here
-        # keeps the projector's per-line metadata bounded in the meantime.
+        # Host/path facts are internal-presentation metadata; the selected
+        # ``host-path`` representation already carries them in its rendered
+        # text, so the fact list is drained and never retained separately.
         self._projector.take_host_paths()
         for hostname in hostnames:
             # Deduplicate within the line only; the same host is re-attached
@@ -340,6 +436,7 @@ def make_stream_factory(
     fingerprinter: SessionUrlIdentity | None = None,
     *,
     on_chunk: Callable[[], None] | None = None,
+    network_url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED,
 ) -> Callable[[str], NpmDiagnosticStream]:
     """Return a per-stream factory wired for the locked-assembly collector."""
 
@@ -349,6 +446,7 @@ def make_stream_factory(
             secrets,
             fingerprinter=fingerprinter,
             on_chunk=on_chunk,
+            network_url_display=network_url_display,
         )
 
     return factory

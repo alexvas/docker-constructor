@@ -17,6 +17,7 @@ class ExitKind(Enum):
     CLI = "cli"
     CONFIG = "config"
     OPERATIONAL = "operational"
+    INTERRUPTED = "interrupted"
 
 
 @dataclass(frozen=True)

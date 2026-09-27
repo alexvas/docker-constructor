@@ -41,7 +41,10 @@ projection layer for host-pipeline diagnostics.  It:
   cancellation fails closed for every ambiguous URL or encoded-scheme prefix;
 * projects deterministic exception-type chains of at most four unique names
   without evaluating exception messages; and
-* never accepts output policy, so presentation decisions stay in the facade.
+* never accepts output policy: an optional low-level ``url_formatter`` can
+  render an already-validated :class:`SafeHostPath` fact for the selected
+  local tail, while every safety decision and the default URL-free external
+  projection stay in the projector.
 
 The module is deliberately free of transport, Docker, filesystem, and
 presentation dependencies.
@@ -54,7 +57,7 @@ import json
 import re
 import urllib.parse
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Callable, Sequence
 
 from docker.npm_environment.streaming import (
     REDACTED,
@@ -959,9 +962,12 @@ class DiagnosticProjector:
         secrets: Sequence[str] = (),
         *,
         url_identity: SessionUrlIdentity | None = None,
+        url_formatter: Callable[[SafeHostPath], str] | None = None,
     ) -> None:
         if url_identity is not None and not isinstance(url_identity, SessionUrlIdentity):
             raise TypeError("url_identity must be a SessionUrlIdentity or None")
+        if url_formatter is not None and not callable(url_formatter):
+            raise TypeError("url_formatter must be callable or None")
         self._secrets = dedupe_secrets(secrets)
         self._longest = longest_secret_length(self._secrets)
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
@@ -971,6 +977,7 @@ class DiagnosticProjector:
         self._hostnames: list[str] = []
         self._host_paths: list[SafeHostPath] = []
         self._url_identity = url_identity
+        self._url_formatter = url_formatter
         self._fingerprints: list[str] = []
 
     # -- public surface -------------------------------------------------
@@ -1189,6 +1196,7 @@ class DiagnosticProjector:
     def _sanitize_candidate(self, candidate: str) -> str:
         layer = _candidate_url_layer(candidate)
         host = _normalized_host(layer) if layer is not None else None
+        fact: SafeHostPath | None = None
         if (
             layer is not None
             and host is not None
@@ -1205,7 +1213,12 @@ class DiagnosticProjector:
                     self._fingerprints.append(
                         self._url_identity.fingerprint(digest_input)
                     )
-        return REDACTED
+        if fact is None or self._url_formatter is None:
+            return REDACTED
+        # An alternate render of one already-validated safe host/path fact.
+        # This is a low-level rendering hook only; the projector still owns
+        # every safety decision and never receives facade output policy.
+        return self._url_formatter(fact)
 
 
 def sanitize_diagnostic_text(

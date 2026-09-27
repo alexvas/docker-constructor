@@ -47,7 +47,7 @@ from docker.versioning.constructor_project import (
 )
 from docker.versioning.dispatch_types import CommandResult, ExitKind
 from docker.versioning.immutable import deep_freeze
-from docker.versioning.model import HostAccessPolicy
+from docker.versioning.model import HostAccessPolicy, NetworkUrlDisplay
 from docker.versioning.host_progress import HostDiagnosticEvent, HostPhaseEvent
 from docker.versioning.host_presentation import (
     HostPresentationSession,
@@ -64,7 +64,17 @@ _EXIT_CODES: dict[ExitKind, int] = {
     ExitKind.CLI: 2,
     ExitKind.CONFIG: 3,
     ExitKind.OPERATIONAL: 4,
+    # An interrupting signal still maps to the conventional 128+SIGINT even
+    # though the facade re-raises rather than returning this result.
+    ExitKind.INTERRUPTED: 130,
 }
+
+#: Attribute set on an interrupting exception once a live presentation
+#: session has accepted ownership of its retained failure report.  It records
+#: ownership explicitly so the facade never infers ownership from whether
+#: something happened to be displayed and never re-renders a session-owned
+#: report.
+INTERRUPTION_REPORT_OWNED_ATTR = "interruption_report_presentation_owned"
 
 # Maximum bytes of captured stdout / stderr included in run-failure
 # diagnostics (text and JSON modes).  Exceeding content is truncated
@@ -483,6 +493,185 @@ def _tui_workspace_selector(workspace_root: str | None = None) -> Any:
     return TuiWorkspaceSelector()
 
 
+def _host_failure_data(context: Any) -> dict[str, object]:
+    """Serialize one structured host failure context for the JSON channel.
+
+    The facade owns this presentation shape; the domain context carries no
+    output policy.
+    """
+    return {
+        "phase": context.phase.value,
+        "step": context.step.value,
+        "summary": context.summary,
+        "tail": context.tail,
+        "tail_stream": (
+            context.tail_stream.value
+            if context.tail_stream is not None
+            else None
+        ),
+        "logical_resource": context.logical_resource,
+        "hostnames": list(context.hostnames),
+        "exception_types": list(context.exception_types),
+        "timeout_retained_context": context.timeout_retained_context,
+    }
+
+
+def _host_failure_report(
+    context: Any,
+    *,
+    network_url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED,
+) -> str:
+    """Render one structured host failure context for the text channel."""
+    return format_failure_report(
+        context.phase,
+        context.step,
+        summary=context.summary,
+        tail=context.tail,
+        tail_stream=context.tail_stream,
+        timeout_retained_context=context.timeout_retained_context,
+        logical_resource=context.logical_resource,
+        hostnames=context.hostnames,
+        network_url_display=network_url_display,
+        exception_types=context.exception_types,
+    )
+
+
+def _interruption_host_failure(exc: BaseException) -> Any | None:
+    """Return the reportable retained context of an interrupting exception.
+
+    Only a control-flow interruption that already carries the assembler's
+    selected retained capture is reportable.  Every other interruption keeps
+    its prior cleanup-and-propagate behavior and produces no failure report.
+    """
+    from docker.npm_environment.streaming import RETAINED_CAPTURE_ATTR
+
+    if getattr(exc, RETAINED_CAPTURE_ATTR, None) is None:
+        return None
+    from docker.versioning.build_orchestration import describe_host_failure
+
+    return describe_host_failure(exc)
+
+
+def _mark_interruption_report_owned(exc: BaseException) -> None:
+    """Record that a live session owns *exc*'s failure report.
+
+    Ownership is recorded before any admission/rendering attempt so the facade
+    never retries the report synchronously, even when the session's mailbox or
+    renderer fails.
+    """
+    try:
+        setattr(exc, INTERRUPTION_REPORT_OWNED_ATTR, True)
+    except Exception:
+        # A BaseException that rejects attributes still propagates unchanged.
+        pass
+
+
+def _interruption_report_owned(exc: BaseException) -> bool:
+    """Whether a live presentation session owns *exc*'s failure report."""
+    return bool(getattr(exc, INTERRUPTION_REPORT_OWNED_ATTR, False))
+
+
+def _route_interruption_report_to_session(
+    session: Any,
+    exc: BaseException,
+    network_url_display: NetworkUrlDisplay,
+) -> None:
+    """Submit *exc*'s retained failure report through the live session.
+
+    Called before the session's bounded shutdown so the single presentation
+    actor owns the final report.  Ownership is recorded first, then every step
+    is guarded: context extraction, report construction, and admission.  A
+    reporting failure is secondary and can never replace the original
+    interruption, and the failed stream is never retried.
+    """
+    _mark_interruption_report_owned(exc)
+    try:
+        context = _interruption_host_failure(exc)
+        if context is None:
+            return
+        report = _host_failure_report(
+            context, network_url_display=network_url_display
+        )
+        session.submit_final_report(report)
+    except BaseException:
+        # Best effort: the original interruption stays primary and the
+        # session-owned report is never written a second time.
+        pass
+
+
+def _emit_interruption_failure(
+    command: str,
+    args: Any,
+    context: Any,
+    *,
+    stdout_is_tty: bool,
+    stderr_is_tty: bool,
+) -> None:
+    """Render an interrupted host failure through the ordinary channels.
+
+    The report is emitted exactly once through the shared renderer before the
+    interruption continues to propagate; the interruption is never converted
+    into a returned operational result.
+    """
+    result = CommandResult(
+        exit_kind=ExitKind.INTERRUPTED,
+        message=_host_failure_report(context),
+        data=(
+            {"host_failure": _host_failure_data(context)}
+            if args.output == "json"
+            else None
+        ),
+    )
+    stdout_text, stderr_text = _render(
+        command,
+        result,
+        fmt=args.output,
+        color=args.color,
+        verbose=args.verbose,
+        details=getattr(args, "details", False),
+        stdout_is_tty=stdout_is_tty,
+        stderr_is_tty=stderr_is_tty,
+    )
+    if stdout_text:
+        print(stdout_text, file=sys.stdout)
+    if stderr_text:
+        print(stderr_text, file=sys.stderr)
+
+
+def _report_interruption_directly(
+    command: str,
+    args: Any,
+    exc: BaseException,
+    *,
+    stdout_is_tty: bool,
+    stderr_is_tty: bool,
+) -> None:
+    """Best-effort synchronous report when no session owns output.
+
+    Preserves JSON and sessionless text interruption reporting.  Every step is
+    guarded -- context extraction, report construction, rendering, and output
+    -- so a reporting failure (for example a broken output stream) can never
+    replace the original interruption, and a failed stream is never retried.
+    """
+    try:
+        context = _interruption_host_failure(exc)
+    except BaseException:
+        return
+    if context is None:
+        return
+    try:
+        _emit_interruption_failure(
+            command,
+            args,
+            context,
+            stdout_is_tty=stdout_is_tty,
+            stderr_is_tty=stderr_is_tty,
+        )
+    except BaseException:
+        # Rendering or output failed: the interruption is still primary.
+        pass
+
+
 def _real_dispatcher(
     command: str,
     request: CommandRequest,
@@ -620,8 +809,19 @@ def _real_dispatcher(
             result = orchestrate_build(
                 build_request, inventory=inventory, local_inputs=local_inputs,
             )
-        except BaseException:
+        except BaseException as exc:
             if session is not None:
+                # An interruption is handled before shutdown so the single
+                # presentation actor owns the retained failure report.  The
+                # report is submitted through the session, then the existing
+                # bounded shutdown runs, then the original interruption is
+                # re-raised unchanged.
+                if isinstance(exc, KeyboardInterrupt):
+                    _route_interruption_report_to_session(
+                        session,
+                        exc,
+                        local_config.output.network_url_display,
+                    )
                 session.shutdown()
             raise
 
@@ -662,19 +862,9 @@ def _real_dispatcher(
             result.host_failure is not None
             and result.exit_kind is not ExitKind.SUCCESS
         ):
-            report = format_failure_report(
-                result.host_failure.phase,
-                result.host_failure.step,
-                summary=result.host_failure.summary,
-                tail=result.host_failure.tail,
-                tail_stream=result.host_failure.tail_stream,
-                timeout_retained_context=(
-                    result.host_failure.timeout_retained_context
-                ),
-                logical_resource=result.host_failure.logical_resource,
-                hostnames=result.host_failure.hostnames,
+            report = _host_failure_report(
+                result.host_failure,
                 network_url_display=local_config.output.network_url_display,
-                exception_types=result.host_failure.exception_types,
             )
             # The contextual report owns both the concise summary and the
             # structurally separate retained tail.  Appending ``result.message``
@@ -684,23 +874,7 @@ def _real_dispatcher(
             if request.output == "json":
                 if data is None:
                     data = {}
-                data["host_failure"] = {
-                    "phase": result.host_failure.phase.value,
-                    "step": result.host_failure.step.value,
-                    "summary": result.host_failure.summary,
-                    "tail": result.host_failure.tail,
-                    "tail_stream": (
-                        result.host_failure.tail_stream.value
-                        if result.host_failure.tail_stream is not None
-                        else None
-                    ),
-                    "logical_resource": result.host_failure.logical_resource,
-                    "hostnames": list(result.host_failure.hostnames),
-                    "exception_types": list(result.host_failure.exception_types),
-                    "timeout_retained_context": (
-                        result.host_failure.timeout_retained_context
-                    ),
-                }
+                data["host_failure"] = _host_failure_data(result.host_failure)
             if session is not None:
                 session.submit_final_report(report)
                 # A live actor owns the attempt even if admission or rendering
@@ -1976,12 +2150,17 @@ def _render(
     * JSON mode — everything on stdout, machine-readable.
     * Text mode:
       - SUCCESS / POLICY → stdout (semantic output).
-      - CLI / CONFIG / OPERATIONAL → stderr (diagnostics).
+      - CLI / CONFIG / OPERATIONAL / INTERRUPTED → stderr (diagnostics).
       - When both *data* and *message* are present, both are rendered.
       - *debug* detail is only appended to stderr when ``verbose`` is
         true, regardless of exit kind.
     """
-    _ERROR_KINDS = {ExitKind.CLI, ExitKind.CONFIG, ExitKind.OPERATIONAL}
+    _ERROR_KINDS = {
+        ExitKind.CLI,
+        ExitKind.CONFIG,
+        ExitKind.OPERATIONAL,
+        ExitKind.INTERRUPTED,
+    }
     is_error = result.exit_kind in _ERROR_KINDS
 
     out_lines: list[str] = []
@@ -2014,6 +2193,7 @@ def _render(
             ExitKind.CLI: _RED,
             ExitKind.CONFIG: _RED,
             ExitKind.OPERATIONAL: _RED,
+            ExitKind.INTERRUPTED: _RED,
         }
         code = code_map.get(result.exit_kind, _RESET)
         # Colour is resolved against the *target* stream's tty state
@@ -2675,6 +2855,22 @@ def main(
                 exit_kind=ExitKind.OPERATIONAL,
                 message=str(exc),
             )
+        except KeyboardInterrupt as exc:
+            # A control-flow interruption is never converted into a returned
+            # result.  When a live presentation session already owns the
+            # report, do not render it again -- even if admission, rendering,
+            # or shutdown failed.  Otherwise report the retained context
+            # best-effort through the ordinary text/JSON channels before the
+            # interruption continues to propagate.
+            if not _interruption_report_owned(exc):
+                _report_interruption_directly(
+                    args.command,
+                    args,
+                    exc,
+                    stdout_is_tty=_stdout_tty,
+                    stderr_is_tty=_stderr_tty,
+                )
+            raise
     finally:
         # Clear the transient progress line before any final output is
         # rendered or printed — on normal completion, after handled

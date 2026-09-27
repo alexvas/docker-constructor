@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import contextlib
 import dataclasses
+import functools
 import inspect
 import os
 import subprocess
@@ -66,6 +67,7 @@ from .storage import (
 from .streaming import (
     READER_FAILURE_DETAIL_BYTES,
     REDACTED,
+    RETAINED_CAPTURE_ATTR,
     DiagnosticSink,
     STREAM_STDERR,
     STREAM_STDOUT,
@@ -267,6 +269,21 @@ def _terminate_and_remove(
         ).errors
     )
     return errors
+
+
+def _attached_retained_capture(
+    reason: BaseException,
+) -> StreamingCapture | None:
+    """Return the bounded capture a failed collection attached, if any.
+
+    :func:`collect_streams` attaches the one selected retained tail per
+    stream to the exception it raises.  The concurrent-timeout path reuses
+    those already-selected tails verbatim rather than re-projecting them.
+    """
+    capture = getattr(reason, RETAINED_CAPTURE_ATTR, None)
+    if isinstance(capture, StreamingCapture):
+        return capture
+    return None
 
 
 def _timeout_error(
@@ -741,7 +758,15 @@ class DockerRunExecutor:
                 # The deadline won: the timeout is primary; the concurrent
                 # reader/interruption failure becomes bounded secondary context.
                 assert deadline_seconds is not None
-                timeout = _timeout_error(deadline_seconds)
+                retained = _attached_retained_capture(exc)
+                timeout = _timeout_error(
+                    deadline_seconds,
+                    stdout=retained.stdout_tail if retained else "",
+                    stderr=retained.stderr_tail if retained else "",
+                    truncation_notice=(
+                        retained.truncation_notice if retained else None
+                    ),
+                )
                 _attach_deadline_notes(
                     timeout,
                     timeout_errors,
@@ -1142,6 +1167,30 @@ def _attach_cleanup_notes(
         )
 
 
+def default_stream_factory(
+    secrets: Sequence[str],
+    network_url_display: NetworkUrlDisplay,
+):
+    """Return the mode-selected per-stream factory for standalone assembly.
+
+    The host-side Pi assembler injects its own fingerprinted factory; every
+    other caller (direct, SDK, or injected) gets the same selected local
+    representation so exactly one retained tail is mode-consistent at this
+    boundary.  The import is deferred so the neutral assembler does not depend
+    on the host presentation package at import time.
+    """
+    from docker.versioning.npm_diagnostic_stream import make_stream_factory
+
+    return make_stream_factory(secrets, network_url_display=network_url_display)
+
+
+def default_tail_projector(network_url_display: NetworkUrlDisplay):
+    """Return the mode-selected bounded tail projector for standalone assembly."""
+    from docker.versioning.npm_diagnostic_stream import project_tail
+
+    return functools.partial(project_tail, network_url_display=network_url_display)
+
+
 def _streaming_kwargs(
     runner,
     secrets: Sequence[str],
@@ -1230,6 +1279,16 @@ def assemble(
         corporate_network.secrets() if corporate_network is not None else ()
     )
     effective_secrets = tuple(secrets) + policy_secrets
+    # Bind the request selector into the collector configuration before any
+    # stream capture.  An injected host-side factory/projector (Pi assembly)
+    # wins; otherwise the selected local representation is built here so the
+    # one retained tail and every failure detail are mode-consistent.
+    if stream_factory is None:
+        stream_factory = default_stream_factory(
+            effective_secrets, network_url_display
+        )
+    if tail_projector is None:
+        tail_projector = default_tail_projector(network_url_display)
 
     uid, gid = _resolve_container_user(executor, uid, gid)
 
@@ -1277,6 +1336,8 @@ def assemble(
             argv = render_docker_argv(vector)
             container_started = True
             executor_failure_detail: str | None = None
+            executor_failure_tail = ""
+            executor_failure_stream: str | None = None
             truncation_notice: str | None = None
             streaming_runner = getattr(executor, "run_streaming", None)
             project = (
@@ -1321,16 +1382,24 @@ def assemble(
                 # assign the original exception to __context__.  The detail is
                 # routed through the same URL-free tail projector used for
                 # assembled output so an executor exception can never leak a
-                # URL into the failure representation.
+                # URL into the failure representation.  A failed collection's
+                # already-selected retained capture is copied verbatim, never
+                # re-projected, so host-path/exact content is preserved.
                 executor_failure_detail = project(
                     f"{type(exc).__name__}: {str(exc) or repr(exc)}",
                     effective_secrets,
+                )
+                executor_failure_tail = getattr(exc, "diagnostic_tail", "")
+                executor_failure_stream = getattr(
+                    exc, "diagnostic_stream", None
                 )
 
             if executor_failure_detail is not None:
                 raise LockedNpmError(
                     "executor_failure",
                     executor_failure_detail,
+                    diagnostic_tail=executor_failure_tail,
+                    diagnostic_stream=executor_failure_stream,
                 ) from None
             if result.return_code != 0:
                 raise _exit_failure(

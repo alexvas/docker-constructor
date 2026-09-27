@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
+import functools
 import hashlib
 from pathlib import Path
 
@@ -388,8 +389,12 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
                 on_chunk=(
                     activity.record_diagnostic
                 ),
+                network_url_display=request.network_url_display,
             ),
-            tail_projector=project_tail,
+            tail_projector=functools.partial(
+                project_tail,
+                network_url_display=request.network_url_display,
+            ),
             activity=activity,
             network_url_display=request.network_url_display,
         )

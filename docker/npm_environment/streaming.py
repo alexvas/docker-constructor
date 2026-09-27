@@ -888,7 +888,11 @@ class StreamReaderFailure(Exception):
     been finalized: the sibling stream was still drained, live delivery was
     stopped, and no reader or dispatcher worker remains.  ``detail`` is
     bounded and redacted; ``truncation_notice`` records that live output was
-    truncated.
+    truncated.  The one selected retained tail per stream is attached to the
+    raised exception as a :class:`StreamingCapture` (``retained_capture``)
+    plus the already-selected ``diagnostic_tail``/``diagnostic_stream`` pair,
+    so failure-context extraction reuses the existing buffers instead of
+    re-projecting them.
     """
 
     stream: str
@@ -1090,6 +1094,45 @@ class SinkDispatcher:
         # Caller holds self._lock.
         if self._truncation_notice is None:
             self._truncation_notice = TRUNCATION_NOTICE
+
+
+#: Attribute under which a failed collection attaches the single bounded
+#: retained tail per stream.  It references exactly the strings the
+#: successful :class:`StreamingCapture` would carry, so no second retained
+#: buffer is introduced; failure-context extraction reads the already
+#: selected representation instead of re-projecting it.
+RETAINED_CAPTURE_ATTR = "retained_capture"
+
+
+def _attach_retained_capture(
+    exc: BaseException, capture: StreamingCapture
+) -> None:
+    """Attach the already-selected retained capture to *exc* before raising.
+
+    ``diagnostic_tail``/``diagnostic_stream`` mirror the assembler failure
+    convention (stderr preferred, then stdout) so host failure-context
+    extraction can reuse the selected representation verbatim.  The full
+    capture keeps both streams' bounded tails and the truncation notice for
+    the concurrent-timeout path.  The original exception, any cleanup notes,
+    and the truncation notice are preserved.  Attaching context must never
+    displace the primary failure, so an exception that refuses the attribute
+    assignment is left unchanged.
+    """
+    stderr_tail = capture.stderr_tail.strip()
+    stdout_tail = capture.stdout_tail.strip()
+    if stderr_tail:
+        selected_tail, selected_stream = stderr_tail, STREAM_STDERR
+    elif stdout_tail:
+        selected_tail, selected_stream = stdout_tail, STREAM_STDOUT
+    else:
+        selected_tail, selected_stream = "", None
+    try:
+        object.__setattr__(exc, RETAINED_CAPTURE_ATTR, capture)
+        object.__setattr__(exc, "diagnostic_tail", selected_tail)
+        object.__setattr__(exc, "diagnostic_stream", selected_stream)
+    except Exception:
+        # Preserve the primary failure even if context cannot be attached.
+        pass
 
 
 def _redacted_exception_detail(
@@ -1316,6 +1359,16 @@ def collect_streams(
             thread.join()
         notice = dispatcher.finish() if dispatcher is not None else None
 
+    # Capture the one selected retained tail per stream after the readers
+    # have joined and the dispatcher has finalized.  Failure paths attach
+    # these existing buffers to the raised exception instead of returning or
+    # re-projecting them.
+    retained = StreamingCapture(
+        stdout_tail=stdout_stream.tail(),
+        stderr_tail=stderr_stream.tail(),
+        truncation_notice=notice,
+    )
+
     if interrupted is not None:
         for exc in cleanup_failures:
             interrupted.add_note(
@@ -1323,6 +1376,7 @@ def collect_streams(
                 f"({type(exc).__name__}): "
                 f"{_redacted_exception_detail(exc, secrets, tail_projector)}"
             )
+        _attach_retained_capture(interrupted, retained)
         raise interrupted
 
     if failures:
@@ -1335,12 +1389,9 @@ def collect_streams(
                 f"({type(exc).__name__}): "
                 f"{_redacted_exception_detail(exc, secrets, tail_projector)}"
             )
+        _attach_retained_capture(primary, retained)
         raise primary
-    return StreamingCapture(
-        stdout_tail=stdout_stream.tail(),
-        stderr_tail=stderr_stream.tail(),
-        truncation_notice=notice,
-    )
+    return retained
 
 
 __all__ = [
@@ -1350,6 +1401,7 @@ __all__ = [
     "READ_CHUNK_BYTES",
     "READER_FAILURE_DETAIL_BYTES",
     "REDACTED",
+    "RETAINED_CAPTURE_ATTR",
     "RedactingStream",
     "SINK_CALLBACK_BUDGET_SECONDS",
     "SINK_QUEUE_CAPACITY",

@@ -49,6 +49,8 @@ from .execution import (
     _attach_cleanup_notes,
     _remove_staging_safely,
     assemble,
+    default_stream_factory,
+    default_tail_projector,
 )
 from .identity import AssemblerIdentity, compute_assembler_input_identity
 from .model import ValidatedAssemblyInput
@@ -628,6 +630,16 @@ def assemble_environment(
         corporate_network.secrets() if corporate_network is not None else ()
     )
     effective_secrets = tuple(secrets) + policy_secrets
+    # Bind the request selector into the collector configuration before any
+    # stream capture or staging cleanup so the one retained tail and every
+    # failure detail use the same selected representation.  An injected
+    # host-side factory/projector (Pi assembly) wins.
+    if stream_factory is None:
+        stream_factory = default_stream_factory(
+            effective_secrets, network_url_display
+        )
+    if tail_projector is None:
+        tail_projector = default_tail_projector(network_url_display)
     scoped = activity if activity is not None else NULL_ACTIVITY
 
     with contextlib.ExitStack() as lock_stack:

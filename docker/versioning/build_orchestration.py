@@ -732,6 +732,17 @@ def _host_failure_context(reason: BaseException) -> HostFailureContext:
     )
 
 
+def describe_host_failure(reason: BaseException) -> HostFailureContext:
+    """Return the structured host failure context for *reason*.
+
+    Public accessor for the facade's interruption reporting: the same
+    structural phase/step/resource attribution and already-selected retained
+    tail that ordinary failure results carry, available for a control-flow
+    interruption that never becomes a :class:`BuildResult`.
+    """
+    return _host_failure_context(reason)
+
+
 def _materialize_pi_for_build(
     request: BuildRequest,
     plan: BuildTransactionPlan,
