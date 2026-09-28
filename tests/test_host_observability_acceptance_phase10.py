@@ -273,17 +273,28 @@ class TestHostOutputDocumentation(unittest.TestCase):
         doc = (root / "docs" / "host-build-output.md").read_text(encoding="utf-8")
         example = (root / "docker-constructor.local.example.toml").read_text(encoding="utf-8")
         for term in (
-            "interactive", "lines", "off", "show_network_hosts", "3 seconds",
-            "30 seconds", "120 seconds", "diagnostic silence", "execution timeout",
-            "Last activity", "Ctrl-C", "retained-context", "may repeat", "best-effort",
-            "numeric-token", "five-second", "daemon", "in flight", "final output may",
+            "interactive", "lines", "off", "network_url_display", "redacted",
+            "host-path", "exact", "defaults to `redacted`", "3 seconds", "30 seconds",
+            "120 seconds", "diagnostic silence", "execution timeout", "Last activity",
+            "Ctrl-C", "retained-context", "may repeat", "best-effort", "numeric-token",
+            "five-second", "daemon", "in flight", "final output may",
             "does not synchronously retry", "--loglevel=http", "npm 11.16.0",
+            "credentials", "caller-provided secrets", "terminal-control neutralization",
+            "64 KiB", "8 KiB", "text failure", "JSON `host_failure.tail`",
+            "exactly one bounded retained tail", "typed", "host materialization",
+            "assembler execution", "direct", "external SDK", "evidence", "identity",
+            "operators", "third-party output", "sensitive input values",
         ):
             with self.subTest(term=term):
                 self.assertIn(term.lower(), doc.lower())
         self.assertIn('host_heartbeat = "interactive"', example)
         self.assertIn("explicit noninteractive output", example)
-        self.assertIn("show_network_hosts = false", example)
+        self.assertIn('network_url_display = "redacted"', example)
+        for value in ("redacted", "host-path", "exact"):
+            with self.subTest(example_value=value):
+                self.assertIn(value, example)
+        self.assertNotIn("show_network_hosts", doc)
+        self.assertNotIn("show_network_hosts", example)
 
 
 class TestIntegratedSilentNpmAcceptance(unittest.TestCase):

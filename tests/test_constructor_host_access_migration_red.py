@@ -320,7 +320,7 @@ _LOCAL_EXAMPLE_FILE: pathlib.Path = REPO / "docker-constructor.local.example.tom
 _LOCAL_EXAMPLE_EXPECTED = {
     "host-access": frozenset({"address"}),
     "cache": frozenset({"dir"}),
-    "output": frozenset({"host_heartbeat", "show_network_hosts"}),
+    "output": frozenset({"host_heartbeat", "network_url_display"}),
 }
 
 

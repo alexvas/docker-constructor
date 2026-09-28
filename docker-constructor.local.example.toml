@@ -25,8 +25,8 @@
 #   [output]
 #   # interactive (default), lines (explicit noninteractive output), or off
 #   host_heartbeat = "interactive"
-#   # Privacy default: normalized network hostnames remain hidden.
-#   show_network_hosts = false
+#   # redacted (default), host-path, or exact; see docs/host-build-output.md.
+#   network_url_display = "redacted"
 
 [host-access]
 address = "10.0.2.2"
@@ -36,4 +36,4 @@ dir = "/home/dev/.cache/docker-constructor-custom"
 
 [output]
 host_heartbeat = "interactive"
-show_network_hosts = false
+network_url_display = "redacted"

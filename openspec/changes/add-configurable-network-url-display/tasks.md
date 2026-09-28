@@ -132,12 +132,12 @@ This checklist is the binding implementation contract for this change. A phase i
 
 **Deliverables:** accurate mode, disclosure, channel, and safety documentation plus an updated local example, without generalized migration behavior.
 
-- [ ] 8.1 **RED:** Add or update documentation/example assertions for the three closed values and the absent-value `redacted` default; verify the assertions fail against the current documents and example.
-- [ ] 8.2 **RED:** Add documentation assertions for host-path disclosure, exact credential/secret disclosure, mandatory terminal safety and bounds, text/JSON channel behavior, one selected retained tail, typed presentation-only propagation, direct-caller `redacted` default, SDK/evidence/identity exclusions, and operator responsibility; verify each missing statement is reported.
-- [ ] 8.3 **GREEN:** Update the local example for `network_url_display`; verify example checks pass without compatibility or generalized migration logic.
-- [ ] 8.4 **GREEN:** Update host-build-output documentation with the required mode semantics, typed host-side propagation path, direct-caller `redacted` default, disclosures, channel matrix, retention model, semantic-identity exclusions, and safety boundaries; verify the documentation assertions from 8.1–8.2 pass.
-- [ ] 8.5 **INTROSPECT:** Search examples and user documentation for stale boolean-setting guidance, claims of multiple retained tails, or claims that exact is secret-safe; resolve every match and verify remaining historical references are limited to the explicit one-time project configuration replacement.
-- [ ] 8.6 **VALIDATE:** Run documentation tests and parse every shipped example; record the exact commands and passing results in the change verification evidence.
+- [x] 8.1 **RED:** Add or update documentation/example assertions for the three closed values and the absent-value `redacted` default; verify the assertions fail against the current documents and example.
+- [x] 8.2 **RED:** Add documentation assertions for host-path disclosure, exact credential/secret disclosure, mandatory terminal safety and bounds, text/JSON channel behavior, one selected retained tail, typed presentation-only propagation, direct-caller `redacted` default, SDK/evidence/identity exclusions, and operator responsibility; verify each missing statement is reported.
+- [x] 8.3 **GREEN:** Update the local example for `network_url_display`; verify example checks pass without compatibility or generalized migration logic.
+- [x] 8.4 **GREEN:** Update host-build-output documentation with the required mode semantics, typed host-side propagation path, direct-caller `redacted` default, disclosures, channel matrix, retention model, semantic-identity exclusions, and safety boundaries; verify the documentation assertions from 8.1–8.2 pass.
+- [x] 8.5 **INTROSPECT:** Search examples and user documentation for stale boolean-setting guidance, claims of multiple retained tails, or claims that exact is secret-safe; resolve every match and verify remaining historical references are limited to the explicit one-time project configuration replacement.
+- [x] 8.6 **VALIDATE:** Run documentation tests and parse every shipped example; record the exact commands and passing results in the change verification evidence.
 
 ## 9. Release Integration
 
