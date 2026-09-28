@@ -35,7 +35,11 @@ from docker.npm_environment import (
     npm_policy_digest,
     preflight,
 )
-from docker.npm_environment.streaming import _internal_direct_enqueue_sink
+from docker.npm_environment.streaming import (
+    SplitDiagnosticSink,
+    StreamChunk,
+    _internal_direct_enqueue_sink,
+)
 from docker.versioning.activity_monitor import HostActivityMonitor
 from docker.versioning.assembly_activity import HostAssemblyActivity
 from docker.versioning.build_materialization import StreamingTransport
@@ -47,6 +51,7 @@ from docker.versioning.diagnostic_projection import (
 )
 from docker.versioning.host_progress import (
     HostDiagnosticClassification,
+    HostDiagnosticEnvelope,
     HostDiagnosticPrefix,
     HostDiagnosticStream,
     HostEventSink,
@@ -91,6 +96,189 @@ from docker.versioning.pi_release import (
 _ASSEMBLER_PLATFORM = "linux-x64"
 
 
+def structured_diagnostic_for(
+    chunk: StreamChunk, *, logical_resource: str | None
+) -> HostStructuredDiagnostic:
+    """Build the external-safe structured diagnostic for one finalized chunk.
+
+    The external DTO carries only the URL-free, path-free projected ``text``;
+    it never receives the mode-selected local text or a fetch group key.
+    """
+    return HostStructuredDiagnostic(
+        phase=HostPhase.LOCKED_ASSEMBLY,
+        step=HostStep.NPM_EXECUTION,
+        stream=HostDiagnosticStream(chunk.stream),
+        classification=classify_npm_diagnostic(chunk.text),
+        text=chunk.text,
+        hostnames=chunk.hostnames,
+        logical_resource=logical_resource,
+        url_fingerprints=chunk.url_fingerprints,
+    )
+
+
+def presentation_envelope_for(
+    chunk: StreamChunk, *, logical_resource: str | None
+) -> HostDiagnosticEnvelope:
+    """Build the internal presentation-only envelope for one finalized chunk.
+
+    The envelope carries the mode-selected local text (falling back to the
+    URL-free projection when the collector selected none) and, only for a
+    recognized fetch, the policy-specific group key and canonical latency-free
+    text.  It is delivered only to the nominal internal presentation actor and
+    is deliberately absent from the external SDK event contract.
+    """
+    return HostDiagnosticEnvelope(
+        phase=HostPhase.LOCKED_ASSEMBLY,
+        step=HostStep.NPM_EXECUTION,
+        stream=HostDiagnosticStream(chunk.stream),
+        classification=classify_npm_diagnostic(chunk.text),
+        text=chunk.local_text if chunk.local_text is not None else chunk.text,
+        hostnames=chunk.hostnames,
+        logical_resource=logical_resource,
+        url_fingerprints=chunk.url_fingerprints,
+        fetch_key=chunk.fetch_key,
+        fetch_text=chunk.fetch_text,
+    )
+
+
+def route_committed_prefix(
+    chunk: StreamChunk,
+    *,
+    text: str,
+    internal_sink: InternalDirectHostEventSink | None,
+    logical_resource: str | None,
+    finalized: bool = False,
+    overflowed: bool = False,
+) -> None:
+    """Admit one cumulative presentation-only committed prefix.
+
+    A committed prefix is not a complete npm diagnostic: it reaches only the
+    authorized internal presentation actor and is never routed to an external
+    SDK callback.  ``text`` is the whole mode-selected line committed so far;
+    the actor replaces the provisional snapshot rather than appending it.
+    Best-effort live presentation never affects assembly.
+    """
+    if internal_sink is None:
+        return
+    prefix = HostDiagnosticPrefix(
+        phase=HostPhase.LOCKED_ASSEMBLY,
+        step=HostStep.NPM_EXECUTION,
+        stream=HostDiagnosticStream(chunk.stream),
+        text=text,
+        logical_resource=logical_resource,
+        finalized=finalized,
+        overflowed=overflowed,
+    )
+    try:
+        internal_sink.admit_prefix(prefix)
+    except Exception:
+        # Best-effort live presentation never affects assembly.
+        pass
+
+
+def route_finalized_diagnostic(
+    chunk: StreamChunk,
+    *,
+    internal_sink: InternalDirectHostEventSink | None,
+    sdk_sink: HostEventSink | None,
+    logical_resource: str | None,
+) -> None:
+    """Fan one finalized, non-overflowed chunk out to independent channels.
+
+    A nominal internal presentation actor, when present, receives the internal
+    envelope carrying the mode-selected local text and any recognized fetch
+    identity.  The optional SDK sink, when present, *independently* receives
+    the URL-free, path-free structured diagnostic.  The two channels are
+    isolated: an internal admission failure never prevents SDK delivery, and an
+    SDK callback failure never affects internal presentation or assembly.
+    Internal-only fields (fetch identity and selected local text) never reach
+    the SDK sink.
+    """
+    if internal_sink is not None:
+        try:
+            internal_sink.admit_diagnostic(
+                presentation_envelope_for(
+                    chunk, logical_resource=logical_resource
+                )
+            )
+        except Exception:
+            # Best-effort live presentation never affects SDK delivery or
+            # assembly.
+            pass
+    if sdk_sink is not None:
+        emit(
+            sdk_sink,
+            structured_diagnostic_for(chunk, logical_resource=logical_resource),
+        )
+
+
+def overflow_diagnostic_for(
+    chunk: StreamChunk, *, logical_resource: str | None
+) -> HostStructuredDiagnostic:
+    """Build one bounded, safe truncation diagnostic for an oversized line.
+
+    An oversized line is not a complete npm diagnostic: it is classified as a
+    neutral status and carries no hostname or URL-fingerprint metadata, so
+    nothing derived from the discarded suffix escapes and no warning, retry,
+    timeout, error, or npm-fetch event can be inferred from the incomplete
+    text.
+    """
+    return HostStructuredDiagnostic(
+        phase=HostPhase.LOCKED_ASSEMBLY,
+        step=HostStep.NPM_EXECUTION,
+        stream=HostDiagnosticStream(chunk.stream),
+        classification=HostDiagnosticClassification.STATUS,
+        text=chunk.text,
+        hostnames=(),
+        logical_resource=logical_resource,
+        url_fingerprints=(),
+    )
+
+
+def route_overflow_diagnostic(
+    chunk: StreamChunk,
+    *,
+    internal_sink: InternalDirectHostEventSink | None,
+    sdk_sink: HostEventSink | None,
+    logical_resource: str | None,
+) -> None:
+    """Finalize one overflowed line on independent channels.
+
+    The internal actor, when present, receives the record boundary it needs to
+    stop provisional rendering of the committed prefix and overflow marker
+    (it already displayed them), carrying the complete mode-selected local
+    representation.  The SDK sink, when present, independently receives
+    exactly one bounded, safe overflow diagnostic.  A provisional prefix is
+    never routed to the SDK sink.
+    """
+    if internal_sink is not None:
+        local_text = (
+            chunk.local_text
+            if chunk.local_text is not None
+            else chunk.text
+        )
+        prefix = HostDiagnosticPrefix(
+            phase=HostPhase.LOCKED_ASSEMBLY,
+            step=HostStep.NPM_EXECUTION,
+            stream=HostDiagnosticStream(chunk.stream),
+            text=local_text,
+            logical_resource=logical_resource,
+            finalized=True,
+            overflowed=True,
+        )
+        try:
+            internal_sink.admit_prefix(prefix)
+        except Exception:
+            # Best-effort live presentation never affects SDK delivery or
+            # assembly.
+            pass
+    if sdk_sink is not None:
+        emit(
+            sdk_sink,
+            overflow_diagnostic_for(chunk, logical_resource=logical_resource),
+        )
+
+
 class PiAssemblyError(RuntimeError):
     """Pi acquisition, preflight, assembly, or launcher failure."""
 
@@ -110,12 +298,17 @@ class PiAssemblyRequest:
     proxy_no_proxy: str | None = None
     corporate_trust_bundle: str | None = None
     event_sink: HostEventSink | None = None
+    sdk_event_sink: HostEventSink | None = None
+    """Optional independent SDK structured-diagnostic sink."""
     network_url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED
 
     def __post_init__(self) -> None:
         if not isinstance(self.network_url_display, NetworkUrlDisplay):
             raise ValueError("network_url_display must be a NetworkUrlDisplay")
         object.__setattr__(self, "event_sink", guard_sink(self.event_sink))
+        object.__setattr__(
+            self, "sdk_event_sink", guard_sink(self.sdk_event_sink)
+        )
 
 
 @dataclass(frozen=True)
@@ -272,55 +465,37 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
         chunk, *, text: str, finalized: bool, overflowed: bool
     ) -> None:
         """Route one presentation-only prefix to the internal actor only."""
-        if internal_sink is None:
-            return
-        prefix = HostDiagnosticPrefix(
-            phase=HostPhase.LOCKED_ASSEMBLY,
-            step=HostStep.NPM_EXECUTION,
-            stream=HostDiagnosticStream(chunk.stream),
+        route_committed_prefix(
+            chunk,
             text=text,
+            internal_sink=internal_sink,
             logical_resource=activity.current_container_name,
             finalized=finalized,
             overflowed=overflowed,
         )
-        try:
-            internal_sink.admit_prefix(prefix)
-        except Exception:
-            # Best-effort live presentation never affects assembly.
-            pass
 
-    def _emit_overflow_diagnostic(chunk) -> None:
-        """Emit one bounded safe truncation line to an external SDK sink.
+    def _route_internal(chunk) -> None:
+        """Admit internal presentation directly on the reader thread.
 
-        An oversized line is not a complete npm diagnostic: it is classified
-        as a neutral status and carries no hostname or URL-fingerprint
-        metadata, so nothing derived from the discarded suffix escapes and no
-        warning, retry, timeout, error, or npm-fetch event can be inferred
-        from the incomplete text.
+        Provisional prefixes are accumulated here, *before* any lossy queue,
+        and the per-stream buffer is reset at every finalized record
+        (including an overflow record) so provisional snapshots can never
+        span unrelated records even when the external SDK channel is
+        backlogged or dropping.  Each admitted snapshot is cumulative, so
+        mailbox supersession replaces the provisional rendering instead of
+        combining it with an unrelated line.  This path only touches the
+        bounded, non-blocking presentation inbox and never an SDK callback.
         """
-        emit(
-            request.event_sink,
-            HostStructuredDiagnostic(
-                phase=HostPhase.LOCKED_ASSEMBLY,
-                step=HostStep.NPM_EXECUTION,
-                stream=HostDiagnosticStream(chunk.stream),
-                classification=HostDiagnosticClassification.STATUS,
-                text=chunk.text,
-                hostnames=(),
-                logical_resource=activity.current_container_name,
-                url_fingerprints=(),
-            ),
-        )
-
-    def _structured_sink(chunk) -> None:
         if not chunk.finalized:
-            # A committed prefix is not a complete npm diagnostic: it reaches
-            # only the authorized internal presentation actor and is never
-            # routed to an external SDK callback.
-            if internal_sink is None:
+            # A committed prefix is not a complete npm diagnostic: its
+            # mode-selected ``local_text`` fragment reaches only the
+            # authorized internal presentation actor and is never routed to
+            # an external SDK callback.  A chunk that advances only the safe
+            # structured projection carries no local fragment and is skipped.
+            if internal_sink is None or chunk.local_text is None:
                 return
             buffer = prefix_buffers.setdefault(chunk.stream, [])
-            buffer.append(chunk.text)
+            buffer.append(chunk.local_text)
             _admit_prefix(
                 chunk,
                 text="".join(buffer),
@@ -329,34 +504,53 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
             )
             return
         # A finalized line ends the logical record; its prefix snapshot is no
-        # longer needed.
+        # longer needed.  Reset before admitting the finalized envelope so the
+        # next record's provisional snapshot starts empty.
         prefix_buffers.pop(chunk.stream, None)
         if chunk.overflowed:
-            if internal_sink is not None:
-                # The actor already displayed the committed prefix and the
-                # overflow marker provisionally; it only needs the record
-                # boundary so it never renders the line twice.
-                _admit_prefix(
-                    chunk,
-                    text=chunk.text,
-                    finalized=True,
-                    overflowed=True,
-                )
-                return
-            _emit_overflow_diagnostic(chunk)
-            return
-        emit(
-            request.event_sink,
-            HostStructuredDiagnostic(
-                phase=HostPhase.LOCKED_ASSEMBLY,
-                step=HostStep.NPM_EXECUTION,
-                stream=HostDiagnosticStream(chunk.stream),
-                classification=classify_npm_diagnostic(chunk.text),
-                text=chunk.text,
-                hostnames=chunk.hostnames,
+            # The internal actor finalizes the overflow boundary (it already
+            # displayed the committed prefix and overflow marker) carrying the
+            # complete mode-selected local representation.
+            route_overflow_diagnostic(
+                chunk,
+                internal_sink=internal_sink,
+                sdk_sink=None,
                 logical_resource=activity.current_container_name,
-                url_fingerprints=chunk.url_fingerprints,
-            ),
+            )
+            return
+        route_finalized_diagnostic(
+            chunk,
+            internal_sink=internal_sink,
+            sdk_sink=None,
+            logical_resource=activity.current_container_name,
+        )
+
+    def _route_sdk(chunk) -> None:
+        """Deliver one finalized, safe diagnostic to the external SDK sink.
+
+        Runs only on the dispatcher thread (the SDK callback is never invoked
+        on a reader thread).  Non-finalized chunks do not reach this handler
+        (see :class:`SplitDiagnosticSink`), and only URL-free, path-free
+        :class:`HostStructuredDiagnostic` events are emitted, so provisional
+        prefixes and internal-only fetch identity never leak externally.
+        """
+        if not chunk.finalized:
+            return
+        if chunk.overflowed:
+            # Exactly one bounded, safe truncation diagnostic; a provisional
+            # prefix is never routed to the SDK sink.
+            route_overflow_diagnostic(
+                chunk,
+                internal_sink=None,
+                sdk_sink=sdk_sink,
+                logical_resource=activity.current_container_name,
+            )
+            return
+        route_finalized_diagnostic(
+            chunk,
+            internal_sink=None,
+            sdk_sink=sdk_sink,
+            logical_resource=activity.current_container_name,
         )
 
     internal_sink = (
@@ -364,14 +558,32 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
         if isinstance(request.event_sink, InternalDirectHostEventSink)
         else None
     )
+    # The SDK structured channel is independent of the presentation inbox.  An
+    # explicit ``sdk_event_sink`` is honored even when the facade event sink is
+    # the internal actor; a plain (non-internal) ``event_sink`` remains the SDK
+    # channel for backward compatibility.
+    sdk_sink = request.sdk_event_sink
+    if sdk_sink is None and internal_sink is None:
+        sdk_sink = request.event_sink
 
-    # Only the nominal facade-owned inbox adapter is safe for reader-thread
-    # direct admission. Arbitrary SDK callbacks remain behind the dispatcher.
-    stream_sink = (
-        _internal_direct_enqueue_sink(_structured_sink)
-        if isinstance(request.event_sink, InternalDirectHostEventSink)
-        else _structured_sink
-    )
+    # Presentation-only sessions admit prefixes and finalized envelopes
+    # directly from the reader threads (bounded, non-blocking).  When an SDK
+    # channel is also configured, the two paths stay separate: the internal
+    # actor is admitted directly and only finalized, safe diagnostics enter the
+    # asynchronous SDK dispatcher, so SDK backlog can never delay, drop, or
+    # reorder internal presentation (and a dropped external record can never
+    # make the prefix buffer span records).
+    if internal_sink is not None and sdk_sink is None:
+        stream_sink = _internal_direct_enqueue_sink(_route_internal)
+    elif internal_sink is not None and sdk_sink is not None:
+        stream_sink = SplitDiagnosticSink(_route_internal, _route_sdk)
+    elif sdk_sink is not None:
+        # No internal actor: the external channel still delivers only the
+        # finalized, safe diagnostics; provisional prefix traffic never enters
+        # the external queue.
+        stream_sink = SplitDiagnosticSink(None, _route_sdk)
+    else:
+        stream_sink = None
 
     try:
         result = assemble_environment(
@@ -382,7 +594,7 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
             uid=request.uid,
             gid=request.gid,
             corporate_network=corporate_network,
-            sink=stream_sink if request.event_sink is not None else None,
+            sink=stream_sink,
             stream_factory=make_stream_factory(
                 corporate_network.secrets(),
                 session_identity,
@@ -439,4 +651,10 @@ __all__ = [
     "PiAssemblyRequest",
     "PiMaterialization",
     "materialize_pi",
+    "overflow_diagnostic_for",
+    "presentation_envelope_for",
+    "route_committed_prefix",
+    "route_finalized_diagnostic",
+    "route_overflow_diagnostic",
+    "structured_diagnostic_for",
 ]

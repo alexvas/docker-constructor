@@ -323,7 +323,9 @@ def _is_diagnostic(event: object) -> bool:
     diagnostic line: its complete record boundary still follows, so a dropped
     prefix never warrants an omission notice.
     """
-    return isinstance(event, (HostStructuredDiagnostic, HostDiagnosticEvent))
+    return isinstance(
+        event, (HostStructuredDiagnostic, HostDiagnosticEvent, HostDiagnosticEnvelope)
+    )
 
 
 def _consumes_omission_notice(event: object) -> bool:
@@ -591,6 +593,18 @@ class HostEventEnqueueAdapter(InternalDirectHostEventSink):
         if not isinstance(prefix, HostDiagnosticPrefix):
             raise TypeError("prefix must be a HostDiagnosticPrefix")
         return self._mailbox.try_admit(prefix)
+
+    def admit_diagnostic(self, envelope: HostDiagnosticEnvelope) -> bool:
+        """Admit one presentation-only diagnostic envelope.
+
+        Reachable only through the nominal internal sink marker, so the fetch
+        group key, canonical local text, safe path, and terminal-safe source
+        text it may carry can never reach an external SDK callback.  Admission
+        is bounded and non-blocking.
+        """
+        if not isinstance(envelope, HostDiagnosticEnvelope):
+            raise TypeError("envelope must be a HostDiagnosticEnvelope")
+        return self._mailbox.try_admit(envelope)
 
 
 # --------------------------------------------------------------------------
@@ -1189,6 +1203,13 @@ class PresentationWorker:
             # Provisional presentation only: never classification, identity,
             # grouping, or SDK delivery.
             self._state.admit_prefix(event)
+        elif isinstance(event, HostDiagnosticEnvelope):
+            # The internal collection-to-presentation envelope carries the
+            # mode-selected local text and (for a recognized fetch) its
+            # policy-specific identity.  It is delivered only to this actor.
+            self._state.admit_diagnostic(
+                event, now=now, omission_notice=omission_notice
+            )
         elif isinstance(event, HostStructuredDiagnostic):
             self._state.admit_diagnostic(
                 event, now=now, omission_notice=omission_notice

@@ -18,18 +18,23 @@ presentation state.
 """
 from __future__ import annotations
 
+import random
 import unittest
 
 from docker.versioning.diagnostic_projection import (
     REDACTED_PATH_MARKER,
+    SafeHostPath,
     normalized_url_host,
     sanitize_host_paths,
 )
 from docker.versioning.model import NetworkUrlDisplay
 from docker.versioning.npm_fetch import (
     NpmFetchRecord,
+    NpmFetchRecognizer,
+    SafeFetchRecord,
     canonical_fetch_text,
     fetch_group_identity,
+    fetch_source_fields_text,
     parse_npm_fetch_line,
 )
 
@@ -66,6 +71,36 @@ def _line(
     suffix: str = "",
 ) -> str:
     return f"npm http fetch {method} {status} {url} {latency}{suffix}"
+
+
+def _state_text(value) -> str:
+    """Concatenate every string reachable from a recognizer attribute.
+
+    Container items are concatenated *without* a separator so that a raw
+    buffer stored as a ``list[str]`` of characters is reconstructed: joining
+    with a separator would hide exactly the fragmented credential buffer this
+    test exists to detect.
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return "".join(_state_text(item) for item in value)
+    if isinstance(value, dict):
+        return "".join(
+            _state_text(key) + _state_text(item)
+            for key, item in value.items()
+        )
+    if hasattr(value, "__dict__"):
+        return "".join(_state_text(item) for item in vars(value).values())
+    return ""
+
+
+def _retained_state_strings(recognizer) -> str:
+    # One concatenated string per top-level attribute so unrelated attributes
+    # are not spliced into a false positive.
+    return "\x00".join(
+        _state_text(value) for value in vars(recognizer).values()
+    )
 
 
 class TestFetchGrammarRecognition(unittest.TestCase):
@@ -1258,6 +1293,387 @@ class TestFetchPathologicalInputs(unittest.TestCase):
         ):
             with self.subTest(size=len(line)):
                 self.assertIsNone(parse_npm_fetch_line(line))
+
+
+class TestIncrementalFetchRecognizer(unittest.TestCase):
+    """The streaming recognizer matches the pure parser without the URL.
+
+    :class:`NpmFetchRecognizer` validates the successful-fetch grammar
+    incrementally and returns a parser-minimal :class:`SafeFetchRecord` that
+    carries no source URL, so the collector never retains a complete source
+    line in ``redacted`` or ``host-path``.
+    """
+
+    #: Lines exercising every accepted shape and the common near misses.
+    CORPUS = (
+        CACHE_MISS,
+        _line(),
+        _line(suffix=" attempt #2"),
+        _line(suffix=" attempt #3 (cache hit)"),
+        _line(latency="0ms"),
+        _line(latency="000ms"),
+        _line(method="HEAD", status="204"),
+        _line(url="https://user:pass@example.com:443/a/b?x=1#f"),
+        _line(url="https://[::1]:8080/p"),
+        _line(method="get"),
+        _line(status="404"),
+        _line(status="1000"),
+        _line(url="https://%"),
+        _line(url="https:///x"),
+        _line(url="http://:80/x"),
+        _line(url="https://example.com:/x"),
+        _line(url="https://example.com:99999/x"),
+        _line(url="https://"),
+        _line(latency="15"),
+        _line(latency="15s"),
+        _line(suffix=" attempt #"),
+        _line(suffix=" (cache )"),
+        _line(suffix=" (cache miss"),
+        _line(suffix=" (cache miss) extra"),
+        _line(suffix=" (cache MISS)"),
+        _line(suffix="  (cache miss)"),
+        _line() + " ",
+    )
+
+    def _recognize(self, line: str, chunk_size: int | None = None):
+        recognizer = NpmFetchRecognizer()
+        if chunk_size is None:
+            recognizer.feed(line)
+        else:
+            for start in range(0, len(line), chunk_size):
+                recognizer.feed(line[start : start + chunk_size])
+        return recognizer, recognizer.finish()
+
+    def test_matches_the_pure_parser_for_every_shape(self):
+        for line in self.CORPUS:
+            with self.subTest(line=line):
+                expected = parse_npm_fetch_line(line)
+                _recognizer, record = self._recognize(line)
+                self.assertEqual(expected is None, record is None)
+                if expected is not None and record is not None:
+                    self.assertEqual(expected.method, record.method)
+                    self.assertEqual(expected.status, record.status)
+                    self.assertEqual(expected.attempt, record.attempt)
+                    self.assertEqual(expected.cache_outcome, record.cache_outcome)
+
+    def test_recognition_is_chunk_boundary_independent(self):
+        for line in self.CORPUS:
+            expected = parse_npm_fetch_line(line)
+            for chunk_size in (1, 2, 3, 5, 13):
+                with self.subTest(line=line, chunk_size=chunk_size):
+                    _recognizer, record = self._recognize(line, chunk_size)
+                    self.assertEqual(expected is None, record is None)
+
+    def test_recognizer_retains_no_source_line_or_url(self):
+        line = _line(
+            url="https://user:pass@example.com/secretpath?token=abc#frag"
+        )
+        recognizer, record = self._recognize(line, chunk_size=1)
+        self.assertIsNotNone(record)
+        self.assertFalse(hasattr(record, "url"))
+        retained = repr(vars(recognizer))
+        for fragment in (
+            "user:pass",
+            "secretpath",
+            "token=abc",
+            "#frag",
+            "https://",
+            "example.com",
+        ):
+            self.assertNotIn(fragment, retained)
+
+    def test_long_authorities_and_cache_outcomes_match_the_pure_parser(self):
+        # A long URL path streams through without being retained.
+        long_path = _line(url="https://example.com/" + "a" * 100_000)
+        _recognizer, record = self._recognize(long_path)
+        self.assertIsNotNone(record)
+        # There is no undocumented authority-length grammar limit: an
+        # authority longer than any internal parser buffer is recognized
+        # exactly when the authoritative complete-line parser recognizes it.
+        long_authority = "a" * 5_000 + ".com"
+        for url in (
+            f"https://{long_authority}/x",
+            f"https://user:pass@{long_authority}/x",
+            f"https://{long_authority}:8080/x",
+        ):
+            with self.subTest(shape=url[:32]):
+                line = _line(url=url)
+                expected = parse_npm_fetch_line(line)
+                self.assertIsNotNone(expected)
+                for chunk_size in (None, 1, 7, 4096):
+                    _recognizer, record = self._recognize(line, chunk_size)
+                    self.assertIsNotNone(record)
+        # A long cache outcome is likewise not artificially bounded.
+        line = _line(suffix=" (cache " + "a" * 200 + ")")
+        self.assertIsNotNone(parse_npm_fetch_line(line))
+        _recognizer, record = self._recognize(line)
+        self.assertIsNotNone(record)
+        self.assertEqual("a" * 200, record.cache_outcome)
+
+    def test_canonical_unsafe_matches_source_field_matching(self):
+        for secrets in ((), ("miss",), ("GET",), ("200",), ("GET 200",), ("#3",), ("sec",)):
+            for line in (
+                CACHE_MISS,
+                _line(suffix=" attempt #3 (cache miss)"),
+                _line(suffix=" attempt #3"),
+                _line(url="https://example.com/x"),
+            ):
+                with self.subTest(secrets=secrets, line=line):
+                    pure = parse_npm_fetch_line(line)
+                    recognizer = NpmFetchRecognizer(secrets)
+                    # Feed one character at a time so a secret spanning two
+                    # fields or two input chunks is still detected.
+                    for character in line:
+                        recognizer.feed(character)
+                    recognizer.finish()
+                    expected = any(
+                        secret and secret in fetch_source_fields_text(pure)
+                        for secret in secrets
+                    )
+                    self.assertEqual(expected, recognizer.canonical_unsafe)
+
+    def test_safe_record_carries_no_url_and_groups_identically(self):
+        pure = parse_npm_fetch_line(CACHE_MISS)
+        facts = sanitize_host_paths(pure.url + " ")
+        self.assertTrue(facts)
+        safe = SafeFetchRecord(
+            method="GET",
+            status=200,
+            attempt=None,
+            cache_outcome="miss",
+            host_path=facts[0],
+        )
+        for display in (NetworkUrlDisplay.REDACTED, NetworkUrlDisplay.HOST_PATH):
+            with self.subTest(display=display):
+                self.assertEqual(
+                    canonical_fetch_text(pure, display),
+                    canonical_fetch_text(safe, display),
+                )
+                self.assertEqual(
+                    fetch_group_identity(pure, display),
+                    fetch_group_identity(safe, display),
+                )
+
+    def test_safe_record_host_path_uses_the_supplied_fact(self):
+        fact = SafeHostPath(
+            hostname="registry.npmjs.org",
+            path="/npm-http-research-fixture/-/npm-http-research-fixture-1.0.0.tgz",
+        )
+        safe = SafeFetchRecord(
+            method="GET",
+            status=200,
+            attempt=None,
+            cache_outcome="miss",
+            host_path=fact,
+        )
+        self.assertEqual(
+            f"npm http fetch GET 200 {fact.text} (cache miss)",
+            canonical_fetch_text(safe, NetworkUrlDisplay.HOST_PATH),
+        )
+        key = fetch_group_identity(safe, NetworkUrlDisplay.HOST_PATH)
+        self.assertIsNotNone(key)
+        self.assertEqual(fact.text, key.host_path)
+
+
+class TestIncrementalFetchRecognizerEquivalence(unittest.TestCase):
+    """The recognizer matches ``parse_npm_fetch_line`` accept/reject.
+
+    Removing the internal authority buffer must not change which lines are
+    recognized.  The recognizer validates the host from its parser-minimal,
+    user-information-free candidate and, when user information could decode
+    into a structural token, fails closed, so it never admits a line the
+    complete-line parser rejects.
+    """
+
+    HOSTS = (
+        "example.com",
+        "EXAMPLE.com.",
+        "m\u00fcnchen.de",
+        "xn--mnchen-3ya.de",
+        "%65xample.com",
+        "example%2Ecom",
+        "exam_ple.com",
+        "127.0.0.1",
+        "[::1]",
+        "[2001:db8::1]",
+        "localhost",
+        "registry.npmjs.org:8080",
+        "registry.npmjs.org:0",
+        "registry.npmjs.org:65535",
+        "[::1]:443",
+    )
+    USERINFOS = (
+        "",
+        "user@",
+        "user:password@",
+        "user:password@",
+        "user%40name@",
+        "\u00fcser@",
+        "u" * 64 + "@",
+    )
+    BODIES = (
+        "",
+        "/",
+        "/a/b",
+        "/a/b%20c",
+        "?q=1",
+        "#frag",
+        "?q=1#frag",
+        "/path?x=1#y",
+    )
+    MALFORMED = (
+        "https://%",
+        "https://%2e",
+        "https://[",
+        "https://]",
+        "https://?x",
+        "https:///x",
+        "https://",
+        "http://:80/x",
+        "https://user@/x",
+        "https://example.com:/x",
+        "https://example.com:",
+        "https://[2001:db8::1]:/x",
+        "https://example.com%3A/x",
+        "http://127.0.0.1:70000/x",
+        "http://registry.npmjs.org:70000/a",
+    )
+
+    def _recognize(self, line: str, chunk_size: int | None = None):
+        recognizer = NpmFetchRecognizer()
+        if chunk_size is None:
+            recognizer.feed(line)
+        else:
+            for start in range(0, len(line), chunk_size):
+                recognizer.feed(line[start : start + chunk_size])
+        return recognizer, recognizer.finish()
+
+    def _assert_equivalent(self, line: str, chunk_sizes=(None, 1, 3, 17)):
+        expected = parse_npm_fetch_line(line)
+        for chunk_size in chunk_sizes:
+            with self.subTest(line=line[:64], chunk_size=chunk_size):
+                _recognizer, record = self._recognize(line, chunk_size)
+                self.assertEqual(expected is None, record is None)
+                if expected is not None and record is not None:
+                    self.assertEqual(expected.method, record.method)
+                    self.assertEqual(expected.status, record.status)
+                    self.assertEqual(expected.attempt, record.attempt)
+                    self.assertEqual(
+                        expected.cache_outcome, record.cache_outcome
+                    )
+
+    def test_matches_the_pure_parser_for_realistic_authorities(self):
+        for userinfo in self.USERINFOS:
+            for host in self.HOSTS:
+                for body in self.BODIES:
+                    url = f"https://{userinfo}{host}{body}"
+                    self._assert_equivalent(
+                        _line(url=url), chunk_sizes=(None, 1, 5)
+                    )
+
+    def test_matches_the_pure_parser_for_known_malformed_urls(self):
+        for url in self.MALFORMED:
+            with self.subTest(url=url):
+                self.assertIsNone(parse_npm_fetch_line(_line(url=url)))
+                self._assert_equivalent(_line(url=url), chunk_sizes=(None, 1, 2))
+
+    def test_matches_the_pure_parser_at_every_split_point(self):
+        # Boundaries immediately before and after @, :, [, ], and the URL
+        # delimiters must not change recognition or the parsed fields.
+        for url in (
+            "https://user:password@example.com:8080/a/b?q=1#f",
+            "https://[2001:db8::1]:443/p",
+            "https://user@[::1]:8443/",
+            "https://%65xample.com%2E/x",
+            "https://user:pass@example.com",
+            "https://example.com?x#y",
+        ):
+            line = _line(url=url)
+            expected = parse_npm_fetch_line(line)
+            for split in range(len(line) + 1):
+                with self.subTest(url=url, split=split):
+                    recognizer = NpmFetchRecognizer()
+                    recognizer.feed(line[:split])
+                    recognizer.feed(line[split:])
+                    record = recognizer.finish()
+                    self.assertEqual(expected is None, record is None)
+                    if expected is not None and record is not None:
+                        self.assertEqual(expected.method, record.method)
+                        self.assertEqual(expected.status, record.status)
+                        self.assertEqual(expected.attempt, record.attempt)
+                        self.assertEqual(
+                            expected.cache_outcome, record.cache_outcome
+                        )
+
+    def test_long_authorities_match_across_chunk_boundaries(self):
+        long_label = "a" * 3_000
+        for url in (
+            f"https://{long_label}.example.com/x",
+            f"https://user:pass@{long_label}.example.com/x",
+            f"https://{long_label}.example.com:8080/x",
+            f"https://{'u' * 3_000}:pass@example.com/x",
+        ):
+            with self.subTest(shape=url[:48]):
+                self.assertIsNotNone(parse_npm_fetch_line(_line(url=url)))
+                self._assert_equivalent(
+                    _line(url=url), chunk_sizes=(None, 1, 64, 4096)
+                )
+
+    def test_recognizer_never_over_accepts_a_generated_authority(self):
+        rng = random.Random(20240607)
+        atoms = list("abc019._-:%[]@") + [
+            "%2F", "%3F", "%23", "%40", "%3A", "%5B", "%5D", "%25",
+            "%2E", "%00", "%09", "%C3", "%BC",
+        ]
+        checked = 0
+        for _ in range(2_000):
+            authority = "".join(
+                rng.choice(atoms) for _ in range(rng.randint(1, 10))
+            )
+            if any(character in authority for character in " /?#"):
+                continue
+            line = _line(url=f"https://{authority}")
+            if parse_npm_fetch_line(line) is not None:
+                continue
+            checked += 1
+            with self.subTest(authority=authority):
+                _recognizer, record = self._recognize(line, chunk_size=1)
+                self.assertIsNone(record, authority)
+        self.assertGreater(checked, 100)
+
+    def test_recognizer_state_never_retains_credentials_per_chunk(self):
+        url = (
+            "https://credname:credsecret@example.com/credpath"
+            "?token=credq#credf"
+        )
+        line = _line(url=url)
+        always_forbidden = (
+            "credsecret",
+            "credname:credsecret",
+            "credname:credsecret@example.com",
+            url,
+            "credpath",
+            "token=credq",
+            "#credf",
+        )
+        for chunk_size in (1, 2, 3):
+            recognizer = NpmFetchRecognizer()
+            for start in range(0, len(line), chunk_size):
+                recognizer.feed(line[start : start + chunk_size])
+                retained = _retained_state_strings(recognizer)
+                for fragment in always_forbidden:
+                    self.assertNotIn(
+                        fragment, retained, (chunk_size, start)
+                    )
+                # A single-label username is indistinguishable from a host
+                # candidate until user information is recognized, so it may
+                # only be asserted gone once the ``@`` has been consumed.
+                if "credname:credsecret@" in line[: start + chunk_size]:
+                    self.assertNotIn("credname", retained)
+            recognizer.finish()
+            retained = _retained_state_strings(recognizer)
+            for fragment in always_forbidden + ("credname",):
+                self.assertNotIn(fragment, retained)
 
 
 if __name__ == "__main__":

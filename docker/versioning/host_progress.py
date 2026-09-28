@@ -375,8 +375,10 @@ class HostDiagnosticEnvelope:
 class HostDiagnosticPrefix:
     """Internal presentation-only committed prefix of one diagnostic line.
 
-    A committed prefix is terminal-safe projected text released before its
-    record boundary.  It is never a complete npm diagnostic: it carries no
+    A committed prefix is the mode-selected local display fragment released
+    before its record boundary: URL-free projected text for ``redacted``,
+    normalized hostname/path text for ``host-path``, or terminal-safe source
+    text for ``exact``.  It is never a complete npm diagnostic: it carries no
     classification, normalized hostnames, or URL fingerprints, and
     complete-line parsing, classification, identity, grouping, SDK delivery,
     and durable ``lines`` output MUST NOT consume it.
@@ -458,10 +460,11 @@ HostOperationalEvent = (
 )
 HostBuildEvent = HostPhaseEvent | HostDiagnosticEvent | HostOperationalEvent
 
-#: Internal presentation-actor event union.  ``HostDiagnosticPrefix`` is
-#: intentionally excluded from :data:`HostBuildEvent` so external SDK callbacks
-#: can never observe a provisional prefix.
-HostPresentationEvent = HostBuildEvent | HostDiagnosticPrefix
+#: Internal presentation-actor event union.  ``HostDiagnosticPrefix`` and
+#: ``HostDiagnosticEnvelope`` are intentionally excluded from
+#: :data:`HostBuildEvent` so external SDK callbacks can never observe a
+#: provisional prefix or the internal fetch-identity envelope.
+HostPresentationEvent = HostBuildEvent | HostDiagnosticPrefix | HostDiagnosticEnvelope
 HostEventSink = Callable[[HostBuildEvent], None]
 
 
@@ -578,6 +581,16 @@ class InternalDirectHostEventSink:
         raise NotImplementedError
 
     def admit_prefix(self, prefix: HostDiagnosticPrefix) -> bool:
+        raise NotImplementedError
+
+    def admit_diagnostic(self, envelope: HostDiagnosticEnvelope) -> bool:
+        """Admit one internal presentation-only diagnostic envelope.
+
+        Like :meth:`admit_prefix`, this entry point is reachable only through
+        the nominal internal sink marker, so an external SDK callback can
+        never observe a fetch group key, canonical local text, safe path, or
+        terminal-safe source text.
+        """
         raise NotImplementedError
 
 

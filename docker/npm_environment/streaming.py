@@ -24,9 +24,12 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import Callable, Iterable, Protocol, Sequence
+from typing import TYPE_CHECKING, Callable, Iterable, Protocol, Sequence
 
 from docker.versioning.model import NetworkUrlDisplay
+
+if TYPE_CHECKING:  # pragma: no cover - annotation-only import
+    from docker.versioning.fetch_identity import FetchGroupKey
 
 REDACTED = "<redacted>"
 
@@ -788,14 +791,17 @@ class StreamChunk:
     the retained tail never carries them.
 
     ``finalized`` distinguishes the two collector events.  A committed prefix
-    (``finalized=False``) is terminal-safe projected text that was released as
-    soon as the decoder, neutralizer, and projector committed it, before any
-    newline; it carries no structured line metadata and is never a complete npm
-    diagnostic.  A finalized line (``finalized=True``) marks the record
-    boundary: it carries the complete URL-free line text plus the normalized
-    hostnames and ordered URL fingerprints for that logical line.  Complete-line
-    parsing, classification, identity, and grouping consume only finalized
-    lines; live/tail capture may consume committed prefixes promptly.
+    (``finalized=False``) is released as soon as the decoder, neutralizer, and
+    selected representation commit it, before any newline: its ``local_text``
+    is the mode-selected presentation fragment to display, while ``text``
+    remains the URL-free safe projection (a safe-projection-only prefix may
+    carry ``local_text=None``).  It carries no structured line metadata and is
+    never a complete npm diagnostic.  A finalized line (``finalized=True``)
+    marks the record boundary: it carries the complete URL-free line text plus
+    the normalized hostnames and ordered URL fingerprints for that logical
+    line, and ``local_text`` is its complete mode-selected representation.
+    Complete-line parsing, classification, identity, and grouping consume only
+    finalized lines; live/tail capture may consume committed prefixes promptly.
 
     ``overflowed`` marks a line truncated by the bounded line limit.  A
     committed prefix released *before* the line exceeds its bound carries
@@ -824,6 +830,30 @@ class StreamChunk:
     overflowed: bool = False
     """``True`` when the line was truncated by the bounded line limit."""
 
+    local_text: str | None = None
+    """Mode-selected local presentation fragment (internal presentation route).
+
+    On a committed prefix (``finalized=False``) this is the newly committed
+    mode-selected display fragment: ``redacted`` reuses the URL-free projected
+    ``text``; ``host-path`` carries the normalized hostname/path rendering;
+    ``exact`` carries the terminal-safe source fragment.  It may be ``None``
+    when a chunk advances only the safe structured projection and has no local
+    fragment to display.  On a finalized line it is the complete mode-selected
+    local representation.  It is never part of the external SDK DTO, and
+    ``text`` stays URL-free and safe for structured/SDK processing in every
+    case.
+    """
+
+    fetch_key: "FetchGroupKey | None" = None
+    """Recognized-fetch group identity (internal presentation-only metadata).
+
+    Fetch recognition requires a complete, bounded, non-overflowed line, so
+    this is always ``None`` on a committed prefix.
+    """
+
+    fetch_text: str | None = None
+    """Canonical latency-free fetch rendering, present only with ``fetch_key``."""
+
 
 class DiagnosticSink(Protocol):
     """Constructor-owned prompt-returning diagnostic callback."""
@@ -848,6 +878,61 @@ def _internal_direct_enqueue_sink(
 ) -> _InternalDirectEnqueueSink:
     """Wrap a facade-owned enqueue callback for direct collector admission."""
     return _InternalDirectEnqueueSink(sink)
+
+
+class SplitDiagnosticSink:
+    """Reader-thread admission split from dispatcher-owned external delivery.
+
+    The facade builds one of these whenever an external SDK channel is
+    configured.  ``direct``, when present, is invoked synchronously on the
+    reader thread for every chunk and must return promptly: it admits into
+    the bounded, non-blocking presentation mailbox.  Every finalized chunk is
+    *also* submitted to the one bounded :class:`SinkDispatcher` that owns
+    ``dispatched``; provisional prefixes never enter that queue.
+
+    Keeping the two channels separate is what makes internal presentation
+    independent of external backlog: a slow or saturated callback can neither
+    delay nor drop a direct admission, and provisional prefix traffic can
+    never crowd out a finalized external diagnostic.  Because the direct
+    channel resets its per-record accumulation at every finalized boundary
+    before any queue decision, an external drop can never make one record's
+    provisional snapshot concatenate with another's.
+    """
+
+    __slots__ = ("direct", "dispatched")
+
+    def __init__(
+        self,
+        direct: DiagnosticSink | None,
+        dispatched: DiagnosticSink,
+    ) -> None:
+        if dispatched is None:
+            raise ValueError("a dispatched sink is required")
+        self.direct = direct
+        self.dispatched = dispatched
+
+    def should_dispatch(self, chunk: StreamChunk) -> bool:
+        """Whether *chunk* also enters the lossy dispatcher queue.
+
+        Only finalized records are dispatched: a provisional prefix is a
+        direct-only live fragment, so it never competes for external-queue
+        capacity with the finalized diagnostics an SDK consumer needs.
+        """
+        return chunk.finalized
+
+    def __call__(self, chunk: StreamChunk) -> None:
+        """Route one chunk through the split without the collector.
+
+        This is the direct-invocation form for a caller that already holds a
+        chunk; it keeps the facade's sink a drop-in callable.  The real
+        collector never calls it: :func:`collect_streams` invokes ``direct``
+        on the reader thread and submits to the dispatcher separately, so an
+        external callback always runs on the dispatcher thread.
+        """
+        if self.direct is not None:
+            self.direct(chunk)
+        if self.should_dispatch(chunk):
+            self.dispatched(chunk)
 
 
 class DiagnosticStream(Protocol):
@@ -1166,13 +1251,16 @@ def collect_streams(
     *stdout_read*/*stderr_read* are blocking readers accepting a maximum
     byte count and returning ``b""`` at EOF.  Both pipes are drained
     concurrently so a producer cannot deadlock on either pipe; the structured
-    branch emits committed terminal-safe prefixes promptly without waiting for
+    branch emits mode-selected committed prefixes promptly without waiting for
     a newline and finalizes each line at its record boundary, and retained
     tails are bounded.  Complete-line consumers (classification, identity,
     grouping, and durable output) must consume only finalized
-    :class:`StreamChunk` items.  When
-    *sink* is not ``None``, redacted chunks are dispatched through one
-    serialized queue; otherwise no live output is produced.
+    :class:`StreamChunk` items.  When *sink* is not ``None``, chunks are
+    dispatched through one serialized queue; otherwise no live output is
+    produced.  A :class:`SplitDiagnosticSink` instead admits every chunk
+    directly on the reader thread into a bounded, non-blocking inbox and
+    *also* dispatches only its finalized chunks, so an external backlog can
+    neither delay nor drop internal presentation.
 
     A failed reader records a bounded, redacted :class:`StreamReaderFailure`
     and reports it to the caller *immediately* — before the sibling reader
@@ -1227,10 +1315,22 @@ def collect_streams(
         if stream_factory is not None
         else RedactingStream(secrets)
     )
-    direct_sink = isinstance(sink, _InternalDirectEnqueueSink)
+    split_sink = sink if isinstance(sink, SplitDiagnosticSink) else None
+    if split_sink is not None:
+        direct_calls: DiagnosticSink | None = split_sink.direct
+        dispatch_target: DiagnosticSink | None = split_sink.dispatched
+    elif isinstance(sink, _InternalDirectEnqueueSink):
+        direct_calls = sink
+        dispatch_target = None
+    else:
+        direct_calls = None
+        dispatch_target = sink
+    # Only the dispatched channel is wrapped in the lossy queue.  A direct
+    # (or paired direct) channel admits on the reader thread and is never
+    # wrapped, so external backlog cannot delay, drop, or reorder it.
     dispatcher = (
-        SinkDispatcher(sink)
-        if sink is not None and not direct_sink
+        SinkDispatcher(dispatch_target)
+        if dispatch_target is not None
         else None
     )
 
@@ -1266,13 +1366,16 @@ def collect_streams(
         live_chunk = (
             chunk if isinstance(chunk, StreamChunk) else StreamChunk(tag, chunk)
         )
-        if dispatcher is not None:
-            dispatcher.submit(live_chunk)
-        elif direct_sink and sink is not None:
+        if direct_calls is not None:
             # The explicitly marked facade path admits directly into its own
-            # thread-safe inbox. Arbitrary SDK callbacks retain dispatcher
-            # isolation and are never inferred to be safe from callability.
-            sink(live_chunk)
+            # bounded, thread-safe inbox before any queue decision; arbitrary
+            # SDK callbacks retain dispatcher isolation and are never
+            # inferred to be safe from callability.
+            direct_calls(live_chunk)
+        if dispatcher is not None and (
+            split_sink is None or split_sink.should_dispatch(live_chunk)
+        ):
+            dispatcher.submit(live_chunk)
 
     def drain(
         read_fn: Callable[[int], bytes], stream: DiagnosticStream, tag: str
@@ -1398,6 +1501,7 @@ __all__ = [
     "DISPATCHER_DRAIN_BUDGET_SECONDS",
     "DiagnosticSink",
     "DiagnosticStream",
+    "SplitDiagnosticSink",
     "READ_CHUNK_BYTES",
     "READER_FAILURE_DETAIL_BYTES",
     "REDACTED",

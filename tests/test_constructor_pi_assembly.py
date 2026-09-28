@@ -14,6 +14,7 @@ import json
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -31,6 +32,7 @@ from docker.versioning.pi_assembly import (
     PiAssemblyError, PiAssemblyRequest, materialize_pi,
 )
 from docker.versioning.pi_release import PiReleaseSource, derive_pi_release_urls
+from docker.versioning.model import NetworkUrlDisplay
 from docker.versioning.host_presentation import (
     HostPresentationMode,
     HostPresentationSession,
@@ -580,11 +582,19 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
     """Task 2.10/2.11 -- the production presentation route shows prefixes.
 
     Exercises the real path
-    ``NpmDiagnosticStream -> collect_streams -> pi_assembly._structured_sink
+    ``NpmDiagnosticStream -> collect_streams -> pi_assembly._route_internal
     -> host event sink -> presentation actor -> renderer``.
     """
 
-    def _materialize(self, event_sink, stdout_read, captures):
+    def _materialize(
+        self,
+        event_sink,
+        stdout_read,
+        captures,
+        sdk_event_sink=None,
+        network_url_display=NetworkUrlDisplay.REDACTED,
+        after_collect=None,
+    ):
         version, package, lock = _release_fixture_for_projection()
         source = PiReleaseSource(
             package=PI_PACKAGE,
@@ -597,6 +607,8 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
             inventory_path="docker-constructor.toml",
             project_root=_REPO,
             event_sink=event_sink,
+            sdk_event_sink=sdk_event_sink,
+            network_url_display=network_url_display,
         )
         request = PiAssemblyRequest(
             projection=_projection(),
@@ -604,6 +616,8 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
             cache_root=Path(tempfile.mkdtemp()),
             executor=SimpleNamespace(run=lambda argv: None),
             event_sink=build_request.event_sink,
+            sdk_event_sink=build_request.sdk_event_sink,
+            network_url_display=build_request.network_url_display,
         )
 
         def fake_assemble(*, sink, stream_factory=None, **kwargs):
@@ -616,6 +630,8 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
                     stream_factory=stream_factory,
                 )
             )
+            if after_collect is not None:
+                after_collect()
             env_root = assembled_pi_tree()
             return SimpleNamespace(
                 environment_root=env_root,
@@ -678,6 +694,451 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
         self.assertEqual(
             captures[0].stdout_tail.count("npm warn partial"), 1
         )
+
+    _PREFIX_URL = (
+        "https://user:secret@registry.example.com:8443"
+        "/pkg/-/pkg-1.0.0.tgz?q=1#frag"
+    )
+    _PREFIX_LINE = f"npm error network GET {_PREFIX_URL} failed"
+    _PREFIX_HOST_PATH = "registry.example.com/pkg/-/pkg-1.0.0.tgz"
+
+    def _mode_prefix_expectations(self):
+        return {
+            NetworkUrlDisplay.REDACTED: ("<redacted>", "registry.example.com"),
+            NetworkUrlDisplay.HOST_PATH: (self._PREFIX_HOST_PATH, "https://"),
+            NetworkUrlDisplay.EXACT: (self._PREFIX_URL, None),
+        }
+
+    def _session_for(self, display, renderer):
+        return HostPresentationSession(
+            renderer,
+            PresentationPlan(
+                HostPresentationMode.INTERACTIVE,
+                PresentationSelection.LIVE,
+                display,
+            ),
+        )
+
+    def _slots(self, renderer):
+        return [
+            str(call[1]) for call in renderer.calls if call[0] == "slot"
+        ]
+
+    def test_mode_selected_prefix_is_visible_before_the_record_boundary(self):
+        for display, (expected, forbidden) in (
+            self._mode_prefix_expectations().items()
+        ):
+            with self.subTest(display=display):
+                renderer = _RecordingPresentationRenderer()
+                session = self._session_for(display, renderer)
+                captures: list = []
+                sent = {"prefix": False, "newline": False}
+                snapshot: dict = {}
+
+                def stdout_read(_size):
+                    if not sent["prefix"]:
+                        sent["prefix"] = True
+                        return self._PREFIX_LINE.encode()
+                    if not sent["newline"]:
+                        # Hold the record boundary until the selected prefix
+                        # is observable, then snapshot presentation.
+                        deadline = time.monotonic() + 5.0
+                        while time.monotonic() < deadline:
+                            if any(
+                                expected in slot
+                                for slot in self._slots(renderer)
+                            ):
+                                break
+                            time.sleep(0.01)
+                        snapshot["slots"] = self._slots(renderer)
+                        snapshot["durable"] = _durable_text(renderer.calls)
+                        sent["newline"] = True
+                        return b"\n"
+                    return b""
+
+                try:
+                    self._materialize(
+                        session.sink,
+                        stdout_read,
+                        captures,
+                        network_url_display=display,
+                    )
+                finally:
+                    session.shutdown()
+
+                before = "\n".join(snapshot["slots"])
+                self.assertIn(expected, before)
+                if forbidden is not None:
+                    self.assertNotIn(forbidden, before)
+                # The line is not durably written before its record boundary.
+                self.assertNotIn(expected, snapshot["durable"])
+                # The complete line finalizes exactly once with the selected
+                # representation and never duplicates the prefix.
+                finalizes = [
+                    call[1]
+                    for call in renderer.calls
+                    if call[0] == "finalize"
+                ]
+                self.assertEqual(1, len(finalizes))
+                self.assertIn(expected, str(finalizes[0]))
+
+    def test_combined_sinks_fan_out_mode_prefix_internally_and_no_sdk_prefix(self):
+        for display, (expected, forbidden) in (
+            self._mode_prefix_expectations().items()
+        ):
+            with self.subTest(display=display):
+                renderer = _RecordingPresentationRenderer()
+                session = self._session_for(display, renderer)
+                delivered: list = []
+                captures: list = []
+                sent = {"prefix": False, "newline": False}
+                snapshot: dict = {}
+
+                def stdout_read(_size):
+                    if not sent["prefix"]:
+                        sent["prefix"] = True
+                        return self._PREFIX_LINE.encode()
+                    if not sent["newline"]:
+                        deadline = time.monotonic() + 5.0
+                        while time.monotonic() < deadline:
+                            if any(
+                                expected in slot
+                                for slot in self._slots(renderer)
+                            ):
+                                break
+                            time.sleep(0.01)
+                        # No provisional prefix may have reached the SDK while
+                        # the selected prefix was live internally.
+                        snapshot["sdk"] = list(delivered)
+                        sent["newline"] = True
+                        return b"\n"
+                    return b""
+
+                try:
+                    self._materialize(
+                        session.sink,
+                        stdout_read,
+                        captures,
+                        sdk_event_sink=delivered.append,
+                        network_url_display=display,
+                    )
+                finally:
+                    session.shutdown()
+
+                self.assertFalse(
+                    any(
+                        isinstance(event, HostDiagnosticPrefix)
+                        for event in snapshot["sdk"]
+                    )
+                )
+                self.assertFalse(
+                    any(
+                        isinstance(event, HostStructuredDiagnostic)
+                        for event in snapshot["sdk"]
+                    )
+                )
+                structured = [
+                    event
+                    for event in delivered
+                    if isinstance(event, HostStructuredDiagnostic)
+                ]
+                self.assertEqual(1, len(structured))
+                # The external SDK diagnostic stays URL-free and path-free in
+                # every mode, including the selected local representation.
+                self.assertNotIn("https://", structured[0].text)
+                self.assertNotIn("registry.example.com", structured[0].text)
+                self.assertNotIn(
+                    self._PREFIX_HOST_PATH, structured[0].text
+                )
+
+    def test_combined_sink_saturation_keeps_internal_records_prompt_and_bounded(
+        self,
+    ):
+        """A backlogged SDK channel can never damage internal presentation.
+
+        A one-slot SDK queue and a callback blocked on the first finalized
+        record force later records to be dropped externally.  Internal
+        presentation must stay prompt, its provisional snapshots must never
+        combine two records, and internal finalized records must still all
+        arrive.
+        """
+        renderer = _RecordingPresentationRenderer()
+        session = self._session_for(NetworkUrlDisplay.REDACTED, renderer)
+        sdk_events: list = []
+        callback_entered = threading.Event()
+        release_callback = threading.Event()
+        drained: dict = {}
+
+        def slow_sdk(event) -> None:
+            sdk_events.append(event)
+            callback_entered.set()
+            release_callback.wait(5.0)
+
+        markers = [f"record-{i}" for i in range(6)]
+        # Each line ends with a completed token and a trailing space, so the
+        # record marker is committed to the provisional prefix instead of
+        # being withheld as a possible URL scheme.
+        lines = [
+            f"npm error network GET {self._PREFIX_URL} failed {marker} "
+            for marker in markers
+        ]
+        # Fragment each record into a provisional prefix and its newline.  The
+        # newline is released only after that record's prefix has been rendered,
+        # which happens while the SDK callback is blocked on an earlier record.
+        steps: list[tuple[bytes, str | None]] = []
+        for line, marker in zip(lines, markers):
+            steps.append((line.encode(), None))
+            steps.append((b"\n", marker))
+        state = {"index": 0}
+        prompt: dict = {}
+
+        def stdout_read(_size):
+            index = state["index"]
+            if index >= len(steps):
+                # Every record has been read; release the blocked callback so
+                # the dispatcher can finalize without hitting its drain budget.
+                release_callback.set()
+                return b""
+            value, wait_marker = steps[index]
+            state["index"] = index + 1
+            if wait_marker is not None and wait_marker != markers[0]:
+                # The first record already has the SDK callback blocked; this
+                # later provisional prefix must still reach the renderer
+                # before its record boundary is released.
+                deadline = time.monotonic() + 5.0
+                while time.monotonic() < deadline:
+                    if any(
+                        wait_marker in slot
+                        for slot in self._slots(renderer)
+                    ):
+                        prompt[wait_marker] = True
+                        break
+                    time.sleep(0.005)
+            return value
+
+        real_dispatcher = npm_streaming.SinkDispatcher
+        captures: list = []
+
+        def after_collect() -> None:
+            # The SDK dispatcher is drained inside collect_streams, before the
+            # operation's terminal event is admitted; snapshot the delivered
+            # count at that point.
+            drained["count"] = len(sdk_events)
+
+        try:
+            with patch.object(
+                npm_streaming,
+                "SinkDispatcher",
+                side_effect=lambda sink, **kwargs: real_dispatcher(
+                    sink, queue_capacity=1, **kwargs
+                ),
+            ):
+                self._materialize(
+                    session.sink,
+                    stdout_read,
+                    captures,
+                    sdk_event_sink=slow_sdk,
+                    network_url_display=NetworkUrlDisplay.REDACTED,
+                    after_collect=after_collect,
+                )
+        finally:
+            release_callback.set()
+            session.shutdown()
+
+        # Internal prefixes stayed prompt while the SDK callback was blocked.
+        self.assertTrue(callback_entered.is_set())
+        self.assertEqual(set(prompt), set(markers[1:]))
+
+        # No provisional snapshot combined two records, and each stayed
+        # within the bound of its own line.
+        slot_texts = self._slots(renderer)
+        self.assertTrue(slot_texts)
+        max_line = max(len(line) for line in lines)
+        for text in slot_texts:
+            self.assertLessEqual(
+                sum(marker in text for marker in markers), 1
+            )
+            self.assertLessEqual(len(text), max_line)
+
+        # Every internal finalized record still arrived.
+        finalizes = [
+            call[1] for call in renderer.calls if call[0] == "finalize"
+        ]
+        for marker in markers:
+            self.assertTrue(
+                any(marker in text for text in finalizes), marker
+            )
+
+        # The SDK channel saw only safe, finalized structured diagnostics and
+        # at least one was dropped by the one-slot queue.
+        self.assertTrue(sdk_events)
+        for event in sdk_events:
+            self.assertIsInstance(event, HostStructuredDiagnostic)
+            self.assertNotIn("https://", event.text)
+            self.assertNotIn("registry.example.com", event.text)
+            self.assertNotIn("secret", event.text)
+        self.assertLess(len(sdk_events), len(markers))
+
+        # No SDK callback ran after the dispatcher finished, so none can be
+        # admitted after the assembly terminal event.
+        self.assertEqual(drained["count"], len(sdk_events))
+
+    def test_overflow_record_resets_the_internal_prefix_buffer(self):
+        """An overflow record is a real boundary for the prefix buffer.
+
+        Even when the external SDK channel is dropping nothing here, the
+        following record's provisional and finalized snapshots must never
+        carry the earlier overflow record's committed text.
+        """
+        renderer = _RecordingPresentationRenderer()
+        session = self._session_for(NetworkUrlDisplay.REDACTED, renderer)
+        captures: list = []
+        limit = DIAGNOSTIC_LINE_LIMIT_BYTES
+        oversized = (
+            "npm error network GET "
+            + self._PREFIX_URL
+            + " failed overflow-marker "
+            + "pad " * (limit // 4)
+            + "DISCARDED" * 100
+        )
+        normal = (
+            f"npm error network GET {self._PREFIX_URL} "
+            "failed record-after "
+        )
+        reads = iter(
+            [oversized.encode(), b"\n", normal.encode(), b"\n", b""]
+        )
+
+        def stdout_read(_size):
+            return next(reads, b"")
+
+        try:
+            self._materialize(
+                session.sink,
+                stdout_read,
+                captures,
+                network_url_display=NetworkUrlDisplay.REDACTED,
+            )
+        finally:
+            session.shutdown()
+
+        after = [
+            str(call[1])
+            for call in renderer.calls
+            if call[0] in ("slot", "finalize", "durable")
+            and "record-after" in str(call[1])
+        ]
+        self.assertTrue(after)
+        for text in after:
+            self.assertNotIn("overflow-marker", text)
+
+    def test_overflow_prefix_and_marker_use_the_selected_representation(self):
+        expectations = {
+            NetworkUrlDisplay.REDACTED: "<redacted>",
+            NetworkUrlDisplay.HOST_PATH: self._PREFIX_HOST_PATH,
+            NetworkUrlDisplay.EXACT: self._PREFIX_URL,
+        }
+        limit = DIAGNOSTIC_LINE_LIMIT_BYTES
+        oversized = (
+            "npm error network GET "
+            + self._PREFIX_URL
+            + " failed "
+            + "pad " * (limit // 4)
+            + "DISCARDED" * 100
+        ).encode()
+        for display, expected in expectations.items():
+            with self.subTest(display=display):
+                renderer = _RecordingPresentationRenderer()
+                session = self._session_for(display, renderer)
+                captures: list = []
+                sent = {"oversized": False, "newline": False}
+                snapshot: dict = {}
+
+                def stdout_read(_size):
+                    if not sent["oversized"]:
+                        sent["oversized"] = True
+                        return oversized
+                    if not sent["newline"]:
+                        deadline = time.monotonic() + 5.0
+                        while time.monotonic() < deadline:
+                            if any(
+                                expected in slot
+                                and OVERSIZED_DIAGNOSTIC_MARKER in slot
+                                for slot in self._slots(renderer)
+                            ):
+                                break
+                            time.sleep(0.01)
+                        snapshot["slots"] = self._slots(renderer)
+                        sent["newline"] = True
+                        return b"\n"
+                    return b""
+
+                try:
+                    self._materialize(
+                        session.sink,
+                        stdout_read,
+                        captures,
+                        network_url_display=display,
+                    )
+                finally:
+                    session.shutdown()
+
+                before = "\n".join(snapshot["slots"])
+                self.assertIn(expected, before)
+                self.assertIn(OVERSIZED_DIAGNOSTIC_MARKER, before)
+                # The selected committed prefix precedes the overflow marker.
+                self.assertLess(
+                    before.index(expected),
+                    before.index(OVERSIZED_DIAGNOSTIC_MARKER),
+                )
+                # The discarded overflow suffix never reaches live
+                # presentation in any mode.
+                self.assertNotIn(
+                    "DISCARDED", "\n".join(self._slots(renderer))
+                )
+                # The record boundary closes the provisional state with the
+                # complete mode-selected truncated line.
+                finalized = "\n".join(
+                    str(call[1])
+                    for call in renderer.calls
+                    if call[0] == "finalize"
+                )
+                self.assertIn(expected, finalized)
+                self.assertIn(OVERSIZED_DIAGNOSTIC_MARKER, finalized)
+                self.assertNotIn("DISCARDED", finalized)
+
+    def test_finalized_line_replaces_the_provisional_prefix_without_duplication(self):
+        for display in NetworkUrlDisplay:
+            with self.subTest(display=display):
+                renderer = _RecordingPresentationRenderer()
+                session = self._session_for(display, renderer)
+                captures: list = []
+                chunks = iter((self._PREFIX_LINE.encode() + b"\n", b""))
+
+                def stdout_read(_size):
+                    return next(chunks)
+
+                try:
+                    self._materialize(
+                        session.sink,
+                        stdout_read,
+                        captures,
+                        network_url_display=display,
+                    )
+                finally:
+                    session.shutdown()
+
+                finalizes = [
+                    call[1]
+                    for call in renderer.calls
+                    if call[0] == "finalize"
+                ]
+                self.assertEqual(1, len(finalizes))
+                # The finalized complete line is written once and the visible
+                # provisional prefix is replaced, never appended twice.
+                self.assertEqual(
+                    str(finalizes[0]).count("npm error network GET"), 1
+                )
 
     def test_external_callback_receives_only_the_finalized_diagnostic(self):
         delivered: list = []
@@ -913,6 +1374,78 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
         self.assertEqual(
             captures[0].stdout_tail.count(OVERSIZED_DIAGNOSTIC_MARKER), 1
         )
+
+    def test_combined_sinks_fan_out_overflow_without_provisional_sdk_prefix(self):
+        renderer = _RecordingPresentationRenderer()
+        session = HostPresentationSession(
+            renderer,
+            PresentationPlan(
+                HostPresentationMode.LINES,
+                PresentationSelection.LIVE,
+            ),
+        )
+        sdk_events: list = []
+        captures: list = []
+        limit = DIAGNOSTIC_LINE_LIMIT_BYTES
+        oversized = b"npm warn " + b"pad " * (limit // 4) + b"DISCARDED" * 100
+        state = {"stage": 0}
+        before: list = []
+
+        def stdout_read(_size):
+            if state["stage"] == 0:
+                state["stage"] = 1
+                return oversized
+            if state["stage"] == 1:
+                # The committed prefix and marker are already visible to the
+                # internal actor provisionally; no external structured event
+                # may arrive before the record boundary.
+                before.extend(sdk_events)
+                state["stage"] = 2
+                return b"\n"
+            return b""
+
+        try:
+            self._materialize(
+                session.sink,
+                stdout_read,
+                captures,
+                sdk_event_sink=sdk_events.append,
+            )
+        finally:
+            session.shutdown()
+
+        self.assertEqual(
+            [],
+            [
+                event
+                for event in before
+                if isinstance(event, HostStructuredDiagnostic)
+            ],
+        )
+        self.assertFalse(
+            any(isinstance(event, HostDiagnosticPrefix) for event in sdk_events)
+        )
+        structured = [
+            event
+            for event in sdk_events
+            if isinstance(event, HostStructuredDiagnostic)
+        ]
+        overflow = [
+            event
+            for event in structured
+            if OVERSIZED_DIAGNOSTIC_MARKER in event.text
+        ]
+        self.assertEqual(1, len(overflow))
+        self.assertNotIn("DISCARDED", overflow[0].text)
+        self.assertEqual((), overflow[0].hostnames)
+        self.assertEqual((), overflow[0].url_fingerprints)
+        self.assertEqual(
+            HostDiagnosticClassification.STATUS, overflow[0].classification
+        )
+        # The internal actor still finalized the overflow boundary exactly
+        # once; the SDK fan-out never duplicated the provisional prefix.
+        durable = _durable_text(renderer.calls)
+        self.assertEqual(durable.count(OVERSIZED_DIAGNOSTIC_MARKER), 1)
 
 
 class TestInstallPackageDependencies(unittest.TestCase):

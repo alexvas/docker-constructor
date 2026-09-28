@@ -92,6 +92,7 @@ from docker.npm_environment.streaming import (
     CONTROL_SEQUENCE_LIMIT_BYTES,
     INCOMPLETE_CONTROL_SEQUENCE,
     OVERSIZED_CONTROL_SEQUENCE,
+    SplitDiagnosticSink,
     TerminalControlNeutralizer,
     TerminalSafeLineFramer,
     _Utf8ByteDecoder,
@@ -1402,6 +1403,45 @@ class TestTerminalNeutralizationRouteAudit(unittest.TestCase):
                 self._assert_terminal_safe(self, capture.stdout_tail)
                 self._assert_terminal_safe(self, capture.stderr_tail)
 
+    def test_committed_prefix_uses_the_selected_representation(self):
+        url = (
+            "https://user:secret@registry.example.com:8443"
+            "/pkg/-/pkg-1.0.0.tgz?q=1#frag"
+        )
+        line = f"npm error network GET {url} failed"
+        expectations = {
+            NetworkUrlDisplay.REDACTED: "<redacted>",
+            NetworkUrlDisplay.HOST_PATH: (
+                "registry.example.com/pkg/-/pkg-1.0.0.tgz"
+            ),
+            NetworkUrlDisplay.EXACT: url,
+        }
+        for display, expected in expectations.items():
+            with self.subTest(display=display):
+                received: list[StreamChunk] = []
+                collect_streams(
+                    stdout_read=_ScriptedReader([line.encode(), b"\n"]),
+                    stderr_read=_ScriptedReader([]),
+                    secrets=("secret",),
+                    sink=received.append,
+                    stream_factory=make_stream_factory(
+                        ("secret",), network_url_display=display
+                    ),
+                )
+                prefix_local = "".join(
+                    chunk.local_text
+                    for chunk in received
+                    if not chunk.finalized and chunk.local_text is not None
+                )
+                self.assertIn(expected, prefix_local)
+                # The SDK-facing committed prefix text is URL-free in every
+                # mode; the selected local fragment is presentation-only.
+                prefix_safe = "".join(
+                    chunk.text for chunk in received if not chunk.finalized
+                )
+                self.assertNotIn("https://", prefix_safe)
+                self.assertNotIn("registry.example.com", prefix_safe)
+
     def test_oversized_and_incomplete_markers_reach_real_output(self):
         received, capture = self._collect(
             [self.OVERSIZED, b"npm \x1b]unterminated"]
@@ -2119,6 +2159,145 @@ class TestSinkDispatcher(unittest.TestCase):
             self.assertFalse(dispatcher.is_alive())
             # Queue storage never exceeds its configured capacity.
             self.assertLessEqual(dispatcher._queue.qsize(), 8)
+
+
+class _StructuredStubStream:
+    """Minimal structured DiagnosticStream yielding fixed chunks once."""
+
+    def __init__(self, chunks: list[StreamChunk]) -> None:
+        self._chunks = list(chunks)
+
+    def feed_bytes(self, data: bytes):
+        chunks, self._chunks = self._chunks, []
+        return chunks
+
+    def finish(self, *, abort: bool = False):
+        return []
+
+    def tail(self) -> str:
+        return ""
+
+
+class TestSplitDiagnosticSink(unittest.TestCase):
+    """A split sink admits every chunk directly and dispatches only records.
+
+    The split is what keeps internal presentation independent of a lossy
+    external queue: provisional prefixes are direct-only, and only finalized
+    records enter the dispatcher.
+    """
+
+    def _collect(self, sink, chunks: list[StreamChunk]) -> object:
+        stdout = iter((b"payload", b""))
+        stderr = iter((b"",))
+        return collect_streams(
+            stdout_read=lambda _size: next(stdout),
+            stderr_read=lambda _size: next(stderr),
+            sink=sink,
+            stream_factory=lambda _name: _StructuredStubStream(chunks),
+        )
+
+    def test_direct_channel_sees_every_chunk_on_the_reader_thread(self):
+        direct: list[tuple[StreamChunk, str]] = []
+        dispatched: list[tuple[StreamChunk, str]] = []
+        prefix = StreamChunk(
+            STREAM_STDOUT, "partial ", finalized=False, local_text="partial "
+        )
+        finalized = StreamChunk(
+            STREAM_STDOUT, "partial line", finalized=True,
+            local_text="partial line",
+        )
+        sink = SplitDiagnosticSink(
+            lambda chunk: direct.append(
+                (chunk, threading.current_thread().name)
+            ),
+            lambda chunk: dispatched.append(
+                (chunk, threading.current_thread().name)
+            ),
+        )
+        self._collect(sink, [prefix, finalized])
+        # Every chunk is admitted directly, on the reader thread.
+        self.assertEqual([chunk for chunk, _ in direct], [prefix, finalized])
+        self.assertEqual({name for _, name in direct}, {"npm-stdout-reader"})
+        # Only the finalized record reaches the dispatcher, on its own thread.
+        self.assertEqual([chunk for chunk, _ in dispatched], [finalized])
+        self.assertEqual(
+            {name for _, name in dispatched}, {"npm-sink-dispatcher"}
+        )
+        _assert_no_workers(self)
+
+    def test_provisional_prefix_never_enters_the_dispatcher_queue(self):
+        dispatched: list[StreamChunk] = []
+        sink = SplitDiagnosticSink(
+            lambda _chunk: None, dispatched.append
+        )
+        prefix = StreamChunk(
+            STREAM_STDOUT, "p", finalized=False, local_text="p"
+        )
+        self._collect(sink, [prefix])
+        self.assertEqual([], dispatched)
+
+    def test_no_direct_channel_still_dispatches_only_finalized(self):
+        dispatched: list[StreamChunk] = []
+        sink = SplitDiagnosticSink(None, dispatched.append)
+        prefix = StreamChunk(
+            STREAM_STDOUT, "p", finalized=False, local_text="p"
+        )
+        finalized = StreamChunk(STREAM_STDOUT, "p q", finalized=True)
+        self._collect(sink, [prefix, finalized])
+        self.assertEqual([finalized], dispatched)
+
+    def test_saturated_dispatcher_never_drops_or_delays_the_direct_channel(
+        self,
+    ):
+        entered = threading.Event()
+        release = threading.Event()
+        all_direct = threading.Event()
+
+        def slow(_chunk: StreamChunk) -> None:
+            entered.set()
+            release.wait(5.0)
+
+        direct_seen: list[StreamChunk] = []
+        chunk_count = 40
+
+        def direct(chunk: StreamChunk) -> None:
+            direct_seen.append(chunk)
+            if len(direct_seen) == chunk_count:
+                all_direct.set()
+
+        sink = SplitDiagnosticSink(direct, slow)
+        chunks = [
+            StreamChunk(STREAM_STDOUT, f"line {i}", finalized=True)
+            for i in range(chunk_count)
+        ]
+        result: dict = {}
+
+        def run() -> None:
+            result["capture"] = self._collect(sink, chunks)
+
+        real_dispatcher = SinkDispatcher
+        with mock.patch.object(
+            sys.modules["docker.npm_environment.streaming"],
+            "SinkDispatcher",
+            side_effect=lambda target, **kwargs: real_dispatcher(
+                target, queue_capacity=1, **kwargs
+            ),
+        ):
+            worker = threading.Thread(target=run)
+            worker.start()
+            # The slow callback holds the dispatcher while the small queue
+            # overflows.  Release only after the reader has admitted every
+            # chunk directly, so drops are deterministic and the direct
+            # channel is proven independent of the blocked dispatcher.
+            self.assertTrue(entered.wait(5.0))
+            self.assertTrue(all_direct.wait(5.0))
+            release.set()
+            worker.join(10.0)
+        self.assertFalse(worker.is_alive())
+        # The direct channel still saw every chunk and never lost one.
+        self.assertEqual(chunk_count, len(direct_seen))
+        self.assertIsNotNone(result["capture"].truncation_notice)
+        _assert_no_workers(self)
 
 
 def _assert_no_workers(testcase: unittest.TestCase) -> None:

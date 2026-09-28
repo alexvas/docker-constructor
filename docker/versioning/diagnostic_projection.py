@@ -548,6 +548,75 @@ def normalized_url_host(url: str) -> str | None:
     return _normalize_hostname_text(host)
 
 
+def normalized_authority_host(scheme: str, hostinfo: str) -> str | None:
+    """Normalize the host of an authority already stripped of user information.
+
+    ``hostinfo`` is the authority text after the last ``@`` (the host plus an
+    optional port), exactly as :class:`urllib.parse.SplitResult` segments it.
+    The incremental fetch recognizer discards user information at ``@`` and
+    retains only this candidate, so it can validate the host without ever
+    rebuilding or retaining the credential-bearing original authority.  The
+    candidate is recombined with the already-validated *scheme* -- never the
+    original authority -- and validated by :func:`normalized_url_host`, so the
+    layered percent-decoding, port and authority checks, and hostname
+    normalization are exactly the shared rules.
+
+    The user information is deliberately absent; recognition therefore
+    validates the host that the complete-line parser would segment out of the
+    same authority.  A user information field whose own bytes decode to a URL
+    structural delimiter is not retained and not considered here.
+    """
+    if not isinstance(scheme, str) or not scheme:
+        return None
+    if not isinstance(hostinfo, str) or not hostinfo:
+        return None
+    candidate = f"{scheme}://{hostinfo}"
+    # Mirror the complete-line parser's literal structural pre-check: an
+    # unbalanced/invalid bracket or an invalid literal port rejects before any
+    # layered decoding is attempted.
+    try:
+        parts = urllib.parse.urlsplit(candidate)
+        parts.port
+    except ValueError:
+        return None
+    if not parts.netloc:
+        return None
+    return normalized_url_host(candidate)
+
+
+def literal_authority_host(scheme: str, hostinfo: str) -> str | None:
+    """Return the *literal* (undecoded) normalized host, or ``None``.
+
+    This is the layer-zero check of :func:`normalized_url_host` on a
+    user-information-free authority: the candidate is recombined with
+    *scheme*, its literal port and brackets are validated through
+    :func:`urllib.parse.urlsplit`, and the literal host is normalized.  The
+    incremental recognizer uses it to accept a URL whose literal host is
+    already valid without considering percent-decoding, which is exactly what
+    the complete-line parser does when user information cannot change the
+    literal structural parse.
+    """
+    if not isinstance(scheme, str) or not scheme:
+        return None
+    if not isinstance(hostinfo, str) or not hostinfo:
+        return None
+    candidate = f"{scheme}://{hostinfo}"
+    try:
+        parsed = urllib.parse.urlsplit(candidate)
+        parsed.port
+    except ValueError:
+        return None
+    if not parsed.netloc:
+        return None
+    authority = parsed.netloc.rpartition("@")[2]
+    if not authority or _AUTHORITY_RE.fullmatch(authority) is None:
+        return None
+    host = parsed.hostname
+    if not host:
+        return None
+    return _normalize_hostname_text(host)
+
+
 def _percent_encode_utf8(character: str) -> str | None:
     """Return the uppercase UTF-8 percent-encoding of *character*.
 
@@ -1417,6 +1486,8 @@ __all__ = [
     "DiagnosticResourceKind",
     "SafeHostPath",
     "SessionUrlIdentity",
+    "literal_authority_host",
+    "normalized_authority_host",
     "normalized_url_host",
     "project_exception_type_chain",
     "project_host_acquisition_failure",

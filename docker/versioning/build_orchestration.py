@@ -284,6 +284,14 @@ class BuildRequest:
     event_sink: HostEventSink | None = None
     """Optional facade-owned host materialization presentation sink."""
 
+    sdk_event_sink: HostEventSink | None = None
+    """Optional independent SDK structured-diagnostic sink.
+
+    Unlike :attr:`event_sink`, this channel is never a presentation inbox: it
+    receives only URL-free, path-free ``HostStructuredDiagnostic`` events and
+    is honored even while an internal presentation session owns live output.
+    """
+
     network_url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED
     """Immutable host-only diagnostic policy passed to collection."""
 
@@ -307,6 +315,9 @@ class BuildRequest:
         if not isinstance(self.network_url_display, NetworkUrlDisplay):
             raise ValueError("network_url_display must be a NetworkUrlDisplay")
         object.__setattr__(self, "event_sink", guard_sink(self.event_sink))
+        object.__setattr__(
+            self, "sdk_event_sink", guard_sink(self.sdk_event_sink)
+        )
         if not isinstance(self.overrides, MappingProxyType):
             object.__setattr__(self, "overrides", MappingProxyType(
                 dict(self.overrides),
@@ -787,6 +798,11 @@ def _materialize_pi_for_build(
                 for parameter in parameters.values()
             ):
                 kwargs["event_sink"] = request.event_sink
+            if "sdk_event_sink" in parameters or any(
+                parameter.kind is parameter.VAR_KEYWORD
+                for parameter in parameters.values()
+            ):
+                kwargs["sdk_event_sink"] = request.sdk_event_sink
             if "network_url_display" in parameters or any(
                 parameter.kind is parameter.VAR_KEYWORD
                 for parameter in parameters.values()
@@ -811,6 +827,7 @@ def _materialize_pi_for_build(
                 if plan.host_network_policy.ca_bundle is not None else None
             ),
             event_sink=request.event_sink,
+            sdk_event_sink=request.sdk_event_sink,
             network_url_display=request.network_url_display,
         ))
     except _PI_MATERIALIZATION_ERRORS as exc:

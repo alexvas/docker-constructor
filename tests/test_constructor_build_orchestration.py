@@ -1438,6 +1438,47 @@ class TestMaterializationBoundary(unittest.TestCase):
             _publish_projection=publish,
         project_root=Path(str(self.inventory)).resolve().parent)
 
+    def test_sdk_sink_is_threaded_to_the_injected_pi_materializer(self):
+        from types import SimpleNamespace
+
+        from docker.versioning.build_orchestration import _materialize_pi_for_build
+
+        seen: dict[str, object] = {}
+
+        def materialize(
+            projection, *, event_sink=None, sdk_event_sink=None, **kwargs
+        ):
+            seen["event_sink"] = event_sink
+            seen["sdk_event_sink"] = sdk_event_sink
+            return fake_pi_materialization()
+
+        presentation = lambda event: None
+        sdk = lambda event: None
+        request = BuildRequest(
+            inventory_path=str(self.inventory),
+            repo_root=str(self.repo),
+            confirmed=True,
+            _materialize_pi=materialize,
+            event_sink=presentation,
+            sdk_event_sink=sdk,
+        )
+        plan = SimpleNamespace(
+            host_network_policy=SimpleNamespace(proxy_url=None, ca_bundle=None),
+            render_inputs=None,
+        )
+        _materialize_pi_for_build(
+            request,
+            plan,
+            projection=object(),
+            transport=None,
+            cache_root=Path(self.cache),
+        )
+        # The internal presentation sink never hides the independent SDK sink:
+        # both are threaded and each is guarded separately.
+        self.assertIs(presentation, seen["event_sink"]._sink)
+        self.assertIs(sdk, seen["sdk_event_sink"]._sink)
+        self.assertIsNot(seen["event_sink"], seen["sdk_event_sink"])
+
     def _tree_snapshot(self, root: Path, *, exclude: Path | None = None):
         """Record structure, types, modes, contents, and symlink targets.
 

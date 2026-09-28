@@ -40,6 +40,7 @@ from docker.versioning.host_progress import (
     HostDiagnosticClassification,
     HostStructuredDiagnostic,
 )
+from docker.versioning.model import NetworkUrlDisplay
 from docker.versioning.npm_diagnostic_stream import (
     DIAGNOSTIC_LINE_LIMIT_BYTES,
     NpmDiagnosticStream,
@@ -478,6 +479,7 @@ class TestCollectionAbortFinalization(unittest.TestCase):
     """
 
     _PREFIX = b"npm status %68%74"
+    _HOST_PATH_PREFIX = b"hello https://example.com/path"
 
     @staticmethod
     def _capturing_factory(created):
@@ -635,6 +637,90 @@ class TestCollectionAbortFinalization(unittest.TestCase):
             self.assertNotIn("%68%74", tail)
         _assert_no_workers(self)
 
+    @staticmethod
+    def _host_path_factory(created):
+        base = make_stream_factory(
+            (), network_url_display=NetworkUrlDisplay.HOST_PATH
+        )
+
+        def factory(stream):
+            instance = base(stream)
+            created[stream] = instance
+            return instance
+
+        return factory
+
+    def _assert_host_path_fail_closed(self, delivered, created):
+        expected = f"hello {INCOMPLETE_TOKEN_MARKER}"
+        finalized = [chunk for chunk in delivered if chunk.finalized]
+        self.assertEqual(1, len(finalized), finalized)
+        self.assertEqual(expected, finalized[0].local_text)
+        self.assertEqual(expected, created["stdout"].tail())
+        # The structured/SDK-facing text and the retained tail are URL-free.
+        self.assertNotIn("example.com", finalized[0].text)
+        self.assertNotIn("example.com", finalized[0].local_text)
+        self.assertNotIn("example.com", created["stdout"].tail())
+
+    def test_sibling_reader_failure_host_path_fails_closed(self):
+        created: dict = {}
+        fed = threading.Event()
+        release = threading.Event()
+        delivered: list[StreamChunk] = []
+
+        def read_stderr(n: int) -> bytes:
+            raise OSError("stderr reader died")
+
+        with self.assertRaises(StreamReaderFailure):
+            collect_streams(
+                stdout_read=self._blocked_reader(
+                    self._HOST_PATH_PREFIX, fed, release
+                ),
+                stderr_read=read_stderr,
+                sink=delivered.append,
+                stream_factory=self._host_path_factory(created),
+                tail_projector=project_tail,
+                network_url_display=NetworkUrlDisplay.HOST_PATH,
+                on_reader_failure=lambda stream: release.set(),
+            )
+        self._assert_host_path_fail_closed(delivered, created)
+        _assert_no_workers(self)
+
+    def test_interruption_host_path_fails_closed(self):
+        created: dict = {}
+        fed = threading.Event()
+        release = threading.Event()
+        delivered: list[StreamChunk] = []
+
+        def read_stderr(n: int) -> bytes:
+            release.wait(5.0)
+            return b""
+
+        def on_interruption() -> None:
+            release.set()
+
+        def interrupt() -> None:
+            self.assertTrue(fed.wait(5.0))
+            time.sleep(0.1)
+            signal.pthread_kill(threading.main_thread().ident, signal.SIGINT)
+
+        timer = threading.Thread(target=interrupt, daemon=True)
+        timer.start()
+        with self.assertRaises(KeyboardInterrupt):
+            collect_streams(
+                stdout_read=self._blocked_reader(
+                    self._HOST_PATH_PREFIX, fed, release
+                ),
+                stderr_read=read_stderr,
+                sink=delivered.append,
+                stream_factory=self._host_path_factory(created),
+                tail_projector=project_tail,
+                network_url_display=NetworkUrlDisplay.HOST_PATH,
+                on_interruption=on_interruption,
+            )
+        timer.join(5.0)
+        self._assert_host_path_fail_closed(delivered, created)
+        _assert_no_workers(self)
+
 
 class TestCommittedPrefixDelivery(unittest.TestCase):
     """Task 2.9/2.10 -- prompt committed-prefix release, structured path.
@@ -739,6 +825,324 @@ class TestCommittedPrefixDelivery(unittest.TestCase):
         self.assertEqual(prefixes, "npm warn one")
 
 
+def _feed_prefix_chunks(
+    payload: bytes,
+    mode: NetworkUrlDisplay,
+    *,
+    secrets: tuple[str, ...] = (),
+) -> tuple[NpmDiagnosticStream, list[StreamChunk], str]:
+    """Feed *payload* (no newline) and return (stream, chunks, local text)."""
+    stream = NpmDiagnosticStream(
+        "stdout", secrets, network_url_display=mode
+    )
+    chunks = list(stream.feed_bytes(payload))
+    local = "".join(
+        chunk.local_text
+        for chunk in chunks
+        if chunk.local_text is not None
+    )
+    return stream, chunks, local
+
+
+class TestCommittedPrefixDisplayModes(unittest.TestCase):
+    """Committed prefixes use the mode-selected display representation.
+
+    A partial ``host-path`` or ``exact`` diagnostic must render in its
+    selected representation before its newline, not redacted, while the
+    structured/SDK-facing ``text`` stays URL-free in every mode.
+    """
+
+    _URL = (
+        "https://user:secret@registry.example.com:8443"
+        "/pkg/-/pkg-1.0.0.tgz?q=1#frag"
+    )
+    _LINE = f"npm error network GET {_URL} failed"
+    _HOST_PATH = "registry.example.com/pkg/-/pkg-1.0.0.tgz"
+
+    def test_redacted_prefix_is_url_free_and_matches_the_tail(self):
+        stream, chunks, local = _feed_prefix_chunks(
+            self._LINE.encode(), NetworkUrlDisplay.REDACTED, secrets=("secret",)
+        )
+        self.assertTrue(chunks)
+        self.assertTrue(all(not chunk.finalized for chunk in chunks))
+        self.assertIn("npm error network GET", local)
+        self.assertIn(_REDACTED, local)
+        self.assertNotIn("registry.example.com", local)
+        self.assertNotIn("user:secret", local)
+        self.assertNotIn(":8443", local)
+        self.assertNotIn("?q=1", local)
+        self.assertNotIn("#frag", local)
+        # ``redacted`` selects the URL-free projection as its local text.
+        self.assertTrue(all(chunk.local_text == chunk.text for chunk in chunks))
+        self.assertEqual(stream.tail(), local)
+
+    def test_host_path_prefix_uses_host_and_path_and_matches_the_tail(self):
+        stream, chunks, local = _feed_prefix_chunks(
+            self._LINE.encode(),
+            NetworkUrlDisplay.HOST_PATH,
+            secrets=("secret",),
+        )
+        self.assertIn(self._HOST_PATH, local)
+        self.assertNotIn("https://", local)
+        self.assertNotIn("user:secret", local)
+        self.assertNotIn(":8443", local)
+        self.assertNotIn("?q=1", local)
+        self.assertNotIn("#frag", local)
+        # The structured/SDK-facing text never carries the source host/path.
+        safe = "".join(chunk.text for chunk in chunks)
+        self.assertNotIn("registry.example.com", safe)
+        self.assertNotIn("https://", safe)
+        # The selected prefix matches the one retained host-path tail.
+        self.assertEqual(stream.tail(), local)
+
+    def test_exact_prefix_preserves_source_and_matches_the_tail(self):
+        stream, _chunks, local = _feed_prefix_chunks(
+            self._LINE.encode(), NetworkUrlDisplay.EXACT, secrets=("secret",)
+        )
+        self.assertIn(self._URL, local)
+        self.assertIn("failed", local)
+        self.assertEqual(stream.tail(), local)
+
+    def test_exact_prefix_neutralizes_terminal_controls(self):
+        _stream, _chunks, local = _feed_prefix_chunks(
+            b"npm warn \x1b[31mred\x1b[0m", NetworkUrlDisplay.EXACT
+        )
+        self.assertNotIn("\x1b", local)
+        self.assertIn(r"\x1b[31m", local)
+
+    def test_selected_prefix_chunks_keep_structured_text_empty(self):
+        for mode in (NetworkUrlDisplay.HOST_PATH, NetworkUrlDisplay.EXACT):
+            with self.subTest(mode=mode):
+                _stream, chunks, _local = _feed_prefix_chunks(
+                    self._LINE.encode(), mode, secrets=("secret",)
+                )
+                presentation_only = [
+                    chunk
+                    for chunk in chunks
+                    if chunk.local_text is not None
+                ]
+                self.assertTrue(presentation_only)
+                self.assertTrue(
+                    all(chunk.text == "" for chunk in presentation_only)
+                )
+                # Any prefix that advances the safe projection carries no
+                # selected local fragment and no source host/URL.
+                for chunk in chunks:
+                    if chunk.local_text is None:
+                        self.assertNotIn("registry.example.com", chunk.text)
+                        self.assertNotIn("https://", chunk.text)
+
+    def test_fragmented_url_prefix_uses_the_selected_representation(self):
+        expectations = {
+            NetworkUrlDisplay.REDACTED: (_REDACTED, "registry.example.com"),
+            NetworkUrlDisplay.HOST_PATH: (self._HOST_PATH, "https://"),
+            NetworkUrlDisplay.EXACT: (self._URL, None),
+        }
+        for mode, (required, forbidden) in expectations.items():
+            with self.subTest(mode=mode):
+                stream = NpmDiagnosticStream(
+                    "stdout", ("secret",), network_url_display=mode
+                )
+                local_parts: list[str] = []
+                safe_parts: list[str] = []
+                for byte in self._LINE.encode():
+                    for chunk in stream.feed_bytes(bytes([byte])):
+                        if chunk.local_text is not None:
+                            local_parts.append(chunk.local_text)
+                        safe_parts.append(chunk.text)
+                local = "".join(local_parts)
+                self.assertIn(required, local)
+                self.assertEqual(stream.tail(), local)
+                if forbidden is not None:
+                    self.assertNotIn(forbidden, local)
+                # The URL-free structured/SDK text never carries the source.
+                self.assertNotIn("https://", "".join(safe_parts))
+
+    def test_fragmented_secret_prefix_never_leaks_before_the_newline(self):
+        stream = NpmDiagnosticStream(
+            "stdout",
+            ("s3cr3t-token",),
+            network_url_display=NetworkUrlDisplay.REDACTED,
+        )
+        local_parts: list[str] = []
+        for byte in b"npm warn token s3cr3t-token done":
+            for chunk in stream.feed_bytes(bytes([byte])):
+                if chunk.local_text is not None:
+                    local_parts.append(chunk.local_text)
+        local = "".join(local_parts)
+        self.assertNotIn("s3cr3t-token", local)
+        self.assertIn(_REDACTED, local)
+        self.assertEqual(stream.tail(), local)
+
+    def test_split_utf8_prefix_uses_the_selected_representation(self):
+        for mode in (
+            NetworkUrlDisplay.REDACTED,
+            NetworkUrlDisplay.HOST_PATH,
+            NetworkUrlDisplay.EXACT,
+        ):
+            with self.subTest(mode=mode):
+                stream = NpmDiagnosticStream(
+                    "stdout", (), network_url_display=mode
+                )
+                first = list(stream.feed_bytes(b"npm \xe2"))
+                self.assertEqual(
+                    "npm ",
+                    "".join(
+                        chunk.local_text
+                        for chunk in first
+                        if chunk.local_text is not None
+                    ),
+                )
+                second = list(stream.feed_bytes(b"\x82\xac"))
+                local = "".join(
+                    chunk.local_text
+                    for chunk in first + second
+                    if chunk.local_text is not None
+                )
+                self.assertIn("\u20ac", local)
+                self.assertEqual(stream.tail(), local)
+
+
+class TestAbortFailClosedHostPathFinalization(unittest.TestCase):
+    """An abort must never resolve a token the live sanitizer withheld.
+
+    A ``host-path`` line finalized at reader failure or cancellation uses the
+    same fail-closed EOF policy as the retained tail, so the finalized live
+    text and the retained tail can never diverge and an incomplete trailing
+    URL token stays withheld.  A clean EOF or a record newline keeps the
+    normal complete-URL resolution.
+    """
+
+    _SOURCE = b"hello https://example.com/path"
+    _FAIL_CLOSED = f"hello {INCOMPLETE_TOKEN_MARKER}"
+    _RESOLVED = "hello example.com/path"
+
+    def _finalize(self, payload: bytes, *, abort: bool):
+        stream = NpmDiagnosticStream(
+            "stdout", (), network_url_display=NetworkUrlDisplay.HOST_PATH
+        )
+        chunks = list(stream.feed_bytes(payload))
+        chunks.extend(stream.finish(abort=abort))
+        finalized = [chunk for chunk in chunks if chunk.finalized]
+        self.assertEqual(1, len(finalized), finalized)
+        return stream, finalized[0]
+
+    def test_abort_keeps_live_and_retained_fail_closed(self):
+        stream, chunk = self._finalize(self._SOURCE, abort=True)
+        self.assertEqual(self._FAIL_CLOSED, chunk.local_text)
+        self.assertEqual(self._FAIL_CLOSED, stream.tail())
+        self.assertNotIn("example.com", chunk.local_text)
+        self.assertNotIn("example.com", stream.tail())
+        # The structured/SDK-facing text fails closed as well.
+        self.assertEqual(self._FAIL_CLOSED, chunk.text)
+
+    def test_abort_covers_ambiguous_scheme_prefixes(self):
+        for source in ("hello htt", "hello https", "hello https:"):
+            with self.subTest(source=source):
+                stream, chunk = self._finalize(source.encode(), abort=True)
+                self.assertEqual(self._FAIL_CLOSED, chunk.local_text)
+                self.assertEqual(chunk.local_text, stream.tail())
+                self.assertNotIn("htt", chunk.local_text)
+
+    def test_clean_eof_still_resolves_a_complete_url(self):
+        stream, chunk = self._finalize(self._SOURCE, abort=False)
+        self.assertEqual(self._RESOLVED, chunk.local_text)
+        self.assertEqual(self._RESOLVED, stream.tail())
+
+    def test_newline_finalization_still_resolves_a_complete_url(self):
+        stream, chunk = self._finalize(self._SOURCE + b"\n", abort=False)
+        self.assertEqual(self._RESOLVED, chunk.local_text)
+        # The retained tail preserves the record boundary, so live and tail
+        # agree on the selected text.
+        self.assertEqual(self._RESOLVED + "\n", stream.tail())
+
+
+class TestHostPathRecordBoundaryFinalization(unittest.TestCase):
+    """A record newline is not EOF: live and retained text must agree.
+
+    The ``host-path`` local text is accumulated incrementally from the
+    selected projector rather than reprojected from a retained source line,
+    and the record boundary is threaded through so the two agree.  A newline
+    terminates a record (a trailing secret or scheme prefix before it is
+    ordinary text), EOF keeps the projector's normal finish policy, and only
+    the record newline is dropped from the finalized diagnostic text.
+    """
+
+    def _finalize(
+        self, payload: bytes, *, secrets: tuple[str, ...] = (), abort: bool = False
+    ):
+        stream = NpmDiagnosticStream(
+            "stdout", secrets, network_url_display=NetworkUrlDisplay.HOST_PATH
+        )
+        chunks = list(stream.feed_bytes(payload))
+        chunks.extend(stream.finish(abort=abort))
+        finalized = [chunk for chunk in chunks if chunk.finalized]
+        self.assertEqual(1, len(finalized), finalized)
+        return stream, finalized[0]
+
+    def _assert_agrees_with_retained(self, payload, expected, **kwargs):
+        stream, chunk = self._finalize(payload, **kwargs)
+        self.assertEqual(expected, chunk.local_text)
+        tail = stream.tail()
+        # The retained line keeps its terminator; the finalized live text does
+        # not.  Compare everything else exactly.
+        if payload.endswith(b"\n"):
+            self.assertEqual(expected + "\n", tail)
+        else:
+            self.assertEqual(expected, tail)
+        return chunk
+
+    def test_newline_terminated_partial_secret_is_ordinary_text(self):
+        chunk = self._assert_agrees_with_retained(
+            b"hello sec\n", "hello sec", secrets=("secret",)
+        )
+        self.assertNotIn(INCOMPLETE_TOKEN_MARKER, chunk.local_text)
+
+    def test_newline_terminated_scheme_prefix_is_ordinary_text(self):
+        self._assert_agrees_with_retained(b"hello git:\n", "hello git:")
+
+    def test_newline_terminated_bare_url_prefix_matches_retained(self):
+        stream, chunk = self._finalize(b"hello https://\n")
+        self.assertEqual(chunk.local_text, stream.tail()[: -len("\n")])
+        self.assertNotIn(INCOMPLETE_TOKEN_MARKER, chunk.local_text)
+
+    def test_clean_eof_partial_secret_still_fails_closed(self):
+        chunk = self._assert_agrees_with_retained(
+            b"hello sec",
+            f"hello {INCOMPLETE_TOKEN_MARKER}",
+            secrets=("secret",),
+        )
+        self.assertIn(INCOMPLETE_TOKEN_MARKER, chunk.local_text)
+
+    def test_aborted_eof_partial_secret_still_fails_closed(self):
+        self._assert_agrees_with_retained(
+            b"hello sec",
+            f"hello {INCOMPLETE_TOKEN_MARKER}",
+            secrets=("secret",),
+            abort=True,
+        )
+
+    def test_aborted_eof_keeps_a_complete_url_fail_closed(self):
+        self._assert_agrees_with_retained(
+            b"hello https://example.com/path",
+            f"hello {INCOMPLETE_TOKEN_MARKER}",
+            abort=True,
+        )
+
+    def test_clean_eof_bare_scheme_word_is_ordinary_text(self):
+        self._assert_agrees_with_retained(b"hello git", "hello git")
+
+    def test_clean_eof_resolves_a_complete_url(self):
+        self._assert_agrees_with_retained(
+            b"hello https://example.com/path", "hello example.com/path"
+        )
+
+    def test_newline_terminated_complete_url_resolves_without_terminator(self):
+        self._assert_agrees_with_retained(
+            b"hello https://example.com/path\n", "hello example.com/path"
+        )
+
+
 class TestCompleteLineConsumers(unittest.TestCase):
     """Task 2.10 -- complete-line consumers see only finalized lines.
 
@@ -801,6 +1205,110 @@ class TestCompleteLineConsumers(unittest.TestCase):
             [("a.example",), ("b.example",), ("a.example",)],
         )
         self.assertEqual(tail.count("npm warn see"), 3)
+
+
+class TestFetchCanonicalizationSecretSafety(unittest.TestCase):
+    """A canonical fetch rendering must never restore a project secret.
+
+    ``canonical_fetch_text`` sanitizes only the URL-derived host/path.  Its
+    method, exact status, and optional attempt and cache clauses are copied
+    from the source line, so a configured secret in any of them was redacted
+    from the selected diagnostic and would be restored by the canonical text.
+    The collector must reject that rendering, keep the sanitized ordinary
+    diagnostic, and refuse to group.
+    """
+
+    _URL = "https://registry.npmjs.org/pkg/-/pkg-1.0.0.tgz"
+
+    def _line(
+        self,
+        *,
+        method: str = "GET",
+        status: int = 200,
+        attempt: int | None = None,
+        cache: str | None = "miss",
+    ) -> str:
+        body = f"npm http fetch {method} {status} {self._URL} 15ms"
+        if attempt is not None:
+            body += f" attempt #{attempt}"
+        if cache is not None:
+            body += f" (cache {cache})"
+        return body
+
+    def _finalize(
+        self,
+        line: str,
+        *,
+        secrets: tuple[str, ...],
+        display: NetworkUrlDisplay,
+    ) -> tuple[StreamChunk, str]:
+        stream = NpmDiagnosticStream(
+            "stdout", secrets, network_url_display=display
+        )
+        chunks = list(stream.feed_bytes((line + "\n").encode("utf-8")))
+        chunks.extend(stream.finish())
+        finalized = [chunk for chunk in chunks if chunk.finalized]
+        self.assertEqual(1, len(finalized), finalized)
+        return finalized[0], stream.tail()
+
+    def _assert_falls_back(
+        self, line: str, secret: str, display: NetworkUrlDisplay
+    ) -> StreamChunk:
+        chunk, tail = self._finalize(line, secrets=(secret,), display=display)
+        self.assertIsNone(chunk.fetch_key)
+        self.assertIsNone(chunk.fetch_text)
+        for text in (chunk.text, chunk.local_text or "", tail):
+            self.assertNotIn(secret, text)
+        return chunk
+
+    def test_cache_secret_falls_back_in_every_mode(self):
+        for display in (NetworkUrlDisplay.REDACTED, NetworkUrlDisplay.HOST_PATH):
+            with self.subTest(display=display):
+                chunk = self._assert_falls_back(
+                    self._line(cache="miss"), "miss", display
+                )
+                self.assertIn(_REDACTED, chunk.local_text or "")
+
+    def test_method_and_status_secrets_fall_back(self):
+        for display in (NetworkUrlDisplay.REDACTED, NetworkUrlDisplay.HOST_PATH):
+            with self.subTest(display=display, field="method"):
+                self._assert_falls_back(self._line(method="GET"), "GET", display)
+            with self.subTest(display=display, field="status"):
+                self._assert_falls_back(self._line(status=200), "20", display)
+
+    def test_attempt_and_substring_secrets_fall_back(self):
+        for display in (NetworkUrlDisplay.REDACTED, NetworkUrlDisplay.HOST_PATH):
+            with self.subTest(display=display, field="attempt"):
+                self._assert_falls_back(self._line(attempt=3), "#3", display)
+            with self.subTest(display=display, field="substring"):
+                self._assert_falls_back(
+                    self._line(cache="topsecret"), "sec", display
+                )
+
+    def test_exact_cache_token_secret_falls_back_in_every_mode(self):
+        for display in (NetworkUrlDisplay.REDACTED, NetworkUrlDisplay.HOST_PATH):
+            with self.subTest(display=display):
+                self._assert_falls_back(
+                    self._line(cache="topsecret"), "topsecret", display
+                )
+
+    def test_secret_spanning_two_source_fields_falls_back(self):
+        for display in (NetworkUrlDisplay.REDACTED, NetworkUrlDisplay.HOST_PATH):
+            with self.subTest(display=display):
+                self._assert_falls_back(
+                    self._line(method="GET", status=200), "GET 200", display
+                )
+
+    def test_unrelated_secret_still_aggregates(self):
+        chunk, _tail = self._finalize(
+            self._line(cache="miss"),
+            secrets=("unrelated",),
+            display=NetworkUrlDisplay.REDACTED,
+        )
+        self.assertIsNotNone(chunk.fetch_key)
+        self.assertEqual(
+            "npm http fetch GET 200 <redacted> (cache miss)", chunk.fetch_text
+        )
 
 
 def _assert_no_workers(testcase: unittest.TestCase) -> None:
@@ -880,6 +1388,331 @@ class TestOverflowFinalization(unittest.TestCase):
         self.assertTrue(finalized[0].overflowed)
         self.assertEqual(stream.tail().count(OVERSIZED_DIAGNOSTIC_MARKER), 1)
         self.assertNotIn("DISCARDED", stream.tail())
+
+
+class TestIncrementalFetchRecognition(unittest.TestCase):
+    """Recognition is incremental and retains no complete source line/URL.
+
+    ``redacted`` and ``host-path`` never keep a terminal-safe source line: the
+    collector feeds terminal-safe fragments to
+    :class:`~docker.versioning.npm_fetch.NpmFetchRecognizer`, which retains
+    only bounded parser fields, and ``host-path`` grouping reuses the
+    projector's already-sanitized host/path fact.
+    """
+
+    _URL = "https://registry.npmjs.org/pkg/-/pkg-1.0.0.tgz"
+    _LINE = f"npm http fetch GET 200 {_URL} 15ms (cache miss)"
+    _RAW = _LINE.encode() + b"\n"
+
+    def _stream(self, *, secrets=(), display=NetworkUrlDisplay.REDACTED):
+        return NpmDiagnosticStream(
+            "stdout", secrets, network_url_display=display
+        )
+
+    def _finalize(
+        self,
+        payload,
+        *,
+        secrets=(),
+        display=NetworkUrlDisplay.REDACTED,
+        chunk_size=None,
+    ):
+        stream = self._stream(secrets=secrets, display=display)
+        chunks = []
+        if chunk_size is None:
+            chunks.extend(stream.feed_bytes(payload))
+        else:
+            for start in range(0, len(payload), chunk_size):
+                chunks.extend(stream.feed_bytes(payload[start : start + chunk_size]))
+        chunks.extend(stream.finish())
+        finalized = [chunk for chunk in chunks if chunk.finalized]
+        self.assertEqual(1, len(finalized), finalized)
+        return stream, chunks, finalized[0]
+
+    def test_no_complete_source_buffer_is_retained(self):
+        forbidden = {
+            "_source_line_chars",
+            "_source_line",
+            "_raw_line",
+            "_source_buffer",
+            "_source_lines",
+        }
+        for display in (NetworkUrlDisplay.REDACTED, NetworkUrlDisplay.HOST_PATH):
+            with self.subTest(display=display):
+                stream = self._stream(display=display)
+                live = stream.feed_bytes(self._LINE.encode())
+                self.assertTrue(live)
+                self.assertEqual(set(), set(vars(stream)) & forbidden)
+                self.assertFalse(
+                    any("source" in name for name in vars(stream)),
+                    sorted(vars(stream)),
+                )
+                # Even mid-line, no attribute holds the complete raw URL.
+                for value in vars(stream).values():
+                    self.assertNotIn(self._URL, repr(value))
+                stream.finish()
+
+    def test_fragmented_fetch_line_groups_in_redacted(self):
+        stream, _chunks, chunk = self._finalize(self._RAW, chunk_size=1)
+        self.assertIsNotNone(chunk.fetch_key)
+        self.assertEqual(
+            NetworkUrlDisplay.REDACTED, chunk.fetch_key.display
+        )
+        self.assertEqual(
+            "npm http fetch GET 200 <redacted> (cache miss)",
+            chunk.fetch_text,
+        )
+        self.assertNotIn(self._URL, stream.tail())
+        self.assertNotIn("registry.npmjs.org", stream.tail())
+
+    def test_fragmented_fetch_line_groups_in_host_path(self):
+        stream, _chunks, chunk = self._finalize(
+            self._RAW, display=NetworkUrlDisplay.HOST_PATH, chunk_size=1
+        )
+        self.assertIsNotNone(chunk.fetch_key)
+        self.assertEqual(
+            NetworkUrlDisplay.HOST_PATH, chunk.fetch_key.display
+        )
+        self.assertEqual(
+            "npm http fetch GET 200 "
+            "registry.npmjs.org/pkg/-/pkg-1.0.0.tgz (cache miss)",
+            chunk.fetch_text,
+        )
+        self.assertEqual(
+            "registry.npmjs.org/pkg/-/pkg-1.0.0.tgz",
+            chunk.fetch_key.host_path,
+        )
+        self.assertNotIn("https://", stream.tail())
+
+    @staticmethod
+    @staticmethod
+    def _state_text(value) -> str:
+        """Concatenate every string reachable from a state value.
+
+        Container items are concatenated without a separator so that a raw
+        authority buffer stored as a ``list[str]`` of characters is
+        reconstructed rather than hidden.
+        """
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (list, tuple, set, frozenset)):
+            return "".join(
+                TestIncrementalFetchRecognition._state_text(item)
+                for item in value
+            )
+        if isinstance(value, dict):
+            return "".join(
+                TestIncrementalFetchRecognition._state_text(key)
+                + TestIncrementalFetchRecognition._state_text(item)
+                for key, item in value.items()
+            )
+        if hasattr(value, "__dict__"):
+            return "".join(
+                TestIncrementalFetchRecognition._state_text(item)
+                for item in vars(value).values()
+            )
+        return ""
+
+    @classmethod
+    def _retained_state_strings(cls, recognizer) -> str:
+        return "\x00".join(
+            cls._state_text(value) for value in vars(recognizer).values()
+        )
+
+    def test_parser_state_never_retains_credentials_query_or_fragment(self):
+        from docker.versioning.npm_fetch import NpmFetchRecognizer
+
+        url = (
+            "https://credname:credsecret@example.com/secretpath"
+            "?token=credq#credf"
+        )
+        line = f"npm http fetch GET 200 {url} 15ms"
+        always_forbidden = (
+            "credsecret",
+            "credname:credsecret",
+            "credname:credsecret@example.com",
+            url,
+            "secretpath",
+            "token=credq",
+            "#credf",
+        )
+        # Inspect the retained state after *every* fragment, not only after
+        # the complete URL has cleared; a raw authority or user information
+        # buffer would be caught at an intermediate boundary.
+        for chunk_size in (None, 1, 2, 3, 7):
+            with self.subTest(chunk_size=chunk_size):
+                recognizer = NpmFetchRecognizer()
+                if chunk_size is None:
+                    recognizer.feed(line)
+                else:
+                    for start in range(0, len(line), chunk_size):
+                        recognizer.feed(line[start : start + chunk_size])
+                        retained = self._retained_state_strings(recognizer)
+                        for fragment in always_forbidden:
+                            self.assertNotIn(
+                                fragment, retained, (chunk_size, start)
+                            )
+                        if "credname:credsecret@" in line[: start + chunk_size]:
+                            self.assertNotIn("credname", retained)
+                record = recognizer.finish()
+                self.assertIsNotNone(record)
+                retained = self._retained_state_strings(recognizer)
+                for fragment in always_forbidden + ("credname",):
+                    self.assertNotIn(fragment, retained)
+                # The record carries only the parser-minimal fields.
+                self.assertEqual("GET", record.method)
+                self.assertEqual(200, record.status)
+                self.assertIsNone(record.host_path)
+                self.assertFalse(hasattr(record, "url"))
+
+    def test_split_secret_in_a_source_field_disables_grouping(self):
+        payload = (
+            b"npm http fetch GET 200 "
+            b"https://example.com/x 15ms (cache topsecret)\n"
+        )
+        for display in (NetworkUrlDisplay.REDACTED, NetworkUrlDisplay.HOST_PATH):
+            with self.subTest(display=display):
+                stream, _chunks, chunk = self._finalize(
+                    payload, secrets=("topsecret",), display=display, chunk_size=1
+                )
+                self.assertIsNone(chunk.fetch_key)
+                self.assertIsNone(chunk.fetch_text)
+                self.assertNotIn("topsecret", chunk.text)
+                self.assertNotIn("topsecret", chunk.local_text or "")
+                self.assertNotIn("topsecret", stream.tail())
+
+    def test_secret_spanning_parser_fields_disables_grouping(self):
+        payload = self._RAW
+        for display in (NetworkUrlDisplay.REDACTED, NetworkUrlDisplay.HOST_PATH):
+            with self.subTest(display=display):
+                stream, _chunks, chunk = self._finalize(
+                    payload,
+                    secrets=("GET 200",),
+                    display=display,
+                    chunk_size=2,
+                )
+                self.assertIsNone(chunk.fetch_key)
+                self.assertIsNone(chunk.fetch_text)
+                self.assertNotIn("GET 200", chunk.local_text or "")
+                self.assertNotIn("GET 200", stream.tail())
+
+    def test_malformed_and_incomplete_urls_remain_ordinary_diagnostics(self):
+        malformed = (
+            "npm http fetch GET 200 https://% 15ms",
+            "npm http fetch GET 200 https:///x 15ms",
+            "npm http fetch GET 200 http://:80/x 15ms",
+            "npm http fetch GET 200 https://example.com:/x 15ms",
+            "npm http fetch GET 200 https://example.com:99999/x 15ms",
+            "npm http fetch GET 200 https:// 15ms",
+            "npm http fetch GET 200 https://example.com 15",
+            "npm http fetch GET 200 https://example.com 15ms attempt #",
+            "npm http fetch GET 200 https://example.com 15ms (cache )",
+        )
+        for line in malformed:
+            with self.subTest(line=line):
+                _stream, _chunks, chunk = self._finalize(line.encode() + b"\n")
+                self.assertIsNone(chunk.fetch_key)
+                self.assertIsNone(chunk.fetch_text)
+
+    def test_incomplete_url_at_eof_is_an_ordinary_diagnostic(self):
+        stream, _chunks, chunk = self._finalize(b"npm http fetch GET 200 https://x")
+        self.assertIsNone(chunk.fetch_key)
+        self.assertIsNone(chunk.fetch_text)
+
+    def test_overflowed_line_never_groups_and_discards_parser_state(self):
+        limit = DIAGNOSTIC_LINE_LIMIT_BYTES
+        padding = b"x" * (limit + 10)
+        payload = (
+            b"npm http fetch GET 200 https://example.com/"
+            + padding
+            + b" 15ms (cache miss)\n"
+        )
+        stream = self._stream()
+        live = list(stream.feed_bytes(payload))
+        finalized = [chunk for chunk in live if chunk.finalized]
+        self.assertEqual(1, len(finalized))
+        self.assertTrue(finalized[0].overflowed)
+        self.assertIsNone(finalized[0].fetch_key)
+        self.assertIsNone(finalized[0].fetch_text)
+        # Parser state is discarded at the boundary: the next valid line groups.
+        recovered = [
+            chunk for chunk in stream.feed_bytes(self._RAW) if chunk.finalized
+        ]
+        self.assertEqual(1, len(recovered))
+        self.assertIsNotNone(recovered[0].fetch_key)
+        self.assertFalse(recovered[0].overflowed)
+        stream.finish()
+
+    def test_long_authority_groups_without_an_internal_length_limit(self):
+        from docker.versioning.npm_fetch import parse_npm_fetch_line
+
+        authority = "a" * 5_000 + ".example.com"
+        url = f"https://{authority}/pkg.tgz"
+        line = f"npm http fetch GET 200 {url} 15ms (cache miss)"
+        # The authoritative complete-line parser accepts the long authority,
+        # so the incremental collector must recognize and group it too.
+        self.assertIsNotNone(parse_npm_fetch_line(line))
+        for display in (
+            NetworkUrlDisplay.REDACTED,
+            NetworkUrlDisplay.HOST_PATH,
+        ):
+            with self.subTest(display=display):
+                stream, _chunks, chunk = self._finalize(
+                    line.encode() + b"\n", display=display, chunk_size=1
+                )
+                self.assertIsNotNone(chunk.fetch_key)
+                self.assertIsNotNone(chunk.fetch_text)
+                self.assertNotIn("https://", stream.tail())
+                self.assertNotIn(url, stream.tail())
+
+    def test_host_path_finalized_text_matches_prefixes_and_tail(self):
+        stream, chunks, chunk = self._finalize(
+            self._RAW, display=NetworkUrlDisplay.HOST_PATH, chunk_size=3
+        )
+        prefixes = "".join(
+            stream_chunk.local_text or ""
+            for stream_chunk in chunks
+            if not stream_chunk.finalized
+            and stream_chunk.local_text is not None
+        )
+        self.assertEqual(chunk.local_text, prefixes)
+        self.assertEqual(chunk.local_text + "\n", stream.tail())
+
+    def test_fail_closed_across_newline_clean_eof_and_abort(self):
+        # A record newline resolves a trailing partial secret as ordinary text.
+        _stream, _chunks, chunk = self._finalize(
+            b"hello sec\n",
+            secrets=("secret",),
+            display=NetworkUrlDisplay.HOST_PATH,
+        )
+        self.assertEqual("hello sec", chunk.local_text)
+        self.assertNotIn(INCOMPLETE_TOKEN_MARKER, chunk.local_text)
+        # Clean EOF fails closed for the same partial secret.
+        _stream, _chunks, chunk = self._finalize(
+            b"hello sec",
+            secrets=("secret",),
+            display=NetworkUrlDisplay.HOST_PATH,
+        )
+        self.assertEqual(f"hello {INCOMPLETE_TOKEN_MARKER}", chunk.local_text)
+        # Aborted EOF keeps a complete URL fail-closed.
+        stream = self._stream(display=NetworkUrlDisplay.HOST_PATH)
+        stream.feed_bytes(b"hello https://example.com/path")
+        finalized = [
+            chunk for chunk in stream.finish(abort=True) if chunk.finalized
+        ]
+        self.assertEqual(1, len(finalized))
+        self.assertIn(INCOMPLETE_TOKEN_MARKER, finalized[0].local_text)
+
+    def test_exact_retains_selected_source_and_never_groups(self):
+        stream, _chunks, chunk = self._finalize(
+            self._RAW, display=NetworkUrlDisplay.EXACT
+        )
+        self.assertIsNone(chunk.fetch_key)
+        self.assertIsNone(chunk.fetch_text)
+        self.assertEqual(self._LINE, chunk.local_text)
+        # ``exact`` is the one mode allowed to retain terminal-safe source.
+        self.assertEqual(self._LINE + "\n", stream.tail())
+        self.assertIn(self._URL, stream.tail())
 
 
 if __name__ == "__main__":
