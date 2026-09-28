@@ -320,6 +320,57 @@ class TestRealOutputIntegrationMatrix(unittest.TestCase):
         self.assertIn("25ms", renderer.finalize_texts()[1])
         self.assertNotIn("thread", " ".join(renderer.finalize_texts()).lower())
 
+    def test_noninteractive_lines_render_selected_representation_in_every_mode(self):
+        source_url = (
+            "https://user:password@registry.npmjs.org/"
+            "npm-http-research-fixture/-/npm-http-research-fixture-1.0.0.tgz"
+            "?token=caller-secret#fragment"
+        )
+        source_line = _fetch_line(source_url, latency=15)
+        expectations = {
+            NetworkUrlDisplay.REDACTED: REDACTED_CANON,
+            NetworkUrlDisplay.HOST_PATH: HOST_PATH_CANON,
+            NetworkUrlDisplay.EXACT: source_line,
+        }
+
+        for display in ALL_MODES:
+            with self.subTest(display=display):
+                chunks, _tail = _collect(
+                    [source_line], display, secrets=("password", "caller-secret")
+                )
+                self.assertEqual(1, len(chunks))
+                renderer = RecordingRenderer()
+                session = _session(renderer, HostPresentationMode.LINES, display)
+                route_finalized_diagnostic(
+                    chunks[0],
+                    internal_sink=session.sink,
+                    sdk_sink=None,
+                    logical_resource=None,
+                )
+                self.assertTrue(session.shutdown())
+
+                # Lines mode emits one complete durable record; the renderer
+                # owns newline termination, so the payload itself has no LF.
+                self.assertEqual([expectations[display]], renderer.durable_texts())
+                self.assertNotIn("\n", renderer.durable_texts()[0])
+                self.assertEqual([], renderer.slot_texts())
+                self.assertEqual([], renderer.finalize_texts())
+
+                rendered = renderer.durable_texts()[0]
+                if display is NetworkUrlDisplay.REDACTED:
+                    self.assertNotIn("registry.npmjs.org", rendered)
+                    self.assertNotIn("npm-http-research-fixture/", rendered)
+                    self.assertNotIn("https://", rendered)
+                elif display is NetworkUrlDisplay.HOST_PATH:
+                    self.assertIn(RESEARCH_SAFE, rendered)
+                    self.assertNotIn("https://", rendered)
+                    self.assertNotIn("user:password", rendered)
+                    self.assertNotIn("caller-secret", rendered)
+                else:
+                    self.assertIn(source_url, rendered)
+                    self.assertIn("user:password", rendered)
+                    self.assertIn("caller-secret", rendered)
+
     def test_external_sdk_dto_stays_url_free_and_path_free_in_every_mode(self):
         for display in ALL_MODES:
             with self.subTest(display=display):
@@ -889,6 +940,59 @@ class TestFinalizedDiagnosticRouting(unittest.TestCase):
         self.assertFalse(hasattr(dto, "fetch_text"))
         self.assertFalse(hasattr(dto, "presentation_text"))
         self.assertFalse(hasattr(dto, "local_text"))
+
+    def test_all_policies_simultaneously_fan_out_selected_local_and_safe_sdk_output(self):
+        source_url = (
+            "https://user:password@registry.npmjs.org/"
+            "npm-http-research-fixture/-/npm-http-research-fixture-1.0.0.tgz"
+            "?token=caller-secret#fragment"
+        )
+        source_line = _fetch_line(source_url, latency=15)
+        local_expectations = {
+            NetworkUrlDisplay.REDACTED: REDACTED_CANON,
+            NetworkUrlDisplay.HOST_PATH: HOST_PATH_CANON,
+            NetworkUrlDisplay.EXACT: source_line,
+        }
+
+        for display in ALL_MODES:
+            with self.subTest(display=display):
+                chunks, _tail = _collect(
+                    [source_line], display, secrets=("password", "caller-secret")
+                )
+                self.assertEqual(1, len(chunks))
+                renderer = RecordingRenderer()
+                session = _session(renderer, HostPresentationMode.LINES, display)
+                sdk_events: list[object] = []
+
+                # One production routing call fans the same finalized
+                # collector diagnostic out to both active channels.
+                route_finalized_diagnostic(
+                    chunks[0],
+                    internal_sink=session.sink,
+                    sdk_sink=sdk_events.append,
+                    logical_resource=None,
+                )
+                self.assertTrue(session.shutdown())
+
+                self.assertEqual(
+                    [local_expectations[display]], renderer.durable_texts()
+                )
+                self.assertEqual(1, len(sdk_events))
+                dto = sdk_events[0]
+                self.assertIsInstance(dto, HostStructuredDiagnostic)
+                self.assertLessEqual(len(dto.text.encode("utf-8")), TAIL_BYTES)
+                for forbidden in (
+                    source_url,
+                    "https://",
+                    "registry.npmjs.org",
+                    "npm-http-research-fixture/",
+                    "user",
+                    "password",
+                    "caller-secret",
+                    "fragment",
+                ):
+                    self.assertNotIn(forbidden, dto.text)
+                self.assertIn(REDACTED, dto.text)
 
     def test_plain_sdk_sink_gets_only_the_url_free_dto(self):
         events: list[object] = []

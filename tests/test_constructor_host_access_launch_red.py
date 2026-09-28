@@ -128,9 +128,13 @@ class TestHostAccessPlanningRed(unittest.TestCase):
                 with patch("docker.launcher.artifact_cache.materialize_selected_artifacts", bomb_materialize):
                     result = orchestrate_run(req)
                 self.assertEqual(result.exit_kind.value, "config")
-                self.assertIn(expected_fragment, result.message or "")
+                message = result.message or ""
+                self.assertIn(expected_fragment, message)
                 if rejected_value is not None:
-                    self.assertNotIn(rejected_value, result.message or "")
+                    # The required configuration path may itself contain the
+                    # rejected token (for example, a random temp path with
+                    # "42"). Check only the non-path error content for leaks.
+                    self.assertNotIn(rejected_value, message.replace(str(companion), ""))
                 self.assertEqual(effects, [])
 
     def test_orchestrate_dry_run_renders_policy_and_never_mutates_companion(self):

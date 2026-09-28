@@ -1,0 +1,33 @@
+{
+  "interactive_text_all_policies": [
+    "tests.test_presentation_wiring_phase7.TestRealOutputIntegrationMatrix.test_redacted_compatible_lines_aggregate_without_url_or_latency",
+    "tests.test_presentation_wiring_phase7.TestRealOutputIntegrationMatrix.test_host_path_aggregates_same_resource_and_separates_resources",
+    "tests.test_presentation_wiring_phase7.TestRealOutputIntegrationMatrix.test_exact_remains_complete_unaggregated_source_lines"
+  ],
+  "noninteractive_lines_all_policies": [
+    "tests.test_presentation_wiring_phase7.TestRealOutputIntegrationMatrix.test_noninteractive_lines_render_selected_representation_in_every_mode"
+  ],
+  "text_failure_all_policies": [
+    "tests.test_retained_tail_phase6.TestFailureContextChannels.test_text_failure_context_renders_selected_tail_once",
+    "tests.test_retained_tail_phase6.TestFailureChannelMatrix.test_nonempty_renders_once_in_text_and_json"
+  ],
+  "json_failure_all_policies": [
+    "tests.test_retained_tail_phase6.TestFailureContextChannels.test_json_failure_tail_is_mode_selected_and_one_document",
+    "tests.test_retained_tail_phase6.TestFailureChannelMatrix.test_nonempty_renders_once_in_text_and_json"
+  ],
+  "simultaneous_sdk_all_policies": [
+    "tests.test_presentation_wiring_phase7.TestFinalizedDiagnosticRouting.test_all_policies_simultaneously_fan_out_selected_local_and_safe_sdk_output"
+  ],
+  "success_all_policies": [
+    "tests.test_presentation_wiring_phase7.TestHighVolumeAcceptance.test_exactly_one_selected_and_bounded_retained_tail"
+  ],
+  "ordinary_failure_all_policies": [
+    "tests.test_retained_tail_phase6.TestPresentationOnlyInvariance.test_failure_primary_result_and_cleanup_are_selector_independent"
+  ],
+  "timeout_all_policies": [
+    "tests.test_retained_tail_phase6.TestFailureChannelMatrix.test_timeout_uses_the_captured_tail_in_text_and_json"
+  ],
+  "interruption_all_policies": [
+    "tests.test_retained_tail_phase6.TestFailureChannelMatrix.test_interruption_carries_its_selected_tail"
+  ]
+}
