@@ -27,7 +27,9 @@ boundary exists.
 """
 from __future__ import annotations
 
+import os
 import shlex
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -56,7 +58,15 @@ _PROXY_ARG_NAMES = _PROXY_URL_NAMES + ("NO_PROXY", "no_proxy")
 
 _CONSTRUCTOR_PROXY_ARGS = ("PI_CORPORATE_PROXY_URL", "PI_CORPORATE_NO_PROXY")
 
-_CLIENT_CA_ARG_NAMES = ("SSL_CERT_FILE", "NODE_EXTRA_CA_CERTS")
+_CLIENT_CA_ARG_NAMES = (
+    "NODE_EXTRA_CA_CERTS",
+    "SSL_CERT_FILE",
+    "REQUESTS_CA_BUNDLE",
+    "PIP_CERT",
+    "CURL_CA_BUNDLE",
+)
+
+_SYSTEM_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt"
 
 _VALID_BUNDLE = (
     "-----BEGIN CERTIFICATE-----\n"
@@ -74,14 +84,20 @@ _NETWORK_MARKERS = (
     "apt-get update",
     "curl -fsSL",
     "npm install",
+    "/tmp/rustup-init -y",
     "setup-python.sh",
     "uv tool install",
     "setup-zsh.sh",
 )
 
-_EXPECTED_NETWORKED_STAGES = {
-    "base", "toolchain",
-    "openspec-tools", "runtime",
+_EXPECTED_NETWORKED_RUNS = {
+    ("base", "apt-get update"),
+    ("toolchain", "apt-get update"),
+    ("toolchain", "/tmp/rustup-init -y"),
+    ("toolchain", "setup-python.sh"),
+    ("toolchain", "uv tool install"),
+    ("openspec-tools", "npm install"),
+    ("runtime", "setup-zsh.sh"),
 }
 
 
@@ -296,6 +312,73 @@ class TestBundleBuildContextConventionRed(unittest.TestCase):
         )
 
 
+class TestCorporateNetworkEnvironmentHelper(unittest.TestCase):
+    """Focused contracts for the conditional build-command environment."""
+
+    _HELPER = _REPO_ROOT / "docker" / "corp-network-env.sh"
+
+    def _source_helper(self, overrides: dict[str, str]) -> dict[str, str]:
+        environment = os.environ.copy()
+        for name in (
+            "CORPORATE_TRUST_ENABLED",
+            "PI_CORPORATE_CA_PATH",
+            *_CLIENT_CA_ARG_NAMES,
+        ):
+            environment.pop(name, None)
+        environment.update(overrides)
+        result = subprocess.run(
+            ["sh", "-c", 'set -eu; . "$1"; env -0', "sh", str(self._HELPER)],
+            env=environment,
+            check=True,
+            capture_output=True,
+        )
+        return dict(
+            entry.decode().split("=", 1)
+            for entry in result.stdout.split(b"\0")
+            if entry
+        )
+
+    def test_enabled_trust_exports_complete_fixed_client_ca_mapping(self) -> None:
+        inherited = {
+            name: f"/inherited/{name.lower()}" for name in _CLIENT_CA_ARG_NAMES
+        }
+        environment = self._source_helper({
+            **inherited,
+            "CORPORATE_TRUST_ENABLED": "true",
+            "PI_CORPORATE_CA_PATH": _SYSTEM_CA_BUNDLE,
+        })
+        self.assertEqual(
+            {name: _SYSTEM_CA_BUNDLE for name in _CLIENT_CA_ARG_NAMES},
+            {name: environment.get(name) for name in _CLIENT_CA_ARG_NAMES},
+        )
+
+    def test_absent_or_disabled_trust_introduces_no_client_ca_values(self) -> None:
+        for trust_value in (None, "false"):
+            with self.subTest(trust_value=trust_value):
+                overrides = {"PI_CORPORATE_CA_PATH": _SYSTEM_CA_BUNDLE}
+                if trust_value is not None:
+                    overrides["CORPORATE_TRUST_ENABLED"] = trust_value
+                environment = self._source_helper(overrides)
+                for name in _CLIENT_CA_ARG_NAMES:
+                    self.assertNotIn(name, environment)
+
+    def test_absent_or_disabled_trust_preserves_inherited_client_ca_values(self) -> None:
+        inherited = {
+            name: f"/inherited/{name.lower()}" for name in _CLIENT_CA_ARG_NAMES
+        }
+        for trust_value in (None, "false"):
+            with self.subTest(trust_value=trust_value):
+                overrides = dict(inherited)
+                overrides["PI_CORPORATE_CA_PATH"] = _SYSTEM_CA_BUNDLE
+                if trust_value is not None:
+                    overrides["CORPORATE_TRUST_ENABLED"] = trust_value
+                environment = self._source_helper(overrides)
+                self.assertEqual(
+                    inherited,
+                    {name: environment.get(name) for name in _CLIENT_CA_ARG_NAMES},
+                )
+
+
 class TestDockerfileTrustReplacementRed(unittest.TestCase):
     """Task 2.3: enabled bundle validation and replacement before network."""
 
@@ -331,9 +414,29 @@ class TestDockerfileTrustReplacementRed(unittest.TestCase):
         # same-named ARGs: an ENV inherited from the base image overrides an
         # ARG of the same name, so same-named ARGs could not force the path.
         text = (_REPO_ROOT / "Dockerfile").read_text()
+        instructions: list[str] = []
+        lines = text.splitlines()
+        i = 0
+        while i < len(lines):
+            if _starts_instruction(lines[i]):
+                block = [lines[i]]
+                i += 1
+                while i < len(lines) and not _starts_instruction(lines[i]):
+                    block.append(lines[i])
+                    i += 1
+                instructions.append("\n".join(block))
+            else:
+                i += 1
         for var in _CLIENT_CA_ARG_NAMES:
-            self.assertNotIn(f"ENV {var}", text, f"{var} must not persist as image ENV")
-            self.assertNotIn(f"ARG {var}", text, f"{var} must not be a same-named ARG")
+            prohibited = [
+                instruction for instruction in instructions
+                if instruction.startswith(("ENV ", "ARG "))
+                and var in instruction.replace("=", " ").split()
+            ]
+            self.assertEqual(
+                [], prohibited,
+                f"{var} must not be a persistent ENV or same-named ARG",
+            )
         self.assertIn("ARG PI_CORPORATE_CA_PATH", text)
 
     def test_client_ca_conditionally_exported_only_when_enabled(self) -> None:
@@ -342,8 +445,11 @@ class TestDockerfileTrustReplacementRed(unittest.TestCase):
         # inherited values otherwise.
         helper = (_REPO_ROOT / "docker" / "corp-network-env.sh").read_text()
         self.assertIn('"${CORPORATE_TRUST_ENABLED:-}" = "true"', helper)
-        self.assertIn('export SSL_CERT_FILE="${PI_CORPORATE_CA_PATH}"', helper)
-        self.assertIn('export NODE_EXTRA_CA_CERTS="${PI_CORPORATE_CA_PATH}"', helper)
+        for var in _CLIENT_CA_ARG_NAMES:
+            self.assertIn(
+                f'export {var}="${{PI_CORPORATE_CA_PATH}}"',
+                helper,
+            )
 
     def test_bundle_reapplied_after_ca_certificates_install(self) -> None:
         # Installing ca-certificates regenerates /etc/ssl/certs/ca-certificates.crt,
@@ -384,7 +490,7 @@ class TestDockerfileTrustReplacementRed(unittest.TestCase):
         text = (_REPO_ROOT / "Dockerfile").read_text()
         lines = text.splitlines()
         stage: str | None = None
-        networked_stages: set[str] = set()
+        networked_runs: set[tuple[str, str]] = set()
         missing: list[str] = []
         i = 0
         while i < len(lines):
@@ -399,18 +505,28 @@ class TestDockerfileTrustReplacementRed(unittest.TestCase):
                     block.append(lines[i])
                     i += 1
                 joined = "\n".join(block)
-                if any(marker in joined for marker in _NETWORK_MARKERS):
-                    networked_stages.add(stage or "<unknown>")
-                    if ". /tmp/corp-network-env.sh" not in joined:
-                        missing.append(stage or "<unknown>")
+                matched_markers = [
+                    marker for marker in _NETWORK_MARKERS if marker in joined
+                ]
+                if matched_markers:
+                    run_stage = stage or "<unknown>"
+                    first_marker = min(matched_markers, key=joined.index)
+                    networked_runs.add((run_stage, first_marker))
+                    helper_index = joined.find(". /tmp/corp-network-env.sh")
+                    if helper_index < 0 or helper_index > joined.index(first_marker):
+                        missing.append(f"{run_stage}: {first_marker}")
             else:
                 i += 1
         self.assertEqual(
-            _EXPECTED_NETWORKED_STAGES,
-            networked_stages,
-            "the set of stages with networked RUNs changed; update the enumeration",
+            _EXPECTED_NETWORKED_RUNS,
+            networked_runs,
+            "the complete set of networked RUNs changed; update the enumeration",
         )
-        self.assertEqual([], missing, "networked RUNs missing the CA helper source")
+        self.assertEqual(
+            [],
+            missing,
+            "networked RUNs must source the CA helper before their first network operation",
+        )
 
 
 class TestDockerfileBundleValidationRed(unittest.TestCase):

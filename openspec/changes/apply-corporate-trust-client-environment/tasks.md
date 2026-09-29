@@ -8,14 +8,14 @@ This checklist is the binding implementation contract for this change. A phase i
 
 **Deliverables:** one closed constructor-owned mapping from `NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, `PIP_CERT`, and `CURL_CA_BUNDLE` to `/etc/ssl/certs/ca-certificates.crt`; conditional export of that mapping before every networked Dockerfile build command; unchanged inherited environment when corporate trust is disabled; no persistent same-named image `ENV` or build `ARG`.
 
-- [ ] 1.1 **RED:** Add a focused helper test requiring all five client CA variables to resolve to `/etc/ssl/certs/ca-certificates.crt` when corporate trust is enabled; run it and verify it fails because three exports are missing.
-- [ ] 1.2 **RED:** Add a focused disabled-helper test proving absent or false corporate trust exports none of the five variables and does not clear conflicting inherited values; run it and verify the disabled contract is observable independently of the enabled case.
-- [ ] 1.3 **RED:** Extend the Dockerfile contract test to reject persistent same-named `ENV` and `ARG` instructions for all five variables; run it and record the current result before implementation.
-- [ ] 1.4 **GREEN:** Define the closed five-variable system-bundle mapping at the build-helper ownership boundary without accepting host or local-configuration values; verify the mapping test from 1.1 passes.
-- [ ] 1.5 **GREEN:** Extend `docker/corp-network-env.sh` so the enabled branch exports the complete mapping and the disabled branch remains a no-op; verify the helper tests from 1.1–1.2 pass.
-- [ ] 1.6 **INTROSPECT:** Enumerate every Dockerfile `RUN` that performs network access and verify each sources the corporate-network helper before its first network operation; add or update one structural regression assertion for the complete enumeration.
-- [ ] 1.7 **INTROSPECT:** Audit Dockerfile metadata and build arguments for constructor-defined or empty overrides of the five client variables; remove any override and verify only `PI_CORPORATE_CA_PATH` transports the enabled build path.
-- [ ] 1.8 **VALIDATE:** Run the focused corporate-network build and Dockerfile contract suites; verify enabled, disabled, inherited-value, complete-network-coverage, and non-persistence cases pass and record exact commands and results in change verification evidence.
+- [x] 1.1 **RED:** Add a focused helper test requiring all five client CA variables to resolve to `/etc/ssl/certs/ca-certificates.crt` when corporate trust is enabled; run it and verify it fails because three exports are missing.
+- [x] 1.2 **RED:** Add a focused disabled-helper test proving absent or false corporate trust exports none of the five variables and does not clear conflicting inherited values; run it and verify the disabled contract is observable independently of the enabled case.
+- [x] 1.3 **RED:** Extend the Dockerfile contract test to reject persistent same-named `ENV` and `ARG` instructions for all five variables; run it and record the current result before implementation.
+- [x] 1.4 **GREEN:** Define the closed five-variable system-bundle mapping at the build-helper ownership boundary without accepting host or local-configuration values; verify the mapping test from 1.1 passes.
+- [x] 1.5 **GREEN:** Extend `docker/corp-network-env.sh` so the enabled branch exports the complete mapping and the disabled branch remains a no-op; verify the helper tests from 1.1–1.2 pass.
+- [x] 1.6 **INTROSPECT:** Enumerate every Dockerfile `RUN` that performs network access and verify each sources the corporate-network helper before its first network operation; add or update one structural regression assertion for the complete enumeration.
+- [x] 1.7 **INTROSPECT:** Audit Dockerfile metadata and build arguments for constructor-defined or empty overrides of the five client variables; remove any override and verify only `PI_CORPORATE_CA_PATH` transports the enabled build path.
+- [x] 1.8 **VALIDATE:** Run the focused corporate-network build and Dockerfile contract suites; verify enabled, disabled, inherited-value, complete-network-coverage, and non-persistence cases pass and record exact commands and results in change verification evidence.
 
 ## 2. Runtime Launch Propagation
 

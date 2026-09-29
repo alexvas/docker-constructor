@@ -152,7 +152,8 @@ COPY --from=constructor-artifacts --chown=dev:dev --chmod=0555 rustup-init /tmp/
 RUN --mount=type=cache,id=cargo-registry-${DEV_UID}-${DEV_GID},target=/home/dev/.cargo/registry,uid=${DEV_UID},gid=${DEV_GID} \
     --mount=type=cache,id=cargo-git-${DEV_UID}-${DEV_GID},target=/home/dev/.cargo/git,uid=${DEV_UID},gid=${DEV_GID} \
     --mount=type=cache,id=rustup-downloads-${DEV_UID}-${DEV_GID},target=/home/dev/.rustup/downloads,uid=${DEV_UID},gid=${DEV_GID} \
-    env HOME=/home/dev CARGO_HOME=/home/dev/.cargo RUSTUP_HOME=/home/dev/.rustup \
+    . /tmp/corp-network-env.sh \
+    && env HOME=/home/dev CARGO_HOME=/home/dev/.cargo RUSTUP_HOME=/home/dev/.rustup \
     bash -euo pipefail -c ' \
         printf "%s  %s\n" "${RUSTUP_SHA256}" /tmp/rustup-init | sha256sum -c - \
         && /tmp/rustup-init -y --profile "${RUST_PROFILE}" --default-toolchain "${RUST_VERSION}" \
