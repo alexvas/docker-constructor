@@ -21,7 +21,7 @@ This checklist is the binding implementation contract for this change. A phase i
 
 **Depends on:** Phase 1.
 
-**Deliverables:** exact direct Docker environment arguments for the same five-variable mapping on enabled constructor launches; no constructor-generated client CA arguments on absent or disabled launches; continued read-only mount of the current corporate bundle at the fixed system path; no changes to proxy or host-access launch policy.
+**Deliverables:** exact direct Docker environment arguments for the same five-variable mapping on enabled in-scope constructor launches, including standalone npm assemblers; internal build-verification containers (`docker/versioning/verification.py`) and gateway-probe containers (`docker/networking.py`) receive neither constructor-injected corporate bundle mounts nor client CA assignments and preserve inherited image trust settings regardless of the trust setting; no constructor-generated client CA arguments on absent or disabled launches; continued read-only mount of the current corporate bundle at the fixed system path; no changes to proxy or host-access launch policy.
 
 - [ ] 2.1 **RED:** Add a focused run-vector test requiring exactly one environment assignment for each of the five variables when corporate trust is enabled; run it and verify it fails because runtime CA environment propagation is absent.
 - [ ] 2.2 **RED:** Add a focused enabled-run test requiring the existing corporate bundle mount to remain read-only at `/etc/ssl/certs/ca-certificates.crt` alongside the five environment assignments; run it and verify only the new environment assertions fail.
@@ -36,14 +36,14 @@ This checklist is the binding implementation contract for this change. A phase i
 - [ ] 2.11 **GREEN:** Extend every constructor-launched standalone npm assembler run vector to emit the closed five-variable mapping only when resolved corporate trust is enabled, without replacing, removing, or otherwise changing its existing `npm_config_cafile` behavior; verify the tests from 2.5–2.6 pass.
 - [ ] 2.12 **INTROSPECT:** Trace the resolved corporate-trust boolean and fixed bundle destination from local configuration through launch planning to final Docker argv; verify no arbitrary variable name, value, host bundle path, or invoking-host environment enters the mapping.
 - [ ] 2.13 **INTROSPECT:** Enumerate every constructor-launched standalone npm assembler container and add a regression assertion for each launch vector proving it receives the same enabled five-variable policy as the primary run-rendering path; these vectors SHALL NOT be excluded or documented as outside the constructor-launch contract.
-- [ ] 2.14 **INTROSPECT:** Audit all other constructor-owned runtime launch entry points for bypasses of the shared run rendering path; add a regression assertion for each constructor-launched alternate path, and document an alternate path as outside the contract only when the constructor does not launch that container.
+- [ ] 2.14 **INTROSPECT:** Audit all other constructor-owned runtime launch entry points for bypasses of the shared run rendering path; add a regression assertion for each constructor-launched alternate path. Explicitly exclude only internal build-verification containers (`docker/versioning/verification.py`) and gateway-probe containers (`docker/networking.py`), verifying that both introduce neither corporate bundle mounts nor any of the five client CA assignments and preserve inherited image trust settings regardless of the trust setting. All other constructor-launched paths, including standalone npm assemblers, remain in scope; missing existing mounts are not grounds for exclusion.
 - [ ] 2.15 **VALIDATE:** Run focused run-rendering, standalone npm assembler, corporate-network launch, proxy, and host-access suites; verify exact enabled propagation, disabled omission, preserved `npm_config_cafile` behavior, read-only mount preservation, and policy independence, then record exact commands and results.
 
 ## 3. Runtime Verification and Orchestration
 
 **Depends on:** Phase 2.
 
-**Deliverables:** orchestration carries one resolved trust decision into mount and environment planning; runtime verification checks exact enabled values and disabled non-injection without external network access; malformed corporate configuration still fails before Docker effects.
+**Deliverables:** orchestration carries one resolved trust decision into mount and environment planning; runtime verification of in-scope containers (distinct from excluded internal build-verification containers) checks exact enabled values and disabled non-injection without external network access; malformed corporate configuration still fails before Docker effects.
 
 - [ ] 3.1 **RED:** Add an orchestration test proving enabled local trust produces both the read-only mount and all five exact environment assignments in the final launch request; run it and verify it fails at the missing environment boundary.
 - [ ] 3.2 **RED:** Add a runtime-verification test that reports each missing or mismatched enabled client CA variable while retaining the existing mount result; run it and verify the new checks are absent.
@@ -61,14 +61,14 @@ This checklist is the binding implementation contract for this change. A phase i
 
 **Depends on:** Phases 1, 2, and 3.
 
-**Deliverables:** explicit user documentation for the fixed five-variable build/runtime policy, disabled preservation, image-metadata exclusion, direct-launch boundary, and Node augmentation semantics; automated boundary coverage for configuration, metadata, disclosure, and unrelated policies.
+**Deliverables:** explicit user documentation for the fixed five-variable build/runtime policy, disabled preservation, image-metadata exclusion, direct-launch boundary, the two explicit internal diagnostic launch exceptions, and Node augmentation semantics; automated boundary coverage for configuration, metadata, disclosure, and unrelated policies.
 
 - [ ] 4.1 **RED:** Add documentation assertions requiring all five variable names, the fixed system path, enabled-only build/runtime scope, and disabled preservation; run them and verify the missing statements are reported.
-- [ ] 4.2 **RED:** Add documentation assertions requiring image `ENV` exclusion, the direct-image-launch limitation, and the distinction between system-bundle replacement and Node root augmentation; run them and verify the missing statements are reported.
+- [ ] 4.2 **RED:** Add documentation assertions requiring image `ENV` exclusion, the direct-image-launch limitation, the internal build-verification and gateway-probe exceptions without excluding runtime CA-policy verification or standalone npm assemblers, and the distinction between system-bundle replacement and Node root augmentation; run them and verify the missing statements are reported.
 - [ ] 4.3 **RED:** Add boundary tests proving local and reviewed configuration cannot supply arbitrary client CA names, values, or paths; run them and record the current closed-schema result.
 - [ ] 4.4 **RED:** Add disclosure tests proving host bundle paths and certificate contents do not enter rendered summaries, verification details, evidence, or image metadata; run them and record the current result.
 - [ ] 4.5 **GREEN:** Update corporate-network user documentation with the exact five-variable mapping and its enabled build/runtime behavior; verify the documentation assertions from 4.1 pass.
-- [ ] 4.6 **GREEN:** Document disabled preservation, non-persistent image metadata, direct-launch exclusion, enterprise-interception goal, and `NODE_EXTRA_CA_CERTS` augmentation semantics; verify the assertions from 4.2 pass.
+- [ ] 4.6 **GREEN:** Document disabled preservation, non-persistent image metadata, direct-launch exclusion, the two internal diagnostic launch exceptions and their non-injection/inherited-preservation behavior, enterprise-interception goal, and `NODE_EXTRA_CA_CERTS` augmentation semantics; verify the assertions from 4.2 pass.
 - [ ] 4.7 **GREEN:** Preserve closed configuration and disclosure boundaries while integrating the policy; verify the tests from 4.3–4.4 pass without adding generalized environment passthrough.
 - [ ] 4.8 **INTROSPECT:** Search source, tests, examples, and documentation for stale claims that only `SSL_CERT_FILE` and `NODE_EXTRA_CA_CERTS` form the enabled client policy; update every current claim while preserving historical archived artifacts.
 - [ ] 4.9 **INTROSPECT:** Trace each variable through build and runtime paths and verify it appears in no cache identity, dependency identity, evidence payload, reviewed/effective configuration, or persistent image metadata path; add a regression assertion for every discovered semantic boundary.

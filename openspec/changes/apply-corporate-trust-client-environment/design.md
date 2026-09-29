@@ -1,6 +1,6 @@
 ## Context
 
-See `proposal.md` for motivation. The existing corporate trust path already validates and installs the project-owned complete bundle at `/etc/ssl/certs/ca-certificates.crt`, sources `docker/corp-network-env.sh` before networked Dockerfile commands, and bind-mounts the current host bundle read-only at the same path for constructor-launched containers. The helper currently exports only `SSL_CERT_FILE` and `NODE_EXTRA_CA_CERTS`; the runtime run vector mounts the bundle but does not provide client-specific CA variables.
+See `proposal.md` for motivation. The existing corporate trust path already validates and installs the project-owned complete bundle at `/etc/ssl/certs/ca-certificates.crt`, sources `docker/corp-network-env.sh` before networked Dockerfile commands, and bind-mounts the current host bundle read-only at the same path for in-scope constructor-launched runtime containers. Internal build-verification and gateway-probe diagnostic containers are explicit exceptions to both the mount and client CA assignment policy. The helper currently exports only `SSL_CERT_FILE` and `NODE_EXTRA_CA_CERTS`; in-scope runtime run vectors mount the bundle but do not provide client-specific CA variables.
 
 The disabled path deliberately preserves same-named values inherited from the base image. Client CA settings must remain absent from persistent image metadata, and the local configuration must not become an arbitrary environment or path-injection channel.
 
@@ -8,9 +8,10 @@ The disabled path deliberately preserves same-named values inherited from the ba
 
 **Goals:**
 
-- Use one fixed five-variable CA environment contract for build-stage network operations and constructor-launched runtime containers.
-- Override inherited client CA values only when corporate trust is enabled.
-- Keep runtime variables aligned with the existing read-only system-bundle mount.
+- Use one fixed five-variable CA environment contract for build-stage network operations and all constructor-launched runtime containers except the internal build-verification and gateway-probe diagnostic paths.
+- Keep those two diagnostic launch paths outside runtime trust injection: introduce neither a corporate bundle mount nor client CA assignments, and preserve inherited image trust settings.
+- Override inherited client CA values only when corporate trust is enabled for in-scope operations and containers.
+- Keep in-scope runtime variables aligned with the read-only system-bundle mount.
 - Make the policy directly testable at Dockerfile, render-plan, orchestration, and runtime-verification boundaries.
 
 **Non-Goals:**
@@ -51,6 +52,12 @@ Run planning adds the five fixed `--env NAME=value` entries only when the resolv
 Alternative: persistent image `ENV`. Rejected because Dockerfile metadata cannot conditionally omit keys without separate final stages, would affect direct image launches, and could overwrite inherited settings when trust is disabled.
 
 Alternative: an entrypoint wrapper. Rejected because it would couple trust behavior to process startup, complicate arbitrary commands, and make image behavior depend on runtime probing rather than the resolved launch policy.
+
+### Exclude two internal diagnostic launch paths
+
+The only constructor-launched exceptions to runtime CA propagation are the build-verification containers in `docker/versioning/verification.py` and gateway-probe containers in `docker/networking.py`. Their launch vectors introduce neither corporate bundle mounts nor any of the five client CA assignments, regardless of the corporate-trust setting, and leave inherited image trust settings untouched. Build verification observes installed tools and local metadata; the gateway probe tests host reachability rather than package-manager TLS. This scope decision does not assert that network access is technically disabled.
+
+All other constructor-launched runtime containers, including every standalone npm assembler, remain in scope. Absence of a bundle mount in an existing launch vector is not itself grounds for exclusion. Verification of the CA environment and bundle mount of an in-scope runtime container remains required and is distinct from the excluded build-verification containers.
 
 ### Verify policy rather than TLS connectivity
 
