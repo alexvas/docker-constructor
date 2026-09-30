@@ -141,3 +141,122 @@ constructor remain outside the runtime propagation contract by design.
   - **Passed:** 4478 tests, 13 skipped.
 - `ty check docker --python-version 3.14 --output-format concise`
   - **Passed:** all checks passed.
+
+## Phase 3 — Runtime Verification and Orchestration
+
+### RED baseline
+
+- `python -m unittest tests.test_constructor_corporate_network_verification_red -v`
+  - **Failed:** 2 of 10 tests, both at the missing runtime-verification
+    environment boundary (no `corporate-trust.environment` checks existed):
+    - `TestEnabledClientCaRuntimeVerificationRed.test_reports_each_variable_with_exact_fixed_value`
+    - `TestEnabledClientCaRuntimeVerificationRed.test_missing_and_mismatched_variables_reported_individually`
+  - **Passed unchanged (8):** the orchestration mount/environment contract,
+    the disabled non-injection guards, the malformed-configuration pre-effect
+    regressions, and the disclosure/no-TLS boundaries. The orchestration
+    wiring (3.1, 3.5) and the malformed pre-effect rejection (3.4, 3.8) were
+    already delivered by the Phase 2 launch propagation and the existing
+    fail-closed resolution; their Phase 3 tests are regression guards and
+    therefore passed at RED while the client CA verification tests failed.
+
+### Introspection
+
+**One resolved trust decision (3.5).** `docker/launcher.py` resolves
+`corporate_trust_bundle` exactly once, only when
+`local_corporate.corporate_trust.enabled` is true and the fixed host bundle
+validates, and passes that single value into `RunRenderInputs`. The renderer
+derives the enabled/disabled decision from `corporate_trust_bundle is not None`;
+no second boolean or duplicate trust source exists. The same decision is
+resolved once for verification through `_resolve_verify_corporate_network`.
+
+**Fixed, non-disclosing diagnostics (3.9).** `verify_runtime` imports
+`CLIENT_CA_ENVIRONMENT` and `SYSTEM_CA_BUNDLE` from
+`docker/versioning/corporate_network.py`; it never receives the host bundle
+source and has no field for it. Each check is exactly
+`docker exec <container> printenv <fixed-name>` and its raw stdout is the fixed
+in-container path. The new assertions pin that check keys, details, command
+vectors, and raw structured fields contain only the five fixed variable names
+and `/etc/ssl/certs/ca-certificates.crt`, never `.docker-local`,
+`corporate-ca-bundle`, certificate contents, or host paths.
+
+**No TLS or validity claim (3.10).** Every verification command remains a
+targeted `docker exec`; none invokes `openssl`, `gnutls-cli`, `curl`, `wget`,
+`nc`, `ncat`, or `telnet`, and none uses `s_client` or `/dev/tcp`. The client CA
+details contain no claim about certificate validity, connectivity, replacing
+Node's roots, or augmentation behavior. Verification observes environment
+values only; it makes no external request.
+
+**Disabled policy is a no-op (3.3, 3.7).** With trust disabled no client CA
+variable is inspected, no `corporate-trust.environment` check is emitted, and
+conflicting values inherited from the base image are neither required to be
+absent nor reported as enabled policy. The existing read-only mount check and
+its disabled absence check are retained unchanged.
+
+### Final focused validation
+
+- `python -m unittest tests.test_constructor_corporate_network_verification_red`
+  - **Passed:** 10 tests. Enabled per-variable reporting, missing/mismatched
+    reporting with retained mount, disabled non-requirement and inherited-value
+    tolerance, orchestration mount + five assignments, malformed pre-effect
+    rejection, and disclosure/no-TLS boundaries.
+- `python -m unittest tests.test_constructor_corporate_network_run_red`
+  - **Passed:** 28 tests. Prior runtime launch/verification contracts remain green.
+- `python -m unittest tests.test_constructor_corporate_network_acceptance_red`
+  - **Passed:** 14 tests. End-to-end configured/disabled dry-run acceptance.
+- `python -m unittest tests.test_constructor_corporate_network_red`
+  - **Passed:** 52 tests. Corporate trust/proxy configuration and fail-closed behavior.
+- `python -m unittest tests.test_constructor_runtime_verification`
+  - **Passed:** 34 tests. Full runtime verification contract.
+- `python -m unittest tests.test_constructor_host_access_verify_red`
+  - **Passed:** 16 tests. Host-access verification independence.
+- `python -m unittest tests.test_constructor_host_access_acceptance`
+  - **Passed:** 10 tests. Host-access policy independence.
+- `python -m unittest tests.test_npm_environment_corporate_network`
+  - **Passed:** 29 tests. Standalone assembler client CA parity.
+- `python -m unittest tests.test_constructor_facade`
+  - **Passed:** 162 tests. Public facade regression coverage.
+- `ty check docker --python-version 3.14 --output-format concise`
+  - **Passed:** all checks passed.
+- `python -m unittest discover -s tests -p 'test_*.py'`
+  - **Passed:** 4489 tests, 13 skipped.
+
+### Hardening addendum — exact values and non-disclosure
+
+Two follow-up defects were found in the first Phase 3 implementation and
+fixed:
+
+1. **Whitespace was silently normalized.** The loop used
+   `r.stdout.strip()`, accepting leading/trailing whitespace as a valid CA
+   path. It now removes only the single terminating newline added by
+   `printenv`, so `" /etc/ssl/certs/ca-certificates.crt"`,
+   `"/etc/ssl/certs/ca-certificates.crt "`, and
+   `"/etc/ssl/certs/ca-certificates.crt\nextra"` are exact mismatches.
+2. **Mismatched values were disclosed.** The failure detail interpolated
+   the observed value and the raw `printenv` stdout/stderr flowed into the
+   structured result; a hostile value could expose a host path or PEM
+   certificate contents. Mismatch (and missing) client CA checks now use a
+   fixed message (`<name> does not equal expected <fixed path>` /
+   `<name> is not set (expected <fixed path>)`) and clear `raw_stdout` and
+   `raw_stderr` while preserving `command` and `exit_code`.
+
+Regression coverage added in
+`tests/test_constructor_corporate_network_verification_red.py`:
+
+- `TestEnabledClientCaRuntimeVerificationRed.test_whitespace_and_extra_content_values_are_exact_mismatches`
+  (five variants: leading space/tab, trailing space, trailing carriage
+  return, embedded extra line) — each fails its own variable while the other
+  four and the mount check remain green.
+- `TestEnabledClientCaRuntimeVerificationRed.test_mismatched_value_is_redacted_from_detail_and_structured_output`
+  — a value containing `.docker-local`, `corporate-ca-bundle`, and PEM
+  certificate text is absent from `detail`, `raw_stdout`, and `raw_stderr`,
+  while the fixed variable name and expected system path remain in the
+  detail and the command/exit code are preserved.
+
+Re-validation after the hardening:
+
+- `python -m unittest tests.test_constructor_corporate_network_verification_red`
+  - **Passed:** 12 tests.
+- `python -m unittest discover -s tests -p 'test_*.py'`
+  - **Passed:** 4491 tests, 13 skipped.
+- `ty check docker --python-version 3.14 --output-format concise`
+  - **Passed:** all checks passed.

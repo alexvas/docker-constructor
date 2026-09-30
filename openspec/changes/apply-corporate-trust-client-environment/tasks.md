@@ -45,17 +45,17 @@ This checklist is the binding implementation contract for this change. A phase i
 
 **Deliverables:** orchestration carries one resolved trust decision into mount and environment planning; runtime verification of in-scope containers (distinct from excluded internal build-verification containers) checks exact enabled values and disabled non-injection without external network access; malformed corporate configuration still fails before Docker effects.
 
-- [ ] 3.1 **RED:** Add an orchestration test proving enabled local trust produces both the read-only mount and all five exact environment assignments in the final launch request; run it and verify it fails at the missing environment boundary.
-- [ ] 3.2 **RED:** Add a runtime-verification test that reports each missing or mismatched enabled client CA variable while retaining the existing mount result; run it and verify the new checks are absent.
-- [ ] 3.3 **RED:** Add a disabled runtime-verification test proving constructor-generated client CA assignments are not required and are not reported as enabled policy; run it and record the pre-implementation result.
-- [ ] 3.4 **RED:** Add a malformed-enabled-configuration regression test proving validation fails before launch planning, container inspection, or Docker execution; run it and record the pre-implementation result.
-- [ ] 3.5 **GREEN:** Wire the resolved corporate-trust decision through orchestration to the existing run-rendering inputs without introducing a second trust source; verify the orchestration test from 3.1 passes.
-- [ ] 3.6 **GREEN:** Extend runtime verification to inspect all five variables and require their exact fixed value when trust is enabled; verify the enabled verification test from 3.2 passes.
-- [ ] 3.7 **GREEN:** Keep disabled runtime verification free of constructor-defined client CA expectations; verify the test from 3.3 passes.
-- [ ] 3.8 **GREEN:** Preserve pre-effect rejection of malformed enabled trust; verify the regression from 3.4 passes.
-- [ ] 3.9 **INTROSPECT:** Review verification result keys, details, and structured output for stable diagnostics that reveal only fixed in-container variable names and paths, never the host bundle source or certificate contents; add a focused disclosure assertion.
-- [ ] 3.10 **INTROSPECT:** Confirm runtime verification performs no TLS request and makes no claim about certificate validity, connectivity, or strict Node root replacement; add a regression assertion or documentation check for each boundary.
-- [ ] 3.11 **VALIDATE:** Run focused orchestration, malformed-configuration, runtime-verification, and structured-output suites; verify all enabled, disabled, mismatch, pre-effect, and disclosure cases pass and record exact commands and results.
+- [x] 3.1 **RED:** Add an orchestration test proving enabled local trust produces both the read-only mount and all five exact environment assignments in the final launch request; run it and verify it fails at the missing environment boundary.
+- [x] 3.2 **RED:** Add a runtime-verification test that reports each missing or mismatched enabled client CA variable while retaining the existing mount result; run it and verify the new checks are absent.
+- [x] 3.3 **RED:** Add a disabled runtime-verification test proving constructor-generated client CA assignments are not required and are not reported as enabled policy; run it and record the pre-implementation result.
+- [x] 3.4 **RED:** Add a malformed-enabled-configuration regression test proving validation fails before launch planning, container inspection, or Docker execution; run it and record the pre-implementation result.
+- [x] 3.5 **GREEN:** Wire the resolved corporate-trust decision through orchestration to the existing run-rendering inputs without introducing a second trust source; verify the orchestration test from 3.1 passes.
+- [x] 3.6 **GREEN:** Extend runtime verification to inspect all five variables and require their exact fixed value when trust is enabled; verify the enabled verification test from 3.2 passes.
+- [x] 3.7 **GREEN:** Keep disabled runtime verification free of constructor-defined client CA expectations; verify the test from 3.3 passes.
+- [x] 3.8 **GREEN:** Preserve pre-effect rejection of malformed enabled trust; verify the regression from 3.4 passes.
+- [x] 3.9 **INTROSPECT:** Review verification result keys, details, and structured output for stable diagnostics that reveal only fixed in-container variable names and paths, never the host bundle source or certificate contents; add a focused disclosure assertion.
+- [x] 3.10 **INTROSPECT:** Confirm runtime verification performs no TLS request and makes no claim about certificate validity, connectivity, or strict Node root replacement; add a regression assertion or documentation check for each boundary.
+- [x] 3.11 **VALIDATE:** Run focused orchestration, malformed-configuration, runtime-verification, and structured-output suites; verify all enabled, disabled, mismatch, pre-effect, and disclosure cases pass and record exact commands and results.
 
 ## 4. Boundaries and Documentation
 

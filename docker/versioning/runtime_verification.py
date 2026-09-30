@@ -52,6 +52,17 @@ Checks
 |                          | that exact mountpoint field is checked to be absent from |
 |                          | ``/proc/mounts``.                                        |
 +--------------------------+-----------------------------------------------------------+
+| ``corporate-trust.environment`` | When corporate trust is enabled, each of the five   |
+|                          | fixed client CA variables (``NODE_EXTRA_CA_CERTS``,       |
+|                          | ``SSL_CERT_FILE``, ``REQUESTS_CA_BUNDLE``, ``PIP_CERT``,  |
+|                          | ``CURL_CA_BUNDLE``) is checked to equal exactly           |
+|                          | ``/etc/ssl/certs/ca-certificates.crt``.  A missing or     |
+|                          | mismatched variable is reported on its own check while    |
+|                          | the mount result is retained.  When disabled, no          |
+|                          | constructor-defined client CA expectation is emitted, so  |
+|                          | inherited image values are neither required nor reported  |
+|                          | as enabled policy.                                        |
++--------------------------+-----------------------------------------------------------+
 | ``proxy.environment``    | When a proxy URL is configured, every standard            |
 |                          | uppercase/lowercase HTTP, HTTPS, and ALL variable matches |
 |                          | it and both ``NO_PROXY`` forms match the explicit bypass  |
@@ -77,14 +88,18 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, Sequence, TYPE_CHECKING
 
+from .corporate_network import CLIENT_CA_ENVIRONMENT, SYSTEM_CA_BUNDLE
+
 if TYPE_CHECKING:
     from docker.versioning.model import HostAccessPolicy
 
 
 # Fixed container-side system CA bundle.  Runtime verification checks this
 # exact mount destination — never a substring — so unrelated mounts whose
-# source or destination merely contains the filename are ignored.
-_SYSTEM_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt"
+# source or destination merely contains the filename are ignored.  The path
+# and the five-variable mapping are owned by ``corporate_network`` so the
+# build helper, the runtime renderers, and verification share one source.
+_SYSTEM_CA_BUNDLE = SYSTEM_CA_BUNDLE
 
 # Targeted ``/proc/mounts`` probe: print the mount options (fourth field)
 # only for the mount whose second field (mountpoint) is exactly the system CA
@@ -255,13 +270,18 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
         return runner.run(("docker", "exec", container, *cmd))
 
     def _add(key: str, ok: bool, detail: str,
-             result: ProcessOutcome | None = None) -> None:
+             result: ProcessOutcome | None = None,
+             *, redact_output: bool = False) -> None:
         checks.append(RuntimeCheck(
             key=key, ok=ok, detail=detail,
             command=result.argv if result is not None else None,
             exit_code=result.return_code if result is not None else None,
-            raw_stdout=result.stdout if result is not None else None,
-            raw_stderr=result.stderr if result is not None else None,
+            raw_stdout=(
+                None if result is None or redact_output else result.stdout
+            ),
+            raw_stderr=(
+                None if result is None or redact_output else result.stderr
+            ),
         ))
 
     # ── projection.identity ──────────────────────────────────────────
@@ -513,6 +533,41 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
         else:
             _add("corporate-trust.mount", True,
                  "corporate trust disabled; no system CA bundle mount", r)
+
+    # ── corporate-trust.environment ───────────────────────────────
+    # When corporate trust is enabled, every in-scope launched container
+    # must carry the closed five-variable client CA mapping.  Each
+    # variable is reported on its own check so a single missing or
+    # mismatched name is diagnosed independently of the mount result.
+    # Disabled trust intentionally emits no constructor-defined client CA
+    # expectations: values inherited from the base image are preserved
+    # and are not reported as enabled policy.  Verification inspects only
+    # these fixed in-container names and the fixed system path; it never
+    # reads the host bundle source or certificate contents and makes no
+    # TLS request or validity/connectivity claim.
+    if request.corporate_trust_enabled:
+        for name, expected in CLIENT_CA_ENVIRONMENT:
+            r = _exec(("printenv", name))
+            actual = r.stdout if r.return_code == 0 else ""
+            # ``printenv`` terminates its value with exactly one newline.
+            # Remove only that byte so leading/trailing whitespace or extra
+            # embedded content is observed verbatim and fails the exact
+            # fixed-value comparison instead of being silently normalized.
+            if actual.endswith("\n"):
+                actual = actual[:-1]
+            if actual == expected:
+                _add("corporate-trust.environment", True,
+                     f"{name}={actual}", r)
+            elif not actual:
+                # Fail-closed diagnostic: name only the fixed variable and
+                # the fixed expected path, never the observed value.
+                _add("corporate-trust.environment", False,
+                     f"{name} is not set (expected {expected})", r,
+                     redact_output=True)
+            else:
+                _add("corporate-trust.environment", False,
+                     f"{name} does not equal expected {expected}", r,
+                     redact_output=True)
 
     # ── proxy.environment ──────────────────────────────────────────
     if request.proxy_url is not None:
