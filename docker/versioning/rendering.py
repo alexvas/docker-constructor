@@ -18,6 +18,7 @@ from .effective import (
     EffectiveConfiguration,
     to_plain_data,
 )
+from .corporate_network import CLIENT_CA_ENVIRONMENT, SYSTEM_CA_BUNDLE
 from .errors import EffectiveConfigError
 
 if TYPE_CHECKING:
@@ -378,7 +379,8 @@ class RunRenderInputs:
     corporate_trust_bundle: Optional[str] = None
     """Absolute host path to the fixed corporate trust bundle.  When set,
     the renderer adds a read-only bind mount over the container system CA
-    bundle; ``None`` (disabled) emits no such mount."""
+    bundle and emits the closed client CA environment mapping; ``None``
+    (disabled) emits neither."""
 
     proxy_url: Optional[str] = None
     """Configured credential-free proxy URL, copied verbatim under every
@@ -468,7 +470,7 @@ _PROXY_BYPASS_ARG = "PI_CORPORATE_NO_PROXY"
 # Fixed container-side system CA bundle.  The Dockerfile receives it via a
 # constructor-specific build argument (never a same-named SSL_CERT_FILE or
 # NODE_EXTRA_CA_CERTS ARG, which an inherited base-image ENV would override).
-_SYSTEM_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt"
+_SYSTEM_CA_BUNDLE = SYSTEM_CA_BUNDLE
 _CORPORATE_CA_PATH_ARG = "PI_CORPORATE_CA_PATH"
 # Explicit signal that gates the Dockerfile trust replacement, so a stale
 # bundle in the build context cannot change trust without enabled intent.
@@ -821,6 +823,17 @@ def _emit_run_mount(
     args.extend(("--mount", ",".join(parts)))
 
 
+def _emit_client_ca_run_env(args: list[str]) -> None:
+    """Append the closed constructor-owned client CA environment mapping.
+
+    Every name and value is a fixed module constant; no caller-supplied or
+    host-derived value is accepted.  The caller must emit this only on the
+    enabled corporate-trust path.
+    """
+    for name, value in CLIENT_CA_ENVIRONMENT:
+        args.extend(("--env", f"{name}={value}"))
+
+
 def _emit_proxy_run_env(args: list[str], inputs: RunRenderInputs) -> None:
     """Append the standard proxy ``--env`` pairs for a configured proxy.
 
@@ -966,7 +979,9 @@ def render_run_vector(inputs: RunRenderInputs) -> tuple[str, ...]:
             args, "bind", mount.host_path, mount.container_target, readonly=True,
         )
 
-    # Corporate trust — read-only system CA bundle mount (enabled only).
+    # Corporate trust — read-only system CA bundle mount and the closed
+    # client CA environment mapping (enabled only).  Disabled launches emit
+    # neither, so inherited image client CA values remain untouched.
     if inputs.corporate_trust_bundle is not None:
         _emit_run_mount(
             args, "bind",
@@ -974,6 +989,7 @@ def render_run_vector(inputs: RunRenderInputs) -> tuple[str, ...]:
             _SYSTEM_CA_BUNDLE,
             readonly=True,
         )
+        _emit_client_ca_run_env(args)
 
     # Working directory
     args.extend(("--workdir", inputs.workspace))

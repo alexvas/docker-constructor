@@ -23,9 +23,12 @@ The GREEN implementation (tasks 3.5–3.7) extends ``RunRenderInputs``,
 
 from __future__ import annotations
 
+import os
+import re
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from docker.launcher import (
     WorkspaceSelection,
@@ -34,13 +37,26 @@ from docker.launcher import (
     orchestrate_run,
 )
 from docker.versioning.dispatch_types import ExitKind
-from docker.versioning.rendering import RunRenderInputs, render_run_vector
+from docker.versioning.rendering import (
+    RunHostAccess,
+    RunRenderInputs,
+    render_run_vector,
+)
 from docker.versioning.runtime_verification import _MOUNTS_PROBE
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _CANONICAL = (_REPO_ROOT / "docker-constructor.toml").read_text()
 
 _SYSTEM_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt"
+
+#: Closed constructor-owned client CA variables applied on enabled trust.
+_CLIENT_CA_NAMES = (
+    "NODE_EXTRA_CA_CERTS",
+    "SSL_CERT_FILE",
+    "REQUESTS_CA_BUNDLE",
+    "PIP_CERT",
+    "CURL_CA_BUNDLE",
+)
 
 _PROXY_URL_NAMES = (
     "HTTP_PROXY",
@@ -69,6 +85,7 @@ def _render(
     corporate_trust_bundle: str | None = None,
     proxy_url: str | None = None,
     proxy_no_proxy: str | None = None,
+    host_access: RunHostAccess | None = None,
 ) -> tuple[str, ...]:
     """Render a minimal run vector with the Phase 3 corporate inputs."""
     return render_run_vector(RunRenderInputs(
@@ -81,6 +98,9 @@ def _render(
         corporate_trust_bundle=corporate_trust_bundle,
         proxy_url=proxy_url,
         proxy_no_proxy=proxy_no_proxy,
+        host_access=(
+            host_access if host_access is not None else RunHostAccess.disabled()
+        ),
     ))
 
 
@@ -119,6 +139,22 @@ def _collect_env(args: tuple[str, ...]) -> dict[str, str]:
             k, _, v = raw.partition("=")
             env[k] = v
     return env
+
+
+def _collect_env_assignments(args: tuple[str, ...]) -> list[tuple[str, str]]:
+    """Extract every ``--env KEY=VALUE`` as an ordered assignment list.
+
+    Unlike :func:`_collect_env`, duplicate keys are preserved so tests can
+    prove there is exactly one assignment per client CA variable.
+    """
+    assignments: list[tuple[str, str]] = []
+    it = iter(args)
+    for token in it:
+        if token == "--env":
+            raw = next(it)
+            k, _, v = raw.partition("=")
+            assignments.append((k, v))
+    return assignments
 
 
 # ---------------------------------------------------------------------------
@@ -260,6 +296,247 @@ class TestTrustMountOrchestrationRed(_RunOrchestrationRed):
                     _find_mount(mounts, dst=_SYSTEM_CA_BUNDLE),
                     "disabled trust must not emit a system-bundle mount",
                 )
+
+
+# ---------------------------------------------------------------------------
+# 2.x  Client CA environment run-vector contract (this change)
+# ---------------------------------------------------------------------------
+
+class TestRunVectorClientCaEnvironmentRed(unittest.TestCase):
+    """Tasks 2.1–2.4 and 2.12: enabled client CA environment propagation."""
+
+    def test_enabled_trust_assigns_exactly_one_fixed_path_per_client_ca_variable(
+        self,
+    ) -> None:
+        args = _render(
+            corporate_trust_bundle=(
+                "/repo/.docker-local/corporate-ca-bundle.crt"
+            ),
+        )
+        assignments = _collect_env_assignments(args)
+        for name in _CLIENT_CA_NAMES:
+            matches = [value for key, value in assignments if key == name]
+            self.assertEqual(
+                matches, [_SYSTEM_CA_BUNDLE],
+                f"{name}: expected exactly one fixed-path assignment, got {matches}",
+            )
+
+    def test_enabled_trust_preserves_readonly_mount_alongside_client_ca_env(
+        self,
+    ) -> None:
+        bundle = "/repo/.docker-local/corporate-ca-bundle.crt"
+        args = _render(corporate_trust_bundle=bundle)
+        mount = _find_mount(_collect_mounts(args), dst=_SYSTEM_CA_BUNDLE)
+        self.assertIsNotNone(mount, "missing corporate trust mount")
+        self.assertEqual(mount["type"], "bind")
+        self.assertEqual(mount["src"], bundle)
+        self.assertIn("readonly", mount,
+                      "corporate trust mount must be read-only")
+        assignments = _collect_env_assignments(args)
+        for name in _CLIENT_CA_NAMES:
+            self.assertEqual(
+                [v for k, v in assignments if k == name],
+                [_SYSTEM_CA_BUNDLE],
+                name,
+            )
+
+    def test_absent_and_disabled_trust_introduce_no_client_ca_assignments(
+        self,
+    ) -> None:
+        args = _render()
+        assignments = _collect_env_assignments(args)
+        for name in _CLIENT_CA_NAMES:
+            self.assertEqual(
+                [v for k, v in assignments if k == name], [],
+                f"{name} must be absent and never emitted empty",
+            )
+
+    def test_client_ca_mapping_is_closed_to_arbitrary_values_and_host_paths(
+        self,
+    ) -> None:
+        bundle = "/repo/.docker-local/corporate-ca-bundle.crt"
+        with mock.patch.dict(
+            os.environ,
+            {
+                "NODE_EXTRA_CA_CERTS": "/evil/host.pem",
+                "SSL_CERT_FILE": "/evil/host.pem",
+                "REQUESTS_CA_BUNDLE": "/evil/host.pem",
+                "PIP_CERT": "/evil/host.pem",
+                "CURL_CA_BUNDLE": "/evil/host.pem",
+            },
+        ):
+            args = _render(corporate_trust_bundle=bundle)
+        client_assignments = [
+            (name, value)
+            for name, value in _collect_env_assignments(args)
+            if name in _CLIENT_CA_NAMES
+        ]
+        self.assertEqual(
+            {name for name, _value in client_assignments},
+            set(_CLIENT_CA_NAMES),
+            "the mapping must contain exactly the five client CA variables",
+        )
+        for name, value in client_assignments:
+            self.assertEqual(value, _SYSTEM_CA_BUNDLE, name)
+            self.assertNotIn(bundle, value, name)
+            self.assertNotIn("/evil/host.pem", value, name)
+
+    def test_proxy_only_does_not_activate_client_ca_mapping(self) -> None:
+        args = _render(proxy_url="http://proxy.corp.example:3128")
+        assignments = _collect_env_assignments(args)
+        for name in _CLIENT_CA_NAMES:
+            self.assertEqual([v for k, v in assignments if k == name], [], name)
+
+    def test_host_access_only_does_not_activate_client_ca_mapping(self) -> None:
+        args = _render(
+            host_access=RunHostAccess(
+                address="192.0.2.10", mode="external-address",
+            ),
+        )
+        env = _collect_env(args)
+        self.assertEqual("192.0.2.10", env["HOST_ACCESS_ADDRESS"])
+        assignments = _collect_env_assignments(args)
+        for name in _CLIENT_CA_NAMES:
+            self.assertEqual([v for k, v in assignments if k == name], [], name)
+
+
+class TestRunVectorClientCaOrchestrationRed(_RunOrchestrationRed):
+    """Tasks 2.1 and 2.3 integration: the launcher carries the mapping."""
+
+    def test_enabled_trust_orchestrates_mount_and_client_ca_environment(
+        self,
+    ) -> None:
+        result = self.run_with_local(
+            "[corporate-trust]\nenabled = true\n",
+            bundle=_VALID_BUNDLE,
+        )
+        self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
+        mount = _find_mount(_collect_mounts(result.run_args), dst=_SYSTEM_CA_BUNDLE)
+        self.assertIsNotNone(mount, "missing corporate trust mount")
+        assignments = _collect_env_assignments(result.run_args)
+        for name in _CLIENT_CA_NAMES:
+            self.assertEqual(
+                [v for k, v in assignments if k == name],
+                [_SYSTEM_CA_BUNDLE],
+                name,
+            )
+
+    def test_absent_and_disabled_trust_orchestrate_no_client_ca_environment(
+        self,
+    ) -> None:
+        for companion in (None, "[corporate-trust]\nenabled = false\n"):
+            with self.subTest(companion=companion):
+                result = self.run_with_local(companion)
+                self.assertEqual(
+                    ExitKind.SUCCESS, result.exit_kind, result.message,
+                )
+                assignments = _collect_env_assignments(result.run_args)
+                for name in _CLIENT_CA_NAMES:
+                    self.assertEqual(
+                        [v for k, v in assignments if k == name], [], name,
+                    )
+
+
+# ---------------------------------------------------------------------------
+# 2.14  Constructor runtime launch entry-point audit
+# ---------------------------------------------------------------------------
+
+class TestConstructorRunEntryPointAudit(unittest.TestCase):
+    """Task 2.14: every constructor ``docker run`` builder is enumerated.
+
+    The shared runtime renderer and the standalone npm assembler carry the
+    client CA policy.  Internal utility containers (gateway probe, build
+    verification) never mount the corporate bundle, so they must never emit
+    a client CA assignment pointing at a bundle they do not receive.
+    """
+
+    _AUDITED_RUN_BUILDERS = {
+        "docker/networking.py",
+        "docker/npm_environment/run_vector.py",
+        "docker/versioning/rendering.py",
+        "docker/versioning/verification.py",
+    }
+
+    def test_constructor_run_argument_builders_are_enumerated(self) -> None:
+        pattern = re.compile(r'(?:"docker",\s*"run"|docker_bin,\s*"run")')
+        found: set[str] = set()
+        for path in (_REPO_ROOT / "docker").rglob("*.py"):
+            if "__pycache__" in path.parts:
+                continue
+            if pattern.search(path.read_text(encoding="utf-8")):
+                found.add(str(path.relative_to(_REPO_ROOT)))
+        self.assertEqual(
+            found, self._AUDITED_RUN_BUILDERS,
+            "a constructor ``docker run`` entry point changed; re-audit the "
+            "runtime client CA contract for every enumerated path",
+        )
+
+    def test_gateway_probe_emits_no_client_ca_or_bundle_mount(self) -> None:
+        from docker.networking import probe_gateway
+
+        calls: list[tuple[str, ...]] = []
+
+        class _Runner:
+            def run(self, argv):
+                calls.append(tuple(argv))
+                return _ProcessResult(
+                    argv=tuple(argv), return_code=0,
+                    stdout="PROBE_OK\n", stderr="",
+                )
+
+        probe_gateway("10.0.2.2", 9999, "OK_1", _runner=_Runner())
+        self.assertTrue(calls, "gateway probe must launch a container")
+        for argv in calls:
+            self.assertNotIn("--env", argv)
+            self.assertNotIn("--mount", argv)
+            joined = " ".join(argv)
+            for name in _CLIENT_CA_NAMES:
+                self.assertNotIn(name, joined)
+
+    def test_build_verification_emits_no_client_ca_or_bundle_mount(self) -> None:
+        from docker.versioning.verification import (
+            VerifyBuildRequest,
+            verify_build,
+        )
+
+        calls: list[tuple[str, ...]] = []
+
+        class _Runner:
+            def run(self, argv):
+                calls.append(tuple(argv))
+                return _ProcessResult(
+                    argv=tuple(argv), return_code=0,
+                    stdout="", stderr="",
+                )
+
+        with tempfile.TemporaryDirectory() as root:
+            proj = Path(root) / "build.effective.toml"
+            proj.write_text(
+                '[python]\nversion = "3.12.0"\n'
+                '[node]\nversion = "20.11.0"\n'
+                'image = "node:20.11.0-bookworm-slim"\n'
+                '[rust]\nversion = "1.77.0"\n'
+                'components = ["cargo", "rustfmt", "clippy"]\n'
+                '[uv]\nversion = "0.5.0"\n'
+                '[ty]\nversion = "v0.9.0"\n'
+                '[rtk]\nversion = "0.31.0"\n'
+                '[fd]\nversion = "9.0.0"\n'
+                '[pi]\nversion = "v1.4.236"\n'
+                '[openspec]\nversion = "v0.15.0"\n'
+                '[oh-my-zsh]\nrevision = "abc1234"\n'
+            )
+            verify_build(VerifyBuildRequest(
+                image="test-img:1",
+                effective_projection_path=proj,
+                runner=_Runner(),
+            ))
+        self.assertTrue(calls, "build verification must launch containers")
+        for argv in calls:
+            self.assertNotIn("--env", argv)
+            self.assertNotIn("--mount", argv)
+            joined = " ".join(argv)
+            for name in _CLIENT_CA_NAMES:
+                self.assertNotIn(name, joined)
 
 
 # ---------------------------------------------------------------------------

@@ -27,6 +27,10 @@ from .identity import (
 from .image_ref import validate_image_reference
 from .model import ValidatedAssemblyInput
 from .network import CorporateNetworkPolicy
+from docker.versioning.corporate_network import (
+    CLIENT_CA_ENVIRONMENT,
+    SYSTEM_CA_BUNDLE,
+)
 
 #: Fixed container paths — private HOME and the opaque npm cache both live
 #: under the disposable cache mount; the staging workspace is the workdir.
@@ -36,8 +40,9 @@ ASSEMBLER_WORKDIR = "/work"
 LOCKFILE_CONTAINER_PATH = "/work/package-lock.json"
 
 #: Fixed container-side system CA bundle that receives the corporate trust
-#: override when corporate trust is enabled.
-SYSTEM_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt"
+#: override when corporate trust is enabled.  Imported from the shared
+#: corporate-network owner and re-exported so build and runtime point at one
+#: destination.
 
 #: npm does not necessarily ask Node to use the operating-system CA store.
 #: Point npm explicitly at the fixed container path whenever a reviewed trust
@@ -151,8 +156,10 @@ def render_run_vector(
     URL is emitted under every standard proxy variable (with both bypass
     variables only for an explicit bypass list).  When it carries an
     enabled corporate trust bundle, that host path is mounted read-only at
-    the fixed system trust path before npm network access.  A disabled
-    policy emits no proxy environment and no trust override.
+    the fixed system trust path before npm network access and the closed
+    five-variable client CA environment mapping is applied on top of the
+    existing ``npm_config_cafile`` behavior.  A disabled policy emits no
+    proxy environment, no trust override, and no client CA assignment.
     """
     recheck_assembler_bindings(assembler)
     compute_assembler_input_identity(validated, assembler)
@@ -182,6 +189,8 @@ def render_run_vector(
                 for bypass_name in PROXY_BYPASS_ENV_NAMES:
                     env.append((bypass_name, corporate_network.proxy_no_proxy))
         if corporate_network.corporate_trust_bundle is not None:
+            for ca_name, ca_value in CLIENT_CA_ENVIRONMENT:
+                env.append((ca_name, ca_value))
             env.append((NPM_CONFIG_CAFILE, SYSTEM_CA_BUNDLE))
             mounts.append(
                 Mount(

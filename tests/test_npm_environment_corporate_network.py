@@ -64,6 +64,15 @@ _PROXY = "http://proxy.example.test:3128"
 _NO_PROXY = "localhost,127.0.0.1,.internal"
 _TRUST_BUNDLE = "/corp/trust/bundle.crt"
 
+#: Closed constructor-owned client CA variables applied on enabled trust.
+_CLIENT_CA_NAMES = (
+    "NODE_EXTRA_CA_CERTS",
+    "SSL_CERT_FILE",
+    "REQUESTS_CA_BUNDLE",
+    "PIP_CERT",
+    "CURL_CA_BUNDLE",
+)
+
 
 def _sri() -> str:
     import base64
@@ -207,6 +216,17 @@ def _env_dict(argv: tuple[str, ...]) -> dict[str, str]:
     return result
 
 
+def _env_assignments(argv: tuple[str, ...]) -> list[tuple[str, str]]:
+    """Ordered ``--env KEY=VALUE`` assignments, preserving duplicates."""
+    result: list[tuple[str, str]] = []
+    it = iter(argv)
+    for token in it:
+        if token == "--env":
+            key, _, value = next(it).partition("=")
+            result.append((key, value))
+    return result
+
+
 def _volumes(argv: tuple[str, ...]) -> list[str]:
     result: list[str] = []
     it = iter(argv)
@@ -234,6 +254,7 @@ class TestEnabledDisabledProjection(unittest.TestCase):
             set(env),
             {"HOME", "npm_config_cache", "REVIEWED_NODE_VERSION",
              "REVIEWED_NPM_VERSION", NPM_CONFIG_CAFILE}
+            | set(_CLIENT_CA_NAMES)
             | {name for name, _value in npm_policy_env()},
         )
 
@@ -250,6 +271,155 @@ class TestEnabledDisabledProjection(unittest.TestCase):
         mounts = _vector(policy=CorporateNetworkPolicy()).mounts
         self.assertEqual(len(mounts), 3)
         self.assertFalse(any(m.container == SYSTEM_CA_BUNDLE for m in mounts))
+
+
+class TestClientCaEnvironmentEnabled(unittest.TestCase):
+    """Tasks 2.5, 2.11, 2.13 — enabled trust propagates the closed mapping.
+
+    Every constructor-launched standalone npm assembler run vector must
+    receive exactly the five fixed client CA assignments while preserving
+    the pre-existing ``npm_config_cafile`` behavior.
+    """
+
+    def test_vector_assigns_all_five_client_ca_variables_to_fixed_path(self):
+        env = dict(_vector(policy=_policy()).env)
+        for name in _CLIENT_CA_NAMES:
+            self.assertEqual(env.get(name), SYSTEM_CA_BUNDLE, name)
+
+    def test_vector_has_exactly_one_assignment_per_client_ca_variable(self):
+        vector = _vector(policy=_policy())
+        for name in _CLIENT_CA_NAMES:
+            matches = [v for k, v in vector.env if k == name]
+            self.assertEqual(matches, [SYSTEM_CA_BUNDLE], name)
+
+    def test_existing_npm_config_cafile_behavior_is_preserved(self):
+        vector = _vector(policy=_policy())
+        env = dict(vector.env)
+        self.assertEqual(env[NPM_CONFIG_CAFILE], SYSTEM_CA_BUNDLE)
+        trust = [m for m in vector.mounts if m.container == SYSTEM_CA_BUNDLE]
+        self.assertEqual(len(trust), 1)
+        self.assertEqual(trust[0].host, _TRUST_BUNDLE)
+        self.assertEqual(trust[0].mode, "ro")
+
+    def test_render_docker_argv_carries_client_ca_assignments(self):
+        argv = render_docker_argv(_vector(policy=_policy()))
+        assignments = _env_assignments(argv)
+        for name in _CLIENT_CA_NAMES:
+            self.assertEqual(
+                [v for k, v in assignments if k == name],
+                [SYSTEM_CA_BUNDLE],
+                name,
+            )
+        self.assertEqual(
+            [v for k, v in assignments if k == NPM_CONFIG_CAFILE],
+            [SYSTEM_CA_BUNDLE],
+        )
+
+
+class TestClientCaEnvironmentExecution(_AssemblerTestBase):
+    """Task 2.13 — the execution boundary receives the same vector policy."""
+
+    def test_assemble_executes_client_ca_assignments(self):
+        executor = _FakeExecutor()
+        self._assemble(policy=_policy(), executor=executor)
+        argv = executor.calls[0]
+        assignments = _env_assignments(argv)
+        for name in _CLIENT_CA_NAMES:
+            self.assertEqual(
+                [v for k, v in assignments if k == name],
+                [SYSTEM_CA_BUNDLE],
+                name,
+            )
+        self.assertEqual(
+            [v for k, v in assignments if k == NPM_CONFIG_CAFILE],
+            [SYSTEM_CA_BUNDLE],
+        )
+
+
+class TestClientCaEnvironmentDisabled(unittest.TestCase):
+    """Tasks 2.6, 2.11 — absent/disabled trust introduces no assignment."""
+
+    def test_absent_policy_introduces_no_client_ca_assignments(self):
+        vector = _vector(policy=None)
+        env = dict(vector.env)
+        for name in _CLIENT_CA_NAMES:
+            self.assertNotIn(name, env, name)
+        self.assertNotIn(NPM_CONFIG_CAFILE, env)
+
+    def test_disabled_policy_introduces_no_client_ca_or_empty_values(self):
+        vector = _vector(policy=CorporateNetworkPolicy())
+        for name in _CLIENT_CA_NAMES + (NPM_CONFIG_CAFILE,):
+            self.assertEqual(
+                [v for k, v in vector.env if k == name], [],
+                f"{name} must be absent and never emitted empty",
+            )
+
+    def test_disabled_policy_preserves_default_mounts(self):
+        vector = _vector(policy=CorporateNetworkPolicy())
+        self.assertFalse(any(m.container == SYSTEM_CA_BUNDLE for m in vector.mounts))
+
+    def test_proxy_only_policy_does_not_activate_client_ca_mapping(self):
+        vector = _vector(policy=_policy(corporate_trust_bundle=None))
+        env = dict(vector.env)
+        for name in _CLIENT_CA_NAMES:
+            self.assertNotIn(name, env, name)
+        self.assertNotIn(NPM_CONFIG_CAFILE, env)
+        for name in PROXY_URL_ENV_NAMES:
+            self.assertEqual(env[name], _PROXY)
+
+
+class TestStandaloneAssemblerLaunchVectorParity(unittest.TestCase):
+    """Task 2.13 — vector and argv agree on the enabled five-variable policy."""
+
+    def test_vector_and_argv_agree_on_enabled_client_ca_policy(self):
+        vector = _vector(policy=_policy())
+        vector_assignments = [
+            (k, v) for k, v in vector.env if k in _CLIENT_CA_NAMES
+        ]
+        argv_assignments = [
+            (k, v)
+            for k, v in _env_assignments(render_docker_argv(vector))
+            if k in _CLIENT_CA_NAMES
+        ]
+        self.assertEqual(vector_assignments, argv_assignments)
+        self.assertEqual(
+            [k for k, _v in vector_assignments], list(_CLIENT_CA_NAMES),
+        )
+
+    def test_vector_and_argv_agree_on_disabled_client_ca_policy(self):
+        vector = _vector(policy=CorporateNetworkPolicy())
+        argv = render_docker_argv(vector)
+        for name in _CLIENT_CA_NAMES + (NPM_CONFIG_CAFILE,):
+            self.assertEqual([v for k, v in vector.env if k == name], [], name)
+            self.assertEqual([v for k, v in _env_assignments(argv) if k == name], [], name)
+
+    def test_assembler_policy_matches_primary_run_rendering_path(self):
+        from docker.versioning.rendering import (
+            RunHostAccess,
+            RunRenderInputs,
+            render_run_vector,
+        )
+
+        primary = render_run_vector(RunRenderInputs(
+            image="pi-cli-pi:latest",
+            container_name="pi-1",
+            projection_host_path="/tmp/.docker-generated/runtime/projection.toml",
+            projection_container_path="/run/pi-cli/docker-constructor.runtime.toml",
+            pi_home_host="/home/user/.pi",
+            workspace="/work/project",
+            host_access=RunHostAccess.disabled(),
+            corporate_trust_bundle=_TRUST_BUNDLE,
+        ))
+        primary_pairs = sorted(
+            (k, v) for k, v in _env_assignments(primary)
+            if k in _CLIENT_CA_NAMES
+        )
+        assembler_pairs = sorted(
+            (k, v) for k, v in _vector(policy=_policy()).env
+            if k in _CLIENT_CA_NAMES
+        )
+        self.assertEqual(primary_pairs, assembler_pairs)
+        self.assertEqual([k for k, _v in primary_pairs], sorted(_CLIENT_CA_NAMES))
 
 
 class TestOnlyResolvedPolicyReceived(_AssemblerTestBase):
@@ -283,6 +453,7 @@ class TestOnlyResolvedPolicyReceived(_AssemblerTestBase):
             set(env),
             base | set(PROXY_URL_ENV_NAMES) | set(PROXY_BYPASS_ENV_NAMES)
             | {NPM_CONFIG_CAFILE}
+            | set(_CLIENT_CA_NAMES)
             | {name for name, _value in npm_policy_env()},
         )
         for name in PROXY_URL_ENV_NAMES:

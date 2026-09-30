@@ -19,6 +19,27 @@ import urllib.parse
 from .errors import InventoryError
 from .model import LocalCorporateTrust, LocalNetworkProxy
 
+#: Fixed container-side system CA bundle destination.  Both the Dockerfile
+#: build helper and the runtime run renderers point every supported client at
+#: this same validated/replaced bundle path.
+SYSTEM_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt"
+
+#: Closed constructor-owned client CA environment mapping applied to every
+#: networked Dockerfile build-stage command and every in-scope
+#: constructor-launched runtime container when corporate trust is enabled.  The
+#: internal build-verification and gateway-probe diagnostic paths are excluded.
+#:
+#: The variable names and the destination value are fixed constants.  No local
+#: configuration value, arbitrary variable name, host bundle path, or
+#: invoking-host environment value can enter this mapping.
+CLIENT_CA_ENVIRONMENT: tuple[tuple[str, str], ...] = (
+    ("NODE_EXTRA_CA_CERTS", SYSTEM_CA_BUNDLE),
+    ("SSL_CERT_FILE", SYSTEM_CA_BUNDLE),
+    ("REQUESTS_CA_BUNDLE", SYSTEM_CA_BUNDLE),
+    ("PIP_CERT", SYSTEM_CA_BUNDLE),
+    ("CURL_CA_BUNDLE", SYSTEM_CA_BUNDLE),
+)
+
 
 def parse_local_corporate_trust(
     trust_raw: object,
