@@ -1,5 +1,132 @@
 # Verification Evidence
 
+## Phase 5 — Release Integration
+
+### Release acceptance matrix and RED baseline
+
+The release matrix is exercised by:
+
+`python -m unittest tests.test_constructor_corporate_network_build_red tests.test_constructor_corporate_network_run_red tests.test_constructor_corporate_network_verification_red tests.test_constructor_corporate_network_acceptance_red tests.test_constructor_corporate_network_boundaries_red -v`
+
+| Boundary | Enabled coverage | Disabled/independence coverage |
+| --- | --- | --- |
+| Build-helper export | Exact five-name/fixed-path export | Omission and inherited-value preservation |
+| Networked Dockerfile coverage | Every networked `RUN` sources the helper | No constructor CA values or bootstrap |
+| Runtime argv and mount | Five exact assignments plus read-only mount | No assignments or mount |
+| Runtime verification | Per-variable exact checks plus mount check | No enabled-policy expectation |
+| Proxy policy | Coexists with enabled trust | Proxy-only does not activate trust |
+| Host-access policy | Coexists with enabled trust | Host-access-only does not activate trust |
+| Image metadata | No persistent same-named `ARG`/`ENV` | Direct launches remain outside policy |
+
+- **Passed:** 86 tests in 0.223 seconds; no unsatisfied matrix cases were found, so task 5.3 required no integration fixes.
+
+The first complete pre-release run produced:
+
+- `scripts/check-types` — **Passed:** `All checks passed!`
+- `python -m unittest discover -s tests -p 'test_*.py'` — **Passed:** 4505 tests in 84.666 seconds, 13 skipped.
+- `scripts/check-dockerfile` — **Passed on the Docker-capable host:** exit 0 with no output.
+- `./docker/docker-constructor.py build --yes --no-pull` — **Passed on the Docker-capable host:** all 67 BuildKit steps completed and `pi-cli-pi:latest` was exported; a second cached build also passed all 67 steps in 3.5 seconds.
+
+The complete task 5.4 gate is green: typecheck, full unit/integration suite, Hadolint, and the canonical enabled-trust image build all pass. The agent host itself has no `docker` executable, so Docker-backed task 5.8 still requires execution on the Docker-capable host.
+
+### Requirement and scenario traceability
+
+| Delta-spec contract | Completed tasks | Automated or observable evidence |
+| --- | --- | --- |
+| Enabled build trust validates, bootstraps, replaces, and survives package installation | 1.1–1.8 | `TestCorporateNetworkEnvironmentHelper`, `TestDockerfileTrustReplacementRed`, canonical enabled-trust build |
+| Disabled build skips constructor trust bootstrap and preserves inherited values | 1.2, 1.5–1.8 | disabled helper/build-vector and Dockerfile structural tests |
+| Restarted in-scope runtime receives current read-only bundle | 2.1–2.15 | enabled run-vector, orchestration, and acceptance tests; task 5.8 supplies Docker-backed confirmation |
+| Build-verification and gateway-probe launches receive no trust injection | 2.14–2.15 | constructor run-entry-point audit tests for both exceptions |
+| Enabled build and runtime clients receive exactly five fixed assignments | 1.1–1.8, 2.1–2.15, 3.1–3.11 | build-helper, primary renderer, npm assembler, orchestration, and runtime-verification suites |
+| Disabled trust introduces no assignments and preserves inherited image settings | 1.2, 2.3, 2.6, 2.9, 3.3, 3.7 | helper, primary/assembler renderer, and runtime-verification disabled tests |
+| Policy is closed to arbitrary names, paths, host environment, and configuration | 2.12, 4.3, 4.7, 4.9 | mapping-closure, schema-rejection, projection, identity, and evidence-owner tests |
+| Client CA values do not persist in image metadata; direct launches are out of scope | 1.3, 1.7, 4.2, 4.6, 4.9 | Dockerfile `ARG`/`ENV`, image-inspection disclosure, and README tests |
+| Runtime verification checks policy without TLS connectivity assumptions | 3.2–3.3, 3.6–3.7, 3.9–3.10 | exact environment/mount checks and no-network-command regression |
+| Node trust is augmentation-oriented and supports enterprise interception | 4.2, 4.6 | multilingual documentation assertions |
+
+Every requirement and scenario has a completed implementation task and automated or explicit observable evidence; no uncovered delta-spec contract remains.
+
+### Final diff audit
+
+The staged and unstaged diff was reviewed for every task 5.6 risk. No unresolved finding remains:
+
+- disabled mode emits no constructor CA overrides and preserves inherited values;
+- no client CA name is persisted as Dockerfile `ARG` or `ENV` metadata;
+- configuration remains a closed boolean and exposes no arbitrary environment passthrough;
+- evidence redacts host bundle paths and both raw and JSON-escaped certificate content;
+- proxy and host-access policy remain independent of corporate trust;
+- cache, digest, fetch, dependency, and npm identities do not import the client CA mapping;
+- runtime verification uses only local `docker exec ... printenv` and mount inspection, with no external TLS assumption;
+- phase dependencies remain forward-only and no late-phase decision changes an earlier contract.
+
+### Final validation
+
+- `python -m unittest tests.test_constructor_corporate_network_build_red tests.test_constructor_corporate_network_run_red tests.test_constructor_corporate_network_verification_red tests.test_constructor_corporate_network_acceptance_red tests.test_constructor_corporate_network_boundaries_red -v` — **Passed:** 86 tests in 0.233 seconds.
+- `python -m unittest discover -s tests -p 'test_*.py'` — **Passed:** 4505 tests in 84.137 seconds, 13 skipped.
+- `scripts/check-types` — **Passed:** `All checks passed!` with `ty` reporting `ok` under Python 3.14.7.
+- `scripts/check-dockerfile` — **Passed on the Docker-capable host:** exit 0 with no output.
+- `./docker/docker-constructor.py build -y` and `./docker/docker-constructor.py build --yes --no-pull` — **Passed on the Docker-capable host:** full 67-step build in 143.0 seconds and cached 67-step build in 3.5 seconds.
+- Docker-capable host tool versions:
+  - `docker --version` — Docker 29.7.2, build `a7dcaa6`.
+  - `docker buildx inspect --bootstrap` — default Docker driver running BuildKit v0.32.2.
+  - `docker run --rm hadolint/hadolint@sha256:27173fe25e062448490a32de410c08491c626a0bef360aa2ce5d5bdd9384b50d hadolint --version` — Haskell Dockerfile Linter 2.12.0.
+- `openspec validate apply-corporate-trust-client-environment --strict` — **Passed** with OpenSpec 1.13.0: change is valid.
+
+The only environment limitation is that this agent host lacks Docker; Docker lint, canonical build, and runtime evidence were therefore supplied from the Docker-capable host.
+
+### Docker-backed enabled runtime acceptance
+
+The Docker-capable host ran the following exact command against `pi-cli-pi:latest` with corporate trust enabled. It checks the five exact values and read-only mount locally without making a TLS or network request:
+
+```bash
+./docker/docker-constructor.py run \
+  --workspace "$PWD" \
+  --no-tty \
+  --no-interactive \
+  --image pi-cli-pi:latest \
+  -- sh -ceu '
+expected=/etc/ssl/certs/ca-certificates.crt
+for name in \
+  NODE_EXTRA_CA_CERTS \
+  SSL_CERT_FILE \
+  REQUESTS_CA_BUNDLE \
+  PIP_CERT \
+  CURL_CA_BUNDLE
+do
+  actual=$(printenv "$name")
+  test "$actual" = "$expected"
+  printf "%s=%s\n" "$name" "$actual"
+done
+
+options=$(findmnt -n -o VFS-OPTIONS --target "$expected")
+case ",$options," in
+  *,ro,*) printf "bundle_mount=%s options=%s\n" "$expected" "$options" ;;
+  *) printf "bundle mount is not read-only: %s\n" "$options" >&2; exit 1 ;;
+esac
+'
+```
+
+Captured result (exit 0), matching the command above:
+
+```text
+[SUCCESS] stdout: ==> fix ownership dev:dev /home/aavasiljev/work/home/docker-constructor.git
+==> fix permissions ug+rwX /home/aavasiljev/work/home/docker-constructor.git
+==> Installing Pi extensions from runtime projection
+==> Configuring rtk integration
+RTK Pi extension already up to date:
+  Extension: /home/dev/.pi/agent/extensions/rtk.ts
+
+Pi will load the extension automatically on next start.
+Verify: pi -e /home/dev/.pi/agent/extensions/rtk.ts --no-session
+Telemetry disabled.
+NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
+SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+PIP_CERT=/etc/ssl/certs/ca-certificates.crt
+CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+bundle_mount=/etc/ssl/certs/ca-certificates.crt options=ro,relatime
+```
+
 ## Phase 1 — Build-Time Client CA Environment
 
 ### RED baseline
