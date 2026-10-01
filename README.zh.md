@@ -123,6 +123,18 @@ no_proxy = "localhost,.corp.example"
 
 该证书 bundle 是系统 `/etc/ssl/certs/ca-certificates.crt` 的**完整替换**，而不是附加证书。因此它必须包含容器客户端所需的全部公共和企业根证书；构造器只检查 PEM framing 和 Base64，证书有效性及信任覆盖完整性仍由操作员负责。
 
+启用企业信任后，每个执行网络访问的构建命令以及策略范围内由构造器启动的每个运行时容器，都会收到以下固定的客户端 CA 变量映射：
+
+- `NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt`
+- `SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt`
+- `REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt`
+- `PIP_CERT=/etc/ssl/certs/ca-certificates.crt`
+- `CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt`
+
+这项封闭策略仅在企业信任启用时生效，用于兼容企业 TLS 拦截。变量不可配置，也不会从调用主机的环境中复制。企业信任不存在或已禁用时，构造器不会添加其中任何变量，因此会保留镜像继承的值。这些赋值仅限于单次操作或启动，绝不会写入持久化的镜像 `ENV` 元数据。因此，绕过构造器直接启动镜像不属于此运行时策略的保障范围。
+
+系统 bundle 会被配置的完整 bundle 替换；相比之下，`NODE_EXTRA_CA_CERTS` 只会扩充 Node 的内置根证书，而不会替换它们。所有由构造器启动的运行时容器均在策略范围内，包括每个独立 npm 组装器容器。运行时 CA 策略验证仍是必需的，并且独立于以下两个诊断启动例外。仅有的启动例外是 `docker/versioning/verification.py` 启动的内部构建验证容器，以及 `docker/networking.py` 启动的 gateway 探测容器：无论企业信任是否启用，这两条路径都不会获得企业 bundle 挂载或上述变量赋值，并会保留镜像继承的信任设置。
+
 代理 URL 必须包含明确的 host 和 port，并支持 `http`、`socks5` 或 `socks5h`。可选的 `no_proxy` 只有在显式配置时才生成 `NO_PROXY`/`no_proxy`。不允许代理凭据或 URI userinfo；请使用无凭据代理端点。构建期间的 SOCKS 支持是尽力而为，若构建客户端不支持 `socks5` 或 `socks5h`，可能正常失败。
 
 启用或更改证书 bundle 后，必须重新构建镜像才能更新构建阶段信任。重启或重新启动新容器会只读挂载当前 bundle，无需重新构建即可获得证书更新；这不是已运行容器或进程的实时重新加载。

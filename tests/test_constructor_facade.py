@@ -3095,6 +3095,68 @@ class TestVerifyEvidenceWiring(unittest.TestCase):
             "must auto-run docker inspect for image metadata",
         )
 
+    def test_build_evidence_rejects_non_ascii_bundle_before_docker(self) -> None:
+        """Enabled trust is validated and decoded before build verification."""
+        local_path = self._inv_path.with_name("docker-constructor.local.toml")
+        local_path.write_text("[corporate-trust]\nenabled = true\n")
+        bundle_path = self._inv_path.parent / ".docker-local" / "corporate-ca-bundle.crt"
+        bundle_path.parent.mkdir()
+        bundle_path.write_bytes(b"-----BEGIN CERTIFICATE-----\n\xff\n")
+        runner, calls = self._make_recording_runner()
+
+        rc, out, err = _run(
+            self.m,
+            ["--project-directory", str(self._inv_path.parent),
+             "verify", "--scope", "build", "--collect-evidence",
+             "--image", "ev-img:invalid"],
+            _process_runner=runner,
+            _prompt_user=lambda _: True,
+        )
+
+        self.assertNotEqual(0, rc)
+        self.assertEqual([], calls)
+        self.assertIn(str(bundle_path), out + err)
+        self.assertIn("non-ASCII", out + err)
+
+    def test_collect_evidence_redacts_enabled_corporate_bundle(self) -> None:
+        """The real verify flow supplies bundle path/content redaction."""
+        local_path = self._inv_path.with_name("docker-constructor.local.toml")
+        local_path.write_text("[corporate-trust]\nenabled = true\n")
+        bundle_path = self._inv_path.parent / ".docker-local" / "corporate-ca-bundle.crt"
+        bundle_path.parent.mkdir()
+        certificate = (
+            "-----BEGIN CERTIFICATE-----\n"
+            "U0VDUkVULUNPTlRFTlQ=\n"
+            "-----END CERTIFICATE-----\n"
+        )
+        bundle_path.write_text(certificate)
+        inspect_payload = json.dumps([{
+            "Id": "sha256:evidence",
+            "Mounts": [{"Source": str(bundle_path)}],
+            "Comment": certificate.rstrip("\n"),
+        }])
+        runner, _ = self._make_recording_runner(stdout=inspect_payload)
+        evidence_dir = self._inv_path.parent / "evidence-output"
+
+        _run(
+            self.m,
+            ["--project-directory", str(self._inv_path.parent),
+             "verify", "--scope", "build", "--collect-evidence",
+             "--output-dir", str(evidence_dir), "--image", "ev-img:redact"],
+            _process_runner=runner,
+            _prompt_user=lambda _: True,
+        )
+
+        escaped_certificate = json.dumps(certificate.rstrip("\n"))[1:-1]
+        evidence_files = list(evidence_dir.iterdir())
+        self.assertTrue(evidence_files)
+        for path in evidence_files:
+            if path.is_file():
+                raw = path.read_text(encoding="utf-8")
+                self.assertNotIn(str(bundle_path), raw, path.name)
+                self.assertNotIn(certificate.rstrip("\n"), raw, path.name)
+                self.assertNotIn(escaped_certificate, raw, path.name)
+
     def test_collect_evidence_output_dir_reported(self) -> None:
         """When ``--collect-evidence`` runs, the results include the
         bundle output directory and index path."""

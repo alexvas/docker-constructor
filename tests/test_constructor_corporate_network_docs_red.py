@@ -204,5 +204,114 @@ class TestCorporateNetworkReadmeParity(unittest.TestCase):
             self.fail("\n".join(failures))
 
 
+# Additional Phase 4 client-CA documentation contracts.  These supplement the
+# original README-parity guards above; they intentionally do not replace them.
+_CLIENT_CA_NAMES = (
+    "NODE_EXTRA_CA_CERTS",
+    "SSL_CERT_FILE",
+    "REQUESTS_CA_BUNDLE",
+    "PIP_CERT",
+    "CURL_CA_BUNDLE",
+)
+_CLIENT_CA_PATH = "/etc/ssl/certs/ca-certificates.crt"
+
+
+class TestCorporateNetworkClientCaDocumentation(unittest.TestCase):
+    def _texts(self) -> list[tuple[str, str]]:
+        return [(path.name, path.read_text(encoding="utf-8")) for path in _README_PATHS]
+
+    @staticmethod
+    def _policy(text: str) -> str:
+        start = text.lower().index("node_extra_ca_certs")
+        return text.lower()[start:start + 5000]
+
+    def test_exact_five_variable_mapping_and_enabled_scope_are_documented(self) -> None:
+        terms = {
+            "README.en.md": ("build", "runtime", "enabled"),
+            "README.md": ("сборки", "runtime", "включено"),
+            "README.zh.md": ("构建", "运行时", "启用"),
+        }
+        for filename, text in self._texts():
+            with self.subTest(filename=filename):
+                for name in _CLIENT_CA_NAMES:
+                    self.assertIn(f"`{name}={_CLIENT_CA_PATH}`", text)
+                policy = self._policy(text)
+                for term in terms[filename]:
+                    self.assertIn(term, policy)
+
+    def test_disabled_mode_preserves_inherited_values(self) -> None:
+        terms = {
+            "README.en.md": ("disabled", "inherited", "preserv"),
+            "README.md": ("отключено", "унаследованные", "сохраня"),
+            "README.zh.md": ("禁用", "继承", "保留"),
+        }
+        for filename, text in self._texts():
+            with self.subTest(filename=filename):
+                policy = self._policy(text)
+                for term in terms[filename]:
+                    self.assertIn(term, policy)
+
+    def test_non_persistence_and_direct_launch_boundary_are_documented(self) -> None:
+        terms = {
+            "README.en.md": ("image `env`", "direct", "outside"),
+            "README.md": ("образа `env`", "прямой запуск", "вне"),
+            "README.zh.md": ("镜像 `env`", "直接启动", "不属于"),
+        }
+        for filename, text in self._texts():
+            with self.subTest(filename=filename):
+                policy = self._policy(text)
+                for term in terms[filename]:
+                    self.assertIn(term, policy)
+
+    def test_launch_exceptions_do_not_exclude_required_runtime_verification(self) -> None:
+        terms = {
+            "README.en.md": (
+                "standalone npm assembler container",
+                "runtime ca-policy verification remains required",
+                "separate from the two diagnostic launch exceptions",
+                "inherited",
+            ),
+            "README.md": (
+                "контейнер автономного npm-сборщика",
+                "runtime-проверка политики ca остаётся обязательной",
+                "не относится к двум диагностическим исключениям запуска",
+                "унаследованные",
+            ),
+            "README.zh.md": (
+                "独立 npm 组装器容器",
+                "运行时 ca 策略验证仍是必需的",
+                "独立于以下两个诊断启动例外",
+                "继承",
+            ),
+        }
+        for filename, text in self._texts():
+            with self.subTest(filename=filename):
+                policy = self._policy(text)
+                self.assertIn("docker/versioning/verification.py", policy)
+                self.assertIn("docker/networking.py", policy)
+                for term in terms[filename]:
+                    self.assertIn(term, policy)
+
+    def test_enterprise_goal_and_node_augmentation_are_documented(self) -> None:
+        terms = {
+            "README.en.md": (
+                "enterprise tls interception", "augments", "built-in",
+                "does not replace", "system bundle",
+            ),
+            "README.md": (
+                "корпоративным перехватом tls", "дополняет", "встроенные",
+                "не заменяет", "системный bundle",
+            ),
+            "README.zh.md": (
+                "企业 tls 拦截", "扩充", "内置", "不会替换", "系统 bundle",
+            ),
+        }
+        for filename, text in self._texts():
+            with self.subTest(filename=filename):
+                policy = self._policy(text)
+                for term in terms[filename]:
+                    self.assertIn(term, policy)
+
+
 if __name__ == "__main__":
     unittest.main()

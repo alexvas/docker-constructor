@@ -34,6 +34,32 @@ Every networked `RUN` sources `/tmp/corp-network-env.sh` before its first detect
   - **Passed:** 14 tests.
   - Covers the broader Dockerfile and build-context contracts.
 
+## Phase 4 — Boundaries and Documentation
+
+### RED baseline
+
+- `python -m unittest tests.test_constructor_corporate_network_docs_red -v`
+  - **Failed as expected:** all README translations lacked the exact five-variable mapping and the required enabled/disabled, metadata, direct-launch, diagnostic-exception, and Node-augmentation statements.
+- `python -m unittest tests.test_constructor_corporate_network_boundaries_red -v`
+  - **Passed:** 7 tests. The implementation has a closed five-name/fixed-value mapping, rejects arbitrary local configuration fields, and omits client CA policy from reviewed configuration and projection/identity owners. Exercised disclosure tests feed unique host-path and PEM-content sentinels through redacted run summaries, runtime verification, evidence capture, and image inspection, then prove the resulting details, evidence files, notes, index, and inspected metadata exclude them.
+
+### Introspection
+
+A non-archived source, test, example, and documentation search found no current claim that only `SSL_CERT_FILE` and `NODE_EXTRA_CA_CERTS` comprise the enabled client policy. The main corporate-network specification's longer disabled-mode list is intentionally broader and does not describe the enabled mapping. Historical archived artifacts were not modified.
+
+All five values originate only in `CLIENT_CA_ENVIRONMENT` and flow to the build helper, direct run rendering, standalone npm rendering, and runtime policy verification. Regression assertions cover the closed local/reviewed schema, generated projections, evidence owners and payloads, fetch/digest/cache/dependency identity owners, and Dockerfile `ARG`/`ENV` metadata. Host source paths and certificate contents are excluded; only the fixed in-container destination is observable in policy diagnostics.
+
+### Final focused validation
+
+- `python -m unittest tests.test_constructor_corporate_network_docs_red tests.test_constructor_corporate_network_boundaries_red tests.test_constructor_corporate_network_build_red tests.test_constructor_corporate_network_verification_red -v`
+  - **Passed:** 58 tests covering documentation, closed schema, disclosure, build policy, runtime policy diagnostics, and image-metadata exclusion.
+- `python -m unittest tests.test_constructor_build_projection tests.test_constructor_build_digest_identity tests.test_npm_environment_identity -v`
+  - **Passed:** 86 projection and identity tests.
+- `python -m unittest tests.test_constructor_evidence_collector -v`
+  - **Passed:** 49 evidence payload, redaction, inspection, and output tests.
+- `npx pi-green-loop check --since HEAD`
+  - **Passed:** project typecheck and test checks (the configured test check completed in 84.076 seconds).
+
 ## Phase 2 — Runtime Launch Propagation
 
 ### RED baseline

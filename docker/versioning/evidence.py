@@ -142,6 +142,7 @@ def normalize_static_record(
     output_dir: Path,
     index: int,
     max_output_bytes: int = MAX_OUTPUT_BYTES,
+    secrets: Sequence[str] = (),
 ) -> EvidenceCommand:
     """Apply the evidence collector's redaction, truncation,
     and checksumming contract to pre-captured verification output.
@@ -157,8 +158,8 @@ def normalize_static_record(
     :func:`write_static_evidence`.
     """
     # Redact both streams (same rule as collect_evidence).
-    stdout_clean = _redact_content(stdout_raw) if stdout_raw else ""
-    stderr_clean = _redact_content(stderr_raw) if stderr_raw else ""
+    stdout_clean = _redact_content(stdout_raw, secrets) if stdout_raw else ""
+    stderr_clean = _redact_content(stderr_raw, secrets) if stderr_raw else ""
 
     # Truncate.
     stdout_trunc, stdout_truncated, stdout_orig = _truncate(
@@ -182,7 +183,7 @@ def normalize_static_record(
     stderr_sha256 = hashlib.sha256(stderr_trunc.encode()).hexdigest()
 
     return EvidenceCommand(
-        argv=_redact_argv(argv),
+        argv=_redact_argv(argv, secrets),
         return_code=return_code,
         timestamp_epoch=timestamp_epoch,
         duration_seconds=duration_seconds,
@@ -317,7 +318,27 @@ _SECRET_PATTERNS: tuple[tuple[bytes, bytes], ...] = (
 )
 
 
-def _redact_argv(argv: tuple[str, ...]) -> tuple[str, ...]:
+def _secret_redaction_variants(secrets: Sequence[str]) -> tuple[str, ...]:
+    """Return raw and JSON-string-escaped forms of caller secrets.
+
+    Docker inspection output is JSON text, so embedded PEM line breaks appear
+    as literal ``\\n`` sequences rather than newline characters.  Redacting
+    both forms prevents serialized inspection payloads from bypassing exact
+    secret replacement.
+    """
+    variants: set[str] = set()
+    for secret in secrets:
+        if not secret:
+            continue
+        variants.add(secret)
+        variants.add(_json.dumps(secret, ensure_ascii=True)[1:-1])
+        variants.add(_json.dumps(secret, ensure_ascii=False)[1:-1])
+    return tuple(sorted(variants, key=len, reverse=True))
+
+
+def _redact_argv(
+    argv: tuple[str, ...], secrets: Sequence[str] = (),
+) -> tuple[str, ...]:
     """Replace secret-bearing argv entries with redacted versions.
 
     Handles two forms:
@@ -344,14 +365,19 @@ def _redact_argv(argv: tuple[str, ...]) -> tuple[str, ...]:
                     continue
         result.append(arg)
         i += 1
-    return tuple(result)
+    redacted = tuple(result)
+    for secret in _secret_redaction_variants(secrets):
+        redacted = tuple(token.replace(secret, "REDACTED") for token in redacted)
+    return redacted
 
 
-def _redact_content(data: str) -> str:
-    """Scrub secrets (Bearer tokens etc.) from captured output."""
+def _redact_content(data: str, secrets: Sequence[str] = ()) -> str:
+    """Scrub bearer tokens and caller-supplied sensitive values."""
     import re
     d = data
     d = re.sub(r"Bearer\s+\S+", "Bearer REDACTED", d)
+    for secret in _secret_redaction_variants(secrets):
+        d = d.replace(secret, "REDACTED")
     return d
 
 
@@ -385,6 +411,7 @@ def collect_evidence(
     commands: Sequence[Sequence[str]] = (),
     max_output_bytes: int = 1_048_576,
     dry_run: bool = False,
+    secrets: Sequence[str] = (),
 ) -> EvidenceBundle:
     """Run verification commands against *image* and collect results.
 
@@ -397,7 +424,9 @@ def collect_evidence(
     alongside the built-in inspection and verification commands.  Each
     entry is executed via *runner* and its argv is recorded (with
     secret redaction applied to the recorded copy; *runner.calls*
-    retains the original argv).
+    retains the original argv).  Every non-empty caller-supplied value in
+    *secrets* is also removed from recorded argv, captured output, image
+    inspection payloads, notes derived from those payloads, and the index.
 
     The collected bundle can be transported to a daemon-free
     environment for inspection.
@@ -420,7 +449,7 @@ def collect_evidence(
         t_start = clock.now()
         if dry_run:
             evidence_commands.append(EvidenceCommand(
-                argv=_redact_argv(cmd),
+                argv=_redact_argv(cmd, secrets),
                 return_code=None,
                 timestamp_epoch=t_start,
                 duration_seconds=0.0,
@@ -463,6 +492,7 @@ def collect_evidence(
             output_dir=output_dir,
             index=idx,
             max_output_bytes=max_output_bytes,
+            secrets=secrets,
         )
         evidence_commands.append(rec)
 

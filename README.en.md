@@ -123,6 +123,19 @@ no_proxy = "localhost,.corp.example"
 
 The certificate file is a **complete replacement** for the system `/etc/ssl/certs/ca-certificates.crt`, not an extra certificate. It must therefore contain every public and corporate root required by container clients; the constructor checks PEM framing and Base64 only, while certificate validity and trust coverage remain the operator's responsibility.
 
+
+When corporate trust is enabled, every networked build command and every in-scope constructor-launched runtime container receives this fixed client CA mapping:
+
+- `NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt`
+- `SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt`
+- `REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt`
+- `PIP_CERT=/etc/ssl/certs/ca-certificates.crt`
+- `CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt`
+
+This closed enabled-only policy supports enterprise TLS interception. The variables are not configurable and are not copied from the invoking host. When corporate trust is absent or disabled, the constructor emits none of them, so inherited image values are preserved. The assignments are operation- or launch-scoped and never become persistent image `ENV` metadata. Consequently, a direct image launch that bypasses the constructor is outside this runtime policy.
+
+The system bundle is replaced by the configured complete bundle, whereas `NODE_EXTRA_CA_CERTS` augments Node's built-in trust roots and does not replace them. All constructor-launched runtime containers are in scope, including every standalone npm assembler container. Runtime CA-policy verification remains required and is separate from the two diagnostic launch exceptions. The only launch exceptions are internal build-verification containers from `docker/versioning/verification.py` and gateway-probe containers from `docker/networking.py`; those paths receive neither the corporate bundle mount nor these assignments, and preserve inherited image trust settings regardless of whether corporate trust is enabled.
+
 The proxy URL requires an explicit host and port and supports `http`, `socks5`, or `socks5h`. `no_proxy` is optional and creates `NO_PROXY`/`no_proxy` only when explicitly configured. Proxy credentials or URI userinfo are not allowed; use a credential-free proxy endpoint. SOCKS support during a build is best-effort and a build client that does not support `socks5` or `socks5h` may fail normally.
 
 After enabling or changing the certificate bundle, rebuild the image for build-stage trust. A restart or new launch mounts the current bundle read-only and receives certificate updates without a rebuild; this is not live reload for an already-running container or process.

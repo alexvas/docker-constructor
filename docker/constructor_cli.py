@@ -1230,7 +1230,11 @@ def _real_dispatcher(
         from pathlib import Path as _Path
         _project_root = request.constructor_project.root
         from docker.versioning.project_state import resolve_project_state
-        from docker.versioning.inventory import load_project_configuration
+        from docker.versioning.inventory import (
+            load_project_configuration,
+            resolve_corporate_trust_bundle_path,
+            validate_corporate_trust_bundle,
+        )
         from docker.versioning.cache_storage import prepare_resolved_root, resolve_effective_root
         # One shared reviewed/local transaction for the whole verify command;
         # host-access, corporate-network, and cache consumers below receive
@@ -1242,6 +1246,24 @@ def _real_dispatcher(
                 exit_kind=ExitKind.CONFIG,
                 message=f"cannot load inventory {inv_path}: {exc}",
             )
+        _corporate_bundle_path: _Path | None = None
+        _corporate_bundle_content: str | None = None
+        if _local_config.corporate_trust.enabled:
+            _corporate_bundle_path = resolve_corporate_trust_bundle_path(
+                _project_root
+            )
+            try:
+                validate_corporate_trust_bundle(_corporate_bundle_path)
+                _corporate_bundle_content = _corporate_bundle_path.read_text(
+                    encoding="ascii"
+                )
+            except Exception as exc:
+                return CommandResult(
+                    exit_kind=ExitKind.CONFIG,
+                    message=f"cannot read corporate trust bundle "
+                    f"{_corporate_bundle_path}: {exc}",
+                )
+
         try:
             _cache_root = resolve_effective_root(
                 getattr(getattr(_local_config, "cache", None), "dir", None),
@@ -1475,6 +1497,16 @@ def _real_dispatcher(
             from datetime import datetime, timezone
 
             _image_name = image
+            _evidence_secrets: tuple[str, ...] = ()
+            if (
+                _corporate_bundle_path is not None
+                and _corporate_bundle_content is not None
+            ):
+                _evidence_secrets = (
+                    str(_corporate_bundle_path),
+                    _corporate_bundle_content,
+                    _corporate_bundle_content.rstrip("\r\n"),
+                )
 
             # Output directory — create a timestamped directory.
             _ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
@@ -1509,6 +1541,7 @@ def _real_dispatcher(
                 image=_image_name,
                 commands=(),
                 dry_run=bool(c_args.get("dry_run", False)),
+                secrets=_evidence_secrets,
             )
 
             # ── evidence records from captured results ──────────
@@ -1530,6 +1563,7 @@ def _real_dispatcher(
                             timestamp_epoch=_now,
                             output_dir=evidence_dir,
                             index=_idx,
+                            secrets=_evidence_secrets,
                         ))
                         _idx += 1
 
@@ -1548,6 +1582,7 @@ def _real_dispatcher(
                             timestamp_epoch=_now,
                             output_dir=evidence_dir,
                             index=_idx,
+                            secrets=_evidence_secrets,
                         ))
                         _idx += 1
 
