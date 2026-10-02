@@ -80,24 +80,24 @@ Phase 1 ─────▶ Phase 8
 
 ### RED
 
-- [ ] 3.1 Add generation-name tests for exact 20-digit nonzero suffixes, numeric/lexical ordering, overflow, malformed generation names, and exclusion of legacy `committed-build.json` from discovery; verify malformed generation names grant no authority and the legacy name is not inspected.
-- [ ] 3.2 Add build-owned manifest tests for explicit schema version, unknown versions/fields, canonical unique digest identities, deterministic codec bytes, duplicates, unsafe values, and unsafe entries; verify no shared envelope performs validation.
-- [ ] 3.3 Add state-classification tests for zero generations, one stable generation, two pending-cleanup generations, more than two generations, and corrupt generations; verify ambiguous state causes no mutation. Add restart tests where a complete generation is visible after publication but the original parent-directory fsync failed; verify discovery does not accept authority or permit cleanup until a fresh generation-directory fsync succeeds.
-- [ ] 3.4 Add publication fault tests for allocation, write, file fsync, no-clobber commit, and directory fsync; verify authority changes only after the durable contract completes and a visible post-publication/pre-fsync failure is completed only by successful discovery-time directory synchronization.
+- [x] 3.1 Add generation-name tests for exact 20-digit nonzero suffixes, numeric/lexical ordering, overflow, malformed generation names, and exclusion of legacy `committed-build.json` from discovery; verify malformed generation names grant no authority and the legacy name is not inspected.
+- [x] 3.2 Add build-owned manifest tests for explicit schema version, unknown versions/fields, canonical unique digest identities, deterministic codec bytes, duplicates, unsafe values, and unsafe entries; verify no shared envelope performs validation.
+- [x] 3.3 Add state-classification tests for zero generations, one stable generation, two pending-cleanup generations, more than two generations, and corrupt generations; verify ambiguous state causes no mutation. Add restart tests where a complete generation is visible after publication but the original parent-directory fsync failed; verify discovery does not accept authority or permit cleanup until a fresh generation-directory fsync succeeds.
+- [x] 3.4 Add publication fault tests for allocation, write, file fsync, no-clobber commit, and directory fsync; verify authority changes only after the durable contract completes and a visible post-publication/pre-fsync failure is completed only by successful discovery-time directory synchronization.
 
 ### GREEN
 
-- [ ] 3.5 Implement build-domain generation parsing and closed manifest validation over the canonical JSON codec; verify tasks 3.1–3.2 pass.
-- [ ] 3.6 Implement zero/one/two-generation classification, fail-closed corrupt/excess-generation handling, exclusion of legacy `committed-build.json` from discovery, and mandatory generation-directory fsync before discovered authority is accepted; verify task 3.3 passes.
-- [ ] 3.7 Implement `max + 1` allocation under the checkout lock and durable no-clobber generation publication; verify task 3.4 passes.
+- [x] 3.5 Implement build-domain generation parsing and closed manifest validation over the canonical JSON codec; verify tasks 3.1–3.2 pass.
+- [x] 3.6 Implement zero/one/two-generation classification, fail-closed corrupt/excess-generation handling, exclusion of legacy `committed-build.json` from discovery, and mandatory generation-directory fsync before discovered authority is accepted; verify task 3.3 passes.
+- [x] 3.7 Implement `max + 1` allocation under the checkout lock and durable no-clobber generation publication; verify task 3.4 passes.
 
 ### INTROSPECT
 
-- [ ] 3.8 Review generation handling for counter ambiguity, overflow, replacement, authority before initial or discovery-time directory fsync, visible publication after failed fsync, permissive JSON, generic-envelope leakage, malformed-state mutation, and lock-capability mismatch; resolve every finding and record the review.
+- [x] 3.8 Review generation handling for counter ambiguity, overflow, replacement, authority before initial or discovery-time directory fsync, visible publication after failed fsync, permissive JSON, generic-envelope leakage, malformed-state mutation, and lock-capability mismatch; resolve every finding and record the review.
 
 ### VALIDATE
 
-- [ ] 3.9 Run the complete generation schema/state/publication and restart suite with all injected durability failures; record that no discovered generation grants authority until the generation directory has been successfully synchronized and each result is zero-generation initial state, one stable generation, two recoverable generations, or fail-closed ambiguity.
+- [x] 3.9 Run the complete generation schema/state/publication and restart suite with all injected durability failures; record that no discovered generation grants authority until the generation directory has been successfully synchronized and each result is zero-generation initial state, one stable generation, two recoverable generations, or fail-closed ambiguity.
 
 ## Phase 4. Sequential Cleanup and Recovery
 

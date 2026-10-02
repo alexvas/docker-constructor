@@ -63,15 +63,33 @@ def _parse_finite_float(token: str) -> float:
     return value
 
 
+def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Build an object from *pairs*, rejecting any repeated key.
+
+    Python's default parser silently keeps the last value for a repeated JSON
+    object key.  Ambiguous records must fail closed instead of depending on
+    first-wins or last-wins ordering, so repeating a key raises ``ValueError``.
+    """
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate object key cannot be decoded: {key!r}")
+        result[key] = value
+    return result
+
+
 def decode(data: bytes | bytearray | memoryview) -> Any:
     """Decode *data* into ordinary Python values without field interpretation.
 
     Non-standard ``NaN``, ``Infinity``, and ``-Infinity`` tokens are rejected
-    even though Python's default parser would accept them, and float tokens
-    that overflow to infinity (for example ``1e400``) are rejected as well.
+    even though Python's default parser would accept them, float tokens that
+    overflow to infinity (for example ``1e400``) are rejected as well, and a
+    repeated key in any JSON object is rejected rather than resolved by
+    first-wins or last-wins behavior.
     """
     return json.loads(
         bytes(data).decode("utf-8"),
         parse_constant=_reject_constant,
         parse_float=_parse_finite_float,
+        object_pairs_hook=_reject_duplicate_keys,
     )

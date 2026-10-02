@@ -57,6 +57,36 @@ class GenericDecodingTests(unittest.TestCase):
         self.assertEqual(decode(b'{"a":[1e300,-1e300]}'), {"a": [1e300, -1e300]})
 
 
+class DuplicateKeyTests(unittest.TestCase):
+    def test_rejects_duplicate_keys_with_identical_values(self) -> None:
+        with self.assertRaises(ValueError):
+            decode(b'{"a":1,"a":1}')
+
+    def test_rejects_duplicate_keys_with_conflicting_values(self) -> None:
+        for payload in (b'{"a":1,"a":2}', b'{"a":2,"a":1}'):
+            with self.subTest(payload=payload):
+                with self.assertRaises(ValueError):
+                    decode(payload)
+
+    def test_rejects_nested_duplicate_keys(self) -> None:
+        for payload in (
+            b'{"a":{"b":1,"b":2}}',
+            b'[{"a":1,"a":2}]',
+            b'{"a":[{"b":1,"c":{"d":1,"d":1}}]}',
+        ):
+            with self.subTest(payload=payload):
+                with self.assertRaises(ValueError):
+                    decode(payload)
+
+    def test_ordinary_json_still_decodes(self) -> None:
+        value = {"a": 1, "b": {"c": [2, 3]}, "d": None}
+        self.assertEqual(decode(encode(value)), value)
+        self.assertEqual(
+            decode(b'{"a":1,"b":{"c":[2,3]}}'),
+            {"a": 1, "b": {"c": [2, 3]}},
+        )
+
+
 class RejectionTests(unittest.TestCase):
     def test_rejects_non_finite_floats(self) -> None:
         for value in (float("inf"), float("-inf"), float("nan")):
