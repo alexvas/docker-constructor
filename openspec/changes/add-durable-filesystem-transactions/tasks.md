@@ -54,24 +54,24 @@ Phase 1 ─────▶ Phase 8
 
 ### RED
 
-- [ ] 2.1 Add lock-entry tests for symlink, non-regular, foreign-owned, multiply linked, safe wrong-mode, and bootstrap-race entries; verify unsafe entries and unrelated ancestors remain untouched.
+- [ ] 2.1 Add lock-entry tests for symlink, non-regular, foreign-owned, multiply linked, repairable owner-readable or owner-writable wrong modes, owner-inaccessible modes, and bootstrap-race entries; verify repair occurs only after exclusive acquisition while inaccessible and unsafe entries and unrelated ancestors remain untouched.
 - [ ] 2.2 Add process-level tests for same-namespace exclusion, different-namespace concurrency, explicit `BLOCK` waiting, and explicit `FAIL_FAST` rejection; verify no implicit contention policy is accepted.
 - [ ] 2.3 Add capability tests proving released, cross-namespace, wrong-root, and non-live lock capabilities fail before protected mutation.
 - [ ] 2.4 Add lifecycle tests for success, ordinary exception, interruption/cancellation, validation failure, contention failure, unlock failure, and close failure; verify primary exceptions remain authoritative.
 
 ### GREEN
 
-- [ ] 2.5 Implement secure lock preparation and descriptor validation, repairing a safe owner-owned single-link regular file to `0600` only after exclusive acquisition; verify task 2.1 passes.
+- [ ] 2.5 Implement secure lock preparation and descriptor validation, repairing an owner-readable or owner-writable safe single-link regular file to `0600` only after exclusive acquisition and failing closed without mutation when the owner has neither access; verify task 2.1 passes.
 - [ ] 2.6 Implement mandatory `BLOCK` and `FAIL_FAST` acquisition with namespace-bound live capabilities; verify tasks 2.2–2.3 pass.
 - [ ] 2.7 Implement unconditional release with primary-error-preserving unlock/close handling; verify task 2.4 passes.
 
 ### INTROSPECT
 
-- [ ] 2.8 Review locking for pathname/descriptor TOCTOU, lock replacement, descriptor inheritance, capability reuse, lock-order inversion, ancestor mutation, implicit policy, interruption conversion, and cleanup masking; resolve every finding and record the review outside specification files.
+- [ ] 2.8 Review locking for pathname/descriptor TOCTOU, lock replacement, descriptor inheritance, capability reuse, lock-order inversion, ancestor mutation, pre-lock permission repair, restrictive-mode handling, implicit policy, interruption conversion, and cleanup masking; resolve every finding and record the review outside specification files.
 
 ### VALIDATE
 
-- [ ] 2.9 Run deterministic multiprocessing and lock-security suites; record same-namespace exclusion, different-namespace concurrency, exact contention behavior, safe mode repair, unsafe-entry preservation, and release on every outcome.
+- [ ] 2.9 Run deterministic multiprocessing and lock-security suites; record same-namespace exclusion, different-namespace concurrency, exact contention behavior, post-acquisition repair of owner-accessible safe modes, fail-closed preservation of owner-inaccessible and unsafe entries, and release on every outcome.
 
 ## Phase 3. Immutable Build Generations
 

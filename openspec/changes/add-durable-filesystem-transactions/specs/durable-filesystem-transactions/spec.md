@@ -5,11 +5,17 @@ Define reusable security and recovery guarantees for Constructor processes that 
 ## ADDED Requirements
 
 ### Requirement: Coordinate owner-private state through validated file locks
-A side-effecting Constructor operation that adopts the shared transaction substrate SHALL acquire an advisory lock at its domain-selected scope before entering its critical section. Lock preparation and acquisition SHALL reject symlinks, non-regular files, foreign-owned files, and multiply linked files without mutating their targets. Each consumer SHALL explicitly select blocking or nonblocking contention behavior, and only a live lock capability for the same namespace SHALL authorize protected mutation.
+A side-effecting Constructor operation that adopts the shared transaction substrate SHALL acquire an advisory lock at its domain-selected scope before entering its critical section. Lock preparation and acquisition SHALL reject symlinks, non-regular files, foreign-owned files, and multiply linked files without mutating their targets. A safe owner-owned single-link regular lock that grants its owner read or write access SHALL be exclusively acquired before its mode is repaired to exactly `0600`. If such a lock grants its owner neither read nor write access, acquisition SHALL fail closed without changing its mode because an unprivileged process cannot lock it before repair. Each consumer SHALL explicitly select blocking or nonblocking contention behavior, and only a live lock capability for the same namespace SHALL authorize protected mutation.
 
 #### Scenario: Rejecting an unsafe lock entry
 - **WHEN** a lock path resolves to a symlink, non-regular entry, foreign-owned file, or multiply linked file
 - **THEN** acquisition SHALL fail without chmodding, replacing, or otherwise mutating that entry or its target
+
+#### Scenario: Handling a safe lock with the wrong mode
+- **WHEN** a safe owner-owned single-link regular lock grants its owner read or write access but its mode is not `0600`
+- **THEN** acquisition SHALL obtain the exclusive lock before repairing its mode to exactly `0600`
+- **WHEN** the safe lock grants its owner neither read nor write access
+- **THEN** acquisition SHALL fail without changing its mode
 
 #### Scenario: Preserving consumer contention policy
 - **WHEN** two operations contend for the same lock namespace

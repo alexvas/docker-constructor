@@ -42,7 +42,7 @@ L1  descriptor capabilities
                          │
 L0  injected POSIX operations
     openat/read/write/fstat/fsync/linkat/renameat/unlinkat/
-    chmod/close
+    chmod/flock/close
 ```
 
 L0 is an internal fault-injection backend, not a project-wide virtual filesystem or domain-facing god object. It preserves real descriptor-relative operations and errno behavior. L1 carries already validated live descriptor authority so callers do not re-resolve paths between validation and mutation. L2 provides complete, separately named regular-file contracts; it does not expose one configurable `atomic_write`, a `durable=False` switch, arbitrary paths, tree publication, or domain identity. L3 owns sequencing whenever the commit unit or authority is wider than one regular file.
@@ -65,7 +65,7 @@ Alternative considered: make the existing path-oriented `Filesystem` the L0 impl
 
 Acquisition returns a non-forgeable-in-normal-use capability carrying the normalized namespace and live descriptor state. Protected operations require that capability and reject released or mismatched instances. Consumers must choose `BLOCK` or `FAIL_FAST`; contention behavior has no default.
 
-The common implementation validates no-follow type, effective owner, single link, and mode under the acquired descriptor. A safe owner-owned single-link regular lock with the wrong mode is repaired to exactly `0600` only after exclusive acquisition. Unsafe entries are rejected without repair. Existing path-bootstrap rules remain domain adapters.
+The common implementation validates no-follow type, effective owner, single link, and mode under the acquired descriptor. A safe owner-owned single-link regular lock that grants its owner read or write access is opened with the strongest access the owner currently has (falling back from `O_RDWR` to `O_RDONLY` or `O_WRONLY`), exclusively acquired, and only then repaired to exactly `0600`. POSIX provides no way to lock a file the owner can neither read nor write, so such a lock cannot be exclusively acquired before repair by an unprivileged process; the shared layer fails closed and leaves it unmodified rather than chmodding it before holding the lock. Unsafe entries are rejected without repair. Existing path-bootstrap rules remain domain adapters.
 
 Alternative considered: expose only a context manager yielding no capability. Rejected because nested domain helpers could then mutate protected state without evidence that the correct lock remains live.
 
