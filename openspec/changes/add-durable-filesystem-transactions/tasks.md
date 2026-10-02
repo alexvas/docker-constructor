@@ -19,33 +19,33 @@ Phase 1 ─────▶ Phase 8
 
 ### RED
 
-- [ ] 1.1 Add L0 tests injecting partial writes and failures from openat/read/write/fstat/fsync/linkat/renameat/unlinkat/chmod/close; verify the focused suite fails because production `PosixFileOps` does not exist.
-- [ ] 1.2 Add L1 tests proving directory and regular-file capabilities retain live descriptors, accept only canonical basenames, reject released and cross-directory capabilities, and never reconstruct paths; verify the focused suite fails before capability implementation.
-- [ ] 1.3 Add validated-read tests for symlink, non-regular, foreign-owned, multiply linked, and forbidden-mode leaves through one retained no-follow descriptor; verify every unsafe case fails without target mutation.
-- [ ] 1.4 Add atomic-no-clobber tests for complete bytes, final mode before visibility, typed final `DESTINATION_EXISTS`, destination preservation, temporary cleanup, and absence of a parent-directory durability claim; verify the tests fail before the contract exists.
-- [ ] 1.5 Add temporary-allocation tests proving each `EEXIST` chooses a fresh name, collided entries remain unread and untouched, three total failed attempts produce allocation-stage failure, and no temporary collision becomes `DESTINATION_EXISTS`.
-- [ ] 1.6 Add durable-no-clobber fault tests proving file fsync precedes publication, parent fsync precedes success, final collision is a typed outcome, and post-publication parent-fsync failure remains failure despite a visible destination.
-- [ ] 1.7 Add durable-replacement fault tests proving complete writes, file fsync, safe-destination validation, replacement, parent fsync, and temporary cleanup occur in order; verify post-replacement parent-fsync failure remains failure despite a visible replacement.
-- [ ] 1.8 Add durable-unlink tests for present and declared-absent entries plus open/unlink/fsync/close failures; verify only the declared absent case is idempotent.
-- [ ] 1.9 Add exception-lifecycle tests proving raw `OSError` subclass/errno/chaining remain observable, `KeyboardInterrupt` and cancellation pass through unchanged, and cleanup/close failures never replace an existing primary failure.
-- [ ] 1.10 Add canonical JSON codec tests for deterministic UTF-8 bytes, stable mapping order, generic decoding, and rejection of non-finite or unsupported values; verify no generic envelope, schema/version interpretation, or path/deletion authority exists.
+- [x] 1.1 Add L0 tests injecting partial writes and failures from openat/read/write/fstat/fsync/linkat/renameat/unlinkat/chmod/close; verify the focused suite fails because production `PosixFileOps` does not exist.
+- [x] 1.2 Add L1 tests proving directory and regular-file capabilities retain live descriptors, accept only canonical basenames, reject released and cross-directory capabilities, and never reconstruct paths; verify the focused suite fails before capability implementation.
+- [x] 1.3 Add validated-read tests for symlink, non-regular, foreign-owned, multiply linked, and forbidden-mode leaves through one retained no-follow descriptor; verify every unsafe case fails without target mutation.
+- [x] 1.4 Add atomic-no-clobber tests for complete bytes, final mode before visibility, typed final `DESTINATION_EXISTS`, destination preservation, temporary cleanup, and absence of a parent-directory durability claim; verify the tests fail before the contract exists.
+- [x] 1.5 Add temporary-allocation tests proving each `EEXIST` chooses a fresh name, collided entries remain unread and untouched, three total failed attempts produce allocation-stage failure, and no temporary collision becomes `DESTINATION_EXISTS`.
+- [x] 1.6 Add durable-no-clobber fault tests proving file fsync precedes publication, parent fsync precedes success, final collision is a typed outcome, and post-publication parent-fsync failure remains failure despite a visible destination.
+- [x] 1.7 Add durable-replacement fault tests proving complete writes, file fsync, safe-destination validation, replacement, parent fsync, and temporary cleanup occur in order; verify post-replacement parent-fsync failure remains failure despite a visible replacement.
+- [x] 1.8 Add durable-unlink tests for present and declared-absent entries plus open/unlink/fsync/close failures; verify only the declared absent case is idempotent.
+- [x] 1.9 Add exception-lifecycle tests proving raw `OSError` subclass/errno/chaining remain observable, `KeyboardInterrupt` and cancellation pass through unchanged, and cleanup/close failures never replace an existing primary failure.
+- [x] 1.10 Add canonical JSON codec tests for deterministic UTF-8 bytes, stable mapping order, generic decoding, and rejection of non-finite or unsupported values; verify no generic envelope, schema/version interpretation, or path/deletion authority exists.
 
 ### GREEN
 
-- [ ] 1.11 Implement production `PosixFileOps` over descriptor-relative POSIX calls; verify task 1.1 passes without an in-memory path VFS or exception normalization.
-- [ ] 1.12 Implement validated directory and regular-file capabilities with live-descriptor and basename-only authority; verify tasks 1.2–1.3 pass.
-- [ ] 1.13 Implement atomic no-clobber publication with three-attempt temporary allocation and typed final collision; verify tasks 1.4–1.5 pass.
-- [ ] 1.14 Implement durable no-clobber and durable replacement as distinct operations with mandatory file/directory boundaries; verify tasks 1.6–1.7 pass without a durability boolean.
-- [ ] 1.15 Implement durable unlink and primary-error-preserving cleanup/close handling; verify tasks 1.8–1.9 pass.
-- [ ] 1.16 Implement the canonical JSON codec without an envelope API or domain validation; verify task 1.10 passes.
+- [x] 1.11 Implement production `PosixFileOps` over descriptor-relative POSIX calls; verify task 1.1 passes without an in-memory path VFS or exception normalization.
+- [x] 1.12 Implement validated directory and regular-file capabilities with live-descriptor and basename-only authority; verify tasks 1.2–1.3 pass.
+- [x] 1.13 Implement atomic no-clobber publication with three-attempt temporary allocation and typed final collision; verify tasks 1.4–1.5 pass.
+- [x] 1.14 Implement durable no-clobber and durable replacement as distinct operations with mandatory file/directory boundaries; verify tasks 1.6–1.7 pass without a durability boolean.
+- [x] 1.15 Implement durable unlink and primary-error-preserving cleanup/close handling; verify tasks 1.8–1.9 pass.
+- [x] 1.16 Implement the canonical JSON codec without an envelope API or domain validation; verify task 1.10 passes.
 
 ### INTROSPECT
 
-- [ ] 1.17 Review L0–L2 for descriptor leaks, leaf following, ancestor repair, pathname reconstruction, cross-filesystem promotion, partial writes, collision conflation, false durability, destination clobbering, interruption translation, cleanup masking, generic VFS growth, and domain authority leakage; resolve every finding and record the review outside specification files.
+- [x] 1.17 Review L0–L2 for descriptor leaks, leaf following, ancestor repair, pathname reconstruction, cross-filesystem promotion, partial writes, collision conflation, false durability, destination clobbering, interruption translation, cleanup masking, generic VFS growth, and domain authority leakage; resolve every finding and record the review outside specification files.
 
 ### VALIDATE
 
-- [ ] 1.18 Run the complete Phase 1 security and fault-injection suite across every open/write/fsync/link/replace/unlink/chmod/close boundary; record that all outcomes preserve the selected atomic/durable contract, unrelated entries, primary exceptions, and owned-resource cleanup.
+- [x] 1.18 Run the complete Phase 1 security and fault-injection suite across every open/write/fsync/link/replace/unlink/chmod/close boundary; record that all outcomes preserve the selected atomic/durable contract, unrelated entries, primary exceptions, and owned-resource cleanup.
 
 ## Phase 2. Owner-Private Advisory Locks
 

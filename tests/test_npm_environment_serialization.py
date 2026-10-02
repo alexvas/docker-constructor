@@ -264,8 +264,17 @@ class TestCoversEveryRequiredField(_SerializationTestCase):
         )
 
     def test_no_pi_or_runtime_fields(self):
+        # ``environment_root`` and ``evidence_path`` embed this test's random
+        # temporary directory name, which can coincidentally contain a
+        # forbidden fragment (e.g. a temp suffix ``spig9dhm`` contains ``pi``).
+        # Mask the caller-specific base path first so the scan still covers the
+        # schema, field names, and every controlled value without depending on
+        # the random suffix.
         result_raw = serialize_result(self.result).decode("utf-8")
         evidence_raw = serialize_evidence(self.evidence).decode("utf-8")
+        for base in {str(self.base), str(self.base.resolve())}:
+            result_raw = result_raw.replace(base, "<base>")
+            evidence_raw = evidence_raw.replace(base, "<base>")
         for forbidden in (
             "launcher", "extension", "settings", "build_context",
             "cli_guard", "consumer", "pi", "runtime",
