@@ -1,131 +1,284 @@
 # Implementation Contract
 
-This checklist is the binding implementation contract for `add-durable-filesystem-transactions`. A task is complete only when its stated production change or test evidence exists and its stated verification passes. A phase MAY depend only on lower-numbered phases listed in its `Depends on` line. Independent phases MAY be implemented in parallel. Within each phase, work proceeds in `RED → GREEN → INTROSPECT → VALIDATE` order; a later stage SHALL NOT be marked complete while an earlier stage in that phase remains incomplete.
-
-The change SHALL begin only after `materialize-build-artifacts-on-host` is complete and archived. Its archived on-disk `pending-build-cleanup.json` format is a compatibility input, not a format that may be silently discarded or reinterpreted by generic infrastructure.
+This checklist is the binding implementation contract for `add-durable-filesystem-transactions`. A task is complete only when its stated production change or evidence exists and its stated verification passes. Every phase SHALL proceed in `RED → GREEN → INTROSPECT → VALIDATE` order; no task in a later stage of a phase may be marked complete while an earlier stage in that phase remains incomplete. A phase MAY depend only on lower-numbered phases named in its `Depends on` line. Independent phases MAY proceed in parallel.
 
 ```text
-Phase 1 ──┬──> Phase 3 ──> Phase 4 ───────────────┐
-          ├───────────────> Phase 5 ───────────────┤
-Phase 2 ──┼──> Phase 3     Phase 6 ───────────────┼──> Phase 8
-          ├───────────────> Phase 5                │
-          └───────────────> Phase 6                │
-Phase 1 ──────────────────> Phase 7 ───────────────┘
+Phase 1 ──┬──▶ Phase 3 ──▶ Phase 4 ──▶ Phase 5 ──┐
+          ├──▶ Phase 6 ────────────────────────────┤
+Phase 2 ──┼──▶ Phase 3                            ├──▶ Phase 9 ──▶ Phase 10
+          ├──▶ Phase 7 ────────────────────────────┤
+          └──▶ Phase 8 ────────────────────────────┘
+Phase 1 ─────▶ Phase 7
+Phase 1 ─────▶ Phase 8
 ```
 
-## Phase 1. Durable Filesystem Primitives
+## Phase 1. L0–L2 Regular-File Substrate
 
 **Depends on:** none
-**Deliverables:** byte-oriented owner-private validated reads; durable same-directory atomic replacement; durable unlink; deterministic JSON codec; complete descriptor and temporary-entry cleanup.
+**Deliverables:** production `PosixFileOps`; live descriptor capabilities; validated read; atomic no-clobber; durable no-clobber; durable replacement; durable unlink; canonical JSON codec; deterministic fault injection and exception-lifecycle guarantees.
 
-- [ ] 1.1 **RED:** Add tests proving validated reads reject symlink, non-regular, and foreign-owned leaf entries without following or repairing them; verify the focused tests fail because the shared package does not exist.
-- [ ] 1.2 **RED:** Add fault-injection tests proving durable replacement performs complete partial-write loops, file fsync before replace, same-directory atomic replace, and parent-directory fsync before success; verify every write/fsync/replace failure preserves a complete authoritative destination and removes only transaction-owned temporary state.
-- [ ] 1.3 **RED:** Add fault-injection tests proving durable unlink flushes the parent directory, treats only the declared absent-target case idempotently, and closes every descriptor when open/unlink/fsync/close fails.
-- [ ] 1.4 **RED:** Add deterministic JSON-codec tests proving canonical bytes are stable across mapping order, non-finite values and unsupported types are rejected before publication, and schema interpretation remains outside the codec.
-- [ ] 1.5 **GREEN:** Create the `docker/transactions` package and implement the byte-oriented validated-read primitive required by task 1.1.
-- [ ] 1.6 **GREEN:** Implement same-directory durable atomic byte replacement with private temporary state and complete failure cleanup required by task 1.2.
-- [ ] 1.7 **GREEN:** Implement durable unlink and directory synchronization with unconditional descriptor closure required by task 1.3.
-- [ ] 1.8 **GREEN:** Implement the deterministic JSON encode/decode boundary required by task 1.4 without adding domain schemas.
-- [ ] 1.9 **INTROSPECT:** Review the Phase 1 API for descriptor leaks, leaf-following, ancestor repair, cross-filesystem rename, partial writes, false durability claims, implicit JSON authority, and cleanup that can replace the primary failure; resolve every finding and keep specialized no-clobber/tree operations out of the generic API.
-- [ ] 1.10 **VALIDATE:** Run all Phase 1 tests under every injected write, fsync, replace, unlink, open, and close failure; record that no partial authoritative bytes, unrelated mutation, leaked descriptor, or transaction-owned temporary entry remains.
+### RED
+
+- [ ] 1.1 Add L0 tests injecting partial writes and failures from openat/read/write/fstat/fsync/linkat/renameat/unlinkat/chmod/close; verify the focused suite fails because production `PosixFileOps` does not exist.
+- [ ] 1.2 Add L1 tests proving directory and regular-file capabilities retain live descriptors, accept only canonical basenames, reject released and cross-directory capabilities, and never reconstruct paths; verify the focused suite fails before capability implementation.
+- [ ] 1.3 Add validated-read tests for symlink, non-regular, foreign-owned, multiply linked, and forbidden-mode leaves through one retained no-follow descriptor; verify every unsafe case fails without target mutation.
+- [ ] 1.4 Add atomic-no-clobber tests for complete bytes, final mode before visibility, typed final `DESTINATION_EXISTS`, destination preservation, temporary cleanup, and absence of a parent-directory durability claim; verify the tests fail before the contract exists.
+- [ ] 1.5 Add temporary-allocation tests proving each `EEXIST` chooses a fresh name, collided entries remain unread and untouched, three total failed attempts produce allocation-stage failure, and no temporary collision becomes `DESTINATION_EXISTS`.
+- [ ] 1.6 Add durable-no-clobber fault tests proving file fsync precedes publication, parent fsync precedes success, final collision is a typed outcome, and post-publication parent-fsync failure remains failure despite a visible destination.
+- [ ] 1.7 Add durable-replacement fault tests proving complete writes, file fsync, safe-destination validation, replacement, parent fsync, and temporary cleanup occur in order; verify post-replacement parent-fsync failure remains failure despite a visible replacement.
+- [ ] 1.8 Add durable-unlink tests for present and declared-absent entries plus open/unlink/fsync/close failures; verify only the declared absent case is idempotent.
+- [ ] 1.9 Add exception-lifecycle tests proving raw `OSError` subclass/errno/chaining remain observable, `KeyboardInterrupt` and cancellation pass through unchanged, and cleanup/close failures never replace an existing primary failure.
+- [ ] 1.10 Add canonical JSON codec tests for deterministic UTF-8 bytes, stable mapping order, generic decoding, and rejection of non-finite or unsupported values; verify no generic envelope, schema/version interpretation, or path/deletion authority exists.
+
+### GREEN
+
+- [ ] 1.11 Implement production `PosixFileOps` over descriptor-relative POSIX calls; verify task 1.1 passes without an in-memory path VFS or exception normalization.
+- [ ] 1.12 Implement validated directory and regular-file capabilities with live-descriptor and basename-only authority; verify tasks 1.2–1.3 pass.
+- [ ] 1.13 Implement atomic no-clobber publication with three-attempt temporary allocation and typed final collision; verify tasks 1.4–1.5 pass.
+- [ ] 1.14 Implement durable no-clobber and durable replacement as distinct operations with mandatory file/directory boundaries; verify tasks 1.6–1.7 pass without a durability boolean.
+- [ ] 1.15 Implement durable unlink and primary-error-preserving cleanup/close handling; verify tasks 1.8–1.9 pass.
+- [ ] 1.16 Implement the canonical JSON codec without an envelope API or domain validation; verify task 1.10 passes.
+
+### INTROSPECT
+
+- [ ] 1.17 Review L0–L2 for descriptor leaks, leaf following, ancestor repair, pathname reconstruction, cross-filesystem promotion, partial writes, collision conflation, false durability, destination clobbering, interruption translation, cleanup masking, generic VFS growth, and domain authority leakage; resolve every finding and record the review outside specification files.
+
+### VALIDATE
+
+- [ ] 1.18 Run the complete Phase 1 security and fault-injection suite across every open/write/fsync/link/replace/unlink/chmod/close boundary; record that all outcomes preserve the selected atomic/durable contract, unrelated entries, primary exceptions, and owned-resource cleanup.
 
 ## Phase 2. Owner-Private Advisory Locks
 
 **Depends on:** none
-**Deliverables:** validated owner-private advisory lock; explicit blocking and fail-fast policies; namespace-bound live capability; safe acquisition/release and deterministic contention behavior.
+**Deliverables:** validated owner-private advisory locks; mandatory `BLOCK`/`FAIL_FAST` policy; namespace-bound live capability; deterministic contention and lifecycle behavior.
 
-- [ ] 2.1 **RED:** Add lock-entry tests covering symlink, non-regular, foreign-owned, multiply linked, and wrong-mode owner-owned lock files. Prove symlink, non-regular, foreign-owned, and multiply linked entries are rejected without chmod, replacement, or target mutation. Prove a safe owner-owned single-link regular lock with the wrong mode is accepted, is repaired to exactly `0600` only after exclusive lock acquisition, and leaves every ancestor and unrelated entry unchanged.
-- [ ] 2.2 **RED:** Add process-level tests proving same-namespace exclusion, different-namespace concurrency, explicit `BLOCK` waiting, explicit `FAIL_FAST` rejection, and deterministic bootstrap behavior on a pristine root.
-- [ ] 2.3 **RED:** Add capability tests proving protected operations reject released, cross-namespace, wrong-root, and otherwise non-live lock capabilities before mutation.
-- [ ] 2.4 **RED:** Add lifecycle tests proving lock descriptors are released after success, ordinary exceptions, cancellation, validation failure, and contention failure.
-- [ ] 2.5 **GREEN:** Implement secure lock-file preparation and descriptor validation required by task 2.1: accept a safe owner-owned single-link regular lock with the wrong mode and repair it to exactly `0600` only after exclusive ownership is established; reject rather than repair symlink, non-regular, foreign-owned, and multiply linked entries, without modifying ancestors or unrelated entries.
-- [ ] 2.6 **GREEN:** Implement mandatory `BLOCK` and `FAIL_FAST` acquisition policies and namespace-scoped process coordination required by task 2.2.
-- [ ] 2.7 **GREEN:** Implement namespace-bound live lock capabilities and protected-operation assertions required by task 2.3.
-- [ ] 2.8 **GREEN:** Implement unconditional release and primary-error-preserving lifecycle handling required by task 2.4.
-- [ ] 2.9 **INTROSPECT:** Review acquisition and capability use for pathname/descriptor TOCTOU windows, lock-order inversion, accidental default contention policy, descriptor inheritance, lock replacement, ancestor mutation, and capability reuse after release; resolve every finding without moving domain path authority into the shared layer.
-- [ ] 2.10 **VALIDATE:** Run all Phase 2 security and deterministic multiprocessing tests; record that exactly one same-namespace holder enters, unrelated namespaces remain concurrent, safe wrong-mode owner-owned entries are repaired to exactly `0600` only while exclusively held, unsafe entries remain untouched, ancestors and unrelated entries are unchanged, and every outcome releases owned descriptors.
+### RED
 
-## Phase 3. Recoverable Single-Authority Transition
+- [ ] 2.1 Add lock-entry tests for symlink, non-regular, foreign-owned, multiply linked, safe wrong-mode, and bootstrap-race entries; verify unsafe entries and unrelated ancestors remain untouched.
+- [ ] 2.2 Add process-level tests for same-namespace exclusion, different-namespace concurrency, explicit `BLOCK` waiting, and explicit `FAIL_FAST` rejection; verify no implicit contention policy is accepted.
+- [ ] 2.3 Add capability tests proving released, cross-namespace, wrong-root, and non-live lock capabilities fail before protected mutation.
+- [ ] 2.4 Add lifecycle tests for success, ordinary exception, interruption/cancellation, validation failure, contention failure, unlock failure, and close failure; verify primary exceptions remain authoritative.
 
-**Depends on:** Phase 1, Phase 2
-**Deliverables:** closed versioned journal envelope; lock-bound single-authority transition; previous/intended authoritative-state recovery oracle; bounded domain-validated idempotent cleanup; conflict-without-mutation behavior.
+### GREEN
 
-- [ ] 3.1 **RED:** Add journal-envelope tests for protocol version, transaction identity, domain and payload version, canonical previous/intended fingerprints, bounded cleanup payload, deterministic bytes, unknown fields/version, malformed values, unsafe journal entry, and durable publication/removal.
-- [ ] 3.2 **RED:** Add pre-commit interruption tests proving recovery removes only transaction intent when current authority matches the recorded previous fingerprint and performs no cleanup.
-- [ ] 3.3 **RED:** Add post-commit interruption tests proving recovery runs bounded idempotent cleanup when current authority matches the recorded intended fingerprint and durably removes the journal only after cleanup completes.
-- [ ] 3.4 **RED:** Add partial-cleanup tests proving recovery retries the complete bounded cleanup set and treats already absent domain-approved targets idempotently.
-- [ ] 3.5 **RED:** Add conflict tests proving an authority matching neither previous nor intended preserves the journal, authority, and every cleanup target and fails without mutation.
-- [ ] 3.6 **RED:** Add adversarial adapter tests proving malformed payloads, unchecked paths, noncanonical identities, cross-domain capabilities, and cleanup operations not validated by the domain cannot acquire deletion authority.
-- [ ] 3.7 **GREEN:** Implement the closed versioned journal envelope and durable journal store required by task 3.1 without embedding a consumer schema.
-- [ ] 3.8 **GREEN:** Implement the exclusive-lock-capability-bound transition coordinator and previous-state recovery branch required by task 3.2.
-- [ ] 3.9 **GREEN:** Implement the intended-state roll-forward and idempotent deferred-cleanup branch required by tasks 3.3–3.4.
-- [ ] 3.10 **GREEN:** Implement conflict-without-mutation and domain-adapter validation boundaries required by tasks 3.5–3.6.
-- [ ] 3.11 **INTROSPECT:** Review whether protocol phase duplicates or contradicts filesystem truth, fingerprints bind canonical authoritative state, generic code can interpret paths or identities, cleanup can run before durable commit, and recovery can discard diagnostic evidence on conflict; simplify the state machine and resolve every finding.
-- [ ] 3.12 **VALIDATE:** Run exhaustive fault injection at journal write/fsync, authority replace/fsync, each cleanup operation, and journal unlink/fsync; record that every state resolves to previous-complete, intended-complete with safely recoverable cleanup, intended-complete after cleanup, or conflict-without-mutation.
+- [ ] 2.5 Implement secure lock preparation and descriptor validation, repairing a safe owner-owned single-link regular file to `0600` only after exclusive acquisition; verify task 2.1 passes.
+- [ ] 2.6 Implement mandatory `BLOCK` and `FAIL_FAST` acquisition with namespace-bound live capabilities; verify tasks 2.2–2.3 pass.
+- [ ] 2.7 Implement unconditional release with primary-error-preserving unlock/close handling; verify task 2.4 passes.
 
-## Phase 4. Archived Build-Cache Migration and Legacy Recovery
+### INTROSPECT
 
-**Depends on:** Phase 3; completed and archived `materialize-build-artifacts-on-host`
-**Deliverables:** shared checkout fail-fast lock; shared manifest transition; build-domain legacy-journal migration adapter; corrected pre-manifest interruption recovery; preserved manifest, marker, TTL, snapshot, blob-validation, and cache-boundary behavior.
+- [ ] 2.8 Review locking for pathname/descriptor TOCTOU, lock replacement, descriptor inheritance, capability reuse, lock-order inversion, ancestor mutation, implicit policy, interruption conversion, and cleanup masking; resolve every finding and record the review outside specification files.
 
-- [ ] 4.1 **RED:** Retain a reproducer for interruption after durable cleanup-intent publication but before committed-manifest replacement; require its fixture to preserve byte-for-byte the exact legacy `pending-build-cleanup.json` schema and canonical serialization produced by the archived implementation, and verify that implementation leaves the prior live set intact but blocks the next transaction.
-- [ ] 4.2 **RED:** Add a legacy pre-commit migration test proving that, when the manifest references every journaled blob, recovery removes only the exact legacy journal, preserves every journaled blob and marker, and durably records journal removal.
-- [ ] 4.3 **RED:** Add a legacy post-commit migration test proving that, when the manifest references none of the journaled blobs, recovery idempotently removes the validated journaled blobs and markers and durably removes the journal only after cleanup completes.
-- [ ] 4.4 **RED:** Add malformed and ambiguous legacy-state tests covering invalid JSON/schema, unknown fields, duplicate or noncanonical digest identities, unsafe journal entry, and partial manifest overlap; verify recovery preserves the journal and every cleanup target and fails without mutation.
-- [ ] 4.5 **RED:** Add build policy-parity tests for checkout-wide `FAIL_FAST` locking, competing-build rejection before cache/snapshot mutation, abandoned-snapshot ordering, committed-marker immunity, exact fixed TTL, manifest durability before deletion, shared-XDG non-interaction, and release after startup/commit/cleanup failure.
-- [ ] 4.6 **GREEN:** Implement a narrowly scoped build-domain adapter that recognizes only the exact archived `pending-build-cleanup.json` format, validates every canonical digest identity, classifies all/every, none, and partial manifest overlap, and derives cleanup paths only through existing build-cache authority.
-- [ ] 4.7 **GREEN:** Connect the build-domain legacy adapter to startup recovery so full overlap discards only pre-commit intent, no overlap rolls post-commit cleanup forward, and malformed or partial overlap fails without mutation; do not place legacy schema handling, digest interpretation, or path/deletion authority in the generic transaction package.
-- [ ] 4.8 **GREEN:** Adapt build committed-manifest bytes/fingerprints and canonical digest cleanup to the shared single-authority transition and migrate checkout locking and durable control-file operations while preserving build-owned marker, TTL, snapshot, blob-validation, and XDG-separation logic.
-- [ ] 4.9 **GREEN:** Remove the superseded local build lock, atomic JSON, no-follow control-read, cleanup-journal, and durable-unlink implementations only after tasks 4.1–4.8 prove existing on-disk legacy journals are handled compatibly by the build-domain adapter.
-- [ ] 4.10 **INTROSPECT:** Review migrated build transitions for legacy/new journal ambiguity, cleanup before commit, manifest/journal TOCTOU, canonical digest bypass, stale-marker deletion of live blobs, lock-order inversion, hidden TTL configuration, and accidental authority over shared XDG state; resolve every finding without broadening generic infrastructure.
-- [ ] 4.11 **VALIDATE:** Run build-cache transaction, materialization, and acceptance suites with real process interruption before manifest replacement, after replacement, during each cleanup step, and during journal removal, beginning from both exact legacy files and journals written by the new protocol; record corrected blocked recovery, prior-set preservation before commit, idempotent post-commit cleanup, durable journal removal, and ambiguous-state failure without mutation.
+### VALIDATE
 
-## Phase 5. Runtime-Artifact Lock Migration
+- [ ] 2.9 Run deterministic multiprocessing and lock-security suites; record same-namespace exclusion, different-namespace concurrency, exact contention behavior, safe mode repair, unsafe-entry preservation, and release on every outcome.
+
+## Phase 3. Immutable Build Generations
 
 **Depends on:** Phase 1, Phase 2
-**Deliverables:** runtime-artifact identity locks migrated to the shared blocking lock; unchanged fast path, post-lock recheck, streaming verification, immutable publication, quarantine, cleanup diagnostics, and shared-XDG ownership.
+**Deliverables:** build-owned closed manifest schema; canonical fixed-width generations; zero/one/two-state classification; durable no-clobber publication; discovery-time generation-directory synchronization; fail-closed ambiguous-state handling.
 
-- [ ] 5.1 **RED:** Add parity tests proving runtime-artifact lock scope is one digest identity, same-identity contenders block and recheck, different identities proceed concurrently, and a valid cache hit retains its pre-lock fast path.
-- [ ] 5.2 **RED:** Add failure-parity tests for unsafe lock entries, transport failure, digest mismatch, publication/revalidation failure, cancellation, temporary cleanup failure, and release failure; verify primary diagnostics and cache ownership remain unchanged.
-- [ ] 5.3 **GREEN:** Replace the runtime artifact cache's local identity lock with the shared `BLOCK` lock adapter while preserving namespace derivation and the fast-path/post-lock-recheck pipeline.
-- [ ] 5.4 **GREEN:** Adopt Phase 1 durable helpers only for runtime publication operations whose replace, permission, and cleanup semantics match exactly; retain specialized quarantine and streaming behavior.
-- [ ] 5.5 **GREEN:** Remove superseded runtime-artifact lock and matching durable helper code only after tasks 5.1–5.4 pass.
-- [ ] 5.6 **INTROSPECT:** Review the migration for accidental checkout-wide serialization, changed lock waiting, weakened SRI/revalidation, build-cache retention leakage, cleanup-error masking, and forced reuse of semantically different helpers; resolve every finding.
-- [ ] 5.7 **VALIDATE:** Run runtime materializer, launcher, cache-security, and corrupt-cache recovery suites; record same-identity serialization, different-identity concurrency, unchanged diagnostics, and strict non-interaction with build manifests, markers, and GC.
+### RED
 
-## Phase 6. npm-Environment Lock Migration
+- [ ] 3.1 Add generation-name tests for exact 20-digit nonzero suffixes, numeric/lexical ordering, overflow, malformed generation names, and exclusion of legacy `committed-build.json` from discovery; verify malformed generation names grant no authority and the legacy name is not inspected.
+- [ ] 3.2 Add build-owned manifest tests for explicit schema version, unknown versions/fields, canonical unique digest identities, deterministic codec bytes, duplicates, unsafe values, and unsafe entries; verify no shared envelope performs validation.
+- [ ] 3.3 Add state-classification tests for zero generations, one stable generation, two pending-cleanup generations, more than two generations, and corrupt generations; verify ambiguous state causes no mutation. Add restart tests where a complete generation is visible after publication but the original parent-directory fsync failed; verify discovery does not accept authority or permit cleanup until a fresh generation-directory fsync succeeds.
+- [ ] 3.4 Add publication fault tests for allocation, write, file fsync, no-clobber commit, and directory fsync; verify authority changes only after the durable contract completes and a visible post-publication/pre-fsync failure is completed only by successful discovery-time directory synchronization.
 
-**Depends on:** Phase 1, Phase 2
-**Deliverables:** npm publication and storage identity locks migrated to the shared blocking lock; unchanged immutable-tree publication, evidence, collision, quarantine, cancellation, and cleanup semantics.
+### GREEN
 
-- [ ] 6.1 **RED:** Add publication parity tests proving one input-identity namespace serializes lookup, assembly validation, and publication while different input identities remain concurrent.
-- [ ] 6.2 **RED:** Add storage lock-entry tests covering safe preparation, symlink, non-regular, foreign-owned, hard-linked, wrong-mode, and bootstrap-race cases without target or ancestor mutation.
-- [ ] 6.3 **RED:** Add lifecycle parity tests covering post-lock lookup, immutable output collision, corrupt-output quarantine, cancellation, workspace removal, lock release, and preservation of primary errors when cleanup also fails.
-- [ ] 6.4 **GREEN:** Migrate `docker/npm_environment/storage.py` lock preparation and namespace derivation to the shared `BLOCK` lock adapter.
-- [ ] 6.5 **GREEN:** Migrate `docker/npm_environment/publication.py` coordination and lock lifecycle to the shared capability while retaining npm-domain assembly evidence, tree sealing, output identity, collision, and quarantine logic.
-- [ ] 6.6 **GREEN:** Adopt Phase 1 durable helpers only where npm output/index publication semantics match exactly, then remove superseded npm lock and matching durable implementations after tasks 6.1–6.5 pass.
-- [ ] 6.7 **INTROSPECT:** Review the migration for cross-identity serialization, split lock namespaces between storage/publication, evidence or tree-authority leakage, changed blocking behavior, quarantine deletion authority, cancellation masking, and incompatible durable-helper reuse; resolve every finding.
-- [ ] 6.8 **VALIDATE:** Run npm preflight, execution, publication, storage, evidence, validation, and smoke suites; record unchanged output/evidence identities, same-identity coordination, different-identity concurrency, and absence of newly introduced npm, Docker, or network effects.
+- [ ] 3.5 Implement build-domain generation parsing and closed manifest validation over the canonical JSON codec; verify tasks 3.1–3.2 pass.
+- [ ] 3.6 Implement zero/one/two-generation classification, fail-closed corrupt/excess-generation handling, exclusion of legacy `committed-build.json` from discovery, and mandatory generation-directory fsync before discovered authority is accepted; verify task 3.3 passes.
+- [ ] 3.7 Implement `max + 1` allocation under the checkout lock and durable no-clobber generation publication; verify task 3.4 passes.
 
-## Phase 7. Remaining Durable-Helper Consolidation
+### INTROSPECT
+
+- [ ] 3.8 Review generation handling for counter ambiguity, overflow, replacement, authority before initial or discovery-time directory fsync, visible publication after failed fsync, permissive JSON, generic-envelope leakage, malformed-state mutation, and lock-capability mismatch; resolve every finding and record the review.
+
+### VALIDATE
+
+- [ ] 3.9 Run the complete generation schema/state/publication and restart suite with all injected durability failures; record that no discovered generation grants authority until the generation directory has been successfully synchronized and each result is zero-generation initial state, one stable generation, two recoverable generations, or fail-closed ambiguity.
+
+## Phase 4. Sequential Cleanup and Recovery
+
+**Depends on:** Phase 3
+**Deliverables:** durable authoritative-generation marker reconciliation; bounded `previous - current` cleanup; all-candidate attempts; durable blob/marker absence; aggregate failures; durable predecessor removal after candidate-directory synchronization; deterministic restart recovery.
+
+### RED
+
+- [ ] 4.1 Add candidate-set tests proving cleanup is exactly canonical `previous - current` and no current-generation identity is deletable.
+- [ ] 4.2 Add partial-failure tests proving every candidate is attempted; blob unlink, marker unlink, per-directory post-batch fsync, and shared marker-directory post-batch fsync failures are aggregated; successful deletions are still synchronized after another candidate fails; and the predecessor remains after any unsuccessful durability step.
+- [ ] 4.3 Add completion, ordering, and fsync-count tests proving markers for every authoritative-generation blob are removed only after generation authority is durable and the shared marker directory is fsynced once before superseded cleanup. Inject marker unlink and marker-directory fsync failures; verify they preserve any existing predecessor and block superseded cleanup. Prove candidate removals are grouped by parent directory, each affected existing blob directory and the shared marker directory are fsynced exactly once after their complete batches rather than once per candidate, every candidate-cleanup failure retains the predecessor, and the predecessor is unlinked only after all candidate batches are durable. Cover retries that find an entire batch already absent after earlier unlinks succeeded but directory fsync failed; require one fresh fsync of that directory before batch completion. Separately prove that generation-directory fsync failure after successful predecessor unlink is reported as failure without claiming that the predecessor remains visible.
+- [ ] 4.4 Add interruption tests at authoritative-generation marker unlink and marker-directory fsync, every candidate blob/marker deletion, candidate-directory fsync, predecessor unlink, and generation-directory fsync boundary. Verify marker reconciliation recovery fsyncs the marker directory even when all authoritative markers are already absent and preserves any existing predecessor on failure. For failure or interruption after predecessor unlink but before its directory fsync completes, verify restart may observe either one stable generation or two recoverable generations; require discovery-time generation-directory synchronization before accepting the one-generation state, or idempotent cleanup before reducing the two-generation state, without unsafe deletion or loss of still-required recovery evidence.
+
+### GREEN
+
+- [ ] 4.5 Implement build-domain candidate derivation through validated canonical identities and existing contained blob/marker authority; verify task 4.1 passes.
+- [ ] 4.6 Implement post-authority marker reconciliation for every current-generation blob with one marker-directory fsync before superseded cleanup, including recovery when all markers are already absent; on failure preserve any existing predecessor and stop before superseded cleanup. Then implement all-candidate cleanup with blob/marker removals grouped by containing directory, one post-batch fsync per affected existing blob directory and one for the shared marker directory, required batch synchronization even when recovery finds all assigned targets already absent, aggregate diagnostics, and predecessor preservation; verify tasks 4.2–4.3 pass.
+- [ ] 4.7 Implement durable predecessor removal only after every candidate's durable absence and restart recovery under the checkout lock; verify tasks 4.3–4.4 pass.
+
+### INTROSPECT
+
+- [ ] 4.8 Review cleanup for early evidence removal, non-durable blob/marker unlink, missing or per-candidate redundant directory fsync, incorrect batch boundaries, stop-on-first-error behavior, current-blob deletion, marker authority leakage, path interpretation below L3, error masking, and retries that mistake visible absence for durable absence; resolve every finding and record the review.
+
+### VALIDATE
+
+- [ ] 4.9 Run exhaustive cleanup/recovery fault injection across authoritative-generation marker unlink and marker-directory fsync, superseded blob unlink, superseded marker unlink, each unique blob-directory post-batch fsync, the superseded-marker post-batch fsync, predecessor unlink, and generation-directory fsync. Record that authoritative-marker failure leaves the generation committed, preserves any existing predecessor, blocks cleanup and build work, and is recovered before either may proceed. Record that fsync count scales with unique affected directories rather than candidate count, no current blob is deleted, all candidates are attempted, and every candidate-cleanup durability failure retains the predecessor. Explicitly test and report generation-directory fsync failure after successful predecessor unlink without requiring predecessor retention; after restart and discovery synchronization, accept either one stable generation or two generations that complete idempotent recovery, with successful completion leaving one stable generation durably.
+
+## Phase 5. Build-Cache and Orchestration Integration
+
+**Depends on:** Phase 4
+**Deliverables:** migrated checkout build lock and control state; immutable-generation commit; pre-build recovery; post-build cleanup; `OPERATIONAL`/4 mapping; preserved marker, TTL, snapshot, blob, and XDG policies.
+
+### RED
+
+- [ ] 5.1 Add parity tests for checkout-wide `FAIL_FAST`, competing-build rejection before mutation, canonical project/cache binding, and release on every outcome.
+- [ ] 5.2 Add parity tests for marker retention before generation commit, durable batch removal of markers for blobs admitted to the authoritative generation, exact fixed TTL for blobs that remain uncommitted, snapshot recovery/cleanup, content-addressed blob verification/publication, shared-XDG non-interaction, and zero constructor-project mutation.
+- [ ] 5.3 Add orchestration tests proving discovery-time authoritative-marker reconciliation and two-generation recovery run before materialization, snapshot work, Docker execution, or superseded cleanup and block all such side effects on reconciliation failure. Cover restart with all current-generation markers already absent and require marker-directory fsync before progress.
+- [ ] 5.4 Add result-mapping tests proving authoritative-marker reconciliation and pre/post-build cleanup failures preserve existing build-domain diagnostics, causes, and interruption behavior while mapping ordinary failure to `ExitKind.OPERATIONAL` and process exit code `4`.
+- [ ] 5.5 Add post-commit failure tests proving authoritative-marker unlink/fsync failure does not roll back a successful image or newest generation, preserves any existing predecessor, blocks superseded cleanup/build work, and returns operational/4; add snapshot-cleanup-failure coverage proving newly materialized blobs retain uncommitted markers and remain subject to the fixed 30-day TTL when no later generation references them.
+
+### GREEN
+
+- [ ] 5.6 Migrate the checkout build lock to the shared `FAIL_FAST` capability without changing namespace or diagnostics; verify task 5.1 passes.
+- [ ] 5.7 Migrate build control reads/replacements/unlinks through L2 adapters that preserve existing build exception types/messages, raw causes, chaining, and interruption passthrough; verify task 5.4 passes.
+- [ ] 5.8 Replace mutable `committed-build.json` with generation publication, connect durable authoritative-marker reconciliation, then connect normal superseded cleanup; verify a successful build returns to one stable generation with no marker for any committed blob.
+- [ ] 5.9 Connect authoritative-marker reconciliation and generation recovery before superseded cleanup and every build side effect; map incomplete marker reconciliation or cleanup to `ExitKind.OPERATIONAL` and process exit code `4`; verify tasks 5.3–5.5 pass.
+- [ ] 5.10 Remove superseded local build lock and exact duplicate control-file helpers while retaining specialized blob, marker, TTL, and snapshot code; verify task 5.2 passes.
+
+### INTROSPECT
+
+- [ ] 5.11 Review build integration for cleanup before commit, image rollback claims, hidden legacy adoption, widened deletion authority, changed dry-run effects, TTL drift, snapshot ordering, blob-publisher migration, L2 exception leakage, interruption conversion, and release masking; resolve every finding and record the review.
+
+### VALIDATE
+
+- [ ] 5.12 Run build transaction, persistence, materialization, orchestration, CLI, and acceptance suites for first build, changed build, recovery, partial deletion, post-commit failure, corrupt generation state, ignored legacy manifest names, and excess generations; record expected image, manifest, marker/TTL, cache, diagnostic, and exit-code outcomes.
+
+## Phase 6. Project Metadata and Effective Build Projection
 
 **Depends on:** Phase 1
-**Deliverables:** exact-match projection/rendering helpers consolidated; specialized no-clobber and destination semantics retained; complete inventory of intentional durable-I/O exceptions.
+**Deliverables:** project identity metadata on durable no-clobber; effective build projection on durable replacement; preserved domain validation/errors; unchanged user-directed effective-inventory output.
 
-- [ ] 7.1 **RED:** Add parity tests for effective-projection and rendering writes covering destination-exists behavior, hard-link no-clobber publication, symlink rejection, modes, cleanup, and failure diagnostics before changing helper ownership.
-- [ ] 7.2 **GREEN:** Migrate only projection/rendering operations whose atomic-replace and durability semantics exactly match Phase 1 primitives.
-- [ ] 7.3 **GREEN:** Retain and clearly isolate hard-link no-clobber, tree, or destination-specific operations that cannot preserve their contract through the shared helpers; remove only proven exact duplicate implementations.
-- [ ] 7.4 **INTROSPECT:** Search production Python for replace-plus-fsync, durable unlink, validated no-follow reads, and related temporary-file helpers; classify each as migrated or intentionally specialized and resolve every unexplained duplicate.
-- [ ] 7.5 **VALIDATE:** Run effective projection, rendering, launcher, path-security, and failure-cleanup suites; record byte/mode/diagnostic parity and publish the complete intentional-exception inventory in the design or code documentation.
+### RED
 
-## Phase 8. Integration and Extension Boundary
+- [ ] 6.1 Add project-metadata tests for exact bytes, `0600` mode, three-attempt temporary allocation, typed final collision, concurrent-winner verification, unsafe-entry rejection, file/directory durability, and existing `ProjectStateError` message/cause behavior.
+- [ ] 6.2 Add effective-build-projection tests for descriptor-relative containment, safe destination replacement, TOML validation, `0600` mode, file/directory durability, temporary cleanup, existing `EffectiveInventoryOutputError` mappings, observable raw `OSError`/chaining, and interruption passthrough.
+- [ ] 6.3 Add boundary tests proving user-directed `write_effective_inventory` retains its current atomic-output and failure behavior and is not migrated to L2 durability.
 
-**Depends on:** Phase 4, Phase 5, Phase 6, Phase 7
-**Deliverables:** repository-wide migrated transaction substrate; tested extension seams for future multi-target and CAS adapters; no unexplained duplicate lock/durable implementations; complete regression and acceptance evidence.
+### GREEN
 
-- [ ] 8.1 **RED:** Add extension-contract test doubles proving a future multi-target publisher can add complete-old/complete-new recovery without representing the base single-authority transition as multi-file atomicity.
-- [ ] 8.2 **RED:** Add extension-contract test doubles proving a future user-state adapter can add immediate fingerprint/CAS revalidation and reject third-state edits without giving generic code user-state reconciliation authority.
-- [ ] 8.3 **GREEN:** Expose the minimal typed journal, transition, lock-capability, and durable-I/O extension interfaces required by tasks 8.1–8.2 without implementing sync-lock multi-target publication or settings reconciliation.
-- [ ] 8.4 **GREEN:** Remove or document every remaining direct production `flock`, ad hoc lock preparation, and exact duplicate replace-plus-fsync helper; retain only explicit platform/domain adapters identified by prior phase validation.
-- [ ] 8.5 **INTROSPECT:** Review the complete dependency direction for cycles, generic-to-domain imports, hidden path/deletion authority, widened lock scopes, changed contention policy, unsupported portability claims, compatibility gaps, and abstractions used by only one consumer without a security boundary benefit; resolve every finding.
-- [ ] 8.6 **VALIDATE:** Run formatting, type checks, complete unit/integration/acceptance suites, strict OpenSpec validation, and `git diff --check`; record that public CLI behavior, cache paths, dry-run effects, retention, concurrency policies, on-disk legacy recovery, and consumer security boundaries remain compatible except for the intentional build recovery defect correction.
+- [ ] 6.4 Migrate project identity metadata to durable no-clobber and map only final destination collision to concurrent-winner verification; verify task 6.1 passes.
+- [ ] 6.5 Migrate only the effective build projection to durable replacement through a rendering-domain adapter; verify task 6.2 passes.
+- [ ] 6.6 Preserve `write_effective_inventory` unchanged; verify task 6.3 passes and no shared durable API is imported by that path.
+
+### INTROSPECT
+
+- [ ] 6.7 Review both migrations for temp/final collision conflation, pathname reconstruction, domain-error drift, raw-cause loss, interruption conversion, false durability, cleanup masking, and accidental user-output migration; resolve every finding and record the review.
+
+### VALIDATE
+
+- [ ] 6.8 Run project-state, project-root, effective-build-projection, rendering, path-security, and failure-injection suites; record durable/no-clobber/replace parity and unchanged user-output behavior.
+
+## Phase 7. Runtime Lock and Projection Migration
+
+**Depends on:** Phase 1, Phase 2
+**Deliverables:** runtime-artifact shared `BLOCK` lock; existing `Filesystem` compatibility/domain facade over L0; atomic no-clobber runtime projection; specialized content-addressed blob publisher retained.
+
+### RED
+
+- [ ] 7.1 Add runtime-lock tests for digest scope, same-identity blocking/recheck, different-identity concurrency, valid-hit fast path, unsafe entries, and release/error parity.
+- [ ] 7.2 Add runtime-projection tests for complete bytes, `0444` mode before visibility, typed collision mapped to the existing `EffectiveConfigError` text, raw non-collision failures, symlink/path rejection, interruption passthrough, lifecycle cleanup, and no parent-directory durability claim.
+- [ ] 7.3 Add facade tests proving the existing runtime `Filesystem` retains path generation, runtime-root validation, lifecycle ownership, and injection seams while secure publication uses descriptor-relative L0 without path reconstruction.
+- [ ] 7.4 Add specialization tests proving runtime artifact SRI validation, content-addressed publication, collision/revalidation, quarantine, and cleanup remain outside L2 regular-file authority.
+
+### GREEN
+
+- [ ] 7.5 Replace the runtime artifact lock with the shared `BLOCK` adapter while preserving namespace and diagnostics; verify task 7.1 passes.
+- [ ] 7.6 Make the runtime `Filesystem` a compatibility/domain facade over production `PosixFileOps`; verify task 7.3 passes without merging other filesystem interfaces.
+- [ ] 7.7 Migrate runtime projection publication to L2 atomic no-clobber while retaining serialization, identity, lifecycle, errors, and cleanup in its adapter; verify task 7.2 passes.
+- [ ] 7.8 Retain the runtime content-addressed blob publisher as an L3 protocol while reusing the highest compatible L2/L1/L0 mechanics for individual operations; justify every descent below L2 and verify task 7.4 passes without moving digest, collision, quarantine, or lifecycle authority below L3.
+
+### INTROSPECT
+
+- [ ] 7.9 Review runtime migration for widened locking, changed waiting, weakened SRI, blob-authority leakage, false projection durability, build-generation coupling, interruption conversion, cleanup masking, path reconstruction, and forced filesystem-interface merging; resolve every finding and record the review.
+
+### VALIDATE
+
+- [ ] 7.10 Run runtime materializer, projection, launcher, cache-security, corrupt-cache, lifecycle, and multiprocessing suites; record lock parity, projection atomicity, facade compatibility, and specialized blob behavior.
+
+## Phase 8. npm-Environment Lock Migration
+
+**Depends on:** Phase 1, Phase 2
+**Deliverables:** one shared npm input-identity `BLOCK` capability; compatible leaf-mechanic reuse; unchanged immutable-tree, advisory-index, quarantine, cleanup, evidence, and cancellation protocols.
+
+### RED
+
+- [ ] 8.1 Add npm lock tests for input-identity scope, same-identity blocking across lookup/assembly/publication, different-identity concurrency, post-lock lookup, and release parity.
+- [ ] 8.2 Add lock-entry tests for symlink, non-regular, foreign-owned, hard-linked, wrong-mode, bootstrap-race, and prepare/reopen replacement cases without target or ancestor mutation.
+- [ ] 8.3 Add specialization tests for immutable-output collision, recursive fsync/sealing, evidence authority, advisory-index best-effort failure, corrupt-output quarantine, cancellation, workspace cleanup, and primary-error preservation.
+- [ ] 8.4 Add leaf-mechanic tests proving npm selects the highest compatible L2/L1/L0 contract for each reused operation, justifies every descent below L2, and preserves npm-specific modes, paths, errors, and tree commit boundaries without making a shared layer a generic tree publisher.
+
+### GREEN
+
+- [ ] 8.5 Migrate npm storage lock preparation and publication coordination to one shared `BLOCK` capability; verify tasks 8.1–8.2 pass.
+- [ ] 8.6 Reuse compatible L2 leaf contracts for npm manifest/evidence mechanics where their complete semantics fit, otherwise descend to L1/L0 with an explicit mismatch justification; verify task 8.4 passes without moving schema, tree-commit, or evidence authority below npm L3.
+- [ ] 8.7 Remove only proven duplicate npm lock/leaf mechanics while retaining tree rename, recursive fsync/sealing, advisory index, quarantine, recursive cleanup, evidence, and cancellation code; verify task 8.3 passes.
+
+### INTROSPECT
+
+- [ ] 8.8 Review npm migration for split namespaces, cross-identity serialization, evidence leakage, changed waiting, generic-tree abstraction, advisory-index durability promotion, quarantine authority, cancellation masking, build-generation coupling, exception drift, and incompatible helper reuse; resolve every finding and record the review.
+
+### VALIDATE
+
+- [ ] 8.9 Run npm preflight, execution, publication, storage, evidence, validation, concurrency, cancellation, and smoke suites; record unchanged tree/index/quarantine protocols and shared-lock behavior.
+
+## Phase 9. L0–L3 Boundary and Consumer Inventory
+
+**Depends on:** Phase 5, Phase 6, Phase 7, Phase 8
+**Deliverables:** checked production filesystem-I/O matrix; required initial direct-L2 adoption set; documented L3 specialized list and highest-compatible-layer choices; enforced architecture boundaries; coherent downstream-change dependencies.
+
+### RED
+
+- [ ] 9.1 Add architecture/introspection tests rejecting generic `atomic_write`, durability booleans, a project-wide path VFS, pathname reconstruction from capabilities, shared envelope APIs, generic tree/content-addressed authority, direct L2 exception leakage, and domain path/deletion interpretation below L3.
+- [ ] 9.2 Add consumer-boundary tests proving the required initial direct-L2 adoption set is build control/generations, project metadata, effective build projection, and runtime projection. Prove this set is a migration obligation rather than a permission boundary: specialized L3 protocols may compose compatible L2 leaf contracts while retaining domain authority, and future metadata records consume primitives only from their owning change.
+- [ ] 9.3 Add specialization-boundary tests proving blobs, npm trees, snapshots/confinement, quarantine/recursive cleanup, advisory indexes, and user/evidence outputs retain L3 identity, commit, collision, recovery, error, retention, and lifecycle authority.
+- [ ] 9.4 Add downstream-plan checks proving Pi extensions own sync-lock-journal/settings-sidecar schemas and recovery while metadata owns its cache-record schema, with no generic envelope or shared recovery contract.
+
+### GREEN
+
+- [ ] 9.5 Classify every production filesystem writer in the L0–L3 matrix by its owning layer and every reused operation by the highest compatible shared layer; verify no writer is unclassified and every descent from L2 to L1/L0 has a semantic mismatch justification.
+- [ ] 9.6 Remove or document every remaining direct production `flock` and exact duplicate required-adoption regular-file helper; verify specialized direct syscalls remain only where no higher shared contract fits the domain protocol.
+- [ ] 9.7 Reconcile downstream Pi-extension and metadata planning artifacts with the implemented lock, regular-file, codec, and domain-schema boundaries; verify task 9.4 passes without implementing those changes.
+
+### INTROSPECT
+
+- [ ] 9.8 Review the complete dependency direction for cycles, unnecessary descent below a compatible higher layer, domain-authority leakage into shared layers, generic APIs, false durability, exception-boundary drift, undocumented writers, abstractions with one consumer and no security benefit, and accidental specialized-protocol migration; resolve every finding and record the final matrix outside specification files.
+
+### VALIDATE
+
+- [ ] 9.9 Run architecture, introspection, projection, cache, npm, snapshot, confinement, evidence, and user-output parity suites; record the required direct-L2 adoption set, specialized L3 list, highest-compatible-layer decisions, justified direct syscalls, and absence of generic envelope/VFS/transaction authority.
+
+## Phase 10. Rollout and Complete Validation
+
+**Depends on:** Phase 9
+**Deliverables:** explicit one-time development-cache cutover; no runtime inspection or migration of the legacy manifest; complete automated and acceptance evidence; archive-ready change.
+
+### RED
+
+- [ ] 10.1 Add documentation/acceptance tests requiring an exact project-resolved instruction for deleting the old development build cache and rejecting broad or approximate `rm -rf` guidance.
+- [ ] 10.2 Add final legacy-name tests proving `committed-build.json` is not inspected and does not affect generation-state classification, and that no runtime migration, adoption, rejection, or deletion path exists.
+- [ ] 10.3 Add final integration assertions for operational exit code `4`, successful-image/no-rollback messaging, aggregate cleanup diagnostics, and recovery-before-build ordering.
+
+### GREEN
+
+- [ ] 10.4 Publish the one-time developer cache-removal instruction at the approved project documentation location; verify task 10.1 passes.
+- [ ] 10.5 Complete any final integration wiring required by tasks 10.2–10.3 without broadening the approved L0–L3 contracts; verify both tasks pass.
+
+### INTROSPECT
+
+- [ ] 10.6 Review the complete change for unfinished compatibility paths, undocumented behavior changes, stale journal/envelope assumptions, task/spec/design divergence, unchecked cleanup authority, and unrecorded verification evidence; resolve every finding before final validation.
+
+### VALIDATE
+
+- [ ] 10.7 Run formatting, type checks, lint, complete unit/integration/acceptance suites, strict OpenSpec validation, and `git diff --check`; record every command and result outside specification artifacts.
+- [ ] 10.8 Execute the documented old-cache cutover in the development environment, rerun the representative first-build/change-build/recovery flow, and record that the change is ready for archive.
