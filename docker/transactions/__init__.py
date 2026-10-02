@@ -12,9 +12,12 @@ from .codec import decode, encode
 from .errors import (
     CapabilityError,
     DestinationExists,
+    LockContention,
+    LockError,
     TransactionError,
     UnsafeFileError,
 )
+from .locking import LockCapability, LockPolicy
 from .posix import PosixFileOps
 from .regular import RegularFileContracts
 
@@ -23,6 +26,10 @@ __all__ = [
     "DestinationExists",
     "DirectoryCapability",
     "FileCapability",
+    "LockCapability",
+    "LockContention",
+    "LockError",
+    "LockPolicy",
     "PosixFileOps",
     "RegularFileContracts",
     "TransactionError",

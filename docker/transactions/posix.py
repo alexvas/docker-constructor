@@ -50,6 +50,10 @@ class PosixFileOps:
     def fchmod(self, fd, mode):
         os.fchmod(fd, mode)
 
+    def flock(self, fd, operation):
+        import fcntl
+        fcntl.flock(fd, operation)
+
     def close(self, fd):
         os.close(fd)
 

@@ -85,6 +85,10 @@ class InjectedOps(PosixFileOps):
         self._record("fchmod", fd, mode)
         return super().fchmod(fd, mode)
 
+    def flock(self, fd, operation):
+        self._record("flock", fd, operation)
+        return super().flock(fd, operation)
+
     def close(self, fd):
         self._record("close", fd)
         return super().close(fd)

@@ -54,24 +54,24 @@ Phase 1 ─────▶ Phase 8
 
 ### RED
 
-- [ ] 2.1 Add lock-entry tests for symlink, non-regular, foreign-owned, multiply linked, repairable owner-readable or owner-writable wrong modes, a missing lock created under restrictive umask, pre-existing owner-inaccessible modes, and bootstrap-race entries; verify repair occurs only after exclusive acquisition, including exact `0600` repair of a known-new umask-restricted inode, while pre-existing inaccessible and unsafe entries and unrelated ancestors remain untouched.
-- [ ] 2.2 Add process-level tests for same-namespace exclusion, different-namespace concurrency, explicit `BLOCK` waiting, and explicit `FAIL_FAST` rejection; verify no implicit contention policy is accepted.
-- [ ] 2.3 Add capability tests proving released, cross-namespace, wrong-root, and non-live lock capabilities fail before protected mutation.
-- [ ] 2.4 Add lifecycle tests for success, ordinary exception, interruption/cancellation, validation failure, contention failure, unlock failure, and close failure; verify primary exceptions remain authoritative.
+- [x] 2.1 Add lock-entry tests for symlink, non-regular, foreign-owned, multiply linked, repairable owner-readable or owner-writable wrong modes, a missing lock created under restrictive umask, pre-existing owner-inaccessible modes, and bootstrap-race entries; verify repair occurs only after exclusive acquisition, including exact `0600` repair of a known-new umask-restricted inode, while pre-existing inaccessible and unsafe entries and unrelated ancestors remain untouched.
+- [x] 2.2 Add process-level tests for same-namespace exclusion, different-namespace concurrency, explicit `BLOCK` waiting, and explicit `FAIL_FAST` rejection; verify no implicit contention policy is accepted.
+- [x] 2.3 Add capability tests proving released, cross-namespace, wrong-root, and non-live lock capabilities fail before protected mutation.
+- [x] 2.4 Add lifecycle tests for success, ordinary exception, interruption/cancellation, validation failure, contention failure, unlock failure, and close failure; verify primary exceptions remain authoritative.
 
 ### GREEN
 
-- [ ] 2.5 Implement secure lock preparation and descriptor validation: atomically create a missing lock with `O_CREAT|O_EXCL`, repair a known-new inode and any owner-readable or owner-writable safe single-link regular file to exactly `0600` only after exclusive acquisition and full validation, and fail closed without mutation for a pre-existing lock whose owner has neither read nor write access; verify task 2.1 passes.
-- [ ] 2.6 Implement mandatory `BLOCK` and `FAIL_FAST` acquisition with namespace-bound live capabilities; verify tasks 2.2–2.3 pass.
-- [ ] 2.7 Implement unconditional release with primary-error-preserving unlock/close handling; verify task 2.4 passes.
+- [x] 2.5 Implement secure lock preparation and descriptor validation: atomically create a missing lock with `O_CREAT|O_EXCL`, repair a known-new inode and any owner-readable or owner-writable safe single-link regular file to exactly `0600` only after exclusive acquisition and full validation, and fail closed without mutation for a pre-existing lock whose owner has neither read nor write access; verify task 2.1 passes.
+- [x] 2.6 Implement mandatory `BLOCK` and `FAIL_FAST` acquisition with namespace-bound live capabilities; verify tasks 2.2–2.3 pass.
+- [x] 2.7 Implement unconditional release with primary-error-preserving unlock/close handling; verify task 2.4 passes.
 
 ### INTROSPECT
 
-- [ ] 2.8 Review locking for pathname/descriptor TOCTOU, lock replacement, descriptor inheritance, capability reuse, lock-order inversion, ancestor mutation, pre-lock permission repair, restrictive-mode handling, implicit policy, interruption conversion, and cleanup masking; resolve every finding and record the review outside specification files.
+- [x] 2.8 Review locking for pathname/descriptor TOCTOU, lock replacement, descriptor inheritance, capability reuse, lock-order inversion, ancestor mutation, pre-lock permission repair, restrictive-mode handling, implicit policy, interruption conversion, and cleanup masking; resolve every finding and record the review outside specification files.
 
 ### VALIDATE
 
-- [ ] 2.9 Run deterministic multiprocessing and lock-security suites; record same-namespace exclusion, different-namespace concurrency, exact contention behavior, post-acquisition repair of owner-accessible safe modes and known-new restrictive-umask creations, fail-closed preservation of pre-existing owner-inaccessible and unsafe entries, and release on every outcome.
+- [x] 2.9 Run deterministic multiprocessing and lock-security suites; record same-namespace exclusion, different-namespace concurrency, exact contention behavior, post-acquisition repair of owner-accessible safe modes and known-new restrictive-umask creations, fail-closed preservation of pre-existing owner-inaccessible and unsafe entries, and release on every outcome.
 
 ## Phase 3. Immutable Build Generations
 

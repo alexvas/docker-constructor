@@ -21,6 +21,11 @@ STAGE_VALIDATE = "validate"
 STAGE_READ = "read"
 STAGE_UNLINK = "unlink"
 STAGE_CLOSE = "close"
+STAGE_LOCK_PREPARE = "prepare-lock"
+STAGE_LOCK_ACQUIRE = "acquire-lock"
+STAGE_LOCK_VALIDATE = "validate-lock"
+STAGE_LOCK_MODE = "repair-lock-mode"
+STAGE_UNLOCK = "unlock"
 
 
 class TransactionError(Exception):
@@ -52,6 +57,17 @@ class DestinationExists(TransactionError):
 
 class CapabilityError(ValueError):
     """A capability is released, malformed, or used outside its directory."""
+
+
+class LockError(TransactionError):
+    """A shared advisory-lock operation failed at a named ``stage``."""
+
+
+class LockContention(LockError):
+    """``FAIL_FAST`` acquisition found the lock namespace already held."""
+
+    def __init__(self, message: str, *, cause: BaseException | None = None) -> None:
+        super().__init__(STAGE_LOCK_ACQUIRE, message, cause=cause)
 
 
 def attach_secondary(primary: BaseException, secondary: list[BaseException]) -> None:
