@@ -43,12 +43,15 @@ from docker.networking import (
     plan_rootless_override,
     apply_rootless_override,
 )
+from docker.transactions.errors import attach_secondary
 from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.build_cache import (
-    BuildCacheError, ConstructorProjectBuildLock, acquire_constructor_project_build_lock,
+    BuildCacheError, PostCommitBuildError, ConstructorProjectBuildLock,
+    acquire_constructor_project_build_lock,
     commit_build_set, maintain_uncommitted_blobs,
-    recover_abandoned_snapshots,
+    recover_abandoned_snapshots, recover_build_generations,
 )
+from docker.versioning.build_cleanup import BuildCleanupError
 from docker.versioning.build_context_confinement import (
     BuildContextConfinement,
     ConfinementError,
@@ -834,6 +837,72 @@ def _materialize_pi_for_build(
         raise SnapshotError(f"Pi materialization failed: {exc}") from exc
 
 
+class _LockReleaseFailed(Exception):
+    """Internal signal: the build lock could not be released.
+
+    Raised from the cleanup ``finally`` only when no primary exception is in
+    flight.  It carries the pending ``BuildResult`` so release diagnostics can
+    be appended without losing the primary result or its process, publication,
+    host-failure, and command context.  It only ever carries ordinary
+    (``Exception``) release failures; process-control interruptions are never
+    converted into this signal.
+    """
+
+    def __init__(self, failure: Exception, result: BuildResult | None) -> None:
+        super().__init__(str(failure))
+        self.failure = failure
+        self.result = result
+
+
+def _format_build_cleanup_diagnostic(exc: BaseException) -> str:
+    """Render every build-domain cleanup failure without flattening authority."""
+    current: BaseException | None = (
+        exc.__cause__ if isinstance(exc, PostCommitBuildError) else exc
+    )
+    post_commit_cause = current
+    while current is not None:
+        if isinstance(current, BuildCleanupError):
+            if not current.failures:
+                return str(current)
+            details = "; ".join(
+                f"{failure.target}: {failure.error}" for failure in current.failures
+            )
+            return f"{current}; {details}"
+        current = current.__cause__
+    if isinstance(exc, PostCommitBuildError) and post_commit_cause is not None:
+        return str(post_commit_cause)
+    return str(exc)
+
+
+def _release_build_lock(
+    lock: ConstructorProjectBuildLock | None,
+    primary: BaseException | None = None,
+) -> Exception | None:
+    """Release the build lock exactly once without masking a primary failure.
+
+    When *primary* is given, an ordinary release failure is attached to it as
+    a secondary diagnostic and ``None`` is returned so the primary exception
+    is preserved unchanged.  When no primary exception is in flight, the
+    ordinary release failure itself is returned so the caller can surface it
+    as an operational result instead of letting it escape.
+
+    Only ordinary (``Exception``) release failures are captured.  A
+    process-control ``BaseException`` raised while releasing (for example
+    ``KeyboardInterrupt`` or a cancellation signal) is never suppressed or
+    converted: it propagates unchanged per the shared locking contract, even
+    when another primary exception is already in flight.
+    """
+    if lock is None:
+        return None
+    try:
+        lock.release()
+    except Exception as release_exc:
+        if primary is not None:
+            attach_secondary(primary, [release_exc])
+        return release_exc
+    return None
+
+
 def execute_build(
     plan: BuildTransactionPlan,
     request: BuildRequest,
@@ -918,6 +987,13 @@ def execute_build(
         )
         lock = acquire_constructor_project_build_lock(
             constructor_project, cache_root=project_state.cache_root,
+        )
+        # Generation recovery synchronizes the generation directory, reconciles
+        # authoritative-generation markers, and completes any retained
+        # predecessor cleanup before materialization, snapshot work, Docker
+        # execution, or superseded cleanup.  Failure blocks every side effect.
+        recover_build_generations(
+            constructor_project, lock=lock, cache_root=project_state.cache_root,
         )
         recover_abandoned_snapshots(
             constructor_project, lock=lock, cache_root=project_state.cache_root,
@@ -1021,8 +1097,19 @@ def execute_build(
             cleanup_confinement()
         except BaseException:
             pass
-        if lock is not None:
-            lock.release()
+        release_failure = _release_build_lock(lock, primary=exc)
+        if release_failure is not None:
+            # The lock could not be released, so the operation is no longer a
+            # pure configuration rejection: surface the release failure as an
+            # operational result rather than letting it escape.
+            return BuildResult(
+                exit_kind=ExitKind.OPERATIONAL,
+                message=(
+                    f"build context confinement failed: {exc}; "
+                    f"build lock release failed: {release_failure}"
+                ),
+                build_args=build_args, display_string=display_string,
+            )
         return BuildResult(
             exit_kind=ExitKind.CONFIG,
             message=f"build context confinement failed: {exc}",
@@ -1035,22 +1122,36 @@ def execute_build(
         except BaseException:
             pass
         cleanup_detail = ""
+        cleanup_primary: BaseException | None = None
+        release_failure: BaseException | None = None
         try:
             cleanup_artifact_snapshot(snapshot)
         except (SnapshotError, OSError) as cleanup_exc:
             cleanup_detail = f"; snapshot cleanup failed: {cleanup_exc}"
-        if lock is not None:
-            lock.release()
+        except BaseException as cleanup_exc:
+            cleanup_primary = cleanup_exc
+            raise
+        finally:
+            # Cleanup can itself be interrupted or fail unexpectedly. Release
+            # remains unconditional, and an ordinary release failure follows
+            # the exception that is actually propagating rather than replacing
+            # it. _release_build_lock does not suppress release interruptions.
+            release_failure = _release_build_lock(
+                lock, primary=cleanup_primary if cleanup_primary is not None else exc
+            )
+        if release_failure is not None:
+            cleanup_detail += f"; build lock release failed: {release_failure}"
         return BuildResult(
             exit_kind=ExitKind.OPERATIONAL,
             message=(
-                f"build artifact materialization failed: {exc}{cleanup_detail}"
+                "build artifact materialization failed: "
+                f"{_format_build_cleanup_diagnostic(exc)}{cleanup_detail}"
             ),
             build_args=build_args,
             display_string=display_string,
             host_failure=failure,
         )
-    except BaseException:
+    except BaseException as exc:
         try:
             cleanup_confinement()
         except BaseException:
@@ -1061,8 +1162,10 @@ def execute_build(
         except BaseException:
             # Never replace interruption/unexpected primary failure with cleanup.
             pass
-        if lock is not None:
-            lock.release()
+        # The active exception (interruption or unexpected defect) stays the
+        # primary outcome; a release failure is attached as secondary and the
+        # original exception is re-raised unchanged.
+        _release_build_lock(lock, primary=exc)
         raise
 
     # 4–5. Snapshot cleanup is the final transaction precondition. A live-set
@@ -1073,126 +1176,174 @@ def execute_build(
         snapshot = None
         cleanup_artifact_snapshot(current)
 
+    pending_result: BuildResult | None = None
+
+    def remember_result(result: BuildResult) -> BuildResult:
+        nonlocal pending_result
+        pending_result = result
+        return result
+
     try:
-        publish = request._publish_projection
         try:
-            if publish is not None:
-                publish_result = publish(plan.effective_projection, repo_root=constructor_project)
-            else:
-                publish_result = _publish_projection_default(
-                    plan.effective_projection, repo_root=constructor_project,
+            publish = request._publish_projection
+            try:
+                if publish is not None:
+                    publish_result = publish(plan.effective_projection, repo_root=constructor_project)
+                else:
+                    publish_result = _publish_projection_default(
+                        plan.effective_projection, repo_root=constructor_project,
+                        project_state=project_state,
+                    )
+            except Exception as exc:
+                try:
+                    finish_snapshot()
+                except (SnapshotError, OSError) as cleanup_exc:
+                    return remember_result(BuildResult(
+                        exit_kind=ExitKind.OPERATIONAL,
+                        message=f"failed to clean transaction snapshot: {cleanup_exc}",
+                        build_args=build_args, display_string=display_string,
+                    ))
+                return remember_result(BuildResult(
+                    exit_kind=ExitKind.OPERATIONAL,
+                    message=f"failed to publish effective projection: {getattr(exc, 'detail', str(exc))}",
+                    build_args=build_args, display_string=display_string,
+                    host_failure=HostFailureContext(
+                        phase=HostPhase.DERIVED_VALIDATION,
+                        step=HostStep.PUBLICATION,
+                        summary="failed to publish effective projection",
+                        exception_types=project_exception_type_chain(exc),
+                    ),
+                ))
+
+            runner = request.runner or SubprocessBuildExecutor(request.output_policy)
+            emit(request.event_sink, HostPhaseEvent(HostPhase.DOCKER_TRANSITION, HostPhaseState.STARTED))
+            emit(request.event_sink, HostPhaseEvent(HostPhase.DOCKER_TRANSITION, HostPhaseState.SUCCEEDED))
+            if request.host_presentation_complete is not None:
+                try:
+                    request.host_presentation_complete()
+                except Exception:
+                    # Host presentation shutdown is always secondary to the build.
+                    pass
+            try:
+                proc = runner.run(build_args)
+            except FileNotFoundError as exc:
+                try:
+                    finish_snapshot()
+                except (SnapshotError, OSError) as cleanup_exc:
+                    return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
+                        message=f"failed to clean transaction snapshot: {cleanup_exc}",
+                        build_args=build_args, display_string=display_string,
+                        publish_result=publish_result))
+                return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
+                    message=f"docker executable not found: {exc}", build_args=build_args,
+                    display_string=display_string, publish_result=publish_result))
+            except OSError as exc:
+                try:
+                    finish_snapshot()
+                except (SnapshotError, OSError) as cleanup_exc:
+                    return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
+                        message=f"failed to clean transaction snapshot: {cleanup_exc}",
+                        build_args=build_args, display_string=display_string,
+                        publish_result=publish_result))
+                return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
+                    message=f"docker execution failed: {exc}", build_args=build_args,
+                    display_string=display_string, publish_result=publish_result))
+
+            if proc.return_code != 0:
+                try:
+                    finish_snapshot()
+                except (SnapshotError, OSError) as cleanup_exc:
+                    return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
+                        message=f"failed to clean transaction snapshot: {cleanup_exc}",
+                        build_args=build_args, display_string=display_string,
+                        process_result=proc, publish_result=publish_result))
+                message = (f"build exited with code {proc.return_code}"
+                    if getattr(proc, "output_policy", BuildOutputPolicy.CAPTURED) is BuildOutputPolicy.STREAMED
+                    else (proc.stderr or f"build exited with code {proc.return_code}"))
+                return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL, message=message,
+                    build_args=build_args, display_string=display_string,
+                    process_result=proc, publish_result=publish_result))
+
+            try:
+                finish_snapshot()
+            except (SnapshotError, OSError) as exc:
+                return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
+                    message=f"failed to clean transaction snapshot: {exc}",
+                    build_args=build_args, display_string=display_string,
+                    process_result=proc, publish_result=publish_result))
+
+            try:
+                assert lock is not None
+                commit_build_set(
+                    constructor_project, {selected.identity for selected in selected_artifacts},
+                    lock=lock, cache_root=project_state.cache_root,
                     project_state=project_state,
                 )
-        except Exception as exc:
-            try:
-                finish_snapshot()
-            except (SnapshotError, OSError) as cleanup_exc:
-                return BuildResult(
-                    exit_kind=ExitKind.OPERATIONAL,
-                    message=f"failed to clean transaction snapshot: {cleanup_exc}",
+            except PostCommitBuildError as exc:
+                return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
+                    message=(
+                        "Docker image built successfully and remains available; "
+                        "the newest build generation remains committed, but cleanup "
+                        "or marker reconciliation failed. Recovery is required and "
+                        "will be retried on the next build: "
+                        f"{_format_build_cleanup_diagnostic(exc)}"
+                    ),
                     build_args=build_args, display_string=display_string,
-                )
+                    process_result=proc, publish_result=publish_result))
+            except (BuildCacheError, OSError) as exc:
+                return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
+                    message=f"failed to commit successful build artifacts: {exc}",
+                    build_args=build_args, display_string=display_string,
+                    process_result=proc, publish_result=publish_result))
+            return remember_result(BuildResult(exit_kind=ExitKind.SUCCESS, message="image build completed",
+                build_args=build_args, display_string=display_string,
+                process_result=proc, publish_result=publish_result))
+        finally:
+            primary = sys.exc_info()[1]
+            try:
+                try:
+                    cleanup_confinement()
+                except BaseException:
+                    if primary is None:
+                        raise
+                try:
+                    if snapshot is not None:
+                        cleanup_artifact_snapshot(snapshot)
+                except BaseException:
+                    if primary is None:
+                        raise
+            finally:
+                # Release is attempted exactly once on every path.  An in-flight
+                # exception (including a cleanup failure) stays primary and a
+                # release failure is attached as secondary; with no in-flight
+                # exception a release failure is surfaced as an operational result
+                # instead of escaping from the finally block.
+                active = sys.exc_info()[1]
+                release_primary = active if active is not None else primary
+                release_failure = _release_build_lock(lock, primary=release_primary)
+                if release_failure is not None and release_primary is None:
+                    # No primary exception is in flight: carry the pending result
+                    # with the release failure so its diagnostic and context are
+                    # preserved. Raising keeps cleanup free of a ``return`` inside
+                    # a ``finally`` block.
+                    raise _LockReleaseFailed(release_failure, pending_result)
+    except _LockReleaseFailed as exc:
+        result = exc.result
+        if result is None:
             return BuildResult(
                 exit_kind=ExitKind.OPERATIONAL,
-                message=f"failed to publish effective projection: {getattr(exc, 'detail', str(exc))}",
-                build_args=build_args, display_string=display_string,
-                host_failure=HostFailureContext(
-                    phase=HostPhase.DERIVED_VALIDATION,
-                    step=HostStep.PUBLICATION,
-                    summary="failed to publish effective projection",
-                    exception_types=project_exception_type_chain(exc),
+                message=(
+                    "failed to release constructor-project build lock: "
+                    f"{exc.failure}"
                 ),
+                build_args=build_args, display_string=display_string,
             )
-
-        runner = request.runner or SubprocessBuildExecutor(request.output_policy)
-        emit(request.event_sink, HostPhaseEvent(HostPhase.DOCKER_TRANSITION, HostPhaseState.STARTED))
-        emit(request.event_sink, HostPhaseEvent(HostPhase.DOCKER_TRANSITION, HostPhaseState.SUCCEEDED))
-        if request.host_presentation_complete is not None:
-            try:
-                request.host_presentation_complete()
-            except Exception:
-                # Host presentation shutdown is always secondary to the build.
-                pass
-        try:
-            proc = runner.run(build_args)
-        except FileNotFoundError as exc:
-            try:
-                finish_snapshot()
-            except (SnapshotError, OSError) as cleanup_exc:
-                return BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                    message=f"failed to clean transaction snapshot: {cleanup_exc}",
-                    build_args=build_args, display_string=display_string,
-                    publish_result=publish_result)
-            return BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                message=f"docker executable not found: {exc}", build_args=build_args,
-                display_string=display_string, publish_result=publish_result)
-        except OSError as exc:
-            try:
-                finish_snapshot()
-            except (SnapshotError, OSError) as cleanup_exc:
-                return BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                    message=f"failed to clean transaction snapshot: {cleanup_exc}",
-                    build_args=build_args, display_string=display_string,
-                    publish_result=publish_result)
-            return BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                message=f"docker execution failed: {exc}", build_args=build_args,
-                display_string=display_string, publish_result=publish_result)
-
-        if proc.return_code != 0:
-            try:
-                finish_snapshot()
-            except (SnapshotError, OSError) as cleanup_exc:
-                return BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                    message=f"failed to clean transaction snapshot: {cleanup_exc}",
-                    build_args=build_args, display_string=display_string,
-                    process_result=proc, publish_result=publish_result)
-            message = (f"build exited with code {proc.return_code}"
-                if getattr(proc, "output_policy", BuildOutputPolicy.CAPTURED) is BuildOutputPolicy.STREAMED
-                else (proc.stderr or f"build exited with code {proc.return_code}"))
-            return BuildResult(exit_kind=ExitKind.OPERATIONAL, message=message,
-                build_args=build_args, display_string=display_string,
-                process_result=proc, publish_result=publish_result)
-
-        try:
-            finish_snapshot()
-        except (SnapshotError, OSError) as exc:
-            return BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                message=f"failed to clean transaction snapshot: {exc}",
-                build_args=build_args, display_string=display_string,
-                process_result=proc, publish_result=publish_result)
-
-        try:
-            assert lock is not None
-            commit_build_set(
-                constructor_project, {selected.identity for selected in selected_artifacts},
-                lock=lock, cache_root=project_state.cache_root,
-                project_state=project_state,
-            )
-        except BuildCacheError as exc:
-            return BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                message=f"failed to commit successful build artifacts: {exc}",
-                build_args=build_args, display_string=display_string,
-                process_result=proc, publish_result=publish_result)
-        return BuildResult(exit_kind=ExitKind.SUCCESS, message="image build completed",
-            build_args=build_args, display_string=display_string,
-            process_result=proc, publish_result=publish_result)
-    finally:
-        primary_exception = sys.exc_info()[0] is not None
-        try:
-            cleanup_confinement()
-        except BaseException:
-            if not primary_exception:
-                raise
-        try:
-            if snapshot is not None:
-                cleanup_artifact_snapshot(snapshot)
-        except BaseException:
-            if not primary_exception:
-                raise
-            # A cleanup problem is secondary to an interrupt/primary failure.
-        finally:
-            if lock is not None:
-                lock.release()
+        detail = f"failed to release constructor-project build lock: {exc.failure}"
+        return dataclass_replace(
+            result,
+            exit_kind=ExitKind.OPERATIONAL,
+            message=f"{result.message}; {detail}" if result.message else detail,
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════

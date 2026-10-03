@@ -66,6 +66,7 @@ class TestBuildOutputEndToEnd(unittest.TestCase):
         cls.acceptance_cli = cls.root / "acceptance_cli.py"
         cls.acceptance_cli.write_text(
             "import itertools\n"
+            "import os\n"
             "import tempfile\n"
             "from pathlib import Path\n"
             "from types import SimpleNamespace\n"
@@ -101,6 +102,35 @@ class TestBuildOutputEndToEnd(unittest.TestCase):
             "    build_orchestration.materialize_pi = materialize_pi\n"
             "    build_orchestration.create_artifact_snapshot = snapshot\n"
             "    build_orchestration._default_named_context_supported = lambda: True\n"
+            "    if os.environ.get('INJECT_CLEANUP_AGGREGATE') == '1':\n"
+            "        from docker.versioning.build_cleanup import BuildCleanupError, CleanupFailure\n"
+            "        failures = (\n"
+            "            CleanupFailure('sha256:first.blob', OSError(5, 'first unlink failed')),\n"
+            "            CleanupFailure('sha256:second.json', OSError(13, 'second unlink failed')),\n"
+            "            CleanupFailure('markers', OSError(28, 'marker directory sync failed')),\n"
+            "        )\n"
+            "        def fail_recovery(*args, **kwargs):\n"
+            "            raise BuildCleanupError('superseded cleanup failed for 3 step(s)', failures=failures)\n"
+            "        build_orchestration.recover_build_generations = fail_recovery\n"
+            "    commit_failure = os.environ.get('INJECT_COMMIT_FAILURE')\n"
+            "    if commit_failure:\n"
+            "        from docker.versioning.build_cache import PostCommitBuildError\n"
+            "        from docker.versioning.build_cleanup import BuildCleanupError, CleanupFailure\n"
+            "        def fail_commit(*args, **kwargs):\n"
+            "            if commit_failure == 'pre':\n"
+            "                raise OSError(5, 'generation publication fsync failed')\n"
+            "            cleanup = BuildCleanupError(\n"
+            "                'superseded cleanup failed for 2 step(s)',\n"
+            "                failures=(\n"
+            "                    CleanupFailure('sha256:candidate.blob', OSError(5, 'unlink failed')),\n"
+            "                    CleanupFailure('blobs/sha256', OSError(28, 'directory sync failed')),\n"
+            "                ),\n"
+            "            )\n"
+            "            try:\n"
+            "                raise cleanup\n"
+            "            except BuildCleanupError as cause:\n"
+            "                raise PostCommitBuildError('post-publication cleanup failed') from cause\n"
+            "        build_orchestration.commit_build_set = fail_commit\n"
             "    class NoNetworkTransport:\n"
             "        def __init__(self, policy=None): pass\n"
             "        def stream(self, url):\n"
@@ -157,6 +187,52 @@ class TestBuildOutputEndToEnd(unittest.TestCase):
                 except subprocess.TimeoutExpired:
                     proc.kill()
                     proc.communicate()
+
+    def test_cleanup_aggregate_details_reach_cli_with_operational_exit(self):
+        env, _ = self._env("success-silent")
+        env["INJECT_CLEANUP_AGGREGATE"] = "1"
+        completed = subprocess.run(
+            self._command("build", "-y"), cwd=self.root, env=env,
+            capture_output=True, text=True, timeout=3,
+        )
+        self.assertEqual(4, completed.returncode)
+        self.assertIn("superseded cleanup failed for 3 step(s)", completed.stderr)
+        for detail in (
+            "sha256:first.blob", "first unlink failed",
+            "sha256:second.json", "second unlink failed",
+            "markers", "marker directory sync failed",
+        ):
+            self.assertIn(detail, completed.stderr)
+
+    def test_prepublication_commit_failure_has_no_committed_state_claim(self):
+        env, _ = self._env("success-silent")
+        env["INJECT_COMMIT_FAILURE"] = "pre"
+        completed = subprocess.run(
+            self._command("build", "-y"), cwd=self.root, env=env,
+            capture_output=True, text=True, timeout=3,
+        )
+        self.assertEqual(4, completed.returncode)
+        self.assertIn("generation publication fsync failed", completed.stderr)
+        self.assertNotIn("newest build generation remains committed", completed.stderr)
+        self.assertNotIn("Recovery is required", completed.stderr)
+
+    def test_postpublication_commit_failure_renders_state_and_details(self):
+        env, _ = self._env("success-silent")
+        env["INJECT_COMMIT_FAILURE"] = "post"
+        completed = subprocess.run(
+            self._command("build", "-y"), cwd=self.root, env=env,
+            capture_output=True, text=True, timeout=3,
+        )
+        self.assertEqual(4, completed.returncode)
+        self.assertIn("image built successfully and remains available", completed.stderr)
+        self.assertIn("newest build generation remains committed", completed.stderr)
+        self.assertIn("Recovery is required", completed.stderr)
+        for detail in (
+            "superseded cleanup failed for 2 step(s)",
+            "sha256:candidate.blob", "unlink failed",
+            "blobs/sha256", "directory sync failed",
+        ):
+            self.assertIn(detail, completed.stderr)
 
     def test_streamed_failure_is_not_replayed_and_maps_operational_exit(self):
         env, _ = self._env("stream-failure")

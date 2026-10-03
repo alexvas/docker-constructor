@@ -30,7 +30,25 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, NoReturn
 
+if TYPE_CHECKING:
+    from docker.versioning.build_cleanup import BuildStorage
+
+from docker.transactions.capabilities import CapabilityError, DirectoryCapability
+from docker.transactions.errors import (
+    STAGE_LOCK_VALIDATE,
+    STAGE_VALIDATE,
+    STAGE_VALIDATE_DESTINATION,
+    LockContention,
+    LockError,
+    TransactionError,
+    UnsafeFileError,
+    attach_secondary,
+)
+from docker.transactions.locking import LockCapability
+from docker.transactions.posix import PosixFileOps
+from docker.transactions.regular import RegularFileContracts
 from docker.versioning.cache_storage import resolve_default_root
 from docker.versioning.digest_identity import DigestIdentity
 from docker.versioning.project_state import ProjectState, ProjectStateError, resolve_project_state
@@ -44,6 +62,14 @@ UNCOMMITTED_TTL_SECONDS = 2_592_000
 
 class BuildCacheError(ValueError):
     """Invalid or unsafe external constructor-project build-cache configuration."""
+
+
+class PostCommitBuildError(BuildCacheError):
+    """Generation publication succeeded, but later recovery work failed.
+
+    The original operational failure is retained as ``__cause__``. Process-control
+    exceptions are never converted to this build-domain boundary.
+    """
 
 
 @dataclass(frozen=True)
@@ -73,6 +99,7 @@ class BuildCachePaths:
 
 
 _DIR_FLAGS = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+_STORAGE_DIRECTORY_FLAGS = _DIR_FLAGS
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -642,21 +669,99 @@ class BuildTransactionError(BuildCacheError):
     """An external constructor-project build transaction cannot safely proceed."""
 
 
+class _BuildStorageHandle:
+    """Context manager yielding a build-domain storage view for recovery.
+
+    ``blobs`` and ``markers`` are opened descriptor-relatively no-follow from
+    the already-validated generation directory and released on exit, so no
+    path is reconstructed from a validated path and the persistent generation
+    capability stays owned by the lock.
+    """
+
+    def __init__(self, ops: PosixFileOps, generations: DirectoryCapability) -> None:
+        self._ops = ops
+        self._generations = generations
+        self._blobs: DirectoryCapability | None = None
+        self._markers: DirectoryCapability | None = None
+
+    def _open(self, name: str) -> DirectoryCapability:
+        base = self._generations.child_basename(name)
+        fd = self._ops.openat(self._generations.fd, base, _STORAGE_DIRECTORY_FLAGS, 0)
+        try:
+            return DirectoryCapability.from_fd(self._ops, fd, f"build-artifacts/{name}")
+        except BaseException as exc:
+            # ``from_fd`` transfers ownership only on success, so the rejected
+            # descriptor is still caller-owned.  Release it exactly once and
+            # attach a close failure without replacing the adoption failure.
+            try:
+                self._ops.close(fd)
+            except OSError as close_exc:
+                attach_secondary(exc, [close_exc])
+            raise
+
+    def __enter__(self) -> "BuildStorage":
+        from docker.versioning.build_cleanup import BuildStorage
+
+        self._blobs = self._open(_BLOBS_NAME)
+        try:
+            self._markers = self._open(_MARKERS_NAME)
+        except BaseException as exc:
+            # Opening the marker view failed after the blob view was adopted;
+            # release the blob capability and keep the opening failure primary.
+            blobs = self._blobs
+            self._blobs = None
+            if blobs is not None:
+                try:
+                    blobs.close()
+                except OSError as close_exc:
+                    attach_secondary(exc, [close_exc])
+            raise
+        return BuildStorage(self._generations, self._blobs, self._markers)
+
+    def __exit__(self, exc_type: object, exc: BaseException | None, tb: object) -> bool:
+        failures: list[BaseException] = []
+        for capability in (self._markers, self._blobs):
+            if capability is None:
+                continue
+            try:
+                capability.close()
+            except OSError as close_exc:
+                # Attempt every close even when an earlier one failed so no
+                # descriptor is abandoned because of a sibling close failure.
+                failures.append(close_exc)
+        if exc is not None:
+            attach_secondary(exc, list(failures))
+        elif failures:
+            primary, *rest = failures
+            attach_secondary(primary, rest)
+            raise primary
+        return False
+
+
 class ConstructorProjectBuildLock:
     """The exclusive owner token for one constructor-project build transaction.
 
     Ownership is bound to the canonical constructor-project identity and the
     selected external cache namespace.  The lock cannot be reused for another
-    project or another cache root.
+    project or another cache root.  The token wraps the shared fail-fast
+    :class:`~docker.transactions.locking.LockCapability` over the generation
+    directory so the contention policy, lock-entry validation, and post-
+    acquisition mode repair are owned by the shared layer while the observable
+    constructor-project diagnostics stay unchanged.
     """
 
-    def __init__(self, fd: int, constructor_project_root: Path, cache_root: Path,
+    def __init__(self, ops: PosixFileOps, capability: LockCapability,
+                 generation_directory: DirectoryCapability,
+                 constructor_project_root: Path, cache_root: Path,
                  namespace: Path, project_state: ProjectState) -> None:
-        self._fd: int | None = fd
+        self._ops = ops
+        self._capability = capability
+        self._generation_directory = generation_directory
         self._constructor_project_root = constructor_project_root
         self._cache_root = cache_root
         self._namespace = namespace
         self._project_state = project_state
+        self._released = False
 
     @property
     def constructor_project_root(self) -> Path:
@@ -674,9 +779,25 @@ class ConstructorProjectBuildLock:
     def project_state(self) -> ProjectState:
         return self._project_state
 
+    @property
+    def ops(self) -> PosixFileOps:
+        return self._ops
+
+    @property
+    def capability(self) -> LockCapability:
+        return self._capability
+
+    @property
+    def generation_directory(self) -> DirectoryCapability:
+        return self._generation_directory
+
+    def open_storage(self) -> _BuildStorageHandle:
+        """Open blob and marker capabilities for generation cleanup/recovery."""
+        return _BuildStorageHandle(self._ops, self._generation_directory)
+
     def assert_held_for(self, constructor_project_root: str | Path, *,
                         cache_root: str | Path | None = None) -> None:
-        if self._fd is None:
+        if self._released:
             raise BuildTransactionError("a live constructor-project build lock is required")
         try:
             canonical = Path(constructor_project_root).resolve(strict=True)
@@ -692,19 +813,62 @@ class ConstructorProjectBuildLock:
             raise BuildTransactionError(
                 "the constructor-project build lock belongs to a different cache namespace"
             )
+        from docker.versioning.build_generations import BUILD_LOCK_NAMESPACE
+        try:
+            self._capability.assert_authorizes(
+                directory=self._generation_directory,
+                namespace=BUILD_LOCK_NAMESPACE,
+            )
+        except CapabilityError as exc:
+            raise BuildTransactionError(
+                "a live constructor-project build lock is required"
+            ) from exc
 
     def release(self) -> None:
-        if self._fd is not None:
-            import fcntl
-            fcntl.flock(self._fd, fcntl.LOCK_UN)
-            os.close(self._fd)
-            self._fd = None
+        if self._released:
+            return
+        self._released = True
+        primary: BaseException | None = None
+        try:
+            self._capability.close()
+        except LockError as exc:
+            # Preserve the raw descriptor failure across the L2 boundary so a
+            # release failure stays an ordinary OSError at the build edge,
+            # exactly as the previous direct unlock/close did. Shared unlock
+            # cleanup diagnostics must follow the raw cause across that boundary.
+            primary = exc.cause if isinstance(exc.cause, OSError) else exc
+            if primary is not exc:
+                attach_secondary(primary, list(exc.secondary))
+        except BaseException as exc:
+            primary = exc
+        try:
+            self._generation_directory.close()
+        except OSError as close_exc:
+            if primary is not None:
+                attach_secondary(primary, [close_exc])
+            else:
+                raise
+        if primary is not None:
+            raise primary
 
     def __enter__(self) -> "ConstructorProjectBuildLock":
         return self
 
-    def __exit__(self, *_: object) -> None:
-        self.release()
+    def __exit__(
+        self,
+        exc_type: object,
+        exc: BaseException | None,
+        tb: object,
+    ) -> None:
+        try:
+            self.release()
+        except Exception as release_exc:
+            if exc is None:
+                raise
+            attach_secondary(exc, [release_exc])
+        # Returning normally preserves an active body exception. A
+        # process-control BaseException raised by release() is deliberately not
+        # caught and therefore propagates unchanged.
 
 
 def _bootstrap_constructor_project_lock_parent(constructor_project_root: str | Path, *, cache_root: str | Path | None = None) -> tuple[ProjectState, int]:
@@ -750,57 +914,98 @@ def _bootstrap_constructor_project_lock_parent(constructor_project_root: str | P
         os.close(namespace_fd)
 
 
+def _lock_entry_is_unsafe(directory: DirectoryCapability, base: str) -> bool:
+    """Classify the lock entry itself, independent of the failed operation.
+
+    A failed open/stat/mode repair is operational only when the entry at the
+    lock pathname is still a safe owner-private single-linked regular file.
+    Symlinks, directories, FIFOs, foreign-owned entries, and multiply-linked
+    entries are unsafe by inspection of the entry, not by the errno the failed
+    operation happened to report.
+    """
+    try:
+        info = os.stat(base, dir_fd=directory.fd, follow_symlinks=False)
+    except OSError:
+        return False
+    return (
+        not _stat.S_ISREG(info.st_mode)
+        or info.st_uid != os.geteuid()
+        or info.st_nlink != 1
+    )
+
+
+def _raise_lock_failure(directory: DirectoryCapability, base: str, exc: LockError) -> NoReturn:
+    """Re-raise a shared lock failure with the legacy build diagnostic.
+
+    Only a genuine unsafe lock entry (or an indistinguishable in-place
+    replacement) becomes the build-domain "unsafe constructor-project build
+    lock" error.  Operational open, stat, and mode-repair failures keep their
+    underlying ``OSError`` as the primary exception so the previous raw-errno
+    behavior is preserved, with any attached cleanup failures carried over.
+    """
+    if _lock_entry_is_unsafe(directory, base) or (
+        exc.stage == STAGE_LOCK_VALIDATE and exc.cause is None
+    ):
+        raise BuildTransactionError("unsafe constructor-project build lock") from exc
+    cause = exc.cause
+    if isinstance(cause, OSError):
+        attach_secondary(cause, list(exc.secondary))
+        raise cause
+    raise exc
+
+
 def acquire_constructor_project_build_lock(constructor_project_root: str | Path, *, cache_root: str | Path | None = None) -> ConstructorProjectBuildLock:
     """Acquire the single non-blocking constructor-project transaction lock first.
 
     The lock file lives under the selected project's external namespace and
     is never created inside the constructor project.  The returned token is bound to the
-    canonical project identity and the selected cache namespace.
+    canonical project identity and the selected cache namespace.  Acquisition
+    is delegated to the shared fail-fast lock capability so the contention
+    policy, lock-entry validation, and post-acquisition mode repair are owned
+    by the shared layer, while a competing build is rejected before any cache
+    validation or mutation and the existing diagnostics are preserved.
     """
-    import fcntl
+    from docker.versioning.build_generations import BUILD_LOCK_NAME, acquire_build_generation_lock
+
     state, parent_fd = _bootstrap_constructor_project_lock_parent(constructor_project_root, cache_root=cache_root)
-    constructor_project = state.project_path
-    fd = None
+    ops = PosixFileOps()
+    directory: DirectoryCapability | None = None
+    capability: LockCapability | None = None
     try:
-        fd = os.open(
-            "build.lock",
-            os.O_CREAT | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0),
-            0o600,
-            dir_fd=parent_fd,
-        )
+        directory = DirectoryCapability.from_fd(ops, parent_fd, "constructor-project build")
+        parent_fd = -1
         try:
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError as exc:
-            os.close(fd)
-            fd = None
-            raise BuildTransactionError("constructor project already has an active build") from exc
-        info = os.fstat(fd)
-        if (
-            not _stat.S_ISREG(info.st_mode)
-            or info.st_uid != os.geteuid()
-            or info.st_nlink != 1
-        ):
-            raise BuildTransactionError("unsafe constructor-project build lock")
-        # Only the exclusive owner may repair the lock-file mode.
-        os.fchmod(fd, 0o600)
+            capability = acquire_build_generation_lock(ops, directory)
+        except LockContention as exc:
+            raise BuildTransactionError(
+                "constructor project already has an active build"
+            ) from exc
+        except LockError as exc:
+            _raise_lock_failure(directory, BUILD_LOCK_NAME, exc)
         # The lock now serializes all validation and permitted cache repair.
-        prepare_build_cache(constructor_project, cache_root=cache_root, project_state=state)
+        prepare_build_cache(state.project_path, cache_root=cache_root, project_state=state)
         return ConstructorProjectBuildLock(
-            fd, constructor_project, state.cache_root, state.namespace, state,
+            ops, capability, directory, state.project_path, state.cache_root,
+            state.namespace, state,
         )
-    except BaseException:
-        if fd is not None:
-            os.close(fd)
+    except BaseException as exc:
+        if capability is not None:
+            try:
+                capability.close()
+            except (OSError, LockError) as close_exc:
+                attach_secondary(exc, [close_exc])
+        if directory is not None:
+            try:
+                directory.close()
+            except OSError as close_exc:
+                attach_secondary(exc, [close_exc])
+        if parent_fd >= 0:
+            os.close(parent_fd)
         raise
-    finally:
-        os.close(parent_fd)
 
 
 def _key(identity: DigestIdentity) -> str:
     return f"{identity.algorithm}:{identity.hex_digest()}"
-
-
-_MANIFEST_NAME = "committed-build.json"
 
 
 def _marker_name(identity: DigestIdentity) -> str:
@@ -822,83 +1027,87 @@ def _require_control_name(name: object) -> str:
     return name
 
 
-def _atomic_json_at(dir_fd: int, name: str, value: object) -> None:
-    """Durably publish deterministic JSON bytes as *name* beneath *dir_fd*.
+_MARKER_MODE = 0o600
+"""Private mode required of every marker control file."""
 
-    *name* must be a single basename.  The bytes are written to a private
-    temporary file created descriptor-relatively beneath the same directory,
-    fsynced, and atomically renamed into place before the directory itself
-    is fsynced.  On failure only the temporary entry is removed; an existing
-    destination is left untouched.
+
+def _replace_marker_json(
+    ops: PosixFileOps,
+    directory: DirectoryCapability,
+    name: str,
+    value: object,
+) -> None:
+    """Durably replace one marker control file through the shared L2 contract.
+
+    Marker naming, timestamp validation, JSON interpretation, and retention
+    policy remain in the build domain; only the complete durable-replacement
+    mechanics are delegated to :class:`RegularFileContracts`.  Unsafe-entry
+    validation retains the build-domain diagnostic, while operational failures
+    re-raise the original ``OSError`` object with shared cleanup failures
+    attached.  Process-control interruptions propagate unchanged.
     """
     _require_control_name(name)
+    _validate_existing_marker(directory, name)
     payload = json.dumps(value, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    tmp_name = f".transaction-{os.urandom(16).hex()}"
-    tmp_fd = -1
     try:
-        tmp_fd = os.open(
-            tmp_name,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
-            0o600,
-            dir_fd=dir_fd,
+        RegularFileContracts(ops).durable_replace(
+            directory, name, payload, _MARKER_MODE
         )
-        try:
-            os.fchmod(tmp_fd, 0o600)
-            info = os.fstat(tmp_fd)
-            if (not _stat.S_ISREG(info.st_mode)
-                    or info.st_uid != os.geteuid()
-                    or info.st_nlink != 1
-                    or _stat.S_IMODE(info.st_mode) != 0o600):
-                raise BuildTransactionError("unsafe temporary transaction state file")
-            view = memoryview(payload)
-            while view:
-                written = os.write(tmp_fd, view)
-                if written <= 0:
-                    raise OSError("short write while publishing transaction state")
-                view = view[written:]
-            os.fsync(tmp_fd)
-        except BaseException:
-            os.close(tmp_fd)
-            tmp_fd = -1
-            raise
-        os.close(tmp_fd)
-        tmp_fd = -1
-        _validate_control_destination(dir_fd, name)
-        os.replace(tmp_name, name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
-        os.fsync(dir_fd)
-    except BaseException:
-        try:
-            os.unlink(tmp_name, dir_fd=dir_fd)
-        except FileNotFoundError:
-            pass
+    except TransactionError as exc:
+        _raise_marker_failure(name, exc)
+
+
+def _validate_existing_marker(directory: DirectoryCapability, name: str) -> None:
+    """Validate an existing marker's legacy mode before L2 replacement."""
+    try:
+        marker = directory.open_regular(name, allowed_mode=_MARKER_MODE)
+    except TransactionError as exc:
+        if isinstance(exc.cause, FileNotFoundError):
+            return
+        _raise_marker_failure(name, exc)
+    try:
+        marker.close()
+    except OSError:
+        # No earlier failure exists, so preserve the raw operational close error.
         raise
-    finally:
-        if tmp_fd >= 0:
-            os.close(tmp_fd)
 
 
-def _validate_control_destination(dir_fd: int, name: str) -> None:
-    """Reject an unsafe existing destination before it is replaced.
-
-    ``os.replace`` itself never follows a symlink, but a caller must not
-    silently overwrite an entry that has been swapped for a link, a foreign
-    file, or a multiply linked file since the transaction validated it.
-    """
-    try:
-        fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=dir_fd)
-    except FileNotFoundError:
-        return
-    except OSError as exc:
+def _raise_marker_failure(name: str, exc: TransactionError) -> NoReturn:
+    """Map validation failures while preserving legacy operational errors."""
+    if isinstance(exc, UnsafeFileError) and exc.stage in (
+        STAGE_VALIDATE,
+        STAGE_VALIDATE_DESTINATION,
+    ):
         raise BuildTransactionError(f"unsafe transaction state file: {name}") from exc
+    cause = exc.cause
+    if isinstance(cause, OSError):
+        attach_secondary(cause, list(exc.secondary))
+        raise cause
+    raise exc
+
+
+def _read_marker_json(
+    ops: PosixFileOps,
+    directory: DirectoryCapability,
+    name: str,
+) -> object:
+    """Read one marker control file through the shared validated-read contract.
+
+    The secure no-follow read and leaf validation are delegated to
+    :class:`RegularFileContracts`; JSON interpretation stays in the build
+    domain so a malformed marker still raises ``ValueError``.  Unsafe-entry
+    validation retains the build-domain diagnostic, while operational failures
+    re-raise the original ``OSError`` object with shared close failures
+    attached.  Process-control interruptions propagate unchanged.
+    """
+    _require_control_name(name)
     try:
-        info = os.fstat(fd)
-        if (not _stat.S_ISREG(info.st_mode)
-                or info.st_uid != os.geteuid()
-                or info.st_nlink != 1
-                or _stat.S_IMODE(info.st_mode) != 0o600):
-            raise BuildTransactionError(f"unsafe transaction state file: {name}")
-    finally:
-        os.close(fd)
+        data = RegularFileContracts(ops).validated_read(
+            directory, name, allowed_mode=_MARKER_MODE
+        )
+    except TransactionError as exc:
+        _raise_marker_failure(name, exc)
+    return json.loads(data)
 
 
 def publish_uncommitted_blob(
@@ -951,38 +1160,19 @@ def mark_uncommitted_blob(
 ) -> None:
     """Atomically record the publication time of a verified uncommitted blob."""
     lock.assert_held_for(constructor_project_root, cache_root=cache_root)
+    prepare_build_cache(
+        constructor_project_root, cache_root=cache_root, project_state=project_state
+    )
     timestamp = _validate_marker_timestamp(
         time.time() if verified_at is None else verified_at, label="verified_at",
     )
-    state = open_build_cache_state(constructor_project_root, cache_root=cache_root, project_state=project_state)
-    try:
-        _atomic_json_at(state.markers_fd, _marker_name(identity), {"verified_at": timestamp})
-    finally:
-        state.close()
-
-
-def _read_json_no_follow_at(dir_fd: int, name: str, *, label: str) -> object:
-    """Read a private regular JSON file relative to a verified descriptor.
-
-    The entry is opened ``O_NOFOLLOW`` beneath *dir_fd* and validated for
-    regular-file type, invoking-user ownership, single link count, and
-    ``0600`` mode before any byte is read.
-    """
-    _require_control_name(name)
-    fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=dir_fd)
-    try:
-        info = os.fstat(fd)
-        if (not _stat.S_ISREG(info.st_mode)
-                or info.st_uid != os.geteuid()
-                or info.st_nlink != 1
-                or _stat.S_IMODE(info.st_mode) != 0o600):
-            raise BuildTransactionError(f"unsafe transaction state file: {label}")
-        chunks: list[bytes] = []
-        while chunk := os.read(fd, 64 * 1024):
-            chunks.append(chunk)
-        return json.loads(b"".join(chunks))
-    finally:
-        os.close(fd)
+    with lock.open_storage() as storage:
+        _replace_marker_json(
+            lock.ops,
+            storage.markers,
+            _marker_name(identity),
+            {"verified_at": timestamp},
+        )
 
 
 def _identity_from_key(key: object) -> DigestIdentity:
@@ -998,58 +1188,150 @@ def _identity_from_key(key: object) -> DigestIdentity:
     return identity
 
 
-def _read_live_set(state: BuildCacheState) -> set[DigestIdentity]:
-    try:
-        value = _read_json_no_follow_at(
-            state.persistent_fd, _MANIFEST_NAME, label=_MANIFEST_NAME)
-        if not isinstance(value, dict) or not isinstance(value.get("blobs"), list):
-            raise ValueError("manifest is not an object with a blobs list")
-        identities = [_identity_from_key(key) for key in value["blobs"]]
-        if len(set(identities)) != len(identities):
-            raise ValueError("manifest contains duplicate blob identities")
-        return set(identities)
-    except FileNotFoundError:
-        return set()
-    except (OSError, ValueError, KeyError, TypeError) as exc:
-        raise BuildTransactionError("committed build manifest is corrupt") from exc
+def _read_authoritative_blobs(lock: "ConstructorProjectBuildLock") -> set[DigestIdentity]:
+    """Return the committed blob set of the durable authoritative generation.
+
+    Discovery synchronizes the generation directory before the visible newest
+    generation is trusted, so a marker for a committed blob is only removed
+    after its generation is durable.  The legacy mutable manifest is never
+    inspected: ``committed-build.json`` is outside generation discovery.
+    """
+    from docker.versioning.build_generations import discover_generations
+
+    inventory = discover_generations(
+        lock.ops, lock.generation_directory, lock=lock.capability
+    )
+    current = inventory.current
+    return set(current.blobs) if current is not None else set()
 
 
-def _unlink_entry(dir_fd: int, name: str) -> None:
-    """Unlink *name* beneath *dir_fd* without following a replacement link."""
+def _durably_remove_marker(
+    ops: PosixFileOps,
+    markers: DirectoryCapability,
+    name: str,
+) -> None:
+    """Durably remove one build-owned marker through the shared L2 contract."""
     _require_control_name(name)
     try:
-        os.unlink(name, dir_fd=dir_fd)
+        RegularFileContracts(ops).durable_unlink(
+            markers,
+            name,
+            allow_absent=True,
+            allowed_mode=_MARKER_MODE,
+        )
+    except TransactionError as exc:
+        _raise_marker_failure(name, exc)
+
+
+def _open_blob_algorithm(
+    ops: PosixFileOps,
+    blobs: DirectoryCapability,
+    algorithm: str,
+) -> DirectoryCapability | None:
+    """Open one validated private blob-algorithm directory, or return absent."""
+    base = blobs.child_basename(algorithm)
+    try:
+        fd = ops.openat(blobs.fd, base, _STORAGE_DIRECTORY_FLAGS, 0)
     except FileNotFoundError:
-        pass
+        return None
+    try:
+        info = ops.fstat(fd)
+        if (
+            not _stat.S_ISDIR(info.st_mode)
+            or info.st_uid != os.geteuid()
+            or _stat.S_IMODE(info.st_mode) != 0o700
+        ):
+            raise BuildCacheError(
+                f"unsafe blob algorithm directory {algorithm!r}"
+            )
+        return DirectoryCapability.from_fd(
+            ops, fd, f"build-artifacts/blobs/{algorithm}"
+        )
+    except BaseException as exc:
+        try:
+            ops.close(fd)
+        except OSError as close_exc:
+            attach_secondary(exc, [close_exc])
+        raise
 
 
-def _remove_marker(state: BuildCacheState, identity: DigestIdentity) -> None:
-    _unlink_entry(state.markers_fd, _marker_name(identity))
-
-
-def _remove_blob_and_marker(state: BuildCacheState, identity: DigestIdentity) -> None:
-    """Delete only entries derived from a validated canonical identity.
-
-    The algorithm directory is validated before any deletion so a permissive
-    or otherwise incorrect directory fails closed with the blob and its
-    retention marker both left untouched.  A missing algorithm directory
-    still drops the marker without error.
-    """
-    algorithm = identity.algorithm
+def _validate_existing_blob(
+    directory: DirectoryCapability,
+    identity: DigestIdentity,
+) -> None:
+    """Validate an existing immutable blob before any paired deletion."""
     filename = identity.hex_digest() + BLOB_EXTENSION
     try:
-        algorithm_fd = os.open(algorithm, _DIR_FLAGS, dir_fd=state.blobs_fd)
-    except FileNotFoundError:
-        _remove_marker(state, identity)
-        return
-    except OSError as exc:
-        raise BuildCacheError(f"unsafe blob algorithm directory {algorithm!r}: {exc}") from exc
-    try:
-        _require_algorithm_dir(algorithm_fd, algorithm)
-        _unlink_entry(algorithm_fd, filename)
-    finally:
-        os.close(algorithm_fd)
-    _remove_marker(state, identity)
+        blob = directory.open_regular(filename, allowed_mode=0o444)
+    except TransactionError as exc:
+        if isinstance(exc.cause, FileNotFoundError):
+            return
+        if isinstance(exc, UnsafeFileError):
+            raise BuildTransactionError(
+                f"unsafe build blob: {_key(identity)}"
+            ) from exc
+        cause = exc.cause
+        if isinstance(cause, OSError):
+            attach_secondary(cause, list(exc.secondary))
+            raise cause
+        raise
+    blob.close()
+
+
+def _durably_remove_blob_and_marker(
+    ops: PosixFileOps,
+    blobs: DirectoryCapability,
+    markers: DirectoryCapability,
+    identity: DigestIdentity,
+) -> None:
+    """Durably remove only entries derived from one canonical identity."""
+    marker_name = _marker_name(identity)
+    _validate_existing_marker(markers, marker_name)
+    algorithm_directory = _open_blob_algorithm(ops, blobs, identity.algorithm)
+    if algorithm_directory is not None:
+        with algorithm_directory:
+            filename = identity.hex_digest() + BLOB_EXTENSION
+            _validate_existing_blob(algorithm_directory, identity)
+            try:
+                RegularFileContracts(ops).durable_unlink(
+                    algorithm_directory,
+                    filename,
+                    allow_absent=True,
+                    allowed_mode=0o444,
+                )
+            except UnsafeFileError as exc:
+                raise BuildTransactionError(
+                    f"unsafe build blob: {_key(identity)}"
+                ) from exc
+            except TransactionError as exc:
+                cause = exc.cause
+                if isinstance(cause, OSError):
+                    attach_secondary(cause, list(exc.secondary))
+                    raise cause
+                raise
+    _durably_remove_marker(ops, markers, marker_name)
+
+
+def recover_build_generations(
+    constructor_project_root: str | Path,
+    *,
+    lock: ConstructorProjectBuildLock,
+    cache_root: str | Path | None = None,
+) -> None:
+    """Recover committed generation state under *lock* before any build work.
+
+    Discovery synchronizes the generation directory before accepting any
+    visible newest generation as authoritative, then authoritative-generation
+    markers are reconciled and any retained predecessor is cleaned up
+    idempotently.  This must run before artifact materialization, snapshot
+    work, Docker execution, or superseded cleanup; any failure blocks every
+    such side effect and is reported as an operational build-cache error.
+    """
+    from docker.versioning.build_cleanup import recover_generations
+
+    lock.assert_held_for(constructor_project_root, cache_root=cache_root)
+    with lock.open_storage() as storage:
+        recover_generations(lock.ops, storage, lock=lock.capability)
 
 
 def commit_build_set(
@@ -1060,30 +1342,50 @@ def commit_build_set(
     cache_root: str | Path | None = None,
     project_state: ProjectState | None = None,
 ) -> None:
-    """Atomically replace the sole live set before deleting superseded blobs."""
+    """Durably publish the committed set as the next immutable generation.
+
+    After publication the newest generation is authoritative and the previous
+    generation is retained only as cleanup evidence.  Markers for every blob
+    admitted to the authoritative generation are reconciled as one batch with
+    one marker-directory synchronization, then every ``previous - current``
+    candidate is durably removed before the predecessor manifest is unlinked.
+    A reconciliation or cleanup failure preserves the predecessor and is
+    reported as an operational build-cache error without rolling back the
+    successful image or newest generation.
+    """
+    from docker.versioning.build_cleanup import (
+        cleanup_superseded,
+        reconcile_authoritative_markers,
+    )
+    from docker.versioning.build_generations import (
+        inspect_generations,
+        publish_generation,
+    )
+
     lock.assert_held_for(constructor_project_root, cache_root=cache_root)
-    state = open_build_cache_state(constructor_project_root, cache_root=cache_root, project_state=project_state)
+    paths = prepare_build_cache(
+        constructor_project_root, cache_root=cache_root, project_state=project_state
+    )
+    live = set(identities)
     try:
-        old = _read_live_set(state)
-        live = set(identities)
-        try:
-            for identity in live:
-                _verify_published_blob(identity, state.paths)
-        except BuildCacheError as exc:
-            raise BuildTransactionError("cannot commit an unsafe or invalid build blob") from exc
-        superseded = old - live
-        # fsync + rename in _atomic_json_at is the commit point; no deletion
-        # precedes it.
-        _atomic_json_at(
-            state.persistent_fd, _MANIFEST_NAME,
-            {"blobs": sorted(_key(item) for item in live)},
-        )
         for identity in live:
-            _remove_marker(state, identity)
-        for identity in superseded:
-            _remove_blob_and_marker(state, identity)
-    finally:
-        state.close()
+            _verify_published_blob(identity, paths)
+    except BuildCacheError as exc:
+        raise BuildTransactionError("cannot commit an unsafe or invalid build blob") from exc
+    publish_generation(lock.ops, lock.generation_directory, live, lock=lock.capability)
+    try:
+        inventory = inspect_generations(lock.ops, lock.generation_directory)
+        with lock.open_storage() as storage:
+            current = inventory.current
+            if current is not None:
+                reconcile_authoritative_markers(
+                    lock.ops, storage, current, lock=lock.capability
+                )
+            cleanup_superseded(lock.ops, storage, inventory, lock=lock.capability)
+    except (BuildCacheError, CapabilityError, OSError) as exc:
+        raise PostCommitBuildError(
+            "post-publication marker reconciliation or cleanup failed"
+        ) from exc
 
 
 def maintain_uncommitted_blobs(
@@ -1096,44 +1398,54 @@ def maintain_uncommitted_blobs(
 ) -> None:
     """Remove corrupt/partial and expired uncommitted state under the lock."""
     lock.assert_held_for(constructor_project_root, cache_root=cache_root)
-    state = open_build_cache_state(constructor_project_root, cache_root=cache_root, project_state=project_state)
-    try:
-        current_time = _validate_marker_timestamp(
-            time.time() if now is None else now, label="now",
-        )
-        live = _read_live_set(state)
-        for name in sorted(os.listdir(state.markers_fd)):
+    paths = prepare_build_cache(
+        constructor_project_root,
+        cache_root=cache_root,
+        project_state=project_state,
+    )
+    current_time = _validate_marker_timestamp(
+        time.time() if now is None else now, label="now",
+    )
+    live = _read_authoritative_blobs(lock)
+    with lock.open_storage() as storage:
+        markers = storage.markers
+        for name in sorted(os.listdir(markers.fd)):
             if not name.endswith(".json"):
                 continue
             stem = name[: -len(".json")]
             try:
                 identity = _identity_from_key(stem)
             except (ValueError, TypeError):
-                # A malformed marker cannot safely name a blob; remove only it.
-                _unlink_entry(state.markers_fd, name)
+                # A malformed marker cannot authorize any blob deletion.
+                _durably_remove_marker(lock.ops, markers, name)
                 continue
             if identity in live:
-                # Committed blobs are TTL-immune; stale marker contents cannot
-                # authorize deleting their sole live-set payload.
-                _remove_marker(state, identity)
+                # Committed blobs are TTL-immune; remove only their stale marker.
+                _durably_remove_marker(lock.ops, markers, name)
                 continue
             try:
-                value = _read_json_no_follow_at(state.markers_fd, name, label=name)
+                value = _read_marker_json(lock.ops, markers, name)
                 if not isinstance(value, dict):
                     raise ValueError("marker is not an object")
-                verified_at = _validate_marker_timestamp(value["verified_at"], label="verified_at")
+                verified_at = _validate_marker_timestamp(
+                    value["verified_at"], label="verified_at"
+                )
             except (OSError, ValueError, KeyError, TypeError):
-                _remove_blob_and_marker(state, identity)
+                _durably_remove_blob_and_marker(
+                    lock.ops, storage.blobs, markers, identity
+                )
                 continue
             try:
-                _verify_published_blob(identity, state.paths)
+                _verify_published_blob(identity, paths)
             except BuildCacheError:
-                _remove_blob_and_marker(state, identity)
+                _durably_remove_blob_and_marker(
+                    lock.ops, storage.blobs, markers, identity
+                )
                 continue
-            if identity not in live and current_time - verified_at > UNCOMMITTED_TTL_SECONDS:
-                _remove_blob_and_marker(state, identity)
-    finally:
-        state.close()
+            if current_time - verified_at > UNCOMMITTED_TTL_SECONDS:
+                _durably_remove_blob_and_marker(
+                    lock.ops, storage.blobs, markers, identity
+                )
 
 
 _MAX_SNAPSHOT_DEPTH = 64

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import errno
 import os
 import tempfile
 import unittest
@@ -30,6 +31,7 @@ from tests.build_test_support import (
     publish_digest_valid_artifacts,
 )
 
+from docker.transactions.errors import CapabilityError
 from docker.networking import (
     DockerMode,
     GatewayDiagnosis,
@@ -41,10 +43,12 @@ from docker.versioning.build_materialization import (
     MaterializationError, SelectedBuildArtifact, UrllibStreamingTransport,
 )
 from docker.versioning.build_cache import (
-    UNCOMMITTED_TTL_SECONDS, acquire_constructor_project_build_lock, build_blob_path,
-    commit_build_set, prepare_build_cache, publish_uncommitted_blob,
+    UNCOMMITTED_TTL_SECONDS, ConstructorProjectBuildLock,
+    acquire_constructor_project_build_lock, build_blob_path,
+    commit_build_set, mark_uncommitted_blob, prepare_build_cache, publish_uncommitted_blob,
     publish_verified_blob,
 )
+from docker.versioning.build_cleanup import BuildCleanupError, CleanupFailure
 from docker.versioning.digest_identity import DigestIdentity
 from docker.versioning.cache_storage import runtime_artifacts_child, versioning_child
 from docker.npm_environment.errors import LockedNpmError
@@ -1527,6 +1531,79 @@ class TestMaterializationBoundary(unittest.TestCase):
         self.assertFalse((self.repo / ".docker-cache").exists())
         self.assertFalse((self.repo / ".docker-generated").exists())
 
+    def _assert_prebuild_cleanup_exception_releases_lock(self, cleanup_exc):
+        def fail_materialize(*args, **kwargs):
+            raise MaterializationError("ordinary materialization failure")
+
+        real_release = ConstructorProjectBuildLock.release
+        calls = {"release": 0}
+
+        def recording_release(lock):
+            calls["release"] += 1
+            return real_release(lock)
+
+        with patch(
+            "docker.versioning.build_orchestration.cleanup_artifact_snapshot",
+            side_effect=cleanup_exc,
+        ), patch.object(
+            ConstructorProjectBuildLock, "release", recording_release
+        ):
+            with self.assertRaises(type(cleanup_exc)) as ctx:
+                orchestrate_build(self._request(
+                    materialize=fail_materialize,
+                    publish=lambda *_a, **_k: PublishResult("/tmp/unexpected"),
+                    runner=FakeBuildExecutor(),
+                ))
+        self.assertIs(ctx.exception, cleanup_exc)
+        self.assertEqual(1, calls["release"])
+        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache):
+            pass
+
+    def test_prebuild_cleanup_interruption_propagates_and_releases_lock(self):
+        self._assert_prebuild_cleanup_exception_releases_lock(
+            KeyboardInterrupt("snapshot cleanup interrupted")
+        )
+
+    def test_prebuild_cleanup_unexpected_error_propagates_and_releases_lock(self):
+        self._assert_prebuild_cleanup_exception_releases_lock(
+            RuntimeError("unexpected snapshot cleanup defect")
+        )
+
+    def test_prebuild_cleanup_interruption_remains_primary_on_release_failure(self):
+        interruption = KeyboardInterrupt("snapshot cleanup interrupted")
+        release_error = OSError(errno.EIO, "injected release failure")
+
+        def fail_materialize(*args, **kwargs):
+            raise MaterializationError("ordinary materialization failure")
+
+        real_release = ConstructorProjectBuildLock.release
+        calls = {"release": 0}
+
+        def release_then_fail(lock):
+            calls["release"] += 1
+            real_release(lock)
+            raise release_error
+
+        with patch(
+            "docker.versioning.build_orchestration.cleanup_artifact_snapshot",
+            side_effect=interruption,
+        ), patch.object(
+            ConstructorProjectBuildLock, "release", release_then_fail
+        ):
+            with self.assertRaises(KeyboardInterrupt) as ctx:
+                orchestrate_build(self._request(
+                    materialize=fail_materialize,
+                    publish=lambda *_a, **_k: PublishResult("/tmp/unexpected"),
+                    runner=FakeBuildExecutor(),
+                ))
+        self.assertIs(ctx.exception, interruption)
+        self.assertIn(
+            release_error, getattr(interruption, "_transaction_secondary", [])
+        )
+        self.assertEqual(1, calls["release"])
+        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache):
+            pass
+
     def test_integrity_failure_uses_real_materialization_and_confines_mutation(self):
         """A digest-mismatching transport drives the real streaming path: the
         build fails operationally, Docker/publication never run, no invalid
@@ -1619,7 +1696,11 @@ class TestMaterializationBoundary(unittest.TestCase):
 
     def _assert_prior_live_set(self, identities, paths):
         state = prepare_build_cache(self.repo, cache_root=self.cache)
-        committed = json.loads((state.persistent_root / "committed-build.json").read_text())
+        generations = sorted(
+            entry.name for entry in state.persistent_root.iterdir()
+            if entry.name.startswith("committed-build-")
+        )
+        committed = json.loads((state.persistent_root / generations[-1]).read_text())
         self.assertEqual(
             sorted(f"sha256:{identity.hex_digest()}" for identity in identities),
             committed["blobs"],
@@ -1639,6 +1720,206 @@ class TestMaterializationBoundary(unittest.TestCase):
         self._assert_prior_live_set(old_ids, old_paths)
         with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache):
             pass
+
+    def test_interruption_with_lock_release_failure_preserves_primary(self):
+        old_ids, old_paths = self._seed_prior_live_set()
+        primary = KeyboardInterrupt()
+        release_error = OSError(errno.EIO, "injected lock release failure")
+        request = self._request(
+            materialize=lambda *_a, **_k: (_ for _ in ()).throw(primary),
+            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+            runner=FakeBuildExecutor(),
+        )
+        with patch.object(
+            ConstructorProjectBuildLock, "release", side_effect=release_error
+        ):
+            with self.assertRaises(KeyboardInterrupt) as ctx:
+                orchestrate_build(request)
+        # The interruption stays the primary outcome and the release failure is
+        # retained as secondary diagnostic information.
+        self.assertIs(ctx.exception, primary)
+        self.assertIn(release_error, getattr(primary, "_transaction_secondary", []))
+        self._assert_prior_live_set(old_ids, old_paths)
+
+    def test_unexpected_failure_with_lock_release_failure_preserves_primary(self):
+        old_ids, old_paths = self._seed_prior_live_set()
+        primary = RuntimeError("unexpected materializer defect")
+        release_error = OSError(errno.EIO, "injected lock release failure")
+        request = self._request(
+            materialize=lambda *_a, **_k: (_ for _ in ()).throw(primary),
+            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+            runner=FakeBuildExecutor(),
+        )
+        with patch.object(
+            ConstructorProjectBuildLock, "release", side_effect=release_error
+        ):
+            with self.assertRaises(RuntimeError) as ctx:
+                orchestrate_build(request)
+        self.assertIs(ctx.exception, primary)
+        self.assertIn(release_error, getattr(primary, "_transaction_secondary", []))
+        self._assert_prior_live_set(old_ids, old_paths)
+
+    def test_successful_build_with_lock_release_failure_is_operational(self):
+        self._seed_prior_live_set()
+        release_error = OSError(errno.EIO, "injected lock release failure")
+        request = self._request(
+            materialize=self._recording_materializer([]),
+            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+            runner=FakeBuildExecutor(),
+        )
+        with patch.object(
+            ConstructorProjectBuildLock, "release", side_effect=release_error
+        ):
+            result = orchestrate_build(request)
+        # A release failure on an otherwise successful build is surfaced as an
+        # operational result rather than escaping from the cleanup finally.
+        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
+        self.assertIn("failed to release constructor-project build lock", result.message)
+        self.assertIn(str(release_error), result.message)
+
+    def test_materialization_failure_with_lock_release_failure_surfaces_both(self):
+        self._seed_prior_live_set()
+        release_error = OSError(errno.EIO, "injected lock release failure")
+        request = self._request(
+            materialize=lambda *_a, **_k: (_ for _ in ()).throw(
+                SnapshotError("materialization failed")
+            ),
+            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+            runner=FakeBuildExecutor(),
+        )
+        with patch.object(
+            ConstructorProjectBuildLock, "release", side_effect=release_error
+        ):
+            result = orchestrate_build(request)
+        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
+        self.assertIn("build artifact materialization failed", result.message)
+        self.assertIn("build lock release failed", result.message)
+        self.assertIn(str(release_error), result.message)
+
+    def test_docker_failure_with_lock_release_failure_preserves_result(self):
+        release_error = OSError(errno.EIO, "injected lock release failure")
+        request = self._request(
+            materialize=self._recording_materializer([]),
+            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+            runner=FakeBuildExecutor(returncode=9),
+        )
+        with patch.object(
+            ConstructorProjectBuildLock, "release", side_effect=release_error
+        ):
+            result = orchestrate_build(request)
+        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
+        self.assertIn("build error", result.message)
+        self.assertIn(str(release_error), result.message)
+        self.assertEqual(9, result.process_result.return_code)
+        self.assertEqual("/tmp/effective.toml", result.publish_result.published_path)
+        self.assertTrue(result.build_args)
+        self.assertIsNotNone(result.display_string)
+
+    def test_publication_failure_with_lock_release_failure_preserves_result(self):
+        release_error = OSError(errno.EIO, "injected lock release failure")
+        request = self._request(
+            materialize=self._recording_materializer([]),
+            publish=lambda *_a, **_k: (_ for _ in ()).throw(
+                PublishError("injected publication failure")
+            ),
+            runner=FakeBuildExecutor(),
+        )
+        with patch.object(
+            ConstructorProjectBuildLock, "release", side_effect=release_error
+        ):
+            result = orchestrate_build(request)
+        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
+        self.assertIn("injected publication failure", result.message)
+        self.assertIn(str(release_error), result.message)
+        self.assertIsNotNone(result.host_failure)
+        self.assertEqual(HostStep.PUBLICATION, result.host_failure.step)
+        self.assertTrue(result.build_args)
+        self.assertIsNotNone(result.display_string)
+
+    def test_snapshot_cleanup_failure_with_lock_release_failure_preserves_result(self):
+        release_error = OSError(errno.EIO, "injected lock release failure")
+        cleanup_error = SnapshotError("injected snapshot cleanup failure")
+
+        def failing_cleanup(snapshot):
+            if snapshot is not None:
+                raise cleanup_error
+
+        request = self._request(
+            materialize=self._recording_materializer([]),
+            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+            runner=FakeBuildExecutor(),
+        )
+        with patch(
+            "docker.versioning.build_orchestration.cleanup_artifact_snapshot",
+            side_effect=failing_cleanup,
+        ), patch.object(
+            ConstructorProjectBuildLock, "release", side_effect=release_error
+        ):
+            result = orchestrate_build(request)
+        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
+        self.assertIn(str(cleanup_error), result.message)
+        self.assertIn(str(release_error), result.message)
+        self.assertEqual(0, result.process_result.return_code)
+        self.assertEqual("/tmp/effective.toml", result.publish_result.published_path)
+        self.assertTrue(result.build_args)
+        self.assertIsNotNone(result.display_string)
+
+    def test_release_interruption_on_successful_build_propagates(self):
+        self._seed_prior_live_set()
+        release_interrupt = KeyboardInterrupt("interrupted during lock release")
+        request = self._request(
+            materialize=self._recording_materializer([]),
+            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+            runner=FakeBuildExecutor(),
+        )
+        with patch.object(
+            ConstructorProjectBuildLock, "release", side_effect=release_interrupt
+        ):
+            with self.assertRaises(KeyboardInterrupt) as ctx:
+                orchestrate_build(request)
+        # A process-control interruption during release is never converted
+        # into an operational result; it propagates unchanged.
+        self.assertIs(ctx.exception, release_interrupt)
+
+    def test_release_interruption_with_existing_primary_propagates(self):
+        self._seed_prior_live_set()
+        primary = RuntimeError("unexpected materializer defect")
+        release_interrupt = KeyboardInterrupt("interrupted during lock release")
+        request = self._request(
+            materialize=lambda *_a, **_k: (_ for _ in ()).throw(primary),
+            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+            runner=FakeBuildExecutor(),
+        )
+        with patch.object(
+            ConstructorProjectBuildLock, "release", side_effect=release_interrupt
+        ):
+            with self.assertRaises(KeyboardInterrupt) as ctx:
+                orchestrate_build(request)
+        # The release-time interruption propagates unchanged; it is not
+        # suppressed as a secondary diagnostic of the existing primary
+        # failure, per the shared locking contract.
+        self.assertIs(ctx.exception, release_interrupt)
+        self.assertNotIn(
+            release_interrupt, getattr(primary, "_transaction_secondary", [])
+        )
+
+    def test_release_cancellation_style_base_exception_propagates(self):
+        class _Cancellation(BaseException):
+            pass
+
+        self._seed_prior_live_set()
+        cancellation = _Cancellation("cancelled during lock release")
+        request = self._request(
+            materialize=self._recording_materializer([]),
+            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+            runner=FakeBuildExecutor(),
+        )
+        with patch.object(
+            ConstructorProjectBuildLock, "release", side_effect=cancellation
+        ):
+            with self.assertRaises(_Cancellation) as ctx:
+                orchestrate_build(request)
+        self.assertIs(ctx.exception, cancellation)
 
     def test_artifact_materialization_interruption_releases_lock(self):
         old_ids, old_paths = self._seed_prior_live_set()
@@ -1943,7 +2224,13 @@ class TestMaterializationBoundary(unittest.TestCase):
                 # Commit/GC is a post-Docker concern: the prior live set must
                 # remain authoritative while Docker is running.
                 case.assertTrue(all(path.exists() for path in old_paths))
-                committed = json.loads((selected_state.build_artifacts_root / "committed-build.json").read_text())
+                committed = json.loads((
+                    selected_state.build_artifacts_root
+                    / sorted(
+                        entry.name for entry in selected_state.build_artifacts_root.iterdir()
+                        if entry.name.startswith("committed-build-")
+                    )[-1]
+                ).read_text())
                 case.assertEqual(sorted(f"sha256:{item.hex_digest()}" for item in old_identities), committed["blobs"])
                 docker_calls.append(argv)
                 return ProcessResult(argv=argv, return_code=0, stdout="", stderr="")
@@ -2013,7 +2300,13 @@ class TestMaterializationBoundary(unittest.TestCase):
         self.assertEqual(global_snapshot, {path: (path.read_bytes(), path.stat().st_mode) for path in global_snapshot})
         self.assertTrue(all(not path.exists() for path in old_paths))
         selected = _test_selected_artifacts(None)
-        committed = json.loads((selected_state.build_artifacts_root / "committed-build.json").read_text())
+        committed = json.loads((
+            selected_state.build_artifacts_root
+            / sorted(
+                entry.name for entry in selected_state.build_artifacts_root.iterdir()
+                if entry.name.startswith("committed-build-")
+            )[-1]
+        ).read_text())
         self.assertEqual(sorted(f"sha256:{item.identity.hex_digest()}" for item in selected), committed["blobs"])
         self.assertTrue(old_identities.isdisjoint({DigestIdentity.from_hex(*item.split(":", 1)) for item in committed["blobs"]}))
 
@@ -2108,6 +2401,523 @@ class TestMaterializationBoundary(unittest.TestCase):
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
         self.assertIs(sink, seen["event_sink"])
         self.assertEqual((), seen["failure_secrets"])
+
+
+class TestGenerationRecoveryBoundary(unittest.TestCase):
+    """Task 5.3/5.4/5.5 — generation recovery and post-commit cleanup run
+    before any build side effect, and their failures block the build without
+    rolling back the successful image or newest generation."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.base = Path(self.tmp.name)
+        self.cache = self.base / "cache"
+        self.cache.mkdir(mode=0o700)
+        os.chmod(self.cache, 0o700)
+        self.repo = self.base / "repo"
+        self.repo.mkdir()
+        self.inventory = self.repo / "docker-constructor.toml"
+        self.inventory.write_bytes(INVENTORY_PATH.read_bytes())
+        (self.repo / "docker-constructor.local.toml").write_text(
+            f'[cache]\ndir = "{self.cache}"\n'
+        )
+        (self.repo / "Dockerfile").write_text("FROM scratch\n")
+
+    def _request(self, *, publish, runner, materialize=None):
+        return BuildRequest(
+            inventory_path=str(self.inventory),
+            repo_root=str(self.repo),
+            confirmed=True,
+            runner=runner,
+            _materialize_artifacts=materialize,
+            _materialize_pi=fake_pi_materialization,
+            _named_context_supported=lambda: True,
+            _publish_projection=publish,
+            project_root=Path(str(self.inventory)).resolve().parent)
+
+    def _identity(self, payload):
+        return DigestIdentity.from_hex("sha256", hashlib.sha256(payload).hexdigest())
+
+    def _generation_path(self, paths, number):
+        return paths.persistent_root / f"committed-build-{number:020d}.json"
+
+    def _seed_two_generations_with_unsafe_candidate(self):
+        paths = prepare_build_cache(self.repo, cache_root=self.cache)
+        old = self._identity(b"unsafe-candidate")
+        publish_verified_blob(
+            old, b"unsafe-candidate", constructor_project_root=self.repo, cache_root=self.cache
+        )
+        blob = build_blob_path(paths.blobs_root, old)
+        blob.unlink()
+        outside = self.base / "outside-blob"
+        outside.write_text("must not be followed")
+        blob.symlink_to(outside)
+        for number, blobs in ((1, [f"sha256:{old.hex_digest()}"]), (2, [])):
+            target = self._generation_path(paths, number)
+            target.write_text(json.dumps({"version": 1, "blobs": blobs}))
+            os.chmod(target, 0o600)
+        return paths, old, outside
+
+    def test_recovery_aggregate_reports_every_failure_and_blocks_build(self):
+        failures = (
+            CleanupFailure("sha256:first.blob", OSError(errno.EIO, "first unlink failed")),
+            CleanupFailure("sha256:second.json", OSError(errno.EACCES, "second unlink failed")),
+            CleanupFailure("blobs/sha256", OSError(errno.ENOSPC, "blob directory sync failed")),
+        )
+        error = BuildCleanupError(
+            "superseded cleanup failed for 3 step(s)", failures=failures
+        )
+        calls: list[str] = []
+        with patch(
+            "docker.versioning.build_orchestration.recover_build_generations",
+            side_effect=error,
+        ):
+            result = orchestrate_build(self._request(
+                materialize=lambda *_a, **_k: calls.append("materialize"),
+                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                runner=FakeBuildExecutor(),
+            ))
+        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
+        self.assertEqual([], calls)
+        self.assertIn("superseded cleanup failed for 3 step(s)", result.message)
+        for failure in failures:
+            self.assertIn(failure.target, result.message)
+            self.assertIn(str(failure.error), result.message)
+        from docker.constructor_cli import _EXIT_CODES
+        self.assertEqual(4, _EXIT_CODES[result.exit_kind])
+        self.assertIsNotNone(result.host_failure)
+
+    def test_recovery_failure_blocks_materialization_snapshot_and_docker(self):
+        paths, old, outside = self._seed_two_generations_with_unsafe_candidate()
+        calls: list[str] = []
+
+        def materialize(*_args, **_kwargs):
+            calls.append("materialize")
+            raise AssertionError("materialization must not run before recovery")
+
+        class Docker:
+            def run(self, argv):
+                calls.append("docker")
+                raise AssertionError("Docker must not run before recovery")
+
+        result = orchestrate_build(self._request(
+            materialize=materialize,
+            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+            runner=Docker(),
+        ))
+        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
+        self.assertEqual([], calls)
+        # Fails closed: the unsafe candidate and its symlink target are preserved.
+        self.assertTrue(outside.exists())
+        self.assertTrue(build_blob_path(paths.blobs_root, old).is_symlink())
+
+    def test_blob_verification_failure_has_no_post_publication_claim(self):
+        boom = OSError(errno.EIO, "injected published blob verification failure")
+        from docker.versioning import build_cache as build_cache_module
+        real_verify = build_cache_module._verify_published_blob
+        state = {"docker_succeeded": False}
+
+        class Runner(FakeBuildExecutor):
+            def run(self, argv):
+                result = super().run(argv)
+                state["docker_succeeded"] = True
+                return result
+
+        def fail_commit_verification(*args, **kwargs):
+            if state["docker_succeeded"]:
+                raise boom
+            return real_verify(*args, **kwargs)
+
+        runner = Runner()
+        with patch(
+            "docker.versioning.build_cache._verify_published_blob",
+            side_effect=fail_commit_verification,
+        ):
+            result = orchestrate_build(self._request(
+                materialize=_materialize_ok,
+                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                runner=runner,
+            ))
+        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
+        self.assertEqual(0, result.process_result.return_code)
+        self.assertIn("failed to commit successful build artifacts", result.message)
+        self.assertIn(str(boom), result.message)
+        self.assertNotIn("newest build generation remains committed", result.message)
+        self.assertNotIn("Recovery is required", result.message)
+
+    def test_generation_publication_failure_has_no_post_publication_claim(self):
+        boom = OSError(errno.ENOSPC, "injected generation directory fsync failure")
+        runner = FakeBuildExecutor()
+        with patch(
+            "docker.versioning.build_generations.publish_generation",
+            side_effect=boom,
+        ):
+            result = orchestrate_build(self._request(
+                materialize=_materialize_ok,
+                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                runner=runner,
+            ))
+        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
+        self.assertEqual(0, result.process_result.return_code)
+        self.assertIn("failed to commit successful build artifacts", result.message)
+        self.assertIn(str(boom), result.message)
+        self.assertNotIn("newest build generation remains committed", result.message)
+        self.assertNotIn("Recovery is required", result.message)
+
+    def test_post_commit_aggregate_reports_every_failure_and_preserves_state(self):
+        paths = prepare_build_cache(self.repo, cache_root=self.cache)
+        old = self._identity(b"aggregate-prior")
+        publish_verified_blob(
+            old, b"aggregate-prior", constructor_project_root=self.repo,
+            cache_root=self.cache,
+        )
+        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+            mark_uncommitted_blob(
+                old, self.repo, lock=lock, verified_at=0, cache_root=self.cache
+            )
+            commit_build_set(self.repo, {old}, lock=lock, cache_root=self.cache)
+
+        failures = (
+            CleanupFailure("sha256:first.blob", OSError(errno.EIO, "first candidate failed")),
+            CleanupFailure("sha256:second.json", OSError(errno.EACCES, "second candidate failed")),
+            CleanupFailure("markers", OSError(errno.ENOSPC, "marker directory sync failed")),
+        )
+        error = BuildCleanupError(
+            "superseded cleanup failed for 3 step(s)", failures=failures
+        )
+        from docker.versioning import build_cleanup as build_cleanup_module
+        real_cleanup = build_cleanup_module.cleanup_superseded
+
+        def fail_post_commit(ops, storage, inventory, *, lock):
+            if inventory.previous is not None:
+                raise error
+            return real_cleanup(ops, storage, inventory, lock=lock)
+
+        runner = FakeBuildExecutor()
+        with patch(
+            "docker.versioning.build_cleanup.cleanup_superseded",
+            side_effect=fail_post_commit,
+        ):
+            result = orchestrate_build(self._request(
+                materialize=_materialize_ok,
+                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                runner=runner,
+            ))
+        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
+        self.assertEqual(0, result.process_result.return_code)
+        self.assertEqual("/tmp/effective.toml", result.publish_result.published_path)
+        self.assertIn("image built successfully and remains available", result.message)
+        self.assertIn("newest build generation remains committed", result.message)
+        self.assertIn("cleanup or marker reconciliation failed", result.message)
+        self.assertIn("Recovery is required", result.message)
+        self.assertIn("retried on the next build", result.message)
+        for failure in failures:
+            self.assertIn(failure.target, result.message)
+            self.assertIn(str(failure.error), result.message)
+        generations = [
+            entry for entry in paths.persistent_root.iterdir()
+            if entry.name.startswith("committed-build-")
+        ]
+        self.assertEqual(2, len(generations))
+        self.assertTrue(build_blob_path(paths.blobs_root, old).exists())
+        from docker.constructor_cli import _EXIT_CODES
+        self.assertEqual(4, _EXIT_CODES[result.exit_kind])
+
+    def test_post_commit_reconciliation_and_release_failures_preserve_result(self):
+        paths = prepare_build_cache(self.repo, cache_root=self.cache)
+        old = self._identity(b"prior-committed")
+        publish_verified_blob(
+            old, b"prior-committed", constructor_project_root=self.repo, cache_root=self.cache
+        )
+        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+            mark_uncommitted_blob(old, self.repo, lock=lock, verified_at=0, cache_root=self.cache)
+            commit_build_set(self.repo, {old}, lock=lock, cache_root=self.cache)
+
+        def failing_reconciliation(*_args, **_kwargs):
+            raise BuildCleanupError("authoritative-generation marker reconciliation failed")
+
+        from docker.versioning import build_cleanup as build_cleanup_module
+
+        real_reconcile = build_cleanup_module.reconcile_authoritative_markers
+        state = {"calls": 0}
+
+        def flaky_reconciliation(*args, **kwargs):
+            state["calls"] += 1
+            # The first call is pre-build recovery of the prior generation;
+            # only the post-commit reconciliation fails.
+            if state["calls"] >= 2:
+                return failing_reconciliation()
+            return real_reconcile(*args, **kwargs)
+
+        runner = FakeBuildExecutor()
+        release_error = OSError(errno.EIO, "injected lock release failure")
+        with patch(
+            "docker.versioning.build_cleanup.reconcile_authoritative_markers",
+            side_effect=flaky_reconciliation,
+        ), patch.object(
+            ConstructorProjectBuildLock, "release", side_effect=release_error
+        ):
+            result = orchestrate_build(self._request(
+                materialize=_materialize_ok,
+                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                runner=runner,
+            ))
+        # The image was built and is not rolled back, but the post-commit
+        # cleanup failure is operational and preserves the predecessor.
+        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
+        self.assertEqual(1, len(runner.calls))
+        self.assertIsNotNone(result.process_result)
+        self.assertEqual(0, result.process_result.return_code)
+        generations = sorted(
+            entry.name for entry in paths.persistent_root.iterdir()
+            if entry.name.startswith("committed-build-")
+        )
+        self.assertEqual(2, len(generations))
+        self.assertTrue(build_blob_path(paths.blobs_root, old).exists())
+        self.assertIn("image built successfully and remains available", result.message)
+        self.assertIn("newest build generation remains committed", result.message)
+        self.assertIn("cleanup or marker reconciliation failed", result.message)
+        self.assertIn("Recovery is required", result.message)
+        self.assertIn("retried on the next build", result.message)
+        self.assertIn("authoritative-generation marker reconciliation failed", result.message)
+        self.assertIn(str(release_error), result.message)
+        self.assertEqual("/tmp/effective.toml", result.publish_result.published_path)
+        self.assertTrue(result.build_args)
+        self.assertIsNotNone(result.display_string)
+
+    def test_post_commit_storage_open_oserror_is_operational_and_preserves_state(self):
+        from docker.constructor_cli import _EXIT_CODES
+
+        paths = prepare_build_cache(self.repo, cache_root=self.cache)
+        old = self._identity(b"storage-open-prior")
+        publish_verified_blob(
+            old, b"storage-open-prior", constructor_project_root=self.repo,
+            cache_root=self.cache,
+        )
+        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+            mark_uncommitted_blob(
+                old, self.repo, lock=lock, verified_at=0, cache_root=self.cache
+            )
+            commit_build_set(self.repo, {old}, lock=lock, cache_root=self.cache)
+
+        boom = OSError(errno.EIO, "injected post-commit storage open failure")
+        real_open_storage = ConstructorProjectBuildLock.open_storage
+
+        def failing_post_commit_open(lock):
+            generations = [
+                name for name in os.listdir(lock.generation_directory.fd)
+                if name.startswith("committed-build-")
+            ]
+            if len(generations) == 2:
+                raise boom
+            return real_open_storage(lock)
+
+        runner = FakeBuildExecutor()
+        with patch.object(
+            ConstructorProjectBuildLock, "open_storage", failing_post_commit_open
+        ):
+            result = orchestrate_build(self._request(
+                materialize=_materialize_ok,
+                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                runner=runner,
+            ))
+
+        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
+        self.assertEqual(4, _EXIT_CODES[result.exit_kind])
+        self.assertIn("newest build generation remains committed", result.message)
+        self.assertIn("Recovery is required", result.message)
+        self.assertIn(str(boom), result.message)
+        self.assertEqual(1, len(runner.calls))
+        self.assertEqual(0, result.process_result.return_code)
+        self.assertEqual("/tmp/effective.toml", result.publish_result.published_path)
+        generations = sorted(
+            entry for entry in paths.persistent_root.iterdir()
+            if entry.name.startswith("committed-build-")
+        )
+        self.assertEqual(2, len(generations))
+        self.assertTrue(build_blob_path(paths.blobs_root, old).exists())
+        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache):
+            pass
+
+    def test_post_commit_unsafe_storage_capability_is_operational(self):
+        from docker.constructor_cli import _EXIT_CODES
+
+        paths = prepare_build_cache(self.repo, cache_root=self.cache)
+        old = self._identity(b"unsafe-storage-prior")
+        publish_verified_blob(
+            old, b"unsafe-storage-prior", constructor_project_root=self.repo,
+            cache_root=self.cache,
+        )
+        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+            mark_uncommitted_blob(
+                old, self.repo, lock=lock, verified_at=0, cache_root=self.cache
+            )
+            commit_build_set(self.repo, {old}, lock=lock, cache_root=self.cache)
+
+        boom = CapabilityError("externally mutated markers directory is unsafe")
+        real_open_storage = ConstructorProjectBuildLock.open_storage
+
+        def failing_post_commit_open(lock):
+            generations = [
+                name for name in os.listdir(lock.generation_directory.fd)
+                if name.startswith("committed-build-")
+            ]
+            if len(generations) == 2:
+                raise boom
+            return real_open_storage(lock)
+
+        runner = FakeBuildExecutor()
+        with patch.object(
+            ConstructorProjectBuildLock, "open_storage", failing_post_commit_open
+        ):
+            result = orchestrate_build(self._request(
+                materialize=_materialize_ok,
+                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                runner=runner,
+            ))
+
+        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
+        self.assertEqual(4, _EXIT_CODES[result.exit_kind])
+        self.assertEqual(0, result.process_result.return_code)
+        self.assertIn("newest build generation remains committed", result.message)
+        self.assertIn("Recovery is required", result.message)
+        self.assertIn(str(boom), result.message)
+        generations = sorted(
+            entry for entry in paths.persistent_root.iterdir()
+            if entry.name.startswith("committed-build-")
+        )
+        self.assertEqual(2, len(generations))
+        self.assertTrue(build_blob_path(paths.blobs_root, old).exists())
+        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache):
+            pass
+
+    def test_post_commit_storage_close_oserror_is_operational(self):
+        from docker.versioning import build_cache as build_cache_module
+
+        paths = prepare_build_cache(self.repo, cache_root=self.cache)
+        old = self._identity(b"storage-close-prior")
+        publish_verified_blob(
+            old, b"storage-close-prior", constructor_project_root=self.repo,
+            cache_root=self.cache,
+        )
+        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+            mark_uncommitted_blob(
+                old, self.repo, lock=lock, verified_at=0, cache_root=self.cache
+            )
+            commit_build_set(self.repo, {old}, lock=lock, cache_root=self.cache)
+
+        boom = OSError(errno.EIO, "injected post-commit storage close failure")
+        real_exit = build_cache_module._BuildStorageHandle.__exit__
+
+        def failing_post_commit_close(handle, exc_type, exc, tb):
+            post_commit = any(
+                name == "committed-build-00000000000000000002.json"
+                for name in os.listdir(handle._generations.fd)
+            )
+            result = real_exit(handle, exc_type, exc, tb)
+            if post_commit:
+                raise boom
+            return result
+
+        runner = FakeBuildExecutor()
+        with patch.object(
+            build_cache_module._BuildStorageHandle, "__exit__",
+            failing_post_commit_close,
+        ):
+            result = orchestrate_build(self._request(
+                materialize=_materialize_ok,
+                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                runner=runner,
+            ))
+
+        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
+        self.assertIn("newest build generation remains committed", result.message)
+        self.assertIn("Recovery is required", result.message)
+        self.assertIn(str(boom), result.message)
+        self.assertEqual(1, len(runner.calls))
+        self.assertEqual(0, result.process_result.return_code)
+        generations = [
+            entry for entry in paths.persistent_root.iterdir()
+            if entry.name.startswith("committed-build-")
+        ]
+        self.assertEqual(1, len(generations))
+        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache):
+            pass
+
+    def test_post_commit_storage_interruption_propagates_and_releases_lock(self):
+        interrupt = KeyboardInterrupt("interrupted opening post-commit storage")
+        real_open_storage = ConstructorProjectBuildLock.open_storage
+        real_release = ConstructorProjectBuildLock.release
+        release_calls: list[ConstructorProjectBuildLock] = []
+
+        def interrupting_post_commit_open(lock):
+            generations = [
+                name for name in os.listdir(lock.generation_directory.fd)
+                if name.startswith("committed-build-")
+            ]
+            if generations:
+                raise interrupt
+            return real_open_storage(lock)
+
+        def recording_release(lock):
+            release_calls.append(lock)
+            return real_release(lock)
+
+        with patch.object(
+            ConstructorProjectBuildLock, "open_storage", interrupting_post_commit_open
+        ), patch.object(ConstructorProjectBuildLock, "release", recording_release):
+            with self.assertRaises(KeyboardInterrupt) as ctx:
+                orchestrate_build(self._request(
+                    materialize=_materialize_ok,
+                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                    runner=FakeBuildExecutor(),
+                ))
+        self.assertIs(ctx.exception, interrupt)
+        self.assertEqual(1, len(release_calls))
+        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache):
+            pass
+
+    def test_interruption_during_recovery_propagates_and_releases_lock(self):
+        calls: list[str] = []
+        with patch(
+            "docker.versioning.build_cleanup.discover_generations",
+            side_effect=KeyboardInterrupt(),
+        ):
+            with self.assertRaises(KeyboardInterrupt):
+                orchestrate_build(self._request(
+                    materialize=lambda *_a, **_k: calls.append("materialize"),
+                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                    runner=FakeBuildExecutor(),
+                ))
+        # Interruption passes through unchanged and no build side effect ran.
+        self.assertEqual([], calls)
+        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache):
+            pass
+
+    def test_successful_build_returns_to_one_stable_generation(self):
+        paths = prepare_build_cache(self.repo, cache_root=self.cache)
+        old = self._identity(b"stable-prior")
+        publish_verified_blob(
+            old, b"stable-prior", constructor_project_root=self.repo, cache_root=self.cache
+        )
+        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+            mark_uncommitted_blob(old, self.repo, lock=lock, verified_at=0, cache_root=self.cache)
+            commit_build_set(self.repo, {old}, lock=lock, cache_root=self.cache)
+        result = orchestrate_build(self._request(
+            materialize=_materialize_ok,
+            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+            runner=FakeBuildExecutor(),
+        ))
+        self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
+        generations = sorted(
+            entry.name for entry in paths.persistent_root.iterdir()
+            if entry.name.startswith("committed-build-")
+        )
+        self.assertEqual(1, len(generations))
+        committed = json.loads((paths.persistent_root / generations[0]).read_text())["blobs"]
+        self.assertNotIn(f"sha256:{old.hex_digest()}", committed)
+        self.assertFalse(build_blob_path(paths.blobs_root, old).exists())
 
 
 class TestPiMaterializationBoundary(unittest.TestCase):

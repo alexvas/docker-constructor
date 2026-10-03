@@ -17,6 +17,15 @@ from docker.versioning.build_cache import (BuildCacheError, BuildTransactionErro
 from docker.versioning.digest_identity import DigestIdentity
 _REPO=Path(__file__).resolve().parents[1]
 
+
+def _newest_generation_blobs(paths):
+    candidates=sorted(entry.name for entry in paths.persistent_root.iterdir() if entry.name.startswith('committed-build-'))
+    return json.loads((paths.persistent_root/candidates[-1]).read_text())['blobs']
+
+
+def _generation_files(paths):
+    return sorted(entry.name for entry in paths.persistent_root.iterdir() if entry.name.startswith('committed-build-'))
+
 class ExternalPersistence(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
@@ -352,7 +361,7 @@ class ExternalPersistence(unittest.TestCase):
         paths=prepare_build_cache(self.root, cache_root=self.cache)
         self.assertEqual(paths.namespace_root, self.state.namespace)
         self.assertTrue((paths.persistent_root/'build.lock').is_relative_to(self.state.namespace))
-        self.assertTrue((paths.persistent_root/'committed-build.json').is_relative_to(self.state.build_artifacts_root))
+        self.assertTrue(any((paths.persistent_root/name).is_relative_to(self.state.build_artifacts_root) for name in _generation_files(paths)))
         self.assertTrue(build_blob_path(paths.blobs_root, identity).exists())
 
     def test_lock_lives_under_external_namespace_not_checkout(self):
@@ -402,9 +411,8 @@ class ExternalPersistence(unittest.TestCase):
             recover_abandoned_snapshots(self.root,lock=lock)
             self.assertFalse(snapshot.exists())
             commit_build_set(self.root,{one},lock=lock)
-        manifest=paths.persistent_root/'committed-build.json'
-        self.assertTrue(manifest.is_relative_to(state.build_artifacts_root))
-        self.assertEqual(json.loads(manifest.read_text())['blobs'], [f'sha256:{one.hex_digest()}'])
+        self.assertTrue(any((paths.persistent_root/name).is_relative_to(state.build_artifacts_root) for name in _generation_files(paths)))
+        self.assertEqual(_newest_generation_blobs(paths), [f'sha256:{one.hex_digest()}'])
         self.assertFalse((self.root/'.docker-cache').exists()); self.assertFalse((self.root/'.docker-generated').exists())
 
     def test_retention_boundary_preserves_committed_blob_and_prior_state(self):
@@ -421,7 +429,7 @@ class ExternalPersistence(unittest.TestCase):
         self.assertTrue(build_blob_path(paths.blobs_root,committed).exists())
         self.assertFalse(build_blob_path(paths.blobs_root,stale).exists())
         self.assertFalse((paths.markers_root/f'sha256:{stale.hex_digest()}.json').exists())
-        self.assertEqual(json.loads((state.build_artifacts_root/'committed-build.json').read_text())['blobs'], [f'sha256:{committed.hex_digest()}'])
+        self.assertEqual(_newest_generation_blobs(paths), [f'sha256:{committed.hex_digest()}'])
 
     def test_interrupted_blob_publication_retains_marker_for_cleanup(self):
         state, paths=self.transaction_paths(); identity=self.identity(b'interrupted')
@@ -485,7 +493,7 @@ class CustomCacheRootLifecycle(unittest.TestCase):
         self.assertTrue(lock.exists()); self.assertTrue(lock.is_relative_to(namespace))
         blob=build_blob_path(paths.blobs_root, committed)
         self.assertTrue(blob.exists()); self.assertTrue(blob.is_relative_to(namespace))
-        manifest=paths.persistent_root/'committed-build.json'
+        manifest=next(paths.persistent_root/name for name in _generation_files(paths))
         self.assertTrue(manifest.exists()); self.assertTrue(manifest.is_relative_to(namespace))
         marker=paths.markers_root/f'sha256:{uncommitted.hex_digest()}.json'
         self.assertTrue(marker.exists()); self.assertTrue(marker.is_relative_to(namespace))
@@ -573,12 +581,12 @@ class DescriptorRelativePublicationRaces(unittest.TestCase):
         with acquire_constructor_project_build_lock(self.root, cache_root=self.cache) as lock:
             publish_uncommitted_blob(identity, b'live', constructor_project_root=self.root, lock=lock, verified_at=0, cache_root=self.cache)
             commit_build_set(self.root, {identity}, lock=lock, cache_root=self.cache)
-        manifest = self.paths.persistent_root / 'committed-build.json'
+        generation = self.paths.persistent_root / _generation_files(self.paths)[0]
         outside = self.base / 'outside-manifest'
         outside.write_text('must-not-be-read')
-        manifest.unlink(); manifest.symlink_to(outside)
+        generation.unlink(); generation.symlink_to(outside)
         with acquire_constructor_project_build_lock(self.root, cache_root=self.cache) as lock:
-            with self.assertRaises(BuildTransactionError):
+            with self.assertRaises(BuildCacheError):
                 commit_build_set(self.root, {identity}, lock=lock, cache_root=self.cache)
         self.assertEqual(outside.read_text(), 'must-not-be-read')
 
@@ -604,36 +612,30 @@ class DescriptorRelativePublicationRaces(unittest.TestCase):
             prepare_build_cache(self.root, cache_root=self.cache)
         self.assertEqual((evil / 'sentinel').read_text(), 'evil')
 
-    def test_interrupted_manifest_publication_preserves_prior_and_cleans_temp(self):
+    def test_interrupted_generation_publication_preserves_prior_and_cleans_temp(self):
         first = self.identity(b'first'); second = self.identity(b'second')
         with acquire_constructor_project_build_lock(self.root, cache_root=self.cache) as lock:
             publish_uncommitted_blob(first, b'first', constructor_project_root=self.root, lock=lock, verified_at=0, cache_root=self.cache)
             commit_build_set(self.root, {first}, lock=lock, cache_root=self.cache)
             publish_uncommitted_blob(second, b'second', constructor_project_root=self.root, lock=lock, verified_at=0, cache_root=self.cache)
-            real_replace = os.replace
-            def interrupt(src, dst, *args, **kwargs):
-                if dst == 'committed-build.json':
-                    raise OSError('interrupted manifest publication')
-                return real_replace(src, dst, *args, **kwargs)
-            with mock.patch('docker.versioning.build_cache.os.replace', side_effect=interrupt):
-                with self.assertRaises(OSError):
+            with mock.patch('docker.transactions.posix.PosixFileOps.linkat', side_effect=OSError('interrupted generation publication')):
+                with self.assertRaises(BuildCacheError):
                     commit_build_set(self.root, {first, second}, lock=lock, cache_root=self.cache)
-        manifest = self.paths.persistent_root / 'committed-build.json'
-        self.assertEqual(json.loads(manifest.read_text())['blobs'], [f'sha256:{first.hex_digest()}'])
+        self.assertEqual(_newest_generation_blobs(self.paths), [f'sha256:{first.hex_digest()}'])
         self.assertEqual([p.name for p in self.paths.persistent_root.iterdir() if p.name.startswith('.transaction-')], [])
         self.assertTrue(build_blob_path(self.paths.blobs_root, second).exists())
         self.assertTrue((self.paths.markers_root / f'sha256:{second.hex_digest()}.json').exists())
 
-    def test_hard_linked_manifest_is_rejected_without_deletion(self):
+    def test_hard_linked_generation_is_rejected_without_deletion(self):
         identity = self.identity(b'live')
         with acquire_constructor_project_build_lock(self.root, cache_root=self.cache) as lock:
             publish_uncommitted_blob(identity, b'live', constructor_project_root=self.root, lock=lock, verified_at=0, cache_root=self.cache)
             commit_build_set(self.root, {identity}, lock=lock, cache_root=self.cache)
-        manifest = self.paths.persistent_root / 'committed-build.json'
-        original = manifest.read_text()
-        os.link(manifest, self.base / 'manifest-hardlink')
+        generation = self.paths.persistent_root / _generation_files(self.paths)[0]
+        original = generation.read_text()
+        os.link(generation, self.base / 'generation-hardlink')
         with acquire_constructor_project_build_lock(self.root, cache_root=self.cache) as lock:
-            with self.assertRaises(BuildTransactionError):
+            with self.assertRaises(BuildCacheError):
                 commit_build_set(self.root, {identity}, lock=lock, cache_root=self.cache)
-        self.assertEqual(manifest.read_text(), original)
+        self.assertEqual(generation.read_text(), original)
         self.assertTrue(build_blob_path(self.paths.blobs_root, identity).exists())

@@ -44,6 +44,24 @@ def _acquire_pristine_lock(checkout: str, start: multiprocessing.Event, results:
         results.put(f"unexpected: {type(exc).__name__}: {exc}")
 
 
+def _newest_generation_blobs(paths) -> list[str]:
+    """Return the canonical blob keys of the newest immutable generation."""
+    candidates = sorted(
+        entry.name
+        for entry in paths.persistent_root.iterdir()
+        if entry.name.startswith("committed-build-")
+    )
+    return json.loads((paths.persistent_root / candidates[-1]).read_text())["blobs"]
+
+
+def _generation_names(paths) -> list[str]:
+    return sorted(
+        entry.name
+        for entry in paths.persistent_root.iterdir()
+        if entry.name.startswith("committed-build-")
+    )
+
+
 class BuildTransactionTest(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
@@ -168,12 +186,11 @@ class BuildTransactionTest(unittest.TestCase):
             old_path = build_blob_path(paths.blobs_root, old)
             self.assertTrue(old_path.exists())
             commit_build_set(self.checkout, {new}, lock=lock)
-        self.assertEqual(
-            {"blobs": [f"sha256:{new.hex_digest()}"]},
-            json.loads((paths.persistent_root / "committed-build.json").read_text()),
-        )
+        self.assertEqual([f"sha256:{new.hex_digest()}"], _newest_generation_blobs(paths))
         self.assertFalse(old_path.exists())
         self.assertTrue(build_blob_path(paths.blobs_root, new).exists())
+        # A successful cleanup returns to exactly one stable generation.
+        self.assertEqual(len(_generation_names(paths)), 1)
 
     def test_failed_build_keeps_prior_live_set_and_shared_xdg_is_untouched(self) -> None:
         committed, failed = self.blob(b"committed"), self.blob(b"failed")
@@ -261,6 +278,8 @@ class BuildTransactionTest(unittest.TestCase):
             self.assertTrue(marker.exists())
             blob = build_blob_path(paths.blobs_root, identity)
             blob.chmod(0o644)
+            blob.write_bytes(b"corrupt after publication")
+            blob.chmod(0o444)
             maintain_uncommitted_blobs(self.checkout, lock=lock, now=102)
         self.assertFalse(blob.exists())
         self.assertFalse(marker.exists())
@@ -303,6 +322,7 @@ class BuildTransactionTest(unittest.TestCase):
         with acquire_constructor_project_build_lock(self.checkout) as lock:
             commit_build_set(self.checkout, {identity}, lock=lock)
         marker.write_text('{"verified_at":NaN}')
+        marker.chmod(0o600)
         with acquire_constructor_project_build_lock(self.checkout) as lock:
             maintain_uncommitted_blobs(self.checkout, lock=lock, now=1)
         self.assertFalse(marker.exists())
@@ -338,8 +358,7 @@ class BuildTransactionTest(unittest.TestCase):
         paths = prepare_build_cache(self.checkout)
         with acquire_constructor_project_build_lock(self.checkout) as lock:
             commit_build_set(self.checkout, {previous}, lock=lock)
-        manifest = paths.persistent_root / "committed-build.json"
-        original_manifest = manifest.read_text()
+        generations_before = _generation_names(paths)
         cases = ("missing", "altered", "writable")
         for case in cases:
             with self.subTest(case=case):
@@ -356,15 +375,16 @@ class BuildTransactionTest(unittest.TestCase):
                 with acquire_constructor_project_build_lock(self.checkout) as lock:
                     with self.assertRaises(BuildTransactionError):
                         commit_build_set(self.checkout, {candidate}, lock=lock)
-                self.assertEqual(original_manifest, manifest.read_text())
+                self.assertEqual(generations_before, _generation_names(paths))
+                self.assertEqual([f"sha256:{previous.hex_digest()}"], _newest_generation_blobs(paths))
                 self.assertTrue(build_blob_path(paths.blobs_root, previous).exists())
 
-    def test_corrupt_manifest_keys_fail_without_any_deletion(self) -> None:
+    def test_corrupt_generation_fails_without_any_deletion(self) -> None:
         identity = self.blob(b"live")
         paths = prepare_build_cache(self.checkout)
-        manifest = paths.persistent_root / "committed-build.json"
         outside = Path(self.tmp.name) / "outside"
         outside.write_bytes(b"must not delete")
+        corrupt_name = "committed-build-" + "0" * 19 + "1.json"
         invalid_keys = (
             "sha256:../../outside",
             "md5:" + "0" * 32,
@@ -374,14 +394,15 @@ class BuildTransactionTest(unittest.TestCase):
         )
         for key in invalid_keys:
             with self.subTest(key=key):
-                original = json.dumps({"blobs": [key]})
-                manifest.write_text(original)
+                original = json.dumps({"version": 1, "blobs": [key]})
+                (paths.persistent_root / corrupt_name).write_text(original)
                 with acquire_constructor_project_build_lock(self.checkout) as lock:
-                    with self.assertRaises(BuildTransactionError):
+                    with self.assertRaises(BuildCacheError):
                         commit_build_set(self.checkout, {identity}, lock=lock)
-                self.assertEqual(original, manifest.read_text())
+                self.assertEqual(original, (paths.persistent_root / corrupt_name).read_text())
                 self.assertTrue(outside.exists())
                 self.assertTrue(build_blob_path(paths.blobs_root, identity).exists())
+                (paths.persistent_root / corrupt_name).unlink()
 
     def test_marker_creation_rejects_non_finite_timestamps(self) -> None:
         identity = self.blob(b"timestamp")
@@ -401,6 +422,7 @@ class BuildTransactionTest(unittest.TestCase):
                 paths = prepare_build_cache(self.checkout)
                 marker = paths.markers_root / f"sha256:{identity.hex_digest()}.json"
                 marker.write_text(f'{{"verified_at":{timestamp}}}')
+                marker.chmod(0o600)
                 with acquire_constructor_project_build_lock(self.checkout) as lock:
                     maintain_uncommitted_blobs(self.checkout, lock=lock, now=1)
                 self.assertFalse(marker.exists())
@@ -410,6 +432,7 @@ class BuildTransactionTest(unittest.TestCase):
         huge_paths = prepare_build_cache(self.checkout)
         huge_marker = huge_paths.markers_root / f"sha256:{huge_identity.hex_digest()}.json"
         huge_marker.write_text('{"verified_at":' + '1' + ('0' * 4000) + '}')
+        huge_marker.chmod(0o600)
         with acquire_constructor_project_build_lock(self.checkout) as lock:
             maintain_uncommitted_blobs(self.checkout, lock=lock, now=1)
         self.assertFalse(huge_marker.exists())
@@ -426,8 +449,8 @@ class BuildTransactionTest(unittest.TestCase):
                 self.assertTrue(build_blob_path(paths.blobs_root, identity).exists())
                 self.assertTrue((paths.markers_root / f"sha256:{identity.hex_digest()}.json").exists())
 
-    def test_valid_marker_with_unsafe_blob_is_removed_immediately(self) -> None:
-        cases = ("missing", "altered", "writable")
+    def test_valid_marker_with_missing_or_corrupt_safe_blob_is_removed(self) -> None:
+        cases = ("missing", "altered")
         for case in cases:
             with self.subTest(case=case):
                 payload = f"{case}-blob".encode()
@@ -442,17 +465,30 @@ class BuildTransactionTest(unittest.TestCase):
                         blob.chmod(0o644)
                         blob.write_bytes(b"altered")
                         blob.chmod(0o444)
-                    else:
-                        blob.chmod(0o644)
                     maintain_uncommitted_blobs(self.checkout, lock=lock, now=1)
                 self.assertFalse(blob.exists())
                 self.assertFalse((paths.markers_root / f"sha256:{identity.hex_digest()}.json").exists())
+
+    def test_unsafe_writable_blob_fails_closed(self) -> None:
+        identity = self.blob(b"writable-blob")
+        paths = prepare_build_cache(self.checkout)
+        blob = build_blob_path(paths.blobs_root, identity)
+        with acquire_constructor_project_build_lock(self.checkout) as lock:
+            mark_uncommitted_blob(identity, self.checkout, lock=lock, verified_at=0)
+            blob.chmod(0o644)
+            with self.assertRaises(BuildTransactionError):
+                maintain_uncommitted_blobs(self.checkout, lock=lock, now=1)
+        self.assertTrue(blob.exists())
+        self.assertTrue(
+            (paths.markers_root / f"sha256:{identity.hex_digest()}.json").exists()
+        )
 
     def test_corrupt_marker_removes_partial_blob_immediately(self) -> None:
         identity = self.blob(b"partial")
         paths = prepare_build_cache(self.checkout)
         marker = paths.markers_root / f"sha256:{identity.hex_digest()}.json"
         marker.write_text("not-json")
+        marker.chmod(0o600)
         with acquire_constructor_project_build_lock(self.checkout) as lock:
             maintain_uncommitted_blobs(self.checkout, lock=lock, now=0)
         self.assertFalse(marker.exists())
@@ -563,8 +599,8 @@ class ExternalTransactionIsolationTest(unittest.TestCase):
             commit_build_set(self.project, {old_one, old_two}, lock=lock, cache_root=self.cache)
             mark_uncommitted_blob(new, self.project, lock=lock, verified_at=0, cache_root=self.cache)
             commit_build_set(self.project, {new}, lock=lock, cache_root=self.cache)
-        manifest = json.loads((self.paths.persistent_root / "committed-build.json").read_text())
-        self.assertEqual(manifest, {"blobs": [f"sha256:{new.hex_digest()}"]})
+        manifest = _newest_generation_blobs(self.paths)
+        self.assertEqual(manifest, [f"sha256:{new.hex_digest()}"])
         self.assertFalse(build_blob_path(self.paths.blobs_root, old_one).exists())
         self.assertFalse(build_blob_path(self.paths.blobs_root, old_two).exists())
         self.assertTrue(build_blob_path(self.paths.blobs_root, new).exists())
@@ -610,8 +646,8 @@ class ExternalTransactionIsolationTest(unittest.TestCase):
         # Another project namespace and global runtime/versioning caches are untouched.
         self.assertTrue(build_blob_path(other_paths.blobs_root, other_blob).exists())
         self.assertEqual(
-            json.loads((other_paths.persistent_root / "committed-build.json").read_text()),
-            {"blobs": [f"sha256:{other_blob.hex_digest()}"]},
+            _newest_generation_blobs(other_paths),
+            [f"sha256:{other_blob.hex_digest()}"],
         )
         self.assertEqual((runtime / "runtime-blob").read_text(), "runtime")
         self.assertEqual((versioning / "discovery.json").read_text(), "versioning")
@@ -646,8 +682,8 @@ class ExternalTransactionIsolationTest(unittest.TestCase):
             self.assertTrue(path.exists(), path)
             self.assertEqual(path.read_bytes(), payload, path)
         self.assertEqual(
-            json.loads((self.paths.persistent_root / "committed-build.json").read_text()),
-            {"blobs": [f"sha256:{identity.hex_digest()}"]},
+            _newest_generation_blobs(self.paths),
+            [f"sha256:{identity.hex_digest()}"],
         )
 
 

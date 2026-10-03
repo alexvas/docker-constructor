@@ -132,27 +132,27 @@ Phase 1 ─────▶ Phase 8
 
 ### RED
 
-- [ ] 5.1 Add parity tests for checkout-wide `FAIL_FAST`, competing-build rejection before mutation, canonical project/cache binding, and release on every outcome.
-- [ ] 5.2 Add parity tests for marker retention before generation commit, durable batch removal of markers for blobs admitted to the authoritative generation, exact fixed TTL for blobs that remain uncommitted, snapshot recovery/cleanup, content-addressed blob verification/publication, shared-XDG non-interaction, and zero constructor-project mutation.
-- [ ] 5.3 Add orchestration tests proving discovery-time authoritative-marker reconciliation and two-generation recovery run before materialization, snapshot work, Docker execution, or superseded cleanup and block all such side effects on reconciliation failure. Cover restart with all current-generation markers already absent and require marker-directory fsync before progress.
-- [ ] 5.4 Add result-mapping tests proving authoritative-marker reconciliation and pre/post-build cleanup failures preserve existing build-domain diagnostics, causes, and interruption behavior while mapping ordinary failure to `ExitKind.OPERATIONAL` and process exit code `4`.
-- [ ] 5.5 Add post-commit failure tests proving authoritative-marker unlink/fsync failure does not roll back a successful image or newest generation, preserves any existing predecessor, blocks superseded cleanup/build work, and returns operational/4; add snapshot-cleanup-failure coverage proving newly materialized blobs retain uncommitted markers and remain subject to the fixed 30-day TTL when no later generation references them.
+- [x] 5.1 Add parity tests for checkout-wide `FAIL_FAST`, competing-build rejection before mutation, canonical project/cache binding, and release on every outcome.
+- [x] 5.2 Add parity tests for marker retention before generation commit, durable batch removal of markers for blobs admitted to the authoritative generation, exact fixed TTL for blobs that remain uncommitted, snapshot recovery/cleanup, content-addressed blob verification/publication, shared-XDG non-interaction, and zero constructor-project mutation.
+- [x] 5.3 Add orchestration tests proving discovery-time authoritative-marker reconciliation and two-generation recovery run before materialization, snapshot work, Docker execution, or superseded cleanup and block all such side effects on reconciliation failure. Cover restart with all current-generation markers already absent and require marker-directory fsync before progress.
+- [x] 5.4 Add result-mapping tests proving authoritative-marker reconciliation and pre/post-build cleanup failures preserve existing build-domain diagnostics, causes, and interruption behavior while mapping ordinary failure to `ExitKind.OPERATIONAL` and process exit code `4`.
+- [x] 5.5 Add post-commit failure tests proving authoritative-marker unlink/fsync failure does not roll back a successful image or newest generation, preserves any existing predecessor, blocks superseded cleanup/build work, and returns operational/4; add snapshot-cleanup-failure coverage proving newly materialized blobs retain uncommitted markers and remain subject to the fixed 30-day TTL when no later generation references them.
 
 ### GREEN
 
-- [ ] 5.6 Migrate the checkout build lock to the shared `FAIL_FAST` capability without changing namespace or diagnostics; verify task 5.1 passes.
-- [ ] 5.7 Migrate build control reads/replacements/unlinks through L2 adapters that preserve existing build exception types/messages, raw causes, chaining, and interruption passthrough; verify task 5.4 passes.
-- [ ] 5.8 Replace mutable `committed-build.json` with generation publication, connect durable authoritative-marker reconciliation, then connect normal superseded cleanup; verify a successful build returns to one stable generation with no marker for any committed blob.
-- [ ] 5.9 Connect authoritative-marker reconciliation and generation recovery before superseded cleanup and every build side effect; map incomplete marker reconciliation or cleanup to `ExitKind.OPERATIONAL` and process exit code `4`; verify tasks 5.3–5.5 pass.
-- [ ] 5.10 Remove superseded local build lock and exact duplicate control-file helpers while retaining specialized blob, marker, TTL, and snapshot code; verify task 5.2 passes.
+- [x] 5.6 Migrate the checkout build lock to the shared `FAIL_FAST` capability without changing namespace or diagnostics; verify task 5.1 passes.
+- [x] 5.7 Migrate build control reads/replacements/unlinks through L2 adapters that preserve existing build exception types/messages, raw causes, chaining, and interruption passthrough; verify task 5.4 passes.
+- [x] 5.8 Replace mutable `committed-build.json` with generation publication, connect durable authoritative-marker reconciliation, then connect normal superseded cleanup; verify a successful build returns to one stable generation with no marker for any committed blob.
+- [x] 5.9 Connect authoritative-marker reconciliation and generation recovery before superseded cleanup and every build side effect; map incomplete marker reconciliation or cleanup to `ExitKind.OPERATIONAL` and process exit code `4`; verify tasks 5.3–5.5 pass.
+- [x] 5.10 Remove superseded local build lock and exact duplicate control-file helpers while retaining specialized blob, marker, TTL, and snapshot code; verify task 5.2 passes.
 
 ### INTROSPECT
 
-- [ ] 5.11 Review build integration for cleanup before commit, image rollback claims, hidden legacy adoption, widened deletion authority, changed dry-run effects, TTL drift, snapshot ordering, blob-publisher migration, L2 exception leakage, interruption conversion, and release masking; resolve every finding and record the review.
+- [x] 5.11 Review build integration for cleanup before commit, image rollback claims, hidden legacy adoption, widened deletion authority, changed dry-run effects, TTL drift, snapshot ordering, blob-publisher migration, L2 exception leakage, interruption conversion, and release masking; resolve every finding and record the review.
 
 ### VALIDATE
 
-- [ ] 5.12 Run build transaction, persistence, materialization, orchestration, CLI, and acceptance suites for first build, changed build, recovery, partial deletion, post-commit failure, corrupt generation state, ignored legacy manifest names, and excess generations; record expected image, manifest, marker/TTL, cache, diagnostic, and exit-code outcomes.
+- [x] 5.12 Run build transaction, persistence, materialization, orchestration, CLI, and acceptance suites for first build, changed build, recovery, partial deletion, post-commit failure, corrupt generation state, ignored legacy manifest names, and excess generations; record expected image, manifest, marker/TTL, cache, diagnostic, and exit-code outcomes.
 
 ## Phase 6. Project Metadata and Effective Build Projection
 

@@ -866,6 +866,15 @@ def _real_dispatcher(
                 result.host_failure,
                 network_url_display=local_config.output.network_url_display,
             )
+            if (
+                result.message
+                and "BuildCleanupError" in result.host_failure.exception_types
+            ):
+                # Build cleanup aggregates own multiple target-specific
+                # diagnostics that are not represented by the generic host
+                # failure report. Preserve the structured context and expose
+                # the complete build-domain diagnostic alongside it.
+                report = f"{report}\n{result.message}"
             # The contextual report owns both the concise summary and the
             # structurally separate retained tail.  Appending ``result.message``
             # here would replay assembler details that are already represented
