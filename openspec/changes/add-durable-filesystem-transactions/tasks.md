@@ -161,23 +161,23 @@ Phase 1 ─────▶ Phase 8
 
 ### RED
 
-- [ ] 6.1 Add project-metadata tests for exact bytes, `0600` mode, three-attempt temporary allocation, typed final collision, concurrent-winner verification, unsafe-entry rejection, file/directory durability, and existing `ProjectStateError` message/cause behavior.
-- [ ] 6.2 Add effective-build-projection tests for descriptor-relative containment, safe destination replacement, TOML validation, `0600` mode, file/directory durability, temporary cleanup, existing `EffectiveInventoryOutputError` mappings, observable raw `OSError`/chaining, and interruption passthrough.
-- [ ] 6.3 Add boundary tests proving user-directed `write_effective_inventory` retains its current atomic-output and failure behavior and is not migrated to L2 durability.
+- [x] 6.1 Add project-metadata tests for exact bytes, `0600` mode, three-attempt temporary allocation, typed final collision, concurrent-winner verification, unsafe-entry rejection, file/directory durability, and existing `ProjectStateError` message/cause behavior.
+- [x] 6.2 Add effective-build-projection tests for descriptor-relative containment, safe destination replacement, TOML validation, `0600` mode, file/directory durability, temporary cleanup, existing `EffectiveInventoryOutputError` mappings, observable raw `OSError`/chaining, and interruption passthrough.
+- [x] 6.3 Add boundary tests proving user-directed `write_effective_inventory` retains its current atomic-output and failure behavior and is not migrated to L2 durability.
 
 ### GREEN
 
-- [ ] 6.4 Migrate project identity metadata to durable no-clobber and map only final destination collision to concurrent-winner verification; verify task 6.1 passes.
-- [ ] 6.5 Migrate only the effective build projection to durable replacement through a rendering-domain adapter; verify task 6.2 passes.
-- [ ] 6.6 Preserve `write_effective_inventory` unchanged; verify task 6.3 passes and no shared durable API is imported by that path.
+- [x] 6.4 Migrate project identity metadata to durable no-clobber and map only final destination collision to concurrent-winner verification; verify task 6.1 passes.
+- [x] 6.5 Migrate only the effective build projection to durable replacement through a rendering-domain adapter; verify task 6.2 passes.
+- [x] 6.6 Preserve `write_effective_inventory` unchanged; verify task 6.3 passes and no shared durable API is imported by that path.
 
 ### INTROSPECT
 
-- [ ] 6.7 Review both migrations for temp/final collision conflation, pathname reconstruction, domain-error drift, raw-cause loss, interruption conversion, false durability, cleanup masking, and accidental user-output migration; resolve every finding and record the review.
+- [x] 6.7 Review both migrations for temp/final collision conflation, pathname reconstruction, domain-error drift, raw-cause loss, interruption conversion, false durability, cleanup masking, and accidental user-output migration; resolve every finding and record the review.
 
 ### VALIDATE
 
-- [ ] 6.8 Run project-state, project-root, effective-build-projection, rendering, path-security, and failure-injection suites; record durable/no-clobber/replace parity and unchanged user-output behavior.
+- [x] 6.8 Run project-state, project-root, effective-build-projection, rendering, path-security, and failure-injection suites; record durable/no-clobber/replace parity and unchanged user-output behavior.
 
 ## Phase 7. Runtime Lock and Projection Migration
 

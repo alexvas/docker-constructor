@@ -9,6 +9,15 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from docker.transactions.capabilities import DirectoryCapability
+from docker.transactions.errors import (
+    DestinationExists,
+    TransactionError,
+    attach_secondary,
+)
+from docker.transactions.posix import PosixFileOps
+from docker.transactions.regular import RegularFileContracts
+
 from .cache_storage import prepare_default_root
 
 _METADATA_VERSION = 1
@@ -51,7 +60,19 @@ class ValidatedProjectState:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
-        self.close()
+        # A namespace-close failure must never mask an active validation or
+        # publication failure: it is attached as a secondary diagnostic and the
+        # original exception keeps propagating.  ``_closed`` is set before the
+        # POSIX close, so a failed close is never retried.  Only I/O close
+        # failures are caught; a process-control interruption during close
+        # propagates unchanged.
+        if exc is None:
+            self.close()
+            return
+        try:
+            self.close()
+        except OSError as close_exc:
+            attach_secondary(exc, [close_exc])
 
     def close(self) -> None:
         if not self._closed:
@@ -174,37 +195,52 @@ def _read_metadata(namespace_fd: int, expected: bytes, label: str) -> None:
 
 
 def _publish_metadata(namespace_fd: int, expected: bytes, label: str) -> None:
-    """Publish new metadata without ever replacing an existing entry."""
-    name = f".project-{os.urandom(16).hex()}"
-    fd = -1
+    """Publish new metadata without ever replacing an existing entry.
+
+    The complete durable no-clobber mechanics — private sibling allocation,
+    exact-mode establishment, file flush before publication, and parent
+    directory flush before success — are delegated to the shared L2 contract.
+    Only a typed final-destination collision is treated as the concurrent
+    winner; the caller then reopens and verifies the winner's exact bytes, so
+    an unsafe or mismatched entry is still rejected.  A collision whose own
+    private-temporary cleanup failed is not a clean winner and is surfaced as
+    :class:`ProjectStateError` with the collision and its cleanup diagnostics
+    preserved.  Unexpected operational failures are surfaced as
+    :class:`ProjectStateError` while the raw cause and exception chaining
+    stay observable.
+    """
+    ops = PosixFileOps()
     try:
-        fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
-                     0o600, dir_fd=namespace_fd)
-        os.fchmod(fd, 0o600)
-        offset = 0
-        while offset < len(expected):
-            offset += os.write(fd, expected[offset:])
-        os.fsync(fd)
-        os.close(fd); fd = -1
-        # link is no-clobber, unlike replace: an attacker-created metadata file
-        # is rejected rather than overwritten.
-        os.link(name, "project.json", src_dir_fd=namespace_fd, dst_dir_fd=namespace_fd,
-                follow_symlinks=False)
-        os.unlink(name, dir_fd=namespace_fd)
-        os.fsync(namespace_fd)
-    except FileExistsError:
+        directory = DirectoryCapability.from_fd(ops, namespace_fd, label)
+        RegularFileContracts(ops).durable_no_clobber(
+            directory, "project.json", expected, 0o600
+        )
+    except DestinationExists as exc:
         # A simultaneous resolver may have published the same immutable
-        # metadata first.  The caller reopens and verifies its exact bytes.
+        # metadata first.  A clean collision is the concurrent winner: the
+        # caller reopens and verifies the winner's exact bytes.  A collision
+        # whose private-temporary cleanup also failed must not be reported as
+        # success - the leaked temporary entry would be silently discarded -
+        # so it is surfaced as the publication diagnostic with the collision
+        # and its attached cleanup diagnostics preserved as the cause.
+        if exc.secondary:
+            raise ProjectStateError(
+                f"cannot publish project identity metadata {label}"
+            ) from exc
         return
+    except TransactionError as exc:
+        raise ProjectStateError(
+            f"cannot publish project identity metadata {label}"
+        ) from exc
     except OSError as exc:
-        raise ProjectStateError(f"cannot publish project identity metadata {label}") from exc
-    finally:
-        if fd >= 0:
-            os.close(fd)
-        try:
-            os.unlink(name, dir_fd=namespace_fd)
-        except FileNotFoundError:
-            pass
+        # Capability creation (an operational ``fstat`` failure) is part of
+        # the publication boundary: surface it as the domain diagnostic while
+        # preserving the raw cause and its chaining.
+        raise ProjectStateError(
+            f"cannot publish project identity metadata {label}"
+        ) from exc
+    # The namespace descriptor is owned by the caller; the transient
+    # capability is intentionally not closed here.
 
 
 def resolve_project_state(project_root: str | Path, *, cache_root: str | Path | None = None,

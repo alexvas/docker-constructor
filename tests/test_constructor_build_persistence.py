@@ -37,22 +37,23 @@ class ExternalPersistence(unittest.TestCase):
     def test_projection_atomically_replaces_only_external_generated_destination(self):
         dest=self.state.generated_root/'docker-constructor.build.effective.toml'
         dest.write_text('old'); os.chmod(dest,0o600)
-        with mock.patch('os.replace',wraps=os.replace) as replace:
+        with mock.patch('os.rename',wraps=os.rename) as rename:
             result=write_effective_build(self.projection,repo_root=self.root,project_state=self.state)
         self.assertEqual(result,dest); self.assertNotIn('old',dest.read_text())
-        # os.replace is invoked descriptor-relatively with one retained fd.
-        src_name, dst_name = replace.call_args.args
+        # The shared durable-replacement contract commits with one atomic
+        # descriptor-relative rename from a private sibling.
+        src_name, dst_name = rename.call_args.args
         self.assertEqual(dst_name, 'docker-constructor.build.effective.toml')
-        self.assertTrue(src_name.startswith('.build-effective-'), src_name)
-        self.assertEqual(replace.call_args.kwargs['src_dir_fd'],
-                         replace.call_args.kwargs['dst_dir_fd'])
+        self.assertTrue(src_name.startswith('.transaction-'), src_name)
+        self.assertEqual(rename.call_args.kwargs['src_dir_fd'],
+                         rename.call_args.kwargs['dst_dir_fd'])
         self.assertFalse((self.root/'.docker-generated').exists())
 
     def test_failed_publication_cleans_temporary_and_preserves_prior_external_state(self):
         dest=self.state.generated_root/'docker-constructor.build.effective.toml'
         dest.write_text('prior'); os.chmod(dest,0o600)
         before=set(self.state.generated_root.iterdir())
-        with mock.patch('os.replace',side_effect=OSError('interrupted publication')):
+        with mock.patch('os.rename',side_effect=OSError('interrupted publication')):
             with self.assertRaises(OSError): write_effective_build(self.projection,repo_root=self.root,project_state=self.state)
         self.assertEqual(dest.read_text(),'prior'); self.assertEqual(set(self.state.generated_root.iterdir()),before)
 

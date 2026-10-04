@@ -5,6 +5,8 @@ a generated TOML inventory file.  No Docker, no network, no subprocess.
 """
 from __future__ import annotations
 
+import errno
+import io
 import os
 import stat
 import tempfile
@@ -12,6 +14,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Iterable, Mapping, Optional, Sequence, TextIO
+
+from docker.transactions.capabilities import DirectoryCapability
+from docker.transactions.errors import (
+    STAGE_VALIDATE,
+    STAGE_VALIDATE_DESTINATION,
+    TransactionError,
+    UnsafeFileError,
+    attach_secondary,
+)
+from docker.transactions.posix import PosixFileOps
+from docker.transactions.regular import RegularFileContracts
 
 from .effective import (
     EffectiveBuildProjection,
@@ -38,6 +51,16 @@ _RUNTIME_ARTIFACT_ROOT = "/run/pi-cli/runtime-artifacts"
 
 # No-follow directory-open flags shared by the descriptor-relative publisher.
 _DIR_FLAGS = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+
+# No-follow, non-blocking validation of an existing destination leaf.  The
+# destination is only ever inspected through a retained descriptor; no path is
+# reconstructed from it.
+_VALIDATE_FLAGS = (
+    os.O_RDONLY
+    | getattr(os, "O_NOFOLLOW", 0)
+    | getattr(os, "O_CLOEXEC", 0)
+    | getattr(os, "O_NONBLOCK", 0)
+)
 
 
 @dataclass(frozen=True)
@@ -1619,13 +1642,107 @@ def validate_effective_build(data: dict[str, object]):
             raise ValueError(f"forbidden key in build projection: {key!r}")
 
 
+def _serialize_toml_bytes(data: object) -> bytes:
+    """Render deterministically-ordered TOML *data* to UTF-8 bytes."""
+    buffer = io.StringIO()
+    _write_toml(buffer, data)
+    return buffer.getvalue().encode("utf-8")
+
+
+def _validate_effective_destination(
+    ops: PosixFileOps, directory: DirectoryCapability, name: str
+) -> None:
+    """Validate an existing destination leaf without following it.
+
+    Absence is allowed.  A symlink, non-regular entry, foreign-owned entry,
+    multiply linked entry, or permissive mode is rejected with the existing
+    rendering-domain diagnostic before the L2 replacement commits.  The
+    validation uses a retained no-follow descriptor relative to the verified
+    ``generated`` capability; no pathname is reconstructed.
+    """
+    try:
+        fd = ops.openat(directory.fd, name, _VALIDATE_FLAGS, 0)
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        # Only a known unsafe-leaf rejection (a no-follow symlink) is a
+        # rendering-domain diagnostic.  Every other operational failure
+        # (EIO, EMFILE, ...) stays observable as its raw ``OSError``.
+        if exc.errno == errno.ELOOP:
+            raise EffectiveInventoryOutputError(
+                f"{name} is not a regular file"
+            ) from exc
+        raise
+    primary: BaseException | None = None
+    try:
+        info = ops.fstat(fd)
+        # The destination type/ownership/link/mode checks run inside the
+        # protected region so an unsafe-destination diagnostic is the primary
+        # failure and an ordinary descriptor-close failure is only attached as
+        # a secondary diagnostic.
+        if not stat.S_ISREG(info.st_mode):
+            raise EffectiveInventoryOutputError(f"{name} is not a regular file")
+        if info.st_uid != os.geteuid():
+            raise EffectiveInventoryOutputError(
+                f"{name} is not owned by the invoking user"
+            )
+        if info.st_nlink != 1:
+            raise EffectiveInventoryOutputError(
+                f"{name} must have exactly one hard link"
+            )
+        mode = stat.S_IMODE(info.st_mode)
+        if mode != 0o600:
+            raise EffectiveInventoryOutputError(
+                f"{name} has mode {oct(mode)}, expected 0o600"
+            )
+    except BaseException as exc:
+        primary = exc
+        raise
+    finally:
+        # A descriptor-close failure must never mask a primary validation
+        # failure: it is attached as secondary diagnostics and the primary
+        # exception keeps propagating.  Only I/O close failures are caught;
+        # a process-control interruption during close propagates unchanged.
+        try:
+            ops.close(fd)
+        except OSError as close_exc:
+            if primary is not None:
+                attach_secondary(primary, [close_exc])
+            else:
+                raise
+
+
+def _raise_effective_failure(name: str, exc: TransactionError) -> None:
+    """Map an L2 replacement failure while preserving the legacy contract.
+
+    Unsafe-destination validation retains an :class:`EffectiveInventoryOutputError`
+    diagnostic; an unexpected operational failure re-raises the original
+    ``OSError`` object with any shared cleanup failures attached, so the raw
+    ``errno`` and chaining stay observable.  Nothing here translates a
+    process-control interruption: those are not :class:`TransactionError`
+    instances and propagate unchanged.
+    """
+    if isinstance(exc, UnsafeFileError) and exc.stage in (
+        STAGE_VALIDATE,
+        STAGE_VALIDATE_DESTINATION,
+    ):
+        raise EffectiveInventoryOutputError(
+            f"{name} is not a safe owned regular file"
+        ) from exc
+    cause = exc.cause
+    if isinstance(cause, OSError):
+        attach_secondary(cause, list(exc.secondary))
+        raise cause
+    raise EffectiveInventoryOutputError(str(exc)) from exc
+
+
 def write_effective_build(
     projection,
     *,
     repo_root,
     project_state: ProjectState | None = None,
 ) -> Path:
-    """Write the effective build projection atomically into verified state.
+    """Write the effective build projection durably into verified state.
 
     The destination is always the selected constructor project's external
     ``generated/docker-constructor.build.effective.toml``.  The supplied (or
@@ -1633,8 +1750,10 @@ def write_effective_build(
     which recomputes the canonical project identity and namespace name and
     re-reads ``project.json`` through a retained no-follow namespace
     descriptor.  ``generated`` is then opened relative to that descriptor and
-    the leaf is created, written, fsynced, and promoted with ``os.replace``
-    through the retained descriptors.  No pathname-based
+    the projection is published through the shared L2 durable-replacement
+    contract: a complete private sibling is written and flushed, any existing
+    destination is validated, and the destination is atomically replaced and
+    its parent directory flushed.  No pathname-based
     ``resolve``/``mkdir``/``mkstemp``/``replace`` is used, so a symlink
     swapped in during publication cannot redirect the write outside the
     verified namespace.
@@ -1661,85 +1780,62 @@ def write_effective_build(
     # Validate the projection in memory before touching any existing file.
     data = serialize_effective_build(projection)
     validate_effective_build(data)
+    payload = _serialize_toml_bytes(data)
 
     destination_name = "docker-constructor.build.effective.toml"
-    generated_fd = tmp_fd = None
+    ops = PosixFileOps()
+    generated_fd = None
+    primary: BaseException | None = None
     try:
-        # Re-verify the supplied state and retain its namespace descriptor.
-        with validate_project_state(project_state) as validated:
-            namespace_fd = validated.namespace_fd
-            try:
-                generated_fd = os.open("generated", _DIR_FLAGS, dir_fd=namespace_fd)
-            except OSError as exc:
-                raise EffectiveInventoryOutputError(
-                    f"generated project state child is unsafe or missing: {exc}"
-                ) from exc
-            generated_stat = os.fstat(generated_fd)
-            if (not stat.S_ISDIR(generated_stat.st_mode)
-                    or generated_stat.st_uid != os.geteuid()
-                    or stat.S_IMODE(generated_stat.st_mode) != 0o700):
-                raise EffectiveInventoryOutputError(
-                    "generated project state child must be invoking-user-owned "
-                    "and mode 0700"
-                )
-
-            # Validate an existing destination leaf without following links.
-            try:
-                dest_stat = os.stat(
-                    destination_name, dir_fd=generated_fd, follow_symlinks=False,
-                )
-            except FileNotFoundError:
-                dest_stat = None
-            if dest_stat is not None:
-                if not stat.S_ISREG(dest_stat.st_mode):
-                    raise EffectiveInventoryOutputError(
-                        f"{destination_name} is not a regular file"
-                    )
-                if dest_stat.st_uid != os.geteuid():
-                    raise EffectiveInventoryOutputError(
-                        f"{destination_name} is not owned by the invoking user"
-                    )
-                if stat.S_IMODE(dest_stat.st_mode) != 0o600:
-                    raise EffectiveInventoryOutputError(
-                        f"{destination_name} has mode "
-                        f"{oct(stat.S_IMODE(dest_stat.st_mode))}, expected 0o600"
-                    )
-
-            # Atomic descriptor-relative publication through a random sibling.
-            temp_name = f".build-effective-{os.urandom(16).hex()}.toml"
-            tmp_fd = os.open(
-                temp_name,
-                os.O_CREAT | os.O_EXCL | os.O_WRONLY | getattr(os, "O_NOFOLLOW", 0),
-                0o600,
-                dir_fd=generated_fd,
-            )
-            os.fchmod(tmp_fd, 0o600)
-            try:
-                with os.fdopen(tmp_fd, "w", encoding="utf-8", closefd=False) as fh:
-                    _write_toml(fh, data)
-                    fh.flush()
-                    os.fsync(fh.fileno())
-                os.close(tmp_fd)
-                tmp_fd = None
-                os.replace(
-                    temp_name, destination_name,
-                    src_dir_fd=generated_fd, dst_dir_fd=generated_fd,
-                )
-                os.fsync(generated_fd)
-            except BaseException:
+        try:
+            # Re-verify the supplied state and retain its namespace descriptor.
+            with validate_project_state(project_state) as validated:
+                namespace_fd = validated.namespace_fd
                 try:
-                    os.unlink(temp_name, dir_fd=generated_fd)
-                except OSError:
-                    pass
-                raise
-            finally:
-                if tmp_fd is not None:
-                    os.close(tmp_fd)
-    except ProjectStateError as exc:
-        raise EffectiveInventoryOutputError(str(exc)) from exc
+                    generated_fd = ops.openat(
+                        namespace_fd, "generated", _DIR_FLAGS, 0
+                    )
+                except OSError as exc:
+                    raise EffectiveInventoryOutputError(
+                        f"generated project state child is unsafe or missing: {exc}"
+                    ) from exc
+                generated_stat = ops.fstat(generated_fd)
+                if (not stat.S_ISDIR(generated_stat.st_mode)
+                        or generated_stat.st_uid != os.geteuid()
+                        or stat.S_IMODE(generated_stat.st_mode) != 0o700):
+                    raise EffectiveInventoryOutputError(
+                        "generated project state child must be invoking-user-owned "
+                        "and mode 0700"
+                    )
+                generated = DirectoryCapability.from_fd(
+                    ops, generated_fd, "generated"
+                )
+                _validate_effective_destination(ops, generated, destination_name)
+                try:
+                    RegularFileContracts(ops).durable_replace(
+                        generated, destination_name, payload, 0o600
+                    )
+                except TransactionError as exc:
+                    _raise_effective_failure(destination_name, exc)
+        except ProjectStateError as exc:
+            raise EffectiveInventoryOutputError(str(exc)) from exc
+    except BaseException as exc:
+        primary = exc
+        raise
     finally:
         if generated_fd is not None:
-            os.close(generated_fd)
+            # A generated-directory close failure must never mask a primary
+            # validation/publication failure: it is attached as secondary
+            # diagnostics and the primary exception keeps propagating.  Only
+            # I/O close failures are caught; a process-control interruption
+            # during close propagates unchanged.
+            try:
+                ops.close(generated_fd)
+            except OSError as close_exc:
+                if primary is not None:
+                    attach_secondary(primary, [close_exc])
+                else:
+                    raise
 
     return project_state.generated_root / destination_name
 
