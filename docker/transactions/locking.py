@@ -41,6 +41,7 @@ from .errors import (
     STAGE_LOCK_ACQUIRE,
     STAGE_LOCK_MODE,
     STAGE_LOCK_PREPARE,
+    STAGE_LOCK_STAT,
     STAGE_LOCK_VALIDATE,
     STAGE_UNLOCK,
     CapabilityError,
@@ -339,8 +340,13 @@ class LockCapability:
             try:
                 info = ops.fstat(fd)
             except OSError as exc:
+                # An operational descriptor-stat failure, not a containment
+                # rejection: classify it under its own stage so consumers can
+                # preserve the raw ``OSError`` instead of reporting an unsafe
+                # entry.  Entry-shape and identity checks keep raising
+                # ``STAGE_LOCK_VALIDATE`` below.
                 raise LockError(
-                    STAGE_LOCK_VALIDATE, f"cannot stat lock {base!r}", cause=exc
+                    STAGE_LOCK_STAT, f"cannot stat lock {base!r}", cause=exc
                 ) from exc
             _validate_lock(info, base, created=created)
             fresh = _verify_unchanged(ops, directory, base, info)

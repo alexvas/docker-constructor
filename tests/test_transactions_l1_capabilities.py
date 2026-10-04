@@ -424,5 +424,226 @@ class CapabilityCleanupTests(unittest.TestCase):
         self.assertIs(ctx.exception, cancellation)
 
 
+class SecurePathTests(unittest.TestCase):
+    """``from_secure_path`` walks components without following symlinks."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = self.tmp.name
+        self.ops = InjectedOps()
+        self.addCleanup(self.ops.failures.clear)
+
+    def test_walks_each_component_by_descriptor(self) -> None:
+        target = os.path.join(self.root, "nested")
+        os.makedirs(target, mode=0o700)
+        with DirectoryCapability.from_secure_path(self.ops, target) as cap:
+            self.assertTrue(stat.S_ISDIR(os.fstat(cap.fd).st_mode))
+        opens = [args for name, args in self.ops.calls if name == "openat"]
+        self.assertEqual(opens[0][0], None)
+        self.assertEqual(opens[0][1], os.sep)
+        for dir_fd, name, *_ in opens[1:]:
+            self.assertIsNotNone(dir_fd)
+            self.assertNotIn(os.sep, name)
+
+    def test_intermediate_symlink_is_rejected(self) -> None:
+        real = os.path.join(self.root, "real")
+        os.makedirs(real, mode=0o700)
+        link = os.path.join(self.root, "link")
+        os.symlink(real, link)
+        with self.assertRaises(CapabilityError) as ctx:
+            DirectoryCapability.from_secure_path(self.ops, link)
+        self.assertIsInstance(ctx.exception.__cause__, OSError)
+        self.assertIn(ctx.exception.__cause__.errno, {errno.ELOOP, errno.ENOTDIR})
+
+    def test_missing_component_is_reported_and_no_descriptor_leaks(self) -> None:
+        with self.assertRaises(CapabilityError) as ctx:
+            DirectoryCapability.from_secure_path(
+                self.ops, os.path.join(self.root, "absent"),
+            )
+        self.assertIsInstance(ctx.exception.__cause__, FileNotFoundError)
+        # Every descriptor opened by the walk is released even though the
+        # final component could not be opened (the failing ``openat`` is the
+        # only attempt that created no descriptor).
+        self.assertEqual(
+            self.ops.counts.get("close"), self.ops.counts.get("openat") - 1,
+        )
+
+    def test_relative_path_is_refused(self) -> None:
+        with self.assertRaises(CapabilityError):
+            DirectoryCapability.from_secure_path(self.ops, "relative/dir")
+
+    def test_final_ownership_is_validated(self) -> None:
+        target = os.path.join(self.root, "foreign")
+        os.makedirs(target, mode=0o700)
+        values = list(os.stat(target))
+        values[4] = os.geteuid() + 1
+        self.ops.fstat_override = lambda info: os.stat_result(values)
+        with self.assertRaises(CapabilityError):
+            DirectoryCapability.from_secure_path(self.ops, target)
+
+    def _track_leaf(self, leaf_name: str) -> dict[str, int]:
+        """Capture the descriptor and parent descriptor of the final open."""
+        captured: dict[str, int] = {}
+        original = self.ops.openat
+
+        def tracking(dir_fd, name, flags, mode=0o777):
+            fd = original(dir_fd, name, flags, mode)
+            if name == leaf_name:
+                captured["leaf_fd"] = fd
+                captured["parent_fd"] = dir_fd
+            return fd
+
+        self.ops.openat = tracking
+        return captured
+
+    def test_parent_close_failure_after_adoption_releases_leaf(self) -> None:
+        # The retained parent is closed once every component has been opened
+        # and descended, so the trailing close is the ``len(components)``-th
+        # close.  The leaf has already been adopted successfully when that
+        # close fails, so the walk must release it instead of leaking it.
+        target = os.path.join(self.root, "nested")
+        os.makedirs(target, mode=0o700)
+        components = [part for part in target.split(os.sep) if part]
+        parent_error = OSError(errno.EIO, "injected parent close failure")
+        self.ops.failures["close"] = (
+            lambda count: parent_error if count == len(components) else None
+        )
+        captured = self._track_leaf("nested")
+
+        with self.assertRaises(OSError) as ctx:
+            DirectoryCapability.from_secure_path(self.ops, target)
+
+        self.assertIs(ctx.exception, parent_error)
+        closed = [args[0] for name, args in self.ops.calls if name == "close"]
+        # The retained parent is closed exactly once and the adopted leaf gets
+        # exactly one close attempt; the two trailing closes are the parent
+        # (which failed) followed by the leaf, so neither is retried.
+        self.assertEqual(
+            closed[-2:], [captured["parent_fd"], captured["leaf_fd"]],
+        )
+        self.assertEqual(len(closed), len(components) + 1)
+
+    def test_parent_and_leaf_close_failures_keep_parent_primary(self) -> None:
+        target = os.path.join(self.root, "nested")
+        os.makedirs(target, mode=0o700)
+        components = [part for part in target.split(os.sep) if part]
+        parent_error = OSError(errno.EIO, "injected parent close failure")
+        leaf_error = OSError(errno.EIO, "injected leaf close failure")
+
+        def close_spec(count: int) -> OSError | None:
+            if count == len(components):
+                return parent_error
+            if count == len(components) + 1:
+                return leaf_error
+            return None
+
+        self.ops.failures["close"] = close_spec
+        captured = self._track_leaf("nested")
+
+        with self.assertRaises(OSError) as ctx:
+            DirectoryCapability.from_secure_path(self.ops, target)
+
+        # The parent-close failure stays primary and the failed leaf release
+        # is attached as a secondary diagnostic; neither close is retried.
+        self.assertIs(ctx.exception, parent_error)
+        self.assertEqual(
+            getattr(ctx.exception, "_transaction_secondary", []), [leaf_error],
+        )
+        closed = [args[0] for name, args in self.ops.calls if name == "close"]
+        self.assertEqual(
+            closed[-2:], [captured["parent_fd"], captured["leaf_fd"]],
+        )
+        self.assertEqual(len(closed), len(components) + 1)
+
+    def test_parent_close_interruption_releases_leaf_and_propagates(self) -> None:
+        target = os.path.join(self.root, "nested")
+        os.makedirs(target, mode=0o700)
+        components = [part for part in target.split(os.sep) if part]
+        interruption = _Cancellation("injected parent close cancellation")
+
+        def close_spec(count: int) -> BaseException | None:
+            if count == len(components):
+                return interruption
+            return None
+
+        self.ops.failures["close"] = close_spec
+        captured = self._track_leaf("nested")
+
+        with self.assertRaises(_Cancellation) as ctx:
+            DirectoryCapability.from_secure_path(self.ops, target)
+
+        # The interruption propagates unchanged (not converted), and the
+        # adopted leaf is still released exactly once rather than left live.
+        self.assertIs(ctx.exception, interruption)
+        closed = [args[0] for name, args in self.ops.calls if name == "close"]
+        self.assertEqual(
+            closed[-2:], [captured["parent_fd"], captured["leaf_fd"]],
+        )
+        self.assertEqual(len(closed), len(components) + 1)
+
+    def test_parent_interruption_attaches_leaf_close_failure(self) -> None:
+        target = os.path.join(self.root, "nested")
+        os.makedirs(target, mode=0o700)
+        components = [part for part in target.split(os.sep) if part]
+        interruption = _Cancellation("injected parent close cancellation")
+        leaf_error = OSError(errno.EIO, "injected leaf close failure")
+
+        def close_spec(count: int) -> BaseException | None:
+            if count == len(components):
+                return interruption
+            if count == len(components) + 1:
+                return leaf_error
+            return None
+
+        self.ops.failures["close"] = close_spec
+        captured = self._track_leaf("nested")
+
+        with self.assertRaises(_Cancellation) as ctx:
+            DirectoryCapability.from_secure_path(self.ops, target)
+
+        # The parent interruption stays primary and the ordinary leaf-close
+        # failure is attached as a secondary diagnostic rather than swallowed.
+        self.assertIs(ctx.exception, interruption)
+        self.assertEqual(
+            getattr(ctx.exception, "_transaction_secondary", []), [leaf_error],
+        )
+        closed = [args[0] for name, args in self.ops.calls if name == "close"]
+        self.assertEqual(
+            closed[-2:], [captured["parent_fd"], captured["leaf_fd"]],
+        )
+        self.assertEqual(len(closed), len(components) + 1)
+
+    def test_leaf_close_interruption_propagates_unchanged(self) -> None:
+        target = os.path.join(self.root, "nested")
+        os.makedirs(target, mode=0o700)
+        components = [part for part in target.split(os.sep) if part]
+        parent_interruption = _Cancellation("injected parent close cancellation")
+        leaf_interruption = _Cancellation("injected leaf close cancellation")
+
+        def close_spec(count: int) -> BaseException | None:
+            if count == len(components):
+                return parent_interruption
+            if count == len(components) + 1:
+                return leaf_interruption
+            return None
+
+        self.ops.failures["close"] = close_spec
+        captured = self._track_leaf("nested")
+
+        with self.assertRaises(_Cancellation) as ctx:
+            DirectoryCapability.from_secure_path(self.ops, target)
+
+        # The newer interruption from releasing the leaf propagates unchanged
+        # (never converted to ``CapabilityError``/``OSError`` or swallowed),
+        # and both closes are attempted exactly once.
+        self.assertIs(ctx.exception, leaf_interruption)
+        closed = [args[0] for name, args in self.ops.calls if name == "close"]
+        self.assertEqual(
+            closed[-2:], [captured["parent_fd"], captured["leaf_fd"]],
+        )
+        self.assertEqual(len(closed), len(components) + 1)
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

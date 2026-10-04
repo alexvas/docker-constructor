@@ -37,6 +37,17 @@ from .model import (
 )
 from .artifact_cache import SelectedArtifact
 from .semver import SemverError, validate as _validate_semver
+from docker.transactions.capabilities import (
+    CapabilityError,
+    DirectoryCapability,
+)
+from docker.transactions.errors import (
+    DestinationExists,
+    TransactionError,
+    attach_secondary,
+)
+from docker.transactions.posix import PosixFileOps
+from docker.transactions.regular import RegularFileContracts
 
 # ---------------------------------------------------------------------------
 # Override register
@@ -621,7 +632,7 @@ class Filesystem:
     __slots__ = (
         "open", "unlink", "link", "fsync", "mkstemp",
         "chmod", "urandom", "path", "makedirs", "close_fd",
-        "runtime_root",
+        "runtime_root", "ops",
     )
 
     def __init__(
@@ -638,6 +649,7 @@ class Filesystem:
         makedirs=os.makedirs,
         close_fd=os.close,
         runtime_root=None,
+        ops=None,
     ):
         self.open = open
         self.unlink = unlink
@@ -650,6 +662,10 @@ class Filesystem:
         self.makedirs = makedirs
         self.close_fd = close_fd
         self.runtime_root = runtime_root
+        # Descriptor-relative L0 seam.  Secure publication delegates to the
+        # shared L2 regular-file contracts through this object while the
+        # facade keeps its path-oriented lifecycle/injection methods.
+        self.ops = ops if ops is not None else PosixFileOps()
 
 
 _DEFAULT_FS = Filesystem(runtime_root=None)
@@ -1081,59 +1097,78 @@ def create_runtime_projection(
 
     _validate_safe_path(host_path, _fs)
     dirname = _fs.path.dirname(host_path)
-    fd, tmp_path = _fs.mkstemp(
-        suffix=".tmp",
-        prefix=".atomic.",
-        dir=dirname,
-    )
-    # Close the mkstemp fd immediately — we reopen via _fs.open.
-    _fs.close_fd(fd)
+    basename = _fs.path.basename(host_path)
 
-    # Write all bytes through buffered I/O — os.write() may return
-    # having written only part of the buffer.
+    # ── atomic no-clobber write through the shared L2 contract ───
+    # Publication runs descriptor-relative over the injected L0 backend: a
+    # private sibling is established at the final ``0444`` mode and committed
+    # with one atomic no-clobber link.  No pathname is reconstructed from the
+    # open directory descriptor, and atomic publication makes no
+    # parent-directory durability claim.  DTO validation, canonical
+    # serialization, content identity, the lifecycle handle, and the domain
+    # ``EffectiveConfigError`` diagnostics stay in this adapter.
+    ops = _fs.ops
+    directory: DirectoryCapability | None = None
+    primary: BaseException | None = None
     try:
-        with _fs.open(tmp_path, "wb") as fh:
-            fh.write(content)
-            fh.flush()
-            _fs.fsync(fh.fileno())
-        # Make the file world-readable before linking so the
-        # published path is never observable at the mkstemp
-        # default 0600.  Container-remapped UIDs depend on
-        # mode bits, not on ownership coincidence.
-        _fs.chmod(tmp_path, 0o444)
-    except Exception:
-        try:
-            _fs.unlink(tmp_path)
-        except OSError:
-            pass
-        raise
-
-    # Promote atomically via hard-link — fails with FileExistsError
-    # if the destination already exists (no-clobber semantics).
-    # The temp entry is removed after linking so only the
-    # destination remains.
-    try:
-        _fs.link(tmp_path, host_path)
-    except FileExistsError:
-        try:
-            _fs.unlink(tmp_path)
-        except OSError:
-            pass
-        raise EffectiveConfigError(
+        directory = DirectoryCapability.from_secure_path(
+            ops, dirname, label="runtime projection",
+        )
+        RegularFileContracts(ops).atomic_no_clobber(
+            directory, basename, content, 0o444,
+        )
+    except DestinationExists as exc:
+        primary = EffectiveConfigError(
             f"runtime projection {host_path!r} already exists; "
             f"refusing to overwrite another launch's projection"
-        ) from None
-    except Exception:
-        try:
-            _fs.unlink(tmp_path)
-        except OSError:
-            pass
+        )
+        raise primary from exc
+    except TransactionError as exc:
+        # Preserve the previous raw-``OSError`` behavior for every
+        # non-collision operational failure while carrying any shared
+        # cleanup diagnostics across the boundary.  An unsafe or unexpected
+        # transaction failure with no raw cause keeps its own type.
+        cause = exc.cause
+        if isinstance(cause, OSError):
+            attach_secondary(cause, list(exc.secondary))
+            primary = cause
+            raise cause
+        primary = exc
+        raise
+    except CapabilityError as exc:
+        # ``DirectoryCapability.from_secure_path`` wraps an operational
+        # parent-directory open failure in a ``CapabilityError``.  Preserve
+        # the previous raw-``OSError`` behavior for such failures (carrying
+        # any attached cleanup diagnostics) while leaving a genuine
+        # capability-validation error unchanged.
+        cause = exc.__cause__
+        if isinstance(cause, OSError):
+            attach_secondary(
+                cause, list(getattr(exc, "_transaction_secondary", None) or ()),
+            )
+            primary = cause
+            raise cause
+        primary = exc
+        raise
+    except BaseException as exc:
+        # A remaining capability-validation failure or a process-control
+        # interruption propagates unchanged and is never translated into an
+        # ordinary I/O failure.
+        primary = exc
         raise
     finally:
-        try:
-            _fs.unlink(tmp_path)
-        except OSError:
-            pass
+        if directory is not None:
+            # One close attempt only; a failed close is never retried because
+            # POSIX does not guarantee the descriptor stays open.  An ordinary
+            # close failure is secondary to a publication failure and is the
+            # only failure when the publication succeeded.
+            try:
+                directory.close()
+            except OSError as close_exc:
+                if primary is not None:
+                    attach_secondary(primary, [close_exc])
+                else:
+                    raise
 
     return RuntimeProjectionHandle(host_path, content_hash, _fs=_fs)
 

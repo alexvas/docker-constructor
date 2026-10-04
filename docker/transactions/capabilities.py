@@ -75,7 +75,8 @@ class DirectoryCapability:
     def __init__(self, ops: PosixFileOps, fd: int, label: str, *, authority: object = _DENIED) -> None:
         if authority is not _AUTHORITY:
             raise CapabilityError(
-                "DirectoryCapability must be created by from_path() or from_fd()"
+                "DirectoryCapability must be created by from_path(), from_fd(), or "
+                "from_secure_path()"
             )
         self._ops = ops
         self._fd = fd
@@ -84,29 +85,140 @@ class DirectoryCapability:
         self._closed = False
 
     @classmethod
+    def _adopt(cls, ops: PosixFileOps, fd: int, label: str) -> "DirectoryCapability":
+        """Validate an already-open candidate descriptor and adopt it.
+
+        Ownership transfers only on success.  On validation failure the still
+        caller-owned descriptor is closed and an ordinary close failure is
+        attached as a secondary diagnostic without replacing the primary
+        failure.  A process-control interruption is not caught.
+        """
+        primary: BaseException | None = None
+        try:
+            _validate_directory(ops.fstat(fd), label)
+        except BaseException as exc:
+            primary = exc
+            try:
+                ops.close(fd)
+            except OSError as close_exc:
+                attach_secondary(primary, [close_exc])
+            raise
+        return cls(ops, fd, label, authority=_AUTHORITY)
+
+    @classmethod
     def from_path(cls, ops: PosixFileOps, path, *, label: str | None = None) -> "DirectoryCapability":
         name = os.fspath(path)
         try:
             fd = ops.openat(None, name, _DIR_FLAGS, 0)
         except OSError as exc:
             raise CapabilityError(f"cannot open directory capability {name!r}: {exc}") from exc
+        return cls._adopt(ops, fd, label if label is not None else name)
+
+    @classmethod
+    def from_secure_path(
+        cls, ops: PosixFileOps, path, *, label: str | None = None,
+    ) -> "DirectoryCapability":
+        """Open *path* by walking every component without following symlinks.
+
+        Each component is opened relative to its parent with ``O_DIRECTORY |
+        O_NOFOLLOW | O_CLOEXEC``, so a symlinked (or otherwise non-directory)
+        intermediate component is rejected instead of followed and the walk
+        never reconstructs a host pathname from an open descriptor.  The path
+        must be absolute; the final component is validated exactly like
+        :meth:`from_path` (its ownership is checked while intermediate
+        components are only required to be real directories).
+
+        The retained parent descriptor is closed before the adopted leaf is
+        returned.  If that close fails the leaf is not returned: it is
+        released exactly once so it cannot be leaked, the parent-close
+        failure stays primary (an ordinary leaf-close failure is attached as
+        a secondary diagnostic), and neither close is retried.  A
+        process-control interruption raised while closing the parent or the
+        leaf propagates unchanged.  A failure to open or adopt the final
+        directory likewise closes the retained parent, attaching an ordinary
+        close failure as secondary rather than replacing the primary failure.
+        """
+        name = os.fspath(path)
+        target_label = label if label is not None else name
+        if not os.path.isabs(name):
+            # A relative path would have to be anchored to the process working
+            # directory to be walked securely; refuse instead of silently
+            # resolving against ambient state.
+            raise CapabilityError(
+                f"directory capability {name!r} requires an absolute path"
+            )
+        components = [part for part in name.split(os.sep) if part]
+        if not components:
+            # The path is the filesystem root itself.
+            return cls.from_path(ops, os.sep, label=target_label)
+
+        parent_fd = ops.openat(None, os.sep, _DIR_FLAGS, 0)
+        capability: DirectoryCapability | None = None
         primary: BaseException | None = None
         try:
-            _validate_directory(ops.fstat(fd), name)
+            for index, component in enumerate(components):
+                leaf = index == len(components) - 1
+                try:
+                    child_fd = ops.openat(parent_fd, component, _DIR_FLAGS, 0)
+                except OSError as exc:
+                    raise CapabilityError(
+                        f"cannot open directory capability {name!r}: {exc}"
+                    ) from exc
+                if leaf:
+                    # Ownership of ``child_fd`` transfers to the adoption
+                    # helper, which closes it on validation failure.  The
+                    # capability is retained locally (never returned from
+                    # inside the ``try``) so that a failed parent close below
+                    # cannot leak it.
+                    capability = cls._adopt(ops, child_fd, target_label)
+                else:
+                    # Descend: the child replaces the parent as the retained
+                    # descriptor.  A failed close is not retried.
+                    previous_fd, parent_fd = parent_fd, child_fd
+                    ops.close(previous_fd)
         except BaseException as exc:
             primary = exc
-            try:
-                ops.close(fd)
-            except OSError as close_exc:
-                # Ordinary cleanup failure: attach it as a secondary
-                # diagnostic without replacing the primary validation error.
-                # A process-control interruption (KeyboardInterrupt or a
-                # cancellation-style BaseException) is not caught here and
-                # propagates unchanged.  A failed close is never retried
-                # because the descriptor state is then ambiguous.
-                attach_secondary(primary, [close_exc])
             raise
-        return cls(ops, fd, label if label is not None else name, authority=_AUTHORITY)
+        finally:
+            try:
+                ops.close(parent_fd)
+            except OSError as close_exc:
+                if primary is not None:
+                    attach_secondary(primary, [close_exc])
+                elif capability is not None:
+                    # The leaf was adopted successfully but cannot be returned
+                    # now that the retained parent could not be closed.  The
+                    # parent-close failure is primary and the leaf is released
+                    # exactly once (its own failure becomes a secondary
+                    # diagnostic).  Neither close is retried because POSIX
+                    # leaves the descriptor state ambiguous after a failed
+                    # close.
+                    try:
+                        capability.close()
+                    except OSError as leaf_close_exc:
+                        attach_secondary(close_exc, [leaf_close_exc])
+                    raise close_exc
+                else:
+                    raise
+            except BaseException as interruption:
+                # A process-control interruption while closing the parent
+                # propagates unchanged, but the adopted leaf must not remain
+                # silently live.  An ordinary release failure is attached to
+                # the parent interruption as a secondary diagnostic; a second
+                # process-control interruption from the leaf close is not
+                # caught, so it propagates unchanged as the newer
+                # interruption (exactly as the shared cleanup contract does).
+                if capability is not None:
+                    try:
+                        capability.close()
+                    except OSError as leaf_close_exc:
+                        attach_secondary(interruption, [leaf_close_exc])
+                raise
+        if capability is None:
+            # ``components`` is non-empty, so the loop always adopts the final
+            # (leaf) component or raises before reaching here.
+            raise AssertionError("secure walk must terminate by adopting a leaf")
+        return capability
 
     @classmethod
     def from_fd(cls, ops: PosixFileOps, fd: int, label: str) -> "DirectoryCapability":

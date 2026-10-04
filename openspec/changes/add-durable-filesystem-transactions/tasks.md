@@ -186,25 +186,25 @@ Phase 1 ─────▶ Phase 8
 
 ### RED
 
-- [ ] 7.1 Add runtime-lock tests for digest scope, same-identity blocking/recheck, different-identity concurrency, valid-hit fast path, unsafe entries, and release/error parity.
-- [ ] 7.2 Add runtime-projection tests for complete bytes, `0444` mode before visibility, typed collision mapped to the existing `EffectiveConfigError` text, raw non-collision failures, symlink/path rejection, interruption passthrough, lifecycle cleanup, and no parent-directory durability claim.
-- [ ] 7.3 Add facade tests proving the existing runtime `Filesystem` retains path generation, runtime-root validation, lifecycle ownership, and injection seams while secure publication uses descriptor-relative L0 without path reconstruction.
-- [ ] 7.4 Add specialization tests proving runtime artifact SRI validation, content-addressed publication, collision/revalidation, quarantine, and cleanup remain outside L2 regular-file authority.
+- [x] 7.1 Add runtime-lock tests for digest scope, same-identity blocking/recheck, different-identity concurrency, valid-hit fast path, unsafe entries, and release/error parity.
+- [x] 7.2 Add runtime-projection tests for complete bytes, `0444` mode before visibility, typed collision mapped to the existing `EffectiveConfigError` text, raw non-collision failures, symlink/path rejection, interruption passthrough, lifecycle cleanup, and no parent-directory durability claim.
+- [x] 7.3 Add facade tests proving the existing runtime `Filesystem` retains path generation, runtime-root validation, lifecycle ownership, and injection seams while secure publication uses descriptor-relative L0 without path reconstruction.
+- [x] 7.4 Add specialization tests proving runtime artifact SRI validation, content-addressed publication, collision/revalidation, quarantine, and cleanup remain outside L2 regular-file authority.
 
 ### GREEN
 
-- [ ] 7.5 Replace the runtime artifact lock with the shared `BLOCK` adapter while preserving namespace and diagnostics; verify task 7.1 passes.
-- [ ] 7.6 Make the runtime `Filesystem` a compatibility/domain facade over production `PosixFileOps`; verify task 7.3 passes without merging other filesystem interfaces.
-- [ ] 7.7 Migrate runtime projection publication to L2 atomic no-clobber while retaining serialization, identity, lifecycle, errors, and cleanup in its adapter; verify task 7.2 passes.
-- [ ] 7.8 Retain the runtime content-addressed blob publisher as an L3 protocol while reusing the highest compatible L2/L1/L0 mechanics for individual operations; justify every descent below L2 and verify task 7.4 passes without moving digest, collision, quarantine, or lifecycle authority below L3.
+- [x] 7.5 Replace the runtime artifact lock with the shared `BLOCK` adapter while preserving namespace and diagnostics; verify task 7.1 passes.
+- [x] 7.6 Make the runtime `Filesystem` a compatibility/domain facade over production `PosixFileOps`; verify task 7.3 passes without merging other filesystem interfaces.
+- [x] 7.7 Migrate runtime projection publication to L2 atomic no-clobber while retaining serialization, identity, lifecycle, errors, and cleanup in its adapter; verify task 7.2 passes.
+- [x] 7.8 Retain the runtime content-addressed blob publisher as an L3 protocol while reusing the highest compatible L2/L1/L0 mechanics for individual operations; justify every descent below L2 and verify task 7.4 passes without moving digest, collision, quarantine, or lifecycle authority below L3.
 
 ### INTROSPECT
 
-- [ ] 7.9 Review runtime migration for widened locking, changed waiting, weakened SRI, blob-authority leakage, false projection durability, build-generation coupling, interruption conversion, cleanup masking, path reconstruction, and forced filesystem-interface merging; resolve every finding and record the review.
+- [x] 7.9 Review runtime migration for widened locking, changed waiting, weakened SRI, blob-authority leakage, false projection durability, build-generation coupling, interruption conversion, cleanup masking, path reconstruction, and forced filesystem-interface merging; resolve every finding and record the review.
 
 ### VALIDATE
 
-- [ ] 7.10 Run runtime materializer, projection, launcher, cache-security, corrupt-cache, lifecycle, and multiprocessing suites; record lock parity, projection atomicity, facade compatibility, and specialized blob behavior.
+- [x] 7.10 Run runtime materializer, projection, launcher, cache-security, corrupt-cache, lifecycle, and multiprocessing suites; record lock parity, projection atomicity, facade compatibility, and specialized blob behavior.
 
 ## Phase 8. npm-Environment Lock Migration
 

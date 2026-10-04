@@ -17,6 +17,17 @@ import urllib.request
 from typing import Iterator, Protocol
 
 from docker.versioning.digest_identity import DigestIdentity, DigestIdentityError
+from docker.transactions.capabilities import CapabilityError, DirectoryCapability
+from docker.transactions.errors import (
+    STAGE_LOCK_ACQUIRE,
+    STAGE_LOCK_MODE,
+    STAGE_LOCK_STAT,
+    STAGE_LOCK_VALIDATE,
+    LockError,
+    attach_secondary,
+)
+from docker.transactions.locking import LockCapability, LockPolicy
+from docker.transactions.posix import PosixFileOps
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1189,49 +1200,156 @@ class LocalTemporaryDirectory:
         raise FileExistsError("could not allocate unique temporary directory")
 
 
+def _identity_lock_name(identity: str) -> str:
+    """Return the private lock-entry basename for *identity*.
+
+    The identity is the domain-selected SRI scope.  The basename is unchanged
+    from the previous hand-rolled implementation so the on-disk lock namespace
+    stays identical.
+    """
+    safe = base64.urlsafe_b64encode(identity.encode()).decode().rstrip("=")
+    return safe + ".lock"
+
+
+def _identity_lock_failure(exc: BaseException) -> BaseException:
+    """Map a shared lock failure to the runtime domain diagnostic.
+
+    A validate-stage failure (symlink, non-regular, foreign-owned, multiply
+    linked, owner-inaccessible, or an in-place replacement) becomes the
+    containment diagnostic ``"identity lock is not a private regular file"``;
+    a prepare-stage failure (open/create) becomes ``"identity lock path is
+    unsafe"``; an operational descriptor-stat, mode-repair, or acquisition
+    failure re-raises its raw ``OSError``; and a capability failure becomes
+    ``"identity lock path is unsafe"``.  Process-control interruptions are
+    returned unchanged.
+
+    Only a stat failure of the locked descriptor (``STAGE_LOCK_STAT``) is
+    treated as operational.  A validate-stage failure is never blindly
+    unwrapped even when it carries an ``OSError`` cause: an identity probe
+    that fails while verifying the entry can indicate an unsafe namespace
+    change, so it stays a containment error.
+    """
+    if isinstance(exc, LockError):
+        if exc.stage == STAGE_LOCK_VALIDATE:
+            return ArtifactMaterializationError(
+                "containment", "identity lock is not a private regular file",
+            )
+        if exc.stage in (
+            STAGE_LOCK_STAT, STAGE_LOCK_MODE, STAGE_LOCK_ACQUIRE,
+        ) and isinstance(exc.cause, OSError):
+            # An operational descriptor-stat, mode-repair, or acquisition
+            # failure previously propagated as its raw ``OSError``; preserve
+            # that parity while carrying any attached cleanup diagnostics.
+            cause = exc.cause
+            attach_secondary(cause, list(exc.secondary))
+            return cause
+        return ArtifactMaterializationError(
+            "containment", "identity lock path is unsafe",
+        )
+    if isinstance(exc, CapabilityError):
+        return ArtifactMaterializationError(
+            "containment", "identity lock path is unsafe",
+        )
+    return exc
+
+
 class FileIdentityLock(IdentityLock):
-    """Advisory per-integrity lock held by an open private lock file."""
+    """Per-integrity-identity blocking lock over the shared lock capability.
+
+    The lock scope is the SRI identity: one private ``.lock`` entry beneath the
+    private ``locks/`` directory.  The shared :class:`LockCapability` owns entry
+    validation (symlink, non-regular, foreign-owned, multiply linked), atomic
+    exclusive creation, the mandatory :attr:`LockPolicy.BLOCK` policy,
+    post-acquisition mode repair, and release.  The runtime domain keeps only
+    the identity-derived namespace and its existing containment diagnostics.
+    """
 
     def __init__(self, lock_root: str):
         self._lock_root = lock_root
-        self._fd: int | None = None
+        self._ops = PosixFileOps()
+        self._directory: DirectoryCapability | None = None
+        self._capability: LockCapability | None = None
 
     def acquire(self, identity: str) -> bool:
-        import fcntl
         lock_dir_fd = _open_directory_chain(self._lock_root, create=True)
+        # ``raw_fd`` tracks the caller-owned directory descriptor until
+        # ``DirectoryCapability.from_fd`` adopts it.  Adoption failure leaves
+        # the descriptor caller-owned, so it must still be released here;
+        # after successful adoption the capability owns it exclusively.
+        raw_fd: int | None = lock_dir_fd
+        directory: DirectoryCapability | None = None
+        capability: LockCapability | None = None
         try:
-            os.fchmod(lock_dir_fd, 0o700)
-            safe = base64.urlsafe_b64encode(identity.encode()).decode().rstrip("=")
-            name = safe + ".lock"
-            flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
-            try:
-                self._fd = os.open(name, flags, 0o600, dir_fd=lock_dir_fd)
-            except OSError as exc:
-                raise ArtifactMaterializationError(
-                    "containment", "identity lock path is unsafe",
-                ) from exc
-            value = os.fstat(self._fd)
-            if not stat_module.S_ISREG(value.st_mode) or value.st_nlink != 1:
-                os.close(self._fd)
-                self._fd = None
-                raise ArtifactMaterializationError(
-                    "containment", "identity lock is not a private regular file",
-                )
-            os.fchmod(self._fd, 0o600)
-            fcntl.flock(self._fd, fcntl.LOCK_EX)
-            return True
-        finally:
-            os.close(lock_dir_fd)
+            directory = DirectoryCapability.from_fd(
+                self._ops, lock_dir_fd, "runtime-artifact locks",
+            )
+            # Ownership of the directory descriptor transferred to the
+            # capability; the raw descriptor must no longer be closed here.
+            raw_fd = None
+            self._ops.fchmod(directory.fd, 0o700)
+            capability = LockCapability.acquire(
+                self._ops,
+                directory,
+                _identity_lock_name(identity),
+                namespace=identity,
+                policy=LockPolicy.BLOCK,
+            )
+        except BaseException as exc:
+            if raw_fd is not None:
+                # ``DirectoryCapability.from_fd`` failed before adopting the
+                # descriptor, so it is still caller-owned and is closed exactly
+                # once.  An ordinary close failure is attached as a secondary
+                # diagnostic instead of replacing the primary failure; a
+                # process-control interruption propagates unchanged.
+                try:
+                    self._ops.close(raw_fd)
+                except OSError as close_exc:
+                    attach_secondary(exc, [close_exc])
+                raw_fd = None
+            if directory is not None:
+                try:
+                    directory.close()
+                except OSError as close_exc:
+                    attach_secondary(exc, [close_exc])
+            mapped = _identity_lock_failure(exc)
+            if mapped is exc:
+                raise
+            if isinstance(mapped, ArtifactMaterializationError):
+                raise mapped from exc
+            raise mapped
+        self._directory = directory
+        self._capability = capability
+        return True
 
     def release(self, identity: str) -> None:
-        if self._fd is None:
-            return
-        import fcntl
-        try:
-            fcntl.flock(self._fd, fcntl.LOCK_UN)
-        finally:
-            os.close(self._fd)
-            self._fd = None
+        capability, self._capability = self._capability, None
+        directory, self._directory = self._directory, None
+        primary: BaseException | None = None
+        if capability is not None:
+            try:
+                capability.close()
+            except LockError as exc:
+                # Preserve the raw descriptor failure across the shared
+                # boundary so a release failure stays an ordinary OSError at
+                # the runtime edge; carry any cleanup diagnostics with it.
+                cause = exc.cause
+                if isinstance(cause, OSError):
+                    primary = cause
+                    attach_secondary(cause, list(exc.secondary))
+                else:
+                    primary = exc
+            except BaseException as exc:
+                primary = exc
+        if directory is not None:
+            try:
+                directory.close()
+            except OSError as close_exc:
+                if primary is not None:
+                    attach_secondary(primary, [close_exc])
+                else:
+                    primary = close_exc
+        if primary is not None:
+            raise primary
 
 
 class FileIdentityLockFactory:

@@ -4,6 +4,7 @@
 
 import hashlib
 import os
+import stat
 import tempfile
 import tomllib
 import unittest
@@ -70,6 +71,90 @@ def _runtime() -> RuntimeInventory:
             "pi-tool": _entry(pkg="pi-tool"),
         },
     )
+
+
+class _InMemoryOps:
+    """Minimal in-memory L0 backend for the fully-fake lifecycle tests.
+
+    Implements the descriptor-relative surface the shared L2 regular-file
+    contracts use (``openat``/``fstat``/``write``/``fchmod``/``fsync``/
+    ``close``/``linkat``/``unlinkat``/``renameat``) entirely over the in-memory
+    *store*, so publication never touches the host filesystem.  Directory
+    descriptors are opened against the real runtime directory only to prove
+    it exists and is a directory.
+    """
+
+    def __init__(self, store: dict[str, bytes]) -> None:
+        self._store = store
+        self._next_fd = 1000
+        self._fds: dict[int, str] = {}
+        self._dirs: set[int] = set()
+
+    def _alloc(self, path: str, *, is_dir: bool) -> int:
+        fd = self._next_fd
+        self._next_fd += 1
+        self._fds[fd] = path
+        if is_dir:
+            self._dirs.add(fd)
+        return fd
+
+    def openat(self, dir_fd, name, flags, mode=0o777):
+        path = name if dir_fd is None else os.path.join(self._fds[dir_fd], name)
+        if flags & getattr(os, "O_DIRECTORY", 0):
+            if not os.path.isdir(path):
+                raise FileNotFoundError(path)
+            return self._alloc(path, is_dir=True)
+        if path in self._store:
+            if flags & os.O_EXCL:
+                raise FileExistsError(path)
+            return self._alloc(path, is_dir=False)
+        if not flags & os.O_CREAT:
+            raise FileNotFoundError(path)
+        self._store[path] = b""
+        return self._alloc(path, is_dir=False)
+
+    def fstat(self, fd):
+        is_dir = fd in self._dirs
+        mode = (stat.S_IFDIR | 0o700) if is_dir else (stat.S_IFREG | 0o600)
+        return os.stat_result(
+            (mode, 0, 0, 1, os.geteuid(), os.getegid(), 0, 0, 0, 0)
+        )
+
+    def write(self, fd, data):
+        path = self._fds[fd]
+        self._store[path] = self._store.get(path, b"") + bytes(data)
+        return len(data)
+
+    def write_all(self, fd, data):
+        return self.write(fd, data)
+
+    def fchmod(self, fd, mode):
+        return None
+
+    def fsync(self, fd):
+        return None
+
+    def close(self, fd):
+        self._fds.pop(fd, None)
+        self._dirs.discard(fd)
+
+    def linkat(self, src_dir_fd, src, dst_dir_fd, dst, *, follow_symlinks=False):
+        src_path = os.path.join(self._fds[src_dir_fd], src)
+        dst_path = os.path.join(self._fds[dst_dir_fd], dst)
+        if dst_path in self._store:
+            raise FileExistsError(dst_path)
+        self._store[dst_path] = self._store[src_path]
+
+    def unlinkat(self, dir_fd, name):
+        path = os.path.join(self._fds[dir_fd], name)
+        if path not in self._store:
+            raise FileNotFoundError(path)
+        del self._store[path]
+
+    def renameat(self, old_dir_fd, old, new_dir_fd, new):
+        old_path = os.path.join(self._fds[old_dir_fd], old)
+        new_path = os.path.join(self._fds[new_dir_fd], new)
+        self._store[new_path] = self._store.pop(old_path)
 
 
 def _make_fake_fs(store: dict[str, bytes], runtime_dir: str):
@@ -167,6 +252,10 @@ def _make_fake_fs(store: dict[str, bytes], runtime_dir: str):
             return os.path.dirname(p) if os.path.sep in p else ""
 
         @staticmethod
+        def basename(p):
+            return os.path.basename(p)
+
+        @staticmethod
         def realpath(p):
             return os.path.normpath(p)
 
@@ -198,6 +287,7 @@ def _make_fake_fs(store: dict[str, bytes], runtime_dir: str):
         makedirs=lambda p, exist_ok=False: None,  # no-op
         close_fd=_close_fd,
         runtime_root=runtime_dir,
+        ops=_InMemoryOps(store),
     )
 
 
@@ -452,21 +542,21 @@ class TestRuntimeLifecycle(unittest.TestCase):
         self.assertTrue(os.path.isfile(target))
         self.assertGreater(os.path.getsize(target), 0)
 
-    def test_atomic_write_cleans_temp_on_fsync_failure(self):
-        """When fsync fails, the temporary file must be removed and
-        the destination must never appear."""
+    def test_atomic_write_cleans_temp_on_write_failure(self):
+        """When the shared L0 write fails, the private temporary sibling
+        must be removed and the destination must never appear."""
         from docker.versioning.effective import Filesystem
+        from tests.transactions_test_support import (
+            InjectedOps,
+            temporary_entries,
+        )
 
         _, proj = resolve_runtime(_runtime(), {})
         target = os.path.join(self._tmp, "fail.toml")
 
-        def _failing_fsync(fd):
-            raise OSError("injected fsync failure")
-
-        fake = Filesystem(
-            runtime_root=self._tmp,
-            fsync=_failing_fsync,
-        )
+        ops = InjectedOps()
+        ops.failures["write"] = OSError("injected write failure")
+        fake = Filesystem(runtime_root=self._tmp, ops=ops)
         with self.assertRaises(OSError):
             create_runtime_projection(proj, host_path=target, _fs=fake)
 
@@ -475,27 +565,23 @@ class TestRuntimeLifecycle(unittest.TestCase):
             os.path.isfile(target),
             "destination must not exist after write failure",
         )
-        # No .atomic.* temp files leaked.
-        for name in os.listdir(self._tmp):
-            self.assertFalse(
-                name.startswith(".atomic."),
-                f"temp file leaked: {name}",
-            )
+        self.assertEqual(temporary_entries(self._tmp), [])
 
     def test_link_failure_cleans_temp_file(self):
-        """When link fails, the temporary file must be removed."""
+        """When the shared no-clobber commit link fails, the private
+        temporary sibling must be removed."""
         from docker.versioning.effective import Filesystem
+        from tests.transactions_test_support import (
+            InjectedOps,
+            temporary_entries,
+        )
 
         _, proj = resolve_runtime(_runtime(), {})
         target = os.path.join(self._tmp, "linkfail.toml")
 
-        def _failing_link(src, dst):
-            raise OSError("injected link failure")
-
-        fake = Filesystem(
-            runtime_root=self._tmp,
-            link=_failing_link,
-        )
+        ops = InjectedOps()
+        ops.failures["linkat"] = OSError("injected link failure")
+        fake = Filesystem(runtime_root=self._tmp, ops=ops)
         with self.assertRaises(OSError):
             create_runtime_projection(proj, host_path=target, _fs=fake)
 
@@ -504,13 +590,7 @@ class TestRuntimeLifecycle(unittest.TestCase):
             os.path.isfile(target),
             "destination must not exist after link failure",
         )
-        leaked = [
-            f for f in os.listdir(self._tmp) if f.startswith(".atomic.")
-        ]
-        self.assertEqual(
-            len(leaked), 0,
-            f"temporary files leaked after link failure: {leaked}",
-        )
+        self.assertEqual(temporary_entries(self._tmp), [])
 
     def test_destination_collision_rejected(self):
         """Writing to an existing destination must fail with
@@ -1065,23 +1145,24 @@ class TestRuntimeLifecycle(unittest.TestCase):
         self.assertIn("already exists", str(ctx.exception))
         self.assertEqual(store[target], b"preexisting")
 
-    def test_fake_fs_fsync_failure(self):
-        """Failing fsync in the fake fs must clean up the temp
-        without touching the destination."""
+    def test_fake_fs_write_failure(self):
+        """A failing L0 write must clean up the temp without touching
+        the destination."""
         from docker.versioning.effective import Filesystem
 
         _, proj = resolve_runtime(_runtime(), {})
-        target = os.path.join(self._tmp, "fsyncfail.toml")
+        target = os.path.join(self._tmp, "writefail.toml")
         store: dict[str, bytes] = {}
 
-        def _bad_fsync(_fd):
+        def _bad_write(_fd, _data):
             raise OSError("injected")
 
         fake = _make_fake_fs(store, runtime_dir=self._tmp)
-        fake.fsync = _bad_fsync
+        fake.ops.write_all = _bad_write
         with self.assertRaises(OSError):
             create_runtime_projection(proj, host_path=target, _fs=fake)
         self.assertFalse(os.path.isfile(target))
+        self.assertNotIn(target, store)
 
     def test_fake_fs_link_failure(self):
         """Failing link must not leave a partial destination."""
@@ -1091,11 +1172,11 @@ class TestRuntimeLifecycle(unittest.TestCase):
         target = os.path.join(self._tmp, "linkfail.toml")
         store: dict[str, bytes] = {}
 
-        def _bad_link(_src, _dst):
+        def _bad_linkat(*_args, **_kwargs):
             raise OSError("injected")
 
         fake = _make_fake_fs(store, runtime_dir=self._tmp)
-        fake.link = _bad_link
+        fake.ops.linkat = _bad_linkat
         with self.assertRaises(OSError):
             create_runtime_projection(proj, host_path=target, _fs=fake)
         self.assertNotIn(target, store)
