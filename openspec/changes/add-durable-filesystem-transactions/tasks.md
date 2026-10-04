@@ -239,24 +239,24 @@ Phase 1 ─────▶ Phase 8
 
 ### RED
 
-- [ ] 9.1 Add architecture/introspection tests rejecting generic `atomic_write`, durability booleans, a project-wide path VFS, pathname reconstruction from capabilities, shared envelope APIs, generic tree/content-addressed authority, direct L2 exception leakage, and domain path/deletion interpretation below L3.
-- [ ] 9.2 Add consumer-boundary tests proving the required initial direct-L2 adoption set is build control/generations, project metadata, effective build projection, and runtime projection. Prove this set is a migration obligation rather than a permission boundary: specialized L3 protocols may compose compatible L2 leaf contracts while retaining domain authority, and future metadata records consume primitives only from their owning change.
-- [ ] 9.3 Add specialization-boundary tests proving blobs, npm trees, snapshots/confinement, quarantine/recursive cleanup, advisory indexes, and user/evidence outputs retain L3 identity, commit, collision, recovery, error, retention, and lifecycle authority.
-- [ ] 9.4 Add downstream-plan checks proving Pi extensions own sync-lock-journal/settings-sidecar schemas and recovery while metadata owns its cache-record schema, with no generic envelope or shared recovery contract.
+- [x] 9.1 Add architecture/introspection tests rejecting generic `atomic_write`, durability booleans, a project-wide path VFS, pathname reconstruction from capabilities, shared envelope APIs, generic tree/content-addressed authority, direct L2 exception leakage, and domain path/deletion interpretation below L3.
+- [x] 9.2 Add consumer-boundary tests proving the required initial direct-L2 adoption set is build control/generations, project metadata, effective build projection, and runtime projection. Prove this set is a migration obligation rather than a permission boundary: specialized L3 protocols may compose compatible L2 leaf contracts while retaining domain authority, and future metadata records consume primitives only from their owning change.
+- [x] 9.3 Add specialization-boundary tests proving blobs, npm trees, snapshots/confinement, quarantine/recursive cleanup, advisory indexes, and user/evidence outputs retain L3 identity, commit, collision, recovery, error, retention, and lifecycle authority.
+- [x] 9.4 Add downstream-plan checks proving Pi extensions own sync-lock-journal/settings-sidecar schemas and recovery while metadata owns its cache-record schema, with no generic envelope or shared recovery contract.
 
 ### GREEN
 
-- [ ] 9.5 Classify every production filesystem writer in the L0–L3 matrix by its owning layer and every reused operation by the highest compatible shared layer; verify no writer is unclassified and every descent from L2 to L1/L0 has a semantic mismatch justification.
-- [ ] 9.6 Remove or document every remaining direct production `flock` and exact duplicate required-adoption regular-file helper; verify specialized direct syscalls remain only where no higher shared contract fits the domain protocol.
-- [ ] 9.7 Reconcile downstream Pi-extension and metadata planning artifacts with the implemented lock, regular-file, codec, and domain-schema boundaries; verify task 9.4 passes without implementing those changes.
+- [x] 9.5 Classify every production filesystem writer in the L0–L3 matrix by its owning layer and every reused operation by the highest compatible shared layer; verify no writer is unclassified and every descent from L2 to L1/L0 has a semantic mismatch justification.
+- [x] 9.6 Remove or document every remaining direct production `flock` and exact duplicate required-adoption regular-file helper; verify specialized direct syscalls remain only where no higher shared contract fits the domain protocol.
+- [x] 9.7 Reconcile downstream Pi-extension and metadata planning artifacts with the implemented lock, regular-file, codec, and domain-schema boundaries; verify task 9.4 passes without implementing those changes.
 
 ### INTROSPECT
 
-- [ ] 9.8 Review the complete dependency direction for cycles, unnecessary descent below a compatible higher layer, domain-authority leakage into shared layers, generic APIs, false durability, exception-boundary drift, undocumented writers, abstractions with one consumer and no security benefit, and accidental specialized-protocol migration; resolve every finding and record the final matrix outside specification files.
+- [x] 9.8 Review the complete dependency direction for cycles, unnecessary descent below a compatible higher layer, domain-authority leakage into shared layers, generic APIs, false durability, exception-boundary drift, undocumented writers, abstractions with one consumer and no security benefit, and accidental specialized-protocol migration; resolve every finding and record the final matrix outside specification files.
 
 ### VALIDATE
 
-- [ ] 9.9 Run architecture, introspection, projection, cache, npm, snapshot, confinement, evidence, and user-output parity suites; record the required direct-L2 adoption set, specialized L3 list, highest-compatible-layer decisions, justified direct syscalls, and absence of generic envelope/VFS/transaction authority.
+- [x] 9.9 Run architecture, introspection, projection, cache, npm, snapshot, confinement, evidence, and user-output parity suites; record the required direct-L2 adoption set, specialized L3 list, highest-compatible-layer decisions, justified direct syscalls, and absence of generic envelope/VFS/transaction authority.
 
 ## Phase 9A. Primary-Preserving Cleanup Unification
 
