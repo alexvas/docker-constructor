@@ -98,6 +98,47 @@ Temporary allocation generates a new private sibling name for each of at most th
 
 L2 represents expected final-destination collision as a typed outcome, not a generic exception. Unexpected L2 operation failures carry their stage and original cause but do not cross a domain boundary directly. L3 adapters preserve each consumer's existing exception types and messages, retain observable raw `OSError` values and exception chaining, and never translate `KeyboardInterrupt` or cancellation into ordinary I/O failure. Cleanup and close failures are secondary to an existing primary failure and are attached as diagnostic context rather than replacing it. When no earlier failure exists, failure of an operation required by the selected contract remains fatal: in particular, required parent-directory fsync failure after publication means the durable operation failed even though the destination may already be visible.
 
+### Unify primary-preserving cleanup without creating a cleanup engine
+
+Add an internal cross-cutting `CleanupFailures` accumulator alongside locking and the codec rather than assigning it filesystem or domain authority in L0–L5. It standardizes only failure precedence and diagnostic preservation while each consumer continues to own resource identity, cleanup order, idempotent-absence policy, exactly-once state, path/deletion authority, retry policy, domain mapping, and whether its actions are independent.
+
+The minimum API is explicit:
+
+```python
+class CleanupFailures:
+    def __init__(self, primary: BaseException | None) -> None: ...
+
+    def run(
+        self,
+        action: Callable[[], None],
+        *,
+        ordinary: tuple[type[Exception], ...],
+    ) -> None: ...
+
+    def complete(self) -> Exception | None: ...
+```
+
+`ordinary` is mandatory and keyword-only so every caller declares which expected operational exceptions may be accumulated. `run()` invokes its action exactly once, never retries it, captures every action exception, and returns so later independent cleanup actions are still attempted. An exception matching `ordinary` is accumulated as an ordinary cleanup failure; another `Exception` is an unexpected cleanup defect; a non-`Exception` `BaseException` is a process-control interruption. Misuse of the accumulator itself, including invalid `ordinary` types, `run()` after completion, or a second `complete()`, fails immediately.
+
+The accumulator retains this conceptual state:
+
+```python
+original_primary: BaseException | None
+ordinary_failures: list[Exception]
+unexpected: list[Exception]
+interruptions: list[BaseException]
+```
+
+Construction classifies an original primary that is not an `Exception` as the first process-control interruption rather than as an ordinary original primary. Its object identity and position precede every interruption raised later by cleanup. An original primary that is an `Exception` remains in `original_primary`; it may be displaced by an unexpected cleanup defect according to the precedence below.
+
+`complete()` is the sole terminal method and applies the precedence `interruption > unexpected cleanup defect > original `Exception` primary > ordinary cleanup failure`. If an interruption exists, `complete()` raises the first interruption unchanged. For an original non-`Exception` primary this is that original object; cleanup defects and cleanup interruptions cannot displace it. Its secondary diagnostics are flattened in this deterministic order: later interruptions in action order, unexpected defects in action order, any displaced original `Exception` primary, then ordinary failures in action order. Otherwise, if an unexpected defect exists, `complete()` raises the first defect unchanged and attaches later defects in action order, the displaced original `Exception` primary, then ordinary failures in action order. If only an original `Exception` primary and ordinary cleanup failures exist, `complete()` attaches those failures in action order and returns `None` so the caller's existing propagation remains authoritative. If no original primary exists, `complete()` returns the first ordinary cleanup failure with later ordinary failures attached in action order; the caller then maps or raises it according to its layer. With no cleanup failure it returns `None`.
+
+`attach_secondary` continues to preserve exception objects where the authoritative exception permits attachment. If object attachment is unavailable, it falls back to bounded `BaseException.add_note()` text without replacing the authoritative exception. It avoids duplicate attachment by identity. The accumulator remains internal to `docker.transactions.cleanup` initially and is not exported from top-level `docker.transactions`.
+
+Idempotent absence is deliberately outside this API. A consumer that owns an entry or tree wraps `unlink` or `shutil.rmtree` and suppresses only `FileNotFoundError` when its domain contract declares absence successful; permission, I/O, partial-recursion, and unexpected-state failures still enter `run()`. The API exposes no `unlink`, `remove_tree`, `close`, rollback, compensation, path, or generic transaction operation.
+
+Migrate in three bounded waves. First, audit every shared capability, locking, and regular-file migration site and behavior-preservingly replace only the cases whose precedence, ordering, continuation, and exactly-once results already match the accumulator. Known exceptions are intentional hardening, not parity: `locking._release_descriptor` currently permits an exception raised during cleanup to displace an original non-`Exception` primary; `regular._discard` likewise permits cleanup interruption to displace an original interruption and can skip temporary unlink when close raises an unexpected exception or interruption. The accumulator requires the original interruption to remain authoritative and every later independent cleanup action to be attempted exactly once. Regression tests SHALL pin corrected precedence, continuation through unlink, secondary diagnostics, and resource ownership for these and every additional mismatch found by the audit before any site is described as behavior-preserving. Second, migrate matching build, project-state, rendering, runtime, and npm adapters while retaining domain translation and L3 authority, again classifying audit findings as parity or explicit hardening before migration. Third, add fault-injection tests before hardening existing specialized build-blob, snapshot, materialization, and npm-tree cleanup paths that currently lose or mask non-absence cleanup failures. npm process lifecycle, streaming, activity-monitor policy, and user/presentation outputs remain excluded because they have different timeout, cancellation, suppression, redaction, or result-precedence models. Existing metadata cache storage is deferred to `revalidate-update-metadata`, which must consume this accumulator rather than duplicate it.
+
 The required initial direct-L2 adoption set is:
 
 ```text

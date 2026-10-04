@@ -4,10 +4,10 @@ This checklist is the binding implementation contract for `add-durable-filesyste
 
 ```text
 Phase 1 ──┬──▶ Phase 3 ──▶ Phase 4 ──▶ Phase 5 ──┐
-          ├──▶ Phase 6 ────────────────────────────┤
-Phase 2 ──┼──▶ Phase 3                            ├──▶ Phase 9 ──▶ Phase 10
-          ├──▶ Phase 7 ────────────────────────────┤
-          └──▶ Phase 8 ────────────────────────────┘
+          ├──▶ Phase 6 ──────────────────────────┤
+Phase 2 ──┼──▶ Phase 3                           ├──▶ Phase 9 ─────▶ Phase 9A ──▶ Phase 10
+          ├──▶ Phase 7 ──────────────────────────┤
+          └──▶ Phase 8 ──────────────────────────┘
 Phase 1 ─────▶ Phase 7
 Phase 1 ─────▶ Phase 8
 ```
@@ -258,9 +258,38 @@ Phase 1 ─────▶ Phase 8
 
 - [ ] 9.9 Run architecture, introspection, projection, cache, npm, snapshot, confinement, evidence, and user-output parity suites; record the required direct-L2 adoption set, specialized L3 list, highest-compatible-layer decisions, justified direct syscalls, and absence of generic envelope/VFS/transaction authority.
 
-## Phase 10. Rollout and Complete Validation
+## Phase 9A. Primary-Preserving Cleanup Unification
 
 **Depends on:** Phase 9
+**Deliverables:** one internal cleanup-failure accumulator with mandatory keyword-only ordinary policy and one `complete()` terminal operation; deterministic interruption/unexpected/primary/ordinary precedence; behavior-preserving shared and consumer migration; separately tested hardening of cleanup failures currently lost or masking; explicit exclusions and downstream metadata obligation.
+
+### RED
+
+- [ ] 9A.1 Add accumulator truth-table tests for no failure; an original `Exception` primary; an original non-`Exception` `BaseException` primary; one and multiple ordinary failures with and without a primary; one and multiple unexpected defects; one and multiple cleanup interruptions; and all mixed-precedence combinations. Prove an original process-control primary remains authoritative over cleanup defects and later interruptions, while deterministic secondary ordering, displaced-`Exception`-primary preservation, and exactly-once continuation hold through every remaining independent action.
+- [ ] 9A.2 Add API-contract tests requiring `run(action, *, ordinary=...)`, rejecting positional or invalid ordinary policies, proving action return values grant no authority, and rejecting `run()` after completion or a second `complete()` without duplicating diagnostics.
+- [ ] 9A.3 Add attachment tests proving exception objects are retained without duplicate identity when supported and bounded `BaseException.add_note()` fallback keeps secondary diagnostics observable when object attachment is unavailable.
+- [ ] 9A.4 Audit capability adoption/path walks, lock unlock/close, L2 validated read/publication/unlink/discard, build lock/storage release, project-state/rendering/runtime projection adapters, runtime-artifact locking, and npm identity-lock release before asserting parity. Classify each site as behavior-preserving or intentional hardening and add tests for its current and required precedence, action ordering, continuation, exactly-once ownership, exception identity, raw cause, stage, and domain mapping. At minimum, add regression tests proving (a) `locking._release_descriptor` no longer lets cleanup failure displace an original non-`Exception` primary and (b) `regular._discard` keeps an original interruption authoritative and still attempts owned temporary unlink exactly once after close raises an unexpected exception or interruption. Require every cleanup failure to remain observable as secondary diagnostics and record any additional mismatch as explicit hardening rather than parity.
+- [ ] 9A.5 Add fault-injection tests for specialized build-blob publication/state opening/verification, snapshot construction and invalid-hard-link cleanup, failed build materialization publication, and npm owned staging/tree cleanup. At every write/validate/unlink/rmtree/close boundary, prove `FileNotFoundError` is ignored only by a domain action whose contract declares idempotent absence, while permission, I/O, partial-cleanup, unexpected defects, and interruption remain observable without skipping later independent cleanup.
+
+### GREEN
+
+- [ ] 9A.6 Implement internal `docker.transactions.cleanup.CleanupFailures` with state for original primary, ordinary failures, unexpected defects, and interruptions. Classify an original non-`Exception` `BaseException` as the first authoritative interruption; make `run()` attempt each action exactly once without raising action failures; and make sole terminal method `complete()` apply `interruption > unexpected > original Exception primary > ordinary`, preserve displaced failures, and return only an unopposed first ordinary failure for caller-owned mapping.
+- [ ] 9A.7 Strengthen `attach_secondary` with identity de-duplication and bounded `BaseException.add_note()` fallback when exception-object attachment is unavailable; retain authoritative exception identity and existing `TransactionError.secondary` behavior.
+- [ ] 9A.8 Migrate shared capabilities, locking, and regular-file contracts, then the matching build, project-state, rendering, runtime, and npm adapters according to the task 9A.4 classification. Preserve existing cleanup precedence, ordering, continuation, exactly-once ownership, raw causes, stages, exception identity, and domain mappings only at sites proven conforming. Intentionally harden every audited mismatch, including `_release_descriptor` authoritative-original-interruption preservation and `_discard` authoritative-original-interruption plus continuation to owned temporary unlink after unexpected close failure or interruption; add no unrecorded behavior change. Do not top-level-export the accumulator.
+- [ ] 9A.9 Harden the task 9A.5 specialized L3 paths through domain-owned actions plus the shared accumulator. Replace broad suppression only where tests prove non-absence cleanup failures were lost or masked; preserve idempotent `FileNotFoundError` handling for owned temporary entries, invalid hard-link destinations, snapshots, failed materializations, and npm staging trees.
+- [ ] 9A.10 Update `revalidate-update-metadata` planning tasks to require the shared cleanup accumulator for metadata-owned descriptor cleanup while retaining metadata-owned schema, path, removal, idempotent-absence, and error-mapping authority; do not modify metadata production code in this phase.
+
+### INTROSPECT
+
+- [ ] 9A.11 Review every migrated call site for independent-action validity, deterministic ordering, accidental retry, duplicate attachment, swallowed programmer defects, interruption conversion, broad `FileNotFoundError` suppression, domain/path/deletion leakage, and changed exception identity. Confirm npm process lifecycle/streaming, activity-monitor policy, user/presentation outputs, and existing metadata cache storage remain excluded; resolve every finding and record the review outside specification files.
+
+### VALIDATE
+
+- [ ] 9A.12 Run the complete accumulator fault matrix plus L0-L3 lifecycle, locking, build cache/cleanup/snapshot/materialization/orchestration, project-state/rendering/projection, runtime artifact, npm publication/tree, architecture, type, lint, and diff checks. Record migrated and excluded sites, unchanged domain contracts, corrected masking/loss cases, and exact idempotent-absence decisions outside specification files.
+
+## Phase 10. Rollout and Complete Validation
+
+**Depends on:** Phase 9A
 **Deliverables:** explicit one-time development-cache cutover; no runtime inspection or migration of the legacy manifest; complete automated and acceptance evidence; archive-ready change.
 
 ### RED

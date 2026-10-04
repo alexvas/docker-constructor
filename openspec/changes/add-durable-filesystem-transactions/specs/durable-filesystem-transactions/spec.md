@@ -68,6 +68,51 @@ Shared regular-file publication SHALL expose distinct contracts rather than one 
 - **AND** project identity metadata and build generation manifests SHALL use durable no-clobber semantics
 - **AND** the effective build projection SHALL use durable replacement semantics
 
+### Requirement: Preserve authoritative failures across resource cleanup
+The shared substrate SHALL provide one internal cleanup-failure accumulator for independent resource-release actions. Each action SHALL be attempted exactly once in caller-selected order even when an earlier cleanup action raises. Every caller SHALL explicitly declare, through a mandatory keyword-only policy, which `Exception` types are ordinary cleanup failures. The accumulator SHALL NOT derive paths, remove entries or trees, retry actions, define rollback, map domain errors, or decide whether absence is idempotent.
+
+The accumulator SHALL retain the original primary failure, ordinary cleanup failures, unexpected cleanup defects, and process-control interruptions as separate classes. An original primary that is a non-`Exception` `BaseException` SHALL be classified as the first process-control interruption and SHALL remain authoritative over every cleanup defect or later interruption. Its sole terminal operation SHALL otherwise apply precedence in this order: process-control interruption, unexpected cleanup defect, original `Exception` primary, then ordinary cleanup failure. Any higher-precedence failure that displaces an existing `Exception` primary SHALL retain that primary and all other failures as bounded secondary diagnostics. When exception-object attachment is unavailable, secondary diagnostics SHALL remain observable through bounded exception notes without changing the authoritative exception's identity.
+
+#### Scenario: Preserving an existing primary failure
+- **WHEN** an operation has an existing primary failure
+- **AND** one or more independent cleanup actions raise declared ordinary failures
+- **THEN** every cleanup action SHALL still be attempted exactly once
+- **AND** the original primary object SHALL remain authoritative
+- **AND** every ordinary cleanup failure SHALL remain observable as secondary diagnostic context
+
+#### Scenario: Reporting cleanup failure without an existing primary
+- **WHEN** no primary failure exists
+- **AND** one or more cleanup actions raise declared ordinary failures
+- **THEN** every cleanup action SHALL still be attempted exactly once
+- **AND** completion SHALL return the first ordinary failure for caller-owned mapping or raising
+- **AND** later ordinary failures SHALL be attached to it as secondary diagnostics
+
+#### Scenario: Preserving an original process-control interruption
+- **WHEN** the original primary is `KeyboardInterrupt`, cancellation, or another non-`Exception` `BaseException`
+- **AND** cleanup actions raise unexpected defects, later interruptions, or ordinary failures
+- **THEN** every independent cleanup action SHALL still be attempted exactly once
+- **AND** completion SHALL raise the original primary object unchanged
+- **AND** every cleanup failure SHALL remain observable as secondary diagnostics
+
+#### Scenario: Propagating interruption first raised during cleanup
+- **WHEN** the original primary is absent or is an `Exception`
+- **AND** any cleanup action raises `KeyboardInterrupt`, cancellation, or another non-`Exception` `BaseException`
+- **THEN** every remaining independent cleanup action SHALL still be attempted exactly once
+- **AND** completion SHALL raise the first cleanup interruption object unchanged
+- **AND** any displaced original `Exception` primary, unexpected defects, later interruptions, and ordinary cleanup failures SHALL remain observable as secondary diagnostics
+
+#### Scenario: Surfacing an unexpected cleanup defect
+- **WHEN** a cleanup action raises an `Exception` not declared ordinary for that action
+- **THEN** every remaining independent cleanup action SHALL still be attempted exactly once
+- **AND** completion SHALL raise the first unexpected exception object unchanged unless a process-control interruption has higher precedence
+- **AND** any displaced original primary and other cleanup failures SHALL remain observable as secondary diagnostics
+
+#### Scenario: Treating owned absence as a domain decision
+- **WHEN** a domain-owned cleanup action unlinks an entry or recursively removes a tree
+- **THEN** that domain action MAY treat `FileNotFoundError` as successful idempotent absence when its complete contract permits
+- **AND** the shared accumulator SHALL NOT globally suppress `FileNotFoundError` or any other filesystem error
+- **AND** permission, I/O, partial-cleanup, and unexpected-state failures SHALL remain subject to the declared cleanup policy
+
 ### Requirement: Recover immutable build generations and deferred cleanup
 Committed build state SHALL be published as immutable, no-clobber, fixed-width monotonically numbered manifest generations under the checkout-wide exclusive lock. The newest valid generation SHALL be authoritative. At most one immediately previous generation MAY coexist as durable evidence that superseded-blob cleanup remains incomplete.
 
