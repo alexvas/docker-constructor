@@ -213,24 +213,24 @@ Phase 1 ─────▶ Phase 8
 
 ### RED
 
-- [ ] 8.1 Add npm lock tests for input-identity scope, same-identity blocking across lookup/assembly/publication, different-identity concurrency, post-lock lookup, and release parity.
-- [ ] 8.2 Add lock-entry tests for symlink, non-regular, foreign-owned, hard-linked, wrong-mode, bootstrap-race, and prepare/reopen replacement cases without target or ancestor mutation.
-- [ ] 8.3 Add specialization tests for immutable-output collision, recursive fsync/sealing, evidence authority, advisory-index best-effort failure, corrupt-output quarantine, cancellation, workspace cleanup, and primary-error preservation.
-- [ ] 8.4 Add leaf-mechanic tests proving npm selects the highest compatible L2/L1/L0 contract for each reused operation, justifies every descent below L2, and preserves npm-specific modes, paths, errors, and tree commit boundaries without making a shared layer a generic tree publisher.
+- [x] 8.1 Add npm lock tests for input-identity scope, same-identity blocking across lookup/assembly/publication, different-identity concurrency, post-lock lookup, and release parity.
+- [x] 8.2 Add lock-entry tests for symlink, non-regular, foreign-owned, hard-linked, wrong-mode, bootstrap-race, and prepare/reopen replacement cases without target or ancestor mutation.
+- [x] 8.3 Add specialization tests for immutable-output collision, recursive fsync/sealing, evidence authority, advisory-index best-effort failure, corrupt-output quarantine, cancellation, workspace cleanup, and primary-error preservation.
+- [x] 8.4 Add leaf-mechanic tests proving npm selects the highest compatible L2/L1/L0 contract for each reused operation, justifies every descent below L2, and preserves npm-specific modes, paths, errors, and tree commit boundaries without making a shared layer a generic tree publisher.
 
 ### GREEN
 
-- [ ] 8.5 Migrate npm storage lock preparation and publication coordination to one shared `BLOCK` capability; verify tasks 8.1–8.2 pass.
-- [ ] 8.6 Reuse compatible L2 leaf contracts for npm manifest/evidence mechanics where their complete semantics fit, otherwise descend to L1/L0 with an explicit mismatch justification; verify task 8.4 passes without moving schema, tree-commit, or evidence authority below npm L3.
-- [ ] 8.7 Remove only proven duplicate npm lock/leaf mechanics while retaining tree rename, recursive fsync/sealing, advisory index, quarantine, recursive cleanup, evidence, and cancellation code; verify task 8.3 passes.
+- [x] 8.5 Migrate npm storage lock preparation and publication coordination to one shared `BLOCK` capability; verify tasks 8.1–8.2 pass.
+- [x] 8.6 Reuse compatible L2 leaf contracts for npm manifest/evidence mechanics where their complete semantics fit, otherwise descend to L1/L0 with an explicit mismatch justification; verify task 8.4 passes without moving schema, tree-commit, or evidence authority below npm L3.
+- [x] 8.7 Remove only proven duplicate npm lock/leaf mechanics while retaining tree rename, recursive fsync/sealing, advisory index, quarantine, recursive cleanup, evidence, and cancellation code; verify task 8.3 passes.
 
 ### INTROSPECT
 
-- [ ] 8.8 Review npm migration for split namespaces, cross-identity serialization, evidence leakage, changed waiting, generic-tree abstraction, advisory-index durability promotion, quarantine authority, cancellation masking, build-generation coupling, exception drift, and incompatible helper reuse; resolve every finding and record the review.
+- [x] 8.8 Review npm migration for split namespaces, cross-identity serialization, evidence leakage, changed waiting, generic-tree abstraction, advisory-index durability promotion, quarantine authority, cancellation masking, build-generation coupling, exception drift, and incompatible helper reuse; resolve every finding and record the review.
 
 ### VALIDATE
 
-- [ ] 8.9 Run npm preflight, execution, publication, storage, evidence, validation, concurrency, cancellation, and smoke suites; record unchanged tree/index/quarantine protocols and shared-lock behavior.
+- [x] 8.9 Run npm preflight, execution, publication, storage, evidence, validation, concurrency, cancellation, and smoke suites; record unchanged tree/index/quarantine protocols and shared-lock behavior.
 
 ## Phase 9. L0–L3 Boundary and Consumer Inventory
 

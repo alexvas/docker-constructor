@@ -539,17 +539,23 @@ class TestCoordinationLock(unittest.TestCase):
         cache_root = Path(tmp.name) / "cache"
         cache_root.mkdir()
         namespace = publication.prepare_assembler_namespace(cache_root, "a" * 64)
-        with mock.patch(
-            "docker.npm_environment.publication.fcntl.flock"
-        ) as flock:
+        # The lock composes the shared blocking capability under the
+        # input-identity namespace and is released on scope exit.
+        with mock.patch.object(
+            publication.LockCapability,
+            "acquire",
+            wraps=publication.LockCapability.acquire,
+        ) as acquire:
             with identity_coordination_lock(namespace, "b" * 64):
-                pass
-        lock_calls = [c.args[1] for c in flock.call_args_list]
-        import fcntl
-
-        self.assertIn(fcntl.LOCK_EX, lock_calls)
-        self.assertIn(fcntl.LOCK_UN, lock_calls)
-        self.assertLess(lock_calls.index(fcntl.LOCK_EX), lock_calls.index(fcntl.LOCK_UN))
+                self.assertTrue(
+                    (namespace.locks / ("b" * 64 + ".lock")).is_file()
+                )
+        self.assertEqual(acquire.call_count, 1)
+        self.assertIs(acquire.call_args.kwargs["policy"], publication.LockPolicy.BLOCK)
+        self.assertEqual(acquire.call_args.kwargs["namespace"], "b" * 64)
+        # Released: a fresh acquisition succeeds immediately.
+        with identity_coordination_lock(namespace, "b" * 64):
+            pass
 
 
 if __name__ == "__main__":

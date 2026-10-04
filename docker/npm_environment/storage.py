@@ -260,52 +260,6 @@ def prepare_assembler_namespace(
     )
 
 
-def prepare_identity_lock(
-    namespace: AssemblerNamespace, input_identity_digest: str
-) -> Path:
-    """Create (or secure) a private ``0600`` input-identity lock file.
-
-    The lock is opened ``O_WRONLY | O_CREAT | O_NOFOLLOW`` beneath the
-    namespace lock directory.  A symlink, directory, or foreign-owned entry
-    is rejected before any truncation, so an existing foreign lock is never
-    rewritten.
-    """
-    _require_hex_digest(input_identity_digest, reason="unsafe_lock_path")
-    name = input_identity_digest + ".lock"
-    locks_fd = _open_directory_no_follow(namespace.locks, check_owner=True)
-    try:
-        flags = os.O_WRONLY | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
-        try:
-            fd = os.open(name, flags, 0o600, dir_fd=locks_fd)
-        except OSError as exc:
-            raise LockedNpmError(
-                "unsafe_lock_path",
-                f"unsafe identity lock {namespace.locks / name}: {exc}",
-            ) from exc
-        try:
-            st = os.fstat(fd)
-            if not _stat.S_ISREG(st.st_mode):
-                raise LockedNpmError(
-                    "unsafe_lock_path",
-                    f"identity lock {namespace.locks / name} is not a regular file",
-                )
-            if st.st_uid != os.geteuid():
-                raise LockedNpmError(
-                    "unsafe_lock_path",
-                    f"identity lock {namespace.locks / name} is not owned by "
-                    "the invoking user; restore ownership or remove it",
-                )
-            os.fchmod(fd, 0o600)
-            os.ftruncate(fd, 0)
-        except BaseException:
-            os.close(fd)
-            raise
-        os.close(fd)
-    finally:
-        os.close(locks_fd)
-    return namespace.locks / name
-
-
 def prepare_staging_workspace(
     namespace: AssemblerNamespace, name: str
 ) -> Path:

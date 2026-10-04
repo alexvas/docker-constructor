@@ -22,7 +22,6 @@ primitives:
 from __future__ import annotations
 
 import contextlib
-import fcntl
 import json
 import os
 import shutil
@@ -31,6 +30,20 @@ import uuid
 from pathlib import Path
 from typing import Iterator, Sequence
 
+from docker.transactions.capabilities import CapabilityError, DirectoryCapability
+from docker.transactions.errors import (
+    STAGE_CLOSE,
+    STAGE_LOCK_ACQUIRE,
+    STAGE_LOCK_MODE,
+    STAGE_LOCK_PREPARE,
+    STAGE_LOCK_STAT,
+    STAGE_LOCK_VALIDATE,
+    TransactionError,
+    attach_secondary,
+)
+from docker.transactions.locking import LockCapability, LockError, LockPolicy
+from docker.transactions.posix import PosixFileOps
+from docker.transactions.regular import RegularFileContracts
 from docker.versioning.model import NetworkUrlDisplay
 
 from .assembler import npm_policy_flags
@@ -59,8 +72,8 @@ from .observability import NULL_ACTIVITY, AssemblyActivity
 from .run_vector import recheck_assembler_bindings
 from .storage import (
     AssemblerNamespace,
+    _require_hex_digest,
     prepare_assembler_namespace,
-    prepare_identity_lock,
     remove_staging_workspace,
 )
 from .tree import (
@@ -110,28 +123,158 @@ def index_path(namespace: AssemblerNamespace, input_identity: str) -> Path:
     return namespace.index / f"{input_identity}.json"
 
 
+def _identity_lock_name(input_identity: str) -> str:
+    """Validate the input identity and derive its canonical lock basename."""
+    _require_hex_digest(input_identity, reason="unsafe_lock_path")
+    return f"{input_identity}.lock"
+
+
+def _identity_lock_failure(exc: BaseException) -> BaseException:
+    """Map a shared lock failure to the npm domain diagnostic.
+
+    An unsafe entry (``validate``/``prepare`` stage) or an unsafe lock
+    directory/capability becomes ``LockedNpmError("unsafe_lock_path", ...)``,
+    preserving the existing npm containment diagnostic.  An operational
+    descriptor-stat, mode-repair, acquisition, or lock-probe-close failure
+    re-raises its raw ``OSError`` (carrying any attached cleanup diagnostics)
+    rather than misclassifying an I/O failure as containment.  Process-control
+    interruptions pass through unchanged.
+    """
+    if isinstance(exc, LockError):
+        if exc.stage in (STAGE_LOCK_VALIDATE, STAGE_LOCK_PREPARE):
+            return LockedNpmError(
+                "unsafe_lock_path",
+                "identity lock is not a private owned regular file",
+            )
+        if (
+            exc.stage
+            in (STAGE_LOCK_STAT, STAGE_LOCK_MODE, STAGE_LOCK_ACQUIRE, STAGE_CLOSE)
+            and isinstance(exc.cause, OSError)
+        ):
+            cause = exc.cause
+            attach_secondary(cause, list(exc.secondary))
+            return cause
+        return LockedNpmError("unsafe_lock_path", "identity lock path is unsafe")
+    if isinstance(exc, CapabilityError):
+        return LockedNpmError("unsafe_lock_path", "identity lock path is unsafe")
+    return exc
+
+
+def _release_identity_lock(
+    capability: LockCapability | None,
+    directory: DirectoryCapability | None,
+    primary: BaseException | None,
+) -> None:
+    """Release the shared lock and directory exactly once, preserving *primary*.
+
+    Ordinary release failures are attached as secondary diagnostics when a
+    primary failure is in flight; otherwise the first release failure is
+    raised.  A process-control interruption from the lock release must not
+    skip the directory release, so it is captured, the directory is still
+    closed exactly once, and the original interruption is re-raised
+    unchanged with any ordinary cleanup failure (or a subsequent directory
+    interruption) attached as a secondary diagnostic.
+    """
+    failures: list[BaseException] = []
+    interruption: BaseException | None = None
+    if capability is not None:
+        try:
+            capability.close()
+        except LockError as exc:
+            cause = exc.cause
+            if isinstance(cause, OSError):
+                attach_secondary(cause, list(exc.secondary))
+                failures.append(cause)
+            else:
+                failures.append(exc)
+        except OSError as exc:
+            failures.append(exc)
+        except BaseException as exc:
+            # A process-control interruption during unlock/close is preserved
+            # but must not leak the directory descriptor.
+            interruption = exc
+    if directory is not None:
+        try:
+            directory.close()
+        except OSError as exc:
+            failures.append(exc)
+        except BaseException as exc:
+            if interruption is None:
+                interruption = exc
+            else:
+                attach_secondary(interruption, [exc])
+    if interruption is not None:
+        attach_secondary(interruption, failures)
+        raise interruption
+    if primary is not None:
+        attach_secondary(primary, failures)
+        return
+    if failures:
+        first = failures[0]
+        if len(failures) > 1:
+            attach_secondary(first, failures[1:])
+        raise first
+
+
 @contextlib.contextmanager
 def identity_coordination_lock(
-    namespace: AssemblerNamespace, input_identity: str
+    namespace: AssemblerNamespace,
+    input_identity: str,
+    *,
+    ops: PosixFileOps | None = None,
 ) -> Iterator[None]:
     """Hold a private exclusive input-identity lock for one assembly.
 
-    The lock file is prepared owner-private ``0600`` beneath the namespace
-    lock directory and then locked with ``flock`` so concurrent assemblies
-    of the same input identity serialize lookup, assembly, validation, and
-    publication.
+    The lock composes the shared L2 :class:`LockCapability` under an explicit
+    :attr:`LockPolicy.BLOCK` policy over the shared L1
+    :class:`DirectoryCapability` for the namespace lock directory.  The shared
+    capability owns entry creation, symlink/non-regular/foreign-owned/
+    hard-linked rejection, the post-acquisition mode repair, and unconditional
+    release; the npm domain keeps only the input-identity namespace and its
+    ``unsafe_lock_path`` containment diagnostic.  ``ops`` is an injectable L0
+    backend used only for deterministic verification.
     """
-    lock_path = prepare_identity_lock(namespace, input_identity)
-    flags = os.O_RDWR | getattr(os, "O_NOFOLLOW", 0)
-    fd = os.open(str(lock_path), flags)
+    backend = ops if ops is not None else PosixFileOps()
+    name = _identity_lock_name(input_identity)
+    directory: DirectoryCapability | None = None
+    capability: LockCapability | None = None
     try:
-        fcntl.flock(fd, fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(fd, fcntl.LOCK_UN)
-    finally:
-        os.close(fd)
+        directory = DirectoryCapability.from_secure_path(
+            backend,
+            os.path.abspath(os.fspath(namespace.locks)),
+            label="npm-environment identity locks",
+        )
+        capability = LockCapability.acquire(
+            backend,
+            directory,
+            name,
+            namespace=input_identity,
+            policy=LockPolicy.BLOCK,
+        )
+    except BaseException as exc:
+        # ``LockCapability.acquire`` releases its own descriptor on failure;
+        # the directory capability is still owned here and must be released.
+        if directory is not None:
+            try:
+                directory.close()
+            except OSError as close_exc:
+                attach_secondary(exc, [close_exc])
+        mapped = _identity_lock_failure(exc)
+        if mapped is exc:
+            raise
+        if isinstance(mapped, LockedNpmError):
+            raise mapped from exc
+        raise mapped
+    try:
+        yield
+    except BaseException as exc:
+        # Preserve the in-flight failure; ordinary release failures are
+        # attached as secondary diagnostics and a process-control interruption
+        # from release propagates unchanged.
+        _release_identity_lock(capability, directory, exc)
+        raise
+    else:
+        _release_identity_lock(capability, directory, None)
 
 
 # ── durable filesystem helpers ──────────────────────────────────────────
@@ -143,10 +286,24 @@ def _durable_write(path: Path, data: bytes, mode: int = 0o444) -> None:
     ``os.write`` may perform a partial write, so the payload is written in a
     loop until every byte has been handed to the kernel; ``fsync`` runs only
     after the complete payload has been written.
+
+    This manifest/evidence write deliberately **descends to L0**: the shared
+    L2 no-clobber/replacement contracts make a different, stronger durability
+    claim (an immediate parent-directory fsync plus a temporary/link commit)
+    that does not fit npm's explicit recursive-seal sequence, where the tree,
+    manifest, and evidence are all fsync-ed inside a temporary directory before
+    the single npm-owned rename commits the immutable output.  Tree commit and
+    recursive fsync/sealing remain npm L3 authority.
+
+    The requested *mode* is established explicitly with ``fchmod`` rather than
+    relying on the ``os.open`` mode, which the process umask filters (a
+    restrictive umask could otherwise leave a manifest/evidence leaf readable
+    only by its owner and break reuse).
     """
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     fd = os.open(str(path), flags, mode)
     try:
+        os.fchmod(fd, mode)
         remaining = memoryview(data)
         while remaining:
             written = os.write(fd, remaining)
@@ -324,16 +481,33 @@ def read_index(namespace: AssemblerNamespace, input_identity: str) -> tuple[str,
 
     The index is non-authoritative: a missing or malformed file returns an
     empty tuple rather than failing, because index membership alone never
-    establishes a cache hit.
+    establishes a cache hit.  The read reuses the shared L2 validated read so a
+    symlinked, foreign-owned, hard-linked, or wrongly-permissioned index entry
+    is never followed or trusted, and the npm-owned index mode (0600) is
+    enforced.
     """
     path = index_path(namespace, input_identity)
+    directory: DirectoryCapability | None = None
     try:
-        raw = path.read_text(encoding="utf-8")
-    except OSError:
+        directory = DirectoryCapability.from_secure_path(
+            PosixFileOps(),
+            os.path.abspath(os.fspath(namespace.index)),
+            label="npm-environment index",
+        )
+        raw = RegularFileContracts().validated_read(
+            directory, path.name, allowed_mode=0o600
+        ).decode("utf-8")
+    except (OSError, TransactionError, ValueError):
         return ()
+    finally:
+        if directory is not None:
+            try:
+                directory.close()
+            except OSError:
+                pass
     try:
         entries = json.loads(raw)
-    except (json.JSONDecodeError, UnicodeDecodeError):
+    except json.JSONDecodeError:
         return ()
     if not isinstance(entries, list):
         return ()
@@ -350,7 +524,10 @@ def _append_index(
     """Best-effort append of *output_identity* to the input-identity index.
 
     Failure never fails publication: the index is advisory and a missing
-    entry only costs a later recomputation.
+    entry only costs a later recomputation.  The write reuses the shared L2
+    durable replacement so the index is published atomically and durably (a
+    complete write and file fsync, then one rename, then a parent-directory
+    fsync), while the advisory-index policy itself stays npm-owned.
     """
     entries = list(read_index(namespace, input_identity))
     if output_identity not in entries:
@@ -360,17 +537,22 @@ def _append_index(
         "utf-8"
     )
     path = index_path(namespace, input_identity)
-    tmp = path.with_name(f".{path.name}.tmp-{uuid.uuid4().hex[:8]}")
+    directory: DirectoryCapability | None = None
     try:
-        _durable_write(tmp, payload, mode=0o600)
-        os.rename(str(tmp), str(path))
-        _fsync_dir(namespace.index)
-    except OSError:
-        try:
-            if os.path.lexists(tmp):
-                os.unlink(tmp)
-        except OSError:
-            pass
+        directory = DirectoryCapability.from_secure_path(
+            PosixFileOps(),
+            os.path.abspath(os.fspath(namespace.index)),
+            label="npm-environment index",
+        )
+        RegularFileContracts().durable_replace(directory, path.name, payload, 0o600)
+    except (OSError, TransactionError, ValueError):
+        pass
+    finally:
+        if directory is not None:
+            try:
+                directory.close()
+            except OSError:
+                pass
 
 
 # ── verification and cache-hit selection ────────────────────────────────
@@ -404,6 +586,31 @@ def _make_result(
     )
 
 
+def _read_private_regular(path: Path, name: str) -> bytes:
+    """Read one private regular file by retaining its no-follow directory.
+
+    Reuses the shared L2 validated read so a symlinked, foreign-owned,
+    hard-linked, or wrongly-permissioned leaf is never followed when reading
+    npm manifest/evidence, and the npm-owned immutable mode (0444) is enforced.
+    """
+    directory: DirectoryCapability | None = None
+    try:
+        directory = DirectoryCapability.from_secure_path(
+            PosixFileOps(),
+            os.path.abspath(os.fspath(path)),
+            label="npm-environment immutable output",
+        )
+        return RegularFileContracts().validated_read(
+            directory, name, allowed_mode=0o444
+        )
+    finally:
+        if directory is not None:
+            try:
+                directory.close()
+            except OSError:
+                pass
+
+
 def verify_output(
     namespace: AssemblerNamespace,
     output_identity: str,
@@ -422,12 +629,11 @@ def verify_output(
         return None
     out = output_path(namespace, output_identity)
     evidence_path = out / EVIDENCE_FILE
-    manifest_path = out / MANIFEST_FILE
     tree = out / TREE_CHILD
     try:
-        evidence = parse_evidence(evidence_path.read_bytes())
-        manifest = parse_manifest(manifest_path.read_bytes())
-    except (OSError, LockedNpmError, ValueError):
+        evidence = parse_evidence(_read_private_regular(out, EVIDENCE_FILE))
+        manifest = parse_manifest(_read_private_regular(out, MANIFEST_FILE))
+    except (OSError, LockedNpmError, TransactionError, ValueError):
         return None
     if evidence.output_identity != output_identity:
         return None

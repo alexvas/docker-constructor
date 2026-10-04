@@ -16,6 +16,7 @@ from pathlib import Path
 
 from docker.npm_environment import LockedNpmError
 from docker.npm_environment import storage, tree
+from docker.npm_environment.publication import identity_coordination_lock
 
 
 def _mode(path: Path) -> int:
@@ -39,8 +40,9 @@ class TestPhase2Validation(unittest.TestCase):
         self.assertEqual(_mode(ns.locks), 0o700)
         self.assertEqual(_mode(ns.staging), 0o700)
 
-        lock = storage.prepare_identity_lock(ns, "b" * 64)
-        self.assertEqual(_mode(lock), 0o600)
+        lock = ns.locks / ("b" * 64 + ".lock")
+        with identity_coordination_lock(ns, "b" * 64):
+            self.assertEqual(_mode(lock), 0o600)
 
         workspace = storage.prepare_staging_workspace(ns, "run")
         self.assertEqual(_mode(workspace), 0o700)

@@ -22,6 +22,8 @@ _THIS_DIR = Path(__file__).resolve().parent
 
 from docker.npm_environment import LockedNpmError  # noqa: E402
 from docker.npm_environment import storage as storage_module  # noqa: E402
+from docker.npm_environment.publication import identity_coordination_lock  # noqa: E402
+from tests.transactions_test_support import InjectedOps  # noqa: E402
 
 
 def _mode(path: Path) -> int:
@@ -211,11 +213,11 @@ class TestUnsafeStorageRejected(_StorageTestCase):
 class TestIdentityLocks(_StorageTestCase):
     def test_lock_file_is_owner_only(self):
         ns = self._prepare()
-        path = storage_module.prepare_identity_lock(ns, _INPUT_IDENTITY_DIGEST)
-        self.assertTrue(path.is_file())
-        self.assertEqual(_mode(path), 0o600)
-        self.assertEqual(path.name, _INPUT_IDENTITY_DIGEST + ".lock")
-        self.assertEqual(path.parent, ns.locks)
+        with identity_coordination_lock(ns, _INPUT_IDENTITY_DIGEST):
+            path = ns.locks / (_INPUT_IDENTITY_DIGEST + ".lock")
+            self.assertTrue(path.is_file())
+            self.assertEqual(_mode(path), 0o600)
+            self.assertEqual(path.parent, ns.locks)
 
     def test_lock_rejects_symlink(self):
         ns = self._prepare()
@@ -224,15 +226,18 @@ class TestIdentityLocks(_StorageTestCase):
         lock = ns.locks / (_INPUT_IDENTITY_DIGEST + ".lock")
         lock.symlink_to(target)
         with self.assertRaises(LockedNpmError) as ctx:
-            storage_module.prepare_identity_lock(ns, _INPUT_IDENTITY_DIGEST)
+            with identity_coordination_lock(ns, _INPUT_IDENTITY_DIGEST):
+                pass
         self.assertEqual(ctx.exception.reason, "unsafe_lock_path")
         self.assertTrue(target.is_file())
+        self.assertTrue(lock.is_symlink())
 
     def test_lock_rejects_directory(self):
         ns = self._prepare()
         (ns.locks / (_INPUT_IDENTITY_DIGEST + ".lock")).mkdir()
         with self.assertRaises(LockedNpmError) as ctx:
-            storage_module.prepare_identity_lock(ns, _INPUT_IDENTITY_DIGEST)
+            with identity_coordination_lock(ns, _INPUT_IDENTITY_DIGEST):
+                pass
         self.assertEqual(ctx.exception.reason, "unsafe_lock_path")
 
     def test_lock_rejects_foreign_ownership(self):
@@ -240,11 +245,21 @@ class TestIdentityLocks(_StorageTestCase):
         lock = ns.locks / (_INPUT_IDENTITY_DIGEST + ".lock")
         lock.write_text("owned")
         foreign_uid = os.getuid() + 1
-        with mock.patch(
-            "os.fstat", side_effect=_foreign_uid_fstat(lock, foreign_uid)
-        ):
-            with self.assertRaises(LockedNpmError) as ctx:
-                storage_module.prepare_identity_lock(ns, _INPUT_IDENTITY_DIGEST)
+        ops = InjectedOps()
+
+        def override(info):
+            if not stat.S_ISREG(info.st_mode):
+                return info
+            fields = list(info)
+            fields[4] = foreign_uid
+            return os.stat_result(tuple(fields))
+
+        ops.fstat_override = override
+        with self.assertRaises(LockedNpmError) as ctx:
+            with identity_coordination_lock(
+                ns, _INPUT_IDENTITY_DIGEST, ops=ops
+            ):
+                pass
         self.assertEqual(ctx.exception.reason, "unsafe_lock_path")
         # The foreign-owned file must not be truncated or rewritten.
         self.assertEqual(lock.read_text(), "owned")
@@ -254,7 +269,8 @@ class TestIdentityLocks(_StorageTestCase):
         for bad in ("../x", "a/b", "short", ""):
             with self.subTest(digest=bad):
                 with self.assertRaises(LockedNpmError) as ctx:
-                    storage_module.prepare_identity_lock(ns, bad)
+                    with identity_coordination_lock(ns, bad):
+                        pass
                 self.assertEqual(ctx.exception.reason, "unsafe_lock_path")
 
 

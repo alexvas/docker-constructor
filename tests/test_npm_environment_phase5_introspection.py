@@ -26,14 +26,18 @@ from docker.npm_environment import publication as publication_module
 class TestNoRaces(unittest.TestCase):
     def test_single_exclusive_identity_lock(self):
         src = inspect.getsource(publication_module)
-        self.assertIn("fcntl.flock", src)
-        self.assertIn("LOCK_EX", src)
-        self.assertIn("LOCK_UN", src)
+        # The lock composes the shared blocking capability; there is no
+        # private flock loop left in the npm module.
+        self.assertIn("LockCapability.acquire", src)
+        self.assertIn("LockPolicy.BLOCK", src)
+        self.assertNotIn("fcntl.flock", src)
 
     def test_lock_is_always_released(self):
         src = inspect.getsource(publication_module.identity_coordination_lock)
-        self.assertIn("finally", src)
-        self.assertIn("LOCK_UN", src)
+        self.assertIn("_release_identity_lock", src)
+        release = inspect.getsource(publication_module._release_identity_lock)
+        self.assertIn("capability.close", release)
+        self.assertIn("directory.close", release)
 
     def test_lookup_happens_under_the_lock(self):
         src = inspect.getsource(publication_module.assemble_environment)
@@ -83,8 +87,10 @@ class TestNoDeletionOfCommittedData(unittest.TestCase):
 class TestNoLockInversion(unittest.TestCase):
     def test_only_one_lock_is_acquired(self):
         src = inspect.getsource(publication_module)
-        # The identity-coordination lock is the only flock in the module.
-        self.assertEqual(src.count("fcntl.flock("), 2)
+        # The identity-coordination lock is the only lock, and it is the shared
+        # capability rather than a second private flock.
+        self.assertEqual(src.count("fcntl.flock("), 0)
+        self.assertEqual(src.count("LockCapability.acquire("), 1)
 
 
 class TestNoConsumerLeakage(unittest.TestCase):

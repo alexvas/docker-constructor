@@ -130,7 +130,6 @@ from .storage import (
     AssemblerNamespace,
     assembler_namespace_path,
     prepare_assembler_namespace,
-    prepare_identity_lock,
     prepare_staging_workspace,
     remove_staging_workspace,
 )
@@ -268,7 +267,6 @@ __all__ = [
     "parse_smoke_args",
     "preflight",
     "prepare_assembler_namespace",
-    "prepare_identity_lock",
     "prepare_staging_workspace",
     "publish_environment",
     "read_index",
