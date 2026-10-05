@@ -118,6 +118,50 @@ def _add_secondary_notes(primary: BaseException, secondary: list[BaseException])
             return
 
 
+def _retained_secondary(source: BaseException) -> list[BaseException]:
+    """Return the secondary diagnostics *source* already retains.
+
+    Both storage forms are read: a :class:`TransactionError` keeps its
+    diagnostics on ``secondary``, while every other exception uses the
+    generic private slot.  A plain exception with neither form has none.
+    """
+    if isinstance(source, TransactionError):
+        return list(source.secondary)
+    existing = getattr(source, _SECONDARY_SLOT, None)
+    if isinstance(existing, list):
+        return list(existing)
+    return []
+
+
+def carry_secondary_diagnostics(target: BaseException, source: BaseException) -> None:
+    """Carry *source*'s retained secondary diagnostics onto *target*.
+
+    This is the narrow, intention-revealing operation for a domain adapter
+    that replaces a transaction/capability wrapper with its raw operational
+    cause: ``carry_secondary_diagnostics(cause, wrapper)``.  It accepts no
+    caller-supplied iterable and does not consume *source*: it copies only the
+    diagnostics the wrapper already retained in source order.
+
+    Attachment storage stays centralized in :func:`attach_secondary`, so an
+    object-capable *target* retains the secondary exception objects and
+    de-duplicates them by identity across repeated carries, while a target
+    that cannot carry attributes receives only bounded textual notes without
+    an identity-de-duplication guarantee.  The operation never carries
+    *source* itself, ``__cause__``, ``__context__``, or unrelated notes, and
+    it preserves *target* identity.
+    """
+    if target is source:
+        return
+    retained = [
+        exc
+        for exc in _retained_secondary(source)
+        if exc is not target and exc is not source and exc is not None
+    ]
+    if not retained:
+        return
+    attach_secondary(target, retained)
+
+
 def _append_unique(existing: list[BaseException], exc: BaseException) -> None:
     if any(item is exc for item in existing):
         return

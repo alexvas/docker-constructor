@@ -22,7 +22,7 @@ from docker.transactions.errors import (
     STAGE_VALIDATE_DESTINATION,
     TransactionError,
     UnsafeFileError,
-    attach_secondary,
+    carry_secondary_diagnostics,
 )
 from docker.transactions.posix import PosixFileOps
 from docker.transactions.regular import RegularFileContracts
@@ -1730,7 +1730,7 @@ def _raise_effective_failure(name: str, exc: TransactionError) -> None:
         ) from exc
     cause = exc.cause
     if isinstance(cause, OSError):
-        attach_secondary(cause, list(exc.secondary))
+        carry_secondary_diagnostics(cause, exc)
         raise cause
     raise EffectiveInventoryOutputError(str(exc)) from exc
 

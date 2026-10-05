@@ -45,7 +45,7 @@ from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
     DestinationExists,
     TransactionError,
-    attach_secondary,
+    carry_secondary_diagnostics,
 )
 from docker.transactions.posix import PosixFileOps
 from docker.transactions.regular import RegularFileContracts
@@ -1131,7 +1131,7 @@ def create_runtime_projection(
         # transaction failure with no raw cause keeps its own type.
         cause = exc.cause
         if isinstance(cause, OSError):
-            attach_secondary(cause, list(exc.secondary))
+            carry_secondary_diagnostics(cause, exc)
             primary = cause
             raise cause
         primary = exc
@@ -1144,9 +1144,7 @@ def create_runtime_projection(
         # capability-validation error unchanged.
         cause = exc.__cause__
         if isinstance(cause, OSError):
-            attach_secondary(
-                cause, list(getattr(exc, "_transaction_secondary", None) or ()),
-            )
+            carry_secondary_diagnostics(cause, exc)
             primary = cause
             raise cause
         primary = exc

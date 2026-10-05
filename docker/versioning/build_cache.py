@@ -45,7 +45,7 @@ from docker.transactions.errors import (
     LockError,
     TransactionError,
     UnsafeFileError,
-    attach_secondary,
+    carry_secondary_diagnostics,
 )
 from docker.transactions.locking import LockCapability
 from docker.transactions.posix import PosixFileOps
@@ -983,7 +983,7 @@ class ConstructorProjectBuildLock:
                 # unlock cleanup diagnostics follow the raw cause.
                 cause = exc.cause
                 if isinstance(cause, OSError):
-                    attach_secondary(cause, list(exc.secondary))
+                    carry_secondary_diagnostics(cause, exc)
                     raise cause
                 raise
 
@@ -1102,7 +1102,7 @@ def _raise_lock_failure(directory: DirectoryCapability, base: str, exc: LockErro
         raise BuildTransactionError("unsafe constructor-project build lock") from exc
     cause = exc.cause
     if isinstance(cause, OSError):
-        attach_secondary(cause, list(exc.secondary))
+        carry_secondary_diagnostics(cause, exc)
         raise cause
     raise exc
 
@@ -1238,7 +1238,7 @@ def _raise_marker_failure(name: str, exc: TransactionError) -> NoReturn:
         raise BuildTransactionError(f"unsafe transaction state file: {name}") from exc
     cause = exc.cause
     if isinstance(cause, OSError):
-        attach_secondary(cause, list(exc.secondary))
+        carry_secondary_diagnostics(cause, exc)
         raise cause
     raise exc
 
@@ -1433,7 +1433,7 @@ def _validate_existing_blob(
             ) from exc
         cause = exc.cause
         if isinstance(cause, OSError):
-            attach_secondary(cause, list(exc.secondary))
+            carry_secondary_diagnostics(cause, exc)
             raise cause
         raise
     blob.close()
@@ -1467,7 +1467,7 @@ def _durably_remove_blob_and_marker(
             except TransactionError as exc:
                 cause = exc.cause
                 if isinstance(cause, OSError):
-                    attach_secondary(cause, list(exc.secondary))
+                    carry_secondary_diagnostics(cause, exc)
                     raise cause
                 raise
     _durably_remove_marker(ops, markers, marker_name)

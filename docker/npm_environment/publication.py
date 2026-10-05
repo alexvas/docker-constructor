@@ -40,7 +40,7 @@ from docker.transactions.errors import (
     STAGE_LOCK_STAT,
     STAGE_LOCK_VALIDATE,
     TransactionError,
-    attach_secondary,
+    carry_secondary_diagnostics,
 )
 from docker.transactions.locking import LockCapability, LockError, LockPolicy
 from docker.transactions.posix import PosixFileOps
@@ -153,7 +153,7 @@ def _identity_lock_failure(exc: BaseException) -> BaseException:
             and isinstance(exc.cause, OSError)
         ):
             cause = exc.cause
-            attach_secondary(cause, list(exc.secondary))
+            carry_secondary_diagnostics(cause, exc)
             return cause
         return LockedNpmError("unsafe_lock_path", "identity lock path is unsafe")
     if isinstance(exc, CapabilityError):
@@ -185,7 +185,7 @@ def _release_identity_lock(
         except LockError as exc:
             cause = exc.cause
             if isinstance(cause, OSError):
-                attach_secondary(cause, list(exc.secondary))
+                carry_secondary_diagnostics(cause, exc)
                 raise cause
             raise
 

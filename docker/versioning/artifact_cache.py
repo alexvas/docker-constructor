@@ -25,7 +25,7 @@ from docker.transactions.errors import (
     STAGE_LOCK_STAT,
     STAGE_LOCK_VALIDATE,
     LockError,
-    attach_secondary,
+    carry_secondary_diagnostics,
 )
 from docker.transactions.locking import LockCapability, LockPolicy
 from docker.transactions.posix import PosixFileOps
@@ -1437,7 +1437,7 @@ def _identity_lock_failure(exc: BaseException) -> BaseException:
             # failure previously propagated as its raw ``OSError``; preserve
             # that parity while carrying any attached cleanup diagnostics.
             cause = exc.cause
-            attach_secondary(cause, list(exc.secondary))
+            carry_secondary_diagnostics(cause, exc)
             return cause
         return ArtifactMaterializationError(
             "containment", "identity lock path is unsafe",
@@ -1531,7 +1531,7 @@ class FileIdentityLock(IdentityLock):
                 # the runtime edge; carry any cleanup diagnostics with it.
                 cause = exc.cause
                 if isinstance(cause, OSError):
-                    attach_secondary(cause, list(exc.secondary))
+                    carry_secondary_diagnostics(cause, exc)
                     raise cause
                 raise
 
