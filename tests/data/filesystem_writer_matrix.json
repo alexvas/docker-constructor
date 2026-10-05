@@ -2,6 +2,7 @@
   "schema": 1,
   "scope": "Production Python modules containing filesystem mutation mechanics or domain writer authority",
   "writers": [
+    {"module": "docker/filesystem/operations.py", "owner": "lightweight descriptor foundation", "owning_layer": "L0", "shared_layer": "L0", "operations": "generic descriptor-relative syscall delegation", "mismatch_justification": "This is the lightweight generic DescriptorOps adapter and therefore cannot delegate lower."},
     {"module": "docker/transactions/posix.py", "owner": "shared POSIX backend", "owning_layer": "L0", "shared_layer": "L0", "operations": "descriptor-relative syscall wrappers", "mismatch_justification": "This is the sole injected syscall backend and therefore cannot delegate lower."},
     {"module": "docker/transactions/capabilities.py", "owner": "shared descriptor capabilities", "owning_layer": "L1", "shared_layer": "L0", "operations": "validated directory and regular-file descriptor preparation", "mismatch_justification": "Capability validation must operate on retained descriptors before an L2 file contract exists."},
     {"module": "docker/transactions/locking.py", "owner": "shared lock capability", "owning_layer": "locking", "shared_layer": "L0/L1", "operations": "lock entry creation, validation, flock, repair, release", "mismatch_justification": "Lock acquisition is a distinct capability protocol, not a regular-file publication contract."},

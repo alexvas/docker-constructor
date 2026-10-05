@@ -50,31 +50,31 @@ Within each phase, work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### RED
 
-- [ ] 2.1 Add `tests/test_filesystem_descriptor_operations.py` signature and delegation contracts for every design-specified `DescriptorOps` and `PosixDescriptorOps` method; verify the module fails because the API does not exist.
-- [ ] 2.2 Add `tests/test_filesystem_owned_descriptors.py` constructor contracts for `DescriptorError(stage, message, *, cause=None)`, inherited `UnsafeDescriptorError` construction, and `OwnedDescriptor(ops, fd, *, label)`; verify exact field/chaining behavior and that invalid fd/label arguments retain caller ownership without operations.
-- [ ] 2.3 Add `tests/test_filesystem_owned_descriptors.py` contracts proving a directly constructed `OwnedDescriptor.close()` marks release before invoking close and never invokes close a second time after success or failure; verify the tests fail because the class does not exist.
-- [ ] 2.4 Add `tests/test_filesystem_owned_descriptors.py` contracts proving `OwnedDescriptor.detach()` returns the live fd, makes the source terminal without closing, and rejects subsequent access, detach, or close without issuing an operation; verify the tests fail.
-- [ ] 2.5 Add context-manager tests proving an ordinary close failure is sole on success, secondary to an active primary, and never prevents an independent later cleanup action; verify the tests fail.
+- [x] 2.1 Add `tests/test_filesystem_descriptor_operations.py` signature and delegation contracts for every design-specified `DescriptorOps` and `PosixDescriptorOps` method; verify the module fails because the API does not exist.
+- [x] 2.2 Add `tests/test_filesystem_owned_descriptors.py` constructor contracts for `DescriptorError(stage, message, *, cause=None)`, inherited `UnsafeDescriptorError` construction, and `OwnedDescriptor(ops, fd, *, label)`; verify exact field/chaining behavior and that invalid fd/label arguments retain caller ownership without operations.
+- [x] 2.3 Add `tests/test_filesystem_owned_descriptors.py` contracts proving a directly constructed `OwnedDescriptor.close()` marks release before invoking close and never invokes close a second time after success or failure; verify the tests fail because the class does not exist.
+- [x] 2.4 Add `tests/test_filesystem_owned_descriptors.py` contracts proving `OwnedDescriptor.detach()` returns the live fd, makes the source terminal without closing, and rejects subsequent access, detach, or close without issuing an operation; verify the tests fail.
+- [x] 2.5 Add context-manager tests proving an ordinary close failure is sole on success, secondary to an active primary, and never prevents an independent later cleanup action; verify the tests fail.
 
 ### GREEN
 
-- [ ] 2.6 Implement the exact `DescriptorOps` protocol in `docker/filesystem/operations.py`; verify only its signature contracts pass.
-- [ ] 2.7 Implement `PosixDescriptorOps` as the production `DescriptorOps` adapter over the corresponding `os` operations; verify delegation and errno-preservation tests pass.
-- [ ] 2.8 Implement `DescriptorError(stage, message, *, cause=None)` and inherited `UnsafeDescriptorError` construction with stable fields and cause chaining; verify the error cases in task 2.2 pass.
-- [ ] 2.9 Implement directly constructible `OwnedDescriptor(ops, fd, *, label)` with pre-transfer argument validation and no filesystem validation; verify the ownership cases in task 2.2 pass.
-- [ ] 2.10 Implement the live/transferred/release-attempted state machine and guarded `fd`, `label`, and `released` properties in `OwnedDescriptor`; verify state-access tests pass.
-- [ ] 2.11 Implement `OwnedDescriptor.close()` as an irreversible at-most-once close attempt; verify task 2.3 passes.
-- [ ] 2.12 Implement `OwnedDescriptor.detach()` as explicit raw-fd ownership transfer; verify task 2.4 passes.
-- [ ] 2.13 Implement `OwnedDescriptor.__enter__` and `__exit__` using the Phase 1 cleanup precedence; verify task 2.5 passes.
+- [x] 2.6 Implement the exact `DescriptorOps` protocol in `docker/filesystem/operations.py`; verify only its signature contracts pass.
+- [x] 2.7 Implement `PosixDescriptorOps` as the production `DescriptorOps` adapter over the corresponding `os` operations; verify delegation and errno-preservation tests pass.
+- [x] 2.8 Implement `DescriptorError(stage, message, *, cause=None)` and inherited `UnsafeDescriptorError` construction with stable fields and cause chaining; verify the error cases in task 2.2 pass.
+- [x] 2.9 Implement directly constructible `OwnedDescriptor(ops, fd, *, label)` with pre-transfer argument validation and no filesystem validation; verify the ownership cases in task 2.2 pass.
+- [x] 2.10 Implement the live/transferred/release-attempted state machine and guarded `fd`, `label`, and `released` properties in `OwnedDescriptor`; verify state-access tests pass.
+- [x] 2.11 Implement `OwnedDescriptor.close()` as an irreversible at-most-once close attempt; verify task 2.3 passes.
+- [x] 2.12 Implement `OwnedDescriptor.detach()` as explicit raw-fd ownership transfer; verify task 2.4 passes.
+- [x] 2.13 Implement `OwnedDescriptor.__enter__` and `__exit__` using the Phase 1 cleanup precedence; verify task 2.5 passes.
 
 ### INTROSPECT
 
-- [ ] 2.14 Add `inspect.signature` assertions for `DescriptorOps`, `PosixDescriptorOps`, `DescriptorError`, `UnsafeDescriptorError`, and directly constructible `OwnedDescriptor` exactly as fixed in `design.md`; verify inherited error construction and absence of extra constructor options.
-- [ ] 2.15 Add AST assertions that operations and owned descriptors define no path derivation, recursion, durability, locking, transaction, cache, or npm authority; verify the foundation dependency boundary passes.
+- [x] 2.14 Add `inspect.signature` assertions for `DescriptorOps`, `PosixDescriptorOps`, `DescriptorError`, `UnsafeDescriptorError`, and directly constructible `OwnedDescriptor` exactly as fixed in `design.md`; verify inherited error construction and absence of extra constructor options.
+- [x] 2.15 Add AST assertions that operations and owned descriptors define no path derivation, recursion, durability, locking, transaction, cache, or npm authority; verify the foundation dependency boundary passes.
 
 ### VALIDATE
 
-- [ ] 2.16 Run `python -m unittest tests.test_filesystem_cleanup tests.test_filesystem_descriptor_operations tests.test_filesystem_owned_descriptors` and require all tests to pass before Phase 3 starts.
+- [x] 2.16 Run `python -m unittest tests.test_filesystem_cleanup tests.test_filesystem_descriptor_operations tests.test_filesystem_owned_descriptors` and require all tests to pass before Phase 3 starts.
 
 ## 3. Directory Descriptor API
 
