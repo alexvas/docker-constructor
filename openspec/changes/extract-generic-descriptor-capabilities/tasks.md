@@ -84,34 +84,34 @@ Within each phase, work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### RED
 
-- [ ] 3.1 Add `tests/test_filesystem_directory_descriptors.py` construction-authority and public signature contracts proving direct `DirectoryDescriptor(...)` raises `TypeError` before ownership transfer, while `open_secure_path()` and `adopt()` are the only public construction seams; verify they fail because the class does not exist.
-- [ ] 3.2 Add secure-walk tests for absolute-path enforcement, component-relative no-follow opens, final type validation, optional effective-owner validation, and successful return of only the final live descriptor; verify they fail.
-- [ ] 3.3 Add secure-walk handoff tests proving a failed parent close is not retried and the already-open child receives exactly one close attempt and is never returned; verify they fail.
-- [ ] 3.4 Add secure-walk failure tests proving an open, stat, ownership, interruption, or unexpected defect releases every still-owned descriptor once under Phase 1 precedence; verify they fail.
-- [ ] 3.5 Add `child_basename()` tests rejecting empty, special, absolute, slash, alternate-separator, and NUL-containing names before any injected operation; verify they fail.
-- [ ] 3.6 Add separate behavior tests for existing-child `open_directory()`, exclusive `create_directory()`, and `open_or_create_directory()`, including mode and owner validation; verify they fail.
-- [ ] 3.7 Add primitive-operation tests for `stat_child()`, `list_names()`, `unlink_child()`, and `remove_child_directory()`, proving each acts on exactly one validated basename; verify they fail.
+- [x] 3.1 Add `tests/test_filesystem_directory_descriptors.py` construction-authority and public signature contracts proving direct `DirectoryDescriptor(...)` raises `TypeError` before ownership transfer, while `open_secure_path()` and `adopt()` are the only public construction seams; verify they fail because the class does not exist.
+- [x] 3.2 Add secure-walk tests for absolute-path enforcement, component-relative no-follow opens, final type validation, optional effective-owner validation, and successful return of only the final live descriptor; verify they fail.
+- [x] 3.3 Add secure-walk handoff tests proving a failed parent close is not retried and the already-open child receives exactly one close attempt and is never returned; verify they fail.
+- [x] 3.4 Add secure-walk failure tests proving an open, stat, ownership, interruption, or unexpected defect releases every still-owned descriptor once under Phase 1 precedence; verify they fail.
+- [x] 3.5 Add `child_basename()` tests rejecting empty, special, absolute, slash, alternate-separator, and NUL-containing names before any injected operation; verify they fail.
+- [x] 3.6 Add separate behavior tests for existing-child `open_directory()`, exclusive `create_directory()`, and `open_or_create_directory()`, including mode and owner validation; verify they fail.
+- [x] 3.7 Add primitive-operation tests for `stat_child()`, `list_names()`, `unlink_child()`, and `remove_child_directory()`, proving each acts on exactly one validated basename; verify they fail.
 
 ### GREEN
 
-- [ ] 3.8 Implement the module-private authority-token initializer and `DirectoryDescriptor.adopt()` so direct construction fails before ownership transfer, valid arguments transfer ownership before directory/owner validation, and validation failure releases the adopted fd once under Phase 1 precedence; verify construction-authority and adoption tests pass.
-- [ ] 3.9 Implement `DirectoryDescriptor.open_secure_path()` with absolute component walking and no-follow opens; verify task 3.2 passes.
-- [ ] 3.10 Implement secure-walk parent/child ownership handoff through `OwnedDescriptor`; verify tasks 3.3 and 3.4 pass without a repeated close or leaked child.
-- [ ] 3.11 Implement `DirectoryDescriptor.child_basename()` with the complete rejection contract; verify task 3.5 passes.
-- [ ] 3.12 Implement `DirectoryDescriptor.open_directory()` for one existing no-follow child; verify its focused cases in task 3.6 pass.
-- [ ] 3.13 Implement exclusive `DirectoryDescriptor.create_directory()` with explicit mode and post-open validation; verify its focused cases in task 3.6 pass.
-- [ ] 3.14 Implement `DirectoryDescriptor.open_or_create_directory()` without swallowing errors other than the missing-child branch; verify its focused cases in task 3.6 pass.
-- [ ] 3.15 Implement `stat_child()`, `list_names()`, `unlink_child()`, and `remove_child_directory()` as single-basename primitive delegations; verify task 3.7 passes.
+- [x] 3.8 Implement the module-private authority-token initializer and `DirectoryDescriptor.adopt()` so direct construction fails before ownership transfer, valid arguments transfer ownership before directory/owner validation, and validation failure releases the adopted fd once under Phase 1 precedence; verify construction-authority and adoption tests pass.
+- [x] 3.9 Implement `DirectoryDescriptor.open_secure_path()` with absolute component walking and no-follow opens; verify task 3.2 passes.
+- [x] 3.10 Implement secure-walk parent/child ownership handoff through `OwnedDescriptor`; verify tasks 3.3 and 3.4 pass without a repeated close or leaked child.
+- [x] 3.11 Implement `DirectoryDescriptor.child_basename()` with the complete rejection contract; verify task 3.5 passes.
+- [x] 3.12 Implement `DirectoryDescriptor.open_directory()` for one existing no-follow child; verify its focused cases in task 3.6 pass.
+- [x] 3.13 Implement exclusive `DirectoryDescriptor.create_directory()` with explicit mode and post-open validation; verify its focused cases in task 3.6 pass.
+- [x] 3.14 Implement `DirectoryDescriptor.open_or_create_directory()` without swallowing errors other than the missing-child branch; verify its focused cases in task 3.6 pass.
+- [x] 3.15 Implement `stat_child()`, `list_names()`, `unlink_child()`, and `remove_child_directory()` as single-basename primitive delegations; verify task 3.7 passes.
 
 ### INTROSPECT
 
-- [ ] 3.16 Enforce the exact `DirectoryDescriptor` API with `inspect.signature`, including keyword-only `label`, `require_owner`, `mode`, and `follow_symlinks` parameters; verify no signature differs from `design.md`.
-- [ ] 3.17 Add AST/API-negative assertions that `docker.filesystem` exposes no `remove_tree`, recursive traversal, retry, absence-policy, atomic write, durability, lock, cache-root, namespace-layout, or domain-error API; verify all exclusions pass.
-- [ ] 3.18 Add an fd-ledger test that accounts for every injected open, detach, and close across successful and failing walks; verify every descriptor has exactly one final owner and no descriptor is leaked or closed twice.
+- [x] 3.16 Enforce the exact `DirectoryDescriptor` API with `inspect.signature`, including keyword-only `label`, `require_owner`, `mode`, and `follow_symlinks` parameters; verify no signature differs from `design.md`.
+- [x] 3.17 Add AST/API-negative assertions that `docker.filesystem` exposes no `remove_tree`, recursive traversal, retry, absence-policy, atomic write, durability, lock, cache-root, namespace-layout, or domain-error API; verify all exclusions pass.
+- [x] 3.18 Add an fd-ledger test that accounts for every injected open, detach, and close across successful and failing walks; verify every descriptor has exactly one final owner and no descriptor is leaked or closed twice.
 
 ### VALIDATE
 
-- [ ] 3.19 Run `python -m unittest tests.test_filesystem_cleanup tests.test_filesystem_descriptor_operations tests.test_filesystem_owned_descriptors tests.test_filesystem_directory_descriptors` and require all tests to pass before Phases 4, 5, or 7 start.
+- [x] 3.19 Run `python -m unittest tests.test_filesystem_cleanup tests.test_filesystem_descriptor_operations tests.test_filesystem_owned_descriptors tests.test_filesystem_directory_descriptors` and require all tests to pass before Phases 4, 5, or 7 start.
 
 ## 4. Transaction Capability Integration
 
