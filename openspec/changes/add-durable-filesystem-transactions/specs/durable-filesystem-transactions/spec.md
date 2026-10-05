@@ -107,6 +107,15 @@ The accumulator SHALL retain the original primary failure, ordinary cleanup fail
 - **AND** completion SHALL raise the first unexpected exception object unchanged unless a process-control interruption has higher precedence
 - **AND** any displaced original primary and other cleanup failures SHALL remain observable as secondary diagnostics
 
+#### Scenario: Carrying secondary diagnostics across an exception remap
+- **WHEN** a domain adapter replaces a transaction or capability wrapper with its raw operational cause as the authoritative exception
+- **THEN** when the raw cause can retain exception objects, every secondary exception object already retained by the wrapper SHALL also remain observable on it in source order without duplicate identity, including across repeated carries
+- **AND** when the raw cause cannot retain exception objects, its secondary diagnostics SHALL instead remain observable as bounded textual notes without any guarantee of exception-object retention or identity de-duplication across repeated carries
+- **AND** the wrapper SHALL remain unchanged rather than having its diagnostics consumed
+- **AND** `carry_secondary_diagnostics` itself SHALL NOT change the raw cause's identity, `__cause__`, `__context__`, or unrelated notes
+- **AND** subsequent propagation MAY update normal Python exception chaining exactly as it did before the remap migration
+- **AND** the adapter SHALL use the shared diagnostic-carry contract rather than reading shared storage or constructing an arbitrary secondary list
+
 #### Scenario: Treating owned absence as a domain decision
 - **WHEN** a domain-owned cleanup action unlinks an entry or recursively removes a tree
 - **THEN** that domain action MAY treat `FileNotFoundError` as successful idempotent absence when its complete contract permits

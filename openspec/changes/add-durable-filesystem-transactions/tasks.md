@@ -287,9 +287,32 @@ Phase 1 ─────▶ Phase 8
 
 - [x] 9A.12 Run the complete accumulator fault matrix plus L0-L3 lifecycle, locking, build cache/cleanup/snapshot/materialization/orchestration, project-state/rendering/projection, runtime artifact, npm publication/tree, architecture, type, lint, and diff checks. Record migrated and excluded sites, unchanged domain contracts, corrected masking/loss cases, and exact idempotent-absence decisions outside specification files.
 
-## Phase 10. Rollout and Complete Validation
+## Phase 9B. Narrow Secondary-Diagnostic Remapping
 
 **Depends on:** Phase 9A
+**Deliverables:** one storage-owning diagnostic-carry operation for wrapper-to-cause remaps; migration of the twelve audited remap sites; continued low-level cleanup attachment inside `CleanupFailures`; two explicit non-remap aggregators; no change to raw causes, stages, exception identity, chaining, or domain mappings.
+
+### RED
+
+- [ ] 9B.1 Add contract tests for `carry_secondary_diagnostics(target, source)` covering `TransactionError.secondary`, generic exception storage, no diagnostics, source-order preservation, repeated carry, target attachment fallback, target identity, and source immutability. For object-capable targets, prove retained secondary exception objects are preserved and de-duplicated by identity across repeated carries. For fallback targets, prove only bounded textual observability without requiring exception-object retention or identity de-duplication across repeated carries. In both cases prove the operation does not carry `source`, `__cause__`, `__context__`, unrelated notes, or a caller-supplied iterable.
+- [ ] 9B.2 Add remap-boundary and architecture tests identifying the twelve audited wrapper-to-raw-cause sites in artifact cache, build cache, effective projection, npm publication, and rendering. Require those sites to use the narrow carry operation, forbid domain reads of `_transaction_secondary` and manual `list(exc.secondary)` remaps, and pin the two non-remap exceptions: lock descriptor release aggregation and caller-owned build-lock release reporting.
+
+### GREEN
+
+- [ ] 9B.3 Add `carry_secondary_diagnostics` beside the secondary storage contract in `docker.transactions.errors`. Keep attachment storage centralized; provide exception-object retention and identity de-duplication when the target supports object attachment, and bounded textual notes without an identity de-duplication guarantee otherwise. Keep the operation out of the top-level `docker.transactions` exports, and retain low-level attachment for `CleanupFailures` plus the two approved explicit aggregators without exposing cleanup, mapping, or filesystem authority.
+- [ ] 9B.4 Migrate all twelve audited remap sites to pass the authoritative target and source wrapper to the narrow operation. Preserve raw `OSError` causes, exception identity, source order, stages, chaining, domain mappings, cleanup precedence, and the source wrapper's diagnostics; do not migrate or otherwise alter the two explicit aggregators.
+
+### INTROSPECT
+
+- [ ] 9B.5 Review every diagnostic writer and reader for direct storage access, arbitrary-list attachment, accidental source consumption, duplicate identity on object-capable targets, unbounded textual fallback, cause/context transfer, changed exception chaining, and misuse of the carry operation for cleanup orchestration or caller-owned aggregation. Resolve every finding and record the final remap inventory and exclusions outside specification files.
+
+### VALIDATE
+
+- [ ] 9B.6 Run the focused carry/remap tests plus affected transaction, artifact-cache, build-cache, effective-projection, npm-publication, rendering, locking, and build-orchestration suites; run architecture, type, lint, complete unit/integration, and diff checks; and record commands, results, the twelve migrated sites, and the two unchanged aggregators outside specification files.
+
+## Phase 10. Rollout and Complete Validation
+
+**Depends on:** Phase 9B
 **Deliverables:** explicit one-time development-cache cutover; no runtime inspection or migration of the legacy manifest; complete automated and acceptance evidence; archive-ready change.
 
 ### RED
