@@ -2145,13 +2145,15 @@ class TestInterruptionSafety(_MaterializationTestCase):
         self.assertEqual(len(fs.published), 0)
 
     def test_system_exit_after_temp_creation(self) -> None:
-        """GREEN — SystemExit during cleanup is surfaced as
-        a structured ArtifactMaterializationError.
+        """Hardened — a cleanup process-control interruption propagates.
 
-        The primary flow succeeds but cleanup_temp raises
-        SystemExit.  Since there is no pre-existing primary
-        exception, the cleanup failure becomes the primary error
-        wrapped as publication/interruption."""
+        The primary flow succeeds but cleanup_temp raises SystemExit.  With no
+        pre-existing primary, the shared accumulator raises the first
+        process-control interruption unchanged while still attempting the
+        independent lock release.  Wrapping the interruption as an ordinary
+        publication error was the pre-9A behavior and is intentionally
+        corrected.
+        """
         data = _make_tarball_bytes()
         integrity = _make_integrity_for(data)
         url = "https://x.test/pkg.tgz"
@@ -2170,7 +2172,7 @@ class TestInterruptionSafety(_MaterializationTestCase):
 
         fs = _CleanupTrackingFS()
 
-        with self.assertRaises(ArtifactMaterializationError) as ctx:
+        with self.assertRaises(SystemExit):
             materialize_selected_artifacts(
                 [art],
                 transport=transport,
@@ -2180,10 +2182,7 @@ class TestInterruptionSafety(_MaterializationTestCase):
                 cache_root=self._cache_root,
             )
 
-        # Wrapped as a structured publication error.
-        self.assertIn(ctx.exception.reason, ("publication", "interruption"))
-
-        # Lock released even though cleanup failed.
+        # Lock released even though cleanup was interrupted.
         lock = factory.locks.get(integrity)
         self.assertIsNotNone(lock)
         self.assertIn(integrity, lock.released)

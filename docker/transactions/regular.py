@@ -47,6 +47,7 @@ import stat
 from dataclasses import dataclass
 
 from .capabilities import DirectoryCapability
+from .cleanup import CleanupFailures
 from .errors import (
     STAGE_ALLOCATE,
     STAGE_CLOSE,
@@ -63,7 +64,6 @@ from .errors import (
     DestinationExists,
     TransactionError,
     UnsafeFileError,
-    attach_secondary,
 )
 from .posix import PosixFileOps
 
@@ -220,20 +220,19 @@ class RegularFileContracts:
             raise
         finally:
             if capability is not None:
-                # Only I/O close failures are attached or translated; a
-                # KeyboardInterrupt or cancellation propagates unchanged.  A
-                # failed close is never retried: POSIX does not guarantee the
+                # One close attempt only: POSIX does not guarantee the
                 # descriptor remains open, so a retry could close an unrelated
-                # reused descriptor.
-                try:
-                    capability.close()
-                except OSError as close_exc:
-                    if primary is not None:
-                        attach_secondary(primary, [close_exc])
-                    else:
-                        raise TransactionError(
-                            STAGE_CLOSE, f"cannot close {base!r}", cause=close_exc
-                        ) from close_exc
+                # reused descriptor.  An ordinary close failure is secondary to
+                # an in-flight primary and otherwise maps to a close-stage
+                # ``TransactionError``; a process-control interruption
+                # propagates unchanged.
+                failures = CleanupFailures(primary)
+                failures.run(capability.close, ordinary=(OSError,))
+                result = failures.complete()
+                if result is not None:
+                    raise TransactionError(
+                        STAGE_CLOSE, f"cannot close {base!r}", cause=result
+                    ) from result
 
     # -- durable unlink --------------------------------------------------
     def durable_unlink(
@@ -294,16 +293,17 @@ class RegularFileContracts:
         finally:
             if fd >= 0:
                 # One close attempt only; see validated_read for why a failed
-                # close is not retried.  Non-I/O exceptions propagate unchanged.
-                try:
-                    self._ops.close(fd)
-                except OSError as close_exc:
-                    if primary is not None:
-                        attach_secondary(primary, [close_exc])
-                    else:
-                        raise TransactionError(
-                            STAGE_CLOSE, f"cannot close {base!r}", cause=close_exc
-                        ) from close_exc
+                # close is not retried.  An ordinary close failure is secondary
+                # to an in-flight primary and otherwise maps to a close-stage
+                # ``TransactionError``; a process-control interruption
+                # propagates unchanged.
+                failures = CleanupFailures(primary)
+                failures.run(lambda: self._ops.close(fd), ordinary=(OSError,))
+                result = failures.complete()
+                if result is not None:
+                    raise TransactionError(
+                        STAGE_CLOSE, f"cannot close {base!r}", cause=result
+                    ) from result
 
     # -- private mechanics -----------------------------------------------
     def _allocate_temporary(self, directory: DirectoryCapability) -> tuple[int, str]:
@@ -455,18 +455,19 @@ class RegularFileContracts:
             raise
         finally:
             # One close attempt only; see validated_read for why a failed close
-            # is not retried.  Non-I/O exceptions propagate unchanged.
-            try:
-                self._ops.close(fd)
-            except OSError as close_exc:
-                if primary is not None:
-                    attach_secondary(primary, [close_exc])
-                else:
-                    raise TransactionError(
-                        STAGE_CLOSE,
-                        f"cannot close destination {base!r}",
-                        cause=close_exc,
-                    ) from close_exc
+            # is not retried.  An ordinary close failure is secondary to an
+            # in-flight primary and otherwise maps to a close-stage
+            # ``TransactionError``; a process-control interruption propagates
+            # unchanged.
+            failures = CleanupFailures(primary)
+            failures.run(lambda: self._ops.close(fd), ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise TransactionError(
+                    STAGE_CLOSE,
+                    f"cannot close destination {base!r}",
+                    cause=result,
+                ) from result
 
     def _close_fd(self, directory: DirectoryCapability, state: _Publication) -> None:
         if state.fd < 0:
@@ -488,27 +489,38 @@ class RegularFileContracts:
     ) -> None:
         """Best-effort cleanup that preserves the primary failure.
 
-        Ordinary ``OSError`` failures from ``close`` or ``unlinkat`` are
-        collected and attached as secondary diagnostics to *primary*.  A
+        Close and temporary unlink are independent actions, each attempted
+        exactly once.  Ordinary ``OSError`` failures from ``close`` or
+        ``unlinkat`` are attached as secondary diagnostics to *primary*.  A
         process-control interruption (``KeyboardInterrupt`` or a
-        cancellation-style ``BaseException``) is never consumed: it replaces
-        *primary* and propagates unchanged.  A failed close is not retried,
-        so the tracked descriptor is cleared before the attempt.
+        cancellation-style ``BaseException``) is never consumed: it replaces an
+        ``Exception`` primary and propagates unchanged, but an original
+        non-``Exception`` primary stays authoritative over later interruptions.
+        An unexpected non-``OSError`` ``Exception`` from close is retained as an
+        authoritative defect rather than skipping the still-owned temporary
+        unlink.  A failed close is never retried, so the tracked descriptor is
+        cleared before the attempt.
         """
-        secondary: list[BaseException] = []
-        if state.fd >= 0:
+        failures = CleanupFailures(primary)
+
+        def close_descriptor() -> None:
+            if state.fd < 0:
+                return
             fd, state.fd = state.fd, -1
-            try:
-                self._ops.close(fd)
-            except OSError as exc:
-                secondary.append(exc)
-        if state.temp_name is not None:
+            self._ops.close(fd)
+
+        def remove_temporary() -> None:
+            if state.temp_name is None:
+                return
             try:
                 self._ops.unlinkat(directory.fd, state.temp_name)
             except FileNotFoundError:
                 state.temp_name = None
-            except OSError as exc:
-                secondary.append(exc)
-            else:
-                state.temp_name = None
-        attach_secondary(primary, secondary)
+                return
+            state.temp_name = None
+
+        failures.run(close_descriptor, ordinary=(OSError,))
+        failures.run(remove_temporary, ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result

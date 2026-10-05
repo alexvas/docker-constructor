@@ -41,6 +41,7 @@ from docker.transactions.capabilities import (
     CapabilityError,
     DirectoryCapability,
 )
+from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
     DestinationExists,
     TransactionError,
@@ -1161,14 +1162,13 @@ def create_runtime_projection(
             # One close attempt only; a failed close is never retried because
             # POSIX does not guarantee the descriptor stays open.  An ordinary
             # close failure is secondary to a publication failure and is the
-            # only failure when the publication succeeded.
-            try:
-                directory.close()
-            except OSError as close_exc:
-                if primary is not None:
-                    attach_secondary(primary, [close_exc])
-                else:
-                    raise
+            # only failure when the publication succeeded; a process-control
+            # interruption from close is authoritative and is never converted.
+            failures = CleanupFailures(primary)
+            failures.run(directory.close, ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise result
 
     return RuntimeProjectionHandle(host_path, content_hash, _fs=_fs)
 

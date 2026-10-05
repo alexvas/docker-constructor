@@ -10,10 +10,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from docker.transactions.capabilities import DirectoryCapability
+from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
     DestinationExists,
     TransactionError,
-    attach_secondary,
 )
 from docker.transactions.posix import PosixFileOps
 from docker.transactions.regular import RegularFileContracts
@@ -69,10 +69,16 @@ class ValidatedProjectState:
         if exc is None:
             self.close()
             return
-        try:
-            self.close()
-        except OSError as close_exc:
-            attach_secondary(exc, [close_exc])
+        # A namespace-close failure must never mask an active validation or
+        # publication failure: it is attached as a secondary diagnostic and the
+        # original exception keeps propagating.  ``_closed`` is set before the
+        # POSIX close, so a failed close is never retried.  A process-control
+        # interruption from close is authoritative and is not converted.
+        failures = CleanupFailures(exc)
+        failures.run(self.close, ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result
 
     def close(self) -> None:
         if not self._closed:
@@ -127,13 +133,23 @@ def _open_private_dir_at(parent_fd: int | None, name: str, *, label: str) -> int
     try:
         st = os.fstat(fd)
     except OSError as exc:
-        os.close(fd)
-        raise ProjectStateError(f"unsafe project state {label}") from exc
+        primary = ProjectStateError(f"unsafe project state {label}")
+        failures = CleanupFailures(primary)
+        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result
+        raise primary from exc
     if (not stat.S_ISDIR(st.st_mode) or st.st_uid != os.geteuid()
             or stat.S_IMODE(st.st_mode) != 0o700):
-        os.close(fd)
-        raise ProjectStateError(
+        primary = ProjectStateError(
             f"project state {label} must be invoking-user-owned and mode 0700")
+        failures = CleanupFailures(primary)
+        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result
+        raise primary
     return fd
 
 
@@ -180,6 +196,7 @@ def _read_metadata(namespace_fd: int, expected: bytes, label: str) -> None:
         raise ProjectStateError(f"missing project identity metadata {label}/project.json") from None
     except OSError as exc:
         raise ProjectStateError(f"unsafe project identity metadata {label}/project.json") from exc
+    primary: BaseException | None = None
     try:
         st = os.fstat(fd)
         if (not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid()
@@ -190,8 +207,15 @@ def _read_metadata(namespace_fd: int, expected: bytes, label: str) -> None:
             parts.append(chunk)
         if b"".join(parts) != expected:
             raise ProjectStateError(f"project identity metadata does not match {label}")
+    except BaseException as exc:
+        primary = exc
+        raise
     finally:
-        os.close(fd)
+        failures = CleanupFailures(primary)
+        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result
 
 
 def _publish_metadata(namespace_fd: int, expected: bytes, label: str) -> None:
@@ -264,6 +288,7 @@ def resolve_project_state(project_root: str | Path, *, cache_root: str | Path | 
             return result
         raise ProjectStateError(f"missing constructor cache root {root}") from None
     fds = [root_fd]
+    primary: BaseException | None = None
     try:
         try:
             projects_fd = _open_private_dir_at(root_fd, "projects", label=str(root / "projects"))
@@ -313,9 +338,16 @@ def resolve_project_state(project_root: str | Path, *, cache_root: str | Path | 
                     namespace_fd, name, label=str(namespace / name))
                 fds.append(child_fd)
         return result
+    except BaseException as exc:
+        primary = exc
+        raise
     finally:
+        failures = CleanupFailures(primary)
         for fd in reversed(fds):
-            os.close(fd)
+            failures.run(lambda fd=fd: os.close(fd), ordinary=(OSError,))
+        close_result = failures.complete()
+        if close_result is not None:
+            raise close_result
 
 
 def validate_project_state(state: ProjectState) -> ValidatedProjectState:
@@ -367,7 +399,10 @@ def validate_project_state(state: ProjectState) -> ValidatedProjectState:
                 f"project state child {attr} {actual_child!r} is not the "
                 f"expected namespace child {expected_child!r}")
 
-    root_fd = projects_fd = namespace_fd = None
+    root_fd: int | None = None
+    projects_fd: int | None = None
+    namespace_fd: int | None = None
+    primary: BaseException | None = None
     try:
         root_fd = _open_private_dir_at(
             None, os.fspath(cache_root), label=f"cache root {cache_root}")
@@ -377,18 +412,68 @@ def validate_project_state(state: ProjectState) -> ValidatedProjectState:
             projects_fd, expected_name, label=str(expected_namespace))
         _read_metadata(namespace_fd, _metadata(project, identity), str(state.namespace))
     except FileNotFoundError:
+        # Map the missing ancestor to a domain error and retain it as the
+        # primary before any descriptor is released.  The ancestor releases in
+        # ``finally`` then attach as secondary diagnostics instead of replacing
+        # the domain error merely because the primary was never set.
         if root_fd is None:
-            raise ProjectStateError(f"missing constructor cache root {cache_root}") from None
-        if projects_fd is None:
-            raise ProjectStateError(f"missing project state {cache_root / 'projects'}") from None
-        raise ProjectStateError(f"missing project namespace {expected_namespace}") from None
-    except BaseException:
-        if namespace_fd is not None:
-            os.close(namespace_fd)
+            primary = ProjectStateError(f"missing constructor cache root {cache_root}")
+        elif projects_fd is None:
+            primary = ProjectStateError(
+                f"missing project state {cache_root / 'projects'}")
+        else:
+            primary = ProjectStateError(
+                f"missing project namespace {expected_namespace}")
+        raise primary from None
+    except BaseException as exc:
+        primary = exc
         raise
     finally:
-        if projects_fd is not None:
-            os.close(projects_fd)
-        if root_fd is not None:
-            os.close(root_fd)
+        if primary is None:
+            # Success: only the ancestor descriptors are released here.  The
+            # namespace descriptor stays owned until ancestor cleanup succeeds
+            # and is transferred to the returned state only when it can
+            # actually be returned.  Ownership of each descriptor is dropped
+            # before its close, so a failed close is never retried.
+            failures = CleanupFailures(None)
+            releasing, projects_fd = projects_fd, None
+            if releasing is not None:
+                failures.run(lambda fd=releasing: os.close(fd), ordinary=(OSError,))
+            releasing, root_fd = root_fd, None
+            if releasing is not None:
+                failures.run(lambda fd=releasing: os.close(fd), ordinary=(OSError,))
+            try:
+                ancestor_failure: BaseException | None = failures.complete()
+            except BaseException as exc:
+                ancestor_failure = exc
+            if ancestor_failure is not None:
+                # Releasing an ancestor prevents returning the validated state,
+                # so the retained namespace descriptor is released exactly once
+                # before the ancestor failure propagates.
+                releasing, namespace_fd = namespace_fd, None
+                if releasing is not None:
+                    namespace_failures = CleanupFailures(ancestor_failure)
+                    namespace_failures.run(
+                        lambda fd=releasing: os.close(fd), ordinary=(OSError,))
+                    namespace_failures.complete()
+                raise ancestor_failure
+        else:
+            # Failed validation: one accumulator releases the namespace and
+            # every opened ancestor, attempting each action exactly once before
+            # completing.  A namespace interruption or unexpected defect stays
+            # authoritative over later ancestor releases rather than being lost
+            # behind a stale primary.
+            failures = CleanupFailures(primary)
+            releasing, namespace_fd = namespace_fd, None
+            if releasing is not None:
+                failures.run(lambda fd=releasing: os.close(fd), ordinary=(OSError,))
+            releasing, projects_fd = projects_fd, None
+            if releasing is not None:
+                failures.run(lambda fd=releasing: os.close(fd), ordinary=(OSError,))
+            releasing, root_fd = root_fd, None
+            if releasing is not None:
+                failures.run(lambda fd=releasing: os.close(fd), ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise result
     return ValidatedProjectState(state, namespace_fd)

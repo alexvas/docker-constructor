@@ -71,10 +71,18 @@ class TestNoPartialPublication(unittest.TestCase):
 class TestNoDeletionOfCommittedData(unittest.TestCase):
     def test_cleanup_removes_only_the_temporary_directory(self):
         src = inspect.getsource(publication_module._atomic_publish)
-        self.assertIn("shutil.rmtree(str(tmp), ignore_errors=True)", src)
-        self.assertNotIn("shutil.rmtree(str(final)", src)
+        # Staging-tree cleanup is accumulated (primary-preserving) rather than
+        # silently best-effort, and only the owned temporary tree is removed.
+        self.assertIn("_remove_owned_tree(tmp)", src)
+        self.assertIn("CleanupFailures", src)
+        self.assertNotIn("ignore_errors=True", src)
+        self.assertNotIn("shutil.rmtree", src)
+        self.assertNotIn("_remove_owned_tree(final", src)
         self.assertNotIn("os.unlink(str(final", src)
         self.assertNotIn("os.rmdir(str(final", src)
+        helper = inspect.getsource(publication_module._remove_owned_tree)
+        self.assertIn("FileNotFoundError", helper)
+        self.assertNotIn("ignore_errors", helper)
 
     def test_collision_is_verified_never_overwritten(self):
         src = inspect.getsource(publication_module._atomic_publish)

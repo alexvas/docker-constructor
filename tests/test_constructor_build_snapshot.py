@@ -3,6 +3,7 @@ from __future__ import annotations
 import errno
 import hashlib
 import os
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,6 +15,7 @@ from docker.versioning.build_snapshot import (
     cleanup_artifact_snapshot,
     create_artifact_snapshot,
 )
+from docker.versioning import build_snapshot as build_snapshot_module
 from docker.versioning.digest_identity import DigestIdentity
 from tests.privilege_helpers import docker_dev_ids, sudo_chown, sudo_maintain_tree
 
@@ -296,6 +298,412 @@ class TestArtifactSnapshot(unittest.TestCase):
             # chmod those links because that would mutate the cached inode and
             # make the next build report an unsafe/corrupt cache hit.
             self.assertTrue(all((blob.stat().st_mode & 0o777) == 0o444 for _, blob in pairs))
+
+
+class SnapshotCleanupRecoveryFaultTests(unittest.TestCase):
+    """Fault injection for cleanup's permission-recovery branch.
+
+    These tests call the real :func:`cleanup_artifact_snapshot` on a real
+    readonly snapshot tree so the initial ``shutil.rmtree`` raises
+    ``PermissionError`` and the domain-owned recovery path actually runs.  No
+    test replaces the whole cleanup helper.
+    """
+
+    def setUp(self):
+        self._temp = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        self.root = Path(self._temp.name)
+        self.addCleanup(self._temp.cleanup)
+
+    def _readonly_tree(self, *, nested_file: bool = True):
+        tree = self.root / "transaction-readonly"
+        sub = tree / "sub"
+        sub.mkdir(parents=True)
+        blob = self.root / "cached-blob"
+        blob.write_bytes(b"payload")
+        blob.chmod(0o444)
+        os.link(blob, tree / "payload")
+        manifest = tree / "manifest.json"
+        manifest.write_bytes(b"{}")
+        manifest.chmod(0o444)
+        if nested_file:
+            nested = sub / "nested"
+            nested.write_bytes(b"nested")
+            nested.chmod(0o444)
+        sub.chmod(0o555)
+        tree.chmod(0o555)
+        self.addCleanup(self._release_readonly, tree)
+        return tree, blob
+
+    def _release_readonly(self, tree: Path) -> None:
+        for entry in sorted(tree.rglob("*"), key=lambda p: len(p.parts), reverse=True):
+            if entry.is_dir() and not entry.is_symlink():
+                try:
+                    os.chmod(entry, 0o700)
+                except OSError:
+                    pass
+        try:
+            os.chmod(tree, 0o700)
+        except OSError:
+            pass
+        shutil.rmtree(tree, ignore_errors=True)
+
+    def test_recovery_removes_readonly_tree_and_keeps_hard_link_mode(self):
+        tree, blob = self._readonly_tree()
+        before = (blob.stat().st_ino, blob.stat().st_mode & 0o777, blob.read_bytes())
+        removed: list[Path] = []
+        real_rmtree = shutil.rmtree
+
+        def spy(path, *args, **kwargs):
+            removed.append(Path(path))
+            return real_rmtree(path, *args, **kwargs)
+
+        with patch("docker.versioning.build_snapshot.shutil.rmtree", side_effect=spy):
+            cleanup_artifact_snapshot(tree)
+        # The initial attempt fails and the explicit recovery removal succeeds.
+        self.assertEqual(2, len(removed))
+        self.assertFalse(tree.exists())
+        self.assertEqual(before[0], blob.stat().st_ino)
+        self.assertEqual(before[1], blob.stat().st_mode & 0o777)
+        self.assertEqual(before[2], blob.read_bytes())
+
+    def test_directory_chmod_permission_failure_stays_observable(self):
+        # An empty readonly child can still be removed once the parent is
+        # writable, so the injected chmod failure is the only ordinary failure;
+        # it must not be discarded just because a later action succeeded.
+        tree, _ = self._readonly_tree(nested_file=False)
+        target = tree / "sub"
+        fault = PermissionError(errno.EACCES, "chmod denied")
+        real_chmod = os.chmod
+        attempted: list[Path] = []
+
+        def chmod_spy(path, mode, *args, **kwargs):
+            attempted.append(Path(path))
+            if Path(path) == target:
+                raise fault
+            return real_chmod(path, mode, *args, **kwargs)
+
+        with patch("docker.versioning.build_snapshot.os.chmod", side_effect=chmod_spy):
+            with self.assertRaises(SnapshotError) as ctx:
+                cleanup_artifact_snapshot(tree)
+        self.assertFalse(tree.exists())
+        self.assertIn(tree, attempted)
+        cause = ctx.exception.__cause__
+        self.assertIsInstance(cause, PermissionError)
+        self.assertIn(fault, getattr(cause, "_transaction_secondary", []))
+
+    def test_directory_chmod_io_failure_stays_observable(self):
+        tree, _ = self._readonly_tree(nested_file=False)
+        target = tree / "sub"
+        fault = OSError(errno.EIO, "chmod io failure")
+        real_chmod = os.chmod
+
+        def chmod_spy(path, mode, *args, **kwargs):
+            if Path(path) == target:
+                raise fault
+            return real_chmod(path, mode, *args, **kwargs)
+
+        with patch("docker.versioning.build_snapshot.os.chmod", side_effect=chmod_spy):
+            with self.assertRaises(SnapshotError) as ctx:
+                cleanup_artifact_snapshot(tree)
+        cause = ctx.exception.__cause__
+        self.assertIn(fault, getattr(cause, "_transaction_secondary", []))
+
+    def test_directory_chmod_unexpected_defect_is_authoritative(self):
+        tree, _ = self._readonly_tree(nested_file=False)
+        target = tree / "sub"
+        defect = RuntimeError("chmod defect")
+        real_chmod = os.chmod
+        attempted: list[Path] = []
+
+        def chmod_spy(path, mode, *args, **kwargs):
+            attempted.append(Path(path))
+            if Path(path) == target:
+                raise defect
+            return real_chmod(path, mode, *args, **kwargs)
+
+        with patch("docker.versioning.build_snapshot.os.chmod", side_effect=chmod_spy):
+            with self.assertRaises(RuntimeError) as ctx:
+                cleanup_artifact_snapshot(tree)
+        self.assertIs(ctx.exception, defect)
+        # The remaining chmod and the final removal still ran.
+        self.assertIn(tree, attempted)
+        self.assertFalse(tree.exists())
+        secondary = getattr(defect, "_transaction_secondary", [])
+        self.assertTrue(any(isinstance(item, PermissionError) for item in secondary))
+
+    def test_directory_chmod_interruption_is_authoritative_and_cleanup_continues(self):
+        tree, _ = self._readonly_tree(nested_file=False)
+        target = tree / "sub"
+        interruption = KeyboardInterrupt("chmod interrupted")
+        real_chmod = os.chmod
+        attempted: list[Path] = []
+
+        def chmod_spy(path, mode, *args, **kwargs):
+            attempted.append(Path(path))
+            if Path(path) == target:
+                raise interruption
+            return real_chmod(path, mode, *args, **kwargs)
+
+        with patch("docker.versioning.build_snapshot.os.chmod", side_effect=chmod_spy):
+            with self.assertRaises(KeyboardInterrupt) as ctx:
+                cleanup_artifact_snapshot(tree)
+        self.assertIs(ctx.exception, interruption)
+        self.assertIn(tree, attempted)
+        self.assertFalse(tree.exists())
+
+    def test_final_removal_failure_is_observable(self):
+        tree, _ = self._readonly_tree()
+        removal_failure = OSError(errno.EIO, "final removal failed")
+        real_rmtree = shutil.rmtree
+        calls: list[Path] = []
+
+        def spy(path, *args, **kwargs):
+            calls.append(Path(path))
+            if len(calls) == 2:
+                raise removal_failure
+            return real_rmtree(path, *args, **kwargs)
+
+        with patch("docker.versioning.build_snapshot.shutil.rmtree", side_effect=spy):
+            with self.assertRaises(SnapshotError) as ctx:
+                cleanup_artifact_snapshot(tree)
+        self.assertTrue(tree.exists())
+        cause = ctx.exception.__cause__
+        self.assertIsInstance(cause, PermissionError)
+        self.assertIn(removal_failure, getattr(cause, "_transaction_secondary", []))
+
+    def test_final_removal_idempotent_absence_is_tolerated(self):
+        tree, _ = self._readonly_tree()
+        real_rmtree = shutil.rmtree
+        calls: list[Path] = []
+
+        def spy(path, *args, **kwargs):
+            calls.append(Path(path))
+            if len(calls) == 2:
+                real_rmtree(path, *args, **kwargs)
+                raise FileNotFoundError(
+                    errno.ENOENT, "snapshot already removed", os.fspath(path))
+            return real_rmtree(path, *args, **kwargs)
+
+        with patch("docker.versioning.build_snapshot.shutil.rmtree", side_effect=spy):
+            cleanup_artifact_snapshot(tree)
+        self.assertFalse(tree.exists())
+
+    def test_multiple_recovery_failures_are_all_retained(self):
+        tree, _ = self._readonly_tree()
+        chmod_failure = OSError(errno.EIO, "chmod top denied")
+        removal_failure = OSError(errno.EIO, "removal failed")
+        real_chmod = os.chmod
+        real_rmtree = shutil.rmtree
+        calls: list[Path] = []
+
+        def chmod_spy(path, mode, *args, **kwargs):
+            if Path(path) == tree:
+                raise chmod_failure
+            return real_chmod(path, mode, *args, **kwargs)
+
+        def rmtree_spy(path, *args, **kwargs):
+            calls.append(Path(path))
+            if len(calls) == 2:
+                raise removal_failure
+            return real_rmtree(path, *args, **kwargs)
+
+        with patch("docker.versioning.build_snapshot.os.chmod", side_effect=chmod_spy), \
+                patch("docker.versioning.build_snapshot.shutil.rmtree", side_effect=rmtree_spy):
+            with self.assertRaises(SnapshotError) as ctx:
+                cleanup_artifact_snapshot(tree)
+        cause = ctx.exception.__cause__
+        self.assertIsInstance(cause, PermissionError)
+        secondary = getattr(cause, "_transaction_secondary", [])
+        self.assertIn(chmod_failure, secondary)
+        self.assertIn(removal_failure, secondary)
+
+    def test_initial_non_permission_removal_failure_is_exposed_raw(self):
+        tree, _ = self._readonly_tree()
+        failure = OSError(errno.EIO, "initial removal io failure")
+        real_rmtree = shutil.rmtree
+        calls: list[Path] = []
+
+        def spy(path, *args, **kwargs):
+            calls.append(Path(path))
+            raise failure
+
+        with patch("docker.versioning.build_snapshot.shutil.rmtree", side_effect=spy):
+            with self.assertRaises(OSError) as ctx:
+                cleanup_artifact_snapshot(tree)
+        self.assertIs(ctx.exception, failure)
+        self.assertNotIsInstance(ctx.exception, SnapshotError)
+        # A non-permission failure does not trigger directory recovery.
+        self.assertEqual(1, len(calls))
+
+    def test_recovery_chmods_only_snapshot_directories(self):
+        tree, blob = self._readonly_tree()
+        inode_before = blob.stat().st_ino
+        attempted: list[Path] = []
+        real_chmod = os.chmod
+
+        def chmod_spy(path, mode, *args, **kwargs):
+            attempted.append(Path(path))
+            return real_chmod(path, mode, *args, **kwargs)
+
+        with patch("docker.versioning.build_snapshot.os.chmod", side_effect=chmod_spy):
+            cleanup_artifact_snapshot(tree)
+        self.assertEqual({tree, tree / "sub"}, set(attempted))
+        self.assertEqual(0o444, blob.stat().st_mode & 0o777)
+        self.assertEqual(inode_before, blob.stat().st_ino)
+
+    def _force_remove(self, path: Path) -> None:
+        # Uses os.walk rather than Path.rglob so it is safe to call while
+        # ``Path.rglob`` is patched by a test.
+        for dirpath, dirnames, _filenames in os.walk(path, topdown=False):
+            for name in dirnames:
+                os.chmod(Path(dirpath) / name, 0o700)
+        os.chmod(path, 0o700)
+        shutil.rmtree(path)
+
+    def test_vanished_snapshot_root_before_chmod_is_idempotent_absence(self):
+        # A concurrent cleanup removes the whole snapshot after enumeration but
+        # before any permission restoration.  Both the root chmod and the final
+        # removal then report absence, which is an accepted cleanup outcome.
+        tree, blob = self._readonly_tree()
+        real_collect = build_snapshot_module._collect_snapshot_directories
+
+        def vanishing_collector(path, discovered):
+            real_collect(path, discovered)
+            self._force_remove(path)
+
+        with patch(
+            "docker.versioning.build_snapshot._collect_snapshot_directories",
+            side_effect=vanishing_collector,
+        ):
+            cleanup_artifact_snapshot(tree)
+        self.assertFalse(tree.exists())
+        self.assertEqual(0o444, blob.stat().st_mode & 0o777)
+
+    def test_vanished_child_directory_before_chmod_is_idempotent_absence(self):
+        # Only the discovered child vanishes; the root remains and is removed.
+        tree, blob = self._readonly_tree(nested_file=False)
+        real_collect = build_snapshot_module._collect_snapshot_directories
+
+        def vanishing_child_collector(path, discovered):
+            real_collect(path, discovered)
+            os.chmod(path, 0o700)
+            os.rmdir(discovered[0])
+
+        with patch(
+            "docker.versioning.build_snapshot._collect_snapshot_directories",
+            side_effect=vanishing_child_collector,
+        ):
+            cleanup_artifact_snapshot(tree)
+        self.assertFalse(tree.exists())
+        self.assertEqual(0o444, blob.stat().st_mode & 0o777)
+
+    def test_enumeration_absence_is_idempotent(self):
+        # A concurrent cleanup removes the snapshot and enumeration observes
+        # the vanished entry.  Absence is accepted and the later root chmod and
+        # final removal also report absence without surfacing a domain error.
+        tree, blob = self._readonly_tree()
+
+        def absent_rglob(entry_path, pattern):
+            self._force_remove(tree)
+            raise FileNotFoundError(errno.ENOENT, "entry vanished", os.fspath(entry_path))
+
+        with patch.object(Path, "rglob", absent_rglob):
+            cleanup_artifact_snapshot(tree)
+        self.assertFalse(tree.exists())
+        self.assertEqual(0o444, blob.stat().st_mode & 0o777)
+
+    def test_enumeration_defect_is_authoritative_and_cleanup_continues(self):
+        # Enumeration yields one directory and then raises an unexpected defect;
+        # the discovered directory, the root, and the final removal still run.
+        tree, blob = self._readonly_tree()
+        defect = RuntimeError("enumeration defect")
+        chmodded: list[Path] = []
+        real_chmod = os.chmod
+
+        def rglob_spy(self, pattern):
+            def iterator():
+                yield tree / "sub"
+                raise defect
+
+            return iterator()
+
+        def chmod_spy(path, mode, *args, **kwargs):
+            chmodded.append(Path(path))
+            return real_chmod(path, mode, *args, **kwargs)
+
+        with patch.object(Path, "rglob", rglob_spy), \
+                patch("docker.versioning.build_snapshot.os.chmod", side_effect=chmod_spy):
+            with self.assertRaises(RuntimeError) as ctx:
+                cleanup_artifact_snapshot(tree)
+        self.assertIs(ctx.exception, defect)
+        self.assertIn(tree / "sub", chmodded)
+        self.assertIn(tree, chmodded)
+        self.assertFalse(tree.exists())
+        secondary = getattr(defect, "_transaction_secondary", [])
+        self.assertTrue(any(isinstance(item, PermissionError) for item in secondary))
+        self.assertEqual(0o444, blob.stat().st_mode & 0o777)
+
+    def test_enumeration_retains_every_directory_discovered_before_failure(self):
+        tree, _ = self._readonly_tree(nested_file=False)
+        os.chmod(tree, 0o700)
+        second = tree / "second"
+        second.mkdir()
+        data = second / "data"
+        data.write_bytes(b"x")
+        data.chmod(0o444)
+        second.chmod(0o555)
+        tree.chmod(0o555)
+        defect = RuntimeError("enumeration defect")
+        chmodded: list[Path] = []
+        real_chmod = os.chmod
+
+        def rglob_spy(self, pattern):
+            def iterator():
+                yield tree / "sub"
+                yield second
+                raise defect
+
+            return iterator()
+
+        def chmod_spy(path, mode, *args, **kwargs):
+            chmodded.append(Path(path))
+            return real_chmod(path, mode, *args, **kwargs)
+
+        with patch.object(Path, "rglob", rglob_spy), \
+                patch("docker.versioning.build_snapshot.os.chmod", side_effect=chmod_spy):
+            with self.assertRaises(RuntimeError) as ctx:
+                cleanup_artifact_snapshot(tree)
+        self.assertIs(ctx.exception, defect)
+        self.assertIn(tree / "sub", chmodded)
+        self.assertIn(second, chmodded)
+        self.assertFalse(tree.exists())
+
+    def test_enumeration_interruption_is_authoritative_and_cleanup_continues(self):
+        tree, blob = self._readonly_tree()
+        interruption = KeyboardInterrupt("enumeration interrupted")
+        chmodded: list[Path] = []
+        real_chmod = os.chmod
+
+        def rglob_spy(self, pattern):
+            def iterator():
+                yield tree / "sub"
+                raise interruption
+
+            return iterator()
+
+        def chmod_spy(path, mode, *args, **kwargs):
+            chmodded.append(Path(path))
+            return real_chmod(path, mode, *args, **kwargs)
+
+        with patch.object(Path, "rglob", rglob_spy), \
+                patch("docker.versioning.build_snapshot.os.chmod", side_effect=chmod_spy):
+            with self.assertRaises(KeyboardInterrupt) as ctx:
+                cleanup_artifact_snapshot(tree)
+        self.assertIs(ctx.exception, interruption)
+        self.assertIn(tree / "sub", chmodded)
+        self.assertIn(tree, chmodded)
+        self.assertFalse(tree.exists())
+        self.assertEqual(0o444, blob.stat().st_mode & 0o777)
 
 
 class TwoBuildOwnershipMaintenanceRegression(unittest.TestCase):

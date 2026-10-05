@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 from dataclasses import dataclass, field, replace as dataclass_replace
 from pathlib import Path
 from types import MappingProxyType
@@ -880,11 +879,12 @@ def _release_build_lock(
 ) -> Exception | None:
     """Release the build lock exactly once without masking a primary failure.
 
-    When *primary* is given, an ordinary release failure is attached to it as
-    a secondary diagnostic and ``None`` is returned so the primary exception
-    is preserved unchanged.  When no primary exception is in flight, the
-    ordinary release failure itself is returned so the caller can surface it
-    as an operational result instead of letting it escape.
+    An ordinary release failure is always returned so the caller can surface
+    it as an operational result, and when *primary* is given it is also
+    attached to *primary* as a secondary diagnostic so the primary exception
+    is preserved unchanged.  When no release failure occurs, ``None`` is
+    returned.  This caller-owned result model differs from the shared cleanup
+    accumulator's return contract, so the site stays explicit.
 
     Only ordinary (``Exception``) release failures are captured.  A
     process-control ``BaseException`` raised while releasing (for example
@@ -1184,6 +1184,7 @@ def execute_build(
         return result
 
     try:
+        build_primary: BaseException | None = None
         try:
             publish = request._publish_projection
             try:
@@ -1298,8 +1299,12 @@ def execute_build(
             return remember_result(BuildResult(exit_kind=ExitKind.SUCCESS, message="image build completed",
                 build_args=build_args, display_string=display_string,
                 process_result=proc, publish_result=publish_result))
+        except BaseException as exc:
+            build_primary = exc
+            raise
         finally:
-            primary = sys.exc_info()[1]
+            primary = build_primary
+            cleanup_in_flight: BaseException | None = None
             try:
                 try:
                     cleanup_confinement()
@@ -1312,13 +1317,16 @@ def execute_build(
                 except BaseException:
                     if primary is None:
                         raise
+            except BaseException as exc:
+                cleanup_in_flight = exc
+                raise
             finally:
                 # Release is attempted exactly once on every path.  An in-flight
                 # exception (including a cleanup failure) stays primary and a
                 # release failure is attached as secondary; with no in-flight
                 # exception a release failure is surfaced as an operational result
                 # instead of escaping from the finally block.
-                active = sys.exc_info()[1]
+                active = cleanup_in_flight
                 release_primary = active if active is not None else primary
                 release_failure = _release_build_lock(lock, primary=release_primary)
                 if release_failure is not None and release_primary is None:

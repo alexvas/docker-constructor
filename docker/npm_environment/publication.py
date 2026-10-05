@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Iterator, Sequence
 
 from docker.transactions.capabilities import CapabilityError, DirectoryCapability
+from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
     STAGE_CLOSE,
     STAGE_LOCK_ACQUIRE,
@@ -169,51 +170,34 @@ def _release_identity_lock(
 
     Ordinary release failures are attached as secondary diagnostics when a
     primary failure is in flight; otherwise the first release failure is
-    raised.  A process-control interruption from the lock release must not
-    skip the directory release, so it is captured, the directory is still
-    closed exactly once, and the original interruption is re-raised
-    unchanged with any ordinary cleanup failure (or a subsequent directory
-    interruption) attached as a secondary diagnostic.
+    raised.  A process-control interruption from either release stays
+    authoritative and never skips the other independent release action.  An
+    original non-``Exception`` primary remains authoritative over later
+    cleanup defects and interruptions.
     """
-    failures: list[BaseException] = []
-    interruption: BaseException | None = None
-    if capability is not None:
+    failures = CleanupFailures(primary)
+
+    def release_capability() -> None:
+        if capability is None:
+            return
         try:
             capability.close()
         except LockError as exc:
             cause = exc.cause
             if isinstance(cause, OSError):
                 attach_secondary(cause, list(exc.secondary))
-                failures.append(cause)
-            else:
-                failures.append(exc)
-        except OSError as exc:
-            failures.append(exc)
-        except BaseException as exc:
-            # A process-control interruption during unlock/close is preserved
-            # but must not leak the directory descriptor.
-            interruption = exc
-    if directory is not None:
-        try:
+                raise cause
+            raise
+
+    def release_directory() -> None:
+        if directory is not None:
             directory.close()
-        except OSError as exc:
-            failures.append(exc)
-        except BaseException as exc:
-            if interruption is None:
-                interruption = exc
-            else:
-                attach_secondary(interruption, [exc])
-    if interruption is not None:
-        attach_secondary(interruption, failures)
-        raise interruption
-    if primary is not None:
-        attach_secondary(primary, failures)
-        return
-    if failures:
-        first = failures[0]
-        if len(failures) > 1:
-            attach_secondary(first, failures[1:])
-        raise first
+
+    failures.run(release_capability, ordinary=(OSError, LockError))
+    failures.run(release_directory, ordinary=(OSError,))
+    result = failures.complete()
+    if result is not None:
+        raise result
 
 
 @contextlib.contextmanager
@@ -253,12 +237,15 @@ def identity_coordination_lock(
         )
     except BaseException as exc:
         # ``LockCapability.acquire`` releases its own descriptor on failure;
-        # the directory capability is still owned here and must be released.
+        # the directory capability is still owned here and is released exactly
+        # once.  An ordinary close failure is secondary to the primary; a
+        # process-control interruption is never converted into a lock error.
+        failures = CleanupFailures(exc)
         if directory is not None:
-            try:
-                directory.close()
-            except OSError as close_exc:
-                attach_secondary(exc, [close_exc])
+            failures.run(directory.close, ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result
         mapped = _identity_lock_failure(exc)
         if mapped is exc:
             raise
@@ -302,6 +289,7 @@ def _durable_write(path: Path, data: bytes, mode: int = 0o444) -> None:
     """
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     fd = os.open(str(path), flags, mode)
+    primary: BaseException | None = None
     try:
         os.fchmod(fd, mode)
         remaining = memoryview(data)
@@ -311,16 +299,31 @@ def _durable_write(path: Path, data: bytes, mode: int = 0o444) -> None:
                 raise OSError("os.write() returned 0 bytes")
             remaining = remaining[written:]
         os.fsync(fd)
+    except BaseException as exc:
+        primary = exc
+        raise
     finally:
-        os.close(fd)
+        failures = CleanupFailures(primary)
+        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result
 
 
 def _fsync_dir(path: str | Path) -> None:
     fd = os.open(str(path), _DIR_FLAGS)
+    primary: BaseException | None = None
     try:
         os.fsync(fd)
+    except BaseException as exc:
+        primary = exc
+        raise
     finally:
-        os.close(fd)
+        failures = CleanupFailures(primary)
+        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result
 
 
 def _fsync_tree(root: Path, manifest: TreeManifest) -> None:
@@ -330,44 +333,80 @@ def _fsync_tree(root: Path, manifest: TreeManifest) -> None:
         if entry.kind == "file":
             flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
             fd = os.open(str(path), flags)
-            try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
         elif entry.kind == "directory":
             fd = os.open(str(path), _DIR_FLAGS)
-            try:
-                os.fsync(fd)
-            finally:
-                os.close(fd)
+        else:
+            continue
+        primary: BaseException | None = None
+        try:
+            os.fsync(fd)
+        except BaseException as exc:
+            primary = exc
+            raise
+        finally:
+            failures = CleanupFailures(primary)
+            failures.run(lambda: os.close(fd), ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise result
     _fsync_dir(root)
 
 
-def _make_writable(root: Path, manifest: TreeManifest) -> None:
-    """Restore write bits so a read-only published tree can be removed."""
+def _remove_owned_tree(root: Path) -> None:
+    """Remove an owned temporary tree; absence is the one idempotent outcome.
+
+    ``FileNotFoundError`` means the owned tree already vanished, which is
+    idempotent absence and is ignored.  Every other ``OSError`` (permissions,
+    I/O) propagates so the caller's cleanup accumulator can preserve it.  Only
+    *root* and its descendants are ever removed.
+    """
+    try:
+        shutil.rmtree(str(root))
+    except FileNotFoundError:
+        pass
+
+
+def _restore_write_access(path: Path, add: int) -> None:
+    """Add *add* to *path*'s mode; only absence is idempotent.
+
+    ``FileNotFoundError`` means the owned entry already vanished, which is
+    idempotent absence and is ignored.  Permission and other I/O failures
+    propagate so the cleanup accumulator can preserve them.
+    """
+    try:
+        st = os.lstat(path)
+    except FileNotFoundError:
+        return
+    os.chmod(
+        path,
+        _stat.S_IMODE(st.st_mode) | add,
+        follow_symlinks=False,
+    )
+
+
+def _make_writable(
+    root: Path, manifest: TreeManifest, failures: CleanupFailures
+) -> None:
+    """Register write-bit restoration for an owned read-only tree.
+
+    Each entry is an independent cleanup action, so a single unremovable entry
+    never stops the remaining entries (or the root) from being attempted.  Only
+    ``FileNotFoundError`` is idempotent absence; every other ``OSError`` is
+    recorded by *failures*.
+    """
     for entry in manifest.entries:
         if entry.kind not in ("file", "directory"):
             continue
-        path = root / entry.path
-        try:
-            st = os.lstat(path)
-        except OSError:
-            continue
         add = 0o300 if entry.kind == "directory" else 0o200
-        os.chmod(
-            path,
-            _stat.S_IMODE(st.st_mode) | add,
-            follow_symlinks=False,
+        path = root / entry.path
+        failures.run(
+            lambda path=path, add=add: _restore_write_access(path, add),
+            ordinary=(OSError,),
         )
-    try:
-        st = os.lstat(root)
-        os.chmod(
-            root,
-            _stat.S_IMODE(st.st_mode) | 0o300,
-            follow_symlinks=False,
-        )
-    except OSError:
-        pass
+    failures.run(
+        lambda: _restore_write_access(root, 0o300),
+        ordinary=(OSError,),
+    )
 
 
 def _remove_redundant_tree(root: Path, manifest: TreeManifest) -> None:
@@ -376,10 +415,16 @@ def _remove_redundant_tree(root: Path, manifest: TreeManifest) -> None:
     ``make_tree_read_only`` has already stripped write bits, so owner
     write/search permissions are restored first (using the manifest-aware
     helper), then only *root* is removed.  The committed immutable output is
-    never touched.
+    never touched.  Every step is an independent cleanup action; the first
+    ordinary failure is re-raised (with the remaining diagnostics attached as
+    secondary) for the caller's ``collision_cleanup_failed`` mapping.
     """
-    _make_writable(root, manifest)
-    shutil.rmtree(str(root))
+    failures = CleanupFailures(None)
+    _make_writable(root, manifest, failures)
+    failures.run(lambda: _remove_owned_tree(root), ordinary=(OSError,))
+    result = failures.complete()
+    if result is not None:
+        raise result
 
 
 def _quarantine_corrupt_output(
@@ -437,6 +482,7 @@ def _atomic_publish(
         raise _AlreadyPublished()
 
     outputs_fd = os.open(str(namespace.outputs), _DIR_FLAGS)
+    primary: BaseException | None = None
     try:
         tmp_name = f".tmp-{output_identity[:16]}-{uuid.uuid4().hex[:8]}"
         try:
@@ -463,14 +509,34 @@ def _atomic_publish(
                 raise
             os.fsync(outputs_fd)
             return final
-        except BaseException:
+        except BaseException as exc:
             if os.path.lexists(tmp):
-                os.chmod(str(tmp), 0o700)
-                _make_writable(tmp / TREE_CHILD, manifest)
-                shutil.rmtree(str(tmp), ignore_errors=True)
+                # Making the owned tree writable and removing it are separate
+                # cleanup actions.  The in-flight publication failure stays
+                # authoritative; ordinary cleanup failures are attached to it
+                # as secondary diagnostics, while an unexpected cleanup defect
+                # or process-control interruption takes accumulator precedence.
+                failures = CleanupFailures(exc)
+                failures.run(
+                    lambda: _restore_write_access(tmp, 0o300),
+                    ordinary=(OSError,),
+                )
+                _make_writable(tmp / TREE_CHILD, manifest, failures)
+                failures.run(
+                    lambda: _remove_owned_tree(tmp),
+                    ordinary=(OSError,),
+                )
+                failures.complete()
             raise
+    except BaseException as exc:
+        primary = exc
+        raise
     finally:
-        os.close(outputs_fd)
+        failures = CleanupFailures(primary)
+        failures.run(lambda: os.close(outputs_fd), ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result
 
 
 # ── non-authoritative input index ───────────────────────────────────────

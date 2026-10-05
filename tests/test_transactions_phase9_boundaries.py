@@ -137,8 +137,16 @@ class SpecializationBoundaryTests(unittest.TestCase):
         self.assertIn("os.rename(str(tmp), str(final))", source)
 
     def test_snapshot_and_confinement_remain_domain_owned(self) -> None:
-        self.assertNotIn("docker.transactions", _source("docker/versioning/build_snapshot.py"))
-        self.assertNotIn("docker.transactions", _source("docker/versioning/build_context_confinement.py"))
+        # Snapshots keep their own hard-link/copy, finalisation, and
+        # recursive-cleanup authority.  They may use the internal
+        # primary-preserving cleanup accumulator (Phase 9A) but must not adopt
+        # the L2 regular-file contracts or L0/L1 path substrate.
+        snapshot = _source("docker/versioning/build_snapshot.py")
+        confinement = _source("docker/versioning/build_context_confinement.py")
+        for forbidden in ("RegularFileContracts", "PosixFileOps", "DirectoryCapability"):
+            self.assertNotIn(forbidden, snapshot)
+        self.assertNotIn("docker.transactions", confinement)
+        self.assertIn("shutil.rmtree", snapshot)
 
     def test_quarantine_and_recursive_cleanup_remain_domain_owned(self) -> None:
         self.assertIn("quarantine", inspect.getsource(artifact_cache).lower())

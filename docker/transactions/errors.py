@@ -41,6 +41,10 @@ class TransactionError(Exception):
             self.__cause__ = cause
 
     def add_secondary(self, exc: BaseException) -> None:
+        if exc is self:
+            return
+        if any(item is exc for item in self.secondary):
+            return
         self.secondary.append(exc)
 
 
@@ -71,19 +75,79 @@ class LockContention(LockError):
         super().__init__(STAGE_LOCK_ACQUIRE, message, cause=cause)
 
 
+# A bounded textual fallback keeps secondary diagnostics observable when the
+# authoritative exception cannot carry an attribute (for example a subclass
+# with ``__slots__``).  Each note is truncated, and the total number of
+# secondary-cleanup notes an exception may carry is capped **across repeated**
+# ``attach_secondary`` calls (not separately per call), so a long-lived primary
+# never accumulates unbounded context.
+_SECONDARY_SLOT = "_transaction_secondary"
+_MAX_NOTE_CHARS = 240
+_MAX_SECONDARY_NOTES = 32
+
+
+def _note_text(exc: BaseException) -> str:
+    try:
+        rendered = f"secondary cleanup failure: {type(exc).__name__}: {exc}"
+    except Exception:  # pragma: no cover - defensive: broken __str__
+        rendered = f"secondary cleanup failure: {type(exc).__name__}"
+    if len(rendered) > _MAX_NOTE_CHARS:
+        rendered = rendered[: _MAX_NOTE_CHARS - 3] + "..."
+    return rendered
+
+
+def _add_secondary_notes(primary: BaseException, secondary: list[BaseException]) -> None:
+    add_note = getattr(primary, "add_note", None)
+    if not callable(add_note):  # pragma: no cover - pre-3.11 interpreter
+        return
+    # The cap is a total per-primary budget: existing notes (including unrelated
+    # ones) are neither removed nor overwritten, and count toward the limit so
+    # repeated attachments cannot grow ``__notes__`` without bound.
+    existing = getattr(primary, "__notes__", None)
+    try:
+        existing_count = len(existing) if existing is not None else 0
+    except TypeError:  # pragma: no cover - exotic non-sized __notes__
+        existing_count = 0
+    remaining = _MAX_SECONDARY_NOTES - existing_count
+    if remaining <= 0:
+        return
+    for exc in secondary[:remaining]:
+        try:
+            add_note(_note_text(exc))
+        except Exception:  # pragma: no cover - exotic exception type
+            return
+
+
+def _append_unique(existing: list[BaseException], exc: BaseException) -> None:
+    if any(item is exc for item in existing):
+        return
+    existing.append(exc)
+
+
 def attach_secondary(primary: BaseException, secondary: list[BaseException]) -> None:
-    """Attach cleanup/close diagnostics without replacing *primary*."""
-    if not secondary:
+    """Attach cleanup/close diagnostics without replacing *primary*.
+
+    Exception objects are retained without duplicate identity.  When the
+    authoritative exception cannot carry an attribute, bounded
+    :meth:`BaseException.add_note` text keeps the diagnostics observable
+    without changing the authoritative exception's identity.
+    """
+    pending = [exc for exc in secondary if exc is not primary and exc is not None]
+    if not pending:
         return
     if isinstance(primary, TransactionError):
-        for exc in secondary:
+        for exc in pending:
             primary.add_secondary(exc)
         return
-    existing = getattr(primary, "_transaction_secondary", None)
-    if existing is None:
-        existing = []
-        try:
-            object.__setattr__(primary, "_transaction_secondary", existing)
-        except (AttributeError, TypeError):
-            return
-    existing.extend(secondary)
+    existing = getattr(primary, _SECONDARY_SLOT, None)
+    if isinstance(existing, list):
+        for exc in pending:
+            _append_unique(existing, exc)
+        return
+    collected: list[BaseException] = []
+    for exc in pending:
+        _append_unique(collected, exc)
+    try:
+        setattr(primary, _SECONDARY_SLOT, collected)
+    except (AttributeError, TypeError):
+        _add_secondary_notes(primary, collected)

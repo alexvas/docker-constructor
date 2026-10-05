@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Protocol, Sequence
 
+from docker.transactions.cleanup import CleanupFailures
 from docker.versioning.activity_monitor import HostActivityMonitor
 from docker.versioning.build_cache import (
     BLOB_EXTENSION, BuildCacheError, ConstructorProjectBuildLock, build_blob_path,
@@ -118,6 +119,14 @@ def _verify_hit(path: Path, identity: DigestIdentity) -> bool:
         return False
 
 
+def _remove_owned_leaf(path: Path) -> None:
+    """Unlink one owned entry, treating absence as successful idempotence."""
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return
+
+
 def materialize_artifact(
     selected: SelectedBuildArtifact, *, constructor_project_root: str | Path,
     transport: StreamingTransport, cache_root: str | Path | None = None,
@@ -145,6 +154,7 @@ def materialize_artifact(
     temporary = Path(temporary_name)
     digest = hashlib.new(selected.identity.algorithm)
     received = 0
+    active: BaseException | None = None
     try:
         with os.fdopen(fd, "wb") as output:
             for chunk in transport.stream(selected.url):
@@ -167,29 +177,49 @@ def materialize_artifact(
         os.chmod(temporary, 0o444)
         os.replace(temporary, destination)
         if not _verify_hit(destination, selected.identity):
-            try: destination.unlink()
-            except OSError: pass
-            raise MaterializationError(f"published artifact {selected.name!r} failed verification")
+            primary = MaterializationError(
+                f"published artifact {selected.name!r} failed verification"
+            )
+            # An unlink failure is genuine cleanup context, never silently
+            # swallowed and never allowed to replace the verification failure.
+            failures = CleanupFailures(primary)
+            failures.run(lambda: _remove_owned_leaf(destination), ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise result
+            raise primary
         if lock is not None:
             try:
                 mark_uncommitted_blob(
                     selected.identity, constructor_project_root, lock=lock,
                     cache_root=cache_root, project_state=project_state,
                 )
-            except BaseException:
-                try: destination.unlink()
-                except OSError: pass
+            except BaseException as primary:
+                failures = CleanupFailures(primary)
+                failures.run(lambda: _remove_owned_leaf(destination), ordinary=(OSError,))
+                result = failures.complete()
+                if result is not None:
+                    raise result
                 raise
         return destination
-    except MaterializationError:
+    except MaterializationError as exc:
+        active = exc
         raise
     except BaseException as exc:
-        raise MaterializationError(
+        mapped = MaterializationError(
             f"artifact materialization failed for {selected.name!r} ({type(exc).__name__})"
-        ) from exc
+        )
+        active = mapped
+        raise mapped from exc
     finally:
-        try: temporary.unlink()
-        except FileNotFoundError: pass
+        # The owned temporary entry uses idempotent absence, but a non-absence
+        # cleanup failure is attached to an existing primary instead of
+        # masking it, and remains observable on its own when nothing else failed.
+        failures = CleanupFailures(active)
+        failures.run(lambda: _remove_owned_leaf(temporary), ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result
 
 
 def materialize_build_artifacts(

@@ -18,6 +18,7 @@ from typing import Iterator, Protocol
 
 from docker.versioning.digest_identity import DigestIdentity, DigestIdentityError
 from docker.transactions.capabilities import CapabilityError, DirectoryCapability
+from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
     STAGE_LOCK_ACQUIRE,
     STAGE_LOCK_MODE,
@@ -331,12 +332,14 @@ def inspect_verified_blob_readonly(
     except OSError:
         return False
 
+    primary_root: BaseException | None = None
     try:
         # ── open algorithm subdirectory ──
         try:
             algo_fd = os.open(algo, root_rdonly, dir_fd=root_fd)
         except OSError:
             return False
+        primary_algo: BaseException | None = None
         try:
             # Verify algorithm component is really a directory.
             try:
@@ -363,6 +366,7 @@ def inspect_verified_blob_readonly(
                 return False
             except OSError:
                 return False
+            primary_blob: BaseException | None = None
             try:
                 try:
                     blob_st = os.fstat(blob_fd)
@@ -388,12 +392,33 @@ def inspect_verified_blob_readonly(
                     hasher.digest(),
                 ).decode("ascii")
                 return actual_raw == raw_expected
+            except BaseException as exc:
+                primary_blob = exc
+                raise
             finally:
-                os.close(blob_fd)
+                _close_acc = CleanupFailures(primary_blob)
+                _close_acc.run(lambda: os.close(blob_fd), ordinary=(OSError,))
+                _close_result = _close_acc.complete()
+                if _close_result is not None:
+                    raise _close_result
+        except BaseException as exc:
+            primary_algo = exc
+            raise
         finally:
-            os.close(algo_fd)
+            _close_acc = CleanupFailures(primary_algo)
+            _close_acc.run(lambda: os.close(algo_fd), ordinary=(OSError,))
+            _close_result = _close_acc.complete()
+            if _close_result is not None:
+                raise _close_result
+    except BaseException as exc:
+        primary_root = exc
+        raise
     finally:
-        os.close(root_fd)
+        _close_acc = CleanupFailures(primary_root)
+        _close_acc.run(lambda: os.close(root_fd), ordinary=(OSError,))
+        _close_result = _close_acc.complete()
+        if _close_result is not None:
+            raise _close_result
 
 
 # ── cache safety validation ───────────────────────────────────────────
@@ -687,16 +712,17 @@ def _materialize_one(
                 path, integrity, algorithm, root, filesystem,
             )
         except BaseException as validation_exc:
-            try:
-                filesystem.quarantine_or_remove(path)
-            except BaseException as cleanup_exc:
-                try:
-                    validation_exc.add_note(
-                        "additionally, invalid published entry cleanup failed: "
-                        f"{cleanup_exc}"
-                    )
-                except AttributeError:
-                    pass
+            failures = CleanupFailures(validation_exc)
+            failures.run(
+                lambda: filesystem.quarantine_or_remove(path),
+                ordinary=(Exception,),
+            )
+            # ``complete`` preserves an ``Exception`` validation failure and
+            # attaches any cleanup failure; a process-control interruption is
+            # authoritative either way, and no cleanup action is skipped.
+            result = failures.complete()
+            if result is not None:
+                raise result
             raise
 
         safe_digest = identity.hex_digest()
@@ -712,40 +738,29 @@ def _materialize_one(
         raise
     finally:
         # ── 8. unconditional cleanup ─────────────────────────────
-        # Collect cleanup errors so BOTH temp cleanup and lock
-        # release are attempted, even if one fails.
-        cleanup_errors: list[BaseException] = []
+        # Both temp cleanup and lock release are attempted exactly once even
+        # if one fails.  Ordinary failures are attached to an existing
+        # primary; a process-control interruption stays authoritative.
+        failures = CleanupFailures(primary_exc)
 
-        if tmp_root is not None:
-            try:
+        def cleanup_temporary_root() -> None:
+            if tmp_root is not None:
                 filesystem.cleanup_temp(tmp_root)
-            except BaseException as exc:
-                cleanup_errors.append(exc)
 
-        if acquired:
-            try:
+        def release_identity_lock() -> None:
+            if acquired:
                 lock.release(integrity)
-            except BaseException as exc:
-                cleanup_errors.append(exc)
 
-        # Surface cleanup errors.
-        if cleanup_errors:
-            if primary_exc is not None:
-                # Attach cleanup failures as notes on the primary.
-                for exc in cleanup_errors:
-                    try:
-                        primary_exc.add_note(
-                            f"additionally, cleanup failed: {exc}"
-                        )
-                    except AttributeError:
-                        pass
-            else:
-                # No primary — the first cleanup error becomes primary.
-                first = cleanup_errors[0]
-                raise ArtifactMaterializationError(
-                    reason="publication",
-                    detail=f"cleanup or release failed: {first}",
-                ) from first
+        failures.run(cleanup_temporary_root, ordinary=(Exception,))
+        failures.run(release_identity_lock, ordinary=(Exception,))
+        result = failures.complete()
+        if result is not None:
+            # No primary: the first cleanup/release failure is mapped to the
+            # runtime publication diagnostic, preserving the raw cause.
+            raise ArtifactMaterializationError(
+                reason="publication",
+                detail=f"cleanup or release failed: {result}",
+            ) from result
 
 
 def _validate_published_blob(
@@ -864,6 +879,7 @@ def _ensure_dir_private(path: str) -> None:
             "permissions",
             f"cannot access parent of cache root {path!r}: {exc}",
         ) from exc
+    primary_parent: BaseException | None = None
     try:
         flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
         # FileNotFoundError is the only benign outcome — the entry
@@ -883,6 +899,7 @@ def _ensure_dir_private(path: str) -> None:
                 "containment",
                 f"unsafe cache root entry at {path!r}: {exc}",
             ) from exc
+        primary_fd: BaseException | None = None
         try:
             current_mode = os.fstat(fd).st_mode
             if not _stat.S_ISDIR(current_mode):
@@ -898,10 +915,24 @@ def _ensure_dir_private(path: str) -> None:
                         "permissions",
                         f"cannot secure cache root {path!r}: {exc}",
                     ) from exc
+        except BaseException as exc:
+            primary_fd = exc
+            raise
         finally:
-            os.close(fd)
+            _close_acc = CleanupFailures(primary_fd)
+            _close_acc.run(lambda: os.close(fd), ordinary=(OSError,))
+            _close_result = _close_acc.complete()
+            if _close_result is not None:
+                raise _close_result
+    except BaseException as exc:
+        primary_parent = exc
+        raise
     finally:
-        os.close(parent_fd)
+        _close_acc = CleanupFailures(primary_parent)
+        _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+        _close_result = _close_acc.complete()
+        if _close_result is not None:
+            raise _close_result
 
 
 def _open_directory_chain(path: str, *, create: bool) -> int:
@@ -921,6 +952,7 @@ def _open_directory_chain(path: str, *, create: bool) -> int:
     absolute = os.path.abspath(path)
     flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
     current_fd = os.open(os.sep, flags)
+    parent_fd = -1
     try:
         for component in (part for part in absolute.split(os.sep) if part):
             try:
@@ -938,11 +970,23 @@ def _open_directory_chain(path: str, *, create: bool) -> int:
                     f"unsafe cache path component {component!r} in {absolute!r}",
                 )
             next_fd = os.open(component, flags, dir_fd=current_fd)
-            os.close(current_fd)
-            current_fd = next_fd
+            # Transfer ownership of the child before releasing the parent, so a
+            # failed parent close cannot leak the child or be retried.
+            parent_fd, current_fd = current_fd, next_fd
+            releasing_fd, parent_fd = parent_fd, -1
+            os.close(releasing_fd)
         return current_fd
-    except BaseException:
-        os.close(current_fd)
+    except BaseException as exc:
+        failures = CleanupFailures(exc)
+        child, current_fd = current_fd, -1
+        if child >= 0:
+            failures.run(lambda: os.close(child), ordinary=(OSError,))
+        parent, parent_fd = parent_fd, -1
+        if parent >= 0:
+            failures.run(lambda: os.close(parent), ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result
         raise
 
 
@@ -958,6 +1002,7 @@ def _remove_tree_at(parent_fd: int, name: str) -> None:
     """Remove one directory tree without resolving path components."""
     flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
     directory_fd = os.open(name, flags, dir_fd=parent_fd)
+    primary: BaseException | None = None
     try:
         for child in os.listdir(directory_fd):
             value = os.stat(child, dir_fd=directory_fd, follow_symlinks=False)
@@ -965,8 +1010,15 @@ def _remove_tree_at(parent_fd: int, name: str) -> None:
                 _remove_tree_at(directory_fd, child)
             else:
                 os.unlink(child, dir_fd=directory_fd)
+    except BaseException as exc:
+        primary = exc
+        raise
     finally:
-        os.close(directory_fd)
+        _close_acc = CleanupFailures(primary)
+        _close_acc.run(lambda: os.close(directory_fd), ordinary=(OSError,))
+        _close_result = _close_acc.complete()
+        if _close_result is not None:
+            raise _close_result
     os.rmdir(name, dir_fd=parent_fd)
 
 
@@ -987,13 +1039,21 @@ class LocalCacheFilesystem:
             parent_fd, name = _open_parent(path)
         except FileNotFoundError:
             return CacheBlobStat(False, False, False, 0, 0)
+        primary: BaseException | None = None
         try:
             try:
                 value = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
             except FileNotFoundError:
                 return CacheBlobStat(False, False, False, 0, 0)
+        except BaseException as exc:
+            primary = exc
+            raise
         finally:
-            os.close(parent_fd)
+            _close_acc = CleanupFailures(primary)
+            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_result = _close_acc.complete()
+            if _close_result is not None:
+                raise _close_result
         return CacheBlobStat(
             True,
             stat_module.S_ISLNK(value.st_mode),
@@ -1004,16 +1064,32 @@ class LocalCacheFilesystem:
 
     def read_bytes(self, path: str) -> bytes:
         parent_fd, name = _open_parent(path)
+        primary_parent: BaseException | None = None
         try:
             flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
             fd = os.open(name, flags, dir_fd=parent_fd)
+            primary_fd: BaseException | None = None
             try:
                 with os.fdopen(fd, "rb", closefd=False) as stream:
                     return stream.read()
+            except BaseException as exc:
+                primary_fd = exc
+                raise
             finally:
-                os.close(fd)
+                _close_acc = CleanupFailures(primary_fd)
+                _close_acc.run(lambda: os.close(fd), ordinary=(OSError,))
+                _close_result = _close_acc.complete()
+                if _close_result is not None:
+                    raise _close_result
+        except BaseException as exc:
+            primary_parent = exc
+            raise
         finally:
-            os.close(parent_fd)
+            _close_acc = CleanupFailures(primary_parent)
+            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_result = _close_acc.complete()
+            if _close_result is not None:
+                raise _close_result
 
     def digest_file(self, path: str, algorithm: str) -> str:
         inspection = self.inspect_and_digest(path, algorithm)
@@ -1026,6 +1102,7 @@ class LocalCacheFilesystem:
     ) -> CacheBlobInspection:
         import hashlib
         parent_fd, name = _open_parent(path)
+        primary_parent: BaseException | None = None
         try:
             flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
             try:
@@ -1046,6 +1123,7 @@ class LocalCacheFilesystem:
                     ),
                     None,
                 )
+            primary_fd: BaseException | None = None
             try:
                 value = os.fstat(fd)
                 status = CacheBlobStat(
@@ -1065,69 +1143,140 @@ class LocalCacheFilesystem:
                     status,
                     base64.b64encode(digest.digest()).decode("ascii"),
                 )
+            except BaseException as exc:
+                primary_fd = exc
+                raise
             finally:
-                os.close(fd)
+                _close_acc = CleanupFailures(primary_fd)
+                _close_acc.run(lambda: os.close(fd), ordinary=(OSError,))
+                _close_result = _close_acc.complete()
+                if _close_result is not None:
+                    raise _close_result
+        except BaseException as exc:
+            primary_parent = exc
+            raise
         finally:
-            os.close(parent_fd)
+            _close_acc = CleanupFailures(primary_parent)
+            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_result = _close_acc.complete()
+            if _close_result is not None:
+                raise _close_result
 
     def ensure_secure_dir(self, path: str) -> None:
         fd = _open_directory_chain(path, create=True)
+        primary: BaseException | None = None
         try:
             os.fchmod(fd, 0o700)
+        except BaseException as exc:
+            primary = exc
+            raise
         finally:
-            os.close(fd)
+            _close_acc = CleanupFailures(primary)
+            _close_acc.run(lambda: os.close(fd), ordinary=(OSError,))
+            _close_result = _close_acc.complete()
+            if _close_result is not None:
+                raise _close_result
 
     def create_temp(self, path: str) -> None:
         parent_fd, name = _open_parent(path)
+        primary: BaseException | None = None
         try:
             flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
             fd = os.open(name, flags, 0o600, dir_fd=parent_fd)
             os.close(fd)
+        except BaseException as exc:
+            primary = exc
+            raise
         finally:
-            os.close(parent_fd)
+            _close_acc = CleanupFailures(primary)
+            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_result = _close_acc.complete()
+            if _close_result is not None:
+                raise _close_result
 
     def append_temp(self, path: str, chunk: bytes) -> None:
         parent_fd, name = _open_parent(path)
+        primary_parent: BaseException | None = None
         try:
             flags = os.O_WRONLY | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0)
             fd = os.open(name, flags, dir_fd=parent_fd)
+            primary_fd: BaseException | None = None
             try:
                 if not stat_module.S_ISREG(os.fstat(fd).st_mode):
                     raise ArtifactMaterializationError("containment", "temporary blob is not regular")
                 view = memoryview(chunk)
                 while view:
                     view = view[os.write(fd, view):]
+            except BaseException as exc:
+                primary_fd = exc
+                raise
             finally:
-                os.close(fd)
+                _close_acc = CleanupFailures(primary_fd)
+                _close_acc.run(lambda: os.close(fd), ordinary=(OSError,))
+                _close_result = _close_acc.complete()
+                if _close_result is not None:
+                    raise _close_result
+        except BaseException as exc:
+            primary_parent = exc
+            raise
         finally:
-            os.close(parent_fd)
+            _close_acc = CleanupFailures(primary_parent)
+            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_result = _close_acc.complete()
+            if _close_result is not None:
+                raise _close_result
 
     def finalize_temp(self, path: str, mode: int) -> None:
         parent_fd, name = _open_parent(path)
+        primary_parent: BaseException | None = None
         try:
             fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent_fd)
+            primary_fd: BaseException | None = None
             try:
                 os.fchmod(fd, mode)
+            except BaseException as exc:
+                primary_fd = exc
+                raise
             finally:
-                os.close(fd)
+                _close_acc = CleanupFailures(primary_fd)
+                _close_acc.run(lambda: os.close(fd), ordinary=(OSError,))
+                _close_result = _close_acc.complete()
+                if _close_result is not None:
+                    raise _close_result
+        except BaseException as exc:
+            primary_parent = exc
+            raise
         finally:
-            os.close(parent_fd)
+            _close_acc = CleanupFailures(primary_parent)
+            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_result = _close_acc.complete()
+            if _close_result is not None:
+                raise _close_result
 
     def cleanup_temp(self, root: str) -> None:
         parent_fd, name = _open_parent(root)
+        primary: BaseException | None = None
         try:
             value = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
             if not stat_module.S_ISDIR(value.st_mode) or stat_module.S_ISLNK(value.st_mode):
                 raise ArtifactMaterializationError("containment", "temporary root is unsafe")
             _remove_tree_at(parent_fd, name)
+        except BaseException as exc:
+            primary = exc
+            raise
         finally:
-            os.close(parent_fd)
+            _close_acc = CleanupFailures(primary)
+            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_result = _close_acc.complete()
+            if _close_result is not None:
+                raise _close_result
 
     def quarantine_or_remove(self, path: str) -> None:
         try:
             parent_fd, name = _open_parent(path)
         except FileNotFoundError:
             return
+        primary: BaseException | None = None
         try:
             try:
                 value = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
@@ -1137,34 +1286,66 @@ class LocalCacheFilesystem:
                 _remove_tree_at(parent_fd, name)
             else:
                 os.unlink(name, dir_fd=parent_fd)
+        except BaseException as exc:
+            primary = exc
+            raise
         finally:
-            os.close(parent_fd)
+            _close_acc = CleanupFailures(primary)
+            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_result = _close_acc.complete()
+            if _close_result is not None:
+                raise _close_result
 
     def get_permissions(self, path: str) -> int:
         parent_fd, name = _open_parent(path)
+        primary: BaseException | None = None
         try:
             return stat_module.S_IMODE(
                 os.stat(name, dir_fd=parent_fd, follow_symlinks=False).st_mode
             )
+        except BaseException as exc:
+            primary = exc
+            raise
         finally:
-            os.close(parent_fd)
+            _close_acc = CleanupFailures(primary)
+            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_result = _close_acc.complete()
+            if _close_result is not None:
+                raise _close_result
 
     def set_permissions(self, path: str, mode: int) -> None:
         parent_fd, name = _open_parent(path)
+        primary_parent: BaseException | None = None
         try:
             fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent_fd)
+            primary_fd: BaseException | None = None
             try:
                 if not stat_module.S_ISREG(os.fstat(fd).st_mode):
                     raise ArtifactMaterializationError("containment", "cache blob is not regular")
                 os.fchmod(fd, mode)
+            except BaseException as exc:
+                primary_fd = exc
+                raise
             finally:
-                os.close(fd)
+                _close_acc = CleanupFailures(primary_fd)
+                _close_acc.run(lambda: os.close(fd), ordinary=(OSError,))
+                _close_result = _close_acc.complete()
+                if _close_result is not None:
+                    raise _close_result
+        except BaseException as exc:
+            primary_parent = exc
+            raise
         finally:
-            os.close(parent_fd)
+            _close_acc = CleanupFailures(primary_parent)
+            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_result = _close_acc.complete()
+            if _close_result is not None:
+                raise _close_result
 
     def atomic_publish(self, temp_path: str, final_path: str) -> None:
         source_fd, source_name = _open_parent(temp_path)
         target_fd, target_name = _open_parent(final_path)
+        primary: BaseException | None = None
         try:
             source = os.stat(source_name, dir_fd=source_fd, follow_symlinks=False)
             target_dir = os.fstat(target_fd)
@@ -1178,15 +1359,23 @@ class LocalCacheFilesystem:
                 source_name, target_name,
                 src_dir_fd=source_fd, dst_dir_fd=target_fd,
             )
+        except BaseException as exc:
+            primary = exc
+            raise
         finally:
-            os.close(source_fd)
-            os.close(target_fd)
+            failures = CleanupFailures(primary)
+            failures.run(lambda: os.close(source_fd), ordinary=(OSError,))
+            failures.run(lambda: os.close(target_fd), ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise result
 
 
 class LocalTemporaryDirectory:
     def mkdtemp(self, prefix: str, parent: str) -> str:
         import secrets
         parent_fd = _open_directory_chain(parent, create=False)
+        primary: BaseException | None = None
         try:
             for _ in range(100):
                 name = prefix + secrets.token_hex(8)
@@ -1195,8 +1384,15 @@ class LocalTemporaryDirectory:
                 except FileExistsError:
                     continue
                 return os.path.join(os.path.abspath(parent), name)
+        except BaseException as exc:
+            primary = exc
+            raise
         finally:
-            os.close(parent_fd)
+            _close_acc = CleanupFailures(primary)
+            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_result = _close_acc.complete()
+            if _close_result is not None:
+                raise _close_result
         raise FileExistsError("could not allocate unique temporary directory")
 
 
@@ -1295,22 +1491,20 @@ class FileIdentityLock(IdentityLock):
                 policy=LockPolicy.BLOCK,
             )
         except BaseException as exc:
-            if raw_fd is not None:
-                # ``DirectoryCapability.from_fd`` failed before adopting the
-                # descriptor, so it is still caller-owned and is closed exactly
-                # once.  An ordinary close failure is attached as a secondary
-                # diagnostic instead of replacing the primary failure; a
-                # process-control interruption propagates unchanged.
-                try:
-                    self._ops.close(raw_fd)
-                except OSError as close_exc:
-                    attach_secondary(exc, [close_exc])
-                raw_fd = None
+            # Release the caller-owned descriptor and any adopted directory
+            # exactly once each, attempting both even when the first fails.  An
+            # ordinary close failure is attached to the primary; a process-
+            # control interruption stays authoritative over an ordinary primary
+            # and is never converted into a containment error.
+            failures = CleanupFailures(exc)
+            descriptor, raw_fd = raw_fd, None
+            if descriptor is not None:
+                failures.run(lambda: self._ops.close(descriptor), ordinary=(OSError,))
             if directory is not None:
-                try:
-                    directory.close()
-                except OSError as close_exc:
-                    attach_secondary(exc, [close_exc])
+                failures.run(directory.close, ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise result
             mapped = _identity_lock_failure(exc)
             if mapped is exc:
                 raise
@@ -1324,8 +1518,11 @@ class FileIdentityLock(IdentityLock):
     def release(self, identity: str) -> None:
         capability, self._capability = self._capability, None
         directory, self._directory = self._directory, None
-        primary: BaseException | None = None
-        if capability is not None:
+        failures = CleanupFailures(None)
+
+        def release_capability() -> None:
+            if capability is None:
+                return
             try:
                 capability.close()
             except LockError as exc:
@@ -1334,22 +1531,19 @@ class FileIdentityLock(IdentityLock):
                 # the runtime edge; carry any cleanup diagnostics with it.
                 cause = exc.cause
                 if isinstance(cause, OSError):
-                    primary = cause
                     attach_secondary(cause, list(exc.secondary))
-                else:
-                    primary = exc
-            except BaseException as exc:
-                primary = exc
-        if directory is not None:
-            try:
+                    raise cause
+                raise
+
+        def release_directory() -> None:
+            if directory is not None:
                 directory.close()
-            except OSError as close_exc:
-                if primary is not None:
-                    attach_secondary(primary, [close_exc])
-                else:
-                    primary = close_exc
-        if primary is not None:
-            raise primary
+
+        failures.run(release_capability, ordinary=(OSError, LockError))
+        failures.run(release_directory, ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result
 
 
 class FileIdentityLockFactory:

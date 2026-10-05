@@ -634,10 +634,15 @@ class SecurePathTests(unittest.TestCase):
         with self.assertRaises(_Cancellation) as ctx:
             DirectoryCapability.from_secure_path(self.ops, target)
 
-        # The newer interruption from releasing the leaf propagates unchanged
+        # The original parent-close interruption stays authoritative; the
+        # later leaf-close interruption is retained as a secondary diagnostic
         # (never converted to ``CapabilityError``/``OSError`` or swallowed),
         # and both closes are attempted exactly once.
-        self.assertIs(ctx.exception, leaf_interruption)
+        self.assertIs(ctx.exception, parent_interruption)
+        self.assertIn(
+            leaf_interruption,
+            getattr(parent_interruption, "_transaction_secondary", []),
+        )
         closed = [args[0] for name, args in self.ops.calls if name == "close"]
         self.assertEqual(
             closed[-2:], [captured["parent_fd"], captured["leaf_fd"]],

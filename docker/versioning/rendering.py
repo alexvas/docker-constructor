@@ -16,6 +16,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Iterable, Mapping, Optional, Sequence, TextIO
 
 from docker.transactions.capabilities import DirectoryCapability
+from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
     STAGE_VALIDATE,
     STAGE_VALIDATE_DESTINATION,
@@ -1701,15 +1702,13 @@ def _validate_effective_destination(
     finally:
         # A descriptor-close failure must never mask a primary validation
         # failure: it is attached as secondary diagnostics and the primary
-        # exception keeps propagating.  Only I/O close failures are caught;
-        # a process-control interruption during close propagates unchanged.
-        try:
-            ops.close(fd)
-        except OSError as close_exc:
-            if primary is not None:
-                attach_secondary(primary, [close_exc])
-            else:
-                raise
+        # exception keeps propagating.  A process-control interruption during
+        # close is authoritative and is never converted or retried.
+        failures = CleanupFailures(primary)
+        failures.run(lambda: ops.close(fd), ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result
 
 
 def _raise_effective_failure(name: str, exc: TransactionError) -> None:
@@ -1826,16 +1825,13 @@ def write_effective_build(
         if generated_fd is not None:
             # A generated-directory close failure must never mask a primary
             # validation/publication failure: it is attached as secondary
-            # diagnostics and the primary exception keeps propagating.  Only
-            # I/O close failures are caught; a process-control interruption
-            # during close propagates unchanged.
-            try:
-                ops.close(generated_fd)
-            except OSError as close_exc:
-                if primary is not None:
-                    attach_secondary(primary, [close_exc])
-                else:
-                    raise
+            # diagnostics and the primary exception keeps propagating.  A
+            # process-control interruption during close is authoritative.
+            failures = CleanupFailures(primary)
+            failures.run(lambda: ops.close(generated_fd), ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise result
 
     return project_state.generated_root / destination_name
 

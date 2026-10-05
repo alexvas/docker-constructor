@@ -47,12 +47,12 @@ import stat
 from dataclasses import dataclass
 
 from docker.transactions.capabilities import DirectoryCapability
+from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
     STAGE_VALIDATE,
     CapabilityError,
     TransactionError,
     UnsafeFileError,
-    attach_secondary,
 )
 from docker.transactions.locking import LockCapability
 from docker.transactions.posix import PosixFileOps
@@ -280,14 +280,16 @@ def _unlink_entry(
             return False
         return True
     except BaseException as exc:
-        # Process-control interruption: release the retained descriptor as a
-        # secondary diagnostic and propagate the interruption unchanged.  The
-        # close is marked attempted before it is issued so it is never retried.
+        # Process-control interruption: release the retained descriptor
+        # exactly once, keeping the interruption authoritative over any
+        # ordinary close failure.  The close is marked attempted before it is
+        # issued so it is never retried.
         closed = True
-        try:
-            ops.close(fd)
-        except OSError as close_exc:
-            attach_secondary(exc, [close_exc])
+        accumulator = CleanupFailures(exc)
+        accumulator.run(lambda: ops.close(fd), ordinary=(OSError,))
+        result = accumulator.complete()
+        if result is not None:
+            raise result
         raise
     finally:
         if not closed:
@@ -336,16 +338,21 @@ def _open_algorithm_directory(
         # The descriptor is still caller-owned: release it, preserving any
         # close failure as a secondary diagnostic, and aggregate the failure
         # so cleanup still attempts candidates in other algorithm directories.
-        try:
-            ops.close(fd)
-        except OSError as close_exc:
-            attach_secondary(exc, [close_exc])
+        accumulator = CleanupFailures(exc)
+        accumulator.run(lambda: ops.close(fd), ordinary=(OSError,))
+        result = accumulator.complete()
+        if result is not None:
+            raise result
         return None, _algorithm_failure(algorithm, exc)
     except BaseException as exc:
-        try:
-            ops.close(fd)
-        except OSError as close_exc:
-            attach_secondary(exc, [close_exc])
+        # An unexpected exception or process-control interruption leaves the
+        # rejected descriptor caller-owned; release it exactly once and keep
+        # the primary authoritative over any ordinary close failure.
+        accumulator = CleanupFailures(exc)
+        accumulator.run(lambda: ops.close(fd), ordinary=(OSError,))
+        result = accumulator.complete()
+        if result is not None:
+            raise result
         raise
     try:
         mode = stat.S_IMODE(ops.fstat(capability.fd).st_mode)
@@ -357,10 +364,11 @@ def _open_algorithm_directory(
         # Unexpected exception or process-control interruption: release the
         # adopted capability exactly once and re-raise the primary unchanged,
         # attaching any close failure as a secondary diagnostic.
-        try:
-            capability.close()
-        except OSError as close_exc:
-            attach_secondary(exc, [close_exc])
+        accumulator = CleanupFailures(exc)
+        accumulator.run(capability.close, ordinary=(OSError,))
+        result = accumulator.complete()
+        if result is not None:
+            raise result
         raise
     if mode != ALGORITHM_DIRECTORY_MODE:
         failure = _algorithm_failure(
@@ -378,11 +386,20 @@ def _open_algorithm_directory(
 def _close_algorithm(
     capability: DirectoryCapability, failure: CleanupFailure | None
 ) -> None:
-    try:
-        capability.close()
-    except OSError as close_exc:
-        if failure is not None:
-            attach_secondary(failure.error, [close_exc])
+    if failure is None:
+        # Historical contract: an unpaired close failure has nowhere to be
+        # aggregated, so it is suppressed.  Every current caller supplies an
+        # aggregated failure.
+        try:
+            capability.close()
+        except OSError:
+            pass
+        return
+    accumulator = CleanupFailures(failure.error)
+    accumulator.run(capability.close, ordinary=(OSError,))
+    result = accumulator.complete()
+    if result is not None:
+        raise result
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -508,14 +525,22 @@ def cleanup_superseded(
         primary = exc
         raise
     finally:
+        # Every adopted algorithm directory is released exactly once, even when
+        # an earlier close fails or raises a process-control interruption.  An
+        # ordinary close failure is attached to an existing primary or
+        # aggregated into the domain cleanup report; a non-``Exception`` primary
+        # stays authoritative over later close interruptions.
+        close_failures = CleanupFailures(primary)
         for capability in directories.values():
-            try:
-                capability.close()
-            except OSError as close_exc:
-                if primary is not None:
-                    attach_secondary(primary, [close_exc])
-                else:
-                    failures.append(CleanupFailure("close", close_exc))
+            close_failures.run(capability.close, ordinary=(OSError,))
+        close_failures.complete()
+        # The terminal value is deliberately not raised.  With no primary the
+        # first ordinary failure is returned; the full ``ordinary_failures``
+        # list is aggregated into the domain report below, so raising only the
+        # returned first failure would drop the remaining steps.
+        if primary is None:
+            for close_exc in close_failures.ordinary_failures:
+                failures.append(CleanupFailure("close", close_exc))
     if failures:
         raise BuildCleanupError(
             f"superseded cleanup failed for {len(failures)} step(s)",

@@ -36,6 +36,7 @@ import os
 import stat
 
 from .capabilities import DirectoryCapability
+from .cleanup import CleanupFailures
 from .errors import (
     STAGE_CLOSE,
     STAGE_LOCK_ACQUIRE,
@@ -192,10 +193,14 @@ def _verify_unchanged(
     try:
         probe_info = ops.fstat(probe)
     except BaseException as exc:
-        try:
-            ops.close(probe)
-        except OSError as close_exc:
-            attach_secondary(exc, [close_exc])
+        # Release the probe exactly once, keeping the stat failure or a
+        # process-control interruption authoritative over any ordinary close
+        # failure.
+        failures = CleanupFailures(exc)
+        failures.run(lambda: ops.close(probe), ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result
         raise
     try:
         ops.close(probe)
@@ -213,37 +218,41 @@ def _release_descriptor(ops: PosixFileOps, fd: int, primary: BaseException | Non
     and the descriptor is still closed when unlock raises a process-control
     interruption (``KeyboardInterrupt``, cancellation, or any other
     ``BaseException``).  Ordinary ``OSError`` failures are attached as secondary
-    diagnostics to *primary*; an interruption propagates unchanged and carries
-    any ordinary close failure as secondary context.
+    diagnostics to *primary*; a cleanup interruption propagates unchanged and
+    carries any ordinary close failure as secondary context.  An original
+    non-``Exception`` primary stays authoritative over every later cleanup
+    defect or interruption because :class:`CleanupFailures` classifies it as the
+    first process-control interruption.
     """
-    failures: list[tuple[str, OSError]] = []
-    interruption: BaseException | None = None
-    try:
-        ops.flock(fd, fcntl.LOCK_UN)
-    except OSError as exc:
-        failures.append((STAGE_UNLOCK, exc))
-    except BaseException as exc:  # interruption during unlock must not skip close
-        interruption = exc
-    try:
-        ops.close(fd)
-    except OSError as exc:
-        failures.append((STAGE_CLOSE, exc))
-    except BaseException as exc:
-        if interruption is None:
-            interruption = exc
-    if interruption is not None:
-        attach_secondary(interruption, [exc for _, exc in failures])
-        raise interruption
-    if primary is not None:
-        attach_secondary(primary, [exc for _, exc in failures])
+    failures = CleanupFailures(primary)
+    reported: list[tuple[str, OSError]] = []
+
+    def attempt(stage: str, operation):
+        def action() -> None:
+            try:
+                operation()
+            except OSError as exc:
+                reported.append((stage, exc))
+                raise
+
+        return action
+
+    failures.run(
+        attempt(STAGE_UNLOCK, lambda: ops.flock(fd, fcntl.LOCK_UN)),
+        ordinary=(OSError,),
+    )
+    failures.run(attempt(STAGE_CLOSE, lambda: ops.close(fd)), ordinary=(OSError,))
+    result = failures.complete()
+    if result is None:
+        # Either *primary* is preserved (ordinary failures attached to it) or
+        # nothing failed.  Unlock/close failures are not retried.
         return
-    if failures:
-        stage, exc = failures[0]
-        error = LockError(stage, "cannot release lock capability", cause=exc)
-        # Preserve a secondary unlock/close failure instead of masking it
-        # behind the first reported failure.
-        attach_secondary(error, [other for _, other in failures[1:]])
-        raise error from exc
+    # No primary exists: map the first ordinary release failure to the bounded
+    # lock diagnostic and keep later ordinary failures as secondary context.
+    stage, first = reported[0]
+    error = LockError(stage, "cannot release lock capability", cause=first)
+    attach_secondary(error, [exc for _, exc in reported[1:]])
+    raise error from first
 
 
 class LockCapability:

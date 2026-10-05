@@ -12,13 +12,13 @@ import errno
 import os
 import stat
 
+from .cleanup import CleanupFailures
 from .errors import (
     STAGE_READ,
     STAGE_VALIDATE,
     CapabilityError,
     TransactionError,
     UnsafeFileError,
-    attach_secondary,
 )
 from .posix import PosixFileOps
 
@@ -93,15 +93,14 @@ class DirectoryCapability:
         attached as a secondary diagnostic without replacing the primary
         failure.  A process-control interruption is not caught.
         """
-        primary: BaseException | None = None
         try:
             _validate_directory(ops.fstat(fd), label)
         except BaseException as exc:
-            primary = exc
-            try:
-                ops.close(fd)
-            except OSError as close_exc:
-                attach_secondary(primary, [close_exc])
+            failures = CleanupFailures(exc)
+            failures.run(lambda: ops.close(fd), ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise result
             raise
         return cls(ops, fd, label, authority=_AUTHORITY)
 
@@ -180,40 +179,27 @@ class DirectoryCapability:
             primary = exc
             raise
         finally:
-            try:
+            # The retained parent and the adopted leaf are independent
+            # exactly-once releases.  The leaf becomes returnable only when the
+            # parent closed cleanly and no primary failure occurred; otherwise
+            # it is released exactly once so it cannot leak.  The accumulator
+            # keeps an original non-``Exception`` interruption authoritative,
+            # attaches ordinary or later-interruption leaf failures as
+            # secondary diagnostics, and never retries either close.
+            failures = CleanupFailures(primary)
+            parent_closed = False
+
+            def close_parent() -> None:
+                nonlocal parent_closed
                 ops.close(parent_fd)
-            except OSError as close_exc:
-                if primary is not None:
-                    attach_secondary(primary, [close_exc])
-                elif capability is not None:
-                    # The leaf was adopted successfully but cannot be returned
-                    # now that the retained parent could not be closed.  The
-                    # parent-close failure is primary and the leaf is released
-                    # exactly once (its own failure becomes a secondary
-                    # diagnostic).  Neither close is retried because POSIX
-                    # leaves the descriptor state ambiguous after a failed
-                    # close.
-                    try:
-                        capability.close()
-                    except OSError as leaf_close_exc:
-                        attach_secondary(close_exc, [leaf_close_exc])
-                    raise close_exc
-                else:
-                    raise
-            except BaseException as interruption:
-                # A process-control interruption while closing the parent
-                # propagates unchanged, but the adopted leaf must not remain
-                # silently live.  An ordinary release failure is attached to
-                # the parent interruption as a secondary diagnostic; a second
-                # process-control interruption from the leaf close is not
-                # caught, so it propagates unchanged as the newer
-                # interruption (exactly as the shared cleanup contract does).
-                if capability is not None:
-                    try:
-                        capability.close()
-                    except OSError as leaf_close_exc:
-                        attach_secondary(interruption, [leaf_close_exc])
-                raise
+                parent_closed = True
+
+            failures.run(close_parent, ordinary=(OSError,))
+            if capability is not None and (primary is not None or not parent_closed):
+                failures.run(capability.close, ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise result
         if capability is None:
             # ``components`` is non-empty, so the loop always adopts the final
             # (leaf) component or raises before reaching here.
@@ -281,7 +267,6 @@ class DirectoryCapability:
             raise TransactionError(
                 STAGE_READ, f"cannot open {base!r} for validated read", cause=exc
             ) from exc
-        primary: BaseException | None = None
         try:
             try:
                 info = self._ops.fstat(fd)
@@ -295,17 +280,15 @@ class DirectoryCapability:
                 require_single_link=require_single_link,
             )
         except BaseException as exc:
-            primary = exc
-            try:
-                self._ops.close(fd)
-            except OSError as close_exc:
-                # Ordinary cleanup failure: attach it as a secondary
-                # diagnostic without replacing the primary validation error.
-                # A process-control interruption (KeyboardInterrupt or a
-                # cancellation-style BaseException) is not caught here and
-                # propagates unchanged.  A failed close is never retried
-                # because the descriptor state is then ambiguous.
-                attach_secondary(primary, [close_exc])
+            # Ordinary cleanup failure: attach it as a secondary diagnostic
+            # without replacing the primary validation error.  A process-control
+            # interruption from close is authoritative, and an unexpected close
+            # defect is retained instead of being skipped.
+            failures = CleanupFailures(exc)
+            failures.run(lambda: self._ops.close(fd), ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise result
             raise
         return FileCapability(self._ops, fd, self, info, base, authority=_AUTHORITY)
 
@@ -328,11 +311,12 @@ class DirectoryCapability:
             # Preserve an active exception: an ordinary close failure is
             # attached as secondary context and returning normally lets Python
             # re-raise the original exception.  A process-control interruption
-            # from close is not caught and propagates unchanged.
-            try:
-                self.close()
-            except OSError as close_error:
-                attach_secondary(exc, [close_error])
+            # from close is authoritative and is not converted.
+            failures = CleanupFailures(exc)
+            failures.run(self.close, ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise result
             return
         # No active exception: a close failure is the only failure and
         # propagates.
