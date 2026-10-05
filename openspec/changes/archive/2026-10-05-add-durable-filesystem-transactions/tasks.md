@@ -317,20 +317,20 @@ Phase 1 ─────▶ Phase 8
 
 ### RED
 
-- [ ] 10.1 Add documentation/acceptance tests requiring an exact project-resolved instruction for deleting the old development build cache and rejecting broad or approximate `rm -rf` guidance.
-- [ ] 10.2 Add final legacy-name tests proving `committed-build.json` is not inspected and does not affect generation-state classification, and that no runtime migration, adoption, rejection, or deletion path exists.
-- [ ] 10.3 Add final integration assertions for operational exit code `4`, successful-image/no-rollback messaging, aggregate cleanup diagnostics, and recovery-before-build ordering.
+- [x] 10.1 Add documentation/acceptance tests requiring an exact project-resolved instruction for deleting the old development build cache and rejecting broad or approximate `rm -rf` guidance.
+- [x] 10.2 Add final legacy-name tests proving `committed-build.json` is not inspected and does not affect generation-state classification, and that no runtime migration, adoption, rejection, or deletion path exists.
+- [x] 10.3 Add final integration assertions for operational exit code `4`, successful-image/no-rollback messaging, aggregate cleanup diagnostics, and recovery-before-build ordering.
 
 ### GREEN
 
-- [ ] 10.4 Publish the one-time developer cache-removal instruction at the approved project documentation location; verify task 10.1 passes.
-- [ ] 10.5 Complete any final integration wiring required by tasks 10.2–10.3 without broadening the approved L0–L3 contracts; verify both tasks pass.
+- [x] 10.4 Publish the one-time developer cache-removal instruction at the approved project documentation location; verify task 10.1 passes.
+- [x] 10.5 Complete any final integration wiring required by tasks 10.2–10.3 without broadening the approved L0–L3 contracts; verify both tasks pass.
 
 ### INTROSPECT
 
-- [ ] 10.6 Review the complete change for unfinished compatibility paths, undocumented behavior changes, stale journal/envelope assumptions, task/spec/design divergence, unchecked cleanup authority, and unrecorded verification evidence; resolve every finding before final validation.
+- [x] 10.6 Review the complete change for unfinished compatibility paths, undocumented behavior changes, stale journal/envelope assumptions, task/spec/design divergence, unchecked cleanup authority, and unrecorded verification evidence; resolve every finding before final validation.
 
 ### VALIDATE
 
-- [ ] 10.7 Run formatting, type checks, lint, complete unit/integration/acceptance suites, strict OpenSpec validation, and `git diff --check`; record every command and result outside specification artifacts.
-- [ ] 10.8 Execute the documented old-cache cutover in the development environment, rerun the representative first-build/change-build/recovery flow, and record that the change is ready for archive.
+- [x] 10.7 Run formatting, type checks, lint, complete unit/integration/acceptance suites, strict OpenSpec validation, and `git diff --check`; record every command and result outside specification artifacts.
+- [x] 10.8 Execute the documented old-cache cutover in the development environment, rerun the representative first-build/change-build/recovery flow, and record that the change is ready for archive.
