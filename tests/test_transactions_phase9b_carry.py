@@ -169,18 +169,16 @@ class CarrySecondaryDiagnosticsTests(unittest.TestCase):
         self.assertEqual(list(signature.parameters), ["target", "source"])
 
     def test_operation_grants_no_filesystem_or_mapping_authority(self) -> None:
+        import docker.filesystem.cleanup as foundation
         import docker.transactions.errors as errors
 
-        public = {
-            name for name, value in vars(errors).items()
-            if not name.startswith("_") and callable(value)
-            and getattr(value, "__module__", None) == errors.__name__
-        }
-        self.assertIn("carry_secondary_diagnostics", public)
-        source = errors.__dict__["carry_secondary_diagnostics"]
-        self.assertNotIn("path", inspect.getsource(source))
-        self.assertNotIn("unlink", inspect.getsource(source))
-        self.assertNotIn("remove", inspect.getsource(source))
+        shared = errors.carry_secondary_diagnostics
+        self.assertIs(shared, foundation.carry_secondary_diagnostics)
+        self.assertEqual(shared.__module__, "docker.filesystem.cleanup")
+        source = inspect.getsource(shared)
+        self.assertNotIn("path", source)
+        self.assertNotIn("unlink", source)
+        self.assertNotIn("remove", source)
 
 
 if __name__ == "__main__":

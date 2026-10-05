@@ -22,25 +22,25 @@ Within each phase, work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### RED
 
-- [ ] 1.1 Add `tests/test_filesystem_cleanup.py` truth-table tests for `docker.filesystem.cleanup.CleanupFailures`, covering no primary, ordinary primary, process-control primary, ordinary cleanup failure, unexpected cleanup defect, interruption, multiple independent actions, and terminal single-use; verify this new test module fails because the API does not exist.
-- [ ] 1.2 Add `tests/test_filesystem_cleanup.py` contracts for `attach_secondary` and `carry_secondary_diagnostics`, including frozen domain exceptions and bounded notes; verify these new cases fail because the API does not exist.
-- [ ] 1.3 Adapt `tests/test_transactions_phase9b_carry.py::CarrySecondaryDiagnosticsTests.test_operation_grants_no_filesystem_or_mapping_authority` to remove transaction-local `__module__` ownership filtering, assert `docker.transactions.errors.carry_secondary_diagnostics is docker.filesystem.cleanup.carry_secondary_diagnostics`, assert the shared function's defining module is `docker.filesystem.cleanup`, and apply the existing prohibited-filesystem-operation inspection to that shared function; verify the adapted test fails only because the foundation/re-export does not yet exist, without introducing a wrapper or rewriting `__module__`.
-- [ ] 1.4 Add an isolated-subprocess test proving `import docker.filesystem.cleanup` does not load `docker.transactions`, npm, versioning, CLI, or launcher modules and that `docker.filesystem` exports no aggregate API; verify the new case fails before the package exists.
+- [x] 1.1 Add `tests/test_filesystem_cleanup.py` truth-table tests for `docker.filesystem.cleanup.CleanupFailures`, covering no primary, ordinary primary, process-control primary, ordinary cleanup failure, unexpected cleanup defect, interruption, multiple independent actions, and terminal single-use; verify this new test module fails because the API does not exist.
+- [x] 1.2 Add `tests/test_filesystem_cleanup.py` contracts for `attach_secondary` and `carry_secondary_diagnostics`, including frozen domain exceptions and bounded notes; verify these new cases fail because the API does not exist.
+- [x] 1.3 Adapt `tests/test_transactions_phase9b_carry.py::CarrySecondaryDiagnosticsTests.test_operation_grants_no_filesystem_or_mapping_authority` to remove transaction-local `__module__` ownership filtering, assert `docker.transactions.errors.carry_secondary_diagnostics is docker.filesystem.cleanup.carry_secondary_diagnostics`, assert the shared function's defining module is `docker.filesystem.cleanup`, and apply the existing prohibited-filesystem-operation inspection to that shared function; verify the adapted test fails only because the foundation/re-export does not yet exist, without introducing a wrapper or rewriting `__module__`.
+- [x] 1.4 Add an isolated-subprocess test proving `import docker.filesystem.cleanup` does not load `docker.transactions`, npm, versioning, CLI, or launcher modules and that `docker.filesystem` exports no aggregate API; verify the new case fails before the package exists.
 
 ### GREEN
 
-- [ ] 1.5 Create an empty `docker/filesystem/__init__.py` and verify importing `docker.filesystem` exposes no names owned by its cleanup, operations, or descriptors submodules.
-- [ ] 1.6 Implement `CleanupFailures`, `attach_secondary`, and `carry_secondary_diagnostics` in `docker/filesystem/cleanup.py` with the Phase 9A precedence and diagnostic-retention behavior; verify tasks 1.1 and 1.2 pass without changing transaction modules.
-- [ ] 1.7 Replace the implementations in `docker.transactions.cleanup` and the generic diagnostic portion of `docker.transactions.errors` with direct compatibility imports from `docker.filesystem.cleanup`; verify task 1.3 and existing transaction imports resolve to the same shared callable/class objects, with no transaction-local wrapper and no artificial `__module__` change.
+- [x] 1.5 Create an empty `docker/filesystem/__init__.py` and verify importing `docker.filesystem` exposes no names owned by its cleanup, operations, or descriptors submodules.
+- [x] 1.6 Implement `CleanupFailures`, `attach_secondary`, and `carry_secondary_diagnostics` in `docker/filesystem/cleanup.py` with the Phase 9A precedence and diagnostic-retention behavior; verify tasks 1.1 and 1.2 pass without changing transaction modules.
+- [x] 1.7 Replace the implementations in `docker.transactions.cleanup` and the generic diagnostic portion of `docker.transactions.errors` with direct compatibility imports from `docker.filesystem.cleanup`; verify task 1.3 and existing transaction imports resolve to the same shared callable/class objects, with no transaction-local wrapper and no artificial `__module__` change.
 
 ### INTROSPECT
 
-- [ ] 1.8 Add AST assertions that `docker/filesystem/cleanup.py` imports only the standard library, that `docker/filesystem/__init__.py` has no imports or re-exports, and that no `docker.filesystem` module imports a domain or `docker.transactions`; verify the assertions pass.
-- [ ] 1.9 Compare the public signatures, defining modules, and object identity of the old transaction cleanup imports with the new cleanup API using `inspect.signature`; verify foundation ownership, compatibility, and absence of duplicate implementations or wrappers.
+- [x] 1.8 Add AST assertions that `docker/filesystem/cleanup.py` imports only the standard library, that `docker/filesystem/__init__.py` has no imports or re-exports, and that no `docker.filesystem` module imports a domain or `docker.transactions`; verify the assertions pass.
+- [x] 1.9 Compare the public signatures, defining modules, and object identity of the old transaction cleanup imports with the new cleanup API using `inspect.signature`; verify foundation ownership, compatibility, and absence of duplicate implementations or wrappers.
 
 ### VALIDATE
 
-- [ ] 1.10 Run `python -m unittest tests.test_filesystem_cleanup tests.test_transactions_phase9a_accumulator tests.test_transactions_phase9b_carry` and require all tests, including the migrated shared-function authority-boundary check, to pass before Phase 2 starts.
+- [x] 1.10 Run `python -m unittest tests.test_filesystem_cleanup tests.test_transactions_phase9a_accumulator tests.test_transactions_phase9b_carry` and require all tests, including the migrated shared-function authority-boundary check, to pass before Phase 2 starts.
 
 ## 2. Descriptor Operations and Owned Lifecycle
 

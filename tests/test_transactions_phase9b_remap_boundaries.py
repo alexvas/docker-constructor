@@ -98,7 +98,11 @@ class ExplicitAggregatorTests(unittest.TestCase):
         allowed = set(_REMAP_FILES) | set(_EXPLICIT_AGGREGATORS)
         for path in _REPO.glob("docker/**/*.py"):
             relative = path.relative_to(_REPO).as_posix()
-            if relative in allowed or relative.startswith("docker/transactions/"):
+            if (
+                relative in allowed
+                or relative.startswith("docker/transactions/")
+                or relative.startswith("docker/filesystem/")
+            ):
                 continue
             self.assertFalse(
                 "carry_secondary_diagnostics" in path.read_text(encoding="utf-8"),
