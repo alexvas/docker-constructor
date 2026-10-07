@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib, json, os, shutil, stat, tempfile, types, unittest
 from pathlib import Path
 from unittest import mock
+from docker.transactions.errors import TransactionError
 from docker.versioning.effective import resolve_build_projection
 from docker.versioning.inventory import load_inventory
 from docker.versioning.rendering import EffectiveInventoryOutputError, write_effective_build
@@ -50,11 +51,16 @@ class ExternalPersistence(unittest.TestCase):
         self.assertFalse((self.root/'.docker-generated').exists())
 
     def test_failed_publication_cleans_temporary_and_preserves_prior_external_state(self):
+        from docker.versioning.rendering import EffectiveInventoryOutputError
         dest=self.state.generated_root/'docker-constructor.build.effective.toml'
         dest.write_text('prior'); os.chmod(dest,0o600)
         before=set(self.state.generated_root.iterdir())
         with mock.patch('os.rename',side_effect=OSError('interrupted publication')):
-            with self.assertRaises(OSError): write_effective_build(self.projection,repo_root=self.root,project_state=self.state)
+            with self.assertRaises(EffectiveInventoryOutputError) as ctx:
+                write_effective_build(self.projection,repo_root=self.root,project_state=self.state)
+        # The domain diagnostic chains directly from the typed replacement
+        # failure whose raw cause stays reachable.
+        self.assertIsInstance(ctx.exception.__cause__, TransactionError)
         self.assertEqual(dest.read_text(),'prior'); self.assertEqual(set(self.state.generated_root.iterdir()),before)
 
     def test_symlink_swap_of_generated_during_publication_fails_closed(self):

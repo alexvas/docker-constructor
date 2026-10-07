@@ -24,6 +24,7 @@ import stat
 import tempfile
 import unittest
 
+from docker.transactions.errors import CapabilityError, TransactionError
 from docker.versioning.effective import (
     EffectiveConfigError,
     Filesystem,
@@ -190,56 +191,63 @@ class CollisionTests(_RuntimeProjectionCase):
 
 
 class OperationalFailureTests(_RuntimeProjectionCase):
-    def test_write_failure_reraises_raw_oserror(self) -> None:
+    def _assert_typed_domain_failure(self, ctx, raw) -> None:
+        # The runtime-projection domain diagnostic chains directly from the
+        # typed transaction failure, whose exact raw cause stays reachable.
+        typed = ctx.exception.__cause__
+        self.assertIsInstance(typed, TransactionError)
+        self.assertIs(typed.cause, raw)
+        self.assertIs(typed.__cause__, raw)
+
+    def test_write_failure_is_typed_domain_error(self) -> None:
         target = self._target()
         error = OSError(errno.EIO, "injected runtime projection write")
         self.ops.failures["write"] = error
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(EffectiveConfigError) as ctx:
             create_runtime_projection(
                 self.projection, host_path=target, _fs=self.fs,
             )
-        self.assertIs(ctx.exception, error)
-        self.assertEqual(ctx.exception.errno, errno.EIO)
+        self._assert_typed_domain_failure(ctx, error)
+        self.assertEqual(ctx.exception.__cause__.cause.errno, errno.EIO)
         self.assertFalse(os.path.exists(target))
         self.assertEqual(self._leftovers(), [])
 
-    def test_link_failure_reraises_raw_oserror(self) -> None:
+    def test_link_failure_is_typed_domain_error(self) -> None:
         target = self._target()
         error = OSError(errno.EIO, "injected runtime projection link")
         self.ops.failures["linkat"] = error
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(EffectiveConfigError) as ctx:
             create_runtime_projection(
                 self.projection, host_path=target, _fs=self.fs,
             )
-        self.assertIs(ctx.exception, error)
+        self._assert_typed_domain_failure(ctx, error)
         self.assertFalse(os.path.exists(target))
         self.assertEqual(self._leftovers(), [])
 
-    def test_parent_open_failure_reraises_raw_oserror(self) -> None:
+    def test_parent_open_failure_is_typed_domain_error(self) -> None:
         error = PermissionError(errno.EACCES, "injected parent open")
         ops = _ComponentOpenFailOps(os.path.basename(self.boundary), error)
         fs = Filesystem(runtime_root=self.boundary, ops=ops)
         target = self._target("open-fail.toml")
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(EffectiveConfigError) as ctx:
             create_runtime_projection(
                 self.projection, host_path=target, _fs=fs,
             )
-        self.assertIs(ctx.exception, error)
-        self.assertIs(type(ctx.exception), PermissionError)
-        self.assertEqual(ctx.exception.errno, errno.EACCES)
+        self._assert_typed_domain_failure(ctx, error)
+        self.assertIs(type(ctx.exception.__cause__.cause), PermissionError)
+        self.assertEqual(ctx.exception.__cause__.cause.errno, errno.EACCES)
         self.assertFalse(os.path.exists(target))
         self.assertEqual(self._leftovers(), [])
 
-    def test_parent_stat_failure_reraises_raw_oserror(self) -> None:
+    def test_parent_stat_failure_is_typed_domain_error(self) -> None:
         target = self._target()
         error = OSError(errno.EIO, "injected parent stat")
         self.ops.failures["fstat"] = error
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(EffectiveConfigError) as ctx:
             create_runtime_projection(
                 self.projection, host_path=target, _fs=self.fs,
             )
-        self.assertIs(ctx.exception, error)
-        self.assertEqual(ctx.exception.errno, errno.EIO)
+        self._assert_typed_domain_failure(ctx, error)
         self.assertFalse(os.path.exists(target))
         self.assertEqual(self._leftovers(), [])
 
@@ -286,7 +294,10 @@ class SafePathTests(_RuntimeProjectionCase):
         # ``realpath`` containment check alone would permit it.  The symlink
         # is an intermediate component (a real subdirectory follows it), so
         # opening the parent by its full pathname would follow the link; the
-        # secure descriptor walk must still reject it.
+        # secure descriptor walk must still reject it.  A no-follow safety
+        # rejection keeps its typed ``CapabilityError`` classification and is
+        # propagated unchanged rather than translated into the
+        # runtime-projection domain diagnostic.
         real_parent = self._target("real-parent")
         real_sub = os.path.join(real_parent, "real-sub")
         os.makedirs(real_sub, mode=0o700)
@@ -294,10 +305,13 @@ class SafePathTests(_RuntimeProjectionCase):
         os.symlink(real_parent, link_parent)
         target = os.path.join(link_parent, "real-sub", "projection.toml")
         real_target = os.path.join(real_sub, "projection.toml")
-        with self.assertRaises(OSError):
+        with self.assertRaises(CapabilityError) as ctx:
             create_runtime_projection(
                 self.projection, host_path=target, _fs=self.fs,
             )
+        # The no-follow safety rejection is the original ``CapabilityError``
+        # with the raw platform error reachable through its direct cause.
+        self.assertIsInstance(ctx.exception.__cause__, OSError)
         self.assertFalse(os.path.exists(real_target))
         self.assertFalse(os.path.exists(target))
         self.assertEqual(temporary_entries(real_sub), [])

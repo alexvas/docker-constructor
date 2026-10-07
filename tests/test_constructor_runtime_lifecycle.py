@@ -557,7 +557,7 @@ class TestRuntimeLifecycle(unittest.TestCase):
         ops = InjectedOps()
         ops.failures["write"] = OSError("injected write failure")
         fake = Filesystem(runtime_root=self._tmp, ops=ops)
-        with self.assertRaises(OSError):
+        with self.assertRaises(EffectiveConfigError):
             create_runtime_projection(proj, host_path=target, _fs=fake)
 
         # Destination must not exist (never pre-published).
@@ -582,7 +582,7 @@ class TestRuntimeLifecycle(unittest.TestCase):
         ops = InjectedOps()
         ops.failures["linkat"] = OSError("injected link failure")
         fake = Filesystem(runtime_root=self._tmp, ops=ops)
-        with self.assertRaises(OSError):
+        with self.assertRaises(EffectiveConfigError):
             create_runtime_projection(proj, host_path=target, _fs=fake)
 
         # Destination must not exist (never pre-published).
@@ -1159,7 +1159,7 @@ class TestRuntimeLifecycle(unittest.TestCase):
 
         fake = _make_fake_fs(store, runtime_dir=self._tmp)
         fake.ops.write_all = _bad_write
-        with self.assertRaises(OSError):
+        with self.assertRaises(EffectiveConfigError):
             create_runtime_projection(proj, host_path=target, _fs=fake)
         self.assertFalse(os.path.isfile(target))
         self.assertNotIn(target, store)
@@ -1177,7 +1177,7 @@ class TestRuntimeLifecycle(unittest.TestCase):
 
         fake = _make_fake_fs(store, runtime_dir=self._tmp)
         fake.ops.linkat = _bad_linkat
-        with self.assertRaises(OSError):
+        with self.assertRaises(EffectiveConfigError):
             create_runtime_projection(proj, host_path=target, _fs=fake)
         self.assertNotIn(target, store)
         self.assertFalse(os.path.isfile(target))

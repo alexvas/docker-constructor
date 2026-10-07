@@ -46,7 +46,6 @@ from docker.transactions.errors import (
     CloseStageFailure,
     DestinationExists,
     TransactionError,
-    carry_secondary_diagnostics,
 )
 from docker.transactions.posix import PosixFileOps
 from docker.transactions.regular import RegularFileContracts
@@ -1126,34 +1125,24 @@ def create_runtime_projection(
         )
         raise primary from exc
     except TransactionError as exc:
-        # Preserve the previous raw-``OSError`` behavior for every
-        # non-collision operational failure while carrying any shared
-        # cleanup diagnostics across the boundary.  An unsafe or unexpected
-        # transaction failure with no raw cause keeps its own type.
-        cause = exc.cause
-        if isinstance(cause, OSError):
-            carry_secondary_diagnostics(cause, exc)
-            primary = cause
-            raise cause
-        primary = exc
-        raise
+        # A typed operational failure is preserved as the direct cause of the
+        # runtime-projection domain diagnostic, so its stage, exact raw cause,
+        # and any attached cleanup diagnostics stay reachable together.
+        primary = EffectiveConfigError(
+            f"cannot publish runtime projection {host_path!r}"
+        )
+        raise primary from exc
     except CapabilityError as exc:
-        # ``DirectoryCapability.from_secure_path`` wraps an operational
-        # parent-directory open failure in a ``CapabilityError``.  Preserve
-        # the previous raw-``OSError`` behavior for such failures (carrying
-        # any attached cleanup diagnostics) while leaving a genuine
-        # capability-validation error unchanged.
-        cause = exc.__cause__
-        if isinstance(cause, OSError):
-            carry_secondary_diagnostics(cause, exc)
-            primary = cause
-            raise cause
+        # Capability misuse and no-follow safety failures keep their typed
+        # ``CapabilityError`` classification unchanged; only typed operational
+        # transaction failures are translated into the runtime-projection
+        # domain diagnostic.  ``primary`` is recorded before the re-raise so
+        # cleanup precedence stays correct.
         primary = exc
         raise
     except BaseException as exc:
-        # A remaining capability-validation failure or a process-control
-        # interruption propagates unchanged and is never translated into an
-        # ordinary I/O failure.
+        # A process-control interruption propagates unchanged and is never
+        # translated into an ordinary I/O failure.
         primary = exc
         raise
     finally:

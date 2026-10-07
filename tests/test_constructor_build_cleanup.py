@@ -731,7 +731,12 @@ class AlgorithmDirectoryLifecycleTests(_CleanupTestCase):
         self.assertEqual(
             [failure.target for failure in ctx.exception.failures], ["sha256"]
         )
-        self.assertIs(ctx.exception.failures[0].error, boom)
+        # The typed validation failure is retained as the aggregated error
+        # with its exact raw stat cause reachable through the wrapper.
+        aggregated = ctx.exception.failures[0].error
+        self.assertIsInstance(aggregated, TransactionError)
+        self.assertIs(aggregated.cause, boom)
+        self.assertIs(aggregated.__cause__, boom)
         # The healthy algorithm's candidate and marker are durably removed.
         self.assertFalse(self.blob_path(healthy).exists())
         self.assertFalse(self.marker_path(healthy).exists())

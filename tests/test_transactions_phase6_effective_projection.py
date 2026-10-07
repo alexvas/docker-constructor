@@ -393,14 +393,20 @@ class EffectiveProjectionMigrationTests(_ProjectionCase):
                 )
         self.assertEqual(self.dest.read_bytes(), b"prior")
 
-    def test_operational_failure_reraises_raw_oserror(self) -> None:
+    def test_operational_failure_is_domain_error_with_typed_cause(self) -> None:
         self._write_prior()
-        self.ops.failures["renameat"] = OSError(errno.EIO, "injected replacement")
-        with self.assertRaises(OSError) as ctx:
+        raw = OSError(errno.EIO, "injected replacement")
+        self.ops.failures["renameat"] = raw
+        with self.assertRaises(EffectiveInventoryOutputError) as ctx:
             write_effective_build(
                 self.projection, repo_root=self.root, project_state=self.state
             )
-        self.assertEqual(ctx.exception.errno, errno.EIO)
+        # The domain diagnostic chains directly from the typed replacement
+        # failure, whose exact raw cause stays reachable.
+        typed = ctx.exception.__cause__
+        self.assertIsInstance(typed, TransactionError)
+        self.assertIs(typed.cause, raw)
+        self.assertIs(typed.__cause__, raw)
         self.assertEqual(self.dest.read_bytes(), b"prior")
         self.assertEqual(self._leftovers(), [])
 
@@ -419,15 +425,16 @@ class EffectiveProjectionMigrationTests(_ProjectionCase):
         self.ops = _GeneratedCloseOps()
         publication_error = OSError(errno.EIO, "injected publication")
         self.ops.failures["renameat"] = publication_error
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(EffectiveInventoryOutputError) as ctx:
             write_effective_build(
                 self.projection, repo_root=self.root, project_state=self.state
             )
         primary = ctx.exception
-        # The publication failure stays the raised primary exception.
-        self.assertIs(primary, publication_error)
-        self.assertEqual(primary.errno, errno.EIO)
-        self.assertEqual(primary.strerror, "injected publication")
+        # The publication failure stays the raised primary exception, chained
+        # from the typed replacement failure whose raw cause is preserved.
+        typed = primary.__cause__
+        self.assertIsInstance(typed, TransactionError)
+        self.assertIs(typed.cause, publication_error)
         # The generated-directory close failure is attached exactly once as a
         # typed close-stage secondary diagnostic carrying the raw descriptor
         # error as both ``cause`` and ``__cause__``.
@@ -480,6 +487,9 @@ class EffectiveProjectionMigrationTests(_ProjectionCase):
         self.assertEqual(parsed["platform"], self.projection.platform)
 
     def test_destination_open_operational_failure_escapes_raw(self) -> None:
+        # ``_validate_effective_destination`` invokes the injected POSIX
+        # ``openat`` directly rather than through a capability, so its failure
+        # is an intentional raw POSIX boundary and is not normalized.
         self._write_prior()
         for error in (
             OSError(errno.EIO, "injected destination open EIO"),
@@ -525,6 +535,9 @@ class EffectiveProjectionMigrationTests(_ProjectionCase):
         self.assertEqual(self._leftovers(), [])
 
     def test_fstat_failure_survives_destination_close_failure(self) -> None:
+        # As above, the destination ``fstat`` is a direct injected POSIX
+        # boundary, so its raw ``OSError`` stays authoritative while the close
+        # failure is attached as a secondary diagnostic.
         self._write_prior()
         self.ops = _DualFaultOps(_DESTINATION)
         with self.assertRaises(OSError) as ctx:
@@ -570,15 +583,16 @@ class EffectiveProjectionMigrationTests(_ProjectionCase):
         ), mock.patch.object(
             project_state_module.os, "close", side_effect=closing
         ):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(EffectiveInventoryOutputError) as ctx:
                 write_effective_build(
                     self.projection, repo_root=self.root, project_state=self.state
                 )
         primary = ctx.exception
-        # The publication failure stays primary through the namespace close.
-        self.assertIs(primary, publication_error)
-        self.assertEqual(primary.errno, errno.EIO)
-        self.assertEqual(primary.strerror, "injected publication")
+        # The publication failure stays primary through the namespace close,
+        # chained from the typed replacement failure whose raw cause is kept.
+        typed = primary.__cause__
+        self.assertIsInstance(typed, TransactionError)
+        self.assertIs(typed.cause, publication_error)
         secondary = list(getattr(primary, "_transaction_secondary", []))
         self.assertEqual(
             sum(1 for exc in secondary if exc is namespace_close_error), 1
@@ -602,10 +616,10 @@ class GeneratedAdoptionOwnershipTests(_ProjectionCase):
     Once ``DirectoryCapability.from_fd()`` succeeds the retained descriptor is
     owned by the capability and must be released through it; a failed
     adoption leaves the raw descriptor caller-owned and closes it exactly
-    once.  A typed factory failure is translated back to its raw ``OSError``
-    cause for the pre-Phase-5 public contract, while a close-stage failure is
-    classified as an ordinary close and keeps the raw descriptor error as its
-    cause.
+    once.  A typed factory failure is chained directly from the rendering
+    domain diagnostic for the Phase 5A contract, while a close-stage failure
+    is classified as an ordinary close and keeps the raw descriptor error as
+    its cause.
     """
 
     def setUp(self) -> None:
@@ -628,18 +642,21 @@ class GeneratedAdoptionOwnershipTests(_ProjectionCase):
             self.projection, repo_root=self.root, project_state=self.state
         )
 
-    def test_from_fd_operational_failure_preserves_raw_oserror(self) -> None:
+    def test_from_fd_operational_failure_chains_typed_wrapper(self) -> None:
         raw = OSError(errno.EIO, "injected generated fstat")
         self.ops = _GeneratedFstatOps(raw)
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(EffectiveInventoryOutputError) as ctx:
             self._write()
-        # The typed factory wrapper is translated back to the original raw
-        # ``OSError`` object, preserving the pre-Phase-5 public behavior.
-        self.assertIs(ctx.exception, raw)
-        self.assertNotIsInstance(ctx.exception, TransactionError)
-        self.assertEqual(ctx.exception.errno, errno.EIO)
+        # The domain diagnostic chains directly from the typed factory
+        # wrapper, whose exact raw cause remains reachable.
+        wrapper = ctx.exception.__cause__
+        self.assertIsInstance(wrapper, TransactionError)
+        self.assertEqual(wrapper.stage, STAGE_VALIDATE)
+        self.assertIs(wrapper.cause, raw)
+        self.assertIs(wrapper.__cause__, raw)
+        self.assertEqual(wrapper.cause.errno, errno.EIO)
 
-    def test_secondary_diagnostics_survive_wrapper_translation(self) -> None:
+    def test_secondary_diagnostics_survive_typed_wrapping(self) -> None:
         cause = OSError(errno.EIO, "injected generated fstat")
         secondary = OSError(errno.EIO, "injected close diagnostic")
         wrapper = TransactionError(
@@ -649,13 +666,11 @@ class GeneratedAdoptionOwnershipTests(_ProjectionCase):
         with mock.patch.object(
             rendering_module.DirectoryCapability, "from_fd", side_effect=wrapper
         ):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(EffectiveInventoryOutputError) as ctx:
                 self._write()
-        self.assertIs(ctx.exception, cause)
-        # The wrapper's retained diagnostics are carried onto the raw cause.
-        self.assertIn(
-            secondary, list(getattr(cause, "_transaction_secondary", []))
-        )
+        # The typed wrapper stays the direct cause and keeps its diagnostics.
+        self.assertIs(ctx.exception.__cause__, wrapper)
+        self.assertIn(secondary, list(wrapper.secondary))
 
     def test_successful_adoption_closes_through_capability_exactly_once(self) -> None:
         self.ops = _GeneratedTrackingOps()
@@ -668,7 +683,7 @@ class GeneratedAdoptionOwnershipTests(_ProjectionCase):
     def test_failed_adoption_closes_raw_descriptor_exactly_once(self) -> None:
         raw = OSError(errno.EIO, "injected generated fstat")
         self.ops = _GeneratedFstatOps(raw)
-        with self.assertRaises(OSError):
+        with self.assertRaises(EffectiveInventoryOutputError):
             self._write()
         # Adoption did not succeed, so the still caller-owned descriptor is
         # closed exactly once directly and never through a capability.
@@ -690,10 +705,12 @@ class GeneratedAdoptionOwnershipTests(_ProjectionCase):
         self.ops = _GeneratedCloseOps()
         publication_error = OSError(errno.EIO, "injected publication")
         self.ops.failures["renameat"] = publication_error
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(EffectiveInventoryOutputError) as ctx:
             self._write()
         primary = ctx.exception
-        self.assertIs(primary, publication_error)
+        # The typed replacement failure is the domain error's direct cause.
+        self.assertIsInstance(primary.__cause__, TransactionError)
+        self.assertIs(primary.__cause__.cause, publication_error)
         secondary = list(getattr(primary, "_transaction_secondary", []))
         typed = [
             exc

@@ -13,7 +13,7 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Iterable, Mapping, Optional, Sequence, TextIO
+from typing import TYPE_CHECKING, Iterable, Mapping, NoReturn, Optional, Sequence, TextIO
 
 from docker.transactions.capabilities import DirectoryCapability
 from docker.transactions.cleanup import CleanupFailures
@@ -23,7 +23,6 @@ from docker.transactions.errors import (
     CloseStageFailure,
     TransactionError,
     UnsafeFileError,
-    carry_secondary_diagnostics,
 )
 from docker.transactions.posix import PosixFileOps
 from docker.transactions.regular import RegularFileContracts
@@ -1712,15 +1711,16 @@ def _validate_effective_destination(
             raise result
 
 
-def _raise_effective_failure(name: str, exc: TransactionError) -> None:
-    """Map an L2 replacement failure while preserving the legacy contract.
+def _raise_effective_failure(name: str, exc: TransactionError) -> NoReturn:
+    """Map an L2 replacement failure while preserving the typed wrapper.
 
     Unsafe-destination validation retains an :class:`EffectiveInventoryOutputError`
-    diagnostic; an unexpected operational failure re-raises the original
-    ``OSError`` object with any shared cleanup failures attached, so the raw
-    ``errno`` and chaining stay observable.  Nothing here translates a
-    process-control interruption: those are not :class:`TransactionError`
-    instances and propagate unchanged.
+    diagnostic; any other typed operational failure becomes an
+    :class:`EffectiveInventoryOutputError` that chains directly from the typed
+    transaction error, so its stage, exact raw cause, and any attached cleanup
+    diagnostics stay reachable together instead of being unwrapped to the raw
+    ``OSError``.  Nothing here translates a process-control interruption:
+    those are not :class:`TransactionError` instances and propagate unchanged.
     """
     if isinstance(exc, UnsafeFileError) and exc.stage in (
         STAGE_VALIDATE,
@@ -1729,10 +1729,6 @@ def _raise_effective_failure(name: str, exc: TransactionError) -> None:
         raise EffectiveInventoryOutputError(
             f"{name} is not a safe owned regular file"
         ) from exc
-    cause = exc.cause
-    if isinstance(cause, OSError):
-        carry_secondary_diagnostics(cause, exc)
-        raise cause
     raise EffectiveInventoryOutputError(str(exc)) from exc
 
 
@@ -1815,17 +1811,11 @@ def write_effective_build(
                 except TransactionError as exc:
                     # Phase 5 normalizes an operational ``fstat`` failure into a
                     # typed STAGE_VALIDATE transaction error carrying the raw
-                    # ``OSError`` as its cause.  The public rendering contract has
-                    # always surfaced that raw ``OSError``; restore it (carrying
-                    # any attached cleanup diagnostics) so the typed L1 boundary
-                    # does not change the observable failure.  A
-                    # non-operational capability failure keeps its typed error,
-                    # and a process-control interruption is not caught here.
-                    cause = exc.cause
-                    if isinstance(cause, OSError):
-                        carry_secondary_diagnostics(cause, exc)
-                        raise cause
-                    raise
+                    # ``OSError`` as its cause.  The rendering domain preserves
+                    # that typed construction/validation failure as the direct
+                    # cause of its own diagnostic instead of unwrapping the raw
+                    # cause; a process-control interruption is not caught here.
+                    _raise_effective_failure("generated", exc)
                 _validate_effective_destination(ops, generated, destination_name)
                 try:
                     RegularFileContracts(ops).durable_replace(

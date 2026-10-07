@@ -243,15 +243,16 @@ class BuildLockParityTests(_BuildTestCase):
             outcomes,
         )
 
-    def test_release_failure_preserves_raw_oserror(self) -> None:
+    def test_release_failure_preserves_typed_lock_error(self) -> None:
         lock = acquire_constructor_project_build_lock(self.repo, cache_root=self.cache)
         boom = OSError(errno.EIO, "injected release close failure")
         with mock.patch.object(PosixFileOps, "close", side_effect=boom):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(LockError) as ctx:
                 lock.release()
-        # The L2 close wrapper does not hide the descriptor failure: the raw
-        # OSError remains the primary failure at the build edge.
-        self.assertIs(ctx.exception, boom)
+        # The L2 close wrapper preserves the typed lock failure; the exact
+        # descriptor failure stays reachable through its stored cause.
+        self.assertIs(ctx.exception.cause, boom)
+        self.assertIs(ctx.exception.__cause__, boom)
 
     def test_body_exception_remains_primary_when_unlock_fails(self) -> None:
         primary = RuntimeError("body failed")
@@ -271,7 +272,10 @@ class BuildLockParityTests(_BuildTestCase):
                 ):
                     raise primary
         self.assertIs(ctx.exception, primary)
-        self.assertIn(unlock, getattr(primary, "_transaction_secondary", []))
+        secondary = list(getattr(primary, "_transaction_secondary", []))
+        typed = [exc for exc in secondary if isinstance(exc, LockError)]
+        self.assertEqual(len(typed), 1)
+        self.assertIs(typed[0].cause, unlock)
         self.assertEqual(1, calls["unlock"])
 
     def test_body_interruption_remains_primary_when_release_fails(self) -> None:
@@ -290,7 +294,10 @@ class BuildLockParityTests(_BuildTestCase):
                 ):
                     raise primary
         self.assertIs(ctx.exception, primary)
-        self.assertIn(unlock, getattr(primary, "_transaction_secondary", []))
+        secondary = list(getattr(primary, "_transaction_secondary", []))
+        typed = [exc for exc in secondary if isinstance(exc, LockError)]
+        self.assertEqual(len(typed), 1)
+        self.assertIs(typed[0].cause, unlock)
 
     def test_simultaneous_unlock_and_close_failures_are_retained_once(self) -> None:
         lock = acquire_constructor_project_build_lock(
@@ -317,11 +324,14 @@ class BuildLockParityTests(_BuildTestCase):
 
         with mock.patch.object(PosixFileOps, "flock", failing_unlock), \
                 mock.patch.object(PosixFileOps, "close", failing_close):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(LockError) as ctx:
                 lock.release()
             lock.release()
-        self.assertIs(ctx.exception, unlock)
-        secondaries = getattr(unlock, "_transaction_secondary", [])
+        failure = ctx.exception
+        # The typed lock release failure keeps the first raw cause and the
+        # later unlock/close failures as secondary diagnostics.
+        self.assertIs(failure.cause, unlock)
+        secondaries = list(failure.secondary)
         self.assertIn(lock_close, secondaries)
         directory_secondary = next(
             item
@@ -344,12 +354,13 @@ class BuildLockParityTests(_BuildTestCase):
             return _REAL_FLOCK(self, fd, operation)
 
         with mock.patch.object(PosixFileOps, "flock", failing_unlock):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(LockError) as ctx:
                 with acquire_constructor_project_build_lock(
                     self.repo, cache_root=self.cache
                 ):
                     pass
-        self.assertIs(ctx.exception, unlock)
+        self.assertIs(ctx.exception.cause, unlock)
+        self.assertIs(ctx.exception.__cause__, unlock)
         self.assertEqual(1, calls["unlock"])
 
     def test_canonical_project_and_cache_binding(self) -> None:
@@ -622,29 +633,29 @@ class LockDiagnosticParityTests(_BuildTestCase):
     def _lock_path(self) -> Path:
         return self.paths().persistent_root / "build.lock"
 
-    def test_lock_open_failure_propagates_raw_oserror(self) -> None:
+    def test_lock_open_failure_preserves_typed_lock_error(self) -> None:
         with mock.patch.object(PosixFileOps, "openat", _failing_lock_openat):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(LockError) as ctx:
                 acquire_constructor_project_build_lock(self.repo, cache_root=self.cache)
         self.assertNotIsInstance(ctx.exception, BuildTransactionError)
-        self.assertEqual(ctx.exception.errno, errno.EIO)
+        self.assertEqual(ctx.exception.cause.errno, errno.EIO)
 
-    def test_lock_stat_failure_propagates_raw_oserror(self) -> None:
+    def test_lock_stat_failure_preserves_typed_lock_error(self) -> None:
         with mock.patch.object(PosixFileOps, "fstat", _failing_lock_fstat):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(LockError) as ctx:
                 acquire_constructor_project_build_lock(self.repo, cache_root=self.cache)
         self.assertNotIsInstance(ctx.exception, BuildTransactionError)
-        self.assertEqual(ctx.exception.errno, errno.EIO)
+        self.assertEqual(ctx.exception.cause.errno, errno.EIO)
 
-    def test_lock_mode_repair_failure_propagates_raw_oserror(self) -> None:
+    def test_lock_mode_repair_failure_preserves_typed_lock_error(self) -> None:
         lock = self._lock_path()
         lock.write_bytes(b"")
         os.chmod(lock, 0o640)
         with mock.patch.object(PosixFileOps, "fchmod", _failing_lock_fchmod):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(LockError) as ctx:
                 acquire_constructor_project_build_lock(self.repo, cache_root=self.cache)
         self.assertNotIsInstance(ctx.exception, BuildTransactionError)
-        self.assertEqual(ctx.exception.errno, errno.EIO)
+        self.assertEqual(ctx.exception.cause.errno, errno.EIO)
 
     def test_symlink_lock_entry_is_unsafe(self) -> None:
         target = self.base / "lock-target"
@@ -704,10 +715,12 @@ class LockDiagnosticParityTests(_BuildTestCase):
         with mock.patch.object(PosixFileOps, "openat", failing_openat), mock.patch.object(
             PosixFileOps, "close", failing_close
         ):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(LockError) as ctx:
                 acquire_constructor_project_build_lock(self.repo, cache_root=self.cache)
-        self.assertIs(ctx.exception, primary)
-        secondary = getattr(primary, "_transaction_secondary", [])
+        # The typed lock failure keeps the operational open failure as its
+        # direct cause; the directory close failure is a secondary diagnostic.
+        self.assertIs(ctx.exception.cause, primary)
+        secondary = list(ctx.exception.secondary)
         self.assertEqual(len(secondary), 1)
         self.assertIsInstance(secondary[0], TransactionError)
         self.assertEqual(secondary[0].stage, STAGE_CLOSE)
@@ -922,16 +935,19 @@ class MarkerL2AdapterTests(_BuildTestCase):
         self.assertIn("unsafe transaction state file", str(ctx.exception))
         self.assertIsInstance(ctx.exception.__cause__, UnsafeFileError)
 
-    def test_missing_marker_read_preserves_file_not_found_error(self) -> None:
+    def test_missing_marker_read_is_typed_with_absent_cause(self) -> None:
         missing = self.identity(b"missing-read")
         with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
             with lock.open_storage() as storage:
-                with self.assertRaises(FileNotFoundError) as ctx:
+                with self.assertRaises(TransactionError) as ctx:
                     build_cache_module._read_marker_json(
                         lock.ops, storage.markers, self._marker_name(missing)
                     )
-        self.assertEqual(ctx.exception.errno, errno.ENOENT)
-        self.assertIn(self._marker_name(missing), str(ctx.exception))
+        # The typed read failure is preserved; the absence outcome stays
+        # inspectable through its exact ``FileNotFoundError`` cause.
+        self.assertIsInstance(ctx.exception.cause, FileNotFoundError)
+        self.assertEqual(ctx.exception.cause.errno, errno.ENOENT)
+        self.assertIs(ctx.exception.__cause__, ctx.exception.cause)
 
     def test_malformed_marker_json_remains_a_value_error(self) -> None:
         identity = self.identity(b"malformed-read")
@@ -990,12 +1006,14 @@ class MarkerL2AdapterTests(_BuildTestCase):
         with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
             with mock.patch.object(PosixFileOps, "renameat", failing_renameat), \
                     mock.patch.object(PosixFileOps, "unlinkat", failing_unlinkat):
-                with self.assertRaises(OSError) as ctx:
+                with self.assertRaises(TransactionError) as ctx:
                     self._mark(lock, identity)
-        self.assertIs(ctx.exception, boom)
-        self.assertEqual(ctx.exception.errno, errno.EIO)
-        self.assertEqual(str(ctx.exception), "[Errno 5] injected marker replace failure")
-        self.assertEqual(getattr(ctx.exception, "_transaction_secondary", []), [cleanup])
+        # The typed replacement failure is preserved with the raw replacement
+        # error as its cause and the cleanup failure as secondary context.
+        self.assertIs(ctx.exception.cause, boom)
+        self.assertIs(ctx.exception.__cause__, boom)
+        self.assertEqual(ctx.exception.cause.errno, errno.EIO)
+        self.assertEqual(list(ctx.exception.secondary), [cleanup])
 
     def test_directory_fsync_failure_preserves_raw_error(self) -> None:
         identity = self.identity(b"directory-fsync-failure")
@@ -1008,12 +1026,13 @@ class MarkerL2AdapterTests(_BuildTestCase):
 
         with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
             with mock.patch.object(PosixFileOps, "fsync", failing_fsync):
-                with self.assertRaises(OSError) as ctx:
+                with self.assertRaises(TransactionError) as ctx:
                     self._mark(lock, identity)
-        self.assertIs(ctx.exception, boom)
-        self.assertEqual(ctx.exception.errno, errno.EIO)
+        self.assertIs(ctx.exception.cause, boom)
+        self.assertIs(ctx.exception.__cause__, boom)
+        self.assertEqual(ctx.exception.cause.errno, errno.EIO)
         self.assertEqual(
-            str(ctx.exception), "[Errno 5] injected marker directory fsync failure"
+            str(ctx.exception.cause), "[Errno 5] injected marker directory fsync failure"
         )
 
     def test_interruption_during_replacement_propagates_unchanged(self) -> None:
@@ -1078,7 +1097,7 @@ class MaintenanceDurableUnlinkTests(_BuildTestCase):
             cache_root=self.cache,
         )
 
-    def test_marker_unlink_failure_preserves_raw_error(self) -> None:
+    def test_marker_unlink_failure_preserves_typed_error(self) -> None:
         lock, _identity, blob, marker = self._prepare(b"marker-unlink-failure")
         boom = OSError(errno.EIO, "injected maintenance marker unlink failure")
 
@@ -1088,9 +1107,10 @@ class MaintenanceDurableUnlinkTests(_BuildTestCase):
             return _REAL_UNLINKAT(self, dir_fd, name)
 
         with mock.patch.object(PosixFileOps, "unlinkat", failing_unlinkat):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(TransactionError) as ctx:
                 self._expire(lock)
-        self.assertIs(ctx.exception, boom)
+        self.assertIs(ctx.exception.cause, boom)
+        self.assertIs(ctx.exception.__cause__, boom)
         self.assertFalse(blob.exists())
         self.assertTrue(marker.exists())
 
@@ -1104,9 +1124,9 @@ class MaintenanceDurableUnlinkTests(_BuildTestCase):
             return _REAL_UNLINKAT(self, dir_fd, name)
 
         with mock.patch.object(PosixFileOps, "unlinkat", failing_unlinkat):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(TransactionError) as ctx:
                 self._expire(lock)
-        self.assertIs(ctx.exception, boom)
+        self.assertIs(ctx.exception.cause, boom)
         self.assertTrue(blob.exists())
         self.assertTrue(marker.exists())
 
@@ -1120,9 +1140,9 @@ class MaintenanceDurableUnlinkTests(_BuildTestCase):
             return _REAL_FSYNC(self, fd)
 
         with mock.patch.object(PosixFileOps, "fsync", failing_fsync):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(TransactionError) as ctx:
                 self._expire(lock)
-        self.assertIs(ctx.exception, boom)
+        self.assertIs(ctx.exception.cause, boom)
         self.assertFalse(blob.exists())
         self.assertFalse(marker.exists())
 
@@ -1136,9 +1156,9 @@ class MaintenanceDurableUnlinkTests(_BuildTestCase):
             return _REAL_FSYNC(self, fd)
 
         with mock.patch.object(PosixFileOps, "fsync", failing_fsync):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(TransactionError) as ctx:
                 self._expire(lock)
-        self.assertIs(ctx.exception, boom)
+        self.assertIs(ctx.exception.cause, boom)
         self.assertFalse(blob.exists())
         self.assertTrue(marker.exists())
 
@@ -1195,12 +1215,12 @@ class MaintenanceDurableUnlinkTests(_BuildTestCase):
 
         with mock.patch.object(PosixFileOps, "unlinkat", failing_unlinkat), \
                 mock.patch.object(PosixFileOps, "close", failing_close):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(TransactionError) as ctx:
                 self._expire(lock)
-        self.assertIs(ctx.exception, primary)
-        self.assertIn(
-            secondary, getattr(primary, "_transaction_secondary", [])
-        )
+        # The typed unlink failure keeps the raw unlink cause; the close
+        # failure is attached as a secondary diagnostic.
+        self.assertIs(ctx.exception.cause, primary)
+        self.assertIn(secondary, list(ctx.exception.secondary))
         self.assertTrue(marker.exists())
 
     def test_interruption_during_unlink_propagates_unchanged(self) -> None:

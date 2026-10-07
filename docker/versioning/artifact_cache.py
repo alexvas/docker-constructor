@@ -28,7 +28,6 @@ from docker.transactions.errors import (
     CloseStageFailure,
     LockError,
     TransactionError,
-    carry_secondary_diagnostics,
 )
 from docker.transactions.locking import LockCapability, LockPolicy
 from docker.transactions.posix import PosixFileOps
@@ -1418,16 +1417,17 @@ def _identity_lock_failure(exc: BaseException) -> BaseException:
     containment diagnostic ``"identity lock is not a private regular file"``;
     a prepare-stage failure (open/create) becomes ``"identity lock path is
     unsafe"``; an operational descriptor-stat, mode-repair, acquisition, or
-    lock-probe-close failure re-raises its raw ``OSError``; and a capability
-    failure becomes ``"identity lock path is unsafe"``.  Process-control
-    interruptions are returned unchanged.
+    lock-probe-close failure is already a typed ``LockError`` and is preserved
+    unchanged; and a capability failure becomes ``"identity lock path is
+    unsafe"``.  Process-control interruptions are returned unchanged.
 
-    Only an operational failure of the locked descriptor or its identity probe
+    The operational failure of the locked descriptor or its identity probe
     (``STAGE_LOCK_STAT``, ``STAGE_LOCK_MODE``, ``STAGE_LOCK_ACQUIRE``,
-    ``STAGE_CLOSE``) is unwrapped.  A validate-stage failure is never blindly
-    unwrapped even when it carries an ``OSError`` cause: an identity probe
-    that fails while verifying the entry can indicate an unsafe namespace
-    change, so it stays a containment error.
+    ``STAGE_CLOSE``) keeps its typed wrapper so its stage, exact raw cause,
+    and cleanup diagnostics stay reachable together.  A validate-stage failure
+    is never blindly treated as operational even when it carries an
+    ``OSError`` cause: an identity probe that fails while verifying the entry
+    can indicate an unsafe namespace change, so it stays a containment error.
     """
     if isinstance(exc, LockError):
         if exc.stage == STAGE_LOCK_VALIDATE:
@@ -1436,14 +1436,13 @@ def _identity_lock_failure(exc: BaseException) -> BaseException:
             )
         if exc.stage in (
             STAGE_LOCK_STAT, STAGE_LOCK_MODE, STAGE_LOCK_ACQUIRE, STAGE_CLOSE,
-        ) and isinstance(exc.cause, OSError):
+        ):
             # An operational descriptor-stat, mode-repair, acquisition, or
-            # lock-probe-close failure previously propagated as its raw
-            # ``OSError``; preserve that parity while carrying any attached
-            # cleanup diagnostics.
-            cause = exc.cause
-            carry_secondary_diagnostics(cause, exc)
-            return cause
+            # lock-probe-close failure is already a typed ``LockError``.
+            # Preserve that wrapper unchanged: its stage, exact raw cause, and
+            # any cleanup diagnostics stay reachable together, and the caller
+            # chains directly from it.
+            return exc
         return ArtifactMaterializationError(
             "containment", "identity lock path is unsafe",
         )
@@ -1452,14 +1451,9 @@ def _identity_lock_failure(exc: BaseException) -> BaseException:
             "containment", "identity lock path is unsafe",
         )
     if isinstance(exc, TransactionError):
-        # A normalized directory-factory operational stat failure previously
-        # propagated as its raw ``OSError``; preserve that parity while
-        # carrying any attached cleanup diagnostics.  Non-operational typed
-        # failures keep their own classification.
-        cause = exc.cause
-        if isinstance(cause, OSError):
-            carry_secondary_diagnostics(cause, exc)
-            return cause
+        # A typed directory-factory failure is preserved so its stage, exact
+        # raw cause, and cleanup diagnostics remain reachable together; the
+        # caller chains directly from it rather than from the raw cause.
         return exc
     return exc
 
@@ -1538,23 +1532,13 @@ class FileIdentityLock(IdentityLock):
         def release_capability() -> None:
             if capability is None:
                 return
-            try:
-                capability.close()
-            except LockError as exc:
-                # Preserve the raw descriptor failure across the shared
-                # boundary so a release failure stays an ordinary OSError at
-                # the runtime edge; carry any cleanup diagnostics with it.
-                cause = exc.cause
-                if isinstance(cause, OSError):
-                    carry_secondary_diagnostics(cause, exc)
-                    raise cause
-                raise
+            capability.close()
 
         def release_directory() -> None:
             if directory is not None:
                 directory.close()
 
-        failures.run(release_capability, ordinary=(OSError, LockError))
+        failures.run(release_capability, ordinary=(LockError,))
         failures.run(release_directory, ordinary=(CloseStageFailure,))
         result = failures.complete()
         if result is not None:

@@ -34,14 +34,10 @@ from docker.transactions.capabilities import CapabilityError, DirectoryCapabilit
 from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
     STAGE_CLOSE,
-    STAGE_LOCK_ACQUIRE,
-    STAGE_LOCK_MODE,
     STAGE_LOCK_PREPARE,
-    STAGE_LOCK_STAT,
     STAGE_LOCK_VALIDATE,
     CloseStageFailure,
     TransactionError,
-    carry_secondary_diagnostics,
 )
 from docker.transactions.locking import LockCapability, LockError, LockPolicy
 from docker.transactions.posix import PosixFileOps
@@ -153,10 +149,12 @@ def _identity_lock_failure(exc: BaseException) -> BaseException:
 
     An unsafe entry (``validate``/``prepare`` stage) or an unsafe lock
     directory/capability becomes ``LockedNpmError("unsafe_lock_path", ...)``,
-    preserving the existing npm containment diagnostic.  An operational
-    descriptor-stat, mode-repair, acquisition, or lock-probe-close failure
-    re-raises its raw ``OSError`` (carrying any attached cleanup diagnostics)
-    rather than misclassifying an I/O failure as containment.  Process-control
+    preserving the existing npm containment diagnostic.  Every other lock
+    failure is an operational descriptor-stat, mode-repair, acquisition, or
+    lock-probe-close failure already normalized to a typed ``LockError``; that
+    wrapper is preserved unchanged so its stage, exact raw cause, and any
+    cleanup diagnostics remain reachable together, rather than being unwrapped
+    to raw ``OSError`` or misclassified as containment.  Process-control
     interruptions pass through unchanged.
     """
     if isinstance(exc, LockError):
@@ -165,15 +163,11 @@ def _identity_lock_failure(exc: BaseException) -> BaseException:
                 "unsafe_lock_path",
                 "identity lock is not a private owned regular file",
             )
-        if (
-            exc.stage
-            in (STAGE_LOCK_STAT, STAGE_LOCK_MODE, STAGE_LOCK_ACQUIRE, STAGE_CLOSE)
-            and isinstance(exc.cause, OSError)
-        ):
-            cause = exc.cause
-            carry_secondary_diagnostics(cause, exc)
-            return cause
-        return LockedNpmError("unsafe_lock_path", "identity lock path is unsafe")
+        # An operational stat, mode-repair, acquisition, or probe-close
+        # failure is already a typed ``LockError``.  Preserve that wrapper
+        # unchanged: its stage, exact raw cause, and any cleanup diagnostics
+        # stay reachable together, and the caller chains directly from it.
+        return exc
     if isinstance(exc, CapabilityError):
         return LockedNpmError("unsafe_lock_path", "identity lock path is unsafe")
     return exc
@@ -198,20 +192,13 @@ def _release_identity_lock(
     def release_capability() -> None:
         if capability is None:
             return
-        try:
-            capability.close()
-        except LockError as exc:
-            cause = exc.cause
-            if isinstance(cause, OSError):
-                carry_secondary_diagnostics(cause, exc)
-                raise cause
-            raise
+        capability.close()
 
     def release_directory() -> None:
         if directory is not None:
             directory.close()
 
-    failures.run(release_capability, ordinary=(OSError, LockError))
+    failures.run(release_capability, ordinary=(LockError,))
     failures.run(release_directory, ordinary=(CloseStageFailure,))
     result = failures.complete()
     if result is not None:

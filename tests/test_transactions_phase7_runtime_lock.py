@@ -24,7 +24,13 @@ import tempfile
 import threading
 import unittest
 
-from docker.transactions.errors import STAGE_CLOSE, TransactionError
+from docker.transactions.errors import (
+    STAGE_CLOSE,
+    STAGE_LOCK_STAT,
+    STAGE_VALIDATE,
+    LockError,
+    TransactionError,
+)
 from docker.versioning.artifact_cache import (
     FileIdentityLock,
     FileIdentityLockFactory,
@@ -171,12 +177,14 @@ class UnsafeLockEntryTests(_RuntimeLockCase):
 
 
 class OperationalLockFailureTests(_RuntimeLockCase):
-    """Operational descriptor-stat failures keep their raw ``OSError``.
+    """Operational descriptor failures preserve their typed ``LockError``.
 
     A failure while statting the lock-file descriptor is an I/O failure, not
-    an unsafe-entry containment rejection: the runtime lock must re-raise the
-    exact ``OSError`` (carrying any cleanup diagnostics) rather than report a
-    containment error, while still releasing the acquired lock and directory.
+    an unsafe-entry containment rejection: the runtime lock must preserve the
+    typed ``LockError`` (whose exact raw cause and cleanup diagnostics stay
+    reachable) rather than report a containment error, while still releasing
+    the acquired lock and directory.  A failure before capability adoption
+    keeps the still caller-owned raw descriptor and its raw close boundary.
     """
 
     def _install_ops(self, lock: FileIdentityLock, ops: InjectedOps) -> None:
@@ -192,18 +200,21 @@ class OperationalLockFailureTests(_RuntimeLockCase):
 
         ops.hooks["fstat"] = hook
 
-    def test_lock_entry_stat_failure_reraises_raw_oserror(self) -> None:
+    def test_lock_entry_stat_failure_preserves_typed_lock_error(self) -> None:
         error = OSError(errno.EIO, "injected lock-entry stat failure")
         lock = FileIdentityLock(self.root)
         ops = InjectedOps()
         self._fail_regular_stat(ops, error)
         self._install_ops(lock, ops)
 
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(LockError) as ctx:
             lock.acquire(_SHA512)
 
-        # The exact operational failure is raised, not a containment error.
-        self.assertIs(ctx.exception, error)
+        # The typed operational failure is preserved, not a containment error
+        # and not its raw cause.  Its exact raw cause stays reachable.
+        self.assertEqual(ctx.exception.stage, STAGE_LOCK_STAT)
+        self.assertIs(ctx.exception.cause, error)
+        self.assertIs(ctx.exception.__cause__, error)
         # A failed acquisition retains neither the lock nor the directory.
         self.assertIsNone(lock._capability)
         self.assertIsNone(lock._directory)
@@ -229,14 +240,17 @@ class OperationalLockFailureTests(_RuntimeLockCase):
         ops.failures["close"] = close_spec
         self._install_ops(lock, ops)
 
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(LockError) as ctx:
             lock.acquire(_SHA512)
 
-        # The operational stat failure stays primary; the failed directory
-        # cleanup is attached as a secondary diagnostic instead of replacing
-        # or masking it.
-        self.assertIs(ctx.exception, stat_error)
-        secondary = getattr(ctx.exception, "_transaction_secondary", [])
+        # The typed operational stat failure stays primary; the failed
+        # directory cleanup is attached as a secondary diagnostic instead of
+        # replacing or masking it.
+        self.assertEqual(ctx.exception.stage, STAGE_LOCK_STAT)
+        self.assertIs(ctx.exception.cause, stat_error)
+        # A typed ``LockError`` stores diagnostics on its structured
+        # ``secondary`` list rather than the private fallback slot.
+        secondary = list(ctx.exception.secondary)
         self.assertEqual(len(secondary), 1)
         self.assertIsInstance(secondary[0], TransactionError)
         self.assertEqual(secondary[0].stage, STAGE_CLOSE)
@@ -259,16 +273,16 @@ class OperationalLockFailureTests(_RuntimeLockCase):
         ops.failures["close"] = close_spec
         lock._ops = ops
 
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(TransactionError) as ctx:
             lock.acquire(_SHA512)
 
-        # The adoption stat failure stays primary; the raw-descriptor cleanup
-        # failure is attached as a secondary diagnostic instead of replacing
-        # or masking the primary failure.
-        self.assertIs(ctx.exception, stat_error)
-        self.assertEqual(
-            getattr(ctx.exception, "_transaction_secondary", []), [close_error],
-        )
+        # The pre-adoption stat failure is a typed validation failure whose
+        # raw cause stays reachable; the still caller-owned raw-descriptor
+        # cleanup failure is attached as a secondary diagnostic instead of
+        # replacing or masking the primary failure.
+        self.assertEqual(ctx.exception.stage, STAGE_VALIDATE)
+        self.assertIs(ctx.exception.cause, stat_error)
+        self.assertEqual(list(ctx.exception.secondary), [close_error])
         # No capability was adopted, so the raw descriptor is closed exactly
         # once and no lock is retained.
         self.assertEqual(ops.counts["close"], 1)
@@ -346,12 +360,13 @@ class OperationalLockFailureTests(_RuntimeLockCase):
 
         self.addCleanup(_close_probe)
 
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(LockError) as ctx:
             lock.acquire(_SHA512)
 
-        self.assertIs(ctx.exception, error)
+        self.assertIs(ctx.exception.cause, error)
+        self.assertIs(ctx.exception.__cause__, error)
         self.assertNotIsInstance(ctx.exception, ArtifactMaterializationError)
-        self.assertEqual(ctx.exception.errno, errno.EIO)
+        self.assertEqual(ctx.exception.cause.errno, errno.EIO)
         # A failed acquisition retains neither the lock nor the directory.
         self.assertIsNone(lock._capability)
         self.assertIsNone(lock._directory)

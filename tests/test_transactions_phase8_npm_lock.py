@@ -36,7 +36,7 @@ from docker.npm_environment.publication import identity_coordination_lock
 from docker.npm_environment.storage import prepare_assembler_namespace
 from docker.npm_environment.errors import LockedNpmError
 from docker.transactions import locking
-from docker.transactions.errors import STAGE_CLOSE, TransactionError
+from docker.transactions.errors import STAGE_CLOSE, LockError, TransactionError
 from tests.transactions_test_support import InjectedOps
 
 _ASSEMBLER = "a" * 64
@@ -263,27 +263,28 @@ class LockEntrySafetyTests(_NpmLockCase):
 
 
 class OperationalFailureParityTests(_NpmLockCase):
-    def test_operational_acquisition_failure_keeps_raw_oserror(self) -> None:
+    def test_operational_acquisition_failure_preserves_typed_lock_error(self) -> None:
         error = OSError(errno.EIO, "injected acquisition failure")
         ops = InjectedOps()
         ops.failures["flock"] = error
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(LockError) as ctx:
             with identity_coordination_lock(self.namespace, _INPUT, ops=ops):
                 pass
-        self.assertIs(ctx.exception, error)
+        self.assertIs(ctx.exception.cause, error)
+        self.assertIs(ctx.exception.__cause__, error)
 
     def test_operational_failure_releases_the_lock_and_directory(self) -> None:
         error = OSError(errno.EIO, "injected acquisition failure")
         ops = InjectedOps()
         ops.failures["flock"] = error
-        with self.assertRaises(OSError):
+        with self.assertRaises(LockError):
             with identity_coordination_lock(self.namespace, _INPUT, ops=ops):
                 pass
         # A fresh acquisition with no injected fault immediately succeeds.
         with identity_coordination_lock(self.namespace, _INPUT):
             pass
 
-    def test_probe_close_failure_keeps_raw_oserror(self) -> None:
+    def test_probe_close_failure_preserves_typed_lock_error(self) -> None:
         # A valid existing lock entry is required so acquisition reaches the
         # post-acquisition identity probe whose close is faulted.
         with identity_coordination_lock(self.namespace, _INPUT):
@@ -315,14 +316,16 @@ class OperationalFailureParityTests(_NpmLockCase):
         ops.hooks["close"] = close_hook
         ops.failures["close"] = close_failure
 
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(LockError) as ctx:
             with identity_coordination_lock(self.namespace, _INPUT, ops=ops):
                 pass
-        # A failed lock-probe close is operational I/O: the raw OSError is
-        # preserved rather than being reported as unsafe containment.
-        self.assertIs(ctx.exception, error)
+        # A failed lock-probe close is operational I/O: the typed lock failure
+        # is preserved rather than being reported as unsafe containment, and
+        # its exact raw cause remains reachable.
+        self.assertIs(ctx.exception.cause, error)
+        self.assertIs(ctx.exception.__cause__, error)
         self.assertNotIsInstance(ctx.exception, LockedNpmError)
-        self.assertEqual(ctx.exception.errno, errno.EIO)
+        self.assertEqual(ctx.exception.cause.errno, errno.EIO)
         self.assertIsNotNone(probe["fd"])
         # The lock descriptor is still unlocked and closed, and the directory
         # capability is still released, despite the probe-close failure.

@@ -46,7 +46,6 @@ from docker.transactions.errors import (
     LockError,
     TransactionError,
     UnsafeFileError,
-    carry_secondary_diagnostics,
 )
 from docker.transactions.locking import LockCapability
 from docker.transactions.posix import PosixFileOps
@@ -975,20 +974,12 @@ class ConstructorProjectBuildLock:
         failures = CleanupFailures(None)
 
         def close_capability() -> None:
-            try:
-                self._capability.close()
-            except LockError as exc:
-                # Preserve the raw descriptor failure across the L2 boundary so
-                # a release failure stays an ordinary OSError at the build edge,
-                # exactly as the previous direct unlock/close did.  Shared
-                # unlock cleanup diagnostics follow the raw cause.
-                cause = exc.cause
-                if isinstance(cause, OSError):
-                    carry_secondary_diagnostics(cause, exc)
-                    raise cause
-                raise
+            # An ordinary release failure is already a typed ``LockError``.
+            # Pass it directly to the accumulator so its stage, exact raw
+            # cause, and any cleanup diagnostics stay reachable together.
+            self._capability.close()
 
-        failures.run(close_capability, ordinary=(OSError, LockError))
+        failures.run(close_capability, ordinary=(LockError,))
         failures.run(self._generation_directory.close, ordinary=(CloseStageFailure,))
         result = failures.complete()
         if result is not None:
@@ -1008,7 +999,7 @@ class ConstructorProjectBuildLock:
         # flight, otherwise it stays secondary to the body exception.  A
         # process-control interruption propagates unchanged.
         failures = CleanupFailures(exc)
-        failures.run(self.release, ordinary=(Exception,))
+        failures.run(self.release, ordinary=(LockError, CloseStageFailure))
         result = failures.complete()
         if result is not None:
             raise result
@@ -1093,18 +1084,14 @@ def _raise_lock_failure(directory: DirectoryCapability, base: str, exc: LockErro
 
     Only a genuine unsafe lock entry (or an indistinguishable in-place
     replacement) becomes the build-domain "unsafe constructor-project build
-    lock" error.  Operational open, stat, and mode-repair failures keep their
-    underlying ``OSError`` as the primary exception so the previous raw-errno
-    behavior is preserved, with any attached cleanup failures carried over.
+    lock" error.  Every other operational failure is already a typed
+    ``LockError`` and is preserved unchanged, so its stage, exact raw cause,
+    and any attached cleanup diagnostics stay reachable together.
     """
     if _lock_entry_is_unsafe(directory, base) or (
         exc.stage == STAGE_LOCK_VALIDATE and exc.cause is None
     ):
         raise BuildTransactionError("unsafe constructor-project build lock") from exc
-    cause = exc.cause
-    if isinstance(cause, OSError):
-        carry_secondary_diagnostics(cause, exc)
-        raise cause
     raise exc
 
 
@@ -1150,7 +1137,7 @@ def acquire_constructor_project_build_lock(constructor_project_root: str | Path,
         # interruption is never converted or suppressed.
         failures = CleanupFailures(exc)
         if capability is not None:
-            failures.run(capability.close, ordinary=(OSError, LockError))
+            failures.run(capability.close, ordinary=(LockError,))
         if directory is not None:
             failures.run(directory.close, ordinary=(CloseStageFailure,))
         parent, parent_fd = parent_fd, -1
@@ -1232,16 +1219,12 @@ def _validate_existing_marker(directory: DirectoryCapability, name: str) -> None
 
 
 def _raise_marker_failure(name: str, exc: TransactionError) -> NoReturn:
-    """Map validation failures while preserving legacy operational errors."""
+    """Map validation failures while preserving typed operational errors."""
     if isinstance(exc, UnsafeFileError) and exc.stage in (
         STAGE_VALIDATE,
         STAGE_VALIDATE_DESTINATION,
     ):
         raise BuildTransactionError(f"unsafe transaction state file: {name}") from exc
-    cause = exc.cause
-    if isinstance(cause, OSError):
-        carry_secondary_diagnostics(cause, exc)
-        raise cause
     raise exc
 
 
@@ -1433,10 +1416,6 @@ def _validate_existing_blob(
             raise BuildTransactionError(
                 f"unsafe build blob: {_key(identity)}"
             ) from exc
-        cause = exc.cause
-        if isinstance(cause, OSError):
-            carry_secondary_diagnostics(cause, exc)
-            raise cause
         raise
     blob.close()
 
@@ -1466,12 +1445,6 @@ def _durably_remove_blob_and_marker(
                 raise BuildTransactionError(
                     f"unsafe build blob: {_key(identity)}"
                 ) from exc
-            except TransactionError as exc:
-                cause = exc.cause
-                if isinstance(cause, OSError):
-                    carry_secondary_diagnostics(cause, exc)
-                    raise cause
-                raise
     _durably_remove_marker(ops, markers, marker_name)
 
 
@@ -1593,7 +1566,12 @@ def maintain_uncommitted_blobs(
                 verified_at = _validate_marker_timestamp(
                     value["verified_at"], label="verified_at"
                 )
-            except (OSError, ValueError, KeyError, TypeError):
+            except (OSError, TransactionError, ValueError, KeyError, TypeError):
+                # An absent, corrupt, or operationally unreadable marker selects
+                # the cleanup outcome.  ``_read_marker_json`` preserves a typed
+                # transaction failure, so the absence/operational decision is
+                # made by inspecting the exception's type here rather than by
+                # unwrapping the raw cause.
                 _durably_remove_blob_and_marker(
                     lock.ops, storage.blobs, markers, identity
                 )

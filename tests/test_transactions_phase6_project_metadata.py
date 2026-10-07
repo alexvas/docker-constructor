@@ -22,6 +22,7 @@ from unittest import mock
 
 from docker.transactions.errors import (
     STAGE_ALLOCATE,
+    STAGE_VALIDATE,
     DestinationExists,
     TransactionError,
 )
@@ -348,9 +349,15 @@ class PublicationCapabilityBoundaryTests(_ProjectMetadataCase):
         self.assertEqual(
             str(ctx.exception), f"cannot publish project identity metadata {_LABEL}"
         )
-        # The raw operational failure stays observable as the chained cause.
-        self.assertIs(ctx.exception.__cause__, raw)
-        self.assertEqual(ctx.exception.__cause__.errno, errno.EIO)
+        # The typed validation wrapper is chained directly from the domain
+        # error, and the raw operational failure stays reachable through the
+        # wrapper's stored and direct cause.
+        wrapped = ctx.exception.__cause__
+        self.assertIsInstance(wrapped, TransactionError)
+        self.assertEqual(wrapped.stage, STAGE_VALIDATE)
+        self.assertIs(wrapped.cause, raw)
+        self.assertIs(wrapped.__cause__, raw)
+        self.assertEqual(wrapped.cause.errno, errno.EIO)
         # Nothing was published.
         self.assertFalse(self.target.exists())
         self.assertEqual(self._leftovers(), [])

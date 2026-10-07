@@ -665,7 +665,7 @@ class CloseStageSemanticsTests(_CapabilityCase):
 class FactoryMappingTests(_CapabilityCase):
     """Task 5.10 — factory/validation mappings preserve raw domain outcomes."""
 
-    def test_build_cleanup_factory_unwraps_typed_validation_cause(self) -> None:
+    def test_build_cleanup_factory_preserves_typed_validation(self) -> None:
         from docker.versioning import build_cleanup
 
         blobs = DirectoryCapability.from_path(self.ops, self.root)
@@ -679,15 +679,20 @@ class FactoryMappingTests(_CapabilityCase):
         )
         self.assertIsNone(capability)
         self.assertIsNotNone(failure)
-        self.assertIs(failure.error, error)
+        # The typed validation failure stays the aggregated error and its
+        # exact raw stat cause stays reachable through the wrapper.
+        self.assertIsInstance(failure.error, TransactionError)
+        self.assertEqual(failure.error.stage, STAGE_VALIDATE)
+        self.assertIs(failure.error.cause, error)
+        self.assertIs(failure.error.__cause__, error)
 
-    def test_artifact_cache_factory_mapping_unwraps_raw_cause(self) -> None:
+    def test_artifact_cache_factory_mapping_preserves_typed(self) -> None:
         from docker.versioning import artifact_cache
 
         error = OSError(errno.EIO, "injected factory stat")
         typed = TransactionError(STAGE_VALIDATE, "cannot stat", cause=error)
         mapped = artifact_cache._identity_lock_failure(typed)
-        self.assertIs(mapped, error)
+        self.assertIs(mapped, typed)
 
     def test_artifact_cache_factory_mapping_keeps_typed_safety(self) -> None:
         from docker.versioning import artifact_cache
@@ -698,15 +703,16 @@ class FactoryMappingTests(_CapabilityCase):
 
 
 class LockFailureMappingTests(unittest.TestCase):
-    """Phase 4 lock contract — operational stages keep their raw ``OSError``.
+    """Phase 5A — operational lock stages preserve their typed ``LockError``.
 
     The shared ``LockCapability`` classifies a failed lock entry open/stat,
     mode repair, acquisition, or post-acquisition identity-probe close as a
     typed ``LockError`` whose ``cause`` is the failing ``OSError``.  Every
-    domain adapter must unwrap those operational stages back to the raw error
-    while keeping a ``validate``/``prepare`` rejection as containment.  The
-    probe-close stage (``STAGE_CLOSE``) is operational I/O, so no domain may
-    silently downgrade it to an unsafe-entry diagnostic.
+    domain adapter preserves that typed wrapper unchanged while keeping a
+    ``validate``/``prepare`` rejection as containment.  The probe-close stage
+    (``STAGE_CLOSE``) is operational I/O, so no domain may silently downgrade
+    it to an unsafe-entry diagnostic, and no adapter replaces the wrapper with
+    its raw cause.
     """
 
     OPERATIONAL_STAGES = (
@@ -720,21 +726,21 @@ class LockFailureMappingTests(unittest.TestCase):
         error = OSError(errno.EIO, f"injected {stage}")
         return LockError(stage, f"cannot run {stage}", cause=error), error
 
-    def test_npm_mapper_unwraps_every_operational_lock_stage(self) -> None:
+    def test_npm_mapper_preserves_every_operational_lock_stage(self) -> None:
         for stage in self.OPERATIONAL_STAGES:
             with self.subTest(stage=stage):
-                typed, error = self._lock_error(stage)
-                self.assertIs(publication._identity_lock_failure(typed), error)
+                typed, _ = self._lock_error(stage)
+                self.assertIs(publication._identity_lock_failure(typed), typed)
 
-    def test_artifact_mapper_unwraps_every_operational_lock_stage(self) -> None:
+    def test_artifact_mapper_preserves_every_operational_lock_stage(self) -> None:
         from docker.versioning import artifact_cache
 
         for stage in self.OPERATIONAL_STAGES:
             with self.subTest(stage=stage):
-                typed, error = self._lock_error(stage)
-                self.assertIs(artifact_cache._identity_lock_failure(typed), error)
+                typed, _ = self._lock_error(stage)
+                self.assertIs(artifact_cache._identity_lock_failure(typed), typed)
 
-    def test_build_cache_mapper_unwraps_every_operational_lock_stage(self) -> None:
+    def test_build_cache_mapper_preserves_every_operational_lock_stage(self) -> None:
         from docker.versioning import build_cache
 
         with tempfile.TemporaryDirectory() as root:
@@ -742,12 +748,12 @@ class LockFailureMappingTests(unittest.TestCase):
             self.addCleanup(directory.close)
             for stage in self.OPERATIONAL_STAGES:
                 with self.subTest(stage=stage):
-                    typed, error = self._lock_error(stage)
-                    with self.assertRaises(OSError) as ctx:
+                    typed, _ = self._lock_error(stage)
+                    with self.assertRaises(LockError) as ctx:
                         build_cache._raise_lock_failure(
                             directory, "missing.lock", typed
                         )
-                    self.assertIs(ctx.exception, error)
+                    self.assertIs(ctx.exception, typed)
 
     def test_validate_and_prepare_stay_containment_in_both_domains(self) -> None:
         from docker.versioning import artifact_cache
@@ -763,8 +769,8 @@ class LockFailureMappingTests(unittest.TestCase):
                 )
 
     def test_npm_and_artifact_agree_on_the_operational_lock_stages(self) -> None:
-        # The two adapters must not drift: for every stage one unwraps, the
-        # other must unwrap it too.
+        # The two adapters must not drift: for every stage one preserves the
+        # typed wrapper, the other must preserve it too.
         from docker.versioning import artifact_cache
 
         all_stages = (
@@ -777,12 +783,12 @@ class LockFailureMappingTests(unittest.TestCase):
         )
         for stage in all_stages:
             with self.subTest(stage=stage):
-                typed, error = self._lock_error(stage)
+                typed, _ = self._lock_error(stage)
                 npm_mapped = publication._identity_lock_failure(typed)
                 artifact_mapped = artifact_cache._identity_lock_failure(typed)
                 self.assertEqual(
-                    npm_mapped is error,
-                    artifact_mapped is error,
+                    npm_mapped is typed,
+                    artifact_mapped is typed,
                     f"npm and artifact disagree on {stage}",
                 )
 
@@ -1015,24 +1021,24 @@ class RepositoryCloseInventoryTests(_InventoryRule, unittest.TestCase):
 class RepositoryFactoryMappingInventoryTests(_CapabilityCase):
     """Task 5.10 — every factory/validation mapping is characterized."""
 
-    def test_build_cleanup_factory_mapping_preserves_raw_cause(self) -> None:
-        """The ``build_cleanup`` factory mapping is part of the inventory."""
+    def test_build_cleanup_factory_mapping_preserves_typed_error(self) -> None:
+        """The ``build_cleanup`` factory mapping keeps the typed wrapper."""
         source = (_REPO / "docker/versioning/build_cleanup.py").read_text()
-        self.assertIn("isinstance(cause, OSError)", source)
-        self.assertIn("reported: BaseException = cause if isinstance(cause, OSError) else exc", source)
+        # The typed transaction failure is aggregated unchanged; the raw cause
+        # is never promoted to a replacement error.
+        self.assertIn("_algorithm_failure(algorithm, exc)", source)
+        self.assertNotIn("reported: BaseException = cause if isinstance(cause, OSError) else exc", source)
 
-    def test_rendering_factory_mapping_preserves_raw_cause(self) -> None:
+    def test_rendering_factory_mapping_preserves_typed_error(self) -> None:
         """The ``write_effective_build`` generated-directory factory mapping.
 
-        ``rendering.py`` was omitted from the first Phase 5 consumer pass; it
-        must stay inventoried so the ``from_fd`` typed-wrapper-to-raw-cause
-        translation and the ownership-split close boundary cannot regress.
+        ``rendering.py`` must keep its ownership-split close boundary while
+        chaining the domain diagnostic directly from the typed factory
+        failure rather than unwrapping the raw ``OSError`` cause.
         """
         source = (_REPO / "docker/versioning/rendering.py").read_text()
-        # The factory failure is translated back to its raw ``OSError`` cause
-        # while carrying any retained secondary diagnostics.
-        self.assertIn("isinstance(cause, OSError)", source)
-        self.assertIn("carry_secondary_diagnostics(cause, exc)", source)
+        self.assertIn('_raise_effective_failure("generated", exc)', source)
+        self.assertNotIn("carry_secondary_diagnostics(cause, exc)", source)
         # The cleanup boundary splits by ownership state: an adopted
         # capability and a still caller-owned raw descriptor.
         self.assertIn("failures.run(generated.close, ordinary=(CloseStageFailure,))", source)

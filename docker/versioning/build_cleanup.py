@@ -340,17 +340,16 @@ def _open_algorithm_directory(
         # The descriptor is still caller-owned: release it, preserving any
         # close failure as a secondary diagnostic, and aggregate the failure
         # so cleanup still attempts candidates in other algorithm directories.
-        # A typed validation failure reported by the factory is unwrapped to
-        # its raw POSIX cause so the build-domain cleanup report keeps the
-        # original operational detail.
+        # A typed transaction failure is retained as the aggregated error so
+        # its stage, exact raw stat cause, and any close diagnostics stay
+        # reachable together; the raw cause is never copied onto a replacement
+        # exception.
         accumulator = CleanupFailures(exc)
         accumulator.run(lambda: ops.close(fd), ordinary=(OSError,))
         result = accumulator.complete()
         if result is not None:
             raise result
-        cause = getattr(exc, "cause", None)
-        reported: BaseException = cause if isinstance(cause, OSError) else exc
-        return None, _algorithm_failure(algorithm, reported)
+        return None, _algorithm_failure(algorithm, exc)
     except BaseException as exc:
         # An unexpected exception or process-control interruption leaves the
         # rejected descriptor caller-owned; release it exactly once and keep

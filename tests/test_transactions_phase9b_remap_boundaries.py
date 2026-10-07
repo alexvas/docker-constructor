@@ -1,11 +1,16 @@
-"""Phase 9B task 9B.2 - remap-boundary and architecture tests.
+"""Phase 5A — typed-error preservation across consumer boundaries.
 
-Twelve audited domain adapters remap a transaction/capability wrapper to its
-raw operational cause.  They must use the narrow
-:func:`docker.transactions.errors.carry_secondary_diagnostics` operation rather
-than reading shared diagnostic storage or building an arbitrary secondary list.
-Exactly two non-remap aggregators keep the low-level ``attach_secondary``
-mechanism.
+Phase 9B once required domain adapters to remap a transaction/capability
+wrapper to its raw operational cause through the narrow
+:func:`docker.transactions.errors.carry_secondary_diagnostics` operation.
+Phase 5A supersedes that contract: a successful L1 or lock-layer normalization
+is no longer undone at a consumer boundary.  Domain adapters preserve the
+typed failure unchanged or chain their own domain error directly from it, so
+no production domain module replaces a typed failure with its raw cause.
+
+Cause inspection that drives a control-flow or domain decision (for example
+recognizing ``FileNotFoundError``) is still permitted; only exception
+replacement is rejected.
 """
 from __future__ import annotations
 
@@ -16,14 +21,13 @@ from pathlib import Path
 from docker import transactions
 
 _REPO = Path(__file__).resolve().parents[1]
-_REMAP_FILES = {
-    "docker/npm_environment/publication.py": 2,
-    "docker/versioning/rendering.py": 2,
-    "docker/versioning/artifact_cache.py": 3,
-    "docker/versioning/build_cache.py": 5,
-    "docker/versioning/effective.py": 2,
-    "docker/versioning/project_state.py": 1,
-}
+
+#: Modules below the consumer layer that legitimately use the shared
+#: diagnostic-copy primitive to forward retained diagnostics onto a *new*
+#: typed wrapper (never onto a raw cause).
+_FOUNDATION_MODULES = ("docker/transactions/", "docker/filesystem/")
+
+#: Two non-remap aggregators keep the low-level ``attach_secondary`` mechanism.
 _EXPLICIT_AGGREGATORS = (
     "docker/transactions/locking.py",
     "docker/versioning/build_orchestration.py",
@@ -43,40 +47,40 @@ def _calls(path: str) -> dict[str, list[ast.Call]]:
     return found
 
 
-class RemapSiteTests(unittest.TestCase):
-    def test_every_audited_site_uses_the_narrow_carry_operation(self) -> None:
-        total = 0
-        for path, expected in _REMAP_FILES.items():
-            calls = _calls(path).get("carry_secondary_diagnostics", [])
-            self.assertEqual(len(calls), expected, path)
-            total += len(calls)
-        self.assertEqual(total, 15)
-
-    def test_remap_calls_pass_cause_and_wrapper_positionally(self) -> None:
-        for path in _REMAP_FILES:
-            for call in _calls(path).get("carry_secondary_diagnostics", []):
-                self.assertEqual(len(call.args), 2, path)
-                self.assertIsInstance(call.args[0], ast.Name)
-                self.assertEqual(call.args[0].id, "cause", path)
-                self.assertIsInstance(call.args[1], ast.Name)
-                self.assertEqual(call.args[1].id, "exc", path)
+class TypedPreservationTests(unittest.TestCase):
+    def test_no_domain_module_remaps_a_typed_cause(self) -> None:
+        for path in _REPO.glob("docker/**/*.py"):
+            relative = path.relative_to(_REPO).as_posix()
+            if relative.startswith(_FOUNDATION_MODULES):
+                continue
+            self.assertNotIn(
+                "carry_secondary_diagnostics",
+                _source(relative),
+                relative,
+            )
 
     def test_domain_remaps_do_not_read_shared_storage_or_lists(self) -> None:
-        for path in _REMAP_FILES:
-            source = _source(path)
-            self.assertFalse("_transaction_secondary" in source, path)
-            self.assertFalse("list(exc.secondary)" in source, path)
-            self.assertFalse("attach_secondary" in source, path)
+        # The former remap files must not fall back to raw diagnostic storage
+        # or build an arbitrary secondary iterable now that they preserve the
+        # typed wrapper directly.
+        for relative in (
+            "docker/npm_environment/publication.py",
+            "docker/versioning/rendering.py",
+            "docker/versioning/artifact_cache.py",
+            "docker/versioning/build_cache.py",
+            "docker/versioning/effective.py",
+            "docker/versioning/project_state.py",
+        ):
+            source = _source(relative)
+            self.assertFalse("_transaction_secondary" in source, relative)
+            self.assertFalse("list(exc.secondary)" in source, relative)
+            self.assertFalse("attach_secondary" in source, relative)
 
-    def test_domain_remaps_do_not_construct_a_secondary_iterable(self) -> None:
-        for path in _REMAP_FILES:
-            for call in _calls(path).get("carry_secondary_diagnostics", []):
-                for arg in call.args:
-                    self.assertFalse(
-                        isinstance(arg, (ast.List, ast.ListComp, ast.GeneratorExp)),
-                        path,
-                    )
-                self.assertFalse(any(kw.arg for kw in call.keywords), path)
+    def test_build_cleanup_aggregates_the_typed_failure(self) -> None:
+        calls = _calls("docker/versioning/build_cleanup.py")
+        self.assertEqual(calls.get("carry_secondary_diagnostics", []), [])
+        source = _source("docker/versioning/build_cleanup.py")
+        self.assertIn("_algorithm_failure(algorithm, exc)", source)
 
 
 class ExplicitAggregatorTests(unittest.TestCase):
@@ -94,21 +98,6 @@ class ExplicitAggregatorTests(unittest.TestCase):
         attach = calls.get("attach_secondary", [])
         self.assertEqual(len(attach), 1)
         self.assertEqual(ast.unparse(attach[0]), "attach_secondary(primary, [release_exc])")
-
-    def test_no_other_domain_module_uses_carry(self) -> None:
-        allowed = set(_REMAP_FILES) | set(_EXPLICIT_AGGREGATORS)
-        for path in _REPO.glob("docker/**/*.py"):
-            relative = path.relative_to(_REPO).as_posix()
-            if (
-                relative in allowed
-                or relative.startswith("docker/transactions/")
-                or relative.startswith("docker/filesystem/")
-            ):
-                continue
-            self.assertFalse(
-                "carry_secondary_diagnostics" in path.read_text(encoding="utf-8"),
-                relative,
-            )
 
 
 class CarryExportBoundaryTests(unittest.TestCase):
