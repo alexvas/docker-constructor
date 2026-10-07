@@ -118,7 +118,9 @@ _CACHE_POLICY_SCOPE = (
     "docker/launcher.py",
 )
 _CACHE_STORAGE_ALLOWED_IMPORTS = frozenset({
-    "os", "stat", "pathlib", "errors", "model", "__future__",
+    "os", "stat", "errno", "pathlib", "errors", "model", "__future__",
+    "docker.filesystem.cleanup", "docker.filesystem.descriptors",
+    "docker.filesystem.operations",
 })
 
 # Aggregate-owner public names.  They may be *imported* by consumers but only
@@ -170,6 +172,26 @@ def _imported_modules(tree: ast.AST) -> set[str]:
         elif isinstance(node, ast.ImportFrom):
             if node.module:
                 modules.add(_root_module(node.module))
+    return modules
+
+
+def _imported_module_paths(tree: ast.AST) -> set[str]:
+    """Return imported module names without collapsing dotted paths.
+
+    Relative imports keep their bare ``node.module`` (``from .errors import``
+    -> ``errors``) so the cache-storage leaf allowlist can name explicit
+    foundation submodules instead of only the aggregate ``docker`` root.
+    """
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                if node.module:
+                    modules.add(node.module)
+            elif node.module:
+                modules.add(node.module)
     return modules
 
 
@@ -513,8 +535,22 @@ class TestDependencyDirectionAndSoleOwners(unittest.TestCase):
 
     def test_cache_storage_remains_an_acyclic_leaf(self) -> None:
         tree = ast.parse(_source(_CACHE_STORAGE))
-        unexpected = sorted(_imported_modules(tree) - _CACHE_STORAGE_ALLOWED_IMPORTS)
+        unexpected = sorted(
+            _imported_module_paths(tree) - _CACHE_STORAGE_ALLOWED_IMPORTS
+        )
         self.assertEqual([], unexpected)
+
+    def test_cache_storage_admits_only_explicit_foundation_submodules(self) -> None:
+        tree = ast.parse(_source(_CACHE_STORAGE))
+        imported = _imported_module_paths(tree)
+        self.assertIn("docker.filesystem.cleanup", imported)
+        self.assertIn("docker.filesystem.descriptors", imported)
+        self.assertIn("docker.filesystem.operations", imported)
+        self.assertNotIn("docker.filesystem", imported)
+        self.assertNotIn("docker.transactions", imported)
+        self.assertFalse(
+            sorted(m for m in imported if m.startswith("docker.transactions."))
+        )
 
     def test_phase_2_and_4_modules_add_no_cache_root_policy(self) -> None:
         offenders: list[tuple[str, int, str]] = []

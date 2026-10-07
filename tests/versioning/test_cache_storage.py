@@ -43,6 +43,8 @@ _FORBIDDEN_MODULES = frozenset(
     {
         "docker.constructor_cli",
         "docker.launcher",
+        "docker.transactions",
+        "docker.filesystem",
         "docker.versioning.transports",
         "docker.versioning.cache",
         "docker.versioning.artifact_cache",
@@ -441,3 +443,33 @@ class TestCacheChildDerivation(_PureResolutionTestCase):
         self.assertNotEqual(versioning, blobs)
         self.assertEqual(versioning.parent, root)
         self.assertEqual(blobs.parent, root / "runtime-artifacts")
+
+
+class TestPureResolutionFunctionsHaveNoFilesystemIO(_PureResolutionTestCase):
+    """8.10 — every pure resolution function stays filesystem-free.
+
+    The capability migration must not leak filesystem access into the
+    lexical layer, so every public resolver and named-child derivation runs
+    under the no-filesystem-I/O guard.
+    """
+
+    def test_resolution_and_derivation_never_touch_the_filesystem(self) -> None:
+        cache_storage = _cache_storage()
+        home = Path("/home/testuser")
+        with self.assert_no_filesystem_io():
+            cache_storage.resolve_default_root("/xdg/cache", home=home)
+            cache_storage.resolve_default_root(None, home=home)
+            cache_storage.resolve_local_root(
+                "/xdg/cache/custom", xdg_cache_home="/xdg/cache", home=home
+            )
+            cache_storage.resolve_local_root(
+                None, xdg_cache_home="/xdg/cache", home=home
+            )
+            root = cache_storage.resolve_effective_root(
+                None, xdg_cache_home="/xdg/cache", home=home
+            )
+            cache_storage.versioning_child(root)
+            cache_storage.runtime_artifacts_child(root)
+            cache_storage.runtime_artifacts_blobs_child(root)
+            cache_storage.runtime_artifacts_tmp_child(root)
+            cache_storage.runtime_artifacts_locks_child(root)

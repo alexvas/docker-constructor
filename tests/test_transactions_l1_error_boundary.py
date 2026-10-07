@@ -889,6 +889,15 @@ class _InventoryRule:
         ("docker/versioning/build_cache.py", "state.close"),
         ("docker/versioning/project_state.py", "self.close"),
     }
+    # Consumers that hold raw-``OSError`` foundation capabilities and
+    # deliberately keep a descriptor release failure raw instead of
+    # classifying it as a transaction close stage.  The foundation owns the
+    # primitive; cache storage is a lightweight consumer that must not import
+    # the transaction substrate to obtain ``CloseStageFailure``.
+    RAW_OSERROR_CLOSE_MODULES = (
+        "docker/filesystem/",
+        "docker/versioning/cache_storage.py",
+    )
 
     @classmethod
     def modules(cls):
@@ -925,8 +934,9 @@ class RepositoryCloseInventoryTests(_InventoryRule, unittest.TestCase):
             if not (isinstance(action, ast.Attribute) and action.attr == "close"):
                 continue
             rendered = ast.unparse(action)
-            if rel.startswith("docker/filesystem/"):
-                # The foundation intentionally keeps raw ``OSError`` release.
+            if rel.startswith(self.RAW_OSERROR_CLOSE_MODULES):
+                # The foundation intentionally keeps raw ``OSError`` release;
+                # cache storage consumes it without the transaction substrate.
                 continue
             seen += 1
             if (rel, rendered) in self.RAW_CLOSE_ACTIONS:
@@ -962,7 +972,7 @@ class RepositoryCloseInventoryTests(_InventoryRule, unittest.TestCase):
 
     def test_no_capability_close_is_wrapped_only_by_oserror(self) -> None:
         for rel, path in self.modules():
-            if rel.startswith("docker/filesystem/"):
+            if rel.startswith(self.RAW_OSERROR_CLOSE_MODULES):
                 continue
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for node in ast.walk(tree):

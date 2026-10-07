@@ -279,27 +279,27 @@ Within each phase, work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### RED
 
-- [ ] 8.1 Add cache walker tests proving parent-close failure is not retried and an opened child is released once and never leaked; verify the new cases fail against the raw handoff implementation.
-- [ ] 8.2 Add cache validation/creation tests proving ownership, type, mode, and publication failures remain primary over ordinary descriptor-close failures with secondary diagnostics retained; verify the new cases fail.
-- [ ] 8.3 Add architecture tests allowing only the design-specified explicit `docker.filesystem` imports while continuing to reject `docker.transactions`, aggregate filesystem imports, and higher cache consumers; verify the positive adoption case fails before migration.
-- [ ] 8.4 Add passing pre-migration characterization tests pinning pure path resolution, XDG behavior, `0700` hardening, parent non-mutation, recovery guidance, and `CacheStorageError`/`InventoryError` mapping; verify these cases pass before migration.
+- [x] 8.1 Add cache walker tests proving parent-close failure is not retried and an opened child is released once and never leaked; verify the new cases fail against the raw handoff implementation.
+- [x] 8.2 Add cache validation/creation tests proving ownership, type, mode, and publication failures remain primary over ordinary descriptor-close failures with secondary diagnostics retained; verify the new cases fail.
+- [x] 8.3 Add architecture tests allowing only the design-specified explicit `docker.filesystem` imports while continuing to reject `docker.transactions`, aggregate filesystem imports, and higher cache consumers; verify the positive adoption case fails before migration.
+- [x] 8.4 Add passing pre-migration characterization tests pinning pure path resolution, XDG behavior, `0700` hardening, parent non-mutation, recovery guidance, and `CacheStorageError`/`InventoryError` mapping; verify these cases pass before migration.
 
 ### GREEN
 
-- [ ] 8.5 Migrate `_open_parent_fd()` traversal to `DirectoryDescriptor.open_secure_path()`/child operations while preserving cache-specific root policy and labels; verify task 8.1 passes.
-- [ ] 8.6 Migrate cache directory inspection and create/secure helpers to capabilities while preserving ownership and mode policy; verify the relevant cases in tasks 8.2 and 8.4 pass.
-- [ ] 8.7 Migrate `open_private_entry()`, `publish_private_entry()`, and explicit-XDG directory ownership only where covered by the directory foundation, leaving regular-file ownership and cache policy local; verify the remaining cases in task 8.2 pass.
-- [ ] 8.8 Update `_CACHE_STORAGE_ALLOWED_IMPORTS` to admit the exact explicit lightweight submodules used by `cache_storage.py` and no aggregate package; verify task 8.3 passes.
+- [x] 8.5 Migrate `_open_parent_fd()` traversal to `DirectoryDescriptor.open_secure_path()`/child operations while preserving cache-specific root policy and labels; verify task 8.1 passes.
+- [x] 8.6 Migrate cache directory inspection and create/secure helpers to capabilities while preserving ownership and mode policy; verify the relevant cases in tasks 8.2 and 8.4 pass.
+- [x] 8.7 Migrate `open_private_entry()`, `publish_private_entry()`, and explicit-XDG directory ownership only where covered by the directory foundation, leaving regular-file ownership and cache policy local; verify the remaining cases in task 8.2 pass.
+- [x] 8.8 Update `_CACHE_STORAGE_ALLOWED_IMPORTS` to admit the exact explicit lightweight submodules used by `cache_storage.py` and no aggregate package; verify task 8.3 passes.
 
 ### INTROSPECT
 
-- [ ] 8.9 Add an AST test proving `cache_storage.py` has no raw `os.close()` for migrated owned-directory lifecycles and still contains all cache-root resolution and security-policy functions; verify the ownership boundary passes.
-- [ ] 8.10 Run the no-filesystem-I/O guard over every pure resolution function and verify the capability migration introduced no filesystem access into the pure layer.
-- [ ] 8.11 Add reverse-dependency assertions that `docker.filesystem` imports neither `docker.versioning` nor `docker.transactions` and that no cache consumer gains cache-root policy authority; verify the dependency direction passes.
+- [x] 8.9 Add an AST test proving `cache_storage.py` has no raw `os.close()` for migrated owned-directory lifecycles and still contains all cache-root resolution and security-policy functions; verify the ownership boundary passes.
+- [x] 8.10 Run the no-filesystem-I/O guard over every pure resolution function and verify the capability migration introduced no filesystem access into the pure layer.
+- [x] 8.11 Add reverse-dependency assertions that `docker.filesystem` imports neither `docker.versioning` nor `docker.transactions` and that no cache consumer gains cache-root policy authority; verify the dependency direction passes.
 
 ### VALIDATE
 
-- [ ] 8.12 Run `python -m unittest tests.versioning.test_cache_storage tests.versioning.test_cache_storage_security tests.test_ownership_cutover_phase5 tests.test_cache_root_ownership_phase3 tests.test_moved_local_state_obligations_phase5` and require all tests to pass before Phase 9.
+- [x] 8.12 Run `python -m unittest tests.versioning.test_cache_storage tests.versioning.test_cache_storage_security tests.test_ownership_cutover_phase5 tests.test_cache_root_ownership_phase3 tests.test_moved_local_state_obligations_phase5` and require all tests to pass before Phase 9.
 
 ## 9. Convergence, Audit, and Release Gate
 
