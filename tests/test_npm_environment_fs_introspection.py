@@ -13,6 +13,8 @@ from __future__ import annotations
 import inspect
 import unittest
 
+from docker.filesystem import descriptors as descriptors_module
+from docker.filesystem import operations as operations_module
 from docker.npm_environment import storage as storage_module
 from docker.npm_environment import tree as tree_module
 
@@ -22,8 +24,12 @@ def _source(module) -> str:
 
 
 class TestNoFollowEnforcement(unittest.TestCase):
-    def test_storage_uses_o_nofollow(self):
-        self.assertIn("O_NOFOLLOW", _source(storage_module))
+    def test_storage_delegates_o_nofollow_walks(self):
+        # Phase 6 moved descriptor mechanics to the lightweight foundation;
+        # storage keeps the domain error mapping and delegates the no-follow
+        # open/walk to ``DirectoryDescriptor``.
+        self.assertIn("open_secure_path", _source(storage_module))
+        self.assertIn("O_NOFOLLOW", _source(descriptors_module))
 
     def test_tree_uses_o_nofollow(self):
         self.assertIn("O_NOFOLLOW", _source(tree_module))
@@ -44,17 +50,26 @@ class TestNoFollowEnforcement(unittest.TestCase):
 
 class TestUmaskIndependence(unittest.TestCase):
     def test_modes_are_explicit_not_umask_derived(self):
-        src = _source(storage_module) + _source(tree_module)
-        # Every directory creation passes an explicit 0o700 mode; every
-        # private file is clamped via fchmod, never via umask arithmetic.
+        src = _source(storage_module)
+        foundation = _source(descriptors_module)
+        # Storage passes an explicit 0o700 mode to the foundation; every
+        # created/clamped directory mode is applied via fchmod on an opened
+        # descriptor, never via umask arithmetic.
         self.assertIn("0o700", src)
-        self.assertIn("fchmod", src)
-        self.assertNotIn("umask", src)
+        self.assertIn("fchmod", foundation)
+        self.assertNotIn("umask", src + foundation)
 
     def test_created_dirs_use_descriptor_relative_mkdir(self):
-        src = _source(storage_module)
-        self.assertIn("os.mkdir", src)
-        self.assertIn("dir_fd", src)
+        storage_src = _source(storage_module)
+        ops_src = _source(operations_module)
+        # Storage composes the single-basename capability operations; the
+        # descriptor-relative mkdir stays in the foundation adapter.
+        self.assertTrue(
+            "open_or_create_directory" in storage_src
+            or "create_directory" in storage_src
+        )
+        self.assertIn("os.mkdir", ops_src)
+        self.assertIn("dir_fd", ops_src)
 
 
 class TestNpmCacheAuthority(unittest.TestCase):

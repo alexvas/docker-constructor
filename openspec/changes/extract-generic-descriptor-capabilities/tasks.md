@@ -222,27 +222,27 @@ Within each phase, work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### RED
 
-- [ ] 6.1 Add npm storage tests for secure-walk parent-close failure proving no repeated close and no leaked next descriptor; verify the new cases fail against the raw handoff implementation.
-- [ ] 6.2 Add staging-preparation tests proving fchmod/mkdir/open failures remain primary over ordinary descriptor-close failures and retain secondary diagnostics; verify the new cases fail.
-- [ ] 6.3 Add recursive-removal tests proving traversal/removal failures remain primary, each opened directory closes once, and domain-owned absence behavior is unchanged; verify the new cases fail.
-- [ ] 6.4 Add passing pre-migration characterization tests for namespace construction, pinning returned paths, `0700` modes, no-follow rejection, ownership rejection, `LockedNpmError.reason`, detail text, and operation order; verify these cases pass before production migration.
+- [x] 6.1 Add npm storage tests for secure-walk parent-close failure proving no repeated close and no leaked next descriptor; verify the new cases fail against the raw handoff implementation.
+- [x] 6.2 Add staging-preparation tests proving fchmod/mkdir/open failures remain primary over ordinary descriptor-close failures and retain secondary diagnostics; verify the new cases fail.
+- [x] 6.3 Add recursive-removal tests proving traversal/removal failures remain primary, each opened directory closes once, and domain-owned absence behavior is unchanged; verify the new cases fail.
+- [x] 6.4 Add passing pre-migration characterization tests for namespace construction, pinning returned paths, `0700` modes, no-follow rejection, ownership rejection, `LockedNpmError.reason`, detail text, and operation order; verify these cases pass before production migration.
 
 ### GREEN
 
-- [ ] 6.5 Replace `_open_directory_no_follow()` raw-fd walking with `DirectoryDescriptor.open_secure_path()` and existing domain error mapping; verify task 6.1 passes.
-- [ ] 6.6 Replace `_create_or_open_child()` raw ownership with `DirectoryDescriptor.open_or_create_directory()` while preserving `0700`, labels, and `LockedNpmError` mapping; verify namespace characterization remains green.
-- [ ] 6.7 Migrate `prepare_assembler_namespace()` descriptor ownership to nested capabilities without changing namespace sequencing or returned paths; verify task 6.4 passes.
-- [ ] 6.8 Migrate `prepare_staging_workspace()` descriptor ownership to capabilities without changing exclusive creation or domain diagnostics; verify task 6.2 passes.
-- [ ] 6.9 Migrate `_remove_entry()` and `remove_staging_workspace()` to primitive capability operations while retaining recursion and absence policy in `storage.py`; verify task 6.3 passes.
+- [x] 6.5 Replace `_open_directory_no_follow()` raw-fd walking with `DirectoryDescriptor.open_secure_path()` and existing domain error mapping; verify task 6.1 passes.
+- [x] 6.6 Replace `_create_or_open_child()` raw ownership with `DirectoryDescriptor.open_or_create_directory()` while preserving `0700`, labels, and `LockedNpmError` mapping; verify namespace characterization remains green.
+- [x] 6.7 Migrate `prepare_assembler_namespace()` descriptor ownership to nested capabilities without changing namespace sequencing or returned paths; verify task 6.4 passes.
+- [x] 6.8 Migrate `prepare_staging_workspace()` descriptor ownership to capabilities without changing exclusive creation or domain diagnostics; verify task 6.2 passes.
+- [x] 6.9 Migrate `_remove_entry()` and `remove_staging_workspace()` to primitive capability operations while retaining recursion and absence policy in `storage.py`; verify task 6.3 passes.
 
 ### INTROSPECT
 
-- [ ] 6.10 Add an AST test proving `storage.py` has no raw `os.close()` for owned directory descriptors and imports no `docker.transactions`; verify it imports only the explicit lightweight foundation submodules plus its existing dependencies.
-- [ ] 6.11 Add an API-negative test proving no npm path, assembler digest, namespace child, recursion, or `LockedNpmError` reason entered `docker.filesystem`; verify domain ownership remains in npm storage.
+- [x] 6.10 Add an AST test proving `storage.py` has no raw `os.close()` for owned directory descriptors and imports no `docker.transactions`; verify it imports only the explicit lightweight foundation submodules plus its existing dependencies.
+- [x] 6.11 Add an API-negative test proving no npm path, assembler digest, namespace child, recursion, or `LockedNpmError` reason entered `docker.filesystem`; verify domain ownership remains in npm storage.
 
 ### VALIDATE
 
-- [ ] 6.12 Run `python -m unittest tests.test_npm_environment_storage tests.test_transactions_phase8_npm_leaf_mechanics tests.test_transactions_phase8_npm_lock tests.test_npm_environment_phase9a_staging_cleanup` and require all tests to pass before Phase 7 or Phase 9.
+- [x] 6.12 Run `python -m unittest tests.test_npm_environment_storage tests.test_transactions_phase8_npm_leaf_mechanics tests.test_transactions_phase8_npm_lock tests.test_npm_environment_phase9a_staging_cleanup` and require all tests to pass before Phase 7 or Phase 9.
 
 ## 7. npm Tree Migration
 

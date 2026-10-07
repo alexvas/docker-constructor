@@ -78,6 +78,11 @@ _CAUSE_ACCESS_INVENTORY: dict[tuple[str, str], str] = {
         "docker/versioning/diagnostic_projection.py",
         "_exception_type_chain",
     ): "inspect-only",
+    ("docker/npm_environment/storage.py", "_foundation_cause"): "inspect-only",
+    ("docker/npm_environment/storage.py", "_failing_component"): "inspect-only",
+    ("docker/npm_environment/storage.py", "_open_failure_detail"): "inspect-only",
+    ("docker/npm_environment/storage.py", "_child_failure_detail"): "inspect-only",
+    ("docker/npm_environment/storage.py", "_create_staging_directory"): "inspect-only",
 }
 
 #: No production site is grandfathered as requiring the exact raw exception

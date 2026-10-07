@@ -32,6 +32,8 @@ if TYPE_CHECKING:
 
 _STAGE_CONSTRUCTION = "construct-descriptor"
 _STAGE_OPEN = "open-descriptor"
+_STAGE_CREATE = "create-descriptor"
+_STAGE_REOPEN = "reopen-descriptor"
 _STAGE_RELEASE = "release-descriptor"
 _STAGE_TRANSFER = "transfer-descriptor"
 _STAGE_VALIDATE = "validate-descriptor"
@@ -187,13 +189,21 @@ def _attempt_release(action: Callable[[], object], primary: BaseException) -> No
         raise result
 
 
-def _open_failure(name: str, cause: OSError) -> DescriptorError:
-    """Translate an ordinary open failure into a bounded foundation error."""
+def _open_failure(
+    name: str, cause: OSError, *, stage: str = _STAGE_OPEN
+) -> DescriptorError:
+    """Translate an ordinary open failure into a bounded foundation error.
+
+    *stage* records which generic operation issued the open (an initial or
+    existing child open, or the reopen that follows an exclusive create), so a
+    domain consumer can distinguish operations without inspecting the raw
+    ``OSError``.
+    """
     if cause.errno == errno.ELOOP:
         return UnsafeDescriptorError(
-            _STAGE_OPEN, f"{name!r} is not a safe directory", cause=cause
+            stage, f"{name!r} is not a safe directory", cause=cause
         )
-    return DescriptorError(_STAGE_OPEN, f"cannot open directory {name!r}", cause=cause)
+    return DescriptorError(stage, f"cannot open directory {name!r}", cause=cause)
 
 
 class DirectoryDescriptor(OwnedDescriptor):
@@ -429,11 +439,12 @@ class DirectoryDescriptor(OwnedDescriptor):
         *,
         require_owner: bool,
         secure_mode: int | None,
+        open_stage: str = _STAGE_OPEN,
     ) -> DirectoryDescriptor:
         try:
             fd = self._open_child_fd(base)
         except OSError as exc:
-            raise _open_failure(base, exc) from exc
+            raise _open_failure(base, exc, stage=open_stage) from exc
         return self._secure_and_adopt(
             fd,
             label=label,
@@ -466,20 +477,27 @@ class DirectoryDescriptor(OwnedDescriptor):
         label: str | None = None,
         require_owner: bool = True,
     ) -> DirectoryDescriptor:
-        """Create one child directory exclusively and validate it."""
+        """Create one child directory exclusively and validate it.
+
+        The exclusive ``mkdirat`` failure is reported at the create stage and
+        the open that follows a successful create at the reopen stage, so a
+        consumer can tell creation apart from the subsequent open without
+        inspecting the raw ``OSError``.
+        """
         base = self.child_basename(name)
         target_label = _validate_label(base if label is None else label)
         try:
             self._ops.mkdirat(self.fd, base, mode)
         except OSError as exc:
             raise DescriptorError(
-                _STAGE_OPEN, f"cannot create directory {base!r}", cause=exc
+                _STAGE_CREATE, f"cannot create directory {base!r}", cause=exc
             ) from exc
         return self._open_validated_child(
             base,
             target_label,
             require_owner=require_owner,
             secure_mode=mode,
+            open_stage=_STAGE_REOPEN,
         )
 
     def open_or_create_directory(
