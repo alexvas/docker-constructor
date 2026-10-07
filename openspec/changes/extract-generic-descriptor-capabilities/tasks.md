@@ -5,11 +5,11 @@ Every checkbox below is an atomic obligation. A task is complete only when its n
 The phases form this dependency DAG; a phase may use deliverables only from its listed predecessors:
 
 ```text
-Phase 1 ─▶ Phase 2 ─▶ Phase 3 ─┬─▶ Phase 4 ───────────────┐
-                               ├─▶ Phase 5 ─▶ Phase 6 ────┤
-                               └─▶ Phase 7 ───────────────┤
-                                                         ▼
-                                                      Phase 8
+Phase 1 ─▶ Phase 2 ─▶ Phase 3 ─┬─▶ Phase 4 ─▶ Phase 5 ─┐
+                               ├─▶ Phase 6 ─▶ Phase 7 ─┤
+                               └─▶ Phase 8 ────────────┤
+                                                      ▼
+                                                   Phase 9
 ```
 
 Within each phase, work proceeds strictly `RED → GREEN → INTROSPECT → VALIDATE`. RED tasks modify tests only. New contract tests must demonstrate the unmet contract, while characterization tests must pass before production migration to establish a behavioral baseline. GREEN tasks make the minimum production change required by that phase. INTROSPECT tasks bind static API and architecture properties. VALIDATE tasks execute the phase gate.
@@ -111,7 +111,7 @@ Within each phase, work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### VALIDATE
 
-- [x] 3.19 Run `python -m unittest tests.test_filesystem_cleanup tests.test_filesystem_descriptor_operations tests.test_filesystem_owned_descriptors tests.test_filesystem_directory_descriptors` and require all tests to pass before Phases 4, 5, or 7 start.
+- [x] 3.19 Run `python -m unittest tests.test_filesystem_cleanup tests.test_filesystem_descriptor_operations tests.test_filesystem_owned_descriptors tests.test_filesystem_directory_descriptors` and require all tests to pass before Phases 4, 6, or 8 start.
 
 ## 4. Transaction Capability Integration
 
@@ -137,10 +137,51 @@ Within each phase, work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### VALIDATE
 
-- [x] 4.8 Run `python -m unittest tests.test_transactions_descriptor_integration tests.test_transactions_l0_posix tests.test_transactions_l1_capabilities tests.test_transactions_locking tests.test_transactions_l2_atomic tests.test_transactions_l2_durable tests.test_transactions_l2_lifecycle tests.test_transactions_phase9_boundaries` and require the existing `DirectoryCapability.from_fd()` signature, success-transfer, validation-failure ownership, and close-lifecycle tests to pass before Phase 8.
-- [x] 4.9 Run `python -m unittest tests.test_constructor_build_generation_integration tests.test_constructor_build_cleanup tests.test_transactions_phase9a_build_cache_cleanup tests.test_transactions_phase9a_project_state_cleanup tests.test_transactions_phase9a_specialized` and require every production consumer that transfers a raw fd through `DirectoryCapability.from_fd()` to pass before Phase 8.
+- [x] 4.8 Run `python -m unittest tests.test_transactions_descriptor_integration tests.test_transactions_l0_posix tests.test_transactions_l1_capabilities tests.test_transactions_locking tests.test_transactions_l2_atomic tests.test_transactions_l2_durable tests.test_transactions_l2_lifecycle tests.test_transactions_phase9_boundaries` and require the existing `DirectoryCapability.from_fd()` signature, success-transfer, validation-failure ownership, and close-lifecycle tests to pass before Phase 5.
+- [x] 4.9 Run `python -m unittest tests.test_constructor_build_generation_integration tests.test_constructor_build_cleanup tests.test_transactions_phase9a_build_cache_cleanup tests.test_transactions_phase9a_project_state_cleanup tests.test_transactions_phase9a_specialized` and require every production consumer that transfers a raw fd through `DirectoryCapability.from_fd()` to pass before Phase 5.
 
-## 5. npm Storage Migration
+## 5. Transaction L1 Error Boundary
+
+**Depends on:** Phase 4.
+
+**Deliverables:** one typed public L1 boundary for operational directory open, descriptor stat, regular-file read, and capability close failures; raw POSIX causes remain inspectable without escaping as the public exception; unchanged capability-misuse, unsafe-object, process-control, ownership-transfer, and cleanup-precedence contracts.
+
+### RED
+
+- [ ] 5.1 Add `tests/test_transactions_l1_error_boundary.py` contracts proving `DirectoryCapability.from_path()` and `from_secure_path()` map root, intermediate, leaf, and direct operational open errors other than no-follow `ELOOP`/`ENOTDIR` rejections to `TransactionError(STAGE_OPEN, ...)`, where public `STAGE_OPEN == "open-directory"`, with the exact original error as `cause` and `__cause__`; verify the inconsistent pre-normalization cases fail.
+- [ ] 5.2 Add injected `ELOOP` and `ENOTDIR` plus real-symlink cases proving platform-dependent no-follow rejection remains a `CapabilityError` safety outcome with the raw error as direct `__cause__` for direct and secure paths; require real-path tests to accept either errno and verify these characterization cases pass before migration and remain green afterward.
+- [ ] 5.3 Add `DirectoryCapability.from_fd()` and path-factory stat-failure contracts proving each raises `TransactionError(STAGE_VALIDATE, ...)` with the original `OSError`, while `from_fd()` leaves the descriptor caller-owned, open, and never closed; verify the raw-error expectations fail before migration.
+- [ ] 5.4 Add `FileCapability.read_all()` contracts proving read failures raise `TransactionError(STAGE_READ, ...)` with the exact raw cause and leave release responsibility unchanged; verify they fail before migration.
+- [ ] 5.5 Add directory and file capability release contracts proving an ordinary direct `close()` failure raises `TransactionError(STAGE_CLOSE, ...)`, marks release terminal before close, and is never retried; additionally cover `DirectoryCapability` context-manager exit without an active failure and verify the typed-error cases fail before migration.
+- [ ] 5.6 Add active-primary cleanup contracts proving the `DirectoryCapability` context manager preserves the primary exception, attaches the typed close failure with its raw cause as secondary diagnostic context, and propagates process-control exceptions unchanged; verify only the typed-secondary assertions fail before migration.
+- [ ] 5.7 Add a repository-wide AST inventory of every direct and indirect consumer of changed L1 operations, covering capability close calls, wrappers and aliases, `CleanupFailures.run`, direct `except OSError` handlers, deliberate suppression, downstream translation, L2 adapters, and domain mappings; add focused RED cases for npm publication plus versioning build-cache, artifact-cache, build-cleanup, and effective-state paths proving typed close failures retain each boundary's existing policy.
+- [ ] 5.8 Add direct-close regression tests for npm publication `read_index()`, `_append_index()`, and `_read_private_regular()` proving typed close failures preserve advisory/best-effort behavior, never replace an active read failure, and still allow process-control exceptions to propagate; verify the current `except OSError` handlers fail these cases.
+- [ ] 5.9 Add `RegularFileContracts.validated_read()` regression tests proving a successful read followed by close failure propagates the existing `TransactionError(STAGE_CLOSE, ...)` object unchanged with the original `OSError` as both `.cause` and `.__cause__`, while a read failure followed by close failure keeps the read failure primary and the typed close failure secondary; verify the current wrapping/ordinary classification fails.
+- [ ] 5.10 Add characterization and RED cases for every direct or indirect consumer that catches or maps raw `OSError` from a capability factory or validation path, including `build_cleanup.py` factory mapping, proving the eventual typed transaction error preserves the existing domain result, raw cause, and secondary diagnostics while boundaries that still receive raw POSIX failures retain their `OSError` handling; verify only expectations affected by normalization fail.
+- [ ] 5.11 Revise the existing transaction and consumer tests included by the Phase 5 gates so cases that intentionally pin raw `OSError` or operational `CapabilityError` expect the new typed stage/cause contract, while misuse, no-follow `ELOOP`/`ENOTDIR`, safety, ownership, and process-control expectations remain unchanged; verify the revised tests fail only where Phase 5 production behavior is not yet implemented.
+- [ ] 5.12 Add passing characterization tests for capability misuse, unsafe basename/object classification, directory authority mismatch, validation policy failures, public signatures including the absence of `FileCapability.__enter__` and `__exit__`, ownership transfer, and L0 raw-error behavior; verify this unaffected boundary is green before production edits.
+
+### GREEN
+
+- [ ] 5.13 Add public `STAGE_OPEN = "open-directory"` to `docker.transactions.errors` without changing existing stage values or transaction aggregate exports; verify exact name, value, identity, and direct-module import compatibility tests pass.
+- [ ] 5.14 Normalize directory open and stat failures in `DirectoryCapability.from_path()`, `from_secure_path()`, and `from_fd()` to the specified typed transaction stages while preserving exact causes, labels, caller ownership, no-follow behavior, `ELOOP`/`ENOTDIR` safety classification, and secondary diagnostics; verify tasks 5.1–5.3 pass.
+- [ ] 5.15 Normalize `FileCapability.read_all()` operational failures to `TransactionError(STAGE_READ, ...)` while retaining the original cause and capability lifecycle; verify task 5.4 passes.
+- [ ] 5.16 Normalize `DirectoryCapability.close()` and `FileCapability.close()` ordinary operational failures to `TransactionError(STAGE_CLOSE, ...)` after the irreversible release transition; preserve no-op repeat close and unwrapped process-control exceptions for both, preserve `DirectoryCapability` active-primary precedence and typed secondary diagnostics, and add no context-manager methods to `FileCapability`; verify tasks 5.5, 5.6, and 5.12 pass.
+- [ ] 5.17 Adapt every close boundary from task 5.7, including cleanup accumulators, direct handlers, wrappers, suppressors, L2 adapters, and domain translators, to recognize only close-stage `TransactionError` and preserve each site's existing suppression, propagation, active-primary, secondary-diagnostic, or domain-mapping policy without swallowing unrelated transaction failures; verify tasks 5.7 and 5.8 pass.
+- [ ] 5.18 Adapt every inventoried direct and indirect capability factory/validation mapping to consume typed transaction failures where applicable, preserve domain outcomes, raw causes, and secondary diagnostics, and retain `OSError` handling wherever the same boundary still receives raw POSIX failures; verify task 5.10 passes.
+- [ ] 5.19 Update `RegularFileContracts.validated_read()` to pass an already typed close error through unchanged, translate a raw close `OSError` only where still possible, and preserve read-primary/close-secondary precedence; verify the cause-identity and dual-failure cases in task 5.9 pass.
+
+### INTROSPECT
+
+- [ ] 5.20 Add an AST/behavior boundary test proving no public method of `DirectoryCapability` or `FileCapability` directly exposes an operational `OSError`, while `PosixFileOps` remains the raw fault-injection boundary; verify misuse and safety errors, including directory-open `ELOOP`/`ENOTDIR`, are not accidentally collapsed into `TransactionError`.
+- [ ] 5.21 Inspect every public L1 capability method and every affected direct or indirect L2/domain boundary from task 5.7, and record its misuse, safety, operational, process-control, cleanup, suppression, wrapping, and domain-mapping classification in the focused test module; verify the inventory is exhaustive, every `TransactionError` raw cause is reachable through both `.cause` and `.__cause__`, and retained `CapabilityError` safety rejections expose the raw error through `.__cause__` without adding a `.cause` contract.
+
+### VALIDATE
+
+- [ ] 5.22 Run `python -m unittest tests.test_transactions_l1_error_boundary tests.test_transactions_descriptor_integration tests.test_transactions_l0_posix tests.test_transactions_l1_capabilities tests.test_transactions_locking tests.test_transactions_l2_atomic tests.test_transactions_l2_durable tests.test_transactions_l2_lifecycle tests.test_transactions_phase9_boundaries` and require the uniform L1/L2 boundary, close-error identity, revised legacy expectations, and existing ownership and integration contracts to pass before Phase 9.
+- [ ] 5.23 Run `python -m unittest tests.test_npm_environment_publication_cleanup tests.test_npm_environment_publication tests.test_transactions_phase9a_build_cache_cleanup tests.test_transactions_phase9a_specialized tests.test_transactions_phase6_effective_projection tests.test_constructor_build_cleanup tests.test_constructor_build_generation_integration tests.test_transactions_phase9a_project_state_cleanup` plus every additional regression module identified by the task 5.7 and 5.10 inventories, and require all direct handlers, cleanup accumulators, L2 adapters, factory mappings, suppressors, and domain translators to preserve their specified failure policies before Phase 9.
+
+## 6. npm Storage Migration
 
 **Depends on:** Phase 3.
 
@@ -148,56 +189,56 @@ Within each phase, work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### RED
 
-- [ ] 5.1 Add npm storage tests for secure-walk parent-close failure proving no repeated close and no leaked next descriptor; verify the new cases fail against the raw handoff implementation.
-- [ ] 5.2 Add staging-preparation tests proving fchmod/mkdir/open failures remain primary over ordinary descriptor-close failures and retain secondary diagnostics; verify the new cases fail.
-- [ ] 5.3 Add recursive-removal tests proving traversal/removal failures remain primary, each opened directory closes once, and domain-owned absence behavior is unchanged; verify the new cases fail.
-- [ ] 5.4 Add passing pre-migration characterization tests for namespace construction, pinning returned paths, `0700` modes, no-follow rejection, ownership rejection, `LockedNpmError.reason`, detail text, and operation order; verify these cases pass before production migration.
+- [ ] 6.1 Add npm storage tests for secure-walk parent-close failure proving no repeated close and no leaked next descriptor; verify the new cases fail against the raw handoff implementation.
+- [ ] 6.2 Add staging-preparation tests proving fchmod/mkdir/open failures remain primary over ordinary descriptor-close failures and retain secondary diagnostics; verify the new cases fail.
+- [ ] 6.3 Add recursive-removal tests proving traversal/removal failures remain primary, each opened directory closes once, and domain-owned absence behavior is unchanged; verify the new cases fail.
+- [ ] 6.4 Add passing pre-migration characterization tests for namespace construction, pinning returned paths, `0700` modes, no-follow rejection, ownership rejection, `LockedNpmError.reason`, detail text, and operation order; verify these cases pass before production migration.
 
 ### GREEN
 
-- [ ] 5.5 Replace `_open_directory_no_follow()` raw-fd walking with `DirectoryDescriptor.open_secure_path()` and existing domain error mapping; verify task 5.1 passes.
-- [ ] 5.6 Replace `_create_or_open_child()` raw ownership with `DirectoryDescriptor.open_or_create_directory()` while preserving `0700`, labels, and `LockedNpmError` mapping; verify namespace characterization remains green.
-- [ ] 5.7 Migrate `prepare_assembler_namespace()` descriptor ownership to nested capabilities without changing namespace sequencing or returned paths; verify task 5.4 passes.
-- [ ] 5.8 Migrate `prepare_staging_workspace()` descriptor ownership to capabilities without changing exclusive creation or domain diagnostics; verify task 5.2 passes.
-- [ ] 5.9 Migrate `_remove_entry()` and `remove_staging_workspace()` to primitive capability operations while retaining recursion and absence policy in `storage.py`; verify task 5.3 passes.
+- [ ] 6.5 Replace `_open_directory_no_follow()` raw-fd walking with `DirectoryDescriptor.open_secure_path()` and existing domain error mapping; verify task 6.1 passes.
+- [ ] 6.6 Replace `_create_or_open_child()` raw ownership with `DirectoryDescriptor.open_or_create_directory()` while preserving `0700`, labels, and `LockedNpmError` mapping; verify namespace characterization remains green.
+- [ ] 6.7 Migrate `prepare_assembler_namespace()` descriptor ownership to nested capabilities without changing namespace sequencing or returned paths; verify task 6.4 passes.
+- [ ] 6.8 Migrate `prepare_staging_workspace()` descriptor ownership to capabilities without changing exclusive creation or domain diagnostics; verify task 6.2 passes.
+- [ ] 6.9 Migrate `_remove_entry()` and `remove_staging_workspace()` to primitive capability operations while retaining recursion and absence policy in `storage.py`; verify task 6.3 passes.
 
 ### INTROSPECT
 
-- [ ] 5.10 Add an AST test proving `storage.py` has no raw `os.close()` for owned directory descriptors and imports no `docker.transactions`; verify it imports only the explicit lightweight foundation submodules plus its existing dependencies.
-- [ ] 5.11 Add an API-negative test proving no npm path, assembler digest, namespace child, recursion, or `LockedNpmError` reason entered `docker.filesystem`; verify domain ownership remains in npm storage.
+- [ ] 6.10 Add an AST test proving `storage.py` has no raw `os.close()` for owned directory descriptors and imports no `docker.transactions`; verify it imports only the explicit lightweight foundation submodules plus its existing dependencies.
+- [ ] 6.11 Add an API-negative test proving no npm path, assembler digest, namespace child, recursion, or `LockedNpmError` reason entered `docker.filesystem`; verify domain ownership remains in npm storage.
 
 ### VALIDATE
 
-- [ ] 5.12 Run `python -m unittest tests.test_npm_environment_storage tests.test_transactions_phase8_npm_leaf_mechanics tests.test_transactions_phase8_npm_lock tests.test_npm_environment_phase9a_staging_cleanup` and require all tests to pass before Phase 6 or Phase 8.
+- [ ] 6.12 Run `python -m unittest tests.test_npm_environment_storage tests.test_transactions_phase8_npm_leaf_mechanics tests.test_transactions_phase8_npm_lock tests.test_npm_environment_phase9a_staging_cleanup` and require all tests to pass before Phase 7 or Phase 9.
 
-## 6. npm Tree Migration
+## 7. npm Tree Migration
 
-**Depends on:** Phases 3 and 5.
+**Depends on:** Phases 3 and 6.
 
 **Deliverables:** `docker/npm_environment/tree.py` uses `DirectoryDescriptor` for traversal, manifest construction, and verification; manifest bytes, containment rules, and domain errors remain stable; recursive traversal remains domain-owned.
 
 ### RED
 
-- [ ] 6.1 Add tree traversal tests proving an enumeration/stat/hash failure remains primary over ordinary subdirectory-close failure and every opened directory receives one close attempt; verify the new cases fail against raw closes.
-- [ ] 6.2 Add root-open and root-release tests proving validation failures preserve secondary close diagnostics and manifest/verification root descriptors are never closed twice; verify the new cases fail.
-- [ ] 6.3 Add passing pre-migration characterization tests pinning canonical manifest bytes, canonical tree digest, entry ordering, no-follow behavior, symlink containment, unsafe-type rejection, and existing `LockedNpmError` mappings; verify these cases pass before migration.
+- [ ] 7.1 Add tree traversal tests proving an enumeration/stat/hash failure remains primary over ordinary subdirectory-close failure and every opened directory receives one close attempt; verify the new cases fail against raw closes.
+- [ ] 7.2 Add root-open and root-release tests proving validation failures preserve secondary close diagnostics and manifest/verification root descriptors are never closed twice; verify the new cases fail.
+- [ ] 7.3 Add passing pre-migration characterization tests pinning canonical manifest bytes, canonical tree digest, entry ordering, no-follow behavior, symlink containment, unsafe-type rejection, and existing `LockedNpmError` mappings; verify these cases pass before migration.
 
 ### GREEN
 
-- [ ] 6.4 Migrate `_open_tree_root()` to `DirectoryDescriptor.open_secure_path()` or `adopt()` as appropriate while preserving domain error mapping; verify the root-open cases in task 6.2 pass.
-- [ ] 6.5 Migrate `_iter_entries()` directory ownership to `open_directory()` and `list_names()` while retaining recursion in `tree.py`; verify task 6.1 passes.
-- [ ] 6.6 Migrate `build_tree_manifest()` and `verify_tree()` root lifecycle to capabilities without changing manifest or verification semantics; verify tasks 6.2 and 6.3 pass.
+- [ ] 7.4 Migrate `_open_tree_root()` to `DirectoryDescriptor.open_secure_path()` or `adopt()` as appropriate while preserving domain error mapping; verify the root-open cases in task 7.2 pass.
+- [ ] 7.5 Migrate `_iter_entries()` directory ownership to `open_directory()` and `list_names()` while retaining recursion in `tree.py`; verify task 7.1 passes.
+- [ ] 7.6 Migrate `build_tree_manifest()` and `verify_tree()` root lifecycle to capabilities without changing manifest or verification semantics; verify tasks 7.2 and 7.3 pass.
 
 ### INTROSPECT
 
-- [ ] 6.7 Add an AST test proving `tree.py` has no raw `os.close()` for owned directory descriptors, imports no `docker.transactions`, and still owns its recursive traversal functions; verify all assertions pass.
-- [ ] 6.8 Compare pre- and post-migration canonical fixture manifests and digests byte-for-byte; verify there is no serialized or identity drift.
+- [ ] 7.7 Add an AST test proving `tree.py` has no raw `os.close()` for owned directory descriptors, imports no `docker.transactions`, and still owns its recursive traversal functions; verify all assertions pass.
+- [ ] 7.8 Compare pre- and post-migration canonical fixture manifests and digests byte-for-byte; verify there is no serialized or identity drift.
 
 ### VALIDATE
 
-- [ ] 6.9 Run the focused npm tree, validation, serialization, publication, and Phase 8 leaf-mechanics test modules selected by test discovery for `npm_environment`; require all selected tests to pass before Phase 8.
+- [ ] 7.9 Run the focused npm tree, validation, serialization, publication, and Phase 8 leaf-mechanics test modules selected by test discovery for `npm_environment`; require all selected tests to pass before Phase 9.
 
-## 7. Cache Storage Migration
+## 8. Cache Storage Migration
 
 **Depends on:** Phase 3.
 
@@ -205,53 +246,53 @@ Within each phase, work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### RED
 
-- [ ] 7.1 Add cache walker tests proving parent-close failure is not retried and an opened child is released once and never leaked; verify the new cases fail against the raw handoff implementation.
-- [ ] 7.2 Add cache validation/creation tests proving ownership, type, mode, and publication failures remain primary over ordinary descriptor-close failures with secondary diagnostics retained; verify the new cases fail.
-- [ ] 7.3 Add architecture tests allowing only the design-specified explicit `docker.filesystem` imports while continuing to reject `docker.transactions`, aggregate filesystem imports, and higher cache consumers; verify the positive adoption case fails before migration.
-- [ ] 7.4 Add passing pre-migration characterization tests pinning pure path resolution, XDG behavior, `0700` hardening, parent non-mutation, recovery guidance, and `CacheStorageError`/`InventoryError` mapping; verify these cases pass before migration.
+- [ ] 8.1 Add cache walker tests proving parent-close failure is not retried and an opened child is released once and never leaked; verify the new cases fail against the raw handoff implementation.
+- [ ] 8.2 Add cache validation/creation tests proving ownership, type, mode, and publication failures remain primary over ordinary descriptor-close failures with secondary diagnostics retained; verify the new cases fail.
+- [ ] 8.3 Add architecture tests allowing only the design-specified explicit `docker.filesystem` imports while continuing to reject `docker.transactions`, aggregate filesystem imports, and higher cache consumers; verify the positive adoption case fails before migration.
+- [ ] 8.4 Add passing pre-migration characterization tests pinning pure path resolution, XDG behavior, `0700` hardening, parent non-mutation, recovery guidance, and `CacheStorageError`/`InventoryError` mapping; verify these cases pass before migration.
 
 ### GREEN
 
-- [ ] 7.5 Migrate `_open_parent_fd()` traversal to `DirectoryDescriptor.open_secure_path()`/child operations while preserving cache-specific root policy and labels; verify task 7.1 passes.
-- [ ] 7.6 Migrate cache directory inspection and create/secure helpers to capabilities while preserving ownership and mode policy; verify the relevant cases in tasks 7.2 and 7.4 pass.
-- [ ] 7.7 Migrate `open_private_entry()`, `publish_private_entry()`, and explicit-XDG directory ownership only where covered by the directory foundation, leaving regular-file ownership and cache policy local; verify the remaining cases in task 7.2 pass.
-- [ ] 7.8 Update `_CACHE_STORAGE_ALLOWED_IMPORTS` to admit the exact explicit lightweight submodules used by `cache_storage.py` and no aggregate package; verify task 7.3 passes.
+- [ ] 8.5 Migrate `_open_parent_fd()` traversal to `DirectoryDescriptor.open_secure_path()`/child operations while preserving cache-specific root policy and labels; verify task 8.1 passes.
+- [ ] 8.6 Migrate cache directory inspection and create/secure helpers to capabilities while preserving ownership and mode policy; verify the relevant cases in tasks 8.2 and 8.4 pass.
+- [ ] 8.7 Migrate `open_private_entry()`, `publish_private_entry()`, and explicit-XDG directory ownership only where covered by the directory foundation, leaving regular-file ownership and cache policy local; verify the remaining cases in task 8.2 pass.
+- [ ] 8.8 Update `_CACHE_STORAGE_ALLOWED_IMPORTS` to admit the exact explicit lightweight submodules used by `cache_storage.py` and no aggregate package; verify task 8.3 passes.
 
 ### INTROSPECT
 
-- [ ] 7.9 Add an AST test proving `cache_storage.py` has no raw `os.close()` for migrated owned-directory lifecycles and still contains all cache-root resolution and security-policy functions; verify the ownership boundary passes.
-- [ ] 7.10 Run the no-filesystem-I/O guard over every pure resolution function and verify the capability migration introduced no filesystem access into the pure layer.
-- [ ] 7.11 Add reverse-dependency assertions that `docker.filesystem` imports neither `docker.versioning` nor `docker.transactions` and that no cache consumer gains cache-root policy authority; verify the dependency direction passes.
+- [ ] 8.9 Add an AST test proving `cache_storage.py` has no raw `os.close()` for migrated owned-directory lifecycles and still contains all cache-root resolution and security-policy functions; verify the ownership boundary passes.
+- [ ] 8.10 Run the no-filesystem-I/O guard over every pure resolution function and verify the capability migration introduced no filesystem access into the pure layer.
+- [ ] 8.11 Add reverse-dependency assertions that `docker.filesystem` imports neither `docker.versioning` nor `docker.transactions` and that no cache consumer gains cache-root policy authority; verify the dependency direction passes.
 
 ### VALIDATE
 
-- [ ] 7.12 Run `python -m unittest tests.versioning.test_cache_storage tests.versioning.test_cache_storage_security tests.test_ownership_cutover_phase5 tests.test_cache_root_ownership_phase3 tests.test_moved_local_state_obligations_phase5` and require all tests to pass before Phase 8.
+- [ ] 8.12 Run `python -m unittest tests.versioning.test_cache_storage tests.versioning.test_cache_storage_security tests.test_ownership_cutover_phase5 tests.test_cache_root_ownership_phase3 tests.test_moved_local_state_obligations_phase5` and require all tests to pass before Phase 9.
 
-## 8. Convergence, Audit, and Release Gate
+## 9. Convergence, Audit, and Release Gate
 
-**Depends on:** Phases 4, 5, 6, and 7.
+**Depends on:** Phases 4, 5, 6, 7, and 8.
 
 **Deliverables:** one implementation of generic descriptor ownership and secure walking; compatibility and architecture audits; complete verification evidence in `openspec/changes/extract-generic-descriptor-capabilities/verification.md`; all project checks green.
 
 ### RED
 
-- [ ] 8.1 Add a repository-wide AST contract enumerating every `docker.filesystem` public definition, compatibility re-export, migrated consumer import, forbidden reverse dependency, duplicate secure walker, and raw migrated owned-directory close; verify it detects an intentionally supplied violating fixture.
-- [ ] 8.2 Add an isolated import-matrix contract for `docker.filesystem`, transaction compatibility paths, npm storage/tree, and cache storage that records loaded project modules and rejects aggregate or reverse loading; verify it detects an intentionally supplied violating fixture.
+- [ ] 9.1 Add a repository-wide AST contract enumerating every `docker.filesystem` public definition, compatibility re-export, migrated consumer import, forbidden reverse dependency, duplicate secure walker, and raw migrated owned-directory close; verify it detects an intentionally supplied violating fixture.
+- [ ] 9.2 Add an isolated import-matrix contract for `docker.filesystem`, transaction compatibility paths, npm storage/tree, and cache storage that records loaded project modules and rejects aggregate or reverse loading; verify it detects an intentionally supplied violating fixture.
 
 ### GREEN
 
-- [ ] 8.3 Remove any remaining duplicate generic directory ownership or secure-walk implementation identified by task 8.1 without migrating a new consumer or changing domain policy; verify the repository-wide AST contract passes.
-- [ ] 8.4 Correct any remaining import leakage identified by task 8.2 without adding aggregate exports to `docker.filesystem`; verify the isolated import matrix passes.
+- [ ] 9.3 Remove any remaining duplicate generic directory ownership or secure-walk implementation identified by task 9.1 without migrating a new consumer or changing domain policy; verify the repository-wide AST contract passes.
+- [ ] 9.4 Correct any remaining import leakage identified by task 9.2 without adding aggregate exports to `docker.filesystem`; verify the isolated import matrix passes.
 
 ### INTROSPECT
 
-- [ ] 8.5 Run the repository-wide close inventory and record every remaining `os.close(fd)`/injected close as primitive, sole failure, deliberate swallow, protected cleanup, or explicitly out-of-scope consumer in `verification.md`; verify no migrated npm storage/tree or cache-storage owned-directory close remains unclassified.
-- [ ] 8.6 Record the final module DAG, exact public API signatures, compatibility object identities, negative API surface, and cache-storage allowlist in `verification.md`; verify each recorded claim is generated from an executable introspection check.
-- [ ] 8.7 Compare user-visible domain exceptions, persistent paths, modes, manifest bytes, identities, publication behavior, locks, and durability contracts against pre-change characterization tests; record the no-drift result in `verification.md`.
+- [ ] 9.5 Run the repository-wide close inventory and record every remaining `os.close(fd)`/injected close as primitive, sole failure, deliberate swallow, protected cleanup, or explicitly out-of-scope consumer in `verification.md`; verify no migrated npm storage/tree or cache-storage owned-directory close remains unclassified.
+- [ ] 9.6 Record the final module DAG, exact public API signatures, compatibility object identities, negative API surface, and cache-storage allowlist in `verification.md`; verify each recorded claim is generated from an executable introspection check.
+- [ ] 9.7 Compare user-visible domain exceptions, persistent paths, modes, manifest bytes, identities, publication behavior, locks, and durability contracts against pre-change characterization tests; record the no-drift result in `verification.md`.
 
 ### VALIDATE
 
-- [ ] 8.8 Run `ty check docker --python-version 3.14 --output-format concise` and record the passing output in `verification.md`.
-- [ ] 8.9 Run `python -m unittest discover -s tests -p 'test_*.py'` and record the total, skips, duration, and passing result in `verification.md`.
-- [ ] 8.10 Run `git diff --check` and record the clean result in `verification.md`.
-- [ ] 8.11 Run `openspec validate extract-generic-descriptor-capabilities --strict` and require the change to remain valid before marking the implementation complete.
+- [ ] 9.8 Run `ty check docker --python-version 3.14 --output-format concise` and record the passing output in `verification.md`.
+- [ ] 9.9 Run `python -m unittest discover -s tests -p 'test_*.py'` and record the total, skips, duration, and passing result in `verification.md`.
+- [ ] 9.10 Run `git diff --check` and record the clean result in `verification.md`.
+- [ ] 9.11 Run `openspec validate extract-generic-descriptor-capabilities --strict` and require the change to remain valid before marking the implementation complete.

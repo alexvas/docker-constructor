@@ -94,6 +94,61 @@ The generic foundation SHALL be available through the explicit modules `docker.f
 - **WHEN** a caller inspects `OwnedDescriptor` and `DirectoryDescriptor`
 - **THEN** it SHALL find `close`, `detach`, `open_secure_path`, `adopt`, `child_basename`, `open_directory`, `create_directory`, `open_or_create_directory`, `stat_child`, `list_names`, `unlink_child`, and `remove_child_directory` with the design-specified parameter contracts
 
+### Requirement: Present a uniform transaction L1 error boundary
+Public transaction L1 capability operations SHALL translate operational filesystem failures from directory open, descriptor validation, regular-file read, and descriptor release into typed transaction errors with a stable operation stage and the original failure retained as the direct cause. Capability misuse SHALL remain a capability error, unsafe filesystem objects SHALL retain their dedicated safety classification, and process-control exceptions SHALL propagate unchanged. Translation SHALL preserve ownership-transfer rules, irreversible close attempts, active-primary precedence, and secondary cleanup diagnostics.
+
+#### Scenario: Directory acquisition fails at any walk position
+- **WHEN** opening the filesystem root, an intermediate component, the final directory, or a direct path reports an operational filesystem failure other than a no-follow symlink rejection
+- **THEN** the transaction L1 boundary SHALL raise the same typed transaction error classification and operation stage regardless of walk position
+- **AND** SHALL retain the original filesystem failure as its direct cause
+
+#### Scenario: Directory acquisition rejects a symlink or non-directory
+- **WHEN** a no-follow directory open reports `ELOOP` or `ENOTDIR` for a symlink or non-directory component
+- **THEN** transaction L1 SHALL preserve its capability-safety rejection classification rather than treating it as an operational open failure
+- **AND** SHALL retain the original filesystem failure as the direct exception cause without requiring a separate capability-error cause attribute
+
+#### Scenario: Caller-owned descriptor validation cannot stat
+- **WHEN** transaction L1 validates a caller-provided descriptor and its stat operation fails
+- **THEN** it SHALL raise a typed transaction validation error caused by the original filesystem failure
+- **AND** SHALL leave the descriptor caller-owned and issue no close operation
+
+#### Scenario: Validated file read fails
+- **WHEN** reading through a live regular-file capability reports an operational filesystem failure
+- **THEN** transaction L1 SHALL raise a typed transaction read error caused by that failure
+
+#### Scenario: Sole descriptor release fails
+- **WHEN** closing a live transaction capability is the only active operation and release reports an operational filesystem failure
+- **THEN** transaction L1 SHALL raise a typed transaction close error caused by that failure
+- **AND** SHALL keep the release attempt terminal so a later close issues no operation
+
+#### Scenario: Downstream cleanup handles typed capability close failure
+- **WHEN** a transaction consumer releases a capability through cleanup accumulation, a direct close handler, a deliberate suppression boundary, or an error translator
+- **THEN** it SHALL apply its existing close-failure policy to a close-stage transaction error without swallowing unrelated transaction failures
+- **AND** an active primary SHALL not be replaced by the close failure
+
+#### Scenario: L2 validated read has a sole close failure
+- **WHEN** a validated read succeeds but releasing its file capability raises an already typed close error
+- **THEN** L2 SHALL propagate that transaction error unchanged rather than wrapping it again
+- **AND** the original filesystem failure SHALL remain both its stored cause and direct exception cause
+
+#### Scenario: L2 validated read and close both fail
+- **WHEN** a validated read fails and releasing its file capability also raises a typed close error
+- **THEN** the read failure SHALL remain authoritative
+- **AND** the close failure SHALL remain observable as secondary diagnostic context
+
+#### Scenario: Directory context release fails while another failure is active
+- **WHEN** an operation failure is already active and directory-capability context cleanup reports an ordinary filesystem failure
+- **THEN** the active failure SHALL remain authoritative
+- **AND** the translated close failure and its original cause SHALL remain observable as secondary diagnostic context
+
+#### Scenario: Capability contract is violated
+- **WHEN** a caller uses a released capability, supplies an unsafe basename, or combines capabilities from different directory authorities
+- **THEN** transaction L1 SHALL raise its capability-misuse error rather than classify the condition as an operational filesystem failure
+
+#### Scenario: Process-control exception crosses L1
+- **WHEN** an L1 operation or cleanup raises a process-control exception
+- **THEN** the exception SHALL propagate unchanged rather than being wrapped as a transaction error
+
 ### Requirement: Keep multi-entry protocols outside descriptor capabilities
 The generic descriptor capability SHALL NOT define recursive tree removal, cache-root selection, namespace layout, retries, idempotent-absence policy, locking, regular-file publication, durability, or domain error mapping. Callers SHALL own sequencing across multiple entries and translate generic failures into their domain contracts.
 

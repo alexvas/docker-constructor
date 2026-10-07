@@ -11,6 +11,7 @@ The unsafe shape is not limited to `finally: os.close(fd)`. A handoff such as op
 - Make descriptor ownership and transfer explicit and close-at-most-once.
 - Let leaf modules reuse the foundation without loading `docker.transactions`.
 - Reuse the foundation from transaction capabilities rather than create competing ownership models.
+- Present one typed transaction L1 boundary for operational descriptor failures without weakening ownership or cleanup guarantees.
 - Preserve existing domain paths, layouts, error types, and policy decisions.
 
 **Non-Goals:**
@@ -235,6 +236,31 @@ This compatibility rule intentionally differs from public `DirectoryDescriptor.a
 
 Only a migration shim used while moving callers or implementations may be temporary. `DirectoryCapability.from_fd()`, `DirectoryDescriptor.adopt()`, and the internal validated-transfer seam are not migration shims and must remain after migration. The small transaction-specific pre-transfer validator is not a second ownership implementation: it owns no descriptor, closes no validation failure, and transfers exactly once after success. Existing transaction fault-injection behavior remains available through the shared operations protocol.
 
+### Normalize operational failures at the transaction L1 boundary
+
+The transaction capability API classifies failures by meaning rather than by the POSIX call site that happened to expose them:
+
+- capability misuse and authority violations remain `CapabilityError`;
+- unsafe filesystem objects retain the existing dedicated safety error;
+- operational open, stat, read, and close failures become `TransactionError` with a stable stage and the original `OSError` as `cause` and direct `__cause__`;
+- `KeyboardInterrupt`, `SystemExit`, and other process-control exceptions propagate unchanged.
+
+Add the public constant `STAGE_OPEN = "open-directory"` rather than overloading `STAGE_READ`; retain `STAGE_VALIDATE`, `STAGE_READ`, and `STAGE_CLOSE` for validation, regular-file reading, and release respectively. Root, intermediate, leaf, direct-path, and secure-path operational open failures use `TransactionError(STAGE_OPEN, ...)`. `ELOOP` or `ENOTDIR` from a no-follow directory open is excluded: platforms may report either for a symlink or non-directory safety rejection, so both retain the existing `CapabilityError` classification with the raw error as direct `__cause__`. This does not add a `.cause` attribute to `CapabilityError`. Existing error text should remain stable where it is already coherent, but exception type, stage, cause chaining, and ownership are authoritative compatibility properties for this intentional normalization.
+
+`DirectoryCapability.from_fd()` still validates while the caller owns the descriptor. A failed `fstat` is wrapped as a validation-stage `TransactionError`, but no close is attempted and ownership remains with the caller. Directory type and owner-policy rejection remain non-operational capability/safety failures under their existing classification. Translation therefore does not imply adoption.
+
+`DirectoryCapability.close()` and `FileCapability.close()` translate an ordinary close `OSError` into `TransactionError(STAGE_CLOSE, ...)` after the irreversible release transition. A second close remains a no-op. `DirectoryCapability` context-manager exit without an active failure exposes that typed close error; with an active failure, the active failure stays primary and the typed close error, whose cause is the raw `OSError`, is attached as secondary diagnostic context. `FileCapability` gains no context-manager API and is covered through direct `close()` calls. This keeps raw POSIX details inspectable without leaking them as the public L1 exception.
+
+`FileCapability.read_all()` translates read failures to `TransactionError(STAGE_READ, ...)`. The normalization is bounded to public L1 capability methods; injected L0 `PosixFileOps` continues to preserve raw `OSError`, and L2/domain mappings remain responsible for translating typed L1 failures at their existing boundaries.
+
+Changing the close exception type also changes every direct and indirect boundary that invokes or translates `DirectoryCapability.close()` or `FileCapability.close()`. Every cleanup accumulator, direct close, wrapper, `except OSError` suppression policy, and downstream translation must be inventoried. A `CleanupFailures.run(capability.close, ordinary=(OSError, ...))` site must recognize the typed close error as ordinary so it cannot displace an active primary. Direct handlers must recognize only `TransactionError` at `STAGE_CLOSE`, preserving deliberate suppression or propagation without swallowing unrelated transaction failures. In particular, npm publication's `read_index()`, `_append_index()`, and `_read_private_regular()` retain their existing best-effort/read-primary policies and continue to propagate process-control exceptions.
+
+L2 mappings require the same care. `RegularFileContracts.validated_read()` must pass an already typed close error through unchanged rather than wrapping it in a second `TransactionError`; a sole close failure therefore retains the original `OSError` as both `.cause` and `.__cause__`. When reading has already failed, that read failure remains primary and the typed close failure remains secondary. Raw `OSError` translation remains only at boundaries that can still receive an L0/raw failure.
+
+Factories and domain adapters that currently catch a raw `OSError` from capability construction or validation must accept the typed transaction error where appropriate and inspect or carry its raw `cause` where their public mapping requires the POSIX detail. They must retain `OSError` handling wherever the same boundary still directly invokes POSIX operations. This adaptation includes, but is not limited to, npm publication and versioning build-cache, artifact-cache, build-cleanup, and effective-state paths; an executable repository-wide inventory prevents a fixed example list from becoming incomplete.
+
+Alternative: normalize only path-open failures. Rejected because `from_fd().fstat()`, reads, and closes would continue exposing backend details and leave the public L1 contract dependent on which operation failed. Alternative: convert all failures to `CapabilityError`. Rejected because capability misuse is categorically different from an operational failure and `TransactionError` already carries stage, cause, and secondary diagnostics.
+
 ### Amend the cache-storage allowlist narrowly
 
 The architecture test will permit only the concrete lightweight foundation import used by `cache_storage.py`; it will continue to reject `docker.transactions` and higher-level cache consumers. A companion dependency-direction test will require the foundation to avoid domain and transaction imports, so widening the allowlist does not silently invert ownership.
@@ -242,7 +268,7 @@ The architecture test will permit only the concrete lightweight foundation impor
 ## Risks / Trade-offs
 
 - **[Risk] The extracted API grows into a generic filesystem abstraction.** → Keep operations descriptor-relative and basename-only; prohibit recursion, durability, locking, retries, and domain paths in tests and documentation.
-- **[Risk] Refactoring transaction capabilities changes established failure behavior.** → Pin existing L1 tests before extraction and run them against the shared implementation, including interruption and secondary-diagnostic cases.
+- **[Risk] Refactoring transaction capabilities changes established failure behavior.** → Pin ownership and interruption behavior before extraction, then explicitly replace raw operational `OSError` expectations with the uniform typed L1 contract while retaining causes and secondary diagnostics.
 - **[Risk] Domain exception wording or causes change during migration.** → Preserve mapping at existing boundaries and add characterization tests for reason codes, causes, and recovery text.
 - **[Risk] Test patches against module-local `os` calls stop injecting failures.** → Introduce explicit operations injection and migrate tests to that seam before replacing raw calls.
 - **[Risk] Nested capabilities retain parents longer than before.** → Define ownership and release order explicitly; secure walk returns only the final capability and retains no intermediate descriptor.
@@ -253,9 +279,10 @@ The architecture test will permit only the concrete lightweight foundation impor
 1. Characterize current domain behavior and add red tests for masking close, failed handoff, at-most-once release, and child leak prevention.
 2. Extract lightweight cleanup diagnostics needed by both the new foundation and transactions while preserving existing import paths.
 3. Introduce the descriptor operations seam and owned directory capability with isolated unit tests.
-4. Refactor transaction directory capabilities onto the foundation and run existing L0/L1/L2 tests before migrating leaf consumers.
-5. Migrate npm storage, then npm tree traversal, preserving domain-level behavior and tests.
-6. Migrate cache storage and narrowly amend its import allowlist plus dependency-direction checks.
-7. Run a final AST/runtime import audit to confirm migrated modules have no raw owned-directory close lifecycle and importing the foundation does not load `docker.transactions`.
+4. Refactor transaction directory capabilities onto the foundation and run existing L0/L1/L2 tests.
+5. Normalize operational open, stat, read, and close failures at the public transaction L1 boundary while preserving ownership, interruption, and cleanup precedence.
+6. Migrate npm storage, then npm tree traversal, preserving domain-level behavior and tests.
+7. Migrate cache storage and narrowly amend its import allowlist plus dependency-direction checks.
+8. Run a final AST/runtime import audit to confirm migrated modules have no raw owned-directory close lifecycle and importing the foundation does not load `docker.transactions`.
 
 Rollback is source-compatible: retain adapters until all consumers pass, and revert individual consumer migrations without changing persistent data. No data migration is required.
