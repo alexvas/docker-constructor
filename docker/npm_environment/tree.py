@@ -11,6 +11,14 @@ so it is independent of ownership and permission metadata.
 
 Neither primitive assumes a published output identity or an
 assembler-evidence digest; those remain Phase 5 contracts.
+
+Directory ownership, no-follow child traversal, and primary-preserving
+at-most-once release are delegated to the lightweight
+``docker.filesystem.descriptors`` foundation.  This module keeps the
+canonical path layout, recursive traversal, manifest bytes, containment
+rules, and ``LockedNpmError`` mapping.  Regular-file hashing stays a raw
+POSIX boundary because the foundation deliberately owns no regular-file
+authority.
 """
 
 from __future__ import annotations
@@ -22,14 +30,47 @@ import posixpath
 import stat as _stat
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator
+from typing import Callable, Iterable
+
+from docker.filesystem.descriptors import (
+    _STAGE_VALIDATE,
+    DescriptorError,
+    DirectoryDescriptor,
+)
+from docker.filesystem.operations import DescriptorOps, PosixDescriptorOps
 
 from .errors import LockedNpmError
 
-_DIR_FLAGS = (
-    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
-)
 _NOFOLLOW_RDONLY = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+
+#: Production descriptor backend.  Tests inject an alternative ``DescriptorOps``
+#: through the explicit ``ops`` keyword on each public entry point.
+_PRODUCTION_OPS: DescriptorOps = PosixDescriptorOps()
+
+
+def _resolve_ops(ops: DescriptorOps | None) -> DescriptorOps:
+    """Return the injected backend or the production POSIX adapter."""
+    return _PRODUCTION_OPS if ops is None else ops
+
+
+def _foundation_cause(exc: DescriptorError) -> str:
+    """Render a foundation failure's raw cause for domain diagnostics."""
+    return str(exc.cause) if exc.cause is not None else str(exc)
+
+
+def _root_is_not_a_directory(exc: DescriptorError) -> bool:
+    """Return True when the foundation rejected the root as a non-directory.
+
+    Only a genuine validation-stage type rejection -- an adopted descriptor
+    that the foundation proved is not a directory -- selects the historical
+    domain wording.  Open-stage failures, including the raw no-follow
+    ``ENOTDIR`` reported for a regular file or a symlink, keep the operational
+    ``unsafe tree root`` diagnostic with the original ``OSError`` reachable
+    through ``DescriptorError.cause``.  No errno inspection or filesystem
+    probe happens here.
+    """
+    return exc.stage == _STAGE_VALIDATE and "is not a directory" in str(exc)
+
 
 _KIND_FILE = "file"
 _KIND_DIRECTORY = "directory"
@@ -220,120 +261,169 @@ def parse_manifest(data: bytes) -> TreeManifest:
     return TreeManifest(entries=ordered, digest=digest)
 
 
-def _iter_entries(dir_fd: int, prefix: str) -> Iterator[_Found]:
-    """Yield canonical entries beneath *dir_fd* without following symlinks.
+def _hash_file_entry(
+    directory: DirectoryDescriptor, name: str, rel: str
+) -> _Found:
+    """Hash one regular-file entry from a single no-follow descriptor.
 
-    Children are processed in sorted name order; directories are reopened
-    descriptor-relatively with ``O_DIRECTORY | O_NOFOLLOW``; files are
-    opened once with ``O_NOFOLLOW`` and hashed from that same descriptor.
-    Special files (FIFOs, sockets, devices) are reported as ``"special"`` so
-    the caller can reject them with the right reason.
+    Regular files stay a raw POSIX boundary: the lightweight capability
+    foundation deliberately owns no regular-file authority, so the file is
+    opened once with ``O_NOFOLLOW`` and released once here.
     """
-    for name in sorted(os.listdir(dir_fd)):
+    try:
+        fd = os.open(name, _NOFOLLOW_RDONLY, dir_fd=directory.fd)
+    except OSError as exc:
+        raise LockedNpmError(
+            "tree_type_mismatch", f"cannot open file entry {rel!r}: {exc}"
+        ) from exc
+    try:
+        fst = os.fstat(fd)
+        if not _stat.S_ISREG(fst.st_mode):
+            raise LockedNpmError(
+                "tree_type_mismatch",
+                f"file entry {rel!r} changed type while being read",
+            )
+        hasher = hashlib.sha256()
+        while True:
+            chunk = os.read(fd, 64 * 1024)
+            if not chunk:
+                break
+            hasher.update(chunk)
+        return _Found(
+            rel,
+            _KIND_FILE,
+            hasher.hexdigest(),
+            "",
+            _stat.S_IMODE(fst.st_mode),
+            fst.st_uid,
+            fst.st_gid,
+        )
+    finally:
+        os.close(fd)
+
+
+def _walk_entries(
+    directory: DirectoryDescriptor,
+    prefix: str,
+    visit: Callable[[_Found], None],
+) -> None:
+    """Visit canonical entries beneath *directory* without following symlinks.
+
+    Children are processed in sorted name order; child directories are opened
+    descriptor-relatively by the capability (``O_DIRECTORY | O_NOFOLLOW``),
+    and files are opened once with ``O_NOFOLLOW`` and hashed from that same
+    descriptor.  Each child-directory capability is released at most once, and
+    an ordinary close failure stays secondary to any active traversal failure.
+
+    *visit* is invoked inline and its result is never retained, so an
+    exception it raises propagates synchronously through every active
+    ``with sub:`` block instead of being observed as a ``GeneratorExit`` when a
+    suspended generator is closed.  That is what lets a containing directory's
+    close failure attach to the real verification error.
+    """
+    for name in sorted(directory.list_names()):
         rel = f"{prefix}/{name}" if prefix else name
-        st = os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
+        st = directory.stat_child(name, follow_symlinks=False)
         mode = _stat.S_IMODE(st.st_mode)
         uid = st.st_uid
         gid = st.st_gid
         if _stat.S_ISLNK(st.st_mode):
-            target = os.readlink(name, dir_fd=dir_fd)
-            yield _Found(rel, _KIND_SYMLINK, "", target, mode, uid, gid)
+            target = os.readlink(name, dir_fd=directory.fd)
+            visit(_Found(rel, _KIND_SYMLINK, "", target, mode, uid, gid))
         elif _stat.S_ISDIR(st.st_mode):
-            yield _Found(rel, _KIND_DIRECTORY, "", "", mode, uid, gid)
+            visit(_Found(rel, _KIND_DIRECTORY, "", "", mode, uid, gid))
             try:
-                sub_fd = os.open(name, _DIR_FLAGS, dir_fd=dir_fd)
-            except OSError as exc:
-                raise LockedNpmError(
-                    "tree_type_mismatch",
-                    f"cannot open directory entry {rel!r}: {exc}",
-                ) from exc
-            try:
-                yield from _iter_entries(sub_fd, rel)
-            finally:
-                os.close(sub_fd)
-        elif _stat.S_ISREG(st.st_mode):
-            try:
-                fd = os.open(name, _NOFOLLOW_RDONLY, dir_fd=dir_fd)
-            except OSError as exc:
-                raise LockedNpmError(
-                    "tree_type_mismatch",
-                    f"cannot open file entry {rel!r}: {exc}",
-                ) from exc
-            try:
-                fst = os.fstat(fd)
-                if not _stat.S_ISREG(fst.st_mode):
-                    raise LockedNpmError(
-                        "tree_type_mismatch",
-                        f"file entry {rel!r} changed type while being read",
-                    )
-                hasher = hashlib.sha256()
-                while True:
-                    chunk = os.read(fd, 64 * 1024)
-                    if not chunk:
-                        break
-                    hasher.update(chunk)
-                yield _Found(
-                    rel,
-                    _KIND_FILE,
-                    hasher.hexdigest(),
-                    "",
-                    _stat.S_IMODE(fst.st_mode),
-                    fst.st_uid,
-                    fst.st_gid,
+                sub = directory.open_directory(
+                    name, label=rel, require_owner=False
                 )
-            finally:
-                os.close(fd)
+            except DescriptorError as exc:
+                raise LockedNpmError(
+                    "tree_type_mismatch",
+                    f"cannot open directory entry {rel!r}: "
+                    f"{_foundation_cause(exc)}",
+                ) from exc
+            with sub:
+                _walk_entries(sub, rel, visit)
+        elif _stat.S_ISREG(st.st_mode):
+            visit(_hash_file_entry(directory, name, rel))
         else:
-            yield _Found(rel, _KIND_SPECIAL, "", "", mode, uid, gid)
+            visit(_Found(rel, _KIND_SPECIAL, "", "", mode, uid, gid))
 
 
-def _open_tree_root(root: Path) -> int:
-    """Open *root* as a directory no-follow and return its descriptor."""
+def _open_tree_root(ops: DescriptorOps, root: Path) -> DirectoryDescriptor:
+    """Open *root* as a no-follow directory capability.
+
+    The supplied components are preserved verbatim: a relative path is made
+    absolute by prefixing the current working directory instead of collapsing
+    it lexically, so ``missing/../tree``, ``regular-file/../tree``, and
+    ``symlink/../tree`` still walk -- and must reject -- every component the
+    caller supplied rather than silently inspecting an equivalent-looking but
+    different ``tree``.  Lexical normalization (``abspath``/``resolve``/
+    ``normpath``) would erase components before the secure walker could
+    validate them.
+
+    Component walking, parent/child handoff, directory and ownership
+    validation, and at-most-once release are delegated to
+    ``DirectoryDescriptor.open_secure_path``.  Only a validation-stage type
+    rejection (the foundation proved the adopted root is not a directory) maps
+    to the historical ``tree root <root> is not a directory`` detail.  Every
+    open-stage failure -- including the raw no-follow ``ENOTDIR``/``ENOENT``
+    reported for a regular-file, symlinked, or missing component -- maps to
+    ``unsafe tree root <root>: <cause>``.  Either way the ``DescriptorError``
+    is retained as the direct cause so the original ``OSError`` and cleanup
+    diagnostics stay reachable.
+    """
+    absolute = str(root)
+    if not os.path.isabs(absolute):
+        # Preserve the caller's components (including ``..``) so the secure
+        # walker validates each one; ``os.path.join`` never collapses them.
+        absolute = os.path.join(os.getcwd(), absolute)
     try:
-        fd = os.open(str(root), _DIR_FLAGS)
-    except OSError as exc:
-        raise LockedNpmError(
-            "unsafe_cache_path", f"unsafe tree root {root}: {exc}"
-        ) from exc
-    try:
-        st = os.fstat(fd)
-        if not _stat.S_ISDIR(st.st_mode):
+        return DirectoryDescriptor.open_secure_path(
+            ops, absolute, label=str(root), require_owner=False
+        )
+    except DescriptorError as exc:
+        if _root_is_not_a_directory(exc):
             raise LockedNpmError(
-                "unsafe_cache_path", f"tree root {root} is not a directory"
-            )
-    except BaseException:
-        os.close(fd)
-        raise
-    return fd
+                "unsafe_cache_path",
+                f"tree root {root} is not a directory",
+            ) from exc
+        raise LockedNpmError(
+            "unsafe_cache_path",
+            f"unsafe tree root {root}: {_foundation_cause(exc)}",
+        ) from exc
 
 
-def build_tree_manifest(root: str | Path) -> TreeManifest:
+def build_tree_manifest(
+    root: str | Path, *, ops: DescriptorOps | None = None
+) -> TreeManifest:
     """Build a canonical tree manifest for the directory tree at *root*.
 
     Rejects a symlinked root, special files, and symlinks whose target is
     absolute, contains a backslash, or resolves outside the tree root.
     """
     root_path = Path(root)
-    root_fd = _open_tree_root(root_path)
-    try:
-        found = list(_iter_entries(root_fd, ""))
-    finally:
-        os.close(root_fd)
-
-    for entry in found:
-        if entry.kind == _KIND_SPECIAL:
-            raise LockedNpmError(
-                "unsupported_entry_type",
-                f"unsupported special filesystem entry at {entry.path!r}",
-            )
-        if entry.kind == _KIND_SYMLINK and not _contained_target(
-            entry.path, entry.target
-        ):
-            raise LockedNpmError(
-                "unsafe_symlink_target",
-                f"symlink {entry.path!r} targets outside the tree: "
-                f"{entry.target!r}",
-            )
+    descriptor_ops = _resolve_ops(ops)
+    with _open_tree_root(descriptor_ops, root_path) as root_capability:
+        found: list[_Found] = []
+        _walk_entries(root_capability, "", found.append)
+        # Manifest validation runs while the root capability is still owned so
+        # its release can retain a root-close failure as secondary diagnostic
+        # context rather than letting it replace the domain error.
+        for entry in found:
+            if entry.kind == _KIND_SPECIAL:
+                raise LockedNpmError(
+                    "unsupported_entry_type",
+                    f"unsupported special filesystem entry at {entry.path!r}",
+                )
+            if entry.kind == _KIND_SYMLINK and not _contained_target(
+                entry.path, entry.target
+            ):
+                raise LockedNpmError(
+                    "unsafe_symlink_target",
+                    f"symlink {entry.path!r} targets outside the tree: "
+                    f"{entry.target!r}",
+                )
 
     entries = tuple(
         sorted(
@@ -391,7 +481,12 @@ def _compare(found: _Found, expected: TreeEntry) -> None:
         )
 
 
-def verify_tree(root: str | Path, manifest: TreeManifest) -> None:
+def verify_tree(
+    root: str | Path,
+    manifest: TreeManifest,
+    *,
+    ops: DescriptorOps | None = None,
+) -> None:
     """Re-validate *root* against *manifest* without following symlinks.
 
     First the manifest itself is checked for canonical ordering, unique
@@ -417,19 +512,20 @@ def verify_tree(root: str | Path, manifest: TreeManifest) -> None:
 
     by_path = {e.path: e for e in manifest.entries}
     seen: set[str] = set()
-    root_fd = _open_tree_root(Path(root))
-    try:
-        for found in _iter_entries(root_fd, ""):
-            expected = by_path.get(found.path)
-            if expected is None:
-                raise LockedNpmError(
-                    "tree_extra_entry",
-                    f"unexpected tree entry {found.path!r}",
-                )
-            seen.add(found.path)
-            _compare(found, expected)
-    finally:
-        os.close(root_fd)
+    descriptor_ops = _resolve_ops(ops)
+
+    def visit(found: _Found) -> None:
+        expected = by_path.get(found.path)
+        if expected is None:
+            raise LockedNpmError(
+                "tree_extra_entry",
+                f"unexpected tree entry {found.path!r}",
+            )
+        seen.add(found.path)
+        _compare(found, expected)
+
+    with _open_tree_root(descriptor_ops, Path(root)) as root_capability:
+        _walk_entries(root_capability, "", visit)
 
     missing = [path for path in by_path if path not in seen]
     if missing:

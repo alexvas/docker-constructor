@@ -252,24 +252,24 @@ Within each phase, work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### RED
 
-- [ ] 7.1 Add tree traversal tests proving an enumeration/stat/hash failure remains primary over ordinary subdirectory-close failure and every opened directory receives one close attempt; verify the new cases fail against raw closes.
-- [ ] 7.2 Add root-open and root-release tests proving validation failures preserve secondary close diagnostics and manifest/verification root descriptors are never closed twice; verify the new cases fail.
-- [ ] 7.3 Add passing pre-migration characterization tests pinning canonical manifest bytes, canonical tree digest, entry ordering, no-follow behavior, symlink containment, unsafe-type rejection, and existing `LockedNpmError` mappings; verify these cases pass before migration.
+- [x] 7.1 Add tree traversal tests proving an enumeration/stat/hash failure remains primary over ordinary subdirectory-close failure and every opened directory receives one close attempt; verify the new cases fail against raw closes.
+- [x] 7.2 Add root-open and root-release tests proving validation failures preserve secondary close diagnostics and manifest/verification root descriptors are never closed twice; verify the new cases fail.
+- [x] 7.3 Add passing pre-migration characterization tests pinning canonical manifest bytes, canonical tree digest, entry ordering, no-follow behavior, symlink containment, unsafe-type rejection, and existing `LockedNpmError` mappings; verify these cases pass before migration.
 
 ### GREEN
 
-- [ ] 7.4 Migrate `_open_tree_root()` to `DirectoryDescriptor.open_secure_path()` or `adopt()` as appropriate while preserving domain error mapping; verify the root-open cases in task 7.2 pass.
-- [ ] 7.5 Migrate `_iter_entries()` directory ownership to `open_directory()` and `list_names()` while retaining recursion in `tree.py`; verify task 7.1 passes.
-- [ ] 7.6 Migrate `build_tree_manifest()` and `verify_tree()` root lifecycle to capabilities without changing manifest or verification semantics; verify tasks 7.2 and 7.3 pass.
+- [x] 7.4 Migrate `_open_tree_root()` to `DirectoryDescriptor.open_secure_path()` or `adopt()` as appropriate while preserving domain error mapping; verify the root-open cases in task 7.2 pass.
+- [x] 7.5 Migrate `_iter_entries()` directory ownership to `open_directory()` and `list_names()` while retaining recursion in `tree.py`; verify task 7.1 passes.
+- [x] 7.6 Migrate `build_tree_manifest()` and `verify_tree()` root lifecycle to capabilities without changing manifest or verification semantics; verify tasks 7.2 and 7.3 pass.
 
 ### INTROSPECT
 
-- [ ] 7.7 Add an AST test proving `tree.py` has no raw `os.close()` for owned directory descriptors, imports no `docker.transactions`, and still owns its recursive traversal functions; verify all assertions pass.
-- [ ] 7.8 Compare pre- and post-migration canonical fixture manifests and digests byte-for-byte; verify there is no serialized or identity drift.
+- [x] 7.7 Add an AST test proving `tree.py` has no raw `os.close()` for owned directory descriptors, imports no `docker.transactions`, and still owns its recursive traversal functions; verify all assertions pass.
+- [x] 7.8 Compare pre- and post-migration canonical fixture manifests and digests byte-for-byte; verify there is no serialized or identity drift.
 
 ### VALIDATE
 
-- [ ] 7.9 Run the focused npm tree, validation, serialization, publication, and Phase 8 leaf-mechanics test modules selected by test discovery for `npm_environment`; require all selected tests to pass before Phase 9.
+- [x] 7.9 Run the focused npm tree, validation, serialization, publication, and Phase 8 leaf-mechanics test modules selected by test discovery for `npm_environment`; require all selected tests to pass before Phase 9.
 
 ## 8. Cache Storage Migration
 
