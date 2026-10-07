@@ -44,11 +44,23 @@ class PosixFileOps:
     def unlinkat(self, dir_fd, name):
         os.unlink(name, dir_fd=dir_fd)
 
+    def rmdirat(self, dir_fd, name):
+        os.rmdir(name, dir_fd=dir_fd)
+
     def chmod(self, dir_fd, name, mode, *, follow_symlinks=False):
         os.chmod(name, mode, dir_fd=dir_fd, follow_symlinks=follow_symlinks)
 
     def fchmod(self, fd, mode):
         os.fchmod(fd, mode)
+
+    def mkdirat(self, dir_fd, name, mode):
+        os.mkdir(name, mode, dir_fd=dir_fd)
+
+    def statat(self, dir_fd, name, *, follow_symlinks=False):
+        return os.stat(name, dir_fd=dir_fd, follow_symlinks=follow_symlinks)
+
+    def listdir(self, fd):
+        return os.listdir(fd)
 
     def flock(self, fd, operation):
         import fcntl

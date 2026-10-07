@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import errno
 import os
+import stat
 import tempfile
 import unittest
 
@@ -169,6 +170,62 @@ class RealDelegationTests(unittest.TestCase):
         self.ops.chmod(self.dir_fd, "mode-target", 0o640, follow_symlinks=False)
         info = os.stat(os.path.join(self.tmp.name, "mode-target"))
         self.assertEqual(info.st_mode & 0o777, 0o640)
+
+
+class KeywordCompatibilityTests(unittest.TestCase):
+    """The historical ``dir_fd`` keyword is used by every single-descriptor method.
+
+    ``PosixFileOps.openat``, ``unlinkat``, ``mkdirat``, ``statat``, and
+    ``rmdirat`` accepted ``dir_fd=...`` (or its historical equivalent) before
+    the descriptor-capability migration; keyword callers must keep working.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.ops = PosixFileOps()
+        self.dir_fd = os.open(
+            self.tmp.name, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+        )
+        self.addCleanup(os.close, self.dir_fd)
+
+    def test_openat_accepts_dir_fd_keyword(self) -> None:
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        fd = self.ops.openat(
+            dir_fd=self.dir_fd, name="keyword", flags=flags, mode=0o600
+        )
+        try:
+            self.ops.write_all(fd, b"payload")
+        finally:
+            self.ops.close(fd)
+        with open(os.path.join(self.tmp.name, "keyword"), "rb") as stream:
+            self.assertEqual(stream.read(), b"payload")
+
+    def test_unlinkat_accepts_dir_fd_keyword(self) -> None:
+        path = os.path.join(self.tmp.name, "doomed")
+        with open(path, "wb") as stream:
+            stream.write(b"x")
+        self.ops.unlinkat(dir_fd=self.dir_fd, name="doomed")
+        self.assertFalse(os.path.exists(path))
+
+    def test_mkdirat_accepts_dir_fd_keyword(self) -> None:
+        self.ops.mkdirat(dir_fd=self.dir_fd, name="created", mode=0o700)
+        self.assertTrue(os.path.isdir(os.path.join(self.tmp.name, "created")))
+
+    def test_statat_accepts_dir_fd_keyword(self) -> None:
+        path = os.path.join(self.tmp.name, "entry")
+        with open(path, "wb") as stream:
+            stream.write(b"x")
+        info = self.ops.statat(
+            dir_fd=self.dir_fd, name="entry", follow_symlinks=False
+        )
+        self.assertTrue(stat.S_ISREG(info.st_mode))
+
+    def test_rmdirat_accepts_dir_fd_keyword(self) -> None:
+        path = os.path.join(self.tmp.name, "removable")
+        os.mkdir(path, mode=0o700)
+        self.ops.rmdirat(dir_fd=self.dir_fd, name="removable")
+        self.assertFalse(os.path.exists(path))
 
 
 if __name__ == "__main__":  # pragma: no cover

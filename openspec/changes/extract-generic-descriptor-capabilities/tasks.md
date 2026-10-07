@@ -121,24 +121,24 @@ Within each phase, work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### RED
 
-- [ ] 4.1 Add `tests/test_transactions_descriptor_integration.py` contracts for `DirectoryCapability.from_fd(ops, fd, label)` proving successful validation transfers sole ownership, failed `fstat` leaves the fd caller-owned and open, failed directory-type validation leaves it caller-owned and open, failed effective-owner validation leaves it caller-owned and open, and no failed validation path invokes close; also preserve existing imports, properties, close semantics, and fault injection, and verify only the shared-implementation assertion fails before migration.
-- [ ] 4.2 Add a structural test proving `docker.transactions.capabilities` delegates directory ownership and secure walking to `DirectoryDescriptor` instead of defining a second state machine or component walker; verify it fails before migration.
+- [x] 4.1 Add `tests/test_transactions_descriptor_integration.py` contracts for `DirectoryCapability.from_fd(ops, fd, label)` proving successful validation transfers sole ownership, failed `fstat` leaves the fd caller-owned and open, failed directory-type validation leaves it caller-owned and open, failed effective-owner validation leaves it caller-owned and open, and no failed validation path invokes close; also preserve existing imports, properties, close semantics, and fault injection, and verify only the shared-implementation assertion fails before migration.
+- [x] 4.2 Add a structural test proving `docker.transactions.capabilities` delegates directory ownership and secure walking to `DirectoryDescriptor` instead of defining a second state machine or component walker; verify it fails before migration.
 
 ### GREEN
 
-- [ ] 4.3 Refactor `DirectoryCapability` to reuse or thinly specialize `DirectoryDescriptor` while retaining its transaction-specific authority/token contract and permanent public `from_fd(ops, fd, label)` signature; make `from_fd()` validate `fstat`, directory type, and effective ownership while the caller still owns the fd, then transfer ownership exactly once through the permanent module-internal validated-transfer seam without calling the consuming `DirectoryDescriptor.adopt()` or repeating validation; verify every validation failure preserves the caller-owned open fd, task 4.1 passes, `DirectoryDescriptor.adopt()` remains unchanged, and no duplicate ownership or secure-walk implementation is introduced.
-- [ ] 4.4 Remove the superseded transaction-local directory ownership and secure-walk implementation; verify task 4.2 passes and regular-file capability behavior remains present.
-- [ ] 4.5 Preserve all existing `docker.transactions` public imports and L1 error mappings through explicit compatibility wiring; verify importing each existing public name succeeds unchanged.
+- [x] 4.3 Refactor `DirectoryCapability` to reuse or thinly specialize `DirectoryDescriptor` while retaining its transaction-specific authority/token contract and permanent public `from_fd(ops, fd, label)` signature; make `from_fd()` validate `fstat`, directory type, and effective ownership while the caller still owns the fd, then transfer ownership exactly once through the permanent module-internal validated-transfer seam without calling the consuming `DirectoryDescriptor.adopt()` or repeating validation; verify every validation failure preserves the caller-owned open fd, task 4.1 passes, `DirectoryDescriptor.adopt()` remains unchanged, and no duplicate ownership or secure-walk implementation is introduced.
+- [x] 4.4 Remove the superseded transaction-local directory ownership and secure-walk implementation; verify task 4.2 passes and regular-file capability behavior remains present.
+- [x] 4.5 Preserve all existing `docker.transactions` public imports and L1 error mappings through explicit compatibility wiring; verify importing each existing public name succeeds unchanged.
 
 ### INTROSPECT
 
-- [ ] 4.6 Add an AST ownership test establishing `docker.filesystem.descriptors` as the sole implementation of directory release state and secure path walking; verify no transaction duplicate remains.
-- [ ] 4.7 Compare pre-existing transaction capability signatures and exported names against the compatibility contract; verify the migration adds no new transaction aggregate export.
+- [x] 4.6 Add an AST ownership test establishing `docker.filesystem.descriptors` as the sole implementation of directory release state and secure path walking; verify no transaction duplicate remains.
+- [x] 4.7 Compare pre-existing transaction capability signatures and exported names against the compatibility contract; verify the migration adds no new transaction aggregate export.
 
 ### VALIDATE
 
-- [ ] 4.8 Run `python -m unittest tests.test_transactions_descriptor_integration tests.test_transactions_l0_posix tests.test_transactions_l1_capabilities tests.test_transactions_locking tests.test_transactions_l2_atomic tests.test_transactions_l2_durable tests.test_transactions_l2_lifecycle tests.test_transactions_phase9_boundaries` and require the existing `DirectoryCapability.from_fd()` signature, success-transfer, validation-failure ownership, and close-lifecycle tests to pass before Phase 8.
-- [ ] 4.9 Run `python -m unittest tests.test_constructor_build_generation_integration tests.test_constructor_build_cleanup tests.test_transactions_phase9a_build_cache_cleanup tests.test_transactions_phase9a_project_state_cleanup tests.test_transactions_phase9a_specialized` and require every production consumer that transfers a raw fd through `DirectoryCapability.from_fd()` to pass before Phase 8.
+- [x] 4.8 Run `python -m unittest tests.test_transactions_descriptor_integration tests.test_transactions_l0_posix tests.test_transactions_l1_capabilities tests.test_transactions_locking tests.test_transactions_l2_atomic tests.test_transactions_l2_durable tests.test_transactions_l2_lifecycle tests.test_transactions_phase9_boundaries` and require the existing `DirectoryCapability.from_fd()` signature, success-transfer, validation-failure ownership, and close-lifecycle tests to pass before Phase 8.
+- [x] 4.9 Run `python -m unittest tests.test_constructor_build_generation_integration tests.test_constructor_build_cleanup tests.test_transactions_phase9a_build_cache_cleanup tests.test_transactions_phase9a_project_state_cleanup tests.test_transactions_phase9a_specialized` and require every production consumer that transfers a raw fd through `DirectoryCapability.from_fd()` to pass before Phase 8.
 
 ## 5. npm Storage Migration
 

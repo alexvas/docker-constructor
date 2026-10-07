@@ -244,7 +244,13 @@ class DirectoryDescriptor(OwnedDescriptor):
         # Reject an unusable label before the first descriptor is opened: a
         # late rejection by ``adopt`` would leak the already-opened root/leaf.
         target_label = _validate_label(label if label is not None else name)
-        root_fd = ops.openat(None, os.sep, _DIR_FLAGS, 0)
+        try:
+            root_fd = ops.openat(None, os.sep, _DIR_FLAGS, 0)
+        except OSError as exc:
+            # No descriptor was returned, so there is nothing to release; the
+            # failure is translated (and cause-chained) exactly like a child
+            # open failure so callers never observe a raw ``OSError``.
+            raise _open_failure(os.sep, exc) from exc
         if not components:
             return cls.adopt(
                 ops, root_fd, label=target_label, require_owner=require_owner
@@ -318,6 +324,26 @@ class DirectoryDescriptor(OwnedDescriptor):
             _attempt_release(descriptor.close, exc)
             raise
         return descriptor
+
+    @classmethod
+    def _transfer_validated(
+        cls,
+        ops: DescriptorOps,
+        fd: int,
+        *,
+        label: str,
+    ) -> DirectoryDescriptor:
+        """Permanent module-internal validated-transfer seam.
+
+        The caller must have already validated directory type and requested
+        effective ownership of ``fd``.  Ownership transfers exactly once to the
+        shared descriptor owner without a repeated validation pass and without
+        the consuming release path of :meth:`adopt`, so a compatibility layer
+        whose pre-transfer failure contract keeps ``fd`` caller-owned is never
+        surprised by a consuming ``adopt()`` close.  Only directory
+        compatibility adapters may call this seam.
+        """
+        return cls(ops, fd, label=label, _authority=_AUTHORITY)
 
     def _validate(self, *, require_owner: bool) -> None:
         try:
