@@ -24,6 +24,7 @@ from pathlib import Path
 from unittest import mock
 
 from docker.transactions.regular import RegularFileContracts
+from docker.transactions.errors import STAGE_CLOSE, STAGE_VALIDATE, TransactionError
 from docker.versioning import rendering as rendering_module
 from docker.versioning import project_state as project_state_module
 from docker.versioning.effective import apply_overrides, resolve_build_projection
@@ -86,6 +87,7 @@ class _GeneratedCloseOps(InjectedOps):
     def __init__(self, close_error: BaseException | None = None) -> None:
         super().__init__()
         self._generated_fd: int | None = None
+        self.generated_raw_closes = 0
         self.close_error: BaseException = (
             close_error
             if close_error is not None
@@ -100,8 +102,64 @@ class _GeneratedCloseOps(InjectedOps):
 
     def close(self, fd):
         if fd == self._generated_fd:
+            self.generated_raw_closes += 1
             self._record("close", fd)
             raise self.close_error
+        return super().close(fd)
+
+
+class _GeneratedFstatOps(InjectedOps):
+    """Fail the second ``fstat`` of the generated descriptor only.
+
+    The explicit pre-adoption ``fstat`` succeeds, so the fault isolates the
+    ``DirectoryCapability.from_fd()`` factory boundary; every other descriptor
+    behaves normally and raw closes of the generated descriptor are counted.
+    """
+
+    def __init__(self, error: BaseException) -> None:
+        super().__init__()
+        self._generated_fd: int | None = None
+        self._generated_fstats = 0
+        self.generated_raw_closes = 0
+        self.fstat_error = error
+
+    def openat(self, dir_fd, name, flags, mode=0o777):
+        fd = super().openat(dir_fd, name, flags, mode)
+        if name == "generated":
+            self._generated_fd = fd
+        return fd
+
+    def fstat(self, fd):
+        if fd == self._generated_fd:
+            self._generated_fstats += 1
+            if self._generated_fstats == 2:
+                self._record("fstat", fd)
+                raise self.fstat_error
+        return super().fstat(fd)
+
+    def close(self, fd):
+        if fd == self._generated_fd:
+            self.generated_raw_closes += 1
+        return super().close(fd)
+
+
+class _GeneratedTrackingOps(InjectedOps):
+    """Count raw closes of the generated descriptor without a fault."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._generated_fd: int | None = None
+        self.generated_raw_closes = 0
+
+    def openat(self, dir_fd, name, flags, mode=0o777):
+        fd = super().openat(dir_fd, name, flags, mode)
+        if name == "generated":
+            self._generated_fd = fd
+        return fd
+
+    def close(self, fd):
+        if fd == self._generated_fd:
+            self.generated_raw_closes += 1
         return super().close(fd)
 
 
@@ -370,11 +428,18 @@ class EffectiveProjectionMigrationTests(_ProjectionCase):
         self.assertIs(primary, publication_error)
         self.assertEqual(primary.errno, errno.EIO)
         self.assertEqual(primary.strerror, "injected publication")
-        # The generated-directory close failure is attached exactly once.
+        # The generated-directory close failure is attached exactly once as a
+        # typed close-stage secondary diagnostic carrying the raw descriptor
+        # error as both ``cause`` and ``__cause__``.
         secondary = list(getattr(primary, "_transaction_secondary", []))
-        self.assertEqual(
-            sum(1 for exc in secondary if exc is self.ops.close_error), 1
-        )
+        close_secondaries = [
+            exc
+            for exc in secondary
+            if isinstance(exc, TransactionError) and exc.stage == STAGE_CLOSE
+        ]
+        self.assertEqual(len(close_secondaries), 1)
+        self.assertIs(close_secondaries[0].cause, self.ops.close_error)
+        self.assertIs(close_secondaries[0].__cause__, self.ops.close_error)
         self.assertIsNot(primary, self.ops.close_error)
         self.assertEqual(self.dest.read_bytes(), b"prior")
 
@@ -383,13 +448,17 @@ class EffectiveProjectionMigrationTests(_ProjectionCase):
     ) -> None:
         self._write_prior()
         self.ops = _GeneratedCloseOps()
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(TransactionError) as ctx:
             write_effective_build(
                 self.projection, repo_root=self.root, project_state=self.state
             )
-        # No earlier error exists, so the close failure is the primary.
-        self.assertIs(ctx.exception, self.ops.close_error)
-        self.assertEqual(ctx.exception.errno, errno.EIO)
+        # No earlier error exists, so the typed close failure is the primary
+        # exception and its raw descriptor cause stays inspectable.
+        failure = ctx.exception
+        self.assertEqual(failure.stage, STAGE_CLOSE)
+        self.assertIs(failure.cause, self.ops.close_error)
+        self.assertIs(failure.__cause__, self.ops.close_error)
+        self.assertEqual(failure.cause.errno, errno.EIO)
         # Publication completed before the close failure was reported.
         parsed = tomllib.loads(self.dest.read_text(encoding="utf-8"))
         self.assertEqual(parsed["platform"], self.projection.platform)
@@ -524,6 +593,131 @@ class EffectiveProjectionMigrationTests(_ProjectionCase):
             write_effective_build(
                 self.projection, repo_root=self.root, project_state=self.state
             )
+
+
+class GeneratedAdoptionOwnershipTests(_ProjectionCase):
+    """Follow-up 5.7/5.17/5.18: the effective-build generated-directory
+    factory and close boundary.
+
+    Once ``DirectoryCapability.from_fd()`` succeeds the retained descriptor is
+    owned by the capability and must be released through it; a failed
+    adoption leaves the raw descriptor caller-owned and closes it exactly
+    once.  A typed factory failure is translated back to its raw ``OSError``
+    cause for the pre-Phase-5 public contract, while a close-stage failure is
+    classified as an ordinary close and keeps the raw descriptor error as its
+    cause.
+    """
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.capability_closes: list[str] = []
+        real_close = rendering_module.DirectoryCapability.close
+
+        def recording_close(capability):
+            self.capability_closes.append(capability.label)
+            return real_close(capability)
+
+        patcher = mock.patch.object(
+            rendering_module.DirectoryCapability, "close", recording_close
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _write(self):
+        return write_effective_build(
+            self.projection, repo_root=self.root, project_state=self.state
+        )
+
+    def test_from_fd_operational_failure_preserves_raw_oserror(self) -> None:
+        raw = OSError(errno.EIO, "injected generated fstat")
+        self.ops = _GeneratedFstatOps(raw)
+        with self.assertRaises(OSError) as ctx:
+            self._write()
+        # The typed factory wrapper is translated back to the original raw
+        # ``OSError`` object, preserving the pre-Phase-5 public behavior.
+        self.assertIs(ctx.exception, raw)
+        self.assertNotIsInstance(ctx.exception, TransactionError)
+        self.assertEqual(ctx.exception.errno, errno.EIO)
+
+    def test_secondary_diagnostics_survive_wrapper_translation(self) -> None:
+        cause = OSError(errno.EIO, "injected generated fstat")
+        secondary = OSError(errno.EIO, "injected close diagnostic")
+        wrapper = TransactionError(
+            STAGE_VALIDATE, "cannot stat directory", cause=cause
+        )
+        wrapper.add_secondary(secondary)
+        with mock.patch.object(
+            rendering_module.DirectoryCapability, "from_fd", side_effect=wrapper
+        ):
+            with self.assertRaises(OSError) as ctx:
+                self._write()
+        self.assertIs(ctx.exception, cause)
+        # The wrapper's retained diagnostics are carried onto the raw cause.
+        self.assertIn(
+            secondary, list(getattr(cause, "_transaction_secondary", []))
+        )
+
+    def test_successful_adoption_closes_through_capability_exactly_once(self) -> None:
+        self.ops = _GeneratedTrackingOps()
+        self._write()
+        # Ownership transferred on success, so release goes through the
+        # capability exactly once and never as a second direct raw close.
+        self.assertEqual(self.capability_closes.count("generated"), 1)
+        self.assertEqual(self.ops.generated_raw_closes, 1)
+
+    def test_failed_adoption_closes_raw_descriptor_exactly_once(self) -> None:
+        raw = OSError(errno.EIO, "injected generated fstat")
+        self.ops = _GeneratedFstatOps(raw)
+        with self.assertRaises(OSError):
+            self._write()
+        # Adoption did not succeed, so the still caller-owned descriptor is
+        # closed exactly once directly and never through a capability.
+        self.assertEqual(self.ops.generated_raw_closes, 1)
+        self.assertNotIn("generated", self.capability_closes)
+
+    def test_close_failure_without_primary_is_typed_close(self) -> None:
+        self.ops = _GeneratedCloseOps()
+        with self.assertRaises(TransactionError) as ctx:
+            self._write()
+        failure = ctx.exception
+        self.assertEqual(failure.stage, STAGE_CLOSE)
+        self.assertIs(failure.cause, self.ops.close_error)
+        self.assertIs(failure.__cause__, self.ops.close_error)
+        self.assertEqual(self.capability_closes.count("generated"), 1)
+        self.assertEqual(self.ops.generated_raw_closes, 1)
+
+    def test_close_failure_with_active_primary_is_secondary(self) -> None:
+        self.ops = _GeneratedCloseOps()
+        publication_error = OSError(errno.EIO, "injected publication")
+        self.ops.failures["renameat"] = publication_error
+        with self.assertRaises(OSError) as ctx:
+            self._write()
+        primary = ctx.exception
+        self.assertIs(primary, publication_error)
+        secondary = list(getattr(primary, "_transaction_secondary", []))
+        typed = [
+            exc
+            for exc in secondary
+            if isinstance(exc, TransactionError) and exc.stage == STAGE_CLOSE
+        ]
+        self.assertEqual(len(typed), 1)
+        self.assertIs(typed[0].cause, self.ops.close_error)
+        self.assertIsNot(primary, self.ops.close_error)
+
+    def test_process_control_during_adoption_is_unwrapped(self) -> None:
+        for interruption in (KeyboardInterrupt(), SystemExit()):
+            with self.subTest(interruption=type(interruption).__name__):
+                self.ops = _GeneratedFstatOps(interruption)
+                with self.assertRaises(type(interruption)) as ctx:
+                    self._write()
+                # The interruption is neither wrapped nor attached, and the
+                # caller-owned descriptor is still released exactly once.
+                self.assertIs(ctx.exception, interruption)
+                self.assertEqual(
+                    list(getattr(ctx.exception, "_transaction_secondary", [])),
+                    [],
+                )
+                self.assertEqual(self.ops.generated_raw_closes, 1)
 
 
 class UserDirectedInventoryOutputBoundaryTests(unittest.TestCase):

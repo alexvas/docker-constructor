@@ -17,6 +17,8 @@ import unittest
 from docker.transactions import capabilities as capabilities_module
 from docker.transactions.capabilities import DirectoryCapability, FileCapability
 from docker.transactions.errors import (
+    STAGE_CLOSE,
+    STAGE_OPEN,
     STAGE_VALIDATE,
     CapabilityError,
     DestinationExists,
@@ -53,9 +55,12 @@ class DirectoryCapabilityTests(unittest.TestCase):
 
     def test_close_failure_still_releases_and_is_not_retried(self) -> None:
         self.ops.reset()
-        self.ops.failures["close"] = OSError(errno.EIO, "injected close")
-        with self.assertRaises(OSError):
+        close_error = OSError(errno.EIO, "injected close")
+        self.ops.failures["close"] = close_error
+        with self.assertRaises(TransactionError) as ctx:
             self.directory.close()
+        self.assertEqual(ctx.exception.stage, STAGE_CLOSE)
+        self.assertIs(ctx.exception.cause, close_error)
         # The state transition means "close attempted", so the capability is
         # already unusable even though the close failed.
         self.assertTrue(self.directory.closed)
@@ -124,17 +129,22 @@ class DirectoryContextManagerTests(unittest.TestCase):
                 raise primary
         # The body exception stays primary and the close error is secondary.
         self.assertIs(ctx.exception, primary)
-        self.assertEqual(primary.secondary, [close_error])
+        self.assertEqual(len(primary.secondary), 1)
+        secondary = primary.secondary[0]
+        self.assertIsInstance(secondary, TransactionError)
+        self.assertEqual(secondary.stage, STAGE_CLOSE)
+        self.assertIs(secondary.cause, close_error)
         self.assertTrue(directory.closed)
 
     def test_close_failure_without_active_exception_propagates(self) -> None:
         directory = self._directory()
         close_error = OSError(errno.EIO, "injected close")
         self.ops.failures["close"] = close_error
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(TransactionError) as ctx:
             with directory:
                 pass
-        self.assertIs(ctx.exception, close_error)
+        self.assertEqual(ctx.exception.stage, STAGE_CLOSE)
+        self.assertIs(ctx.exception.cause, close_error)
         self.assertTrue(directory.closed)
 
     def test_close_keyboard_interrupt_propagates_over_active_exception(self) -> None:
@@ -194,9 +204,12 @@ class FileCapabilityTests(unittest.TestCase):
         self.addCleanup(self.ops.failures.clear)
         capability = self.directory.open_regular("leaf")
         self.ops.reset()
-        self.ops.failures["close"] = OSError(errno.EIO, "injected close")
-        with self.assertRaises(OSError):
+        close_error = OSError(errno.EIO, "injected close")
+        self.ops.failures["close"] = close_error
+        with self.assertRaises(TransactionError) as ctx:
             capability.close()
+        self.assertEqual(ctx.exception.stage, STAGE_CLOSE)
+        self.assertIs(ctx.exception.cause, close_error)
         # The state transition means "close attempted", so the capability is
         # already unusable even though the close failed.
         self.assertTrue(capability.closed)
@@ -371,10 +384,11 @@ class CapabilityCleanupTests(unittest.TestCase):
         close_error = OSError(errno.EIO, "injected close")
         self.ops.failures["fstat"] = fstat_error
         self.ops.failures["close"] = close_error
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(TransactionError) as ctx:
             DirectoryCapability.from_path(self.ops, self.root)
-        self.assertIs(ctx.exception, fstat_error)
-        self.assertEqual(getattr(ctx.exception, "_transaction_secondary"), [close_error])
+        self.assertEqual(ctx.exception.stage, STAGE_VALIDATE)
+        self.assertIs(ctx.exception.cause, fstat_error)
+        self.assertEqual(ctx.exception.secondary, [close_error])
         self.assertNotIsInstance(ctx.exception, DestinationExists)
 
     def test_open_regular_fstat_failure_survives_close_failure(self) -> None:
@@ -457,11 +471,12 @@ class SecurePathTests(unittest.TestCase):
         self.assertIn(ctx.exception.__cause__.errno, {errno.ELOOP, errno.ENOTDIR})
 
     def test_missing_component_is_reported_and_no_descriptor_leaks(self) -> None:
-        with self.assertRaises(CapabilityError) as ctx:
+        with self.assertRaises(TransactionError) as ctx:
             DirectoryCapability.from_secure_path(
                 self.ops, os.path.join(self.root, "absent"),
             )
-        self.assertIsInstance(ctx.exception.__cause__, FileNotFoundError)
+        self.assertEqual(ctx.exception.stage, STAGE_OPEN)
+        self.assertIsInstance(ctx.exception.cause, FileNotFoundError)
         # Every descriptor opened by the walk is released even though the
         # final component could not be opened (the failing ``openat`` is the
         # only attempt that created no descriptor).
@@ -511,10 +526,11 @@ class SecurePathTests(unittest.TestCase):
         )
         captured = self._track_leaf("nested")
 
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(TransactionError) as ctx:
             DirectoryCapability.from_secure_path(self.ops, target)
 
-        self.assertIs(ctx.exception, parent_error)
+        self.assertEqual(ctx.exception.stage, STAGE_CLOSE)
+        self.assertIs(ctx.exception.cause, parent_error)
         closed = [args[0] for name, args in self.ops.calls if name == "close"]
         # The retained parent is closed exactly once and the adopted leaf gets
         # exactly one close attempt; the two trailing closes are the parent
@@ -541,15 +557,14 @@ class SecurePathTests(unittest.TestCase):
         self.ops.failures["close"] = close_spec
         captured = self._track_leaf("nested")
 
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(TransactionError) as ctx:
             DirectoryCapability.from_secure_path(self.ops, target)
 
         # The parent-close failure stays primary and the failed leaf release
         # is attached as a secondary diagnostic; neither close is retried.
-        self.assertIs(ctx.exception, parent_error)
-        self.assertEqual(
-            getattr(ctx.exception, "_transaction_secondary", []), [leaf_error],
-        )
+        self.assertEqual(ctx.exception.stage, STAGE_CLOSE)
+        self.assertIs(ctx.exception.cause, parent_error)
+        self.assertEqual(ctx.exception.secondary, [leaf_error])
         closed = [args[0] for name, args in self.ops.calls if name == "close"]
         self.assertEqual(
             closed[-2:], [captured["parent_fd"], captured["leaf_fd"]],

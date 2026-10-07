@@ -26,6 +26,7 @@ from docker.transactions.errors import (
     CapabilityError,
     LockContention,
     LockError,
+    TransactionError,
 )
 from docker.transactions.locking import LockCapability, LockPolicy
 from docker.transactions.posix import PosixFileOps
@@ -117,14 +118,14 @@ class _LockTestCase(unittest.TestCase):
         try:
             if not self.directory.closed:
                 self.directory.close()
-        except OSError:
+        except (OSError, TransactionError):
             pass
 
     def _close_capability(self, capability: LockCapability) -> None:
         try:
             if not capability.closed:
                 capability.close()
-        except OSError:
+        except (OSError, TransactionError):
             pass
 
     def path(self, name: str) -> str:

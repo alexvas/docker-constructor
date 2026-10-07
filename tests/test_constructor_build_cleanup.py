@@ -26,7 +26,7 @@ import unittest
 from pathlib import Path
 
 from docker.transactions.capabilities import DirectoryCapability
-from docker.transactions.errors import CapabilityError
+from docker.transactions.errors import STAGE_CLOSE, CapabilityError, TransactionError
 from docker.versioning.build_cleanup import (
     ALGORITHM_DIRECTORY_MODE,
     BLOB_SUFFIX,
@@ -783,9 +783,11 @@ class AlgorithmDirectoryLifecycleTests(_CleanupTestCase):
             cleanup_superseded(self.ops, self.storage, inventory, lock=self.lock)
         self.ops.failures.pop("close", None)
         self.assertIs(ctx.exception, primary)
-        self.assertIn(
-            close_error, getattr(primary, "_transaction_secondary", [])
-        )
+        secondary = getattr(primary, "_transaction_secondary", [])
+        self.assertEqual(len(secondary), 1)
+        self.assertIsInstance(secondary[0], TransactionError)
+        self.assertEqual(secondary[0].stage, STAGE_CLOSE)
+        self.assertIs(secondary[0].cause, close_error)
         self.assertTrue(self.blob_path(blob).exists())
 
 

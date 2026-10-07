@@ -32,7 +32,7 @@ from pathlib import Path
 from unittest import mock
 
 from docker.transactions.capabilities import CapabilityError, DirectoryCapability
-from docker.transactions.errors import LockError, TransactionError, UnsafeFileError
+from docker.transactions.errors import STAGE_CLOSE, LockError, TransactionError, UnsafeFileError
 from docker.transactions.locking import LockPolicy
 from docker.transactions.posix import PosixFileOps
 from docker.transactions.regular import RegularFileContracts
@@ -323,7 +323,12 @@ class BuildLockParityTests(_BuildTestCase):
         self.assertIs(ctx.exception, unlock)
         secondaries = getattr(unlock, "_transaction_secondary", [])
         self.assertIn(lock_close, secondaries)
-        self.assertIn(directory_close, secondaries)
+        directory_secondary = next(
+            item
+            for item in secondaries
+            if isinstance(item, TransactionError) and item.stage == STAGE_CLOSE
+        )
+        self.assertIs(directory_secondary.cause, directory_close)
         self.assertEqual(
             {"unlock": 1, "lock_close": 1, "directory_close": 1}, calls
         )
@@ -702,7 +707,11 @@ class LockDiagnosticParityTests(_BuildTestCase):
             with self.assertRaises(OSError) as ctx:
                 acquire_constructor_project_build_lock(self.repo, cache_root=self.cache)
         self.assertIs(ctx.exception, primary)
-        self.assertIn(close_error, getattr(primary, "_transaction_secondary", []))
+        secondary = getattr(primary, "_transaction_secondary", [])
+        self.assertEqual(len(secondary), 1)
+        self.assertIsInstance(secondary[0], TransactionError)
+        self.assertEqual(secondary[0].stage, STAGE_CLOSE)
+        self.assertIs(secondary[0].cause, close_error)
 
 
 class StorageLifecycleTests(_BuildTestCase):
@@ -780,10 +789,11 @@ class StorageLifecycleTests(_BuildTestCase):
             return None
 
         with mock.patch.object(PosixFileOps, "close", failing_close):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(TransactionError) as ctx:
                 with lock.open_storage():
                     pass
-        self.assertEqual(ctx.exception.errno, errno.EIO)
+        self.assertEqual(ctx.exception.stage, STAGE_CLOSE)
+        self.assertEqual(ctx.exception.cause.errno, errno.EIO)
         self.assertEqual(closed, ["uncommitted", "blobs"])
         self.assertEqual(_open_fd_count(), before)
 
@@ -799,15 +809,17 @@ class StorageLifecycleTests(_BuildTestCase):
             return None
 
         with mock.patch.object(PosixFileOps, "close", failing_close):
-            with self.assertRaises(OSError) as ctx:
+            with self.assertRaises(TransactionError) as ctx:
                 with lock.open_storage():
                     pass
         primary = ctx.exception
-        self.assertEqual(primary.errno, errno.EIO)
-        self.assertIn("uncommitted", str(primary))
-        secondaries = getattr(primary, "_transaction_secondary", [])
+        self.assertEqual(primary.stage, STAGE_CLOSE)
+        self.assertIsInstance(primary.cause, OSError)
+        self.assertEqual(primary.cause.errno, errno.EIO)
+        self.assertIn("uncommitted", str(primary.cause))
+        secondaries = primary.secondary
         self.assertEqual(len(secondaries), 1)
-        self.assertIn("blobs", str(secondaries[0]))
+        self.assertIn("blobs", str(secondaries[0].cause))
         self.assertEqual(_open_fd_count(), before)
 
 

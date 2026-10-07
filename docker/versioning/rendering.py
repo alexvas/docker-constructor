@@ -20,6 +20,7 @@ from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
     STAGE_VALIDATE,
     STAGE_VALIDATE_DESTINATION,
+    CloseStageFailure,
     TransactionError,
     UnsafeFileError,
     carry_secondary_diagnostics,
@@ -1784,6 +1785,7 @@ def write_effective_build(
     destination_name = "docker-constructor.build.effective.toml"
     ops = PosixFileOps()
     generated_fd = None
+    generated: DirectoryCapability | None = None
     primary: BaseException | None = None
     try:
         try:
@@ -1806,9 +1808,24 @@ def write_effective_build(
                         "generated project state child must be invoking-user-owned "
                         "and mode 0700"
                     )
-                generated = DirectoryCapability.from_fd(
-                    ops, generated_fd, "generated"
-                )
+                try:
+                    generated = DirectoryCapability.from_fd(
+                        ops, generated_fd, "generated"
+                    )
+                except TransactionError as exc:
+                    # Phase 5 normalizes an operational ``fstat`` failure into a
+                    # typed STAGE_VALIDATE transaction error carrying the raw
+                    # ``OSError`` as its cause.  The public rendering contract has
+                    # always surfaced that raw ``OSError``; restore it (carrying
+                    # any attached cleanup diagnostics) so the typed L1 boundary
+                    # does not change the observable failure.  A
+                    # non-operational capability failure keeps its typed error,
+                    # and a process-control interruption is not caught here.
+                    cause = exc.cause
+                    if isinstance(cause, OSError):
+                        carry_secondary_diagnostics(cause, exc)
+                        raise cause
+                    raise
                 _validate_effective_destination(ops, generated, destination_name)
                 try:
                     RegularFileContracts(ops).durable_replace(
@@ -1822,11 +1839,21 @@ def write_effective_build(
         primary = exc
         raise
     finally:
-        if generated_fd is not None:
-            # A generated-directory close failure must never mask a primary
-            # validation/publication failure: it is attached as secondary
-            # diagnostics and the primary exception keeps propagating.  A
-            # process-control interruption during close is authoritative.
+        # Ownership is split by adoption state.  Once ``from_fd`` succeeds,
+        # ``generated_fd`` is owned by ``generated`` and must be released
+        # through its capability; while adoption has not succeeded the raw
+        # descriptor is still caller-owned and is closed exactly once.  A
+        # generated-directory close failure never masks a primary
+        # validation/publication failure: it is attached as secondary
+        # diagnostics and the primary keeps propagating.  A process-control
+        # interruption during close is authoritative and is never converted.
+        if generated is not None:
+            failures = CleanupFailures(primary)
+            failures.run(generated.close, ordinary=(CloseStageFailure,))
+            result = failures.complete()
+            if result is not None:
+                raise result
+        elif generated_fd is not None:
             failures = CleanupFailures(primary)
             failures.run(lambda: ops.close(generated_fd), ordinary=(OSError,))
             result = failures.complete()

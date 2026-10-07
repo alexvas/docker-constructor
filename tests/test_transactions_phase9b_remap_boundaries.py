@@ -18,10 +18,11 @@ from docker import transactions
 _REPO = Path(__file__).resolve().parents[1]
 _REMAP_FILES = {
     "docker/npm_environment/publication.py": 2,
-    "docker/versioning/rendering.py": 1,
-    "docker/versioning/artifact_cache.py": 2,
+    "docker/versioning/rendering.py": 2,
+    "docker/versioning/artifact_cache.py": 3,
     "docker/versioning/build_cache.py": 5,
     "docker/versioning/effective.py": 2,
+    "docker/versioning/project_state.py": 1,
 }
 _EXPLICIT_AGGREGATORS = (
     "docker/transactions/locking.py",
@@ -49,7 +50,7 @@ class RemapSiteTests(unittest.TestCase):
             calls = _calls(path).get("carry_secondary_diagnostics", [])
             self.assertEqual(len(calls), expected, path)
             total += len(calls)
-        self.assertEqual(total, 12)
+        self.assertEqual(total, 15)
 
     def test_remap_calls_pass_cause_and_wrapper_positionally(self) -> None:
         for path in _REMAP_FILES:

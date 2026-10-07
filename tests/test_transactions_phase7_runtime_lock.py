@@ -24,6 +24,7 @@ import tempfile
 import threading
 import unittest
 
+from docker.transactions.errors import STAGE_CLOSE, TransactionError
 from docker.versioning.artifact_cache import (
     FileIdentityLock,
     FileIdentityLockFactory,
@@ -235,9 +236,11 @@ class OperationalLockFailureTests(_RuntimeLockCase):
         # cleanup is attached as a secondary diagnostic instead of replacing
         # or masking it.
         self.assertIs(ctx.exception, stat_error)
-        self.assertEqual(
-            getattr(ctx.exception, "_transaction_secondary", []), [close_error],
-        )
+        secondary = getattr(ctx.exception, "_transaction_secondary", [])
+        self.assertEqual(len(secondary), 1)
+        self.assertIsInstance(secondary[0], TransactionError)
+        self.assertEqual(secondary[0].stage, STAGE_CLOSE)
+        self.assertIs(secondary[0].cause, close_error)
 
     def test_adoption_stat_failure_preserves_primary_and_closes_raw_descriptor(
         self,
@@ -291,6 +294,77 @@ class OperationalLockFailureTests(_RuntimeLockCase):
         mapped = _identity_lock_failure(exc)
         self.assertIsInstance(mapped, ArtifactMaterializationError)
         self.assertEqual(mapped.reason, "containment")
+
+    def test_probe_close_failure_keeps_raw_oserror(self) -> None:
+        # A pre-existing valid entry reaches the post-acquisition identity
+        # probe whose close is faulted.  A failed lock-probe close is
+        # operational I/O, not unsafe containment, so the runtime domain must
+        # preserve the raw ``OSError`` just as the npm adapter does.
+        import fcntl
+
+        from docker.transactions import locking
+        from docker.versioning.artifact_cache import ArtifactMaterializationError
+
+        path = self._lock_path(_SHA512)
+        with open(path, "wb"):
+            pass
+        os.chmod(path, 0o600)
+
+        error = OSError(errno.EIO, "injected probe close failure")
+        lock = FileIdentityLock(self.root)
+        ops = InjectedOps()
+        self._install_ops(lock, ops)
+        probe: dict[str, int | None] = {"fd": None}
+        original_openat = ops.openat
+
+        def tracking_openat(dir_fd, name, flags, mode=0o777):
+            fd = original_openat(dir_fd, name, flags, mode)
+            if flags == locking._PROBE_FLAGS:
+                probe["fd"] = fd
+            return fd
+
+        ops.openat = tracking_openat
+        last: dict[str, int | None] = {"fd": None}
+
+        def close_hook(fd: int) -> None:
+            last["fd"] = fd
+
+        def close_failure(count: int):
+            if last["fd"] is not None and last["fd"] == probe["fd"]:
+                return error
+            return None
+
+        ops.hooks["close"] = close_hook
+        ops.failures["close"] = close_failure
+
+        def _close_probe() -> None:
+            if probe["fd"] is not None:
+                try:
+                    os.close(probe["fd"])
+                except OSError:
+                    pass
+
+        self.addCleanup(_close_probe)
+
+        with self.assertRaises(OSError) as ctx:
+            lock.acquire(_SHA512)
+
+        self.assertIs(ctx.exception, error)
+        self.assertNotIsInstance(ctx.exception, ArtifactMaterializationError)
+        self.assertEqual(ctx.exception.errno, errno.EIO)
+        # A failed acquisition retains neither the lock nor the directory.
+        self.assertIsNone(lock._capability)
+        self.assertIsNone(lock._directory)
+        # The lock descriptor is still unlocked and closed, and the directory
+        # capability is released, despite the probe-close failure.
+        unlocked = [args[1] for name, args in ops.calls if name == "flock"]
+        self.assertIn(fcntl.LOCK_UN, unlocked)
+        self.assertGreaterEqual(ops.counts.get("close", 0), 2)
+        # A fresh identity lock with no injected fault still acquires.
+        fresh = FileIdentityLock(self.root)
+        self.addCleanup(lambda: fresh.release(_SHA512))
+        self.assertTrue(fresh.acquire(_SHA512))
+        fresh.release(_SHA512)
 
 
 class ReleaseParityTests(_RuntimeLockCase):

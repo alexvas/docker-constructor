@@ -41,6 +41,7 @@ from docker.transactions.errors import (
     STAGE_LOCK_VALIDATE,
     STAGE_VALIDATE,
     STAGE_VALIDATE_DESTINATION,
+    CloseStageFailure,
     LockContention,
     LockError,
     TransactionError,
@@ -859,7 +860,7 @@ class _BuildStorageHandle:
             blobs, self._blobs = self._blobs, None
             failures = CleanupFailures(exc)
             if blobs is not None:
-                failures.run(blobs.close, ordinary=(OSError,))
+                failures.run(blobs.close, ordinary=(CloseStageFailure,))
             result = failures.complete()
             if result is not None:
                 raise result
@@ -874,7 +875,7 @@ class _BuildStorageHandle:
             # Attempt every close even when an earlier one failed so no
             # descriptor is abandoned because of a sibling close failure; a
             # process-control interruption does not skip the remaining close.
-            failures.run(capability.close, ordinary=(OSError,))
+            failures.run(capability.close, ordinary=(CloseStageFailure,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -988,7 +989,7 @@ class ConstructorProjectBuildLock:
                 raise
 
         failures.run(close_capability, ordinary=(OSError, LockError))
-        failures.run(self._generation_directory.close, ordinary=(OSError,))
+        failures.run(self._generation_directory.close, ordinary=(CloseStageFailure,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -1151,7 +1152,7 @@ def acquire_constructor_project_build_lock(constructor_project_root: str | Path,
         if capability is not None:
             failures.run(capability.close, ordinary=(OSError, LockError))
         if directory is not None:
-            failures.run(directory.close, ordinary=(OSError,))
+            failures.run(directory.close, ordinary=(CloseStageFailure,))
         parent, parent_fd = parent_fd, -1
         if parent >= 0:
             failures.run(lambda: os.close(parent), ordinary=(OSError,))
@@ -1224,8 +1225,9 @@ def _validate_existing_marker(directory: DirectoryCapability, name: str) -> None
         _raise_marker_failure(name, exc)
     try:
         marker.close()
-    except OSError:
-        # No earlier failure exists, so preserve the raw operational close error.
+    except TransactionError:
+        # No earlier failure exists, so the typed operational close error
+        # propagates unchanged.
         raise
 
 

@@ -62,6 +62,7 @@ from .errors import (
     STAGE_VALIDATE_DESTINATION,
     STAGE_WRITE,
     DestinationExists,
+    CloseStageFailure,
     TransactionError,
     UnsafeFileError,
 )
@@ -209,12 +210,7 @@ class RegularFileContracts:
                 allowed_mode=allowed_mode,
                 require_single_link=require_single_link,
             )
-            try:
-                return capability.read_all()
-            except OSError as exc:
-                raise TransactionError(
-                    STAGE_READ, f"cannot read {base!r}", cause=exc
-                ) from exc
+            return capability.read_all()
         except BaseException as exc:
             primary = exc
             raise
@@ -222,17 +218,18 @@ class RegularFileContracts:
             if capability is not None:
                 # One close attempt only: POSIX does not guarantee the
                 # descriptor remains open, so a retry could close an unrelated
-                # reused descriptor.  An ordinary close failure is secondary to
-                # an in-flight primary and otherwise maps to a close-stage
-                # ``TransactionError``; a process-control interruption
-                # propagates unchanged.
+                # reused descriptor.  ``capability.close`` already returns a
+                # typed close-stage ``TransactionError`` whose cause is the raw
+                # ``OSError``; that object is propagated unchanged so a sole
+                # close failure keeps the original ``OSError`` as both ``.cause``
+                # and ``.__cause__``.  An ordinary close failure is secondary to
+                # an in-flight primary; a raw ``OSError`` remains possible only
+                # at a non-capability boundary and is translated downstream.
                 failures = CleanupFailures(primary)
-                failures.run(capability.close, ordinary=(OSError,))
+                failures.run(capability.close, ordinary=(CloseStageFailure,))
                 result = failures.complete()
                 if result is not None:
-                    raise TransactionError(
-                        STAGE_CLOSE, f"cannot close {base!r}", cause=result
-                    ) from result
+                    raise result
 
     # -- durable unlink --------------------------------------------------
     def durable_unlink(

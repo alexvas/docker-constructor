@@ -122,9 +122,47 @@ Public transaction L1 capability operations SHALL translate operational filesyst
 - **AND** SHALL keep the release attempt terminal so a later close issues no operation
 
 #### Scenario: Downstream cleanup handles typed capability close failure
-- **WHEN** a transaction consumer releases a capability through cleanup accumulation, a direct close handler, a deliberate suppression boundary, or an error translator
-- **THEN** it SHALL apply its existing close-failure policy to a close-stage transaction error without swallowing unrelated transaction failures
-- **AND** an active primary SHALL not be replaced by the close failure
+- **WHEN** a transaction consumer releases an adopted capability through cleanup accumulation, a direct close handler, a deliberate suppression boundary, or an error translator
+- **THEN** it SHALL recognize only a close-stage transaction error as the ordinary capability-close failure without swallowing unrelated transaction failures
+- **AND** it SHALL preserve that typed close-stage error rather than unwrap its raw cause merely to reproduce historical raw-descriptor behavior
+- **AND** when no other failure is active, the typed close-stage error SHALL propagate unchanged with the original filesystem failure available through both its stored cause and direct exception cause
+- **AND** when another failure is active, that failure SHALL remain authoritative and the typed close-stage error SHALL remain observable as secondary diagnostic context
+
+#### Scenario: Cleanup follows generated-directory ownership state
+- **WHEN** effective-build publication opens its generated directory but transaction capability adoption fails
+- **THEN** the still caller-owned raw descriptor SHALL receive exactly one direct release attempt and an ordinary release failure MAY remain a raw `OSError`
+- **WHEN** generated-directory adoption succeeds and later release reports an operational filesystem failure
+- **THEN** publication SHALL release only through the owning capability
+- **AND** a sole release failure SHALL propagate as `TransactionError(STAGE_CLOSE)` with the original filesystem failure as its stored and direct exception cause
+- **AND** an active publication failure SHALL remain authoritative with that typed close-stage error attached as secondary diagnostic context
+
+### Requirement: Preserve typed operational failures across consumer boundaries
+L2 adapters, cleanup accumulators, lock wrappers, and domain consumers SHALL preserve a typed transaction or lock failure when no domain translation is required. When translation to a domain error is required, the domain error SHALL chain directly from the typed failure so its stage, original cause, and secondary diagnostics remain reachable together. A consumer MAY inspect the raw cause to determine absence, errno, safety classification, or another documented domain result, but SHALL NOT replace the typed failure with that cause solely to reproduce historical raw-descriptor behavior. A raw operational error MAY remain authoritative before capability adoption, at an injected POSIX boundary, or where a separately documented public contract requires the exact raw exception type.
+
+#### Scenario: Typed operational failure requires no domain translation
+- **WHEN** an L2 adapter, lock wrapper, cleanup accumulator, or domain consumer receives a typed operational failure and its contract does not require another error type
+- **THEN** it SHALL propagate or aggregate that typed failure rather than its raw cause
+- **AND** the operation stage, original cause, and secondary diagnostics SHALL remain reachable through that typed failure
+
+#### Scenario: Typed operational failure requires a domain error
+- **WHEN** a consumer maps a typed operational failure to a domain error
+- **THEN** the domain error SHALL chain directly from the typed failure
+- **AND** SHALL NOT bypass the typed failure by chaining from its raw cause
+
+#### Scenario: Consumer inspects a cause for policy
+- **WHEN** a consumer examines a typed failure's cause to recognize absence, errno, a safety outcome, or another documented domain result
+- **THEN** that inspection MAY select the required control-flow or domain outcome
+- **AND** inspection alone SHALL NOT authorize replacing the typed failure with its cause
+
+#### Scenario: Cleanup classifies a typed release failure
+- **WHEN** a cleanup accumulator receives a typed capability-close or lock-release failure after successful adoption
+- **THEN** it SHALL classify that typed failure directly under its declared cleanup policy
+- **AND** SHALL NOT unwrap it merely to make it match `OSError`
+
+#### Scenario: Exact raw exception type is a required contract
+- **WHEN** a consumer intentionally replaces a typed failure with its raw cause
+- **THEN** a separately documented public contract and focused regression test SHALL require the exact raw exception type
+- **AND** an implementation-history compatibility claim alone SHALL NOT satisfy that requirement
 
 #### Scenario: L2 validated read has a sole close failure
 - **WHEN** a validated read succeeds but releasing its file capability raises an already typed close error

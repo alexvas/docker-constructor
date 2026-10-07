@@ -27,6 +27,7 @@ STAGE_COMMIT = "commit"
 STAGE_FSYNC_DIRECTORY = "fsync-directory"
 STAGE_VALIDATE_DESTINATION = "validate-destination"
 STAGE_REPLACE = "replace"
+STAGE_OPEN = "open-directory"
 STAGE_VALIDATE = "validate"
 STAGE_READ = "read"
 STAGE_UNLINK = "unlink"
@@ -60,6 +61,36 @@ class TransactionError(Exception):
 
 class UnsafeFileError(TransactionError):
     """A leaf is a symlink, non-regular, foreign-owned, multiplied, or forbidden-mode."""
+
+
+class _CloseStageMeta(type):
+    """Metaclass matching exactly the close-stage ``TransactionError`` instances.
+
+    ``CleanupFailures.run`` classifies action failures by exception type, but
+    L1 reports every operation stage through the single ``TransactionError``
+    type.  Defining ``__instancecheck__`` on the metaclass lets
+    :class:`CloseStageFailure` participate in ``ordinary`` type tuples while
+    matching by stage, so a close accumulator can declare
+    ``ordinary=(CloseStageFailure,)`` without demoting an unrelated read,
+    validate, or open failure to an ordinary close diagnostic.
+    """
+
+    def __instancecheck__(cls, instance: object) -> bool:
+        return isinstance(instance, TransactionError) and instance.stage == STAGE_CLOSE
+
+
+class CloseStageFailure(TransactionError, metaclass=_CloseStageMeta):
+    """Classification marker for close-stage transaction failures.
+
+    This class is never raised.  It exists so a cleanup accumulator can pass
+    ``ordinary=(CloseStageFailure,)`` and have **only** a
+    ``TransactionError`` whose ``stage == STAGE_CLOSE`` treated as an ordinary
+    close failure; an unrelated stage surfaced by a close action stays an
+    authoritative unexpected defect rather than being suppressed as a close
+    diagnostic.  Exception matching (``except``) does not consult
+    ``__instancecheck__``, so this marker must only appear in an ``ordinary``
+    tuple and never in an ``except`` clause.
+    """
 
 
 class DestinationExists(TransactionError):

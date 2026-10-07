@@ -43,6 +43,7 @@ from docker.transactions.capabilities import (
 )
 from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
+    CloseStageFailure,
     DestinationExists,
     TransactionError,
     carry_secondary_diagnostics,
@@ -1163,7 +1164,7 @@ def create_runtime_projection(
             # only failure when the publication succeeded; a process-control
             # interruption from close is authoritative and is never converted.
             failures = CleanupFailures(primary)
-            failures.run(directory.close, ordinary=(OSError,))
+            failures.run(directory.close, ordinary=(CloseStageFailure,))
             result = failures.complete()
             if result is not None:
                 raise result

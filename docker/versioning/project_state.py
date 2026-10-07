@@ -14,6 +14,7 @@ from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
     DestinationExists,
     TransactionError,
+    carry_secondary_diagnostics,
 )
 from docker.transactions.posix import PosixFileOps
 from docker.transactions.regular import RegularFileContracts
@@ -235,7 +236,27 @@ def _publish_metadata(namespace_fd: int, expected: bytes, label: str) -> None:
     """
     ops = PosixFileOps()
     try:
-        directory = DirectoryCapability.from_fd(ops, namespace_fd, label)
+        try:
+            directory = DirectoryCapability.from_fd(ops, namespace_fd, label)
+        except TransactionError as exc:
+            # Capability construction is part of the publication domain
+            # boundary.  A normalized operational failure is unwrapped to the
+            # raw ``OSError`` its public mapping has always exposed, carrying
+            # any attached cleanup diagnostics; a non-operational capability
+            # failure keeps the typed transaction error as the chained cause.
+            cause = exc.cause
+            if isinstance(cause, OSError):
+                carry_secondary_diagnostics(cause, exc)
+                raise ProjectStateError(
+                    f"cannot publish project identity metadata {label}"
+                ) from cause
+            raise ProjectStateError(
+                f"cannot publish project identity metadata {label}"
+            ) from exc
+        except OSError as exc:
+            raise ProjectStateError(
+                f"cannot publish project identity metadata {label}"
+            ) from exc
         RegularFileContracts(ops).durable_no_clobber(
             directory, "project.json", expected, 0o600
         )

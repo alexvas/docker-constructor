@@ -12,7 +12,7 @@ The unsafe shape is not limited to `finally: os.close(fd)`. A handoff such as op
 - Let leaf modules reuse the foundation without loading `docker.transactions`.
 - Reuse the foundation from transaction capabilities rather than create competing ownership models.
 - Present one typed transaction L1 boundary for operational descriptor failures without weakening ownership or cleanup guarantees.
-- Preserve existing domain paths, layouts, error types, and policy decisions.
+- Preserve existing domain paths, layouts, and policy decisions; preserve domain error types except where this change intentionally normalizes an adopted transaction capability's operational failure to the typed L1 boundary.
 
 **Non-Goals:**
 - Create a generic VFS, tree transaction, recursive removal API, or path-policy engine.
@@ -215,6 +215,18 @@ Alternative: extract all existing `transactions.capabilities`, including regular
 A capability marks itself released before invoking close. A failed close is never retried by the same capability. Explicit detach/transfer makes the source terminal without closing and is used only at compatibility boundaries or when ownership moves to another capability.
 
 Context-manager cleanup uses the shared failure precedence: an ordinary declared close failure is secondary to an active primary; without a primary it propagates as the sole failure; interruption and unexpected defects retain their defined precedence. Multi-descriptor cleanup attempts every independent release once.
+
+The error boundary follows ownership state. Before adoption succeeds, the caller still owns the raw descriptor, releases it through the injected descriptor operations, and observes an ordinary raw `OSError` from that release. After adoption succeeds, the capability is the sole owner and every release must go through its `close()` method. A transaction capability normalizes an operational release failure to `TransactionError(STAGE_CLOSE, ..., cause=raw_error)`, and a consumer must preserve that typed close error rather than unwrap it merely to reproduce historical raw-descriptor behavior. With no active primary the typed close error propagates unchanged; with an active primary it remains typed and is attached as secondary diagnostic context. Its original POSIX failure remains available through both `.cause` and `.__cause__`, while a process-control exception propagates unchanged.
+
+`docker.versioning.rendering.write_effective_build()` is an explicit ownership-split consumer of this rule. If generated-directory adoption fails, it releases the still caller-owned descriptor directly. If adoption succeeds, it releases only through `DirectoryCapability.close()`: a sole post-adoption close failure is the typed close-stage transaction error, and a simultaneous publication failure remains primary with that typed close error attached as secondary context.
+
+### Preserve typed failures across consumer boundaries
+
+A successful L1 or lock-layer normalization is not undone merely to reproduce a historical raw-descriptor implementation detail. An L2 adapter, cleanup accumulator, lock wrapper, or domain boundary preserves the typed exception unchanged when no domain translation is required. When a domain exception is required, it chains directly from the typed exception with `raise DomainError(...) from exc`; it does not skip that layer by chaining from or raising `exc.cause`. This keeps operation stage, the exact POSIX cause, and attached secondary cleanup diagnostics on one exception graph without copying diagnostics between exception objects.
+
+Cause inspection remains permitted when it drives behavior rather than exception replacement: examples include recognizing `FileNotFoundError`, examining `errno`, distinguishing a no-follow safety rejection, or selecting a documented domain result. Inspection alone does not authorize `raise exc.cause`, `return exc.cause`, or substituting the cause into an aggregate. A raw `OSError` also remains valid before capability adoption, at an injected POSIX operation boundary, or under a separately documented public contract whose tests require the exact raw exception type. Every such compatibility exception must identify that contract and must not be inferred solely from pre-refactor implementation behavior.
+
+This rule applies to transaction errors, lock errors, their cleanup/release paths, and the npm publication and versioning build-cache, artifact-cache, build-cleanup, project-state, effective-state, and rendering adapters. A repository-wide executable inventory classifies each cause access as inspect-only, typed propagation, domain wrapping, pre-adoption raw cleanup, or a justified raw-contract exception. New cause-unwrapping sites are rejected unless they carry that explicit justification.
 
 A secure walk retains both sides of a parent-to-child handoff until the child is validated. If parent release fails, the child is released once and is not returned. This directly addresses the leak/retry shape in the current npm and cache walkers.
 

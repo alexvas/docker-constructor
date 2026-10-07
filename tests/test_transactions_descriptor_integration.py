@@ -22,7 +22,13 @@ from pathlib import Path
 from docker.filesystem.descriptors import DescriptorError
 from docker.transactions import capabilities as capabilities_module
 from docker.transactions.capabilities import DirectoryCapability, FileCapability
-from docker.transactions.errors import CapabilityError
+from docker.transactions.errors import (
+    STAGE_CLOSE,
+    STAGE_OPEN,
+    STAGE_VALIDATE,
+    CapabilityError,
+    TransactionError,
+)
 from tests.transactions_test_support import InjectedOps
 
 _REPO = Path(__file__).resolve().parents[1]
@@ -102,9 +108,10 @@ class FromFdContractTests(unittest.TestCase):
         self.ops.reset()
         error = OSError(errno.EIO, "injected fstat")
         self.ops.failures["fstat"] = error
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(TransactionError) as ctx:
             DirectoryCapability.from_fd(self.ops, fd, "root")
-        self.assertIs(ctx.exception, error)
+        self.assertEqual(ctx.exception.stage, STAGE_VALIDATE)
+        self.assertIs(ctx.exception.cause, error)
         self.assertNotIn("close", self.ops.order)
         # The rejected descriptor is still open and usable by the caller.
         self.assertTrue(stat.S_ISDIR(os.fstat(fd).st_mode))
@@ -137,7 +144,7 @@ class FromFdContractTests(unittest.TestCase):
                 lambda ops: ops.failures.__setitem__(
                     "fstat", OSError(errno.EIO, "boom")
                 ),
-                OSError,
+                TransactionError,
             ),
             (
                 "type",
@@ -173,9 +180,10 @@ class FromFdContractTests(unittest.TestCase):
         self._owned.remove(fd)
         close_error = OSError(errno.EIO, "injected close")
         self.ops.failures["close"] = close_error
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(TransactionError) as ctx:
             capability.close()
-        self.assertIs(ctx.exception, close_error)
+        self.assertEqual(ctx.exception.stage, STAGE_CLOSE)
+        self.assertIs(ctx.exception.cause, close_error)
         self.assertTrue(capability.closed)
         self.assertEqual(self.ops.order.count("close"), 1)
         # A second close is a no-op that issues no system call.
@@ -349,25 +357,30 @@ class FromSecurePathRootFailureTests(unittest.TestCase):
         ops.failures["openat"] = lambda count: error if count == 1 else None
         return ops, error
 
-    def test_root_open_failure_is_cause_preserving_capability_error(self) -> None:
+    def test_root_open_failure_is_cause_preserving_typed_or_safety_error(self) -> None:
         for path in ("/", "/a/b"):
-            for errno_value in (errno.EIO, errno.ELOOP):
-                with self.subTest(path=path, errno=errno_value):
-                    ops, error = self._first_open_failure(errno_value)
-                    with self.assertRaises(CapabilityError) as ctx:
-                        DirectoryCapability.from_secure_path(ops, path)
-                    self.assertNotIsInstance(ctx.exception, OSError)
-                    self.assertIs(ctx.exception.__cause__, error)
-                    # Only the root open was attempted; nothing to release.
-                    self.assertEqual(ops.counts.get("openat", 0), 1)
-                    self.assertEqual(ops.counts.get("close", 0), 0)
-                    self.assertEqual(
-                        [name for name, _ in ops.calls if name == "close"], []
-                    )
-                    self.assertEqual(
-                        str(ctx.exception),
-                        f"cannot open directory capability {path!r}: {error}",
-                    )
+            with self.subTest(path=path, errno=errno.EIO):
+                ops, error = self._first_open_failure(errno.EIO)
+                with self.assertRaises(TransactionError) as ctx:
+                    DirectoryCapability.from_secure_path(ops, path)
+                self.assertEqual(ctx.exception.stage, STAGE_OPEN)
+                self.assertIs(ctx.exception.cause, error)
+                self.assertIs(ctx.exception.__cause__, error)
+                # Only the root open was attempted; nothing to release.
+                self.assertEqual(ops.counts.get("openat", 0), 1)
+                self.assertEqual(ops.counts.get("close", 0), 0)
+                self.assertEqual(
+                    str(ctx.exception),
+                    f"cannot open directory capability {path!r}: {error}",
+                )
+            with self.subTest(path=path, errno=errno.ELOOP):
+                ops, error = self._first_open_failure(errno.ELOOP)
+                with self.assertRaises(CapabilityError) as ctx:
+                    DirectoryCapability.from_secure_path(ops, path)
+                self.assertNotIsInstance(ctx.exception, TransactionError)
+                self.assertIs(ctx.exception.__cause__, error)
+                self.assertEqual(ops.counts.get("openat", 0), 1)
+                self.assertEqual(ops.counts.get("close", 0), 0)
 
 
 class FromSecurePathCompatibilityTests(unittest.TestCase):
@@ -401,13 +414,14 @@ class FromSecurePathCompatibilityTests(unittest.TestCase):
     def test_root_path_open_failure_keeps_message_and_raw_cause(self) -> None:
         error = OSError(errno.EIO, "injected root open")
         self.ops.failures["openat"] = lambda count: error if count == 1 else None
-        with self.assertRaises(CapabilityError) as ctx:
+        with self.assertRaises(TransactionError) as ctx:
             DirectoryCapability.from_secure_path(self.ops, os.sep)
+        self.assertEqual(ctx.exception.stage, STAGE_OPEN)
         self.assertEqual(
             str(ctx.exception),
             f"cannot open directory capability {os.sep!r}: {error}",
         )
-        self.assertIs(ctx.exception.__cause__, error)
+        self.assertIs(ctx.exception.cause, error)
 
     def test_child_open_failure_keeps_message_and_raw_cause(self) -> None:
         target = os.path.join(self.root, "a", "b")
@@ -417,13 +431,14 @@ class FromSecurePathCompatibilityTests(unittest.TestCase):
         self.ops.failures["openat"] = lambda count: (
             error if count == len(components) + 1 else None
         )
-        with self.assertRaises(CapabilityError) as ctx:
+        with self.assertRaises(TransactionError) as ctx:
             DirectoryCapability.from_secure_path(self.ops, target)
+        self.assertEqual(ctx.exception.stage, STAGE_OPEN)
         self.assertEqual(
             str(ctx.exception),
             f"cannot open directory capability {target!r}: {error}",
         )
-        self.assertIs(ctx.exception.__cause__, error)
+        self.assertIs(ctx.exception.cause, error)
 
     def test_injected_eloop_open_failure_keeps_message_and_raw_cause(self) -> None:
         target = os.path.join(self.root, "a", "b")
@@ -700,15 +715,16 @@ class CleanupDiagnosticCarryTests(unittest.TestCase):
         self.ops.failures["close"] = (
             lambda count: close_error if count == parent_close else None
         )
-        with self.assertRaises(CapabilityError) as ctx:
+        with self.assertRaises(TransactionError) as ctx:
             DirectoryCapability.from_secure_path(self.ops, target)
         error = ctx.exception
+        self.assertEqual(error.stage, STAGE_OPEN)
         self.assertEqual(
             str(error),
             f"cannot open directory capability {target!r}: {open_error}",
         )
-        self.assertIs(error.__cause__, open_error)
-        self.assertEqual(self._secondary(error), [close_error])
+        self.assertIs(error.cause, open_error)
+        self.assertEqual(error.secondary, [close_error])
         self.assertEqual(self.ops.counts["close"], len(components))
 
     def test_eloop_open_failure_carries_parent_close_failure(self) -> None:
@@ -902,12 +918,13 @@ class SecurePathValidationStatFailureTests(unittest.TestCase):
     def _close_attempts(self) -> list[int]:
         return [args[0] for name, args in self.ops.calls if name == "close"]
 
-    def test_final_leaf_fstat_failure_reraises_the_raw_oserror(self) -> None:
+    def test_final_leaf_fstat_failure_is_a_typed_validation_error(self) -> None:
         error = OSError(errno.EIO, "injected leaf fstat")
         self.ops.failures["fstat"] = error
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(TransactionError) as ctx:
             DirectoryCapability.from_secure_path(self.ops, self.tmp.name)
-        self.assertIs(ctx.exception, error)
+        self.assertEqual(ctx.exception.stage, STAGE_VALIDATE)
+        self.assertIs(ctx.exception.cause, error)
         self.assertNotIsInstance(ctx.exception, CapabilityError)
         # Only the final leaf is validated by stat.
         self.assertEqual(self.ops.counts.get("fstat", 0), 1)
@@ -925,14 +942,13 @@ class SecurePathValidationStatFailureTests(unittest.TestCase):
         close_error = OSError(errno.EIO, "injected leaf close")
         self.ops.failures["fstat"] = fstat_error
         self._close_failure_after_stat(close_error)
-        with self.assertRaises(OSError) as ctx:
+        with self.assertRaises(TransactionError) as ctx:
             DirectoryCapability.from_secure_path(self.ops, self.tmp.name)
         # The stat failure stays authoritative; the close defect is secondary.
-        self.assertIs(ctx.exception, fstat_error)
+        self.assertEqual(ctx.exception.stage, STAGE_VALIDATE)
+        self.assertIs(ctx.exception.cause, fstat_error)
         self.assertNotIsInstance(ctx.exception, CapabilityError)
-        self.assertEqual(
-            [close_error], getattr(fstat_error, "_transaction_secondary")
-        )
+        self.assertEqual(ctx.exception.secondary, [close_error])
         # Every opened descriptor receives exactly one close attempt.
         self.assertEqual(
             self.ops.counts.get("openat", 0), self.ops.counts.get("close", 0)

@@ -36,6 +36,7 @@ from docker.npm_environment.publication import identity_coordination_lock
 from docker.npm_environment.storage import prepare_assembler_namespace
 from docker.npm_environment.errors import LockedNpmError
 from docker.transactions import locking
+from docker.transactions.errors import STAGE_CLOSE, TransactionError
 from tests.transactions_test_support import InjectedOps
 
 _ASSEMBLER = "a" * 64
@@ -486,9 +487,11 @@ class ReleaseInterruptionTests(_NpmLockCase):
         self.assertEqual(self._directory_close_count(ops, directory["fd"]), 1)
         # The ordinary directory-close failure is secondary, never a
         # replacement for the preserved interruption.
-        self.assertEqual(
-            getattr(interruption, "_transaction_secondary", None), [directory_error]
-        )
+        secondaries = getattr(interruption, "_transaction_secondary", None)
+        self.assertEqual(len(secondaries), 1)
+        self.assertIsInstance(secondaries[0], TransactionError)
+        self.assertEqual(secondaries[0].stage, STAGE_CLOSE)
+        self.assertIs(secondaries[0].cause, directory_error)
 
     def test_directory_close_failure_is_secondary_to_primary_error(self) -> None:
         self._existing_entry()
@@ -514,7 +517,11 @@ class ReleaseInterruptionTests(_NpmLockCase):
                 raise marker
         self.assertIs(ctx.exception, marker)
         self.assertEqual(self._directory_close_count(ops, directory["fd"]), 1)
-        self.assertEqual(getattr(marker, "_transaction_secondary", None), [directory_error])
+        secondaries = getattr(marker, "_transaction_secondary", None)
+        self.assertEqual(len(secondaries), 1)
+        self.assertIsInstance(secondaries[0], TransactionError)
+        self.assertEqual(secondaries[0].stage, STAGE_CLOSE)
+        self.assertIs(secondaries[0].cause, directory_error)
 
 
 if __name__ == "__main__":

@@ -39,6 +39,7 @@ from docker.transactions.errors import (
     STAGE_LOCK_PREPARE,
     STAGE_LOCK_STAT,
     STAGE_LOCK_VALIDATE,
+    CloseStageFailure,
     TransactionError,
     carry_secondary_diagnostics,
 )
@@ -124,6 +125,23 @@ def index_path(namespace: AssemblerNamespace, input_identity: str) -> Path:
     return namespace.index / f"{input_identity}.json"
 
 
+def _suppress_advisory_close(capability: DirectoryCapability) -> None:
+    """Best-effort release that never replaces an active failure.
+
+    The npm index and immutable-output readers treat the directory release as
+    advisory: only a close-stage ``TransactionError`` is suppressed, while an
+    unrelated transaction failure or a process-control interruption is not
+    swallowed.  ``DirectoryCapability.close()`` already normalizes an ordinary
+    POSIX close failure to ``TransactionError(STAGE_CLOSE, ...)``, so this
+    boundary never handles a raw ``OSError``.
+    """
+    try:
+        capability.close()
+    except TransactionError as exc:
+        if exc.stage != STAGE_CLOSE:
+            raise
+
+
 def _identity_lock_name(input_identity: str) -> str:
     """Validate the input identity and derive its canonical lock basename."""
     _require_hex_digest(input_identity, reason="unsafe_lock_path")
@@ -194,7 +212,7 @@ def _release_identity_lock(
             directory.close()
 
     failures.run(release_capability, ordinary=(OSError, LockError))
-    failures.run(release_directory, ordinary=(OSError,))
+    failures.run(release_directory, ordinary=(CloseStageFailure,))
     result = failures.complete()
     if result is not None:
         raise result
@@ -242,7 +260,7 @@ def identity_coordination_lock(
         # process-control interruption is never converted into a lock error.
         failures = CleanupFailures(exc)
         if directory is not None:
-            failures.run(directory.close, ordinary=(OSError,))
+            failures.run(directory.close, ordinary=(CloseStageFailure,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -563,14 +581,11 @@ def read_index(namespace: AssemblerNamespace, input_identity: str) -> tuple[str,
         raw = RegularFileContracts().validated_read(
             directory, path.name, allowed_mode=0o600
         ).decode("utf-8")
-    except (OSError, TransactionError, ValueError):
+    except (TransactionError, ValueError):
         return ()
     finally:
         if directory is not None:
-            try:
-                directory.close()
-            except OSError:
-                pass
+            _suppress_advisory_close(directory)
     try:
         entries = json.loads(raw)
     except json.JSONDecodeError:
@@ -611,14 +626,11 @@ def _append_index(
             label="npm-environment index",
         )
         RegularFileContracts().durable_replace(directory, path.name, payload, 0o600)
-    except (OSError, TransactionError, ValueError):
+    except (TransactionError, ValueError):
         pass
     finally:
         if directory is not None:
-            try:
-                directory.close()
-            except OSError:
-                pass
+            _suppress_advisory_close(directory)
 
 
 # ── verification and cache-hit selection ────────────────────────────────
@@ -671,10 +683,7 @@ def _read_private_regular(path: Path, name: str) -> bytes:
         )
     finally:
         if directory is not None:
-            try:
-                directory.close()
-            except OSError:
-                pass
+            _suppress_advisory_close(directory)
 
 
 def verify_output(
@@ -699,7 +708,7 @@ def verify_output(
     try:
         evidence = parse_evidence(_read_private_regular(out, EVIDENCE_FILE))
         manifest = parse_manifest(_read_private_regular(out, MANIFEST_FILE))
-    except (OSError, LockedNpmError, TransactionError, ValueError):
+    except (LockedNpmError, TransactionError, ValueError):
         return None
     if evidence.output_identity != output_identity:
         return None

@@ -49,8 +49,10 @@ from dataclasses import dataclass
 from docker.transactions.capabilities import DirectoryCapability
 from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
+    STAGE_CLOSE,
     STAGE_VALIDATE,
     CapabilityError,
+    CloseStageFailure,
     TransactionError,
     UnsafeFileError,
 )
@@ -334,16 +336,21 @@ def _open_algorithm_directory(
         capability = DirectoryCapability.from_fd(
             ops, fd, f"{blobs.label}/{algorithm}"
         )
-    except (CapabilityError, OSError) as exc:
+    except (CapabilityError, TransactionError) as exc:
         # The descriptor is still caller-owned: release it, preserving any
         # close failure as a secondary diagnostic, and aggregate the failure
         # so cleanup still attempts candidates in other algorithm directories.
+        # A typed validation failure reported by the factory is unwrapped to
+        # its raw POSIX cause so the build-domain cleanup report keeps the
+        # original operational detail.
         accumulator = CleanupFailures(exc)
         accumulator.run(lambda: ops.close(fd), ordinary=(OSError,))
         result = accumulator.complete()
         if result is not None:
             raise result
-        return None, _algorithm_failure(algorithm, exc)
+        cause = getattr(exc, "cause", None)
+        reported: BaseException = cause if isinstance(cause, OSError) else exc
+        return None, _algorithm_failure(algorithm, reported)
     except BaseException as exc:
         # An unexpected exception or process-control interruption leaves the
         # rejected descriptor caller-owned; release it exactly once and keep
@@ -365,7 +372,7 @@ def _open_algorithm_directory(
         # adopted capability exactly once and re-raise the primary unchanged,
         # attaching any close failure as a secondary diagnostic.
         accumulator = CleanupFailures(exc)
-        accumulator.run(capability.close, ordinary=(OSError,))
+        accumulator.run(capability.close, ordinary=(CloseStageFailure,))
         result = accumulator.complete()
         if result is not None:
             raise result
@@ -392,11 +399,14 @@ def _close_algorithm(
         # aggregated failure.
         try:
             capability.close()
-        except OSError:
-            pass
+        except TransactionError as exc:
+            # Only a close-stage capability failure is the suppressed unpaired
+            # close; an unrelated transaction failure stays authoritative.
+            if exc.stage != STAGE_CLOSE:
+                raise
         return
     accumulator = CleanupFailures(failure.error)
-    accumulator.run(capability.close, ordinary=(OSError,))
+    accumulator.run(capability.close, ordinary=(CloseStageFailure,))
     result = accumulator.complete()
     if result is not None:
         raise result
@@ -532,7 +542,7 @@ def cleanup_superseded(
         # stays authoritative over later close interruptions.
         close_failures = CleanupFailures(primary)
         for capability in directories.values():
-            close_failures.run(capability.close, ordinary=(OSError,))
+            close_failures.run(capability.close, ordinary=(CloseStageFailure,))
         close_failures.complete()
         # The terminal value is deliberately not raised.  With no primary the
         # first ordinary failure is returned; the full ``ordinary_failures``

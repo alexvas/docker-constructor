@@ -24,9 +24,12 @@ from docker.filesystem.operations import DescriptorOps
 
 from .cleanup import CleanupFailures
 from .errors import (
+    STAGE_CLOSE,
+    STAGE_OPEN,
     STAGE_READ,
     STAGE_VALIDATE,
     CapabilityError,
+    CloseStageFailure,
     TransactionError,
     UnsafeFileError,
     carry_secondary_diagnostics,
@@ -157,7 +160,15 @@ class DirectoryCapability:
         interruption is not caught.
         """
         try:
-            _validate_directory(ops.fstat(fd), label)
+            try:
+                info = ops.fstat(fd)
+            except OSError as exc:
+                raise TransactionError(
+                    STAGE_VALIDATE,
+                    f"cannot stat directory {label!r}",
+                    cause=exc,
+                ) from exc
+            _validate_directory(info, label)
             return cls._transfer_validated(ops, fd, label)
         except BaseException as exc:
             failures = CleanupFailures(exc)
@@ -188,7 +199,17 @@ class DirectoryCapability:
         try:
             fd = ops.openat(None, name, _DIR_FLAGS, 0)
         except OSError as exc:
-            raise CapabilityError(f"cannot open directory capability {name!r}: {exc}") from exc
+            if exc.errno in (errno.ELOOP, errno.ENOTDIR):
+                # An ``O_NOFOLLOW`` symlink/non-directory rejection stays a
+                # capability safety outcome with the raw error as its cause.
+                raise CapabilityError(
+                    f"cannot open directory capability {name!r}: {exc}"
+                ) from exc
+            raise TransactionError(
+                STAGE_OPEN,
+                f"cannot open directory capability {name!r}: {exc}",
+                cause=exc,
+            ) from exc
         return cls._adopt(ops, fd, target_label)
 
     @classmethod
@@ -242,31 +263,53 @@ class DirectoryCapability:
             carry_secondary_diagnostics(error, exc)
             raise error from None
         except DescriptorError as exc:
-            # A failed validation stat of the final leaf is the one foundation
-            # failure the transaction contract has always surfaced as the raw
-            # ``OSError``: the previous ``_adopt`` path let ``ops.fstat``
-            # propagate unchanged, with its cleanup diagnostics.  Unwrap the
-            # validation-stage wrapper back to that original error and carry
-            # the foundation's secondary close/parent diagnostics onto it.
+            # A failed validation stat of the final leaf is an operational
+            # failure typed at the validation stage with the original
+            # ``OSError`` as its cause.  A relative-path refusal is a
+            # capability misuse.  A no-follow ``ELOOP``/``ENOTDIR`` rejection
+            # keeps the established safety classification with the raw error
+            # as its direct cause; every other walk open failure is an
+            # operational open failure typed at the open stage.
             cause = exc.cause
             if exc.stage == _FOUNDATION_VALIDATE_STAGE and isinstance(cause, OSError):
-                carry_secondary_diagnostics(cause, exc)
-                raise cause from None
-            # A relative-path refusal and every ordinary walk open failure keep
-            # the transaction-specific wording produced by the old
-            # implementation: the relative-path message already matches, and
-            # an open failure reports the full requested path with its raw
-            # ``OSError`` cause.  The translated capability error retains the
-            # foundation's close diagnostics.
+                error = TransactionError(
+                    STAGE_VALIDATE,
+                    f"cannot stat directory {target_label!r}",
+                    cause=cause,
+                )
+                carry_secondary_diagnostics(error, exc)
+                raise error from cause
             if cause is None:
                 error = CapabilityError(str(exc))
                 carry_secondary_diagnostics(error, exc)
                 raise error from None
-            error = CapabilityError(
-                f"cannot open directory capability {name!r}: {cause}"
+            if isinstance(cause, OSError) and cause.errno in (
+                errno.ELOOP,
+                errno.ENOTDIR,
+            ):
+                error = CapabilityError(
+                    f"cannot open directory capability {name!r}: {cause}"
+                )
+                carry_secondary_diagnostics(error, exc)
+                raise error from cause
+            error = TransactionError(
+                STAGE_OPEN,
+                f"cannot open directory capability {name!r}: {cause}",
+                cause=cause,
             )
             carry_secondary_diagnostics(error, exc)
             raise error from cause
+        except OSError as exc:
+            # A raw ``OSError`` escaping the shared walk is always a retained
+            # descriptor release failure (every open/stat failure is already
+            # translated by the foundation).  Normalize it at the close stage.
+            error = TransactionError(
+                STAGE_CLOSE,
+                f"cannot close directory capability {target_label!r}",
+                cause=exc,
+            )
+            carry_secondary_diagnostics(error, exc)
+            raise error from exc
         return cls._transfer_validated(ops, descriptor.detach(), target_label)
 
     @classmethod
@@ -276,7 +319,15 @@ class DirectoryCapability:
         Ownership transfers only on success; a failed validation raises
         without closing *fd*, so the caller remains responsible for it.
         """
-        _validate_directory(ops.fstat(fd), label)
+        try:
+            info = ops.fstat(fd)
+        except OSError as exc:
+            raise TransactionError(
+                STAGE_VALIDATE,
+                f"cannot stat directory {label!r}",
+                cause=exc,
+            ) from exc
+        _validate_directory(info, label)
         return cls._transfer_validated(ops, fd, label)
 
     @property
@@ -359,7 +410,17 @@ class DirectoryCapability:
     def close(self) -> None:
         # Delegate the irreversible, at-most-once release to the shared
         # descriptor so directory release state has a single implementation.
-        self._descriptor.close()
+        # An ordinary close failure is a typed L1 close-stage failure; a
+        # process-control interruption propagates unchanged.  A second close
+        # remains a no-op because the shared release transition is terminal.
+        try:
+            self._descriptor.close()
+        except OSError as exc:
+            raise TransactionError(
+                STAGE_CLOSE,
+                f"cannot close directory capability {self._label!r}",
+                cause=exc,
+            ) from exc
 
     def __enter__(self) -> "DirectoryCapability":
         _ = self.fd
@@ -372,7 +433,7 @@ class DirectoryCapability:
             # re-raise the original exception.  A process-control interruption
             # from close is authoritative and is not converted.
             failures = CleanupFailures(exc)
-            failures.run(self.close, ordinary=(OSError,))
+            failures.run(self.close, ordinary=(CloseStageFailure,))
             result = failures.complete()
             if result is not None:
                 raise result
@@ -437,7 +498,14 @@ class FileCapability:
         fd = self.fd
         parts: list[bytes] = []
         while True:
-            chunk = self._ops.read(fd, _READ_CHUNK)
+            try:
+                chunk = self._ops.read(fd, _READ_CHUNK)
+            except OSError as exc:
+                raise TransactionError(
+                    STAGE_READ,
+                    f"cannot read {self._label!r}",
+                    cause=exc,
+                ) from exc
             if not chunk:
                 break
             parts.append(chunk)
@@ -449,6 +517,15 @@ class FileCapability:
         # A failed close is not retried (POSIX does not guarantee the
         # descriptor stays open, so a retry could close a reused descriptor),
         # and a second close is therefore a no-op that issues no system call.
+        # An ordinary close failure is a typed L1 close-stage failure; a
+        # process-control interruption propagates unchanged.
         if not self._closed:
             self._closed = True
-            self._ops.close(self._fd)
+            try:
+                self._ops.close(self._fd)
+            except OSError as exc:
+                raise TransactionError(
+                    STAGE_CLOSE,
+                    f"cannot close file capability {self._label!r}",
+                    cause=exc,
+                ) from exc

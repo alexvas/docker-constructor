@@ -20,11 +20,14 @@ from docker.versioning.digest_identity import DigestIdentity, DigestIdentityErro
 from docker.transactions.capabilities import CapabilityError, DirectoryCapability
 from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
+    STAGE_CLOSE,
     STAGE_LOCK_ACQUIRE,
     STAGE_LOCK_MODE,
     STAGE_LOCK_STAT,
     STAGE_LOCK_VALIDATE,
+    CloseStageFailure,
     LockError,
+    TransactionError,
     carry_secondary_diagnostics,
 )
 from docker.transactions.locking import LockCapability, LockPolicy
@@ -1414,13 +1417,14 @@ def _identity_lock_failure(exc: BaseException) -> BaseException:
     linked, owner-inaccessible, or an in-place replacement) becomes the
     containment diagnostic ``"identity lock is not a private regular file"``;
     a prepare-stage failure (open/create) becomes ``"identity lock path is
-    unsafe"``; an operational descriptor-stat, mode-repair, or acquisition
-    failure re-raises its raw ``OSError``; and a capability failure becomes
-    ``"identity lock path is unsafe"``.  Process-control interruptions are
-    returned unchanged.
+    unsafe"``; an operational descriptor-stat, mode-repair, acquisition, or
+    lock-probe-close failure re-raises its raw ``OSError``; and a capability
+    failure becomes ``"identity lock path is unsafe"``.  Process-control
+    interruptions are returned unchanged.
 
-    Only a stat failure of the locked descriptor (``STAGE_LOCK_STAT``) is
-    treated as operational.  A validate-stage failure is never blindly
+    Only an operational failure of the locked descriptor or its identity probe
+    (``STAGE_LOCK_STAT``, ``STAGE_LOCK_MODE``, ``STAGE_LOCK_ACQUIRE``,
+    ``STAGE_CLOSE``) is unwrapped.  A validate-stage failure is never blindly
     unwrapped even when it carries an ``OSError`` cause: an identity probe
     that fails while verifying the entry can indicate an unsafe namespace
     change, so it stays a containment error.
@@ -1431,11 +1435,12 @@ def _identity_lock_failure(exc: BaseException) -> BaseException:
                 "containment", "identity lock is not a private regular file",
             )
         if exc.stage in (
-            STAGE_LOCK_STAT, STAGE_LOCK_MODE, STAGE_LOCK_ACQUIRE,
+            STAGE_LOCK_STAT, STAGE_LOCK_MODE, STAGE_LOCK_ACQUIRE, STAGE_CLOSE,
         ) and isinstance(exc.cause, OSError):
-            # An operational descriptor-stat, mode-repair, or acquisition
-            # failure previously propagated as its raw ``OSError``; preserve
-            # that parity while carrying any attached cleanup diagnostics.
+            # An operational descriptor-stat, mode-repair, acquisition, or
+            # lock-probe-close failure previously propagated as its raw
+            # ``OSError``; preserve that parity while carrying any attached
+            # cleanup diagnostics.
             cause = exc.cause
             carry_secondary_diagnostics(cause, exc)
             return cause
@@ -1446,6 +1451,16 @@ def _identity_lock_failure(exc: BaseException) -> BaseException:
         return ArtifactMaterializationError(
             "containment", "identity lock path is unsafe",
         )
+    if isinstance(exc, TransactionError):
+        # A normalized directory-factory operational stat failure previously
+        # propagated as its raw ``OSError``; preserve that parity while
+        # carrying any attached cleanup diagnostics.  Non-operational typed
+        # failures keep their own classification.
+        cause = exc.cause
+        if isinstance(cause, OSError):
+            carry_secondary_diagnostics(cause, exc)
+            return cause
+        return exc
     return exc
 
 
@@ -1501,7 +1516,7 @@ class FileIdentityLock(IdentityLock):
             if descriptor is not None:
                 failures.run(lambda: self._ops.close(descriptor), ordinary=(OSError,))
             if directory is not None:
-                failures.run(directory.close, ordinary=(OSError,))
+                failures.run(directory.close, ordinary=(CloseStageFailure,))
             result = failures.complete()
             if result is not None:
                 raise result
@@ -1540,7 +1555,7 @@ class FileIdentityLock(IdentityLock):
                 directory.close()
 
         failures.run(release_capability, ordinary=(OSError, LockError))
-        failures.run(release_directory, ordinary=(OSError,))
+        failures.run(release_directory, ordinary=(CloseStageFailure,))
         result = failures.complete()
         if result is not None:
             raise result
