@@ -309,23 +309,23 @@ Within each phase, work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### RED
 
-- [ ] 9.1 Add a repository-wide AST contract enumerating every `docker.filesystem` public definition, compatibility re-export, migrated consumer import, forbidden reverse dependency, duplicate secure walker, and raw migrated owned-directory close; verify it detects an intentionally supplied violating fixture.
-- [ ] 9.2 Add an isolated import-matrix contract for `docker.filesystem`, transaction compatibility paths, npm storage/tree, and cache storage that records loaded project modules and rejects aggregate or reverse loading; verify it detects an intentionally supplied violating fixture.
+- [x] 9.1 Add a repository-wide AST contract enumerating every `docker.filesystem` public definition, compatibility re-export, migrated consumer import, forbidden reverse dependency, duplicate secure walker, and raw migrated owned-directory close; verify it detects an intentionally supplied violating fixture.
+- [x] 9.2 Add an isolated import-matrix contract for `docker.filesystem`, transaction compatibility paths, npm storage/tree, and cache storage that records loaded project modules and rejects aggregate or reverse loading; verify it detects an intentionally supplied violating fixture.
 
 ### GREEN
 
-- [ ] 9.3 Remove any remaining duplicate generic directory ownership or secure-walk implementation identified by task 9.1 without migrating a new consumer or changing domain policy; verify the repository-wide AST contract passes.
-- [ ] 9.4 Correct any remaining import leakage identified by task 9.2 without adding aggregate exports to `docker.filesystem`; verify the isolated import matrix passes.
+- [x] 9.3 Remove any remaining duplicate generic directory ownership or secure-walk implementation identified by task 9.1 without migrating a new consumer or changing domain policy; verify the repository-wide AST contract passes.
+- [x] 9.4 Correct any remaining import leakage identified by task 9.2 without adding aggregate exports to `docker.filesystem`; verify the isolated import matrix passes.
 
 ### INTROSPECT
 
-- [ ] 9.5 Run the repository-wide close inventory and record every remaining `os.close(fd)`/injected close as primitive, sole failure, deliberate swallow, protected cleanup, or explicitly out-of-scope consumer in `verification.md`; verify no migrated npm storage/tree or cache-storage owned-directory close remains unclassified.
-- [ ] 9.6 Record the final module DAG, exact public API signatures, compatibility object identities, negative API surface, and cache-storage allowlist in `verification.md`; verify each recorded claim is generated from an executable introspection check.
-- [ ] 9.7 Compare user-visible domain exceptions, persistent paths, modes, manifest bytes, identities, publication behavior, locks, and durability contracts against pre-change characterization tests; record the no-drift result in `verification.md`.
+- [x] 9.5 Run the repository-wide close inventory and record every remaining `os.close(fd)`/injected close as primitive, sole failure, deliberate swallow, protected cleanup, or explicitly out-of-scope consumer in `verification.md`; verify no migrated npm storage/tree or cache-storage owned-directory close remains unclassified.
+- [x] 9.6 Record the final module DAG, exact public API signatures, compatibility object identities, negative API surface, and cache-storage allowlist in `verification.md`; verify each recorded claim is generated from an executable introspection check.
+- [x] 9.7 Compare user-visible domain exceptions, persistent paths, modes, manifest bytes, identities, publication behavior, locks, and durability contracts against pre-change characterization tests; record the no-drift result in `verification.md`.
 
 ### VALIDATE
 
-- [ ] 9.8 Run `ty check docker --python-version 3.14 --output-format concise` and record the passing output in `verification.md`.
-- [ ] 9.9 Run `python -m unittest discover -s tests -p 'test_*.py'` and record the total, skips, duration, and passing result in `verification.md`.
-- [ ] 9.10 Run `git diff --check` and record the clean result in `verification.md`.
-- [ ] 9.11 Run `openspec validate extract-generic-descriptor-capabilities --strict` and require the change to remain valid before marking the implementation complete.
+- [x] 9.8 Run `ty check docker --python-version 3.14 --output-format concise` and record the passing output in `verification.md`.
+- [x] 9.9 Run `python -m unittest discover -s tests -p 'test_*.py'` and record the total, skips, duration, and passing result in `verification.md`.
+- [x] 9.10 Run `git diff --check` and record the clean result in `verification.md`.
+- [x] 9.11 Run `openspec validate extract-generic-descriptor-capabilities --strict` and require the change to remain valid before marking the implementation complete.
