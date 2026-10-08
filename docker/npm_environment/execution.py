@@ -28,6 +28,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Callable, Protocol, Sequence
 
+from docker.filesystem.descriptors import OwnedDescriptor
+from docker.filesystem.operations import PosixDescriptorOps
 from docker.versioning.model import NetworkUrlDisplay
 
 from .assembler import (
@@ -1033,10 +1035,16 @@ def _write_lockfile(staging: Path, lockfile_bytes: bytes) -> None:
     """Write the exact lockfile bytes into the private staging workspace.
 
     The file is created ``0444`` with ``O_NOFOLLOW | O_EXCL`` so a symlink or
-    pre-existing entry is never followed or overwritten.
+    pre-existing entry is never followed or overwritten.  The descriptor is
+    transferred immediately into an ``OwnedDescriptor``, which becomes the
+    sole release authority: an active write failure stays primary over an
+    ordinary close failure and a successful release is terminal and
+    at-most-once.
     """
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     path = staging / "package-lock.json"
+    ops = PosixDescriptorOps()
+    label = f"lockfile input {path}"
     try:
         fd = os.open(str(path), flags, 0o444)
     except OSError as exc:
@@ -1044,10 +1052,9 @@ def _write_lockfile(staging: Path, lockfile_bytes: bytes) -> None:
             "unsafe_staging_path",
             f"cannot write lockfile input {path}: {exc}",
         ) from exc
-    try:
-        os.write(fd, lockfile_bytes)
-    finally:
-        os.close(fd)
+    owner = OwnedDescriptor(ops, fd, label=label)
+    with owner:
+        os.write(owner.fd, lockfile_bytes)
 
 
 def _is_container_absent(text: str) -> bool:

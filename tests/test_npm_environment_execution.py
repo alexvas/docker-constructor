@@ -11,16 +11,19 @@ and stdout/stderr redact sensitive command inputs.
 from __future__ import annotations
 
 import dataclasses
+import errno
 import json
 import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
+from docker.npm_environment import execution as execution_module
 from docker.npm_environment import (
     AssemblyRun,
     LockedNpmError,
@@ -303,6 +306,157 @@ class TestStructuredFailures(unittest.TestCase):
             )
         self.assertFalse(cache_root.exists())
         self.assertEqual(executor.calls, [])
+
+
+def _fd_path(fd: int) -> str | None:
+    """Return the normalized path an open descriptor refers to, or ``None``."""
+    try:
+        return os.path.normpath(os.readlink(f"/proc/self/fd/{fd}"))
+    except OSError:
+        return None
+
+
+def _secondary_exceptions(exc: BaseException) -> list[object]:
+    """Return the secondary cleanup diagnostics retained by *exc*."""
+    secondary = getattr(exc, "secondary", None)
+    if isinstance(secondary, list):
+        return list(secondary)
+    slot = getattr(exc, "_transaction_secondary", None)
+    if isinstance(slot, list):
+        return list(slot)
+    return list(getattr(exc, "__notes__", []))
+
+
+def _carries_secondary(exc: BaseException, needle: BaseException) -> bool:
+    """True when *exc* retains *needle* as secondary diagnostic context."""
+    for item in _secondary_exceptions(exc):
+        if item is needle:
+            return True
+        if isinstance(item, str) and str(needle) in item:
+            return True
+    return False
+
+
+class TestLockfileWriteLifecycle(unittest.TestCase):
+    """Phase 1 — lockfile-input descriptor lifecycle (tasks 1.1 and 1.2).
+
+    ``_write_lockfile`` transfers its ``O_EXCL`` descriptor into a shared
+    ``OwnedDescriptor`` immediately, so an active write failure stays primary
+    over an ordinary close failure and a successful release stays terminal and
+    at-most-once.
+    """
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory(prefix="npm-env-lockfile-")
+        self.addCleanup(tmp.cleanup)
+        self.staging = Path(tmp.name)
+        self.path = self.staging / "package-lock.json"
+        self.payload = b'{"lockfileVersion": 3}\n'
+
+    def _file_norm(self) -> str:
+        return os.path.normpath(str(self.path))
+
+    def _fail_file_close(self, error: BaseException):
+        """Fail ``os.close`` for the lockfile descriptor, counting attempts."""
+        real_close = os.close
+        target = self._file_norm()
+        attempts: list[int] = []
+
+        def fake_close(fd, *args, **kwargs):
+            if _fd_path(fd) == target:
+                attempts.append(fd)
+                real_close(fd, *args, **kwargs)
+                raise error
+            return real_close(fd, *args, **kwargs)
+
+        return fake_close, attempts
+
+    def test_write_and_close_both_fail_keeps_write_primary_once(self) -> None:
+        write_error = OSError(errno.EIO, "injected write failure")
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_close, attempts = self._fail_file_close(close_error)
+
+        cause_state = (
+            write_error.__cause__,
+            write_error.__context__,
+            write_error.__suppress_context__,
+        )
+        message = str(write_error)
+        arguments = write_error.args
+
+        with mock.patch("os.write", side_effect=write_error), mock.patch(
+            "os.close", side_effect=fake_close
+        ):
+            with self.assertRaises(OSError) as ctx:
+                execution_module._write_lockfile(self.staging, self.payload)
+
+        self.assertIs(ctx.exception, write_error)
+        self.assertIs(type(ctx.exception), OSError)
+        self.assertNotIsInstance(ctx.exception, LockedNpmError)
+        self.assertEqual(str(ctx.exception), message)
+        self.assertEqual(ctx.exception.args, arguments)
+        self.assertEqual(ctx.exception.errno, errno.EIO)
+        self.assertEqual(
+            (
+                ctx.exception.__cause__,
+                ctx.exception.__context__,
+                ctx.exception.__suppress_context__,
+            ),
+            cause_state,
+        )
+        self.assertTrue(_carries_secondary(ctx.exception, close_error))
+        self.assertEqual(len(attempts), 1)
+
+    def test_sole_close_failure_propagates_raw(self) -> None:
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_close, attempts = self._fail_file_close(close_error)
+
+        with mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(OSError) as ctx:
+                execution_module._write_lockfile(self.staging, self.payload)
+
+        self.assertIs(ctx.exception, close_error)
+        self.assertNotIsInstance(ctx.exception, LockedNpmError)
+        self.assertEqual(len(attempts), 1)
+
+    def test_close_interruption_identity_preserved(self) -> None:
+        interruption = KeyboardInterrupt("injected close interruption")
+        fake_close, attempts = self._fail_file_close(interruption)
+
+        with mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(KeyboardInterrupt) as ctx:
+                execution_module._write_lockfile(self.staging, self.payload)
+
+        self.assertIs(ctx.exception, interruption)
+        self.assertEqual(len(attempts), 1)
+
+    def test_repeat_cleanup_after_failing_close_issues_no_second_close(self) -> None:
+        close_error = OSError(errno.EIO, "injected close failure")
+        created: list[object] = []
+        real_owner = execution_module.OwnedDescriptor
+
+        class _Capturing(real_owner):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                created.append(self)
+
+        fake_close, attempts = self._fail_file_close(close_error)
+
+        with mock.patch.object(
+            execution_module, "OwnedDescriptor", _Capturing
+        ), mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(OSError) as ctx:
+                execution_module._write_lockfile(self.staging, self.payload)
+            self.assertIs(ctx.exception, close_error)
+            self.assertEqual(len(created), 1)
+            owner = created[0]
+            # Ownership is terminal even though the sole release failed, so
+            # repeated cleanup must not retry the ambiguous close.
+            self.assertTrue(owner.released)
+            owner.close()
+            owner.close()
+
+        self.assertEqual(len(attempts), 1)
 
 
 if __name__ == "__main__":

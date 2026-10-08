@@ -36,6 +36,7 @@ from docker.filesystem.descriptors import (
     _STAGE_VALIDATE,
     DescriptorError,
     DirectoryDescriptor,
+    OwnedDescriptor,
 )
 from docker.filesystem.operations import DescriptorOps, PosixDescriptorOps
 
@@ -268,16 +269,22 @@ def _hash_file_entry(
 
     Regular files stay a raw POSIX boundary: the lightweight capability
     foundation deliberately owns no regular-file authority, so the file is
-    opened once with ``O_NOFOLLOW`` and released once here.
+    opened once with ``O_NOFOLLOW`` and transferred immediately into an
+    ``OwnedDescriptor``.  The owner is the sole release authority, so an
+    active stat/type/read/hash failure stays primary over an ordinary close
+    failure and a successful release is terminal and at-most-once.
     """
+    ops = PosixDescriptorOps()
+    label = f"tree file entry {rel}"
     try:
         fd = os.open(name, _NOFOLLOW_RDONLY, dir_fd=directory.fd)
     except OSError as exc:
         raise LockedNpmError(
             "tree_type_mismatch", f"cannot open file entry {rel!r}: {exc}"
         ) from exc
-    try:
-        fst = os.fstat(fd)
+    owner = OwnedDescriptor(ops, fd, label=label)
+    with owner:
+        fst = os.fstat(owner.fd)
         if not _stat.S_ISREG(fst.st_mode):
             raise LockedNpmError(
                 "tree_type_mismatch",
@@ -285,7 +292,7 @@ def _hash_file_entry(
             )
         hasher = hashlib.sha256()
         while True:
-            chunk = os.read(fd, 64 * 1024)
+            chunk = os.read(owner.fd, 64 * 1024)
             if not chunk:
                 break
             hasher.update(chunk)
@@ -298,8 +305,6 @@ def _hash_file_entry(
             fst.st_uid,
             fst.st_gid,
         )
-    finally:
-        os.close(fd)
 
 
 def _walk_entries(

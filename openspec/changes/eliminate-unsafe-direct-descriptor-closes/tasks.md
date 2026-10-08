@@ -28,24 +28,24 @@ Within every phase work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### RED
 
-- [ ] 1.1 Add a lockfile-writing test injecting simultaneous `os.write` and ordinary close failures; require the exact original write `OSError` object, type, message, and cause state to remain primary without conversion to `LockedNpmError`, retain the close failure secondarily, and issue one close attempt, and verify the new case fails against the bare `finally` close.
-- [ ] 1.2 Add lockfile-writing tests for a sole ordinary close failure, close interruption, and a repeated cleanup attempt; require the existing raw close-exception behavior without `LockedNpmError` conversion, unchanged interruption identity, and no second close operation, and verify the terminal-lifecycle expectation fails before migration.
-- [ ] 1.3 Add passing tree-file characterization proving `_hash_file_entry()` maps file-entry open `OSError` to `LockedNpmError("tree_type_mismatch", ...)` with the original error as cause; separately inject ordinary close failure after stat failure and unsafe-type rejection, require the exact stat `OSError` to remain primary without conversion and the unsafe-type `LockedNpmError` to remain exact, retain close secondarily, issue one close attempt, and verify those new precedence cases fail before migration.
-- [ ] 1.4 Add tree-file tests injecting ordinary close failure after read failure and after hashing failure; require the exact read `OSError` or hashing exception to propagate unchanged without `LockedNpmError` conversion, retain close secondarily, and issue one close attempt, and verify the new precedence cases fail before migration.
-- [ ] 1.5 Add tree-file tests for a sole close failure, close interruption, and repeated cleanup; require the exact close `OSError` to propagate unchanged without `LockedNpmError` conversion, preserve interruption identity, make ownership terminal, and issue no repeated operation, and verify the terminal-lifecycle expectation fails before migration.
+- [x] 1.1 Add a lockfile-writing test injecting simultaneous `os.write` and ordinary close failures; require the exact original write `OSError` object, type, message, and cause state to remain primary without conversion to `LockedNpmError`, retain the close failure secondarily, and issue one close attempt, and verify the new case fails against the bare `finally` close.
+- [x] 1.2 Add lockfile-writing tests for a sole ordinary close failure, close interruption, and a repeated cleanup attempt; require the existing raw close-exception behavior without `LockedNpmError` conversion, unchanged interruption identity, and no second close operation, and verify the terminal-lifecycle expectation fails before migration.
+- [x] 1.3 Add passing tree-file characterization proving `_hash_file_entry()` maps file-entry open `OSError` to `LockedNpmError("tree_type_mismatch", ...)` with the original error as cause; separately inject ordinary close failure after stat failure and unsafe-type rejection, require the exact stat `OSError` to remain primary without conversion and the unsafe-type `LockedNpmError` to remain exact, retain close secondarily, issue one close attempt, and verify those new precedence cases fail before migration.
+- [x] 1.4 Add tree-file tests injecting ordinary close failure after read failure and after hashing failure; require the exact read `OSError` or hashing exception to propagate unchanged without `LockedNpmError` conversion, retain close secondarily, and issue one close attempt, and verify the new precedence cases fail before migration.
+- [x] 1.5 Add tree-file tests for a sole close failure, close interruption, and repeated cleanup; require the exact close `OSError` to propagate unchanged without `LockedNpmError` conversion, preserve interruption identity, make ownership terminal, and issue no repeated operation, and verify the terminal-lifecycle expectation fails before migration.
 
 ### GREEN
 
-- [ ] 1.6 Refactor `_write_lockfile()` to validate its label/backend before open, transfer the fd immediately to `OwnedDescriptor(PosixDescriptorOps(), ...)`, perform writes through the live owner, and release through the owner under shared precedence; verify tasks 1.1 and 1.2 pass without moving npm policy into the foundation.
-- [ ] 1.7 Refactor `_hash_file_entry()` to transfer the opened fd immediately to `OwnedDescriptor` while preserving the existing file-open `OSError` to `LockedNpmError("tree_type_mismatch", ...)` mapping and original cause, retaining unsafe-type `LockedNpmError`, propagating stat/read/hash/close exceptions raw, and releasing through the owner; verify tasks 1.3–1.5 pass with unchanged manifest output.
+- [x] 1.6 Refactor `_write_lockfile()` to validate its label/backend before open, transfer the fd immediately to `OwnedDescriptor(PosixDescriptorOps(), ...)`, perform writes through the live owner, and release through the owner under shared precedence; verify tasks 1.1 and 1.2 pass without moving npm policy into the foundation.
+- [x] 1.7 Refactor `_hash_file_entry()` to transfer the opened fd immediately to `OwnedDescriptor` while preserving the existing file-open `OSError` to `LockedNpmError("tree_type_mismatch", ...)` mapping and original cause, retaining unsafe-type `LockedNpmError`, propagating stat/read/hash/close exceptions raw, and releasing through the owner; verify tasks 1.3–1.5 pass with unchanged manifest output.
 
 ### INTROSPECT
 
-- [ ] 1.8 Add AST assertions that the two migrated functions contain no direct `os.close`, injected raw close, or bespoke release-state implementation, import only explicit `docker.filesystem` submodules, and leave recursion, hashing, lockfile semantics, and domain errors in npm modules; verify all assertions pass.
+- [x] 1.8 Add AST assertions that the two migrated functions contain no direct `os.close`, injected raw close, or bespoke release-state implementation, import only explicit `docker.filesystem` submodules, and leave recursion, hashing, lockfile semantics, and domain errors in npm modules; verify all assertions pass.
 
 ### VALIDATE
 
-- [ ] 1.9 Run the focused npm execution, tree, storage, manifest, serialization, publication, validation, and locked-environment suites; require exact lockfile bytes, canonical manifest bytes/digests, no-follow behavior, domain reasons/messages, and normal import behavior to pass before Phase 6.
+- [x] 1.9 Run the focused npm execution, tree, storage, manifest, serialization, publication, validation, and locked-environment suites; require exact lockfile bytes, canonical manifest bytes/digests, no-follow behavior, domain reasons/messages, and normal import behavior to pass before Phase 6.
 
 ## 2. Runtime Artifact and Build-Context Lifecycle
 

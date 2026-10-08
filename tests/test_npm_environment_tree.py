@@ -1028,13 +1028,217 @@ class TestTreePreMigrationCharacterization(_TreeTestCase):
         self.assertEqual(ctx.exception.reason, "tree_hash_mismatch")
 
 
+class TestTreeFileEntryLifecycle(unittest.TestCase):
+    """Phase 1 — regular-file hash descriptor lifecycle (tasks 1.3–1.5).
+
+    ``_hash_file_entry`` transfers the no-follow file descriptor into a
+    shared ``OwnedDescriptor`` immediately.  An active stat/type/read/hash
+    failure stays primary over an ordinary close failure, the unsafe-type
+    ``LockedNpmError`` stays exact, and a successful release stays terminal
+    and at-most-once.
+    """
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory(prefix="npm-env-tree-")
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name) / "tree"
+        self.root.mkdir()
+        self.file = self.root / "f"
+        self.file.write_bytes(b"payload")
+        self.ops = _LedgerOps()
+        self.cap = tree_module._open_tree_root(self.ops, self.root)
+        self.addCleanup(self.cap.close)
+
+    def _file_norm(self) -> str:
+        return os.path.normpath(str(self.file))
+
+    def _fail_file_close(self, error: BaseException):
+        real_close = os.close
+        target = self._file_norm()
+        attempts: list[int] = []
+
+        def fake_close(fd, *args, **kwargs):
+            if _fd_path(fd) == target:
+                attempts.append(fd)
+                real_close(fd, *args, **kwargs)
+                raise error
+            return real_close(fd, *args, **kwargs)
+
+        return fake_close, attempts
+
+    def _fail_file_fstat(self, error: BaseException):
+        real_fstat = os.fstat
+        target = self._file_norm()
+
+        def fake_fstat(fd, *args, **kwargs):
+            if _fd_path(fd) == target:
+                raise error
+            return real_fstat(fd, *args, **kwargs)
+
+        return fake_fstat
+
+    def _fail_file_read(self, error: BaseException):
+        real_read = os.read
+        target = self._file_norm()
+
+        def fake_read(fd, *args, **kwargs):
+            if _fd_path(fd) == target:
+                raise error
+            return real_read(fd, *args, **kwargs)
+
+        return fake_read
+
+    def test_file_entry_open_failure_maps_to_tree_type_mismatch(self) -> None:
+        open_error = OSError(errno.ELOOP, "injected file open failure")
+        with mock.patch("os.open", side_effect=open_error):
+            with self.assertRaises(LockedNpmError) as ctx:
+                tree_module._hash_file_entry(self.cap, "f", "f")
+
+        self.assertEqual(ctx.exception.reason, "tree_type_mismatch")
+        self.assertIs(ctx.exception.__cause__, open_error)
+
+    def test_stat_failure_primary_over_file_close(self) -> None:
+        stat_error = OSError(errno.EIO, "injected stat failure")
+        close_error = OSError(errno.EIO, "injected file close failure")
+        fake_close, attempts = self._fail_file_close(close_error)
+
+        with mock.patch(
+            "os.fstat", side_effect=self._fail_file_fstat(stat_error)
+        ), mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(OSError) as ctx:
+                tree_module._hash_file_entry(self.cap, "f", "f")
+
+        self.assertIs(ctx.exception, stat_error)
+        self.assertNotIsInstance(ctx.exception, LockedNpmError)
+        self.assertTrue(_carries_secondary(ctx.exception, close_error))
+        self.assertEqual(len(attempts), 1)
+
+    def test_unsafe_type_rejection_primary_over_file_close(self) -> None:
+        close_error = OSError(errno.EIO, "injected file close failure")
+        real_fstat = os.fstat
+        target = self._file_norm()
+
+        def fake_fstat(fd, *args, **kwargs):
+            st = real_fstat(fd, *args, **kwargs)
+            if _fd_path(fd) == target:
+                return types.SimpleNamespace(
+                    st_mode=stat.S_IFDIR | 0o755,
+                    st_uid=st.st_uid,
+                    st_gid=st.st_gid,
+                )
+            return st
+
+        fake_close, attempts = self._fail_file_close(close_error)
+
+        with mock.patch("os.fstat", side_effect=fake_fstat), mock.patch(
+            "os.close", side_effect=fake_close
+        ):
+            with self.assertRaises(LockedNpmError) as ctx:
+                tree_module._hash_file_entry(self.cap, "f", "f")
+
+        self.assertEqual(ctx.exception.reason, "tree_type_mismatch")
+        self.assertEqual(
+            ctx.exception.detail,
+            "file entry 'f' changed type while being read",
+        )
+        self.assertTrue(_carries_secondary(ctx.exception, close_error))
+        self.assertEqual(len(attempts), 1)
+
+    def test_read_failure_primary_over_file_close(self) -> None:
+        read_error = OSError(errno.EIO, "injected read failure")
+        close_error = OSError(errno.EIO, "injected file close failure")
+        fake_close, attempts = self._fail_file_close(close_error)
+
+        with mock.patch(
+            "os.read", side_effect=self._fail_file_read(read_error)
+        ), mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(OSError) as ctx:
+                tree_module._hash_file_entry(self.cap, "f", "f")
+
+        self.assertIs(ctx.exception, read_error)
+        self.assertNotIsInstance(ctx.exception, LockedNpmError)
+        self.assertTrue(_carries_secondary(ctx.exception, close_error))
+        self.assertEqual(len(attempts), 1)
+
+    def test_hashing_failure_primary_over_file_close(self) -> None:
+        hash_error = RuntimeError("injected hashing failure")
+        close_error = OSError(errno.EIO, "injected file close failure")
+
+        class _FailingHasher:
+            def update(self, chunk: bytes) -> None:
+                raise hash_error
+
+        fake_close, attempts = self._fail_file_close(close_error)
+
+        with mock.patch(
+            "hashlib.sha256", return_value=_FailingHasher()
+        ), mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(RuntimeError) as ctx:
+                tree_module._hash_file_entry(self.cap, "f", "f")
+
+        self.assertIs(ctx.exception, hash_error)
+        self.assertTrue(_carries_secondary(ctx.exception, close_error))
+        self.assertEqual(len(attempts), 1)
+
+    def test_sole_close_failure_propagates_raw(self) -> None:
+        close_error = OSError(errno.EIO, "injected file close failure")
+        fake_close, attempts = self._fail_file_close(close_error)
+
+        with mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(OSError) as ctx:
+                tree_module._hash_file_entry(self.cap, "f", "f")
+
+        self.assertIs(ctx.exception, close_error)
+        self.assertNotIsInstance(ctx.exception, LockedNpmError)
+        self.assertEqual(len(attempts), 1)
+
+    def test_close_interruption_identity_preserved(self) -> None:
+        interruption = KeyboardInterrupt("injected file close interruption")
+        fake_close, attempts = self._fail_file_close(interruption)
+
+        with mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(KeyboardInterrupt) as ctx:
+                tree_module._hash_file_entry(self.cap, "f", "f")
+
+        self.assertIs(ctx.exception, interruption)
+        self.assertEqual(len(attempts), 1)
+
+    def test_repeat_cleanup_after_failing_close_issues_no_second_close(self) -> None:
+        close_error = OSError(errno.EIO, "injected file close failure")
+        created: list[object] = []
+        real_owner = tree_module.OwnedDescriptor
+
+        class _Capturing(real_owner):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                created.append(self)
+
+        fake_close, attempts = self._fail_file_close(close_error)
+
+        with mock.patch.object(
+            tree_module, "OwnedDescriptor", _Capturing
+        ), mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(OSError) as ctx:
+                tree_module._hash_file_entry(self.cap, "f", "f")
+            self.assertIs(ctx.exception, close_error)
+            self.assertEqual(len(created), 1)
+            owner = created[0]
+            # Ownership is terminal even though the sole release failed, so
+            # repeated cleanup must not retry the ambiguous close.
+            self.assertTrue(owner.released)
+            owner.close()
+            owner.close()
+
+        self.assertEqual(len(attempts), 1)
+
+
 class TestTreeFoundationBoundary(unittest.TestCase):
-    """Task 7.7 — tree.py owns no raw directory close and stays a leaf."""
+    """Task 7.7 — tree.py owns no raw close and stays a leaf."""
 
     def _source(self) -> str:
         return Path(tree_module.__file__).read_text(encoding="utf-8")
 
-    def test_no_raw_owned_directory_close(self):
+    def test_no_direct_raw_close(self):
         tree = ast.parse(self._source())
         closes: list[str] = []
         stack: list[str] = []
@@ -1058,9 +1262,9 @@ class TestTreeFoundationBoundary(unittest.TestCase):
                 self.generic_visit(node)
 
         _Visitor().visit(tree)
-        # The only raw close is the regular-file hash boundary; every owned
-        # directory descriptor is released through the capability.
-        self.assertEqual(set(closes), {"_hash_file_entry"})
+        # Every owned descriptor -- directory capability or regular-file
+        # owner -- now releases through ``OwnedDescriptor``.
+        self.assertEqual(closes, [])
 
     def test_imports_only_foundation_and_shared_error(self):
         modules: set[str] = set()
