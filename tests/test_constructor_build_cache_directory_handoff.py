@@ -82,9 +82,19 @@ class _OwnerLedger:
     def owned_fds(self) -> list[int]:
         return [owner._fd for owner in self.owners]
 
+    @property
+    def retained_owners(self) -> list[OwnedDescriptor]:
+        """Owners that were not transferred to another shared owner.
+
+        A transferred owner handed its descriptor to a successor (for example
+        ``_open_namespace_fd`` now adopts its descriptor and transfers it to
+        the caller), so it is neither a leak nor a release obligation.
+        """
+        return [owner for owner in self.owners if owner._state != "transferred"]
+
     def owner_for(self, fd: int) -> OwnedDescriptor:
         for owner in self.owners:
-            if owner._fd == fd:
+            if owner._fd == fd and owner._state != "transferred":
                 return owner
         raise AssertionError(f"no recorded owner for fd {fd}")
 
@@ -491,8 +501,8 @@ class BootstrapLockParentTests(_BootstrapCase):
         # The opened child and the namespace each received one release attempt.
         self.assertEqual(len(closes.armed_calls), 2)
         self.assertEqual(len(set(closes.armed_calls)), 2)
-        self.assertEqual(len(ledger.releases), len(ledger.owners))
-        for owner in ledger.owners:
+        self.assertEqual(len(ledger.releases), len(ledger.retained_owners))
+        for owner in ledger.retained_owners:
             self.assertTrue(owner.released)
 
     def test_parent_close_failure_is_not_retried_and_child_does_not_leak(self) -> None:
@@ -533,7 +543,7 @@ class BootstrapLockParentTests(_BootstrapCase):
         parent_fd, child_fd, namespace_fd = closes.armed_calls
         self.assertEqual(closes.armed_calls.count(parent_fd), 1)
         self.assertEqual(closes.armed_calls.count(child_fd), 1)
-        for owner in ledger.owners:
+        for owner in ledger.retained_owners:
             self.assertTrue(owner.released)
 
 

@@ -28,8 +28,10 @@ import shutil
 import stat as _stat
 import uuid
 from pathlib import Path
-from typing import Iterator, Sequence
+from typing import Generator, Sequence
 
+from docker.filesystem.descriptors import OwnedDescriptor
+from docker.filesystem.operations import PosixDescriptorOps
 from docker.transactions.capabilities import CapabilityError, DirectoryCapability
 from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
@@ -211,7 +213,7 @@ def identity_coordination_lock(
     input_identity: str,
     *,
     ops: PosixFileOps | None = None,
-) -> Iterator[None]:
+) -> Generator[None]:
     """Hold a private exclusive input-identity lock for one assembly.
 
     The lock composes the shared L2 :class:`LockCapability` under an explicit
@@ -294,22 +296,23 @@ def _durable_write(path: Path, data: bytes, mode: int = 0o444) -> None:
     """
     flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
     fd = os.open(str(path), flags, mode)
+    owner = OwnedDescriptor(PosixDescriptorOps(), fd, label=f"durable-write {path}")
     primary: BaseException | None = None
     try:
-        os.fchmod(fd, mode)
+        os.fchmod(owner.fd, mode)
         remaining = memoryview(data)
         while remaining:
-            written = os.write(fd, remaining)
+            written = os.write(owner.fd, remaining)
             if written == 0:
                 raise OSError("os.write() returned 0 bytes")
             remaining = remaining[written:]
-        os.fsync(fd)
+        os.fsync(owner.fd)
     except BaseException as exc:
         primary = exc
         raise
     finally:
         failures = CleanupFailures(primary)
-        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -317,15 +320,16 @@ def _durable_write(path: Path, data: bytes, mode: int = 0o444) -> None:
 
 def _fsync_dir(path: str | Path) -> None:
     fd = os.open(str(path), _DIR_FLAGS)
+    owner = OwnedDescriptor(PosixDescriptorOps(), fd, label=f"fsync-dir {path}")
     primary: BaseException | None = None
     try:
-        os.fsync(fd)
+        os.fsync(owner.fd)
     except BaseException as exc:
         primary = exc
         raise
     finally:
         failures = CleanupFailures(primary)
-        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -343,14 +347,15 @@ def _fsync_tree(root: Path, manifest: TreeManifest) -> None:
         else:
             continue
         primary: BaseException | None = None
+        owner = OwnedDescriptor(PosixDescriptorOps(), fd, label=f"fsync-entry {path}")
         try:
-            os.fsync(fd)
+            os.fsync(owner.fd)
         except BaseException as exc:
             primary = exc
             raise
         finally:
             failures = CleanupFailures(primary)
-            failures.run(lambda: os.close(fd), ordinary=(OSError,))
+            failures.run(owner.close, ordinary=(OSError,))
             result = failures.complete()
             if result is not None:
                 raise result
@@ -487,6 +492,9 @@ def _atomic_publish(
         raise _AlreadyPublished()
 
     outputs_fd = os.open(str(namespace.outputs), _DIR_FLAGS)
+    outputs_owner = OwnedDescriptor(
+        PosixDescriptorOps(), outputs_fd, label=f"publication outputs {namespace.outputs}"
+    )
     primary: BaseException | None = None
     try:
         tmp_name = f".tmp-{output_identity[:16]}-{uuid.uuid4().hex[:8]}"
@@ -512,7 +520,7 @@ def _atomic_publish(
                 if os.path.lexists(final):
                     raise _AlreadyPublished() from exc
                 raise
-            os.fsync(outputs_fd)
+            os.fsync(outputs_owner.fd)
             return final
         except BaseException as exc:
             if os.path.lexists(tmp):
@@ -538,7 +546,7 @@ def _atomic_publish(
         raise
     finally:
         failures = CleanupFailures(primary)
-        failures.run(lambda: os.close(outputs_fd), ordinary=(OSError,))
+        failures.run(outputs_owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result

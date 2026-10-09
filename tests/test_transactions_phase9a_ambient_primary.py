@@ -338,10 +338,18 @@ class MaterializeArtifactAmbientPrimaryTests(_AmbientPrimaryTestCase):
             cache = os.path.join(td, "cache")
             os.makedirs(cache, mode=0o700)
             unlink_exc = OSError(errno.EIO, "unlink failed")
+            real_unlink = os.unlink
+
+            def fake_unlink(name, *args, **kwargs):
+                # Fail only the owned temporary entry's unlink; unrelated
+                # cache/publication unlinks must keep working.
+                if ".materialize-" in str(name):
+                    raise unlink_exc
+                return real_unlink(name, *args, **kwargs)
 
             def operation():
                 with mock.patch.object(
-                    build_materialization.Path, "unlink", side_effect=unlink_exc
+                    build_materialization.os, "unlink", fake_unlink
                 ):
                     return build_materialization.materialize_artifact(
                         selected,

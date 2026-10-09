@@ -898,6 +898,14 @@ class _InventoryRule:
         ("docker/versioning/project_state.py", "self.close"),
         # ``OwnedDescriptor.close`` is the raw-``OSError`` lightweight release.
         ("docker/versioning/build_snapshot.py", "owner.close"),
+        # Phase 6 migrates these consumers to the same lightweight foundation
+        # owner, whose ``close()`` propagates a raw ``OSError`` rather than a
+        # transaction close-stage failure.
+        ("docker/npm_environment/publication.py", "owner.close"),
+        ("docker/npm_environment/publication.py", "outputs_owner.close"),
+        ("docker/transactions/capabilities.py", "owner.close"),
+        ("docker/transactions/locking.py", "owner.close"),
+        ("docker/transactions/regular.py", "owner.close"),
     }
     # Consumers that hold raw-``OSError`` foundation capabilities and
     # deliberately keep a descriptor release failure raw instead of
@@ -908,6 +916,35 @@ class _InventoryRule:
         "docker/filesystem/",
         "docker/versioning/cache_storage.py",
     )
+
+    # Explicit file-object cleanups: a Python file object opened with
+    # ``closefd=False`` from a shared-owner descriptor.  Its ``close()`` only
+    # flushes the Python wrapper (never the descriptor, which is released
+    # separately through the shared owner), so it keeps the raw ``OSError``
+    # cleanup contract rather than the transaction close stage.
+    FILE_OBJECT_RECEIVERS = {"fh", "output", "stream"}
+
+    @classmethod
+    def _is_shared_owner_action(cls, rendered: str) -> bool:
+        """Return whether *rendered* releases a lightweight shared owner.
+
+        Phase 6 consumers release through ``docker.filesystem.OwnedDescriptor``,
+        whose ``close()`` keeps the raw ``OSError`` contract instead of the
+        transaction close stage.  Consumers name each owner ``owner`` or
+        ``<role>_owner`` (and the path walker uses ``current_owner``), so an
+        owner-shaped receiver is recognized the same way the explicit
+        ``RAW_CLOSE_ACTIONS`` entries and the ``owner``-in-``RAW_RECEIVERS``
+        exemption already recognize the foundation release.  An explicit
+        file-object receiver opened with ``closefd=False`` from a shared owner
+        is equally a raw-``OSError`` cleanup of the wrapper, not a descriptor
+        capability close.
+        """
+        if not rendered.endswith(".close"):
+            return False
+        receiver = rendered[: -len(".close")]
+        if receiver == "owner" or receiver.endswith("_owner"):
+            return True
+        return receiver in cls.FILE_OBJECT_RECEIVERS
 
     @classmethod
     def modules(cls):
@@ -950,6 +987,8 @@ class RepositoryCloseInventoryTests(_InventoryRule, unittest.TestCase):
                 continue
             seen += 1
             if (rel, rendered) in self.RAW_CLOSE_ACTIONS:
+                continue
+            if self._is_shared_owner_action(rendered):
                 continue
             names = _tuple_names(ordinary)
             if "LockError" in names:
@@ -997,6 +1036,7 @@ class RepositoryCloseInventoryTests(_InventoryRule, unittest.TestCase):
                         if receiver not in self.RAW_RECEIVERS and not (
                             receiver.startswith("self._ops")
                             or receiver.startswith("self.ops")
+                            or self._is_shared_owner_action(receiver + ".close")
                         ):
                             risky.add(receiver)
                 if not risky:

@@ -1479,9 +1479,11 @@ class OwnershipBoundaryInventoryTests(unittest.TestCase):
         self.assertIn(
             "failures.run(generated.close, ordinary=(CloseStageFailure,))", source
         )
-        self.assertIn("failures.run(lambda: ops.close(generated_fd), ordinary=(OSError,))", source)
+        self.assertIn(
+            "failures.run(generated_owner.close, ordinary=(OSError,))", source
+        )
         self.assertIn("if generated is not None:", source)
-        self.assertIn("elif generated_fd is not None:", source)
+        self.assertIn("elif generated_owner is not None:", source)
 
     def test_successful_adoption_never_falls_back_to_raw_release(self) -> None:
         # After adoption the rendering boundary must release through the
@@ -1491,15 +1493,17 @@ class OwnershipBoundaryInventoryTests(unittest.TestCase):
         )
         finally_block = source.split("finally:", 1)[1]
         self.assertIn("if generated is not None:", finally_block)
-        self.assertIn("elif generated_fd is not None:", finally_block)
+        self.assertIn("elif generated_owner is not None:", finally_block)
 
-    def test_build_cleanup_raw_close_is_pre_adoption_only(self) -> None:
+    def test_build_cleanup_adopts_pre_adoption_descriptor_into_shared_owner(self) -> None:
         source = (_REPO / "docker/versioning/build_cleanup.py").read_text(
             encoding="utf-8"
         )
-        # The raw close of the still caller-owned descriptor remains a POSIX
-        # boundary; the typed failure is aggregated unchanged.
-        self.assertIn("accumulator.run(lambda: ops.close(fd), ordinary=(OSError,))", source)
+        # Phase 6 migrates the still caller-owned pre-adoption descriptor to a
+        # shared owner (``owner.close`` in the failure branches, ``owner.detach``
+        # on success); the typed failure is aggregated unchanged.
+        self.assertIn("accumulator.run(owner.close, ordinary=(OSError,))", source)
+        self.assertIn("owner.detach()", source)
         self.assertIn("_algorithm_failure(algorithm, exc)", source)
         self.assertNotIn("reported: BaseException = cause if isinstance(cause, OSError) else exc", source)
 

@@ -16,6 +16,7 @@ from typing import cast
 from docker.filesystem.descriptors import (
     DescriptorError,
     DirectoryDescriptor,
+    OwnedDescriptor,
     UnsafeDescriptorError,
     _STAGE_OPEN as _FOUNDATION_OPEN_STAGE,
     _STAGE_VALIDATE as _FOUNDATION_VALIDATE_STAGE,
@@ -159,9 +160,10 @@ class DirectoryCapability:
         diagnostic without replacing the primary failure.  A process-control
         interruption is not caught.
         """
+        owner = OwnedDescriptor(_descriptor_ops(ops), fd, label=_internal_label(label))
         try:
             try:
-                info = ops.fstat(fd)
+                info = ops.fstat(owner.fd)
             except OSError as exc:
                 raise TransactionError(
                     STAGE_VALIDATE,
@@ -169,10 +171,10 @@ class DirectoryCapability:
                     cause=exc,
                 ) from exc
             _validate_directory(info, label)
-            return cls._transfer_validated(ops, fd, label)
+            return cls._transfer_validated(ops, owner.detach(), label)
         except BaseException as exc:
             failures = CleanupFailures(exc)
-            failures.run(lambda: ops.close(fd), ordinary=(OSError,))
+            failures.run(owner.close, ordinary=(OSError,))
             result = failures.complete()
             if result is not None:
                 raise result
@@ -382,9 +384,12 @@ class DirectoryCapability:
             raise TransactionError(
                 STAGE_READ, f"cannot open {base!r} for validated read", cause=exc
             ) from exc
+        owner = OwnedDescriptor(
+            _descriptor_ops(self._ops), fd, label=f"regular file {base!r}"
+        )
         try:
             try:
-                info = self._ops.fstat(fd)
+                info = self._ops.fstat(owner.fd)
             except OSError as exc:
                 raise TransactionError(
                     STAGE_VALIDATE, f"cannot stat {base!r}", cause=exc
@@ -400,12 +405,14 @@ class DirectoryCapability:
             # interruption from close is authoritative, and an unexpected close
             # defect is retained instead of being skipped.
             failures = CleanupFailures(exc)
-            failures.run(lambda: self._ops.close(fd), ordinary=(OSError,))
+            failures.run(owner.close, ordinary=(OSError,))
             result = failures.complete()
             if result is not None:
                 raise result
             raise
-        return FileCapability(self._ops, fd, self, info, base, authority=_AUTHORITY)
+        return FileCapability(
+            self._ops, owner.detach(), self, info, base, authority=_AUTHORITY
+        )
 
     def close(self) -> None:
         # Delegate the irreversible, at-most-once release to the shared

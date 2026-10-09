@@ -49,7 +49,9 @@ class SpecializationBoundaryTests(unittest.TestCase):
 
         source = inspect.getsource(publication._atomic_publish)
         self.assertIn("os.rename(str(tmp), str(final))", source)
-        self.assertIn("os.fsync(outputs_fd)", source)
+        # The outputs directory is fsync-ed after the commit; Phase 6 routes the
+        # descriptor through a shared owner while keeping the npm-owned fsync.
+        self.assertIn("os.fsync(outputs_owner.fd)", source)
 
 
 class ImmutablePublicationSpecializationTests(_PublicationTestCase):

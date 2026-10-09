@@ -14,11 +14,11 @@ import dataclasses
 import os
 import stat as stat_module
 import urllib.request
-from typing import Iterator, Protocol
+from typing import IO, Iterator, Protocol, cast
 
 from docker.versioning.digest_identity import DigestIdentity, DigestIdentityError
 from docker.filesystem.descriptors import OwnedDescriptor
-from docker.filesystem.operations import PosixDescriptorOps
+from docker.filesystem.operations import DescriptorOps, PosixDescriptorOps
 from docker.transactions.capabilities import CapabilityError, DirectoryCapability
 from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
@@ -335,19 +335,25 @@ def inspect_verified_blob_readonly(
         root_fd = os.open(cache_root, root_rdonly)
     except OSError:
         return False
+    root_owner = OwnedDescriptor(
+        PosixDescriptorOps(), root_fd, label=f"cache root {cache_root}",
+    )
 
     primary_root: BaseException | None = None
     try:
         # ── open algorithm subdirectory ──
         try:
-            algo_fd = os.open(algo, root_rdonly, dir_fd=root_fd)
+            algo_fd = os.open(algo, root_rdonly, dir_fd=root_owner.fd)
         except OSError:
             return False
+        algo_owner = OwnedDescriptor(
+            PosixDescriptorOps(), algo_fd, label=f"cache algorithm {algo!r}",
+        )
         primary_algo: BaseException | None = None
         try:
             # Verify algorithm component is really a directory.
             try:
-                algo_st = os.fstat(algo_fd)
+                algo_st = os.fstat(algo_owner.fd)
             except OSError:
                 return False
             if not _stat.S_ISDIR(algo_st.st_mode):
@@ -364,16 +370,19 @@ def inspect_verified_blob_readonly(
                 return False
             try:
                 blob_fd = os.open(
-                    blob_name, blob_flags | _noatime, dir_fd=algo_fd,
+                    blob_name, blob_flags | _noatime, dir_fd=algo_owner.fd,
                 )
             except PermissionError:
                 return False
             except OSError:
                 return False
+            blob_owner = OwnedDescriptor(
+                PosixDescriptorOps(), blob_fd, label=f"cache blob {blob_name!r}",
+            )
             primary_blob: BaseException | None = None
             try:
                 try:
-                    blob_st = os.fstat(blob_fd)
+                    blob_st = os.fstat(blob_owner.fd)
                 except OSError:
                     return False
 
@@ -388,7 +397,7 @@ def inspect_verified_blob_readonly(
                 # ── hash and compare ──
                 hasher = hashlib.new(algo)
                 while True:
-                    chunk = os.read(blob_fd, 64 * 1024)
+                    chunk = os.read(blob_owner.fd, 64 * 1024)
                     if not chunk:
                         break
                     hasher.update(chunk)
@@ -401,7 +410,7 @@ def inspect_verified_blob_readonly(
                 raise
             finally:
                 _close_acc = CleanupFailures(primary_blob)
-                _close_acc.run(lambda: os.close(blob_fd), ordinary=(OSError,))
+                _close_acc.run(blob_owner.close, ordinary=(OSError,))
                 _close_result = _close_acc.complete()
                 if _close_result is not None:
                     raise _close_result
@@ -410,7 +419,7 @@ def inspect_verified_blob_readonly(
             raise
         finally:
             _close_acc = CleanupFailures(primary_algo)
-            _close_acc.run(lambda: os.close(algo_fd), ordinary=(OSError,))
+            _close_acc.run(algo_owner.close, ordinary=(OSError,))
             _close_result = _close_acc.complete()
             if _close_result is not None:
                 raise _close_result
@@ -419,7 +428,7 @@ def inspect_verified_blob_readonly(
         raise
     finally:
         _close_acc = CleanupFailures(primary_root)
-        _close_acc.run(lambda: os.close(root_fd), ordinary=(OSError,))
+        _close_acc.run(root_owner.close, ordinary=(OSError,))
         _close_result = _close_acc.complete()
         if _close_result is not None:
             raise _close_result
@@ -883,6 +892,9 @@ def _ensure_dir_private(path: str) -> None:
             "permissions",
             f"cannot access parent of cache root {path!r}: {exc}",
         ) from exc
+    parent_owner = OwnedDescriptor(
+        PosixDescriptorOps(), parent_fd, label=f"parent of cache root {path!r}",
+    )
     primary_parent: BaseException | None = None
     try:
         flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
@@ -890,7 +902,7 @@ def _ensure_dir_private(path: str) -> None:
         # simply does not exist yet.  All other failures must be
         # surfaced as structured errors.
         try:
-            fd = os.open(name, flags, dir_fd=parent_fd)
+            fd = os.open(name, flags, dir_fd=parent_owner.fd)
         except FileNotFoundError:
             return
         except PermissionError as exc:
@@ -903,9 +915,12 @@ def _ensure_dir_private(path: str) -> None:
                 "containment",
                 f"unsafe cache root entry at {path!r}: {exc}",
             ) from exc
+        fd_owner = OwnedDescriptor(
+            PosixDescriptorOps(), fd, label=f"cache root entry {path!r}",
+        )
         primary_fd: BaseException | None = None
         try:
-            current_mode = os.fstat(fd).st_mode
+            current_mode = os.fstat(fd_owner.fd).st_mode
             if not _stat.S_ISDIR(current_mode):
                 raise ArtifactMaterializationError(
                     "containment",
@@ -913,7 +928,7 @@ def _ensure_dir_private(path: str) -> None:
                 )
             if current_mode & 0o077:
                 try:
-                    os.fchmod(fd, _stat.S_IRWXU)
+                    os.fchmod(fd_owner.fd, _stat.S_IRWXU)
                 except PermissionError as exc:
                     raise ArtifactMaterializationError(
                         "permissions",
@@ -924,7 +939,7 @@ def _ensure_dir_private(path: str) -> None:
             raise
         finally:
             _close_acc = CleanupFailures(primary_fd)
-            _close_acc.run(lambda: os.close(fd), ordinary=(OSError,))
+            _close_acc.run(fd_owner.close, ordinary=(OSError,))
             _close_result = _close_acc.complete()
             if _close_result is not None:
                 raise _close_result
@@ -933,7 +948,7 @@ def _ensure_dir_private(path: str) -> None:
         raise
     finally:
         _close_acc = CleanupFailures(primary_parent)
-        _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+        _close_acc.run(parent_owner.close, ordinary=(OSError,))
         _close_result = _close_acc.complete()
         if _close_result is not None:
             raise _close_result
@@ -955,39 +970,38 @@ def _open_directory_chain(path: str, *, create: bool) -> int:
     """
     absolute = os.path.abspath(path)
     flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
-    current_fd = os.open(os.sep, flags)
-    parent_fd = -1
+    current_owner = OwnedDescriptor(
+        PosixDescriptorOps(), os.open(os.sep, flags), label="cache path root",
+    )
     try:
         for component in (part for part in absolute.split(os.sep) if part):
             try:
-                value = os.stat(component, dir_fd=current_fd, follow_symlinks=False)
+                value = os.stat(component, dir_fd=current_owner.fd, follow_symlinks=False)
             except FileNotFoundError:
                 if not create:
                     raise
                 # Let umask dictate the default mode for parent
                 # directories; private subtrees are hardened later.
-                os.mkdir(component, 0o777, dir_fd=current_fd)
-                value = os.stat(component, dir_fd=current_fd, follow_symlinks=False)
+                os.mkdir(component, 0o777, dir_fd=current_owner.fd)
+                value = os.stat(component, dir_fd=current_owner.fd, follow_symlinks=False)
             if stat_module.S_ISLNK(value.st_mode) or not stat_module.S_ISDIR(value.st_mode):
                 raise ArtifactMaterializationError(
                     "containment",
                     f"unsafe cache path component {component!r} in {absolute!r}",
                 )
-            next_fd = os.open(component, flags, dir_fd=current_fd)
+            child = OwnedDescriptor(
+                PosixDescriptorOps(),
+                os.open(component, flags, dir_fd=current_owner.fd),
+                label=f"cache path component {component!r}",
+            )
             # Transfer ownership of the child before releasing the parent, so a
             # failed parent close cannot leak the child or be retried.
-            parent_fd, current_fd = current_fd, next_fd
-            releasing_fd, parent_fd = parent_fd, -1
-            os.close(releasing_fd)
-        return current_fd
+            previous_owner, current_owner = current_owner, child
+            previous_owner.close()
+        return current_owner.detach()
     except BaseException as exc:
         failures = CleanupFailures(exc)
-        child, current_fd = current_fd, -1
-        if child >= 0:
-            failures.run(lambda: os.close(child), ordinary=(OSError,))
-        parent, parent_fd = parent_fd, -1
-        if parent >= 0:
-            failures.run(lambda: os.close(parent), ordinary=(OSError,))
+        failures.run(current_owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -1006,20 +1020,23 @@ def _remove_tree_at(parent_fd: int, name: str) -> None:
     """Remove one directory tree without resolving path components."""
     flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
     directory_fd = os.open(name, flags, dir_fd=parent_fd)
+    directory_owner = OwnedDescriptor(
+        PosixDescriptorOps(), directory_fd, label=f"cache tree {name!r}",
+    )
     primary: BaseException | None = None
     try:
-        for child in os.listdir(directory_fd):
-            value = os.stat(child, dir_fd=directory_fd, follow_symlinks=False)
+        for child in os.listdir(directory_owner.fd):
+            value = os.stat(child, dir_fd=directory_owner.fd, follow_symlinks=False)
             if stat_module.S_ISDIR(value.st_mode) and not stat_module.S_ISLNK(value.st_mode):
-                _remove_tree_at(directory_fd, child)
+                _remove_tree_at(directory_owner.fd, child)
             else:
-                os.unlink(child, dir_fd=directory_fd)
+                os.unlink(child, dir_fd=directory_owner.fd)
     except BaseException as exc:
         primary = exc
         raise
     finally:
         _close_acc = CleanupFailures(primary)
-        _close_acc.run(lambda: os.close(directory_fd), ordinary=(OSError,))
+        _close_acc.run(directory_owner.close, ordinary=(OSError,))
         _close_result = _close_acc.complete()
         if _close_result is not None:
             raise _close_result
@@ -1043,10 +1060,13 @@ class LocalCacheFilesystem:
             parent_fd, name = _open_parent(path)
         except FileNotFoundError:
             return CacheBlobStat(False, False, False, 0, 0)
+        parent_owner = OwnedDescriptor(
+            PosixDescriptorOps(), parent_fd, label=f"parent of blob {path!r}",
+        )
         primary: BaseException | None = None
         try:
             try:
-                value = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+                value = os.stat(name, dir_fd=parent_owner.fd, follow_symlinks=False)
             except FileNotFoundError:
                 return CacheBlobStat(False, False, False, 0, 0)
         except BaseException as exc:
@@ -1054,7 +1074,7 @@ class LocalCacheFilesystem:
             raise
         finally:
             _close_acc = CleanupFailures(primary)
-            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_acc.run(parent_owner.close, ordinary=(OSError,))
             _close_result = _close_acc.complete()
             if _close_result is not None:
                 raise _close_result
@@ -1068,20 +1088,33 @@ class LocalCacheFilesystem:
 
     def read_bytes(self, path: str) -> bytes:
         parent_fd, name = _open_parent(path)
+        parent_owner = OwnedDescriptor(
+            PosixDescriptorOps(), parent_fd, label=f"parent of blob {path!r}",
+        )
         primary_parent: BaseException | None = None
         try:
             flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
-            fd = os.open(name, flags, dir_fd=parent_fd)
+            fd = os.open(name, flags, dir_fd=parent_owner.fd)
+            fd_owner = OwnedDescriptor(
+                PosixDescriptorOps(), fd, label=f"cache blob {path!r}",
+            )
             primary_fd: BaseException | None = None
+            stream: IO[bytes] | None = None
             try:
-                with os.fdopen(fd, "rb", closefd=False) as stream:
-                    return stream.read()
+                stream = os.fdopen(fd_owner.fd, "rb", closefd=False)
+                return stream.read()
             except BaseException as exc:
                 primary_fd = exc
                 raise
             finally:
+                # Close the file object through the same accumulator as the
+                # descriptor owner so a wrapper-close failure cannot replace a
+                # read failure, while every independent resource is released
+                # exactly once.
                 _close_acc = CleanupFailures(primary_fd)
-                _close_acc.run(lambda: os.close(fd), ordinary=(OSError,))
+                if stream is not None:
+                    _close_acc.run(stream.close, ordinary=(OSError,))
+                _close_acc.run(fd_owner.close, ordinary=(OSError,))
                 _close_result = _close_acc.complete()
                 if _close_result is not None:
                     raise _close_result
@@ -1090,7 +1123,7 @@ class LocalCacheFilesystem:
             raise
         finally:
             _close_acc = CleanupFailures(primary_parent)
-            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_acc.run(parent_owner.close, ordinary=(OSError,))
             _close_result = _close_acc.complete()
             if _close_result is not None:
                 raise _close_result
@@ -1106,17 +1139,20 @@ class LocalCacheFilesystem:
     ) -> CacheBlobInspection:
         import hashlib
         parent_fd, name = _open_parent(path)
+        parent_owner = OwnedDescriptor(
+            PosixDescriptorOps(), parent_fd, label=f"parent of blob {path!r}",
+        )
         primary_parent: BaseException | None = None
         try:
             flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
             try:
-                fd = os.open(name, flags, dir_fd=parent_fd)
+                fd = os.open(name, flags, dir_fd=parent_owner.fd)
             except FileNotFoundError:
                 return CacheBlobInspection(
                     CacheBlobStat(False, False, False, 0, 0), None,
                 )
             except OSError:
-                value = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+                value = os.stat(name, dir_fd=parent_owner.fd, follow_symlinks=False)
                 return CacheBlobInspection(
                     CacheBlobStat(
                         True,
@@ -1127,9 +1163,13 @@ class LocalCacheFilesystem:
                     ),
                     None,
                 )
+            fd_owner = OwnedDescriptor(
+                PosixDescriptorOps(), fd, label=f"cache blob {path!r}",
+            )
             primary_fd: BaseException | None = None
+            stream: IO[bytes] | None = None
             try:
-                value = os.fstat(fd)
+                value = os.fstat(fd_owner.fd)
                 status = CacheBlobStat(
                     True,
                     False,
@@ -1140,9 +1180,9 @@ class LocalCacheFilesystem:
                 if not status.is_regular_file:
                     return CacheBlobInspection(status, None)
                 digest = hashlib.new(algorithm)
-                with os.fdopen(fd, "rb", closefd=False) as stream:
-                    for chunk in iter(lambda: stream.read(64 * 1024), b""):
-                        digest.update(chunk)
+                stream = os.fdopen(fd_owner.fd, "rb", closefd=False)
+                for chunk in iter(lambda: stream.read(64 * 1024), b""):
+                    digest.update(chunk)
                 return CacheBlobInspection(
                     status,
                     base64.b64encode(digest.digest()).decode("ascii"),
@@ -1151,8 +1191,12 @@ class LocalCacheFilesystem:
                 primary_fd = exc
                 raise
             finally:
+                # See ``read_bytes``: wrapper close is accumulated with the
+                # descriptor release so neither can mask a read/hash failure.
                 _close_acc = CleanupFailures(primary_fd)
-                _close_acc.run(lambda: os.close(fd), ordinary=(OSError,))
+                if stream is not None:
+                    _close_acc.run(stream.close, ordinary=(OSError,))
+                _close_acc.run(fd_owner.close, ordinary=(OSError,))
                 _close_result = _close_acc.complete()
                 if _close_result is not None:
                     raise _close_result
@@ -1161,32 +1205,38 @@ class LocalCacheFilesystem:
             raise
         finally:
             _close_acc = CleanupFailures(primary_parent)
-            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_acc.run(parent_owner.close, ordinary=(OSError,))
             _close_result = _close_acc.complete()
             if _close_result is not None:
                 raise _close_result
 
     def ensure_secure_dir(self, path: str) -> None:
         fd = _open_directory_chain(path, create=True)
+        owner = OwnedDescriptor(
+            PosixDescriptorOps(), fd, label=f"private cache dir {path!r}",
+        )
         primary: BaseException | None = None
         try:
-            os.fchmod(fd, 0o700)
+            os.fchmod(owner.fd, 0o700)
         except BaseException as exc:
             primary = exc
             raise
         finally:
             _close_acc = CleanupFailures(primary)
-            _close_acc.run(lambda: os.close(fd), ordinary=(OSError,))
+            _close_acc.run(owner.close, ordinary=(OSError,))
             _close_result = _close_acc.complete()
             if _close_result is not None:
                 raise _close_result
 
     def create_temp(self, path: str) -> None:
         parent_fd, name = _open_parent(path)
+        parent_owner = OwnedDescriptor(
+            PosixDescriptorOps(), parent_fd, label=f"parent of temporary {path!r}",
+        )
         primary: BaseException | None = None
         try:
             flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
-            fd = os.open(name, flags, 0o600, dir_fd=parent_fd)
+            fd = os.open(name, flags, 0o600, dir_fd=parent_owner.fd)
             owner = OwnedDescriptor(
                 PosixDescriptorOps(), fd, label=f"temporary blob {path}",
             )
@@ -1196,30 +1246,36 @@ class LocalCacheFilesystem:
             raise
         finally:
             _close_acc = CleanupFailures(primary)
-            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_acc.run(parent_owner.close, ordinary=(OSError,))
             _close_result = _close_acc.complete()
             if _close_result is not None:
                 raise _close_result
 
     def append_temp(self, path: str, chunk: bytes) -> None:
         parent_fd, name = _open_parent(path)
+        parent_owner = OwnedDescriptor(
+            PosixDescriptorOps(), parent_fd, label=f"parent of temporary {path!r}",
+        )
         primary_parent: BaseException | None = None
         try:
             flags = os.O_WRONLY | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0)
-            fd = os.open(name, flags, dir_fd=parent_fd)
+            fd = os.open(name, flags, dir_fd=parent_owner.fd)
+            fd_owner = OwnedDescriptor(
+                PosixDescriptorOps(), fd, label=f"temporary blob {path}",
+            )
             primary_fd: BaseException | None = None
             try:
-                if not stat_module.S_ISREG(os.fstat(fd).st_mode):
+                if not stat_module.S_ISREG(os.fstat(fd_owner.fd).st_mode):
                     raise ArtifactMaterializationError("containment", "temporary blob is not regular")
                 view = memoryview(chunk)
                 while view:
-                    view = view[os.write(fd, view):]
+                    view = view[os.write(fd_owner.fd, view):]
             except BaseException as exc:
                 primary_fd = exc
                 raise
             finally:
                 _close_acc = CleanupFailures(primary_fd)
-                _close_acc.run(lambda: os.close(fd), ordinary=(OSError,))
+                _close_acc.run(fd_owner.close, ordinary=(OSError,))
                 _close_result = _close_acc.complete()
                 if _close_result is not None:
                     raise _close_result
@@ -1228,25 +1284,31 @@ class LocalCacheFilesystem:
             raise
         finally:
             _close_acc = CleanupFailures(primary_parent)
-            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_acc.run(parent_owner.close, ordinary=(OSError,))
             _close_result = _close_acc.complete()
             if _close_result is not None:
                 raise _close_result
 
     def finalize_temp(self, path: str, mode: int) -> None:
         parent_fd, name = _open_parent(path)
+        parent_owner = OwnedDescriptor(
+            PosixDescriptorOps(), parent_fd, label=f"parent of temporary {path!r}",
+        )
         primary_parent: BaseException | None = None
         try:
-            fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent_fd)
+            fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent_owner.fd)
+            fd_owner = OwnedDescriptor(
+                PosixDescriptorOps(), fd, label=f"temporary blob {path}",
+            )
             primary_fd: BaseException | None = None
             try:
-                os.fchmod(fd, mode)
+                os.fchmod(fd_owner.fd, mode)
             except BaseException as exc:
                 primary_fd = exc
                 raise
             finally:
                 _close_acc = CleanupFailures(primary_fd)
-                _close_acc.run(lambda: os.close(fd), ordinary=(OSError,))
+                _close_acc.run(fd_owner.close, ordinary=(OSError,))
                 _close_result = _close_acc.complete()
                 if _close_result is not None:
                     raise _close_result
@@ -1255,25 +1317,28 @@ class LocalCacheFilesystem:
             raise
         finally:
             _close_acc = CleanupFailures(primary_parent)
-            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_acc.run(parent_owner.close, ordinary=(OSError,))
             _close_result = _close_acc.complete()
             if _close_result is not None:
                 raise _close_result
 
     def cleanup_temp(self, root: str) -> None:
         parent_fd, name = _open_parent(root)
+        parent_owner = OwnedDescriptor(
+            PosixDescriptorOps(), parent_fd, label=f"parent of temporary {root!r}",
+        )
         primary: BaseException | None = None
         try:
-            value = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+            value = os.stat(name, dir_fd=parent_owner.fd, follow_symlinks=False)
             if not stat_module.S_ISDIR(value.st_mode) or stat_module.S_ISLNK(value.st_mode):
                 raise ArtifactMaterializationError("containment", "temporary root is unsafe")
-            _remove_tree_at(parent_fd, name)
+            _remove_tree_at(parent_owner.fd, name)
         except BaseException as exc:
             primary = exc
             raise
         finally:
             _close_acc = CleanupFailures(primary)
-            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_acc.run(parent_owner.close, ordinary=(OSError,))
             _close_result = _close_acc.complete()
             if _close_result is not None:
                 raise _close_result
@@ -1283,59 +1348,71 @@ class LocalCacheFilesystem:
             parent_fd, name = _open_parent(path)
         except FileNotFoundError:
             return
+        parent_owner = OwnedDescriptor(
+            PosixDescriptorOps(), parent_fd, label=f"parent of quarantine {path!r}",
+        )
         primary: BaseException | None = None
         try:
             try:
-                value = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+                value = os.stat(name, dir_fd=parent_owner.fd, follow_symlinks=False)
             except FileNotFoundError:
                 return
             if stat_module.S_ISDIR(value.st_mode) and not stat_module.S_ISLNK(value.st_mode):
-                _remove_tree_at(parent_fd, name)
+                _remove_tree_at(parent_owner.fd, name)
             else:
-                os.unlink(name, dir_fd=parent_fd)
+                os.unlink(name, dir_fd=parent_owner.fd)
         except BaseException as exc:
             primary = exc
             raise
         finally:
             _close_acc = CleanupFailures(primary)
-            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_acc.run(parent_owner.close, ordinary=(OSError,))
             _close_result = _close_acc.complete()
             if _close_result is not None:
                 raise _close_result
 
     def get_permissions(self, path: str) -> int:
         parent_fd, name = _open_parent(path)
+        parent_owner = OwnedDescriptor(
+            PosixDescriptorOps(), parent_fd, label=f"parent of {path!r}",
+        )
         primary: BaseException | None = None
         try:
             return stat_module.S_IMODE(
-                os.stat(name, dir_fd=parent_fd, follow_symlinks=False).st_mode
+                os.stat(name, dir_fd=parent_owner.fd, follow_symlinks=False).st_mode
             )
         except BaseException as exc:
             primary = exc
             raise
         finally:
             _close_acc = CleanupFailures(primary)
-            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_acc.run(parent_owner.close, ordinary=(OSError,))
             _close_result = _close_acc.complete()
             if _close_result is not None:
                 raise _close_result
 
     def set_permissions(self, path: str, mode: int) -> None:
         parent_fd, name = _open_parent(path)
+        parent_owner = OwnedDescriptor(
+            PosixDescriptorOps(), parent_fd, label=f"parent of {path!r}",
+        )
         primary_parent: BaseException | None = None
         try:
-            fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent_fd)
+            fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent_owner.fd)
+            fd_owner = OwnedDescriptor(
+                PosixDescriptorOps(), fd, label=f"cache blob {path!r}",
+            )
             primary_fd: BaseException | None = None
             try:
-                if not stat_module.S_ISREG(os.fstat(fd).st_mode):
+                if not stat_module.S_ISREG(os.fstat(fd_owner.fd).st_mode):
                     raise ArtifactMaterializationError("containment", "cache blob is not regular")
-                os.fchmod(fd, mode)
+                os.fchmod(fd_owner.fd, mode)
             except BaseException as exc:
                 primary_fd = exc
                 raise
             finally:
                 _close_acc = CleanupFailures(primary_fd)
-                _close_acc.run(lambda: os.close(fd), ordinary=(OSError,))
+                _close_acc.run(fd_owner.close, ordinary=(OSError,))
                 _close_result = _close_acc.complete()
                 if _close_result is not None:
                     raise _close_result
@@ -1344,18 +1421,25 @@ class LocalCacheFilesystem:
             raise
         finally:
             _close_acc = CleanupFailures(primary_parent)
-            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_acc.run(parent_owner.close, ordinary=(OSError,))
             _close_result = _close_acc.complete()
             if _close_result is not None:
                 raise _close_result
 
     def atomic_publish(self, temp_path: str, final_path: str) -> None:
         source_fd, source_name = _open_parent(temp_path)
-        target_fd, target_name = _open_parent(final_path)
+        source_owner = OwnedDescriptor(
+            PosixDescriptorOps(), source_fd, label=f"publish source {temp_path!r}",
+        )
+        target_owner: OwnedDescriptor | None = None
         primary: BaseException | None = None
         try:
-            source = os.stat(source_name, dir_fd=source_fd, follow_symlinks=False)
-            target_dir = os.fstat(target_fd)
+            target_fd, target_name = _open_parent(final_path)
+            target_owner = OwnedDescriptor(
+                PosixDescriptorOps(), target_fd, label=f"publish target {final_path!r}",
+            )
+            source = os.stat(source_name, dir_fd=source_owner.fd, follow_symlinks=False)
+            target_dir = os.fstat(target_owner.fd)
             if not stat_module.S_ISREG(source.st_mode):
                 raise ArtifactMaterializationError("publication", "temporary blob is not regular")
             if source.st_dev != target_dir.st_dev:
@@ -1364,15 +1448,16 @@ class LocalCacheFilesystem:
                 )
             os.replace(
                 source_name, target_name,
-                src_dir_fd=source_fd, dst_dir_fd=target_fd,
+                src_dir_fd=source_owner.fd, dst_dir_fd=target_owner.fd,
             )
         except BaseException as exc:
             primary = exc
             raise
         finally:
             failures = CleanupFailures(primary)
-            failures.run(lambda: os.close(source_fd), ordinary=(OSError,))
-            failures.run(lambda: os.close(target_fd), ordinary=(OSError,))
+            failures.run(source_owner.close, ordinary=(OSError,))
+            if target_owner is not None:
+                failures.run(target_owner.close, ordinary=(OSError,))
             result = failures.complete()
             if result is not None:
                 raise result
@@ -1382,12 +1467,15 @@ class LocalTemporaryDirectory:
     def mkdtemp(self, prefix: str, parent: str) -> str:
         import secrets
         parent_fd = _open_directory_chain(parent, create=False)
+        parent_owner = OwnedDescriptor(
+            PosixDescriptorOps(), parent_fd, label=f"temporary parent {parent!r}",
+        )
         primary: BaseException | None = None
         try:
             for _ in range(100):
                 name = prefix + secrets.token_hex(8)
                 try:
-                    os.mkdir(name, 0o700, dir_fd=parent_fd)
+                    os.mkdir(name, 0o700, dir_fd=parent_owner.fd)
                 except FileExistsError:
                     continue
                 return os.path.join(os.path.abspath(parent), name)
@@ -1396,7 +1484,7 @@ class LocalTemporaryDirectory:
             raise
         finally:
             _close_acc = CleanupFailures(primary)
-            _close_acc.run(lambda: os.close(parent_fd), ordinary=(OSError,))
+            _close_acc.run(parent_owner.close, ordinary=(OSError,))
             _close_result = _close_acc.complete()
             if _close_result is not None:
                 raise _close_result
@@ -1482,20 +1570,24 @@ class FileIdentityLock(IdentityLock):
 
     def acquire(self, identity: str) -> bool:
         lock_dir_fd = _open_directory_chain(self._lock_root, create=True)
-        # ``raw_fd`` tracks the caller-owned directory descriptor until
-        # ``DirectoryCapability.from_fd`` adopts it.  Adoption failure leaves
-        # the descriptor caller-owned, so it must still be released here;
-        # after successful adoption the capability owns it exclusively.
-        raw_fd: int | None = lock_dir_fd
+        # ``raw_owner`` tracks the caller-owned directory descriptor until
+        # ``DirectoryCapability.from_fd`` adopts it.  Adoption failure leaves the
+        # descriptor caller-owned, so its shared owner must still release it
+        # here; after successful adoption the owner detaches so the capability
+        # owns the descriptor exclusively.
+        raw_owner: OwnedDescriptor | None = OwnedDescriptor(
+            cast(DescriptorOps, self._ops), lock_dir_fd, label="runtime-artifact locks",
+        )
         directory: DirectoryCapability | None = None
         capability: LockCapability | None = None
         try:
             directory = DirectoryCapability.from_fd(
-                self._ops, lock_dir_fd, "runtime-artifact locks",
+                self._ops, raw_owner.fd, "runtime-artifact locks",
             )
             # Ownership of the directory descriptor transferred to the
-            # capability; the raw descriptor must no longer be closed here.
-            raw_fd = None
+            # capability; the shared owner must no longer release it here.
+            raw_owner.detach()
+            raw_owner = None
             self._ops.fchmod(directory.fd, 0o700)
             capability = LockCapability.acquire(
                 self._ops,
@@ -1511,9 +1603,9 @@ class FileIdentityLock(IdentityLock):
             # control interruption stays authoritative over an ordinary primary
             # and is never converted into a containment error.
             failures = CleanupFailures(exc)
-            descriptor, raw_fd = raw_fd, None
-            if descriptor is not None:
-                failures.run(lambda: self._ops.close(descriptor), ordinary=(OSError,))
+            owner, raw_owner = raw_owner, None
+            if owner is not None:
+                failures.run(owner.close, ordinary=(OSError,))
             if directory is not None:
                 failures.run(directory.close, ordinary=(CloseStageFailure,))
             result = failures.complete()

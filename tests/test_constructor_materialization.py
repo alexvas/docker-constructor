@@ -2325,8 +2325,10 @@ class TestTemporaryCreationLifecycle(unittest.TestCase):
         ), mock.patch("os.close", side_effect=fake_close):
             with self.assertRaises(OSError):
                 LocalCacheFilesystem().create_temp(str(self.blob))
-        self.assertEqual(len(created), 1)
-        owner = created[0]
+        # Phase 6 also owns the parent path, so several owners are created;
+        # the freshly created child is the last one and is terminal after its
+        # failed close.
+        owner = created[-1]
         self.assertTrue(owner.released)  # type: ignore[attr-defined]
         before = len(child_attempts)
         owner.close()  # type: ignore[attr-defined]

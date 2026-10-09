@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import time
 from contextlib import contextmanager
-from typing import Callable, Iterator
+from typing import Callable, Generator
 
 from docker.npm_environment.assembler import ASSEMBLY_TOTAL_TIMEOUT_SECONDS
 from docker.versioning.activity_monitor import HeartbeatWaiter, HostActivityMonitor
@@ -102,7 +102,7 @@ class HostAssemblyActivity:
     @contextmanager
     def step(
         self, name: str, *, container_name: str | None = None
-    ) -> Iterator[None]:
+    ) -> Generator[None]:
         """Scope one closed locked-assembly step with start/terminal facts."""
         step = HostStep(name)
         expects_diagnostic_stream = step is HostStep.NPM_EXECUTION

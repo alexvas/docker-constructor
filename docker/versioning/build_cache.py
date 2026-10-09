@@ -30,13 +30,13 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, NoReturn, cast
 
 if TYPE_CHECKING:
     from docker.versioning.build_cleanup import BuildStorage
 
 from docker.filesystem.descriptors import OwnedDescriptor
-from docker.filesystem.operations import PosixDescriptorOps
+from docker.filesystem.operations import DescriptorOps, PosixDescriptorOps
 from docker.transactions.capabilities import CapabilityError, DirectoryCapability
 from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
@@ -216,7 +216,7 @@ def _release_owners(
 def _open_namespace_fd(namespace: Path) -> int:
     """Open the external project-state namespace without following symlinks."""
     try:
-        fd = os.open(os.fspath(namespace), _DIR_FLAGS)
+        raw = os.open(os.fspath(namespace), _DIR_FLAGS)
     except FileNotFoundError as exc:
         raise BuildCacheError(f"project-state namespace {namespace} does not exist") from exc
     except PermissionError as exc:
@@ -225,18 +225,21 @@ def _open_namespace_fd(namespace: Path) -> int:
         raise BuildCacheError(
             f"project-state namespace {namespace} is a symlink or not a directory: {exc}"
         ) from exc
+    owner = OwnedDescriptor(
+        PosixDescriptorOps(), raw, label=f"namespace descriptor {namespace}",
+    )
     try:
-        st = os.fstat(fd)
+        st = os.fstat(owner.fd)
         if not _stat.S_ISDIR(st.st_mode):
             raise BuildCacheError(f"project-state namespace {namespace} is not a directory")
         if not os.access(namespace, os.W_OK | os.X_OK):
             raise BuildCacheError(
                 f"project-state namespace {namespace} is not writable by the invoking user"
             )
-        return fd
+        return owner.detach()
     except BaseException as exc:
         failures = CleanupFailures(exc)
-        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -377,15 +380,18 @@ def _validate_relative_dir(
     fd = _open_relative_dir(namespace_fd, parts, create=False)
     if fd is None:
         return
+    owner = OwnedDescriptor(
+        PosixDescriptorOps(), fd, label=f"validated directory {label}",
+    )
     primary: BaseException | None = None
     try:
-        _require_private_dir(fd, label, check_owner=check_owner)
+        _require_private_dir(owner.fd, label, check_owner=check_owner)
     except BaseException as exc:
         primary = exc
         raise
     finally:
         failures = CleanupFailures(primary)
-        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -403,9 +409,12 @@ def _ensure_relative_dir(
     fd = _open_relative_dir(namespace_fd, parts, create=True)
     if fd is None:
         raise BuildCacheError(f"cannot open build-cache component {label}")
+    owner = OwnedDescriptor(
+        PosixDescriptorOps(), fd, label=f"ensured directory {label}",
+    )
     primary: BaseException | None = None
     try:
-        st = os.fstat(fd)
+        st = os.fstat(owner.fd)
         if not _stat.S_ISDIR(st.st_mode):
             raise BuildCacheError(f"{label} is not a directory")
         if check_owner and st.st_uid != os.geteuid():
@@ -414,13 +423,13 @@ def _ensure_relative_dir(
                 "or remove the stale entry"
             )
         if chmod_existing and _stat.S_IMODE(st.st_mode) != 0o700:
-            os.fchmod(fd, 0o700)
+            os.fchmod(owner.fd, 0o700)
     except BaseException as exc:
         primary = exc
         raise
     finally:
         failures = CleanupFailures(primary)
-        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -460,20 +469,24 @@ def prepare_build_cache(constructor_project_root: str | Path, *, cache_root: str
         raise BuildCacheError(str(exc)) from exc
     namespace = state.namespace
     namespace_fd = _open_namespace_fd(namespace)
+    namespace_owner = OwnedDescriptor(
+        PosixDescriptorOps(), namespace_fd,
+        label=f"prepared namespace {namespace}",
+    )
     primary: BaseException | None = None
     try:
         for parts in (_CACHE_PARTS, _BLOBS_PARTS, _TMP_PARTS,
                       _GENERATED_PARENT_PARTS, _MARKERS_PARTS):
-            _validate_relative_dir(namespace_fd, parts, label=str(namespace.joinpath(*parts)), check_owner=True)
+            _validate_relative_dir(namespace_owner.fd, parts, label=str(namespace.joinpath(*parts)), check_owner=True)
         for parts in (_CACHE_PARTS, _BLOBS_PARTS, _TMP_PARTS,
                       _GENERATED_PARENT_PARTS, _MARKERS_PARTS):
-            _ensure_relative_dir(namespace_fd, parts, label=str(namespace.joinpath(*parts)), check_owner=True)
+            _ensure_relative_dir(namespace_owner.fd, parts, label=str(namespace.joinpath(*parts)), check_owner=True)
     except BaseException as exc:
         primary = exc
         raise
     finally:
         failures = CleanupFailures(primary)
-        failures.run(lambda: os.close(namespace_fd), ordinary=(OSError,))
+        failures.run(namespace_owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -546,19 +559,22 @@ class BuildCacheState:
 def _open_validated_child(parent_fd: int, name: str, *, label: str) -> int:
     """Open *name* beneath *parent_fd* no-follow and require a private dir."""
     try:
-        fd = os.open(name, _DIR_FLAGS, dir_fd=parent_fd)
+        raw = os.open(name, _DIR_FLAGS, dir_fd=parent_fd)
     except OSError as exc:
         raise BuildCacheError(f"unsafe build-cache {label} directory: {exc}") from exc
+    owner = OwnedDescriptor(
+        PosixDescriptorOps(), raw, label=f"validated child {label}",
+    )
     try:
-        st = os.fstat(fd)
+        st = os.fstat(owner.fd)
         if (not _stat.S_ISDIR(st.st_mode)
                 or st.st_uid != os.geteuid()
                 or _stat.S_IMODE(st.st_mode) != 0o700):
             raise BuildCacheError(f"unsafe build-cache {label} directory")
-        return fd
+        return owner.detach()
     except BaseException as exc:
         failures = CleanupFailures(exc)
-        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -573,24 +589,32 @@ def open_build_cache_state(
 ) -> BuildCacheState:
     """Prepare the namespace and retain verified no-follow child descriptors."""
     paths = prepare_build_cache(constructor_project_root, cache_root=cache_root, project_state=project_state)
-    namespace_fd = _open_namespace_fd(paths.namespace_root)
-    opened: list[int] = []
+    namespace_owner = OwnedDescriptor(
+        PosixDescriptorOps(), _open_namespace_fd(paths.namespace_root),
+        label="state namespace",
+    )
+
+    def adopt(parent_fd: int, name: str, label: str) -> OwnedDescriptor:
+        # Adopt each verified child immediately, so the failed-open path and
+        # the success path can release every independent descriptor through
+        # one aggregate accumulator.  The child keeps the raw ``OSError``
+        # contract of the lightweight foundation owner.
+        return OwnedDescriptor(
+            PosixDescriptorOps(),
+            _open_validated_child(parent_fd, name, label=label),
+            label=f"state {label}",
+        )
+
+    opened: list[OwnedDescriptor] = []
     try:
-        persistent_fd = _open_validated_child(
-            namespace_fd, _BUILD_ARTIFACTS_NAME, label=_BUILD_ARTIFACTS_NAME)
-        opened.append(persistent_fd)
-        blobs_fd = _open_validated_child(
-            persistent_fd, _BLOBS_NAME, label=_BLOBS_NAME)
-        opened.append(blobs_fd)
-        tmp_fd = _open_validated_child(
-            persistent_fd, _TMP_NAME, label=_TMP_NAME)
-        opened.append(tmp_fd)
-        markers_fd = _open_validated_child(
-            persistent_fd, _MARKERS_NAME, label=_MARKERS_NAME)
-        opened.append(markers_fd)
-        transactions_fd = _open_validated_child(
-            namespace_fd, _TRANSACTIONS_NAME, label=_TRANSACTIONS_NAME)
-        opened.append(transactions_fd)
+        persistent_owner = adopt(
+            namespace_owner.fd, _BUILD_ARTIFACTS_NAME, _BUILD_ARTIFACTS_NAME
+        )
+        opened.append(persistent_owner)
+        opened.append(adopt(persistent_owner.fd, _BLOBS_NAME, _BLOBS_NAME))
+        opened.append(adopt(persistent_owner.fd, _TMP_NAME, _TMP_NAME))
+        opened.append(adopt(persistent_owner.fd, _MARKERS_NAME, _MARKERS_NAME))
+        opened.append(adopt(namespace_owner.fd, _TRANSACTIONS_NAME, _TRANSACTIONS_NAME))
     except BaseException as exc:
         # One accumulator owns every release on the failed-open path: the
         # already-opened children (reverse order) and the namespace descriptor.
@@ -599,10 +623,9 @@ def open_build_cache_state(
         # release failure, and the namespace descriptor is released under the
         # same precedence instead of a stale primary.
         failures = CleanupFailures(exc)
-        for child in reversed(opened):
-            failures.run(lambda child=child: os.close(child), ordinary=(OSError,))
-        closing, namespace_fd = namespace_fd, None
-        failures.run(lambda fd=closing: os.close(fd), ordinary=(OSError,))
+        for child_owner in reversed(opened):
+            failures.run(child_owner.close, ordinary=(OSError,))
+        failures.run(namespace_owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -614,25 +637,24 @@ def open_build_cache_state(
     # interruption — every retained child is still released exactly once before
     # the failure propagates, with the namespace failure as the primary.
     failures = CleanupFailures(None)
-    closing, namespace_fd = namespace_fd, None
-    failures.run(lambda fd=closing: os.close(fd), ordinary=(OSError,))
+    failures.run(namespace_owner.close, ordinary=(OSError,))
     try:
         namespace_failure: BaseException | None = failures.complete()
     except BaseException as exc:
         namespace_failure = exc
     if namespace_failure is not None:
         child_failures = CleanupFailures(namespace_failure)
-        for child in reversed(opened):
-            child_failures.run(lambda child=child: os.close(child), ordinary=(OSError,))
+        for child_owner in reversed(opened):
+            child_failures.run(child_owner.close, ordinary=(OSError,))
         child_failures.complete()
         raise namespace_failure
     return BuildCacheState(
         paths=paths,
-        persistent_fd=persistent_fd,
-        blobs_fd=blobs_fd,
-        tmp_fd=tmp_fd,
-        markers_fd=markers_fd,
-        transactions_fd=transactions_fd,
+        persistent_fd=opened[0].detach(),
+        blobs_fd=opened[1].detach(),
+        tmp_fd=opened[2].detach(),
+        markers_fd=opened[3].detach(),
+        transactions_fd=opened[4].detach(),
     )
 
 
@@ -687,27 +709,42 @@ def publish_verified_blob(
 
     paths = prepare_build_cache(constructor_project_root, cache_root=cache_root, project_state=project_state)
     blob_path = build_blob_path(paths.blobs_root, identity)
-    namespace_fd = _open_namespace_fd(paths.namespace_root)
-    blobs_fd = tmp_fd = algorithm_fd = fd = None
+    # Generate the temporary name *before* acquiring the namespace descriptor.
+    # ``os.urandom`` can fail or be interrupted, and generating the name first
+    # means a failure here releases no descriptor that still needs cleanup.
+    # The naming format is unchanged.
     temp_name = f".publish-{os.urandom(16).hex()}"
+    namespace_owner = OwnedDescriptor(
+        PosixDescriptorOps(), _open_namespace_fd(paths.namespace_root),
+        label="publication namespace",
+    )
+    blobs_owner = tmp_owner = algorithm_owner = fd_owner = None
     # Ownership of ``temp_name`` is established only once the exclusive create
     # succeeds; a pre-existing colliding entry is never owned and must never be
     # unlinked by this publication's cleanup.
     temporary_owned = False
     try:
-        blobs_fd = _open_relative_dir(namespace_fd, _BLOBS_PARTS, create=False)
-        tmp_fd = _open_relative_dir(namespace_fd, _TMP_PARTS, create=False)
-        if blobs_fd is None or tmp_fd is None:
+        blobs_raw = _open_relative_dir(namespace_owner.fd, _BLOBS_PARTS, create=False)
+        if blobs_raw is not None:
+            blobs_owner = OwnedDescriptor(
+                PosixDescriptorOps(), blobs_raw, label="publication blobs",
+            )
+        tmp_raw = _open_relative_dir(namespace_owner.fd, _TMP_PARTS, create=False)
+        if tmp_raw is not None:
+            tmp_owner = OwnedDescriptor(
+                PosixDescriptorOps(), tmp_raw, label="publication tmp",
+            )
+        if blobs_owner is None or tmp_owner is None:
             raise BuildCacheError("prepared build-cache directories disappeared")
         try:
-            algorithm_fd = os.open(identity.algorithm, _DIR_FLAGS, dir_fd=blobs_fd)
+            algorithm_raw = os.open(identity.algorithm, _DIR_FLAGS, dir_fd=blobs_owner.fd)
         except FileNotFoundError:
-            os.mkdir(identity.algorithm, 0o700, dir_fd=blobs_fd)
+            os.mkdir(identity.algorithm, 0o700, dir_fd=blobs_owner.fd)
             # Pin the freshly created algorithm directory to exactly 0700
             # before opening; os.mkdir's mode is masked by the ambient umask.
-            os.chmod(identity.algorithm, 0o700, dir_fd=blobs_fd, follow_symlinks=False)
+            os.chmod(identity.algorithm, 0o700, dir_fd=blobs_owner.fd, follow_symlinks=False)
             try:
-                algorithm_fd = os.open(identity.algorithm, _DIR_FLAGS, dir_fd=blobs_fd)
+                algorithm_raw = os.open(identity.algorithm, _DIR_FLAGS, dir_fd=blobs_owner.fd)
             except OSError as exc:
                 raise BuildCacheError(
                     f"build blob algorithm directory {identity.algorithm!r} is unsafe: {exc}"
@@ -716,27 +753,51 @@ def publish_verified_blob(
             raise BuildCacheError(
                 f"build blob algorithm directory {identity.algorithm!r} is unsafe: {exc}"
             ) from exc
-        _require_algorithm_dir(algorithm_fd, identity.algorithm)
-        fd = os.open(temp_name, os.O_CREAT | os.O_EXCL | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0), 0o600, dir_fd=tmp_fd)
+        algorithm_owner = OwnedDescriptor(
+            PosixDescriptorOps(), algorithm_raw,
+            label=f"publication algorithm {identity.algorithm}",
+        )
+        _require_algorithm_dir(algorithm_owner.fd, identity.algorithm)
+        fd_owner = OwnedDescriptor(
+            PosixDescriptorOps(),
+            os.open(temp_name, os.O_CREAT | os.O_EXCL | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0), 0o600, dir_fd=tmp_owner.fd),
+            label=f"publication temporary {temp_name}",
+        )
         temporary_owned = True
-        with os.fdopen(fd, "wb", closefd=False) as stream:
+        # Close the file object explicitly through the failure accumulator so a
+        # wrapper-close failure can never replace an in-flight write/flush
+        # failure and cannot run after the blob has been published.  With
+        # ``closefd=False`` the wrapper never closes ``fd_owner``; the
+        # descriptor stays owned for the subsequent verification and release.
+        stream = os.fdopen(fd_owner.fd, "wb", closefd=False)
+        primary_stream: BaseException | None = None
+        try:
             stream.write(data)
             stream.flush()
             os.fsync(stream.fileno())
-        os.fchmod(fd, 0o444)
-        os.lseek(fd, 0, os.SEEK_SET)
+        except BaseException as exc:
+            primary_stream = exc
+            raise
+        finally:
+            stream_failures = CleanupFailures(primary_stream)
+            stream_failures.run(stream.close, ordinary=(OSError,))
+            stream_result = stream_failures.complete()
+            if stream_result is not None:
+                raise stream_result
+        os.fchmod(fd_owner.fd, 0o444)
+        os.lseek(fd_owner.fd, 0, os.SEEK_SET)
         check = hashlib.new(identity.algorithm)
         while True:
-            chunk = os.read(fd, 1024 * 1024)
+            chunk = os.read(fd_owner.fd, 1024 * 1024)
             if not chunk:
                 break
             check.update(chunk)
-        st = os.fstat(fd)
+        st = os.fstat(fd_owner.fd)
         if not _stat.S_ISREG(st.st_mode) or (st.st_mode & 0o777) != 0o444:
             raise BuildCacheError("temporary published blob has unsafe type or mode")
         if check.digest() != identity.digest_bytes:
             raise BuildCacheError("temporary published blob digest mismatch")
-        os.replace(temp_name, blob_path.name, src_dir_fd=tmp_fd, dst_dir_fd=algorithm_fd)
+        os.replace(temp_name, blob_path.name, src_dir_fd=tmp_owner.fd, dst_dir_fd=algorithm_owner.fd)
         # The temporary entry no longer exists under ``temp_name``; it is owned
         # by the published destination now.
         temporary_owned = False
@@ -748,37 +809,39 @@ def publish_verified_blob(
         # ownership slot is dropped *before* its action so a failed close is
         # never retried by the success-path release below.
         failures = CleanupFailures(exc)
-        if fd is not None:
-            descriptor, fd = fd, None
-            failures.run(lambda: os.close(descriptor), ordinary=(OSError,))
-        if temporary_owned and tmp_fd is not None:
+        if fd_owner is not None:
+            failures.run(fd_owner.close, ordinary=(OSError,))
+            fd_owner = None
+        if temporary_owned and tmp_owner is not None:
             # Only a temporary entry this publication exclusively created is
             # removed; an ``O_EXCL`` name collision never reaches here with the
             # flag set, so a pre-existing entry is left untouched.  Ownership is
             # dropped before the action so a failed removal is never retried.
             temporary_owned = False
-            unlink_dir_fd = tmp_fd
+            unlink_dir = tmp_owner.fd
             failures.run(
-                lambda: _unlink_absent_ok(temp_name, unlink_dir_fd),
+                lambda: _unlink_absent_ok(temp_name, unlink_dir),
                 ordinary=(OSError,),
             )
-        closing = (fd, algorithm_fd, blobs_fd, tmp_fd, namespace_fd)
-        fd = algorithm_fd = blobs_fd = tmp_fd = namespace_fd = None
-        for value in closing:
-            if value is not None:
-                failures.run(lambda value=value: os.close(value), ordinary=(OSError,))
+        for owner in (algorithm_owner, blobs_owner, tmp_owner, namespace_owner):
+            if owner is not None:
+                failures.run(owner.close, ordinary=(OSError,))
+        algorithm_owner = blobs_owner = tmp_owner = namespace_owner = None
         result = failures.complete()
         if result is not None:
             raise result
         raise
     finally:
-        failures = CleanupFailures(None)
-        for value in (fd, algorithm_fd, blobs_fd, tmp_fd, namespace_fd):
-            if value is not None:
-                failures.run(lambda value=value: os.close(value), ordinary=(OSError,))
-        result = failures.complete()
-        if result is not None:
-            raise result
+        # On the success path every owner is still owned and released here; the
+        # failure path already dropped each slot as it released it.
+        _release_owners(
+            None,
+            fd_owner,
+            algorithm_owner,
+            blobs_owner,
+            tmp_owner,
+            namespace_owner,
+        )
     _verify_published_blob(identity, paths)
     return blob_path
 
@@ -792,7 +855,7 @@ def _validate_blob_descriptor(alg_fd: int, filename: str, identity: DigestIdenti
     name beneath it.
     """
     try:
-        blob_fd = os.open(
+        blob_raw = os.open(
             filename,
             os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0),
             dir_fd=alg_fd,
@@ -801,9 +864,12 @@ def _validate_blob_descriptor(alg_fd: int, filename: str, identity: DigestIdenti
         raise BuildCacheError(
             f"published blob {identity.algorithm}/{filename} is unsafe or missing: {exc}"
         ) from exc
+    owner = OwnedDescriptor(
+        PosixDescriptorOps(), blob_raw, label=f"blob descriptor {filename}",
+    )
     primary: BaseException | None = None
     try:
-        blob_stat = os.fstat(blob_fd)
+        blob_stat = os.fstat(owner.fd)
         if not _stat.S_ISREG(blob_stat.st_mode):
             raise BuildCacheError(f"published blob {identity.algorithm}/{filename} is not a regular file")
         if _stat.S_IMODE(blob_stat.st_mode) != 0o444:
@@ -814,7 +880,7 @@ def _validate_blob_descriptor(alg_fd: int, filename: str, identity: DigestIdenti
         if blob_stat.st_uid != os.geteuid():
             raise BuildCacheError("published blob is not owned by the invoking user")
         digest = hashlib.new(identity.algorithm)
-        while chunk := os.read(blob_fd, 64 * 1024):
+        while chunk := os.read(owner.fd, 64 * 1024):
             digest.update(chunk)
         if digest.digest() != identity.digest_bytes:
             raise BuildCacheError(f"published blob {identity.algorithm}/{filename} digest mismatch")
@@ -823,7 +889,7 @@ def _validate_blob_descriptor(alg_fd: int, filename: str, identity: DigestIdenti
         raise
     finally:
         failures = CleanupFailures(primary)
-        failures.run(lambda: os.close(blob_fd), ordinary=(OSError,))
+        failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -836,31 +902,41 @@ def _verify_published_blob(identity: DigestIdentity, paths: BuildCachePaths) -> 
     namespace descriptor.  The verification therefore cannot be redirected by
     a replacement of a pathname between a preliminary check and file read.
     """
-    namespace_fd = blobs_fd = algorithm_fd = None
+    namespace_owner = blobs_owner = algorithm_owner = None
     algorithm = identity.algorithm
     filename = identity.hex_digest() + BLOB_EXTENSION
     primary: BaseException | None = None
     try:
-        namespace_fd = _open_namespace_fd(paths.namespace_root)
-        blobs_fd = _open_relative_dir(namespace_fd, _BLOBS_PARTS, create=False)
-        if blobs_fd is None:
+        namespace_owner = OwnedDescriptor(
+            PosixDescriptorOps(), _open_namespace_fd(paths.namespace_root),
+            label="verify namespace",
+        )
+        blobs_raw = _open_relative_dir(namespace_owner.fd, _BLOBS_PARTS, create=False)
+        if blobs_raw is None:
             raise BuildCacheError("published blob directory disappeared")
+        blobs_owner = OwnedDescriptor(
+            PosixDescriptorOps(), blobs_raw, label="verify blobs",
+        )
         try:
-            algorithm_fd = os.open(algorithm, _DIR_FLAGS, dir_fd=blobs_fd)
+            algorithm_raw = os.open(algorithm, _DIR_FLAGS, dir_fd=blobs_owner.fd)
         except OSError as exc:
             raise BuildCacheError(
                 f"published blob algorithm directory {algorithm!r} is unsafe or missing: {exc}"
             ) from exc
-        _require_algorithm_dir(algorithm_fd, algorithm)
-        _validate_blob_descriptor(algorithm_fd, filename, identity)
+        algorithm_owner = OwnedDescriptor(
+            PosixDescriptorOps(), algorithm_raw,
+            label=f"verify algorithm {algorithm}",
+        )
+        _require_algorithm_dir(algorithm_owner.fd, algorithm)
+        _validate_blob_descriptor(algorithm_owner.fd, filename, identity)
     except BaseException as exc:
         primary = exc
         raise
     finally:
         failures = CleanupFailures(primary)
-        for fd in (algorithm_fd, blobs_fd, namespace_fd):
-            if fd is not None:
-                failures.run(lambda fd=fd: os.close(fd), ordinary=(OSError,))
+        for owner in (algorithm_owner, blobs_owner, namespace_owner):
+            if owner is not None:
+                failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -887,19 +963,26 @@ class _BuildStorageHandle:
 
     def _open(self, name: str) -> DirectoryCapability:
         base = self._generations.child_basename(name)
-        fd = self._ops.openat(self._generations.fd, base, _STORAGE_DIRECTORY_FLAGS, 0)
+        raw = self._ops.openat(self._generations.fd, base, _STORAGE_DIRECTORY_FLAGS, 0)
+        owner = OwnedDescriptor(cast(DescriptorOps, self._ops), raw, label=f"storage {name}")
         try:
-            return DirectoryCapability.from_fd(self._ops, fd, f"build-artifacts/{name}")
+            capability = DirectoryCapability.from_fd(
+                self._ops, owner.fd, f"build-artifacts/{name}"
+            )
         except BaseException as exc:
             # ``from_fd`` transfers ownership only on success, so the rejected
             # descriptor is still caller-owned.  Release it exactly once and
             # attach a close failure without replacing the adoption failure.
             failures = CleanupFailures(exc)
-            failures.run(lambda: self._ops.close(fd), ordinary=(OSError,))
+            failures.run(owner.close, ordinary=(OSError,))
             result = failures.complete()
             if result is not None:
                 raise result
             raise
+        # ``from_fd`` adopted the descriptor; detach the caller-owned tracker so
+        # it can never close a descriptor the capability now owns.
+        owner.detach()
+        return capability
 
     def __enter__(self) -> "BuildStorage":
         from docker.versioning.build_cleanup import BuildStorage
@@ -1166,12 +1249,17 @@ def acquire_constructor_project_build_lock(constructor_project_root: str | Path,
     from docker.versioning.build_generations import BUILD_LOCK_NAME, acquire_build_generation_lock
 
     state, parent_fd = _bootstrap_constructor_project_lock_parent(constructor_project_root, cache_root=cache_root)
+    parent_owner = OwnedDescriptor(
+        PosixDescriptorOps(), parent_fd, label="build lock parent",
+    )
     ops = PosixFileOps()
     directory: DirectoryCapability | None = None
     capability: LockCapability | None = None
     try:
-        directory = DirectoryCapability.from_fd(ops, parent_fd, "constructor-project build")
-        parent_fd = -1
+        directory = DirectoryCapability.from_fd(ops, parent_owner.fd, "constructor-project build")
+        # ``from_fd`` adopted the descriptor; the caller-owned tracker must not
+        # close a descriptor the capability now owns.
+        parent_owner.detach()
         try:
             capability = acquire_build_generation_lock(ops, directory)
         except LockContention as exc:
@@ -1197,9 +1285,7 @@ def acquire_constructor_project_build_lock(constructor_project_root: str | Path,
             failures.run(capability.close, ordinary=(LockError,))
         if directory is not None:
             failures.run(directory.close, ordinary=(CloseStageFailure,))
-        parent, parent_fd = parent_fd, -1
-        if parent >= 0:
-            failures.run(lambda: os.close(parent), ordinary=(OSError,))
+        failures.run(parent_owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -1430,11 +1516,12 @@ def _open_blob_algorithm(
     """Open one validated private blob-algorithm directory, or return absent."""
     base = blobs.child_basename(algorithm)
     try:
-        fd = ops.openat(blobs.fd, base, _STORAGE_DIRECTORY_FLAGS, 0)
+        raw = ops.openat(blobs.fd, base, _STORAGE_DIRECTORY_FLAGS, 0)
     except FileNotFoundError:
         return None
+    owner = OwnedDescriptor(cast(DescriptorOps, ops), raw, label=f"blob algorithm {algorithm}")
     try:
-        info = ops.fstat(fd)
+        info = ops.fstat(owner.fd)
         if (
             not _stat.S_ISDIR(info.st_mode)
             or info.st_uid != os.geteuid()
@@ -1443,19 +1530,23 @@ def _open_blob_algorithm(
             raise BuildCacheError(
                 f"unsafe blob algorithm directory {algorithm!r}"
             )
-        return DirectoryCapability.from_fd(
-            ops, fd, f"build-artifacts/blobs/{algorithm}"
+        capability = DirectoryCapability.from_fd(
+            ops, owner.fd, f"build-artifacts/blobs/{algorithm}"
         )
     except BaseException as exc:
         # The rejected descriptor is still caller-owned after ``from_fd``
         # fails; release it exactly once, keeping the validation or
         # interruption primary over any ordinary close failure.
         failures = CleanupFailures(exc)
-        failures.run(lambda: ops.close(fd), ordinary=(OSError,))
+        failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
         raise
+    # ``from_fd`` adopted the descriptor; detach the tracker so it cannot close
+    # a descriptor the returned capability now owns.
+    owner.detach()
+    return capability
 
 
 def _validate_existing_blob(
@@ -1672,18 +1763,21 @@ def _remove_snapshot_tree(parent_fd: int, name: str, *, depth: int) -> None:
         except FileNotFoundError:
             pass
         return
-    fd = os.open(name, _DIR_FLAGS, dir_fd=parent_fd)
+    owner = OwnedDescriptor(
+        PosixDescriptorOps(), os.open(name, _DIR_FLAGS, dir_fd=parent_fd),
+        label=f"snapshot directory {name}",
+    )
     primary: BaseException | None = None
     try:
-        os.fchmod(fd, 0o700)
-        for child in sorted(os.listdir(fd)):
-            _remove_snapshot_tree(fd, child, depth=depth - 1)
+        os.fchmod(owner.fd, 0o700)
+        for child in sorted(os.listdir(owner.fd)):
+            _remove_snapshot_tree(owner.fd, child, depth=depth - 1)
     except BaseException as exc:
         primary = exc
         raise
     finally:
         failures = CleanupFailures(primary)
-        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result

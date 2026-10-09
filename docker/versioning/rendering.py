@@ -13,8 +13,19 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Iterable, Mapping, NoReturn, Optional, Sequence, TextIO
+from typing import (
+    TYPE_CHECKING,
+    Iterable,
+    Mapping,
+    NoReturn,
+    Optional,
+    Sequence,
+    TextIO,
+    cast,
+)
 
+from docker.filesystem.descriptors import OwnedDescriptor
+from docker.filesystem.operations import DescriptorOps
 from docker.transactions.capabilities import DirectoryCapability
 from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
@@ -1211,12 +1222,48 @@ def write_effective_inventory(
         prefix=".versions-",
         dir=str(destination.parent),
     )
+    owner = OwnedDescriptor(
+        cast(DescriptorOps, PosixFileOps()), fd,
+        label=f"effective inventory temporary {tmp_path}",
+    )
+    fh: TextIO | None = None
+    primary: BaseException | None = None
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        try:
+            fh = os.fdopen(owner.fd, "w", encoding="utf-8", closefd=False)
             _write_toml(fh, data)
-    except Exception:
-        os.unlink(tmp_path)
-        raise
+            # Flush and close the file object explicitly, then release the
+            # descriptor, before publication.  Explicit cleanup keeps an
+            # operation failure primary while a file-object-close and/or
+            # descriptor-release failure is retained as ordinary secondary
+            # diagnostics; a cleanup failure with no operation failure becomes
+            # the primary failure and prevents publication.
+            failures = CleanupFailures(None)
+            failures.run(fh.close, ordinary=(OSError,))
+            fh = None
+            failures.run(owner.close, ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise result
+        except BaseException as exc:
+            primary = exc
+            raise
+    finally:
+        # The mkstemp() descriptor is adopted immediately and released through
+        # the shared owner; a file-object/write failure stays primary and an
+        # ordinary descriptor-release failure is attached as secondary.  The
+        # owner is terminal before the close, so an ambiguous failure is never
+        # retried, and the release precedes publication.  The temporary entry
+        # is removed on any failure with idempotent absence.
+        failures = CleanupFailures(primary)
+        if fh is not None:
+            failures.run(fh.close, ordinary=(OSError,))
+        failures.run(owner.close, ordinary=(OSError,))
+        if primary is not None:
+            failures.run(lambda: os.unlink(tmp_path), ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result
     os.replace(tmp_path, destination)
 
 
@@ -1674,9 +1721,12 @@ def _validate_effective_destination(
                 f"{name} is not a regular file"
             ) from exc
         raise
+    owner = OwnedDescriptor(
+        cast(DescriptorOps, ops), fd, label=f"effective destination {name}"
+    )
     primary: BaseException | None = None
     try:
-        info = ops.fstat(fd)
+        info = ops.fstat(owner.fd)
         # The destination type/ownership/link/mode checks run inside the
         # protected region so an unsafe-destination diagnostic is the primary
         # failure and an ordinary descriptor-close failure is only attached as
@@ -1705,7 +1755,7 @@ def _validate_effective_destination(
         # exception keeps propagating.  A process-control interruption during
         # close is authoritative and is never converted or retried.
         failures = CleanupFailures(primary)
-        failures.run(lambda: ops.close(fd), ordinary=(OSError,))
+        failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -1780,7 +1830,7 @@ def write_effective_build(
 
     destination_name = "docker-constructor.build.effective.toml"
     ops = PosixFileOps()
-    generated_fd = None
+    generated_owner: OwnedDescriptor | None = None
     generated: DirectoryCapability | None = None
     primary: BaseException | None = None
     try:
@@ -1796,7 +1846,11 @@ def write_effective_build(
                     raise EffectiveInventoryOutputError(
                         f"generated project state child is unsafe or missing: {exc}"
                     ) from exc
-                generated_stat = ops.fstat(generated_fd)
+                generated_owner = OwnedDescriptor(
+                    cast(DescriptorOps, ops), generated_fd,
+                    label="generated project state child",
+                )
+                generated_stat = ops.fstat(generated_owner.fd)
                 if (not stat.S_ISDIR(generated_stat.st_mode)
                         or generated_stat.st_uid != os.geteuid()
                         or stat.S_IMODE(generated_stat.st_mode) != 0o700):
@@ -1806,8 +1860,9 @@ def write_effective_build(
                     )
                 try:
                     generated = DirectoryCapability.from_fd(
-                        ops, generated_fd, "generated"
+                        ops, generated_owner.fd, "generated"
                     )
+                    generated_owner.detach()  # ownership moved to the capability
                 except TransactionError as exc:
                     # Phase 5 normalizes an operational ``fstat`` failure into a
                     # typed STAGE_VALIDATE transaction error carrying the raw
@@ -1829,11 +1884,11 @@ def write_effective_build(
         primary = exc
         raise
     finally:
-        # Ownership is split by adoption state.  Once ``from_fd`` succeeds,
-        # ``generated_fd`` is owned by ``generated`` and must be released
-        # through its capability; while adoption has not succeeded the raw
-        # descriptor is still caller-owned and is closed exactly once.  A
-        # generated-directory close failure never masks a primary
+        # Ownership is split by adoption state.  Once ``from_fd`` succeeds and
+        # the local owner is detached, ``generated``'s capability owns the
+        # descriptor and must release it; while adoption has not succeeded the
+        # local owner still owns the descriptor and is released exactly once.
+        # A generated-directory close failure never masks a primary
         # validation/publication failure: it is attached as secondary
         # diagnostics and the primary keeps propagating.  A process-control
         # interruption during close is authoritative and is never converted.
@@ -1843,9 +1898,9 @@ def write_effective_build(
             result = failures.complete()
             if result is not None:
                 raise result
-        elif generated_fd is not None:
+        elif generated_owner is not None:
             failures = CleanupFailures(primary)
-            failures.run(lambda: ops.close(generated_fd), ordinary=(OSError,))
+            failures.run(generated_owner.close, ordinary=(OSError,))
             result = failures.complete()
             if result is not None:
                 raise result

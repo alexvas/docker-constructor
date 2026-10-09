@@ -34,6 +34,10 @@ import errno
 import fcntl
 import os
 import stat
+from typing import cast
+
+from docker.filesystem.descriptors import OwnedDescriptor
+from docker.filesystem.operations import DescriptorOps
 
 from .capabilities import DirectoryCapability
 from .cleanup import CleanupFailures
@@ -190,20 +194,21 @@ def _verify_unchanged(
         raise LockError(
             STAGE_LOCK_VALIDATE, f"lock {name!r} changed while acquiring", cause=exc
         ) from exc
+    owner = OwnedDescriptor(cast(DescriptorOps, ops), probe, label=f"lock probe {name!r}")
     try:
-        probe_info = ops.fstat(probe)
+        probe_info = ops.fstat(owner.fd)
     except BaseException as exc:
         # Release the probe exactly once, keeping the stat failure or a
         # process-control interruption authoritative over any ordinary close
         # failure.
         failures = CleanupFailures(exc)
-        failures.run(lambda: ops.close(probe), ordinary=(OSError,))
+        failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
         raise
     try:
-        ops.close(probe)
+        owner.close()
     except OSError as exc:
         raise LockError(STAGE_CLOSE, f"cannot close lock probe {name!r}", cause=exc) from exc
     if (probe_info.st_dev, probe_info.st_ino) != (info.st_dev, info.st_ino):
@@ -237,11 +242,12 @@ def _release_descriptor(ops: PosixFileOps, fd: int, primary: BaseException | Non
 
         return action
 
+    owner = OwnedDescriptor(cast(DescriptorOps, ops), fd, label="lock release")
     failures.run(
         attempt(STAGE_UNLOCK, lambda: ops.flock(fd, fcntl.LOCK_UN)),
         ordinary=(OSError,),
     )
-    failures.run(attempt(STAGE_CLOSE, lambda: ops.close(fd)), ordinary=(OSError,))
+    failures.run(attempt(STAGE_CLOSE, owner.close), ordinary=(OSError,))
     result = failures.complete()
     if result is None:
         # Either *primary* is preserved (ordinary failures attached to it) or

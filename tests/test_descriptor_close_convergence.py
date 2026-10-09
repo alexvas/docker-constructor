@@ -622,7 +622,7 @@ def _class_owner_names(
                 targets, value = [item.target], item.value
             else:
                 continue
-            if not _is_owner_call(value, aliases):
+            if not _is_ownerish_call(value, aliases):
                 continue
             for target in targets:
                 if isinstance(target, ast.Attribute):
@@ -634,7 +634,14 @@ def _class_owner_names(
 
 def _close_violations_with_owners(
     function: ast.FunctionDef, owners: set[str], aliases: dict[str, str],
+    *, shared_owner_release: bool = False,
 ) -> list[str]:
+    """Return every close-like call not provably bound to a shared owner.
+
+    ``shared_owner_release`` is granted only for an explicitly verified
+    shared-owner implementation; even then the method must prove it becomes
+    terminal before the close and suppresses a repeated release.
+    """
     raw = _raw_close_names(function, aliases)
     violations: list[str] = []
     for node in ast.walk(function):
@@ -643,6 +650,8 @@ def _close_violations_with_owners(
         func = node.func
         if isinstance(func, ast.Attribute) and func.attr == "close":
             if _base_names(func.value) & owners:
+                continue
+            if shared_owner_release and _shared_owner_release_proof(function, node):
                 continue
             violations.append(ast.unparse(func))
         elif isinstance(func, ast.Name):
@@ -654,6 +663,67 @@ def _close_violations_with_owners(
             ):
                 violations.append(ast.unparse(func))
     return violations
+
+
+def _terminal_field_before(
+    function: ast.FunctionDef, close_node: ast.Call
+) -> str | None:
+    """Return the boolean field marked ``True`` before *close_node* runs.
+
+    A shared owner becomes terminal before its release attempt, for example
+    ``self._closed = True``.  The field name (not a bare flag) is returned so
+    the terminal transition and the repeat-safe guard can be tied to the same
+    state.
+    """
+    close_line = close_node.lineno
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Assign) or node.lineno >= close_line:
+            continue
+        if not (isinstance(node.value, ast.Constant) and node.value.value is True):
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Attribute):
+                return target.attr
+    return None
+
+
+def _guarded_by_terminal_field(
+    function: ast.FunctionDef, close_node: ast.Call, field: str
+) -> bool:
+    """True when *close_node* sits inside ``if not self.<field>:``.
+
+    The negated terminal guard makes a repeated release a no-op, so the
+    backend close is issued at most once even after a failed attempt.
+    """
+    for node in ast.walk(function):
+        if not isinstance(node, ast.If):
+            continue
+        test = node.test
+        if not (isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not)):
+            continue
+        operand = test.operand
+        if not (isinstance(operand, ast.Attribute) and operand.attr == field):
+            continue
+        if any(child is close_node for child in ast.walk(node)):
+            return True
+    return False
+
+
+def _shared_owner_release_proof(
+    function: ast.FunctionDef, close_node: ast.Call
+) -> bool:
+    """Prove terminal-before-close and repeat-safe release for *close_node*.
+
+    The caller supplies the verified shared-owner identity; this proof
+    additionally requires the method to mark itself terminal before the close
+    and to guard the close behind the same terminal field.  A consumer that
+    merely sets ``self._closed = True`` before ``self._ops.close(...)`` does
+    not satisfy the repeat-safe guard and is rejected.
+    """
+    field = _terminal_field_before(function, close_node)
+    if field is None:
+        return False
+    return _guarded_by_terminal_field(function, close_node, field)
 
 
 def _raw_close_targets(
@@ -705,7 +775,7 @@ class VersioningConvergenceTests(unittest.TestCase):
                     [],
                 )
 
-    def test_create_temp_migrates_child_and_retains_parent_accumulator(self) -> None:
+    def test_create_temp_migrates_child_and_parent(self) -> None:
         for path, (class_name, method_name) in _PHASE3_METHODS.items():
             with self.subTest(module=path.name):
                 tree = _parse(path)
@@ -713,17 +783,13 @@ class VersioningConvergenceTests(unittest.TestCase):
                 function = _find_method(tree, class_name, method_name)
                 owners = _owner_names(function, aliases)
                 self.assertTrue(owners)
-                # The only remaining raw close is the retained parent
-                # accumulator; the migrated child descriptor is never closed
-                # raw.
+                # Phase 6 migrates both the freshly created child and the
+                # retained parent path to shared owners; no raw close remains.
                 self.assertEqual(
                     _close_violations_with_owners(function, owners, aliases),
-                    ["os.close"],
+                    [],
                 )
-                self.assertEqual(
-                    _raw_close_targets(function, aliases),
-                    ["parent_fd"],
-                )
+                self.assertEqual(_raw_close_targets(function, aliases), [])
 
     def test_validated_project_state_delegates_to_private_owner(self) -> None:
         for path, class_name in _PHASE3_OWNED_CLASSES.items():
@@ -1095,6 +1161,771 @@ class Phase5HandoffConvergenceTests(unittest.TestCase):
                 for part in qualname.split("."):
                     target = getattr(target, part)
                 self.assertEqual(str(inspect.signature(target)), expected)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# Phase 6 (task 6.37) — generated per-function ownership ledger
+# ═══════════════════════════════════════════════════════════════════
+
+#: Fully-qualified descriptor factories that yield an equivalent owner.
+_OWNERISH_QUALNAME_TOKENS = ("OwnedDescriptor", "Capability", "DirectoryDescriptor")
+_OWNERISH_QUALNAME_SUFFIXES = (
+    ".open_secure_path",
+    ".from_fd",
+    ".from_path",
+    ".from_secure_path",
+    ".open_regular",
+)
+
+#: Type hints that mark an injected parameter/field as a shared owner.
+_DESCRIPTOR_TYPE_HINTS = (
+    "OwnedDescriptor",
+    "Capability",
+    "DirectoryDescriptor",
+)
+
+#: Fully-qualified implicit-ownership and descriptor-creation primitives.
+_FDOPEN_QUALNAMES = frozenset({"os.fdopen"})
+_MKSTEMP_QUALNAMES = frozenset({"tempfile.mkstemp"})
+
+#: ``module::Class.method`` implementations verified by the transaction
+#: capability suite as shared-owner internal releases.  Each becomes terminal
+#: before its backend close and suppresses a repeated release, but only these
+#: explicitly verified methods may keep an injected backend close.
+_VERIFIED_SHARED_OWNER_RELEASES = frozenset(
+    {"docker/transactions/capabilities.py::FileCapability.close"}
+)
+
+#: Tasks 6.1–6.18 — migrated module-level functions.
+_PHASE6_FUNCTIONS: dict[str, tuple[str, ...]] = {
+    "docker/npm_environment/publication.py": (
+        "_durable_write", "_fsync_dir", "_fsync_tree", "_atomic_publish",
+    ),
+    "docker/transactions/locking.py": ("_verify_unchanged", "_release_descriptor"),
+    "docker/versioning/artifact_cache.py": (
+        "inspect_verified_blob_readonly", "_ensure_dir_private",
+        "_open_directory_chain", "_remove_tree_at",
+    ),
+    "docker/versioning/build_cache.py": (
+        "_open_namespace_fd", "_validate_relative_dir", "_ensure_relative_dir",
+        "prepare_build_cache", "_open_validated_child", "_validate_existing_blob",
+        "_validate_existing_marker", "open_build_cache_state",
+        "publish_verified_blob", "_validate_blob_descriptor",
+        "_verify_published_blob", "acquire_constructor_project_build_lock",
+        "_open_blob_algorithm", "_remove_snapshot_tree",
+    ),
+    "docker/versioning/project_state.py": (
+        "_open_private_dir_at", "_read_metadata", "resolve_project_state",
+        "validate_project_state",
+    ),
+    "docker/versioning/build_snapshot.py": (
+        "_open_validated_source", "_validate_hard_link_destination",
+        "create_artifact_snapshot",
+    ),
+    "docker/versioning/build_cleanup.py": (
+        "_close_leaf", "_unlink_entry", "_open_algorithm_directory",
+    ),
+    "docker/versioning/cache_storage.py": (
+        "_release_file_and_capability", "_release_file_keeping_primary",
+    ),
+    "docker/versioning/rendering.py": (
+        "_validate_effective_destination", "write_effective_build",
+        "write_effective_inventory",
+    ),
+    "docker/versioning/build_materialization.py": ("materialize_artifact",),
+}
+
+#: Tasks 6.1–6.18 — migrated methods on a class.
+_PHASE6_METHODS: dict[str, tuple[tuple[str, str], ...]] = {
+    "docker/transactions/capabilities.py": (
+        ("DirectoryCapability", "_adopt"),
+        ("DirectoryCapability", "open_regular"),
+        ("DirectoryCapability", "close"),
+        ("FileCapability", "close"),
+    ),
+    "docker/transactions/regular.py": (
+        ("RegularFileContracts", "durable_unlink"),
+        ("RegularFileContracts", "_validate_destination"),
+        ("RegularFileContracts", "_close_fd"),
+        ("RegularFileContracts", "_discard"),
+    ),
+    "docker/versioning/artifact_cache.py": (
+        ("LocalCacheFilesystem", "create_temp"),
+        ("LocalCacheFilesystem", "stat_blob"),
+        ("LocalCacheFilesystem", "read_bytes"),
+        ("LocalCacheFilesystem", "inspect_and_digest"),
+        ("LocalCacheFilesystem", "ensure_secure_dir"),
+        ("LocalCacheFilesystem", "append_temp"),
+        ("LocalCacheFilesystem", "finalize_temp"),
+        ("LocalCacheFilesystem", "cleanup_temp"),
+        ("LocalCacheFilesystem", "quarantine_or_remove"),
+        ("LocalCacheFilesystem", "get_permissions"),
+        ("LocalCacheFilesystem", "set_permissions"),
+        ("LocalCacheFilesystem", "atomic_publish"),
+        ("LocalTemporaryDirectory", "mkdtemp"),
+        ("FileIdentityLock", "acquire"),
+    ),
+    "docker/versioning/build_cache.py": (("_BuildStorageHandle", "_open"),),
+    "docker/versioning/cache.py": (("DiskCache", "set"),),
+}
+
+
+def _call_origin(node: ast.Call, aliases: dict[str, str]) -> str:
+    """Resolve a call's callee to a dotted origin (aliases included)."""
+    func = node.func
+    if isinstance(func, ast.Attribute):
+        return _qualname(func, aliases)
+    if isinstance(func, ast.Name):
+        return aliases.get(func.id, func.id)
+    return ""
+
+
+def _annotation_is_owner(annotation: ast.expr | None) -> bool:
+    if annotation is None:
+        return False
+    text = ast.unparse(annotation)
+    return any(hint in text for hint in _DESCRIPTOR_TYPE_HINTS)
+
+
+def _is_ownerish_call(value: ast.expr | None, aliases: dict[str, str]) -> bool:
+    """True for a shared owner or an equivalent capability/descriptor factory."""
+    if not isinstance(value, ast.Call):
+        return False
+    loc = _qualname(value.func, aliases)
+    if loc in _OWNER_QUALNAMES:
+        return True
+    if any(token in loc for token in _OWNERISH_QUALNAME_TOKENS):
+        return True
+    return loc.endswith(_OWNERISH_QUALNAME_SUFFIXES)
+
+
+def _ownerish_names(
+    function: ast.FunctionDef, aliases: dict[str, str],
+) -> set[str]:
+    """Names/parameters provably bound to a shared owner or equivalent.
+
+    Resolves explicit ``OwnedDescriptor`` construction, equivalent
+    capability/descriptor factories, and injected parameters or fields whose
+    annotation is a shared-owner type.
+    """
+    owners = set(_owner_names(function, aliases))
+    injected = (
+        list(function.args.posonlyargs)
+        + list(function.args.args)
+        + list(function.args.kwonlyargs)
+    )
+    for extra in (function.args.vararg, function.args.kwarg):
+        if extra is not None:
+            injected.append(extra)
+    for arg in injected:
+        if _annotation_is_owner(arg.annotation):
+            owners.add(arg.arg)
+    for node in ast.walk(function):
+        if isinstance(node, ast.Assign):
+            value, targets = node.value, node.targets
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            value, targets = node.value, [node.target]
+        elif isinstance(node, ast.NamedExpr):
+            value, targets = node.value, [node.target]
+        else:
+            continue
+        if not _is_ownerish_call(value, aliases):
+            continue
+        for target in targets:
+            if isinstance(target, ast.Name):
+                owners.add(target.id)
+            elif isinstance(target, (ast.Tuple, ast.List)):
+                for element in target.elts:
+                    if isinstance(element, ast.Name):
+                        owners.add(element.id)
+    # Propagate parallel/aliased assignments where the value tuple already
+    # holds an owner: ``previous, current = current, child``.
+    changed = True
+    while changed:
+        changed = False
+        for node in ast.walk(function):
+            if not isinstance(node, ast.Assign):
+                continue
+            value = node.value
+            if not isinstance(value, (ast.Tuple, ast.List)):
+                continue
+            member_names = {
+                element.id
+                for element in value.elts
+                if isinstance(element, ast.Name)
+            }
+            if not (member_names & owners):
+                continue
+            for target in node.targets:
+                elements = (
+                    target.elts
+                    if isinstance(target, (ast.Tuple, ast.List))
+                    else [target]
+                )
+                for element in elements:
+                    if isinstance(element, ast.Name) and element.id not in owners:
+                        owners.add(element.id)
+                        changed = True
+    return owners
+
+
+def _fdopen_violations(
+    function: ast.FunctionDef, owners: set[str], aliases: dict[str, str],
+) -> list[str]:
+    """Reject implicit ``fdopen`` ownership; accept only a proven owner fd.
+
+    An omitted ``closefd`` is treated as ``True`` and rejected.  ``closefd=False``
+    is accepted only when the descriptor argument is a proven shared-owner
+    attribute (``owner.fd``).
+    """
+    violations: list[str] = []
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Call):
+            continue
+        if _call_origin(node, aliases) not in _FDOPEN_QUALNAMES:
+            continue
+        closefd = next(
+            (kw for kw in node.keywords if kw.arg == "closefd"), None
+        )
+        if closefd is None:
+            violations.append(f"implicit closefd=True at line {node.lineno}")
+        elif ast.unparse(closefd.value) != "False":
+            violations.append(
+                f"fdopen closefd={ast.unparse(closefd.value)} at line {node.lineno}"
+            )
+        else:
+            fd_arg = node.args[0] if node.args else None
+            if not (
+                isinstance(fd_arg, ast.Attribute)
+                and (_base_names(fd_arg) & owners)
+            ):
+                violations.append(
+                    f"fdopen closefd=False without proven owner at line {node.lineno}"
+                )
+    return violations
+
+
+def _file_object_names(
+    function: ast.FunctionDef, owners: set[str], aliases: dict[str, str],
+) -> set[str]:
+    """Names bound to a file object opened from a proven owner fd.
+
+    An explicit ``fh = os.fdopen(owner.fd, ..., closefd=False)`` is the only
+    accepted file-object form: the descriptor stays owned by the shared owner
+    and the file object is a legitimate explicit-cleanup receiver, so its
+    ``fh.close()`` is not an unresolved consumer close.
+    """
+    names: set[str] = set()
+    for node in ast.walk(function):
+        if isinstance(node, ast.Assign):
+            value, targets = node.value, node.targets
+        elif isinstance(node, ast.AnnAssign) and node.value is not None:
+            value, targets = node.value, [node.target]
+        else:
+            continue
+        if not isinstance(value, ast.Call):
+            continue
+        if _call_origin(value, aliases) not in _FDOPEN_QUALNAMES:
+            continue
+        closefd = next(
+            (kw for kw in value.keywords if kw.arg == "closefd"), None
+        )
+        if closefd is None or ast.unparse(closefd.value) != "False":
+            continue
+        fd_arg = value.args[0] if value.args else None
+        if not (
+            isinstance(fd_arg, ast.Attribute) and (_base_names(fd_arg) & owners)
+        ):
+            continue
+        for target in targets:
+            if isinstance(target, ast.Name):
+                names.add(target.id)
+    return names
+
+
+#: Constructs whose body runs only conditionally.  An adoption nested in one
+#: of these does not happen on every path and cannot protect the descriptor.
+_CONDITIONAL_NODES = (
+    ast.If,
+    ast.For,
+    ast.AsyncFor,
+    ast.While,
+    ast.Try,
+    ast.Match,
+    ast.IfExp,
+    ast.BoolOp,
+    ast.Lambda,
+)
+
+
+def _parent_map(function: ast.FunctionDef) -> dict[int, ast.AST]:
+    parents: dict[int, ast.AST] = {}
+    for node in ast.walk(function):
+        for child in ast.iter_child_nodes(node):
+            parents[id(child)] = node
+    return parents
+
+
+def _node_order(function: ast.FunctionDef) -> dict[int, int]:
+    """Return a source-order (pre-order DFS) index for every node."""
+    order: dict[int, int] = {}
+    counter = 0
+
+    def visit(node: ast.AST) -> None:
+        nonlocal counter
+        order[id(node)] = counter
+        counter += 1
+        for child in ast.iter_child_nodes(node):
+            visit(child)
+
+    visit(function)
+    return order
+
+
+def _has_ancestor(
+    node: ast.AST, ancestor: ast.AST, parents: dict[int, ast.AST]
+) -> bool:
+    current = parents.get(id(node))
+    while current is not None:
+        if current is ancestor:
+            return True
+        current = parents.get(id(current))
+    return False
+
+
+def _is_conditionally_guarded(
+    node: ast.AST, parents: dict[int, ast.AST]
+) -> bool:
+    """True when *node* executes only inside a conditional construct."""
+    current = parents.get(id(node))
+    while current is not None:
+        if isinstance(current, _CONDITIONAL_NODES):
+            return True
+        current = parents.get(id(current))
+    return False
+
+
+def _enclosing_statement(
+    node: ast.AST, parents: dict[int, ast.AST]
+) -> ast.stmt | None:
+    current: ast.AST | None = node
+    while current is not None:
+        if isinstance(current, ast.stmt):
+            return current
+        current = parents.get(id(current))
+    return None
+
+
+def _mkstemp_fd_names(
+    statement: ast.stmt, aliases: dict[str, str]
+) -> set[str]:
+    """Return the fd name(s) bound by a ``tempfile.mkstemp()`` statement."""
+    if isinstance(statement, ast.Assign):
+        value, targets = statement.value, list(statement.targets)
+    elif isinstance(statement, ast.AnnAssign) and statement.value is not None:
+        value, targets = statement.value, [statement.target]
+    else:
+        return set()
+    if not (
+        isinstance(value, ast.Call)
+        and _call_origin(value, aliases) in _MKSTEMP_QUALNAMES
+    ):
+        return set()
+    names: set[str] = set()
+    for target in targets:
+        if (
+            isinstance(target, ast.Tuple)
+            and target.elts
+            and isinstance(target.elts[0], ast.Name)
+        ):
+            names.add(target.elts[0].id)
+        elif isinstance(target, ast.Name):
+            names.add(target.id)
+    return names
+
+
+def _passes_fd(call: ast.Call, fd_names: set[str]) -> bool:
+    for arg in list(call.args) + [kw.value for kw in call.keywords]:
+        if isinstance(arg, ast.Name) and arg.id in fd_names:
+            return True
+    return False
+
+
+def _fallible_before(
+    function: ast.FunctionDef,
+    mk_stmt: ast.stmt,
+    adopt_stmt: ast.stmt,
+    parents: dict[int, ast.AST],
+    order: dict[int, int],
+    fd_names: set[str],
+) -> bool:
+    """True when a call or fd use sits between *mk_stmt* and *adopt_stmt*."""
+    low, high = order[id(mk_stmt)], order[id(adopt_stmt)]
+    for node in ast.walk(function):
+        if not (low < order[id(node)] < high):
+            continue
+        if _has_ancestor(node, mk_stmt, parents):
+            # Part of the ``mkstemp()`` expression itself.
+            continue
+        if isinstance(node, ast.Call):
+            return True
+        if isinstance(node, ast.Name) and node.id in fd_names:
+            return True
+    return False
+
+
+def _adoption_is_proven(
+    function: ast.FunctionDef,
+    mk_stmt: ast.stmt,
+    adopt: ast.Call,
+    parents: dict[int, ast.AST],
+    order: dict[int, int],
+    fd_names: set[str],
+) -> bool:
+    adopt_stmt = _enclosing_statement(adopt, parents)
+    if adopt_stmt is None:
+        return False
+    if order[id(adopt_stmt)] <= order[id(mk_stmt)]:
+        return False
+    if _is_conditionally_guarded(adopt_stmt, parents):
+        return False
+    return not _fallible_before(
+        function, mk_stmt, adopt_stmt, parents, order, fd_names
+    )
+
+
+def _mkstemp_violations(
+    function: ast.FunctionDef, owners: set[str], aliases: dict[str, str],
+) -> list[str]:
+    """Require each ``mkstemp()`` fd to be adopted unconditionally and first.
+
+    A temporary descriptor is safe only once a shared owner holds it.  The
+    owner transfer must therefore happen on every path (not behind an ``if``)
+    and before any other fallible operation, so an initialization failure can
+    neither leak the descriptor nor leave the temporary entry behind.  Finding
+    an owner call *somewhere* in the function is not enough.
+    """
+    parents = _parent_map(function)
+    order = _node_order(function)
+    violations: list[str] = []
+    for mk_stmt in [
+        node for node in ast.walk(function) if isinstance(node, ast.stmt)
+    ]:
+        fd_names = _mkstemp_fd_names(mk_stmt, aliases)
+        if not fd_names:
+            continue
+        adoptions = [
+            node
+            for node in ast.walk(function)
+            if isinstance(node, ast.Call)
+            and _is_ownerish_call(node, aliases)
+            and _passes_fd(node, fd_names)
+        ]
+        if not any(
+            _adoption_is_proven(
+                function, mk_stmt, adopt, parents, order, fd_names
+            )
+            for adopt in adoptions
+        ):
+            violations.append(f"unadopted mkstemp fd {sorted(fd_names)}")
+    return violations
+
+
+def _phase6_function_nodes():
+    """Yield ``(label, tree, aliases, function, class_owners)`` per function."""
+    for rel, names in _PHASE6_FUNCTIONS.items():
+        tree = _parse(_REPO / rel)
+        aliases = _module_aliases(tree)
+        for name in names:
+            yield f"{rel}::{name}", tree, aliases, _find_function(tree, name), set()
+    for rel, methods in _PHASE6_METHODS.items():
+        tree = _parse(_REPO / rel)
+        aliases = _module_aliases(tree)
+        for class_name, method_name in methods:
+            function = _find_method(tree, class_name, method_name)
+            yield (
+                f"{rel}::{class_name}.{method_name}",
+                tree,
+                aliases,
+                function,
+                _class_owner_names(tree, class_name, aliases),
+            )
+
+
+def _ownership_ledger() -> dict[str, dict[str, object]]:
+    """Generate the per-function ownership ledger for tasks 6.1–6.18."""
+    ledger: dict[str, dict[str, object]] = {}
+    for label, _tree, aliases, function, class_owners in _phase6_function_nodes():
+        owners = _ownerish_names(function, aliases) | class_owners
+        # A file object explicitly opened from a proven owner fd is a
+        # permitted cleanup receiver; the shared owner remains the descriptor
+        # authority and is still required to be released.
+        close_owners = owners | _file_object_names(function, owners, aliases)
+        ledger[label] = {
+            "owners": sorted(owners),
+            "close_violations": _close_violations_with_owners(
+                function, close_owners, aliases,
+                shared_owner_release=label in _VERIFIED_SHARED_OWNER_RELEASES,
+            ),
+            "fdopen_violations": _fdopen_violations(function, owners, aliases),
+            "mkstemp_violations": _mkstemp_violations(function, owners, aliases),
+            "raw_close_targets": _raw_close_targets(function, aliases),
+        }
+    return ledger
+
+
+class GeneratedOwnershipLedgerTests(unittest.TestCase):
+    """Task 6.37 — the generated per-function ownership ledger stays clean."""
+
+    def test_ledger_covers_every_named_phase6_function(self) -> None:
+        ledger = _ownership_ledger()
+        for rel, names in _PHASE6_FUNCTIONS.items():
+            for name in names:
+                self.assertIn(f"{rel}::{name}", ledger)
+        for rel, methods in _PHASE6_METHODS.items():
+            for class_name, method_name in methods:
+                self.assertIn(f"{rel}::{class_name}.{method_name}", ledger)
+
+    def test_no_unresolved_close_like_call(self) -> None:
+        for label, facts in _ownership_ledger().items():
+            with self.subTest(function=label):
+                self.assertEqual(facts["close_violations"], [])
+
+    def test_verified_shared_owner_releases_are_ledger_entries(self) -> None:
+        # Every backend-close exemption must name a real scanned
+        # implementation whose proven terminal/repeat-safe release stays
+        # clean; an exemption cannot be granted to code the ledger never saw.
+        ledger = _ownership_ledger()
+        self.assertTrue(_VERIFIED_SHARED_OWNER_RELEASES)
+        for label in sorted(_VERIFIED_SHARED_OWNER_RELEASES):
+            with self.subTest(implementation=label):
+                self.assertIn(label, ledger)
+                self.assertEqual(ledger[label]["close_violations"], [])
+
+    def test_no_implicit_fdopen_ownership(self) -> None:
+        for label, facts in _ownership_ledger().items():
+            with self.subTest(function=label):
+                self.assertEqual(facts["fdopen_violations"], [])
+
+    def test_every_mkstemp_fd_transfers_to_an_owner(self) -> None:
+        for label, facts in _ownership_ledger().items():
+            with self.subTest(function=label):
+                self.assertEqual(facts["mkstemp_violations"], [])
+
+    def test_no_former_consumer_close_remains(self) -> None:
+        for label, facts in _ownership_ledger().items():
+            with self.subTest(function=label):
+                self.assertEqual(facts["raw_close_targets"], [])
+
+
+def _inline_ledger(source: str):
+    tree = ast.parse(textwrap.dedent(source))
+    aliases = _module_aliases(tree)
+    function = _find_function(tree, "f")
+    return function, _ownerish_names(function, aliases), aliases
+
+
+class OwnershipLedgerEvasionTests(unittest.TestCase):
+    """Task 6.37 — aliased/implicit primitives cannot evade the ledger."""
+
+    def test_aliased_fdopen_without_closefd_is_rejected(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            import os as o
+
+            def f(fd):
+                o.fdopen(fd, "w")
+            """
+        )
+        self.assertNotEqual(_fdopen_violations(function, owners, aliases), [])
+
+    def test_fdopen_closefd_false_without_owner_is_rejected(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            import os
+
+            def f(fd):
+                os.fdopen(fd, "w", closefd=False)
+            """
+        )
+        self.assertNotEqual(_fdopen_violations(function, owners, aliases), [])
+
+    def test_fdopen_closefd_false_with_owner_is_accepted(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            import os
+            from docker.filesystem.descriptors import OwnedDescriptor
+            from docker.filesystem.operations import PosixDescriptorOps
+
+            def f(fd):
+                owner = OwnedDescriptor(PosixDescriptorOps(), fd, label="e")
+                os.fdopen(owner.fd, "w", closefd=False)
+            """
+        )
+        self.assertEqual(_fdopen_violations(function, owners, aliases), [])
+
+    def test_aliased_mkstemp_without_adoption_is_rejected(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            import tempfile as t
+
+            def f():
+                fd, path = t.mkstemp()
+                return fd
+            """
+        )
+        self.assertNotEqual(_mkstemp_violations(function, owners, aliases), [])
+
+    def test_mkstemp_adoption_is_accepted(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            import tempfile
+            from docker.filesystem.descriptors import OwnedDescriptor
+            from docker.filesystem.operations import PosixDescriptorOps
+
+            def f():
+                fd, path = tempfile.mkstemp()
+                owner = OwnedDescriptor(PosixDescriptorOps(), fd, label="e")
+                return owner.detach()
+            """
+        )
+        self.assertEqual(_mkstemp_violations(function, owners, aliases), [])
+
+    def test_mkstemp_fd_use_before_adoption_is_rejected(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            import os
+            import tempfile
+            from docker.filesystem.descriptors import OwnedDescriptor
+            from docker.filesystem.operations import PosixDescriptorOps
+
+            def f():
+                fd, path = tempfile.mkstemp()
+                os.fchmod(fd, 0o600)
+                owner = OwnedDescriptor(PosixDescriptorOps(), fd, label="e")
+                return owner.detach()
+            """
+        )
+        self.assertNotEqual(_mkstemp_violations(function, owners, aliases), [])
+
+    def test_mkstemp_fallible_operation_before_adoption_is_rejected(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            import hashlib
+            import tempfile
+            from docker.filesystem.descriptors import OwnedDescriptor
+            from docker.filesystem.operations import PosixDescriptorOps
+
+            def f():
+                fd, path = tempfile.mkstemp()
+                hashlib.sha256()
+                owner = OwnedDescriptor(PosixDescriptorOps(), fd, label="e")
+                return owner.detach()
+            """
+        )
+        self.assertNotEqual(_mkstemp_violations(function, owners, aliases), [])
+
+    def test_mkstemp_conditional_adoption_is_rejected(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            import tempfile
+            from docker.filesystem.descriptors import OwnedDescriptor
+            from docker.filesystem.operations import PosixDescriptorOps
+
+            def f(flag):
+                fd, path = tempfile.mkstemp()
+                if flag:
+                    owner = OwnedDescriptor(PosixDescriptorOps(), fd, label="e")
+                return fd
+            """
+        )
+        self.assertNotEqual(_mkstemp_violations(function, owners, aliases), [])
+
+    def test_injected_backend_field_close_is_rejected(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            def f(self, fd):
+                self._ops.close(fd)
+            """
+        )
+        self.assertNotEqual(
+            _close_violations_with_owners(function, owners, aliases), []
+        )
+
+    def test_injected_owner_parameter_is_accepted(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            from docker.filesystem.descriptors import OwnedDescriptor
+
+            def f(owner: OwnedDescriptor):
+                owner.close()
+            """
+        )
+        self.assertEqual(
+            _close_violations_with_owners(function, owners, aliases), []
+        )
+
+    def test_consumer_backend_close_disguised_as_shared_owner_is_rejected(self) -> None:
+        # Mimicking the full terminal/guard shape does not make the enclosing
+        # implementation a verified shared owner, so no exemption is granted.
+        function, owners, aliases = _inline_ledger(
+            """
+            def f(self, fd):
+                if not self._closed:
+                    self._closed = True
+                    self._ops.close(fd)
+            """
+        )
+        self.assertNotEqual(
+            _close_violations_with_owners(function, owners, aliases), []
+        )
+
+    def test_verified_shared_owner_release_is_accepted(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            def f(self, fd):
+                if not self._closed:
+                    self._closed = True
+                    self._ops.close(fd)
+            """
+        )
+        self.assertEqual(
+            _close_violations_with_owners(
+                function, owners, aliases, shared_owner_release=True
+            ),
+            [],
+        )
+
+    def test_shared_owner_release_without_repeat_guard_is_rejected(self) -> None:
+        # The verified identity alone is not enough: a claimed shared owner
+        # must still prove terminal-before-close and repeat-safe release.
+        function, owners, aliases = _inline_ledger(
+            """
+            def f(self, fd):
+                self._closed = True
+                self._ops.close(fd)
+            """
+        )
+        self.assertNotEqual(
+            _close_violations_with_owners(
+                function, owners, aliases, shared_owner_release=True
+            ),
+            [],
+        )
+
+    def test_injected_backend_close_without_terminal_flag_is_rejected(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            def f(self, fd):
+                self._ops.close(fd)
+            """
+        )
+        self.assertNotEqual(
+            _close_violations_with_owners(
+                function, owners, aliases, shared_owner_release=True
+            ),
+            [],
+        )
 
 
 if __name__ == "__main__":

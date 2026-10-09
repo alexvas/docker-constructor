@@ -10,8 +10,10 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Iterable, Protocol, Sequence
+from typing import IO, Callable, Iterable, Protocol, Sequence, cast
 
+from docker.filesystem.descriptors import OwnedDescriptor
+from docker.filesystem.operations import DescriptorOps, PosixDescriptorOps
 from docker.transactions.cleanup import CleanupFailures
 from docker.versioning.activity_monitor import HostActivityMonitor
 from docker.versioning.build_cache import (
@@ -127,6 +129,20 @@ def _remove_owned_leaf(path: Path) -> None:
         return
 
 
+def _remove_owned_entry(name: str) -> None:
+    """Unlink one owned entry by raw pathname, treating absence as idempotence.
+
+    The raw ``mkstemp`` pathname is used so cleanup never depends on a
+    successful ``Path`` construction.  Only ``FileNotFoundError`` is
+    swallowed; any other unlink failure propagates to the caller's
+    ``CleanupFailures``.
+    """
+    try:
+        os.unlink(name)
+    except FileNotFoundError:
+        return
+
+
 def materialize_artifact(
     selected: SelectedBuildArtifact, *, constructor_project_root: str | Path,
     transport: StreamingTransport, cache_root: str | Path | None = None,
@@ -151,25 +167,49 @@ def materialize_artifact(
 
     destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     fd, temporary_name = tempfile.mkstemp(prefix=".materialize-", dir=paths.tmp_root)
-    temporary = Path(temporary_name)
-    digest = hashlib.new(selected.identity.algorithm)
-    received = 0
+    # Adopt the freshly-created descriptor immediately: every later fallible
+    # step (path construction, hash selection, streaming, publication) is then
+    # protected, so an initialization failure can neither leak the descriptor
+    # nor leave the temporary entry behind.
+    output_owner = OwnedDescriptor(
+        cast(DescriptorOps, PosixDescriptorOps()), fd,
+        label=f"materialize temporary {temporary_name}",
+    )
+    temporary: Path | None = None
+    output: IO[bytes] | None = None
     active: BaseException | None = None
     try:
-        with os.fdopen(fd, "wb") as output:
-            for chunk in transport.stream(selected.url):
-                if not isinstance(chunk, bytes):
-                    raise MaterializationError("artifact transport yielded non-byte data")
-                # Count the yielded bytes before the write/hash boundary: a
-                # blocked or failed disk write must not hide bytes already
-                # received from heartbeat or terminal progress.
-                received += len(chunk)
-                if progress is not None:
-                    progress(received)
-                output.write(chunk)
-                digest.update(chunk)
-            output.flush()
-            os.fsync(output.fileno())
+        temporary = Path(temporary_name)
+        digest = hashlib.new(selected.identity.algorithm)
+        received = 0
+        output = os.fdopen(output_owner.fd, "wb", closefd=False)
+        for chunk in transport.stream(selected.url):
+            if not isinstance(chunk, bytes):
+                raise MaterializationError("artifact transport yielded non-byte data")
+            # Count the yielded bytes before the write/hash boundary: a
+            # blocked or failed disk write must not hide bytes already
+            # received from heartbeat or terminal progress.
+            received += len(chunk)
+            if progress is not None:
+                progress(received)
+            output.write(chunk)
+            digest.update(chunk)
+        output.flush()
+        os.fsync(output.fileno())
+        # Flush and close the file object explicitly, then release the
+        # descriptor, before any publication.  The explicit (not implicit
+        # context-manager) cleanup keeps an operation failure primary while a
+        # file-object-close and/or descriptor-release failure is retained as
+        # ordinary secondary diagnostics.  A cleanup failure with no operation
+        # failure becomes the primary mapped failure, so a close failure can
+        # never follow (or leave behind) a published artifact.  The handle is
+        # cleared even when its close fails so the outer safeguard never
+        # retries a failed file-object close.
+        try:
+            output.close()
+        finally:
+            output = None
+        output_owner.close()
         if digest.digest() != selected.identity.digest_bytes:
             raise MaterializationError(
                 f"integrity check failed for artifact {selected.name!r}"
@@ -212,11 +252,20 @@ def materialize_artifact(
         active = mapped
         raise mapped from exc
     finally:
-        # The owned temporary entry uses idempotent absence, but a non-absence
-        # cleanup failure is attached to an existing primary instead of
-        # masking it, and remains observable on its own when nothing else failed.
+        # Outer safeguard for failure paths.  A still-open file object is
+        # closed once, the mkstemp() descriptor is released through the shared
+        # owner (terminal, so an earlier release is never retried), and the
+        # owned temporary entry is removed idempotently.  Either cleanup
+        # failure is attached to an existing primary instead of masking it,
+        # and remains observable on its own when nothing else failed.
         failures = CleanupFailures(active)
-        failures.run(lambda: _remove_owned_leaf(temporary), ordinary=(OSError,))
+        if output is not None:
+            failures.run(output.close, ordinary=(OSError,))
+        failures.run(output_owner.close, ordinary=(OSError,))
+        # Remove the owned temporary entry by its raw mkstemp() pathname,
+        # independently of whether ``Path(temporary_name)`` succeeded, so an
+        # initialization failure can never leave the entry behind.
+        failures.run(lambda: _remove_owned_entry(temporary_name), ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result

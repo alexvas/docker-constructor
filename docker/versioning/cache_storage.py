@@ -36,6 +36,7 @@ from docker.filesystem.cleanup import CleanupFailures
 from docker.filesystem.descriptors import (
     DescriptorError,
     DirectoryDescriptor,
+    OwnedDescriptor,
     _STAGE_CREATE,
     _STAGE_OPEN,
     _STAGE_REOPEN,
@@ -448,21 +449,20 @@ def _release_keeping_primary(
 
 
 def _release_file_and_capability(
-    ops: DescriptorOps,
-    fd: int,
+    owner: OwnedDescriptor | None,
     capability: DirectoryDescriptor,
     primary: BaseException,
 ) -> None:
-    """Release an opened regular file and its directory capability once each.
+    """Release an opened regular-file owner and its directory capability once each.
 
     *primary* stays authoritative; an ordinary close failure from either
-    release is retained on it as secondary diagnostic context.  ``fd`` is
-    released only when it is live (``>= 0``), and each resource is attempted
-    at most once, so a failed close is never retried.
+    release is retained on it as secondary diagnostic context.  The file owner
+    is released only when one was adopted (``owner is not None``), and each
+    resource is attempted at most once, so a failed close is never retried.
     """
     failures = CleanupFailures(primary)
-    if fd >= 0:
-        failures.run(lambda: ops.close(fd), ordinary=(OSError,))
+    if owner is not None:
+        failures.run(owner.close, ordinary=(OSError,))
     failures.run(capability.close, ordinary=(OSError,))
     result = failures.complete()
     if result is not None:
@@ -470,17 +470,18 @@ def _release_file_and_capability(
 
 
 def _release_file_keeping_primary(
-    ops: DescriptorOps, fd: int, primary: BaseException
+    owner: OwnedDescriptor, primary: BaseException
 ) -> None:
-    """Release an opened regular file once, keeping *primary* authoritative.
+    """Release an opened regular-file owner once, keeping *primary* authoritative.
 
     Used after an owning directory-capability close failure: the capability
     has already recorded its single release attempt, so only the opened file
-    is released here.  An ordinary file-close failure is retained on
-    *primary* as secondary diagnostic context, and neither close is retried.
+    owner is released here.  An ordinary file-close failure is retained on
+    *primary* as secondary diagnostic context, and the owner is never retried
+    because it marks itself terminal before issuing the close.
     """
     failures = CleanupFailures(primary)
-    failures.run(lambda: ops.close(fd), ordinary=(OSError,))
+    failures.run(owner.close, ordinary=(OSError,))
     result = failures.complete()
     if result is not None:
         raise result
@@ -566,7 +567,7 @@ def open_private_entry(
     _require_entry_name(name)
     descriptor_ops = _resolve_ops(ops)
     capability = _open_directory_for_write(descriptor_ops, directory)
-    fd = -1
+    owner: OwnedDescriptor | None = None
     try:
         flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | getattr(os, "O_NOFOLLOW", 0)
         try:
@@ -575,16 +576,21 @@ def open_private_entry(
             raise CacheStorageError(
                 f"cannot open cache entry {Path(directory) / name}: {exc}"
             ) from exc
+        owner = OwnedDescriptor(
+            descriptor_ops, fd,
+            label=f"private cache entry {Path(directory) / name}",
+        )
         try:
-            descriptor_ops.fchmod(fd, 0o600)
+            descriptor_ops.fchmod(owner.fd, 0o600)
         except OSError as exc:
             raise CacheStorageError(
                 f"cannot secure cache entry {Path(directory) / name}: {exc}"
             ) from exc
     except BaseException as primary:
         # Opening or securing failed: keep the domain error primary while
-        # releasing the file (if it was opened) and the directory once each.
-        _release_file_and_capability(descriptor_ops, fd, capability, primary)
+        # releasing the file owner (if one was adopted) and the directory once
+        # each.
+        _release_file_and_capability(owner, capability, primary)
         raise
     # The file is open and secured.  Hand it to the caller only after the
     # directory capability closes cleanly, so a close failure can never leak
@@ -592,9 +598,9 @@ def open_private_entry(
     try:
         capability.close()
     except BaseException as primary:
-        _release_file_keeping_primary(descriptor_ops, fd, primary)
+        _release_file_keeping_primary(owner, primary)
         raise
-    return fd
+    return owner.detach()
 
 
 def publish_private_entry(

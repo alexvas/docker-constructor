@@ -45,6 +45,10 @@ import itertools
 import os
 import stat
 from dataclasses import dataclass
+from typing import cast
+
+from docker.filesystem.descriptors import OwnedDescriptor
+from docker.filesystem.operations import DescriptorOps
 
 from .capabilities import DirectoryCapability
 from .cleanup import CleanupFailures
@@ -88,8 +92,12 @@ def _temp_name() -> str:
 
 @dataclass
 class _Publication:
-    fd: int = -1
+    owner: OwnedDescriptor | None = None
     temp_name: str | None = None
+
+    @property
+    def fd(self) -> int:
+        return -1 if self.owner is None else self.owner.fd
 
 
 class RegularFileContracts:
@@ -106,7 +114,7 @@ class RegularFileContracts:
         state = _Publication()
         stage = STAGE_ALLOCATE
         try:
-            state.fd, state.temp_name = self._allocate_temporary(directory)
+            state.owner, state.temp_name = self._allocate_temporary(directory)
             stage = STAGE_MODE
             self._establish_mode(state.fd, mode, base)
             stage = STAGE_WRITE
@@ -131,7 +139,7 @@ class RegularFileContracts:
         state = _Publication()
         stage = STAGE_ALLOCATE
         try:
-            state.fd, state.temp_name = self._allocate_temporary(directory)
+            state.owner, state.temp_name = self._allocate_temporary(directory)
             stage = STAGE_MODE
             self._establish_mode(state.fd, mode, base)
             stage = STAGE_WRITE
@@ -170,7 +178,7 @@ class RegularFileContracts:
         state = _Publication()
         stage = STAGE_ALLOCATE
         try:
-            state.fd, state.temp_name = self._allocate_temporary(directory)
+            state.owner, state.temp_name = self._allocate_temporary(directory)
             stage = STAGE_MODE
             self._establish_mode(state.fd, mode, base)
             stage = STAGE_WRITE
@@ -247,7 +255,7 @@ class RegularFileContracts:
         failed unlink leaves whatever currently occupies the name untouched.
         """
         base = directory.child_basename(name)
-        fd = -1
+        owner: OwnedDescriptor | None = None
         primary: BaseException | None = None
         try:
             try:
@@ -267,8 +275,11 @@ class RegularFileContracts:
                 raise TransactionError(
                     STAGE_READ, f"cannot open {base!r}", cause=exc
                 ) from exc
+            owner = OwnedDescriptor(
+                cast(DescriptorOps, self._ops), fd, label=f"unlink {base!r}"
+            )
             try:
-                info = self._ops.fstat(fd)
+                info = self._ops.fstat(owner.fd)
             except OSError as exc:
                 raise TransactionError(
                     STAGE_VALIDATE, f"cannot stat {base!r}", cause=exc
@@ -288,14 +299,14 @@ class RegularFileContracts:
             primary = exc
             raise
         finally:
-            if fd >= 0:
+            if owner is not None:
                 # One close attempt only; see validated_read for why a failed
                 # close is not retried.  An ordinary close failure is secondary
                 # to an in-flight primary and otherwise maps to a close-stage
                 # ``TransactionError``; a process-control interruption
                 # propagates unchanged.
                 failures = CleanupFailures(primary)
-                failures.run(lambda: self._ops.close(fd), ordinary=(OSError,))
+                failures.run(owner.close, ordinary=(OSError,))
                 result = failures.complete()
                 if result is not None:
                     raise TransactionError(
@@ -303,7 +314,9 @@ class RegularFileContracts:
                     ) from result
 
     # -- private mechanics -----------------------------------------------
-    def _allocate_temporary(self, directory: DirectoryCapability) -> tuple[int, str]:
+    def _allocate_temporary(
+        self, directory: DirectoryCapability
+    ) -> tuple[OwnedDescriptor, str]:
         last: BaseException | None = None
         for _ in range(_TEMP_ATTEMPTS):
             temp_name = _temp_name()
@@ -320,7 +333,14 @@ class RegularFileContracts:
                     f"cannot allocate private entry in {directory.label!r}",
                     cause=exc,
                 ) from exc
-            return fd, temp_name
+            return (
+                OwnedDescriptor(
+                    cast(DescriptorOps, self._ops),
+                    fd,
+                    label=f"private state {directory.label!r}",
+                ),
+                temp_name,
+            )
         raise TransactionError(
             STAGE_ALLOCATE,
             f"exhausted private allocation attempts in {directory.label!r}",
@@ -428,10 +448,13 @@ class RegularFileContracts:
                 f"cannot validate destination {base!r}",
                 cause=exc,
             ) from exc
+        owner = OwnedDescriptor(
+            cast(DescriptorOps, self._ops), fd, label=f"destination {base!r}"
+        )
         primary: BaseException | None = None
         try:
             try:
-                info = self._ops.fstat(fd)
+                info = self._ops.fstat(owner.fd)
             except OSError as exc:
                 raise TransactionError(
                     STAGE_VALIDATE_DESTINATION,
@@ -457,7 +480,7 @@ class RegularFileContracts:
             # ``TransactionError``; a process-control interruption propagates
             # unchanged.
             failures = CleanupFailures(primary)
-            failures.run(lambda: self._ops.close(fd), ordinary=(OSError,))
+            failures.run(owner.close, ordinary=(OSError,))
             result = failures.complete()
             if result is not None:
                 raise TransactionError(
@@ -467,15 +490,13 @@ class RegularFileContracts:
                 ) from result
 
     def _close_fd(self, directory: DirectoryCapability, state: _Publication) -> None:
-        if state.fd < 0:
+        if state.owner is None:
             return
-        # Mark the descriptor released before the attempt: the transition means
-        # "close attempted", not "close definitely succeeded".  A failed close
-        # is not retried because POSIX does not guarantee the descriptor stays
-        # open, so a retry could close an unrelated reused descriptor.
-        fd, state.fd = state.fd, -1
+        # Detach the owner before the attempt so ownership is terminal first and
+        # a failed close is never retried by a later ``_discard``.
+        owner, state.owner = state.owner, None
         try:
-            self._ops.close(fd)
+            owner.close()
         except OSError as exc:
             raise TransactionError(
                 STAGE_CLOSE, f"cannot close private state in {directory.label!r}", cause=exc
@@ -501,10 +522,10 @@ class RegularFileContracts:
         failures = CleanupFailures(primary)
 
         def close_descriptor() -> None:
-            if state.fd < 0:
+            owner, state.owner = state.owner, None
+            if owner is None:
                 return
-            fd, state.fd = state.fd, -1
-            self._ops.close(fd)
+            owner.close()
 
         def remove_temporary() -> None:
             if state.temp_name is None:

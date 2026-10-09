@@ -31,6 +31,7 @@ from docker.versioning.project_state import (
     _safe_basename,
     validate_project_state,
 )
+from tests.descriptor_ownership_support import recording
 
 # Position of each descriptor in the validation open order.
 _ROOT = 0
@@ -258,3 +259,42 @@ class FailedValidationSingleReleaseTests(_ProjectStateCase):
         self.assertEqual(recorder.attempts(_PROJECTS), 1)
         self.assertEqual(recorder.attempts(_ROOT), 1)
         self.assertIn(close_error, self._secondary(caught.exception))
+
+
+class SharedOwnerDelegationTests(_ProjectStateCase):
+    """Task 6.11 — every release delegates to the shared owner.
+
+    The terminal, retry, independent-cleanup, and precedence guarantees above
+    stay passing via the raw-close recorder; these assertions add the missing
+    shared-owner delegation that is RED before the Phase 6 migration.
+    """
+
+    def test_successful_validation_delegates_every_release_to_shared_owners(self) -> None:
+        self._prepare_namespace()
+        self._write_metadata()
+        state = self._state()
+        with recording(project_state_module) as recorder:
+            validated = validate_project_state(state)
+            validated.close()
+        recorder.assert_terminal_and_at_most_once(self)
+        # root, projects, the retained namespace, and the returned state each
+        # pass through a shared owner.
+        self.assertGreaterEqual(len(recorder.owners), 3)
+
+    def test_missing_namespace_delegates_ancestors_to_shared_owners(self) -> None:
+        self._prepare_projects()  # namespace directory deliberately absent
+        state = self._state()
+        with recording(project_state_module) as recorder:
+            with self.assertRaises(ProjectStateError):
+                validate_project_state(state)
+        recorder.assert_terminal_and_at_most_once(self)
+        self.assertGreaterEqual(len(recorder.owners), 2)
+
+    def test_failed_metadata_validation_delegates_all_releases_to_owners(self) -> None:
+        self._prepare_namespace()
+        state = self._state()  # no project.json -> metadata read fails
+        with recording(project_state_module) as recorder:
+            with self.assertRaises(ProjectStateError):
+                validate_project_state(state)
+        recorder.assert_terminal_and_at_most_once(self)
+        self.assertGreaterEqual(len(recorder.owners), 3)

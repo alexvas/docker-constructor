@@ -439,6 +439,9 @@ class _GatedWriter:
     def flush(self):
         return self._inner.flush()
 
+    def close(self):
+        return self._inner.close()
+
     def fileno(self):
         return self._inner.fileno()
 

@@ -19,7 +19,11 @@ import os
 import time
 from pathlib import Path
 from types import MappingProxyType
-from typing import Mapping
+from typing import Mapping, TextIO, cast
+
+from docker.filesystem.cleanup import CleanupFailures
+from docker.filesystem.descriptors import OwnedDescriptor
+from docker.filesystem.operations import DescriptorOps, PosixDescriptorOps
 
 from .providers.base import HttpResponse, HttpTransport
 
@@ -173,8 +177,45 @@ class DiskCache:
         }
         tmp_name = path.name + ".tmp"
         fd = open_private_entry(self._dir, tmp_name)
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        owner = OwnedDescriptor(
+            cast(DescriptorOps, PosixDescriptorOps()), fd,
+            label=f"cache entry {tmp_name}",
+        )
+        fh: TextIO | None = None
+        primary: BaseException | None = None
+        try:
+            fh = os.fdopen(owner.fd, "w", encoding="utf-8", closefd=False)
             json.dump(payload, fh)
+            # Flush and close the file object explicitly, then release the
+            # descriptor, before publication.  Explicit cleanup keeps an
+            # operation failure primary while a file-object-close and/or
+            # descriptor-release failure is retained as ordinary secondary
+            # diagnostics; a cleanup failure with no operation failure becomes
+            # the primary failure and prevents publication.
+            failures = CleanupFailures(None)
+            failures.run(fh.close, ordinary=(OSError,))
+            fh = None
+            failures.run(owner.close, ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise result
+        except BaseException as exc:
+            primary = exc
+            raise
+        finally:
+            # The private entry descriptor is owned immediately and released
+            # through the shared owner before publication (terminal before the
+            # close, never retried).  A JSON-write/file-object-close failure
+            # stays primary and an ordinary descriptor-release failure is
+            # attached as secondary; a cleanup failure without a primary
+            # prevents publication.
+            failures = CleanupFailures(primary)
+            if fh is not None:
+                failures.run(fh.close, ordinary=(OSError,))
+            failures.run(owner.close, ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise result
         publish_private_entry(self._dir, tmp_name, path.name)
 
     def clear(self) -> None:

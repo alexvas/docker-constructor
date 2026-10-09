@@ -187,6 +187,8 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
         error = project_schema_error(
             DocumentIdentity(DocumentRole.LOCAL, path), "cache.dir"
         )
+        self.assertEqual(DocumentRole.LOCAL, error.role)
+        self.assertEqual(path, error.path)
         self.assertEqual("schema_error", error.classification)
         self.assertIs(DocumentErrorClassification.SCHEMA_ERROR, error.classification)
         self.assertEqual("cache.dir", error.field)
@@ -194,7 +196,13 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
         self.assertIsNone(error.column)
         self.assertIsNone(error.__context__)
         self.assertIsNone(error.__cause__)
-        self.assertNotIn("42", str(error))
+        # The permitted document-identity path is rendered and may itself
+        # contain the digits of the rejected payload: a random
+        # temporary-directory name can legitimately include "42".  Subtract
+        # the identity before proving the rejected value never leaked.
+        rendered = str(error)
+        self.assertIn(str(path), rendered)
+        self.assertNotIn("42", rendered.replace(str(path), ""))
 
     def test_unknown_classification_is_rejected_before_publication(self) -> None:
         identity = DocumentIdentity(

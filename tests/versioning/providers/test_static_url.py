@@ -198,6 +198,8 @@ schema = 1
 [build.stages.base.node]
 tag = "24-trixie-slim"
 digest = "sha256:ae91dcc111a68c9d2d81ff2a17bda61be126426176fde6fe7d08ab13b7f50573"
+node_version = "24.18.0"
+npm_version = "11.16.0"
 
 [build.stages.base.node.source]
 type = "docker-registry"
@@ -379,7 +381,10 @@ class TestStaticUrlMultiArtifactRejection(unittest.TestCase):
             try:
                 with self.assertRaises(InventoryError) as ctx:
                     load_inventory(Path(f.name))
-                self.assertIn("multi-platform", str(ctx.exception))
+                self.assertEqual(
+                    ctx.exception.field,
+                    "build.stages.toolchain.rust.rustup",
+                )
             finally:
                 import os
                 os.unlink(f.name)

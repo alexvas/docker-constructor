@@ -127,22 +127,24 @@ def _open_validated_source(blob: Path, expected: str) -> int:
         fd = os.open(blob, _NOFOLLOW_RDONLY)
     except OSError as exc:
         raise SnapshotError(f"cannot open snapshot source blob {blob}: {exc}") from exc
+    owner = OwnedDescriptor(
+        PosixDescriptorOps(), fd, label=f"snapshot source blob {blob}")
     try:
-        st = os.fstat(fd)
+        st = os.fstat(owner.fd)
         if not stat.S_ISREG(st.st_mode):
             raise SnapshotError(f"snapshot source blob {blob} is not a regular file")
         if st.st_uid != os.geteuid():
             raise SnapshotError(f"snapshot source blob {blob} is not owned by the invoking user")
         if stat.S_IMODE(st.st_mode) != 0o444:
             raise SnapshotError(f"snapshot source blob {blob} must be mode 0444")
-        if _hash_descriptor(fd) != expected:
+        if _hash_descriptor(owner.fd) != expected:
             raise SnapshotError(f"snapshot source blob {blob} failed digest verification")
-        return fd
+        return owner.detach()
     except BaseException as primary:
         # A failed source validation must not be masked by a descriptor-close
         # failure; ordinary close errors stay observable as secondary context.
         failures = CleanupFailures(primary)
-        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -227,9 +229,13 @@ def _validate_hard_link_destination(
         raise SnapshotError(
             f"cannot open hard-linked snapshot payload {destination_name!r}: {exc}"
         ) from exc
+    owner = OwnedDescriptor(
+        PosixDescriptorOps(), fd,
+        label=f"snapshot hard link {destination_name!r}",
+    )
     primary: BaseException | None = None
     try:
-        st = os.fstat(fd)
+        st = os.fstat(owner.fd)
         if st.st_dev != source_stat.st_dev or st.st_ino != source_stat.st_ino:
             raise SnapshotError(
                 f"hard-linked snapshot payload {destination_name!r} does not "
@@ -241,7 +247,7 @@ def _validate_hard_link_destination(
             raise SnapshotError(f"hard-linked snapshot payload {destination_name!r} is not owned by the invoking user")
         if stat.S_IMODE(st.st_mode) != 0o444:
             raise SnapshotError(f"hard-linked snapshot payload {destination_name!r} must be mode 0444")
-        if _hash_descriptor(fd) != expected:
+        if _hash_descriptor(owner.fd) != expected:
             raise SnapshotError(f"hard-linked snapshot payload {destination_name!r} failed digest verification")
     except BaseException as exc:
         primary = exc
@@ -251,7 +257,7 @@ def _validate_hard_link_destination(
         # failure; it is attached as secondary context.  The close is attempted
         # exactly once and never retried.
         failures = CleanupFailures(primary)
-        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
             raise result
@@ -524,6 +530,9 @@ def create_artifact_snapshot(
         if result is not None:
             raise result
         raise domain_error from exc
+    staging_owner = OwnedDescriptor(
+        PosixDescriptorOps(), staging_fd, label=f"snapshot staging directory {staging}")
+    staging_owner_fd = staging_owner.fd
     snapshot_primary: BaseException | None = None
     try:
         manifest_entries: list[dict[str, str]] = []
@@ -531,23 +540,27 @@ def create_artifact_snapshot(
         for item, blob in sorted(entries, key=lambda pair: _LOGICAL_NAMES[pair[0].name]):
             destination_name = _LOGICAL_NAMES[item.name]
             expected = item.identity.hex_digest()
-            source_fd = _open_validated_source(blob, expected)
+            source_owner = OwnedDescriptor(
+                PosixDescriptorOps(),
+                _open_validated_source(blob, expected),
+                label=f"snapshot source {blob}",
+            )
             source_primary: BaseException | None = None
             try:
-                source_stat = os.fstat(source_fd)
+                source_stat = os.fstat(source_owner.fd)
                 try:
-                    os.link(blob, destination_name, follow_symlinks=False, dst_dir_fd=staging_fd)
+                    os.link(blob, destination_name, follow_symlinks=False, dst_dir_fd=staging_owner_fd)
                 except OSError as exc:
                     if exc.errno not in _HARD_LINK_UNAVAILABLE:
                         raise SnapshotError(
                             f"cannot hard link snapshot payload {destination_name!r} "
                             f"from source blob {blob}: {exc}"
                         ) from exc
-                    _copy_source_fd_to_destination(source_fd, destination_name, staging_fd, expected)
+                    _copy_source_fd_to_destination(source_owner.fd, destination_name, staging_owner_fd, expected)
                 else:
                     try:
                         _validate_hard_link_destination(
-                            destination_name, staging_fd, source_stat, expected)
+                            destination_name, staging_owner_fd, source_stat, expected)
                     except BaseException as primary:
                         # An unsafe linked destination is removed only through
                         # its declared idempotent absence; a non-absence unlink
@@ -557,7 +570,7 @@ def create_artifact_snapshot(
 
                         def remove_hard_link(destination_name=destination_name):
                             try:
-                                os.unlink(destination_name, dir_fd=staging_fd)
+                                os.unlink(destination_name, dir_fd=staging_owner_fd)
                             except FileNotFoundError:
                                 return
 
@@ -576,7 +589,7 @@ def create_artifact_snapshot(
                 # is attached as secondary context and raised only when it is
                 # the sole failure.
                 close_failures = CleanupFailures(source_primary)
-                close_failures.run(lambda: os.close(source_fd), ordinary=(OSError,))
+                close_failures.run(source_owner.close, ordinary=(OSError,))
                 result = close_failures.complete()
                 if result is not None:
                     raise result
@@ -622,7 +635,7 @@ def create_artifact_snapshot(
         # only when it is the sole failure, so it never masks the snapshot
         # diagnostic that is already propagating.
         close_failures = CleanupFailures(snapshot_primary)
-        close_failures.run(lambda: os.close(staging_fd), ordinary=(OSError,))
+        close_failures.run(staging_owner.close, ordinary=(OSError,))
         result = close_failures.complete()
         if result is not None:
             raise result

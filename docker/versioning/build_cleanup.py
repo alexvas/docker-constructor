@@ -45,7 +45,10 @@ from __future__ import annotations
 import os
 import stat
 from dataclasses import dataclass
+from typing import cast
 
+from docker.filesystem.descriptors import OwnedDescriptor
+from docker.filesystem.operations import DescriptorOps
 from docker.transactions.capabilities import DirectoryCapability
 from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
@@ -218,14 +221,13 @@ def _validate_leaf(
 
 
 def _close_leaf(
-    ops: PosixFileOps,
-    fd: int,
+    owner: OwnedDescriptor,
     failures: list[CleanupFailure],
     target: str,
 ) -> None:
-    """Release a retained leaf descriptor, aggregating an ordinary close failure."""
+    """Release a retained leaf owner, aggregating an ordinary close failure."""
     try:
-        ops.close(fd)
+        owner.close()
     except OSError as exc:
         failures.append(CleanupFailure(target, exc))
 
@@ -260,10 +262,12 @@ def _unlink_entry(
     except OSError as exc:
         failures.append(CleanupFailure(target, exc))
         return False
+    owner = OwnedDescriptor(
+        cast(DescriptorOps, ops), fd, label=f"build entry {base}")
     closed = False
     try:
         try:
-            info = ops.fstat(fd)
+            info = ops.fstat(owner.fd)
             _validate_leaf(
                 info,
                 base,
@@ -282,13 +286,13 @@ def _unlink_entry(
             return False
         return True
     except BaseException as exc:
-        # Process-control interruption: release the retained descriptor
+        # Process-control interruption: release the retained owner
         # exactly once, keeping the interruption authoritative over any
-        # ordinary close failure.  The close is marked attempted before it is
-        # issued so it is never retried.
+        # ordinary close failure.  The owner marks itself terminal before the
+        # close is issued so it is never retried.
         closed = True
         accumulator = CleanupFailures(exc)
-        accumulator.run(lambda: ops.close(fd), ordinary=(OSError,))
+        accumulator.run(owner.close, ordinary=(OSError,))
         result = accumulator.complete()
         if result is not None:
             raise result
@@ -296,7 +300,7 @@ def _unlink_entry(
     finally:
         if not closed:
             closed = True
-            _close_leaf(ops, fd, failures, target)
+            _close_leaf(owner, failures, target)
 
 
 def _sync_directory(
@@ -332,10 +336,14 @@ def _open_algorithm_directory(
         return None, None
     except OSError as exc:
         return None, _algorithm_failure(algorithm, exc)
+    owner = OwnedDescriptor(
+        cast(DescriptorOps, ops), fd,
+        label=f"build blob algorithm {algorithm!r}")
     try:
         capability = DirectoryCapability.from_fd(
-            ops, fd, f"{blobs.label}/{algorithm}"
+            ops, owner.fd, f"{blobs.label}/{algorithm}"
         )
+        owner.detach()  # ownership transferred to the adopted capability
     except (CapabilityError, TransactionError) as exc:
         # The descriptor is still caller-owned: release it, preserving any
         # close failure as a secondary diagnostic, and aggregate the failure
@@ -345,7 +353,7 @@ def _open_algorithm_directory(
         # reachable together; the raw cause is never copied onto a replacement
         # exception.
         accumulator = CleanupFailures(exc)
-        accumulator.run(lambda: ops.close(fd), ordinary=(OSError,))
+        accumulator.run(owner.close, ordinary=(OSError,))
         result = accumulator.complete()
         if result is not None:
             raise result
@@ -355,7 +363,7 @@ def _open_algorithm_directory(
         # rejected descriptor caller-owned; release it exactly once and keep
         # the primary authoritative over any ordinary close failure.
         accumulator = CleanupFailures(exc)
-        accumulator.run(lambda: ops.close(fd), ordinary=(OSError,))
+        accumulator.run(owner.close, ordinary=(OSError,))
         result = accumulator.complete()
         if result is not None:
             raise result

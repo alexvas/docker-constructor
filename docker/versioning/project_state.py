@@ -109,6 +109,16 @@ def _metadata(project: Path, identity: str) -> bytes:
                         "sha256": identity}, sort_keys=True, separators=(",", ":")) + "\n").encode()
 
 
+def _adopt(fd: int, *, label: str) -> OwnedDescriptor:
+    """Transfer a raw descriptor to a shared owner at a consumer boundary."""
+    return OwnedDescriptor(PosixDescriptorOps(), fd, label=label)
+
+
+def _release(failures: CleanupFailures, owner: OwnedDescriptor) -> None:
+    """Attempt one shared-owner release, attaching an ordinary close failure."""
+    failures.run(owner.close, ordinary=(OSError,))
+
+
 def _open_private_dir_at(parent_fd: int | None, name: str, *, label: str) -> int:
     """Open an existing private directory and validate it without repairing.
 
@@ -127,27 +137,28 @@ def _open_private_dir_at(parent_fd: int | None, name: str, *, label: str) -> int
         raise
     except OSError as exc:
         raise ProjectStateError(f"unsafe project state {label}") from exc
+    owner = _adopt(fd, label=f"private directory {label}")
+    primary: BaseException | None = None
     try:
-        st = os.fstat(fd)
-    except OSError as exc:
-        primary = ProjectStateError(f"unsafe project state {label}")
-        failures = CleanupFailures(primary)
-        failures.run(lambda: os.close(fd), ordinary=(OSError,))
-        result = failures.complete()
-        if result is not None:
-            raise result
-        raise primary from exc
-    if (not stat.S_ISDIR(st.st_mode) or st.st_uid != os.geteuid()
-            or stat.S_IMODE(st.st_mode) != 0o700):
-        primary = ProjectStateError(
-            f"project state {label} must be invoking-user-owned and mode 0700")
-        failures = CleanupFailures(primary)
-        failures.run(lambda: os.close(fd), ordinary=(OSError,))
-        result = failures.complete()
-        if result is not None:
-            raise result
-        raise primary
-    return fd
+        try:
+            st = os.fstat(owner.fd)
+        except OSError as exc:
+            raise ProjectStateError(f"unsafe project state {label}") from exc
+        if (not stat.S_ISDIR(st.st_mode) or st.st_uid != os.geteuid()
+                or stat.S_IMODE(st.st_mode) != 0o700):
+            raise ProjectStateError(
+                f"project state {label} must be invoking-user-owned and mode 0700")
+    except BaseException as exc:
+        primary = exc
+        raise
+    finally:
+        if primary is not None:
+            failures = CleanupFailures(primary)
+            _release(failures, owner)
+            result = failures.complete()
+            if result is not None:
+                raise result
+    return owner.detach()
 
 
 def _ensure_private_dir_at(parent_fd: int, name: str, *, label: str) -> tuple[int, bool]:
@@ -179,11 +190,24 @@ def _ensure_private_dir_at(parent_fd: int, name: str, *, label: str) -> tuple[in
         except OSError as exc:
             raise ProjectStateError(f"unsafe project state {label}") from exc
     fd = _open_private_dir_at(parent_fd, name, label=label)
-    if created:
-        # Explicit owner-only mode on the retained descriptor, independent of
-        # the process umask; pre-existing entries are never repaired.
-        os.fchmod(fd, 0o700)
-    return fd, created
+    owner = _adopt(fd, label=f"ensured private directory {label}")
+    primary: BaseException | None = None
+    try:
+        if created:
+            # Explicit owner-only mode on the retained descriptor, independent
+            # of the process umask; pre-existing entries are never repaired.
+            os.fchmod(owner.fd, 0o700)
+    except BaseException as exc:
+        primary = exc
+        raise
+    finally:
+        if primary is not None:
+            failures = CleanupFailures(primary)
+            _release(failures, owner)
+            result = failures.complete()
+            if result is not None:
+                raise result
+    return owner.detach(), created
 
 
 def _read_metadata(namespace_fd: int, expected: bytes, label: str) -> None:
@@ -193,14 +217,15 @@ def _read_metadata(namespace_fd: int, expected: bytes, label: str) -> None:
         raise ProjectStateError(f"missing project identity metadata {label}/project.json") from None
     except OSError as exc:
         raise ProjectStateError(f"unsafe project identity metadata {label}/project.json") from exc
+    owner = _adopt(fd, label=f"project metadata {label}")
     primary: BaseException | None = None
     try:
-        st = os.fstat(fd)
+        st = os.fstat(owner.fd)
         if (not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid()
                 or stat.S_IMODE(st.st_mode) != 0o600):
             raise ProjectStateError(f"unsafe project identity metadata {label}/project.json")
         parts: list[bytes] = []
-        while chunk := os.read(fd, 64 * 1024):
+        while chunk := os.read(owner.fd, 64 * 1024):
             parts.append(chunk)
         if b"".join(parts) != expected:
             raise ProjectStateError(f"project identity metadata does not match {label}")
@@ -209,7 +234,7 @@ def _read_metadata(namespace_fd: int, expected: bytes, label: str) -> None:
         raise
     finally:
         failures = CleanupFailures(primary)
-        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        _release(failures, owner)
         result = failures.complete()
         if result is not None:
             raise result
@@ -298,30 +323,33 @@ def resolve_project_state(project_root: str | Path, *, cache_root: str | Path | 
         if not create:
             return result
         raise ProjectStateError(f"missing constructor cache root {root}") from None
-    fds = [root_fd]
+    owners = [_adopt(root_fd, label=f"cache root {root}")]
+    root_owner = owners[-1]
     primary: BaseException | None = None
     try:
         try:
-            projects_fd = _open_private_dir_at(root_fd, "projects", label=str(root / "projects"))
+            projects_fd = _open_private_dir_at(root_owner.fd, "projects", label=str(root / "projects"))
         except FileNotFoundError:
             if not create:
                 return result
-            projects_fd, _ = _ensure_private_dir_at(root_fd, "projects", label=str(root / "projects"))
-        fds.append(projects_fd)
+            projects_fd, _ = _ensure_private_dir_at(root_owner.fd, "projects", label=str(root / "projects"))
+        owners.append(_adopt(projects_fd, label=str(root / "projects")))
+        projects_owner = owners[-1]
         namespace_created = False
         try:
-            namespace_fd = _open_private_dir_at(projects_fd, namespace_name, label=str(namespace))
+            namespace_fd = _open_private_dir_at(projects_owner.fd, namespace_name, label=str(namespace))
         except FileNotFoundError:
             if not create:
                 return result
-            namespace_fd, namespace_created = _ensure_private_dir_at(projects_fd, namespace_name, label=str(namespace))
-        fds.append(namespace_fd)
+            namespace_fd, namespace_created = _ensure_private_dir_at(projects_owner.fd, namespace_name, label=str(namespace))
+        owners.append(_adopt(namespace_fd, label=str(namespace)))
+        namespace_owner = owners[-1]
         expected = _metadata(project, identity)
         if namespace_created:
-            _publish_metadata(namespace_fd, expected, str(namespace))
+            _publish_metadata(namespace_owner.fd, expected, str(namespace))
         for attempt in range(20):
             try:
-                _read_metadata(namespace_fd, expected, str(namespace))
+                _read_metadata(namespace_owner.fd, expected, str(namespace))
                 break
             except ProjectStateError:
                 if attempt == 19:
@@ -335,27 +363,27 @@ def resolve_project_state(project_root: str | Path, *, cache_root: str | Path | 
             for name in _CHILD_NAMES:
                 try:
                     child_fd = _open_private_dir_at(
-                        namespace_fd, name, label=str(namespace / name))
+                        namespace_owner.fd, name, label=str(namespace / name))
                 except FileNotFoundError:
                     if create:
                         missing.append(name)
                         continue
                     raise
-                fds.append(child_fd)
+                owners.append(_adopt(child_fd, label=str(namespace / name)))
             # Second pass: only after every existing child passed validation,
             # create the missing children descriptor-relatively and no-follow.
             for name in missing:
                 child_fd, _ = _ensure_private_dir_at(
-                    namespace_fd, name, label=str(namespace / name))
-                fds.append(child_fd)
+                    namespace_owner.fd, name, label=str(namespace / name))
+                owners.append(_adopt(child_fd, label=str(namespace / name)))
         return result
     except BaseException as exc:
         primary = exc
         raise
     finally:
         failures = CleanupFailures(primary)
-        for fd in reversed(fds):
-            failures.run(lambda fd=fd: os.close(fd), ordinary=(OSError,))
+        for owner in reversed(owners):
+            _release(failures, owner)
         close_result = failures.complete()
         if close_result is not None:
             raise close_result
@@ -410,26 +438,36 @@ def validate_project_state(state: ProjectState) -> ValidatedProjectState:
                 f"project state child {attr} {actual_child!r} is not the "
                 f"expected namespace child {expected_child!r}")
 
-    root_fd: int | None = None
-    projects_fd: int | None = None
-    namespace_fd: int | None = None
+    root_owner: OwnedDescriptor | None = None
+    projects_owner: OwnedDescriptor | None = None
+    namespace_owner: OwnedDescriptor | None = None
     primary: BaseException | None = None
     try:
-        root_fd = _open_private_dir_at(
-            None, os.fspath(cache_root), label=f"cache root {cache_root}")
-        projects_fd = _open_private_dir_at(
-            root_fd, "projects", label=str(cache_root / "projects"))
-        namespace_fd = _open_private_dir_at(
-            projects_fd, expected_name, label=str(expected_namespace))
-        _read_metadata(namespace_fd, _metadata(project, identity), str(state.namespace))
+        root_owner = _adopt(
+            _open_private_dir_at(
+                None, os.fspath(cache_root), label=f"cache root {cache_root}"),
+            label=f"cache root {cache_root}",
+        )
+        projects_owner = _adopt(
+            _open_private_dir_at(
+                root_owner.fd, "projects", label=str(cache_root / "projects")),
+            label=str(cache_root / "projects"),
+        )
+        namespace_owner = _adopt(
+            _open_private_dir_at(
+                projects_owner.fd, expected_name, label=str(expected_namespace)),
+            label=str(expected_namespace),
+        )
+        _read_metadata(
+            namespace_owner.fd, _metadata(project, identity), str(state.namespace))
     except FileNotFoundError:
         # Map the missing ancestor to a domain error and retain it as the
         # primary before any descriptor is released.  The ancestor releases in
         # ``finally`` then attach as secondary diagnostics instead of replacing
         # the domain error merely because the primary was never set.
-        if root_fd is None:
+        if root_owner is None:
             primary = ProjectStateError(f"missing constructor cache root {cache_root}")
-        elif projects_fd is None:
+        elif projects_owner is None:
             primary = ProjectStateError(
                 f"missing project state {cache_root / 'projects'}")
         else:
@@ -447,12 +485,12 @@ def validate_project_state(state: ProjectState) -> ValidatedProjectState:
             # actually be returned.  Ownership of each descriptor is dropped
             # before its close, so a failed close is never retried.
             failures = CleanupFailures(None)
-            releasing, projects_fd = projects_fd, None
+            releasing, projects_owner = projects_owner, None
             if releasing is not None:
-                failures.run(lambda fd=releasing: os.close(fd), ordinary=(OSError,))
-            releasing, root_fd = root_fd, None
+                _release(failures, releasing)
+            releasing, root_owner = root_owner, None
             if releasing is not None:
-                failures.run(lambda fd=releasing: os.close(fd), ordinary=(OSError,))
+                _release(failures, releasing)
             try:
                 ancestor_failure: BaseException | None = failures.complete()
             except BaseException as exc:
@@ -461,11 +499,10 @@ def validate_project_state(state: ProjectState) -> ValidatedProjectState:
                 # Releasing an ancestor prevents returning the validated state,
                 # so the retained namespace descriptor is released exactly once
                 # before the ancestor failure propagates.
-                releasing, namespace_fd = namespace_fd, None
+                releasing, namespace_owner = namespace_owner, None
                 if releasing is not None:
                     namespace_failures = CleanupFailures(ancestor_failure)
-                    namespace_failures.run(
-                        lambda fd=releasing: os.close(fd), ordinary=(OSError,))
+                    _release(namespace_failures, releasing)
                     namespace_failures.complete()
                 raise ancestor_failure
         else:
@@ -475,16 +512,18 @@ def validate_project_state(state: ProjectState) -> ValidatedProjectState:
             # authoritative over later ancestor releases rather than being lost
             # behind a stale primary.
             failures = CleanupFailures(primary)
-            releasing, namespace_fd = namespace_fd, None
+            releasing, namespace_owner = namespace_owner, None
             if releasing is not None:
-                failures.run(lambda fd=releasing: os.close(fd), ordinary=(OSError,))
-            releasing, projects_fd = projects_fd, None
+                _release(failures, releasing)
+            releasing, projects_owner = projects_owner, None
             if releasing is not None:
-                failures.run(lambda fd=releasing: os.close(fd), ordinary=(OSError,))
-            releasing, root_fd = root_fd, None
+                _release(failures, releasing)
+            releasing, root_owner = root_owner, None
             if releasing is not None:
-                failures.run(lambda fd=releasing: os.close(fd), ordinary=(OSError,))
+                _release(failures, releasing)
             result = failures.complete()
             if result is not None:
                 raise result
-    return ValidatedProjectState(state, namespace_fd)
+    if namespace_owner is None:  # pragma: no cover - success retains the owner
+        raise AssertionError("validated project-state namespace owner was not retained")
+    return ValidatedProjectState(state, namespace_owner.detach())

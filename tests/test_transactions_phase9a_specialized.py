@@ -175,14 +175,14 @@ class BuildMaterializationCleanupTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             cache = Path(td) / "cache"
             cache.mkdir(mode=0o700)
-            real_unlink = Path.unlink
+            real_unlink = os.unlink
 
-            def fake_unlink(self, *args, **kwargs):
-                if self.name.startswith(".materialize-"):
+            def fake_unlink(name, *args, **kwargs):
+                if Path(name).name.startswith(".materialize-"):
                     raise PermissionError(errno.EACCES, "injected temp unlink")
-                return real_unlink(self, *args, **kwargs)
+                return real_unlink(name, *args, **kwargs)
 
-            with patch.object(Path, "unlink", fake_unlink):
+            with patch("os.unlink", fake_unlink):
                 with self.assertRaises(MaterializationError) as ctx:
                     materialize_artifact(
                         self._selected(),

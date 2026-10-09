@@ -11,7 +11,10 @@ import errno
 import os
 import tempfile
 import unittest
+from typing import cast
 
+from docker.filesystem.descriptors import OwnedDescriptor
+from docker.filesystem.operations import DescriptorOps
 from docker.transactions.capabilities import DirectoryCapability
 from docker.transactions.locking import _release_descriptor
 from docker.transactions.regular import RegularFileContracts, _Publication
@@ -124,7 +127,8 @@ class DiscardTests(unittest.TestCase):
         with open(path, "wb") as stream:
             stream.write(b"temporary")
         fd = self.ops.openat(self.directory.fd, name, os.O_RDONLY, 0)
-        return _Publication(fd=fd, temp_name=name)
+        owner = OwnedDescriptor(cast(DescriptorOps, self.ops), fd, label="temp")
+        return _Publication(owner=owner, temp_name=name)
 
     def test_close_defect_does_not_skip_temporary_unlink(self) -> None:
         state = self._state()
@@ -176,7 +180,7 @@ class DiscardTests(unittest.TestCase):
         self.assertEqual(self.ops.counts["unlinkat"], 1)
 
     def test_absent_temporary_is_idempotent_and_not_retried(self) -> None:
-        state = _Publication(fd=-1, temp_name="missing")
+        state = _Publication(owner=None, temp_name="missing")
         primary = ValueError("original")
         self.contracts._discard(self.directory, state, primary)
         self.assertIsNone(state.temp_name)
