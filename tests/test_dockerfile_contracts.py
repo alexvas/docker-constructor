@@ -293,6 +293,33 @@ class TestDockerfileBuildContract(unittest.TestCase):
         )
         self.assertNotIn("install-pi-extensions.sh", DOCKERFILE)
 
+    def test_filesystem_foundation_is_copied_for_runtime_imports(self) -> None:
+        """Phase 2 task 2.10 — the image layout ships ``docker/filesystem``.
+
+        The image carries only Dockerfile-copied Python files, so the
+        lightweight descriptor lifecycle package must land at the exact
+        image path used by the runtime-installer lifecycle imports.
+        """
+        self.assertIn(
+            "COPY docker/filesystem/ /usr/local/lib/pi-cli/docker/filesystem/",
+            DOCKERFILE,
+        )
+        parsed = {
+            tuple(
+                operand
+                for operand in shlex.split(instruction.removeprefix("COPY").strip())
+                if not operand.startswith("--")
+            )
+            for instruction in _instructions("COPY")
+        }
+        self.assertIn(
+            (
+                "docker/filesystem/",
+                "/usr/local/lib/pi-cli/docker/filesystem/",
+            ),
+            parsed,
+        )
+
     def test_reviewed_inputs_and_retired_surfaces_are_not_baked(self) -> None:
         prohibited = (
             "docker-constructor.toml", "docker/versions.py", "docker/verify_stage_6",

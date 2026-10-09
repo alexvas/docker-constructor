@@ -70,6 +70,17 @@ def _find_function(tree: ast.AST, name: str) -> ast.FunctionDef:
     raise AssertionError(f"function {name!r} not found")
 
 
+def _find_method(tree: ast.AST, class_name: str, method_name: str) -> ast.FunctionDef:
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef) and node.name == class_name:
+            for item in node.body:
+                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
+                    item.name == method_name
+                ):
+                    return item
+    raise AssertionError(f"method {class_name}.{method_name} not found")
+
+
 def _module_aliases(tree: ast.AST) -> dict[str, str]:
     """Map each imported local name to its fully-qualified dotted origin."""
     aliases: dict[str, str] = {}
@@ -396,6 +407,132 @@ class NpmDomainAuthorityTests(unittest.TestCase):
         self.assertIn("O_NOFOLLOW", source)
         self.assertIn("unsafe_staging_path", source)
         self.assertIn("LockedNpmError", source)
+
+
+#: Phase 2 — migrated method and function coordinates.
+_PHASE2_METHODS = {
+    _REPO / "docker" / "runtime_installer.py": (
+        "RuntimeArtifactReader",
+        "open_verified",
+    ),
+}
+_PHASE2_FUNCTIONS = {
+    _REPO
+    / "docker"
+    / "versioning"
+    / "build_context_confinement.py": "_write_private",
+}
+
+#: Domain identifiers that must not leak into the neutral foundation.
+_FORBIDDEN_FOUNDATION_NAMES = frozenset(
+    {
+        "InstallError",
+        "IntegrityError",
+        "ProjectionError",
+        "ConfinementError",
+        "open_verified",
+        "_write_private",
+        "_MOUNTED_ARTIFACT_ROOT",
+    }
+)
+
+#: Domain packages the lightweight foundation must never import.
+_FORBIDDEN_FOUNDATION_IMPORTS = (
+    "docker.runtime_installer",
+    "docker.versioning",
+    "docker.npm_environment",
+    "docker.transactions",
+)
+
+
+def _phase2_functions():
+    """Yield ``(path, label, FunctionDef)`` for every Phase 2 migration."""
+    for path, function_name in _PHASE2_FUNCTIONS.items():
+        yield path, function_name, _find_function(_parse(path), function_name)
+    for path, (class_name, method_name) in _PHASE2_METHODS.items():
+        yield path, f"{class_name}.{method_name}", _find_method(
+            _parse(path), class_name, method_name,
+        )
+
+
+class RuntimeBuildContextConvergenceTests(unittest.TestCase):
+    """Task 2.10 — runtime/build-context release stays in the owner."""
+
+    def test_migrated_functions_construct_an_owned_descriptor(self) -> None:
+        for path, label, function in _phase2_functions():
+            with self.subTest(module=path.name, function=label):
+                names = {
+                    node.id
+                    for node in ast.walk(function)
+                    if isinstance(node, ast.Name)
+                }
+                self.assertIn("OwnedDescriptor", names)
+                self.assertIn("PosixDescriptorOps", names)
+
+    def test_migrated_functions_have_no_unowned_close_call(self) -> None:
+        for path, label, function in _phase2_functions():
+            with self.subTest(module=path.name, function=label):
+                tree = _parse(path)
+                self.assertEqual(
+                    _close_violations(function, _module_aliases(tree)),
+                    [],
+                )
+
+    def test_migrated_functions_have_no_bespoke_release_state(self) -> None:
+        for path, label, function in _phase2_functions():
+            with self.subTest(module=path.name, function=label):
+                found = {
+                    node.id
+                    for node in ast.walk(function)
+                    if isinstance(node, ast.Name)
+                } | {
+                    node.attr
+                    for node in ast.walk(function)
+                    if isinstance(node, ast.Attribute)
+                }
+                self.assertEqual(found & _BESPOKE_RELEASE_NAMES, set())
+
+    def test_migrated_modules_import_only_explicit_foundation_submodules(self) -> None:
+        for path in list(_PHASE2_FUNCTIONS) + list(_PHASE2_METHODS):
+            with self.subTest(module=path.name):
+                imports = _foundation_imports(_parse(path))
+                self.assertNotIn("docker.transactions", imports)
+                for module in imports:
+                    if module == "docker.filesystem" or module.startswith(
+                        "docker.filesystem."
+                    ):
+                        self.assertGreaterEqual(
+                            len(module.split(".")),
+                            3,
+                            f"aggregate foundation import {module!r}",
+                        )
+
+    def test_foundation_gains_no_domain_authority(self) -> None:
+        for path in sorted((_REPO / "docker" / "filesystem").glob("*.py")):
+            with self.subTest(module=path.name):
+                tree = _parse(path)
+                for module in _foundation_imports(tree):
+                    is_forbidden = module in _FORBIDDEN_FOUNDATION_IMPORTS or any(
+                        module == prefix or module.startswith(prefix + ".")
+                        for prefix in _FORBIDDEN_FOUNDATION_IMPORTS
+                    )
+                    self.assertFalse(
+                        is_forbidden,
+                        f"domain import {module!r} in foundation {path.name}",
+                    )
+                names = {
+                    node.id
+                    for node in ast.walk(tree)
+                    if isinstance(node, ast.Name)
+                } | {
+                    node.attr
+                    for node in ast.walk(tree)
+                    if isinstance(node, ast.Attribute)
+                }
+                found = names & _FORBIDDEN_FOUNDATION_NAMES
+                self.assertEqual(
+                    found, set(), f"domain authority {found} in {path.name}",
+                )
 
 
 if __name__ == "__main__":

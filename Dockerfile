@@ -290,6 +290,7 @@ RUN ln -sf /opt/openspec/bin/openspec /usr/local/bin/openspec
 
 # Installer module for runtime extension management.
 COPY docker/versioning/ /usr/local/lib/pi-cli/docker/versioning/
+COPY docker/filesystem/ /usr/local/lib/pi-cli/docker/filesystem/
 COPY docker/runtime_installer.py /usr/local/lib/pi-cli/docker/runtime_installer.py
 RUN chown -R root:root /usr/local/lib/pi-cli \
     && chmod -R a+rX /usr/local/lib/pi-cli

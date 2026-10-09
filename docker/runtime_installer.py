@@ -25,6 +25,9 @@ import sys
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
+from docker.filesystem.descriptors import OwnedDescriptor
+from docker.filesystem.operations import PosixDescriptorOps
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # Mounted artifact lookup (host-side, read-only)
@@ -219,59 +222,69 @@ class RuntimeArtifactReader:
                 f"cannot open artifact at {_path}: {exc}",
             ) from exc
 
+        ops = PosixDescriptorOps()
+        owner = OwnedDescriptor(ops, blob_fd, label=f"runtime artifact {_path}")
         try:
-            try:
-                blob_st = os.fstat(blob_fd)
-            except OSError as exc:
-                raise InstallError(
-                    f"cannot stat artifact at {_path}: {exc}",
-                ) from exc
-
-            # ── regular file only ──
-            if not stat.S_ISREG(blob_st.st_mode):
-                raise InstallError(
-                    f"artifact at {_path} is not a regular file",
-                )
-
-            # ── no group/world write ──
-            if blob_st.st_mode & 0o022:
-                raise InstallError(
-                    f"artifact at {_path} has group/world write bits",
-                )
-
-            # ── accumulate + hash in a single pass ──
-            hasher: "hashlib._Hash" = hashlib.new(algo)
-            chunks: list[bytes] = []
-            while True:
+            with owner:
                 try:
-                    chunk = os.read(blob_fd, 64 * 1024)
+                    blob_st = os.fstat(owner.fd)
                 except OSError as exc:
                     raise InstallError(
-                        f"read error on artifact at {_path}: {exc}",
+                        f"cannot stat artifact at {_path}: {exc}",
                     ) from exc
-                if not chunk:
-                    break
-                hasher.update(chunk)
-                chunks.append(chunk)
 
-            actual_raw = base64.b64encode(hasher.digest()).decode("ascii")
-            if not hmac.compare_digest(actual_raw, raw_digest):
-                raise IntegrityError(
-                    f"integrity check failed for artifact at {_path}",
-                    algorithm=algo,
-                    expected=integrity,
-                    actual=f"{algo}-{actual_raw}",
-                )
+                # ── regular file only ──
+                if not stat.S_ISREG(blob_st.st_mode):
+                    raise InstallError(
+                        f"artifact at {_path} is not a regular file",
+                    )
 
-            # ── reassemble verified bytes ──
-            verified = b"".join(chunks)
-            if not verified:
-                raise InstallError(
-                    f"artifact at {_path} is empty",
-                )
-            return verified
-        finally:
-            os.close(blob_fd)
+                # ── no group/world write ──
+                if blob_st.st_mode & 0o022:
+                    raise InstallError(
+                        f"artifact at {_path} has group/world write bits",
+                    )
+
+                # ── accumulate + hash in a single pass ──
+                hasher: "hashlib._Hash" = hashlib.new(algo)
+                chunks: list[bytes] = []
+                while True:
+                    try:
+                        chunk = os.read(owner.fd, 64 * 1024)
+                    except OSError as exc:
+                        raise InstallError(
+                            f"read error on artifact at {_path}: {exc}",
+                        ) from exc
+                    if not chunk:
+                        break
+                    hasher.update(chunk)
+                    chunks.append(chunk)
+
+                actual_raw = base64.b64encode(hasher.digest()).decode("ascii")
+                if not hmac.compare_digest(actual_raw, raw_digest):
+                    raise IntegrityError(
+                        f"integrity check failed for artifact at {_path}",
+                        algorithm=algo,
+                        expected=integrity,
+                        actual=f"{algo}-{actual_raw}",
+                    )
+
+                # ── reassemble verified bytes ──
+                verified = b"".join(chunks)
+                if not verified:
+                    raise InstallError(
+                        f"artifact at {_path} is empty",
+                    )
+                return verified
+        except OSError as exc:
+            # A sole close failure on an otherwise verified artifact is
+            # mapped at this domain boundary so callers that catch only
+            # ``InstallError`` and the CLI/result path report a controlled
+            # installation failure.  Active operation failures and
+            # process-control interruptions never enter this branch.
+            raise InstallError(
+                f"cannot close artifact at {_path}: {exc}"
+            ) from exc
 
 
 # ═══════════════════════════════════════════════════════════════════════

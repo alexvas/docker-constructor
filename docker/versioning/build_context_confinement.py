@@ -30,6 +30,9 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from docker.filesystem.descriptors import OwnedDescriptor
+from docker.filesystem.operations import PosixDescriptorOps
+
 from .errors import VersionConfigError
 from .local_project_configuration import resolve_local_companion_path
 
@@ -223,15 +226,15 @@ def plan_build_context_confinement(
 
 def _write_private(path: Path, data: bytes) -> None:
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    try:
+    ops = PosixDescriptorOps()
+    owner = OwnedDescriptor(ops, fd, label=f"private build-context file {path}")
+    with owner:
         view = memoryview(data)
         while view:
-            written = os.write(fd, view)
+            written = os.write(owner.fd, view)
             if written <= 0:  # pragma: no cover - defensive
                 raise ConfinementError(f"short write to {path}")
             view = view[written:]
-    finally:
-        os.close(fd)
 
 
 def cleanup_build_context_confinement(

@@ -8,6 +8,7 @@ and ``docker-constructor.local.toml`` cannot enter Docker's context.
 """
 from __future__ import annotations
 
+import errno
 import fnmatch
 import os
 import tempfile
@@ -23,8 +24,10 @@ from tests.build_test_support import (
 )
 
 from docker.networking import ProcessResult
+from docker.versioning import build_context_confinement as confinement_module
 from docker.versioning.build_context_confinement import (
     ConfinementError,
+    _write_private,
     confinement_ignore_rules,
     materialize_build_context_confinement,
     plan_build_context_confinement,
@@ -778,3 +781,135 @@ class TestUnitPlanning(unittest.TestCase):
         self.assertEqual(
             "root-only-rule", (self.root / ".dockerignore").read_text().strip()
         )
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Phase 2 — private build-context write lifecycle (tasks 2.4 and 2.5)
+# ═══════════════════════════════════════════════════════════════════════
+
+def _fd_owner_path(fd: int) -> str | None:
+    """Return the normalized path an open descriptor refers to, or ``None``."""
+    try:
+        return os.path.normpath(os.readlink(f"/proc/self/fd/{fd}"))
+    except OSError:
+        return None
+
+
+def _secondary_exceptions(exc: BaseException) -> list[object]:
+    """Return the secondary cleanup diagnostics retained by *exc*."""
+    secondary = getattr(exc, "secondary", None)
+    if isinstance(secondary, list):
+        return list(secondary)
+    slot = getattr(exc, "_transaction_secondary", None)
+    if isinstance(slot, list):
+        return list(slot)
+    return list(getattr(exc, "__notes__", []))
+
+
+def _carries_secondary(exc: BaseException, needle: BaseException) -> bool:
+    """True when *exc* retains *needle* as secondary diagnostic context."""
+    for item in _secondary_exceptions(exc):
+        if item is needle:
+            return True
+        if isinstance(item, str) and str(needle) in item:
+            return True
+    return False
+
+
+class TestWritePrivateLifecycle(unittest.TestCase):
+    """Phase 2 tasks 2.4 and 2.5.
+
+    ``_write_private`` transfers its ``O_EXCL`` descriptor into a shared
+    ``OwnedDescriptor`` immediately, so an active write or short-write
+    failure stays primary over an ordinary close failure, and a sole close
+    failure keeps the established raw ``OSError`` mapping for its caller.
+    """
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory(prefix="build-ctx-private-")
+        self.addCleanup(tmp.cleanup)
+        self.path = Path(tmp.name) / "Dockerfile"
+        self.target = os.path.normpath(str(self.path))
+
+    def _fail_close(
+        self, error: BaseException,
+    ) -> tuple[object, list[int]]:
+        real_close = os.close
+        attempts: list[int] = []
+
+        def fake_close(fd, *args, **kwargs):
+            if _fd_owner_path(fd) == self.target:
+                attempts.append(fd)
+                real_close(fd, *args, **kwargs)
+                raise error
+            return real_close(fd, *args, **kwargs)
+
+        return fake_close, attempts
+
+    def test_write_failure_primary_over_close(self) -> None:
+        write_error = OSError(errno.EIO, "injected write failure")
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_close, attempts = self._fail_close(close_error)
+        with mock.patch("os.write", side_effect=write_error), mock.patch(
+            "os.close", side_effect=fake_close,
+        ):
+            with self.assertRaises(OSError) as ctx:
+                _write_private(self.path, b"payload")
+        self.assertIs(ctx.exception, write_error)
+        self.assertTrue(_carries_secondary(ctx.exception, close_error))
+        self.assertEqual(len(attempts), 1)
+
+    def test_short_write_primary_over_close(self) -> None:
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_close, attempts = self._fail_close(close_error)
+        with mock.patch("os.write", return_value=0), mock.patch(
+            "os.close", side_effect=fake_close,
+        ):
+            with self.assertRaises(ConfinementError) as ctx:
+                _write_private(self.path, b"payload")
+        self.assertIn("short write", str(ctx.exception))
+        self.assertTrue(_carries_secondary(ctx.exception, close_error))
+        self.assertEqual(len(attempts), 1)
+
+    def test_success_then_sole_close_failure_propagates_raw(self) -> None:
+        data = b"private payload\n"
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_close, attempts = self._fail_close(close_error)
+        with mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(OSError) as ctx:
+                _write_private(self.path, data)
+        self.assertIs(ctx.exception, close_error)
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(data, self.path.read_bytes())
+
+    def test_close_interruption_identity_preserved(self) -> None:
+        interruption = KeyboardInterrupt()
+        fake_close, attempts = self._fail_close(interruption)
+        with mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(KeyboardInterrupt) as ctx:
+                _write_private(self.path, b"payload")
+        self.assertIs(ctx.exception, interruption)
+        self.assertEqual(len(attempts), 1)
+
+    def test_terminal_owner_ignores_repeated_close(self) -> None:
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_close, attempts = self._fail_close(close_error)
+        created: list[object] = []
+        real_owner = confinement_module.OwnedDescriptor
+
+        class _RecordingOwner(real_owner):  # type: ignore[misc, valid-type]
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                created.append(self)
+
+        with mock.patch.object(
+            confinement_module, "OwnedDescriptor", _RecordingOwner,
+        ), mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(OSError):
+                _write_private(self.path, b"payload")
+        self.assertEqual(len(created), 1)
+        owner = created[0]
+        self.assertTrue(owner.released)  # type: ignore[attr-defined]
+        before = len(attempts)
+        owner.close()  # type: ignore[attr-defined]
+        self.assertEqual(len(attempts), before)

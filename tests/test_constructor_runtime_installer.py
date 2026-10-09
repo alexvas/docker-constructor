@@ -20,6 +20,7 @@ subprocess, systemd, filesystem writes, or interactive stdin.
 from __future__ import annotations
 
 import base64
+import errno
 import hashlib
 import inspect
 import json
@@ -4629,3 +4630,333 @@ class TestEntrypointExecution(unittest.TestCase):
         result = self._run_harness("package-validation-failure")
         trace = result.stdout
         self._assert_trace_no_rtk_no_exec(trace)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Phase 2 — runtime artifact descriptor lifecycle (tasks 2.1–2.3)
+# ═══════════════════════════════════════════════════════════════════════
+
+def _fd_owner_path(fd: int) -> str | None:
+    """Return the normalized path an open descriptor refers to, or ``None``."""
+    try:
+        return os.path.normpath(os.readlink(f"/proc/self/fd/{fd}"))
+    except OSError:
+        return None
+
+
+def _secondary_exceptions(exc: BaseException) -> list[object]:
+    """Return the secondary cleanup diagnostics retained by *exc*."""
+    secondary = getattr(exc, "secondary", None)
+    if isinstance(secondary, list):
+        return list(secondary)
+    slot = getattr(exc, "_transaction_secondary", None)
+    if isinstance(slot, list):
+        return list(slot)
+    return list(getattr(exc, "__notes__", []))
+
+
+def _carries_secondary(exc: BaseException, needle: BaseException) -> bool:
+    """True when *exc* retains *needle* as secondary diagnostic context."""
+    for item in _secondary_exceptions(exc):
+        if item is needle:
+            return True
+        if isinstance(item, str) and str(needle) in item:
+            return True
+    return False
+
+
+class TestRuntimeArtifactReaderLifecycle(unittest.TestCase):
+    """Phase 2 tasks 2.1–2.3.
+
+    ``RuntimeArtifactReader.open_verified`` owns its single mounted-artifact
+    descriptor through ``OwnedDescriptor`` so an active validation, read, or
+    integrity failure stays primary over an ordinary close failure, the
+    descriptor is released exactly once, and a sole close failure is mapped
+    at the ``open_verified`` domain boundary to ``InstallError``.
+    """
+
+    _tmp: str
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.mkdtemp(prefix="test-runtime-lifecycle-")
+        mock.patch.object(
+            docker.runtime_installer,
+            "_MOUNTED_ARTIFACT_ROOT",
+            self._tmp,
+        ).start()
+
+    def tearDown(self) -> None:
+        mock.patch.stopall()
+        shutil.rmtree(self._tmp, ignore_errors=True)
+
+    # ── helpers ──────────────────────────────────────────────
+
+    def _integ_for(self, content: bytes, *, algo: str = "sha256") -> str:
+        h = hashlib.new(algo, content)
+        return f"{algo}-" + base64.b64encode(h.digest()).decode("ascii")
+
+    def _write_blob(
+        self, artifact_id: str, content: bytes, mode: int = 0o600,
+    ) -> str:
+        path = os.path.join(self._tmp, artifact_id)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, mode)
+        try:
+            os.write(fd, content)
+        finally:
+            os.close(fd)
+        return path
+
+    def _reader(self) -> RuntimeArtifactReader:
+        return RuntimeArtifactReader(
+            mount_inspection=_FakeMountInspection(read_only=True),
+        )
+
+    def _fail_close(
+        self, target_path: str, error: BaseException,
+    ) -> tuple[object, list[int]]:
+        """Fail ``os.close`` for the blob fd, counting attempts."""
+        real_close = os.close
+        attempts: list[int] = []
+
+        def fake_close(fd, *args, **kwargs):
+            if _fd_owner_path(fd) == target_path:
+                attempts.append(fd)
+                real_close(fd, *args, **kwargs)
+                raise error
+            return real_close(fd, *args, **kwargs)
+
+        return fake_close, attempts
+
+    def _noatime_denied(
+        self, target_path: str,
+    ) -> tuple[object, list[int]]:
+        """Deny the first ``O_NOATIME`` open, allowing the fallback."""
+        real_open = os.open
+        noatime = getattr(os, "O_NOATIME", 0)
+        fallback_opens: list[int] = []
+
+        def fake_open(path, flags, *args, **kwargs):
+            if (
+                noatime
+                and flags & noatime
+                and os.path.normpath(str(path)) == target_path
+            ):
+                raise PermissionError(errno.EPERM, "injected noatime denial")
+            fallback_opens.append(flags)
+            return real_open(path, flags, *args, **kwargs)
+
+        return fake_open, fallback_opens
+
+    # ── 2.1: O_NOATIME compatibility fallback ────────────────
+
+    def test_foreign_owned_noatime_fallback_returns_bytes(self) -> None:
+        content = b"foreign owned payload\n"
+        integ = self._integ_for(content)
+        art_id = _derived_artifact_id(integ)
+        path = self._write_blob(art_id, content)
+        fake_open, fallback_opens = self._noatime_denied(
+            os.path.normpath(path),
+        )
+        with mock.patch("os.open", side_effect=fake_open):
+            result = self._reader().open_verified(
+                artifact_id=art_id, integrity=integ,
+            )
+        self.assertEqual(content, result)
+        self.assertEqual(len(fallback_opens), 1)
+
+    def test_fallback_stat_failure_primary_over_close(self) -> None:
+        content = b"stat failure payload\n"
+        integ = self._integ_for(content)
+        art_id = _derived_artifact_id(integ)
+        path = self._write_blob(art_id, content)
+        target = os.path.normpath(path)
+        stat_error = OSError(errno.EIO, "injected stat failure")
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_open, _ = self._noatime_denied(target)
+        fake_close, attempts = self._fail_close(target, close_error)
+        real_fstat = os.fstat
+
+        def fake_fstat(fd):
+            if _fd_owner_path(fd) == target:
+                raise stat_error
+            return real_fstat(fd)
+
+        with mock.patch("os.open", side_effect=fake_open), mock.patch(
+            "os.fstat", side_effect=fake_fstat,
+        ), mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(InstallError) as ctx:
+                self._reader().open_verified(
+                    artifact_id=art_id, integrity=integ,
+                )
+        self.assertIn("cannot stat artifact", str(ctx.exception))
+        self.assertTrue(_carries_secondary(ctx.exception, close_error))
+        self.assertEqual(len(attempts), 1)
+
+    def test_fallback_non_regular_type_primary_over_close(self) -> None:
+        integ = self._integ_for(b"directory blob")
+        art_id = _derived_artifact_id(integ)
+        path = os.path.join(self._tmp, art_id)
+        os.makedirs(path, exist_ok=True)
+        target = os.path.normpath(path)
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_open, _ = self._noatime_denied(target)
+        fake_close, attempts = self._fail_close(target, close_error)
+        with mock.patch("os.open", side_effect=fake_open), mock.patch(
+            "os.close", side_effect=fake_close,
+        ):
+            with self.assertRaises(InstallError) as ctx:
+                self._reader().open_verified(
+                    artifact_id=art_id, integrity=integ,
+                )
+        self.assertIn("is not a regular file", str(ctx.exception))
+        self.assertTrue(_carries_secondary(ctx.exception, close_error))
+        self.assertEqual(len(attempts), 1)
+
+    def test_fallback_group_writable_primary_over_close(self) -> None:
+        content = b"group writable\n"
+        integ = self._integ_for(content)
+        art_id = _derived_artifact_id(integ)
+        path = self._write_blob(art_id, content)
+        os.chmod(path, 0o660)
+        target = os.path.normpath(path)
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_open, _ = self._noatime_denied(target)
+        fake_close, attempts = self._fail_close(target, close_error)
+        with mock.patch("os.open", side_effect=fake_open), mock.patch(
+            "os.close", side_effect=fake_close,
+        ):
+            with self.assertRaises(InstallError) as ctx:
+                self._reader().open_verified(
+                    artifact_id=art_id, integrity=integ,
+                )
+        self.assertIn("group/world write bits", str(ctx.exception))
+        self.assertTrue(_carries_secondary(ctx.exception, close_error))
+        self.assertEqual(len(attempts), 1)
+
+    # ── 2.2: active read/empty/integrity failures ────────────
+
+    def test_read_failure_primary_over_close(self) -> None:
+        content = b"read failure payload\n"
+        integ = self._integ_for(content)
+        art_id = _derived_artifact_id(integ)
+        path = self._write_blob(art_id, content)
+        read_error = OSError(errno.EIO, "injected read failure")
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_close, attempts = self._fail_close(
+            os.path.normpath(path), close_error,
+        )
+        with mock.patch("os.read", side_effect=read_error), mock.patch(
+            "os.close", side_effect=fake_close,
+        ):
+            with self.assertRaises(InstallError) as ctx:
+                self._reader().open_verified(
+                    artifact_id=art_id, integrity=integ,
+                )
+        self.assertIn("read error on artifact", str(ctx.exception))
+        self.assertTrue(_carries_secondary(ctx.exception, close_error))
+        self.assertEqual(len(attempts), 1)
+
+    def test_empty_artifact_primary_over_close(self) -> None:
+        integ = self._integ_for(b"")
+        art_id = _derived_artifact_id(integ)
+        path = self._write_blob(art_id, b"")
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_close, attempts = self._fail_close(
+            os.path.normpath(path), close_error,
+        )
+        with mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(InstallError) as ctx:
+                self._reader().open_verified(
+                    artifact_id=art_id, integrity=integ,
+                )
+        self.assertIn("is empty", str(ctx.exception))
+        self.assertTrue(_carries_secondary(ctx.exception, close_error))
+        self.assertEqual(len(attempts), 1)
+
+    def test_integrity_failure_primary_over_close(self) -> None:
+        written = b"what was written\n"
+        claimed = b"what integrity claims\n"
+        integ = self._integ_for(claimed)
+        art_id = _derived_artifact_id(integ)
+        path = self._write_blob(art_id, written)
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_close, attempts = self._fail_close(
+            os.path.normpath(path), close_error,
+        )
+        with mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(IntegrityError) as ctx:
+                self._reader().open_verified(
+                    artifact_id=art_id, integrity=integ,
+                )
+        self.assertTrue(_carries_secondary(ctx.exception, close_error))
+        self.assertEqual(len(attempts), 1)
+
+    # ── 2.3: sole close failure boundary mapping ─────────────
+
+    def test_sole_close_failure_maps_to_install_error(self) -> None:
+        content = b"sole close payload\n"
+        integ = self._integ_for(content)
+        art_id = _derived_artifact_id(integ)
+        path = self._write_blob(art_id, content)
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_close, attempts = self._fail_close(
+            os.path.normpath(path), close_error,
+        )
+        with mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(InstallError) as ctx:
+                self._reader().open_verified(
+                    artifact_id=art_id, integrity=integ,
+                )
+        self.assertNotIsInstance(ctx.exception, IntegrityError)
+        self.assertEqual(
+            str(ctx.exception),
+            f"cannot close artifact at {path}: {close_error}",
+        )
+        self.assertIs(ctx.exception.__cause__, close_error)
+        self.assertEqual(len(attempts), 1)
+
+    def test_sole_close_reports_controlled_install_failure(self) -> None:
+        content = b"controlled failure payload\n"
+        integ = self._integ_for(content)
+        art_id = _derived_artifact_id(integ)
+        path = self._write_blob(art_id, content)
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_close, attempts = self._fail_close(
+            os.path.normpath(path), close_error,
+        )
+        ctx = _make_fake_context()
+        object.__setattr__(ctx, "blob_reader", self._reader())
+        entries = [ProjectionEntry(
+            package="p", version="1.0.0",
+            artifact_id=art_id, artifact_integrity=integ,
+            metadata_file="package.json",
+        )]
+        with mock.patch("os.close", side_effect=fake_close):
+            result = install_extensions(
+                ctx, entries=entries, pi_home="/mnt/pi",
+            )
+        self.assertEqual(
+            InstallStatus.FAILED, result.results[0].status,
+        )
+        self.assertIn(
+            "cannot close artifact", result.results[0].detail or "",
+        )
+        self.assertEqual(len(attempts), 1)
+
+    def test_close_interruption_identity_preserved(self) -> None:
+        content = b"interruption payload\n"
+        integ = self._integ_for(content)
+        art_id = _derived_artifact_id(integ)
+        path = self._write_blob(art_id, content)
+        interruption = KeyboardInterrupt()
+        fake_close, attempts = self._fail_close(
+            os.path.normpath(path), interruption,
+        )
+        with mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(KeyboardInterrupt) as ctx:
+                self._reader().open_verified(
+                    artifact_id=art_id, integrity=integ,
+                )
+        self.assertIs(ctx.exception, interruption)
+        self.assertEqual(len(attempts), 1)
