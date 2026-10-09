@@ -9,12 +9,24 @@ interactive progress, and redirected JSON.
 
 from __future__ import annotations
 
+import atexit
 import io
 import json
+import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from typing import Any
 from unittest.mock import patch
+
+from tests.inventory_fixtures import write_stable_project
+
+
+# Behavioural lane: an independent stable project document for every
+# check-updates acceptance run.  The target count/order comes from the
+# committed fixture, never from the live repository inventory.
+_STABLE_PROJECT = tempfile.TemporaryDirectory()
+atexit.register(_STABLE_PROJECT.cleanup)
+write_stable_project(_STABLE_PROJECT.name)
 
 
 def _load_mod() -> Any:
@@ -31,9 +43,14 @@ def _run(
 ) -> tuple[int, str, str]:
     out = io.StringIO()
     err = io.StringIO()
+    effective_argv = list(argv)
+    if "--project-directory" not in effective_argv:
+        effective_argv = [
+            "--project-directory", _STABLE_PROJECT.name, *effective_argv,
+        ]
     with redirect_stdout(out), redirect_stderr(err):
         rc = mod.main(
-            argv,
+            effective_argv,
             stdout_isatty=lambda: stdout_isatty,
             stderr_isatty=lambda: stderr_isatty,
         )

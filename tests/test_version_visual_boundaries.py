@@ -23,14 +23,22 @@ from docker.versioning.updates import (
     build_replacement_blocks,
     build_update_targets,
     display_path,
-    group_targets_by_owner,
     render_replacement_fragments,
     serialize_replacement_block,
 )
 
+from tests.live_owner_audit import (
+    independent_update_owners,
+    owner_header_violations,
+    production_update_owners,
+)
 from tests.versioning.support.inventory_builder import minimal_toml
+from tests.inventory_fixtures import stable_inventory_path
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
+# Behavioural lane: committed stable fixture (fixed owner→display examples).
+STABLE = stable_inventory_path()
+# Live-contract lane: the repository's reviewed inventory.
 CANONICAL = REPO_ROOT / "docker-constructor.toml"
 
 # Owner path → visual display path (leading ``build.stages.``/``runtime.``
@@ -94,6 +102,35 @@ def _raw_and_targets():
     inventory = validate_inventory(raw)
     targets = build_update_targets(inventory)
     return raw, inventory, targets
+
+
+def _assert_owner_headers(document_text: str, owners) -> None:
+    """Assert each *owner* table has its independently derived header."""
+    violations = owner_header_violations(document_text, owners)
+    assert not violations, f"owner header violations: {violations}"
+
+
+def _assert_independent_membership(
+    document_text: str,
+    *,
+    omit_paths=(),
+) -> set[str]:
+    """Compare independently enumerated owners with production membership.
+
+    Raises ``AssertionError`` when the two disagree, so a production
+    enumeration that silently drops an owner is detected.  *omit_paths*
+    simulates such an omission for regression coverage.
+    """
+    raw = tomllib.loads(document_text)
+    inventory = validate_inventory(raw)
+    independent = set(independent_update_owners(raw))
+    production = set(production_update_owners(inventory, omit_paths=omit_paths))
+    assert independent == production, (
+        "owner membership mismatch: "
+        f"independent-only={sorted(independent - production)}, "
+        f"production-only={sorted(production - independent)}"
+    )
+    return independent
 
 
 class TestFragmentVisualHeaders(unittest.TestCase):
@@ -201,24 +238,75 @@ class TestVisualCommentsAreDisplayOnly(unittest.TestCase):
         self.assertTrue(text_alt.startswith("# --- base.node ---\n"))
 
 
-class TestCanonicalInventoryVisualHeaders(unittest.TestCase):
-    """3.3 — canonical docker-constructor.toml carries matching headers."""
+class TestStableFixtureVisualHeaders(unittest.TestCase):
+    """Fixed-fixture lane — exact owner→display examples.
 
-    def test_code_owners_match_canonical_blocks(self) -> None:
-        raw = tomllib.loads(CANONICAL.read_text())
-        inventory = validate_inventory(raw)
-        targets = build_update_targets(inventory)
-        owners = {owner for owner, _ in group_targets_by_owner(targets)}
+    The stable fixture pins the full reviewed block set, so the canonical
+    mapping can be asserted exactly without touching the live inventory.
+    """
+
+    def test_fixture_owners_match_examples(self) -> None:
+        raw = tomllib.loads(STABLE.read_text())
+        independent = set(independent_update_owners(raw))
+        self.assertEqual(independent, set(CANONICAL_OWNERS))
+
+    def test_fixture_membership_matches_production(self) -> None:
+        owners = _assert_independent_membership(STABLE.read_text())
         self.assertEqual(owners, set(CANONICAL_OWNERS))
 
-    def test_visual_header_immediately_before_each_owner(self) -> None:
-        lines = CANONICAL.read_text().splitlines()
-        for owner, display in CANONICAL_OWNERS.items():
-            with self.subTest(owner=owner):
-                header_line = f"[{owner}]"
-                self.assertIn(header_line, lines)
-                idx = lines.index(header_line)
-                self.assertEqual(lines[idx - 1], f"# --- {display} ---")
+    def test_production_omission_is_detected(self) -> None:
+        # Simulate production enumeration dropping ``toolchain.ty``: the
+        # independent membership check must fail rather than inherit the
+        # omission.
+        with self.assertRaises(AssertionError):
+            _assert_independent_membership(
+                STABLE.read_text(),
+                omit_paths=("build.stages.toolchain.ty",),
+            )
+
+    def test_every_fixture_owner_has_matching_header(self) -> None:
+        _assert_owner_headers(STABLE.read_text(), CANONICAL_OWNERS)
+
+    def test_missing_or_misplaced_header_is_detected(self) -> None:
+        # Negative: remove one header.  The boundary check must fail.
+        without_header = STABLE.read_text().replace("# --- base.node ---\n", "", 1)
+        self.assertNotEqual(without_header, STABLE.read_text())
+        with self.assertRaises(AssertionError):
+            _assert_owner_headers(without_header, CANONICAL_OWNERS)
+
+        # Negative: move a header so it no longer immediately precedes its
+        # owner table.
+        misplaced = STABLE.read_text().replace(
+            "# --- toolchain.uv ---\n[build.stages.toolchain.uv]",
+            "[build.stages.toolchain.uv]\n# --- toolchain.uv ---",
+            1,
+        )
+        self.assertNotEqual(misplaced, STABLE.read_text())
+        with self.assertRaises(AssertionError):
+            _assert_owner_headers(misplaced, CANONICAL_OWNERS)
+
+
+class TestLiveInventoryVisualHeaders(unittest.TestCase):
+    """Live-contract lane — every declared owner has a matching header.
+
+    Owner membership is enumerated independently from raw TOML, then
+    cross-checked against the production replacement-owner enumeration, so
+    an omitted owner cannot escape detection.  Nothing is hardcoded, so
+    installing or removing an optional extension needs no change.
+    """
+
+    def test_every_declared_owner_has_matching_header(self) -> None:
+        document = CANONICAL.read_text()
+        independent = _assert_independent_membership(document)
+        self.assertTrue(independent)
+        self.assertEqual([], owner_header_violations(document, independent))
+
+    def test_owner_membership_omission_is_detected(self) -> None:
+        with self.assertRaises(AssertionError):
+            _assert_independent_membership(
+                CANONICAL.read_text(),
+                omit_paths=("build.stages.toolchain.ty",),
+            )
 
 
 if __name__ == "__main__":

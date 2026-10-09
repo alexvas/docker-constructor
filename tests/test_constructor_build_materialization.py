@@ -31,7 +31,21 @@ from docker.versioning.host_progress import (
     HostPhase, HostStep, lookup_host_failure,
 )
 
+from tests.inventory_fixtures import (
+    stable_inventory_path,
+    stable_inventory_text,
+    write_stable_project,
+)
 ROOT = Path(__file__).resolve().parents[1]
+
+# Fixed, independent behavioural oracle: expected artifact pairs for the
+# stable fixture.  Never derived from ``select_build_artifacts``.
+_EXPECTED_LINUX_AMD64_PAIRS = [
+    ("rustup", "https://static.rust-lang.org/rustup/archive/1.29.0/x86_64-unknown-linux-gnu/rustup-init", "4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10"),
+    ("uv", "https://github.com/astral-sh/uv/releases/download/0.12.5/uv-x86_64-unknown-linux-gnu.tar.gz", "68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2"),
+    ("rtk", "https://github.com/rtk-ai/rtk/releases/download/v0.45.0/rtk_amd64.deb", "0ba496b2531cd4357edfb2ac2fe2eb19ec99eb9ba46401dffa8459e1cfbd0061"),
+    ("fd", "https://github.com/sharkdp/fd/releases/download/v10.4.2/fd_10.4.2_amd64.deb", "0e44eb5fca93f09bc6f5430b90acdf44c8e069d0a903700aeb4820629337b67b"),
+]
 
 
 class RecordingTransport:
@@ -46,22 +60,42 @@ class RecordingTransport:
 
 
 def selection():
-    inventory = load_inventory(ROOT / "docker-constructor.toml")
+    # Behavioural lane: fixed reviewed fixture, not the repository inventory.
+    inventory = load_inventory(stable_inventory_path())
     return resolve_build_projection(inventory.build, {}, platform="linux-amd64")
 
 
 class TestBuildArtifactSelection(unittest.TestCase):
     def test_exact_effective_linux_amd64_pairs(self):
         selected = select_build_artifacts(selection())
-        self.assertEqual([
-            ("rustup", "https://static.rust-lang.org/rustup/archive/1.29.0/x86_64-unknown-linux-gnu/rustup-init", "4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10"),
-            ("uv", "https://github.com/astral-sh/uv/releases/download/0.12.5/uv-x86_64-unknown-linux-gnu.tar.gz", "68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2"),
-            ("rtk", "https://github.com/rtk-ai/rtk/releases/download/v0.45.0/rtk_amd64.deb", "0ba496b2531cd4357edfb2ac2fe2eb19ec99eb9ba46401dffa8459e1cfbd0061"),
-            ("fd", "https://github.com/sharkdp/fd/releases/download/v10.4.2/fd_10.4.2_amd64.deb", "0e44eb5fca93f09bc6f5430b90acdf44c8e069d0a903700aeb4820629337b67b"),
-        ], [(x.name, x.url, x.identity.hex_digest()) for x in selected])
+        self.assertEqual(
+            _EXPECTED_LINUX_AMD64_PAIRS,
+            [(x.name, x.url, x.identity.hex_digest()) for x in selected],
+        )
+
+    def test_fixed_oracle_detects_mismatched_artifact(self):
+        """A deliberately mismatched fixture artifact is detected by the
+        fixed oracle, which is not derived from the selector under test."""
+        mutated = stable_inventory_text().replace(
+            "68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2",
+            "0123456789abcdef" * 4,
+        )
+        self.assertNotEqual(mutated, stable_inventory_text())
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "docker-constructor.toml"
+            path.write_text(mutated)
+            inventory = load_inventory(path)
+            projection = resolve_build_projection(
+                inventory.build, {}, platform="linux-amd64",
+            )
+            pairs = [
+                (x.name, x.url, x.identity.hex_digest())
+                for x in select_build_artifacts(projection)
+            ]
+        self.assertNotEqual(_EXPECTED_LINUX_AMD64_PAIRS, pairs)
 
     def test_rustup_is_pinned_to_reviewed_immutable_archive_source(self):
-        inventory = load_inventory(ROOT / "docker-constructor.toml")
+        inventory = load_inventory(stable_inventory_path())
         rustup = inventory.stages.toolchain.rust.rustup["linux-amd64"]
         source = inventory.stages.toolchain.rust.rustup_source
         self.assertEqual("https://static.rust-lang.org/rustup/archive/1.29.0/x86_64-unknown-linux-gnu/rustup-init", rustup.url)
@@ -235,8 +269,7 @@ class TestMaterializationOrchestration(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             repo = Path(td) / "repo"; repo.mkdir()
             cache = Path(td) / "cache"; cache.mkdir(mode=0o700)
-            inventory = repo / "docker-constructor.toml"
-            inventory.write_bytes((ROOT / "docker-constructor.toml").read_bytes())
+            inventory = write_stable_project(repo)
             (repo / "docker-constructor.local.toml").write_text(
                 f'[cache]\ndir = "{cache}"\n'
             )
@@ -269,8 +302,7 @@ class TestMaterializationOrchestration(unittest.TestCase):
     def test_disappearing_ca_is_redacted_and_prevents_all_execution_effects(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            inventory = root / "docker-constructor.toml"
-            inventory.write_bytes((ROOT / "docker-constructor.toml").read_bytes())
+            inventory = write_stable_project(root)
             (root / "docker-constructor.local.toml").write_text(
                 "[corporate-trust]\nenabled = true\n"
             )
@@ -321,13 +353,21 @@ class TestMaterializationOrchestration(unittest.TestCase):
         def publish(*args, **kwargs):
             effects.append("publish")
             raise AssertionError("reference must not be published")
-        result = orchestrate_build(BuildRequest(
-            inventory_path=str(ROOT / "docker-constructor.toml"),
-            repo_root=str(ROOT), project_root=str(ROOT), confirmed=True, runner=Docker(),
-            _materialize_artifacts=fail, _named_context_supported=lambda: True,
-            _materialize_pi=fake_pi_materialization,
-            _publish_projection=publish,
-        ))
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            cache = root / "cache"
+            cache.mkdir(mode=0o700)
+            inventory = write_stable_project(root)
+            (root / "docker-constructor.local.toml").write_text(
+                f'[cache]\ndir = "{cache}"\n'
+            )
+            result = orchestrate_build(BuildRequest(
+                inventory_path=str(inventory),
+                repo_root=str(root), project_root=str(root), confirmed=True, runner=Docker(),
+                _materialize_artifacts=fail, _named_context_supported=lambda: True,
+                _materialize_pi=fake_pi_materialization,
+                _publish_projection=publish,
+            ))
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
         self.assertEqual(["materialize"], effects)
         self.assertIsNone(result.publish_result)
@@ -357,8 +397,7 @@ class TestHostTransportPolicy(unittest.TestCase):
     def test_invalid_proxy_policy_fails_before_materialization_or_docker(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            inventory = root / "docker-constructor.toml"
-            inventory.write_bytes((ROOT / "docker-constructor.toml").read_bytes())
+            inventory = write_stable_project(root)
             (root / "docker-constructor.local.toml").write_text(
                 '[network.proxy]\nurl = "http://user:secret@proxy.example:3128"\n'
             )

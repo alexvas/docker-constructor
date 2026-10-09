@@ -14,17 +14,26 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from docker.versioning.constraints import parse_numeric_version  # noqa: E402
 from docker.versioning.inventory import InventoryError  # noqa: E402
+from docker.versioning.integrity import is_valid_integrity  # noqa: E402
 from docker.versioning.configuration_document_validation import (  # noqa: E402
     ConfigurationDocumentError,
     DocumentRole,
 )
 from docker.versioning.model import InvalidArtifactKey               # noqa: E402
 from docker.versions import load_inventory               # noqa: E402
+from tests.inventory_fixtures import (                   # noqa: E402
+    stable_inventory_path,
+    stable_inventory_text,
+)
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-_CANONICAL_TOML = _REPO_ROOT / "docker-constructor.toml"
+# Live-contract lane: the repository's reviewed inventory.  Used only for
+# structural / self-consistency checks, never version pinning.
+_LIVE_INVENTORY = _REPO_ROOT / "docker-constructor.toml"
+# Behavioural lane: the committed test-owned stable fixture.
+_STABLE_INVENTORY = stable_inventory_path()
 
 
 def _write_temp(content: str, suffix: str = ".toml") -> Path:
@@ -35,8 +44,13 @@ def _write_temp(content: str, suffix: str = ".toml") -> Path:
 
 
 def _read_canonical() -> str:
-    """Return the canonical docker-constructor.toml content as a string."""
-    return _CANONICAL_TOML.read_text()
+    """Return the stable reviewed-inventory fixture content as a string.
+
+    Behavioural tests must not read the repository's live inventory, so
+    every ``*_rejected`` / append-snippet scenario starts from the
+    committed fixture.
+    """
+    return stable_inventory_text()
 
 
 # ── minimal Pi-extension snippet used by several tests ────────────────────
@@ -143,7 +157,7 @@ class TestClosedRuntimeSchema(_TmpMixin, unittest.TestCase):
     """Focused tests for the runtime.pi-extensions closed source schema."""
 
     def _canonical_path(self) -> Path:
-        return _CANONICAL_TOML
+        return _STABLE_INVENTORY
 
     # ── valid ───────────────────────────────────────────────────────────
 
@@ -162,7 +176,7 @@ class TestClosedRuntimeSchema(_TmpMixin, unittest.TestCase):
             "https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.2.1.tgz",
         )
         self.assertTrue(
-            art.integrity.startswith("sha512-"),
+            is_valid_integrity(art.integrity),
             f"unexpected integrity format: {art.integrity!r}",
         )
         self.assertEqual(ext.update.provider, "npm")
@@ -182,7 +196,7 @@ class TestClosedRuntimeSchema(_TmpMixin, unittest.TestCase):
         self.assertIsNotNone(ext.validation)
 
     def test_reviewed_runtime_packages_all_present(self):
-        """All reviewed runtime packages survive a complete load cycle."""
+        """All fixture-declared runtime packages survive a complete load cycle."""
         inv = load_inventory(self._canonical_path())
         names = sorted(inv.runtime_pi_extensions.keys())
         self.assertEqual(names, ["pi-proxy", "pi-read", "pi-usage"])
@@ -540,16 +554,36 @@ validation = 42
             load_inventory(self._write(toml))
         self.assertIn("integrity", str(ctx.exception).lower())
 
-    def test_valid_sha256_integrity_accepted(self):
-        """Valid sha256 integrity with correct byte length is accepted."""
+    def test_valid_sri_integrity_algorithms_accepted(self):
+        """Valid sha256/sha384/sha512 integrity values are accepted."""
         import base64
-        sha256_valid = "sha256-" + base64.b64encode(b'\x00' * 32).decode()
+        for algorithm, byte_length in (("sha256", 32), ("sha384", 48), ("sha512", 64)):
+            with self.subTest(algorithm=algorithm):
+                integrity = (
+                    f"{algorithm}-"
+                    + base64.b64encode(b"\x00" * byte_length).decode()
+                )
+                toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
+                    "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                    integrity,
+                )
+                inv = load_inventory(self._write(toml))
+                self.assertEqual(
+                    inv.runtime_pi_extensions["pi-test"].artifacts["1.2.3"].integrity,  # type: ignore[union-attr]
+                    integrity,
+                )
+
+    def test_unsupported_integrity_algorithm_rejected(self):
+        """An SRI value outside sha256/sha384/sha512 is rejected."""
+        import base64
+        unsupported = "sha1-" + base64.b64encode(b"\x00" * 20).decode()
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
             "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-            sha256_valid,
+            unsupported,
         )
-        inv = load_inventory(self._write(toml))
-        self.assertEqual(inv.runtime_pi_extensions["pi-test"].artifacts["1.2.3"].integrity, sha256_valid)  # type: ignore[union-attr]
+        with self.assertRaises(InventoryError) as ctx:
+            load_inventory(self._write(toml))
+        self.assertIn("integrity", str(ctx.exception).lower())
 
     def test_non_https_artifact_url_rejected(self):
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
@@ -977,6 +1011,48 @@ metadata_file = "package.json"
         # Redundant structural test; logic exercised by
         # test_different_keys_same_package_rejected
         pass
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Live-contract lane — the repository's reviewed runtime schema
+# ═══════════════════════════════════════════════════════════════════════════
+
+class TestLiveInventoryRuntimeContract(unittest.TestCase):
+    """Structural / self-consistency checks on the real project inventory.
+
+    Dependency versions and optional-extension membership are deliberately
+    not pinned here, so a routine bump or an installed/removed optional
+    extension needs no change.
+    """
+
+    def test_repository_inventory_loads(self):
+        # Successful load is the contract; an inventory may legitimately
+        # declare zero optional extensions (empty ``[runtime.pi-extensions]``).
+        from collections.abc import Mapping
+        inventory = load_inventory(_LIVE_INVENTORY)
+        self.assertIsInstance(inventory.runtime_pi_extensions, Mapping)
+
+    def test_every_declared_extension_is_self_consistent(self):
+        inventory = load_inventory(_LIVE_INVENTORY)
+        for name, extension in inventory.runtime_pi_extensions.items():
+            with self.subTest(name=name):
+                self.assertEqual(extension.source.type, "npm")
+                self.assertEqual(extension.update.provider, "npm")
+                self.assertIn(extension.version, extension.artifacts)
+                artifact = extension.artifacts[extension.version]
+                self.assertTrue(artifact.url)
+                self.assertTrue(
+                    is_valid_integrity(artifact.integrity),
+                    f"unexpected integrity format: {artifact.integrity!r}",
+                )
+                self.assertIsNotNone(extension.validation)
+                self.assertTrue(extension.validation.metadata_file)
+                if extension.override is not None:
+                    self.assertTrue(
+                        extension.override.constraint.matches(
+                            parse_numeric_version(extension.version)
+                        )
+                    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════

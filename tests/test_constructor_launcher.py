@@ -1067,26 +1067,14 @@ class TestRunTransaction(unittest.TestCase):
         self._inventory_path = self._make_fixture_toml()
 
     def _make_fixture_toml(self) -> str:
-        """Copy the real docker-constructor.toml and inject an
-        second ``pi-read`` artifact at version ``0.3.0`` so
-        override-version selection is observable."""
-        import shutil
-        real = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "docker-constructor.toml"),
-        )
+        """Write the stable reviewed fixture and rewrite every artifact
+        integrity to locally derived bytes.  The fixture already declares
+        the default ``pi-read`` 0.2.1 artifact and the reviewed 0.3.0
+        alternate so override-version selection is observable."""
+        from tests.inventory_fixtures import stable_inventory_text
         fixture = os.path.join(self._tmpdir.name, "docker-constructor.toml")
-        shutil.copy2(real, fixture)
-        override_url = (
-            "https://registry.npmjs.org/@arcanemachine/pi-read/"
-            "-/pi-read-0.3.0.tgz"
-        )
-        with open(fixture, "a") as fh:
-            fh.write(
-                '\n'
-                '[runtime.pi-extensions.pi-read.artifacts."0.3.0"]\n'
-                f'url = "{override_url}"\n'
-                'integrity = "sha512-placeholder"\n'
-            )
+        with open(fixture, "w") as fh:
+            fh.write(stable_inventory_text())
 
         # Make every fixture artifact deterministic and network-independent.
         import base64
@@ -3300,16 +3288,11 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
         accepts it — the failure point is the missing semantic
         artifact-identity / mount-target validation during run
         planning, not TOML-level integrity rejection."""
-        import shutil
+        from tests.inventory_fixtures import stable_inventory_text
 
-        real = os.path.abspath(
-            os.path.join(
-                os.path.dirname(__file__),
-                "..", "docker-constructor.toml",
-            ),
-        )
         fixture = os.path.join(base_path, "malformed.toml")
-        shutil.copy2(real, fixture)
+        with open(fixture, "w") as fh:
+            fh.write(stable_inventory_text())
         with open(fixture) as fh:
             text = fh.read()
         # The existing pi-read 0.2.1 integrity line:
@@ -3341,14 +3324,12 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
         materializer fetches exactly the pi-read URL and fails
         at digest comparison — the call-count assertion is
         deterministic."""
+        from tests.inventory_fixtures import stable_inventory_text
+
         fixture = os.path.join(base_path, "single-ext.toml")
-        canonical = os.path.abspath(os.path.join(
-            os.path.dirname(__file__), "..", "docker-constructor.toml",
-        ))
-        with open(canonical) as source:
-            build_prefix = source.read().split(
-                "\n[runtime.pi-extensions.", 1,
-            )[0]
+        build_prefix = stable_inventory_text().split(
+            "\n[runtime.pi-extensions.", 1,
+        )[0]
         with open(fixture, "w") as fh:
             fh.write(build_prefix + "\n\n")
             fh.write(
@@ -3930,18 +3911,15 @@ class TestOrchestrationOrdering(unittest.TestCase):
         self._event_log: list[str] = []
 
     def _make_fixture_toml(self) -> str:
-        """Copy the real ``docker-constructor.toml`` with
-        deterministic artifact integrities."""
+        """Write the stable reviewed fixture with deterministic artifact
+        integrities."""
         import base64
         import hashlib
         import re
-        import shutil
-        real = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..",
-                         "docker-constructor.toml"),
-        )
+        from tests.inventory_fixtures import stable_inventory_text
         fixture = os.path.join(self._tmpdir.name, "fixture.toml")
-        shutil.copy2(real, fixture)
+        with open(fixture, "w") as fh:
+            fh.write(stable_inventory_text())
         with open(fixture) as fh:
             content = fh.read()
 

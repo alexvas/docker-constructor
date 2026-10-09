@@ -24,9 +24,11 @@ from docker.versioning.errors import (
     UnsupportedOverrideError,
 )
 from docker.versioning.inventory import load_inventory
+from tests.inventory_fixtures import stable_inventory_path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
-_INVENTORY_TOML = _REPO_ROOT / "docker-constructor.toml"
+# Behavioural lane: committed stable fixture, never the repository inventory.
+_INVENTORY_TOML = stable_inventory_path()
 
 
 def _default_inventory():

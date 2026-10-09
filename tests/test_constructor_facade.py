@@ -10,11 +10,13 @@ No test touches inventory, providers, networking, or Docker.
 
 from __future__ import annotations
 
+import atexit
 import io
 import json
 import os
 import re
 import sys
+import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -22,8 +24,18 @@ from typing import Any, Callable, Sequence
 from unittest.mock import patch
 
 from docker.versioning.constructor_project import ConstructorProject
+from tests.inventory_fixtures import (
+    write_stable_inventory,
+    write_stable_project,
+)
 
 _TEST_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+# Behavioural lane for progress rendering: an independent stable project
+# document, so the target count/order never depends on the live inventory.
+_STABLE_PROJECT = tempfile.TemporaryDirectory()
+atexit.register(_STABLE_PROJECT.cleanup)
+write_stable_project(_STABLE_PROJECT.name)
 
 # ── helpers ────────────────────────────────────────────────────────────
 
@@ -364,9 +376,10 @@ class TestInteractiveProgress(unittest.TestCase):
 
     def _run_real(self, argv, *, stderr_isatty=False, discover=None):
         import docker.versioning.updates
+        effective_argv = ["--project-directory", _STABLE_PROJECT.name, *argv]
         with patch.object(docker.versioning.updates, "_DEFAULT_PROVIDERS",
                           _make_stub_providers(discover=discover)):
-            return _run(self.m, argv, stderr_isatty=stderr_isatty)
+            return _run(self.m, effective_argv, stderr_isatty=stderr_isatty)
 
     def test_progress_content_compact_targets_and_event_updates(self):
         """4.1 — exact content, compact targets, one replaceable line."""
@@ -426,7 +439,9 @@ class TestInteractiveProgress(unittest.TestCase):
              patch.object(docker.versioning.updates, "serialize_results",
                           side_effect=RuntimeError("boom")):
             rc, out, err = _run(
-                self.m, ["--color", "never", "check-updates"],
+                self.m,
+                ["--project-directory", _STABLE_PROJECT.name,
+                 "--color", "never", "check-updates"],
                 stderr_isatty=True,
             )
         self.assertEqual(4, rc)
@@ -450,7 +465,8 @@ class TestInteractiveProgress(unittest.TestCase):
              redirect_stdout(out), redirect_stderr(err):
             with self.assertRaises(KeyboardInterrupt):
                 self.m.main(
-                    ["check-updates"],
+                    ["--project-directory", _STABLE_PROJECT.name,
+                     "check-updates"],
                     stdout_isatty=lambda: False,
                     stderr_isatty=lambda: True,
                 )
@@ -1017,9 +1033,9 @@ class TestDispatchRecording(unittest.TestCase):
         project = fake.calls[0][1].constructor_project
         self.assertEqual(_TEST_PROJECT_ROOT.resolve(), project.root)
         self.assertEqual(
-            _TEST_PROJECT_ROOT.resolve() / "docker-constructor.toml",
-            project.inventory,
+            _TEST_PROJECT_ROOT.resolve(), project.inventory.parent,
         )
+        self.assertEqual("docker-constructor.toml", project.inventory.name)
 
     def test_removed_inventory_option_is_rejected(self) -> None:
         fake = _make_recording_fake(self.m)
@@ -2503,12 +2519,7 @@ class TestVerifyBuildWiring(unittest.TestCase):
             '[oh-my-zsh]\nrevision = "abc1234"\n'
         )
         # Inventory pointing to the temporary constructor project.
-        self._inv_path = Path(self._tmpdir.name) / "docker-constructor.toml"
-        import shutil as _shutil
-        _shutil.copyfile(
-            Path(__file__).resolve().parent.parent / "docker-constructor.toml",
-            self._inv_path,
-        )
+        self._inv_path = write_stable_inventory(self._tmpdir.name)
         self._inv_path.with_name("docker-constructor.local.toml").write_text(
             f'[cache]\ndir = "{self._cache_root}"\n'
         )
@@ -2657,13 +2668,7 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
             '[integrity]\n'
             'sha256 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="\n'
         )
-        self._inv_path = Path(self._tmpdir.name) / "docker-constructor.toml"
-        # Copy the real inventory so validation passes.
-        import shutil as _shutil
-        _shutil.copyfile(
-            Path(__file__).resolve().parent.parent / "docker-constructor.toml",
-            self._inv_path,
-        )
+        self._inv_path = write_stable_inventory(self._tmpdir.name)
         # Point the verify command at the same external project state via
         # [cache].dir in the local companion beside the inventory.
         (Path(self._tmpdir.name) / "docker-constructor.local.toml").write_text(
@@ -3047,13 +3052,7 @@ class TestVerifyEvidenceWiring(unittest.TestCase):
             '[integrity]\n'
             'sha256 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="\n'
         )
-        self._inv_path = Path(self._tmpdir.name) / "docker-constructor.toml"
-        # Copy the real inventory so validation passes.
-        import shutil as _shutil
-        _shutil.copyfile(
-            Path(__file__).resolve().parent.parent / "docker-constructor.toml",
-            self._inv_path,
-        )
+        self._inv_path = write_stable_inventory(self._tmpdir.name)
 
     def tearDown(self) -> None:
         self._tmpdir.cleanup()

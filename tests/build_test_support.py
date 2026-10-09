@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import atexit
 import hashlib
-import shutil
 import tempfile
 import uuid
 from pathlib import Path
@@ -12,6 +11,7 @@ from docker.versioning.build_cache import publish_verified_blob
 from docker.versioning.build_materialization import SelectedBuildArtifact
 from docker.versioning.digest_identity import DigestIdentity
 
+from tests.inventory_fixtures import stable_inventory_text
 from tests.pi_fixtures import (
     fake_pi_materialization,
     no_network_transport_factory,
@@ -76,7 +76,10 @@ def publish_digest_valid_artifacts(
 
 
 INVENTORY_PATH = Path(_TEMPORARY_DIRECTORY.name) / "docker-constructor.toml"
-shutil.copyfile(Path(__file__).resolve().parents[1] / "docker-constructor.toml", INVENTORY_PATH)
+# Stable test-owned reviewed inventory, never the repository's live
+# ``docker-constructor.toml``.  Dependency bumps and optional-extension
+# changes must not invalidate build/orchestration consumers.
+INVENTORY_PATH.write_text(stable_inventory_text(), encoding="utf-8")
 
 # The selected project's Dockerfile is a required build input; builds invoked
 # without the facade still need a readable Dockerfile so build-context
