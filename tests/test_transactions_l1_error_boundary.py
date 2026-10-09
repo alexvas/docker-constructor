@@ -879,6 +879,10 @@ class _InventoryRule:
         "self.ops",
         "_REAL_OPS_CLOSE",
         "PosixFileOps",
+        # The lightweight ``docker.filesystem.OwnedDescriptor`` is a
+        # shared-owner release that intentionally keeps the raw ``OSError``
+        # contract instead of importing the transaction substrate.
+        "owner",
         # subprocess pipe/file objects, not shared descriptor capabilities
         "pipe",
         "failed_pipe",
@@ -888,6 +892,8 @@ class _InventoryRule:
     RAW_CLOSE_ACTIONS = {
         ("docker/versioning/build_cache.py", "state.close"),
         ("docker/versioning/project_state.py", "self.close"),
+        # ``OwnedDescriptor.close`` is the raw-``OSError`` lightweight release.
+        ("docker/versioning/build_snapshot.py", "owner.close"),
     }
     # Consumers that hold raw-``OSError`` foundation capabilities and
     # deliberately keep a descriptor release failure raw instead of

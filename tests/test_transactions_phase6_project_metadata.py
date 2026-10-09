@@ -363,5 +363,146 @@ class PublicationCapabilityBoundaryTests(_ProjectMetadataCase):
         self.assertEqual(self._leftovers(), [])
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Phase 3 — ValidatedProjectState namespace lifecycle (tasks 3.3 and 3.6)
+# ═══════════════════════════════════════════════════════════════════════
+
+def _namespace_fd_path(fd: int) -> str | None:
+    try:
+        return os.path.normpath(os.readlink(f"/proc/self/fd/{fd}"))
+    except OSError:
+        return None
+
+
+def _secondary_items(exc: BaseException) -> list[object]:
+    secondary = getattr(exc, "secondary", None)
+    if isinstance(secondary, list):
+        return list(secondary)
+    slot = getattr(exc, "_transaction_secondary", None)
+    if isinstance(slot, list):
+        return list(slot)
+    return list(getattr(exc, "__notes__", []))
+
+
+class ValidatedProjectStateOwnershipTests(unittest.TestCase):
+    """Phase 3 tasks 3.3 and 3.6.
+
+    ``ValidatedProjectState`` owns its namespace descriptor through a private
+    shared ``OwnedDescriptor``, so the public constructor, ``state`` and
+    ``namespace_fd`` attributes, context-manager behavior, primary
+    precedence, and at-most-once release are preserved.
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory(prefix="validated-state-")
+        self.addCleanup(self.tmp.cleanup)
+        self.namespace = Path(self.tmp.name) / "namespace"
+        self.namespace.mkdir(mode=0o700)
+        self.namespace_path = os.path.normpath(str(self.namespace))
+        self.state = types.SimpleNamespace(namespace=self.namespace)
+
+    def _open(self) -> int:
+        return os.open(self.namespace, _DIR_FLAGS)
+
+    def _record_close(
+        self, error: BaseException | None = None,
+    ) -> tuple[object, list[int]]:
+        real_close = os.close
+        attempts: list[int] = []
+
+        def fake_close(fd, *args, **kwargs):
+            if _namespace_fd_path(fd) == self.namespace_path:
+                attempts.append(fd)
+                real_close(fd, *args, **kwargs)
+                if error is not None:
+                    raise error
+                return None
+            return real_close(fd, *args, **kwargs)
+
+        return fake_close, attempts
+
+    def test_success_close_is_terminal_and_at_most_once(self) -> None:
+        fd = self._open()
+        validated = project_state_module.ValidatedProjectState(self.state, fd)
+        self.assertIs(validated.state, self.state)
+        self.assertEqual(validated.namespace_fd, fd)
+        fake_close, attempts = self._record_close()
+        with mock.patch.object(
+            project_state_module.os, "close", side_effect=fake_close,
+        ):
+            validated.close()
+            validated.close()
+        self.assertEqual(len(attempts), 1)
+
+    def test_sole_close_failure_propagates_raw(self) -> None:
+        fd = self._open()
+        close_error = OSError(errno.EIO, "injected namespace close")
+        fake_close, attempts = self._record_close(close_error)
+        with mock.patch.object(
+            project_state_module.os, "close", side_effect=fake_close,
+        ):
+            with self.assertRaises(OSError) as ctx:
+                with project_state_module.ValidatedProjectState(self.state, fd):
+                    pass
+        self.assertIs(ctx.exception, close_error)
+        self.assertEqual(len(attempts), 1)
+
+    def test_active_primary_plus_close_failure(self) -> None:
+        fd = self._open()
+        primary = OSError(errno.EIO, "injected body failure")
+        close_error = OSError(errno.EIO, "injected namespace close")
+        fake_close, attempts = self._record_close(close_error)
+        with mock.patch.object(
+            project_state_module.os, "close", side_effect=fake_close,
+        ):
+            with self.assertRaises(OSError) as ctx:
+                with project_state_module.ValidatedProjectState(self.state, fd):
+                    raise primary
+        self.assertIs(ctx.exception, primary)
+        secondary = _secondary_items(primary)
+        self.assertEqual(sum(1 for item in secondary if item is close_error), 1)
+        self.assertEqual(len(attempts), 1)
+
+    def test_close_interruption_identity_preserved(self) -> None:
+        fd = self._open()
+        interruption = KeyboardInterrupt()
+        fake_close, attempts = self._record_close(interruption)
+        with mock.patch.object(
+            project_state_module.os, "close", side_effect=fake_close,
+        ):
+            with self.assertRaises(KeyboardInterrupt) as ctx:
+                with project_state_module.ValidatedProjectState(self.state, fd):
+                    pass
+        self.assertIs(ctx.exception, interruption)
+        self.assertEqual(len(attempts), 1)
+
+    def test_terminal_owner_ignores_repeated_close(self) -> None:
+        fd = self._open()
+        close_error = OSError(errno.EIO, "injected namespace close")
+        fake_close, attempts = self._record_close(close_error)
+        created: list[object] = []
+        real_owner = project_state_module.OwnedDescriptor
+
+        class _RecordingOwner(real_owner):  # type: ignore[misc, valid-type]
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                created.append(self)
+
+        with mock.patch.object(
+            project_state_module, "OwnedDescriptor", _RecordingOwner,
+        ), mock.patch.object(
+            project_state_module.os, "close", side_effect=fake_close,
+        ):
+            with self.assertRaises(OSError):
+                with project_state_module.ValidatedProjectState(self.state, fd):
+                    pass
+        self.assertEqual(len(created), 1)
+        owner = created[0]
+        self.assertTrue(owner.released)  # type: ignore[attr-defined]
+        before = len(attempts)
+        owner.close()  # type: ignore[attr-defined]
+        self.assertEqual(len(attempts), before)
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

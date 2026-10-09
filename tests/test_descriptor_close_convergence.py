@@ -535,5 +535,280 @@ class RuntimeBuildContextConvergenceTests(unittest.TestCase):
                 )
 
 
+#: Phase 3 — migrated function and method coordinates.
+_PHASE3_FUNCTIONS = {
+    _REPO / "docker" / "versioning" / "build_snapshot.py": (
+        "_copy_source_fd_to_destination"
+    ),
+}
+_PHASE3_METHODS = {
+    _REPO / "docker" / "versioning" / "artifact_cache.py": (
+        "LocalCacheFilesystem",
+        "create_temp",
+    ),
+}
+
+#: Phase 3 — a class that privately owns one descriptor across methods.
+_PHASE3_OWNED_CLASSES = {
+    _REPO / "docker" / "versioning" / "project_state.py": "ValidatedProjectState",
+}
+
+#: Phase 3 migrated modules that gained an explicit foundation import.
+_PHASE3_MODULES = (
+    _REPO / "docker" / "versioning" / "build_snapshot.py",
+    _REPO / "docker" / "versioning" / "artifact_cache.py",
+    _REPO / "docker" / "versioning" / "project_state.py",
+)
+
+#: Public interfaces whose exact signature must not change in Phase 3.
+_PHASE3_PUBLIC_SIGNATURES = {
+    ("docker.versioning.build_snapshot", "create_artifact_snapshot"): (
+        "(selected: 'Iterable[SelectedBuildArtifact]', blobs: 'Iterable[Path]', "
+        "*, constructor_project_root: 'str | Path', cache_root: 'str | Path | "
+        "None' = None, project_state: 'ProjectState | None' = None, derived: "
+        "'DerivedEnvironmentSource | None' = None) -> 'MaterializedSnapshot'"
+    ),
+    ("docker.versioning.build_snapshot", "cleanup_artifact_snapshot"): (
+        "(snapshot: 'MaterializedSnapshot | Path | None') -> 'None'"
+    ),
+    ("docker.versioning.artifact_cache", "LocalCacheFilesystem.create_temp"): (
+        "(self, path: 'str') -> 'None'"
+    ),
+    ("docker.versioning.project_state", "validate_project_state"): (
+        "(state: 'ProjectState') -> 'ValidatedProjectState'"
+    ),
+    ("docker.versioning.project_state", "resolve_project_state"): (
+        "(project_root: 'str | Path', *, cache_root: 'str | Path | None' = "
+        "None, create: 'bool' = True, validate_children: 'bool' = True) -> "
+        "'ProjectState'"
+    ),
+    ("docker.versioning.project_state", "ValidatedProjectState.__init__"): (
+        "(self, state: 'ProjectState', namespace_fd: 'int')"
+    ),
+    ("docker.versioning.project_state", "ValidatedProjectState.close"): (
+        "(self) -> 'None'"
+    ),
+    ("docker.versioning.project_state", "ValidatedProjectState.__enter__"): (
+        '(self) -> "\'ValidatedProjectState\'"'
+    ),
+    ("docker.versioning.project_state", "ValidatedProjectState.__exit__"): (
+        "(self, exc_type, exc, tb) -> 'None'"
+    ),
+}
+
+
+def _phase3_functions():
+    """Yield ``(path, label, FunctionDef)`` for every Phase 3 migration."""
+    for path, function_name in _PHASE3_FUNCTIONS.items():
+        yield path, function_name, _find_function(_parse(path), function_name)
+    for path, (class_name, method_name) in _PHASE3_METHODS.items():
+        yield path, f"{class_name}.{method_name}", _find_method(
+            _parse(path), class_name, method_name,
+        )
+
+
+def _class_owner_names(
+    tree: ast.AST, class_name: str, aliases: dict[str, str],
+) -> set[str]:
+    """Return every name/attribute a class binds to a shared owner."""
+    owners: set[str] = set()
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.ClassDef) and node.name == class_name):
+            continue
+        for item in ast.walk(node):
+            if isinstance(item, ast.Assign):
+                targets, value = item.targets, item.value
+            elif isinstance(item, ast.AnnAssign) and item.value is not None:
+                targets, value = [item.target], item.value
+            else:
+                continue
+            if not _is_owner_call(value, aliases):
+                continue
+            for target in targets:
+                if isinstance(target, ast.Attribute):
+                    owners.add(target.attr)
+                elif isinstance(target, ast.Name):
+                    owners.add(target.id)
+    return owners
+
+
+def _close_violations_with_owners(
+    function: ast.FunctionDef, owners: set[str], aliases: dict[str, str],
+) -> list[str]:
+    raw = _raw_close_names(function, aliases)
+    violations: list[str] = []
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Attribute) and func.attr == "close":
+            if _base_names(func.value) & owners:
+                continue
+            violations.append(ast.unparse(func))
+        elif isinstance(func, ast.Name):
+            origin = aliases.get(func.id, func.id)
+            if (
+                func.id == "close"
+                or func.id in raw
+                or origin in _RAW_CLOSE_QUALNAMES
+            ):
+                violations.append(ast.unparse(func))
+    return violations
+
+
+def _raw_close_targets(
+    function: ast.FunctionDef, aliases: dict[str, str],
+) -> list[str]:
+    """Return the unparsed argument of every raw close call in *function*."""
+    raw = _raw_close_names(function, aliases)
+    targets: list[str] = []
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        is_raw = False
+        if isinstance(func, ast.Attribute):
+            is_raw = _qualname(func, aliases) in _RAW_CLOSE_QUALNAMES
+        elif isinstance(func, ast.Name):
+            origin = aliases.get(func.id, func.id)
+            is_raw = (
+                func.id == "close"
+                or func.id in raw
+                or origin in _RAW_CLOSE_QUALNAMES
+            )
+        if is_raw and node.args:
+            targets.append(ast.unparse(node.args[0]))
+    return targets
+
+
+class VersioningConvergenceTests(unittest.TestCase):
+    """Task 3.7 — versioning single releases stay in the owner."""
+
+    def test_migrated_functions_construct_an_owned_descriptor(self) -> None:
+        for path, label, function in _phase3_functions():
+            with self.subTest(module=path.name, function=label):
+                names = {
+                    node.id
+                    for node in ast.walk(function)
+                    if isinstance(node, ast.Name)
+                }
+                self.assertIn("OwnedDescriptor", names)
+                self.assertIn("PosixDescriptorOps", names)
+
+    def test_snapshot_function_has_no_unowned_close_call(self) -> None:
+        for path, function_name in _PHASE3_FUNCTIONS.items():
+            with self.subTest(module=path.name, function=function_name):
+                tree = _parse(path)
+                function = _find_function(tree, function_name)
+                self.assertEqual(
+                    _close_violations(function, _module_aliases(tree)),
+                    [],
+                )
+
+    def test_create_temp_migrates_child_and_retains_parent_accumulator(self) -> None:
+        for path, (class_name, method_name) in _PHASE3_METHODS.items():
+            with self.subTest(module=path.name):
+                tree = _parse(path)
+                aliases = _module_aliases(tree)
+                function = _find_method(tree, class_name, method_name)
+                owners = _owner_names(function, aliases)
+                self.assertTrue(owners)
+                # The only remaining raw close is the retained parent
+                # accumulator; the migrated child descriptor is never closed
+                # raw.
+                self.assertEqual(
+                    _close_violations_with_owners(function, owners, aliases),
+                    ["os.close"],
+                )
+                self.assertEqual(
+                    _raw_close_targets(function, aliases),
+                    ["parent_fd"],
+                )
+
+    def test_validated_project_state_delegates_to_private_owner(self) -> None:
+        for path, class_name in _PHASE3_OWNED_CLASSES.items():
+            with self.subTest(module=path.name):
+                tree = _parse(path)
+                aliases = _module_aliases(tree)
+                owners = _class_owner_names(tree, class_name, aliases)
+                self.assertIn("_owner", owners)
+                close = _find_method(tree, class_name, "close")
+                self.assertEqual(
+                    _close_violations_with_owners(close, owners, aliases),
+                    [],
+                )
+
+    def test_migrated_releases_have_no_bespoke_state_machine(self) -> None:
+        for path, label, function in _phase3_functions():
+            with self.subTest(module=path.name, function=label):
+                found = {
+                    node.id
+                    for node in ast.walk(function)
+                    if isinstance(node, ast.Name)
+                } | {
+                    node.attr
+                    for node in ast.walk(function)
+                    if isinstance(node, ast.Attribute)
+                }
+                self.assertEqual(found & _BESPOKE_RELEASE_NAMES, set())
+        for path, class_name in _PHASE3_OWNED_CLASSES.items():
+            with self.subTest(module=path.name):
+                tree = _parse(path)
+                close = _find_method(tree, class_name, "close")
+                found = {
+                    node.id
+                    for node in ast.walk(close)
+                    if isinstance(node, ast.Name)
+                } | {
+                    node.attr
+                    for node in ast.walk(close)
+                    if isinstance(node, ast.Attribute)
+                }
+                self.assertEqual(found & _BESPOKE_RELEASE_NAMES, set())
+
+    def test_migrated_modules_import_explicit_foundation_submodules(self) -> None:
+        for path in _PHASE3_MODULES:
+            with self.subTest(module=path.name):
+                imports = _foundation_imports(_parse(path))
+                self.assertTrue(
+                    any(
+                        module.startswith("docker.filesystem.")
+                        for module in imports
+                    ),
+                    f"no explicit foundation import in {path.name}",
+                )
+                for module in imports:
+                    if module == "docker.filesystem" or module.startswith(
+                        "docker.filesystem."
+                    ):
+                        self.assertGreaterEqual(
+                            len(module.split(".")),
+                            3,
+                            f"aggregate foundation import {module!r}",
+                        )
+
+    def test_foundation_has_no_reverse_dependency_on_versioning(self) -> None:
+        forbidden = "docker.versioning"
+        for path in sorted((_REPO / "docker" / "filesystem").glob("*.py")):
+            with self.subTest(module=path.name):
+                for module in _foundation_imports(_parse(path)):
+                    self.assertFalse(
+                        module == forbidden
+                        or module.startswith(forbidden + "."),
+                        f"reverse dependency {module!r} in {path.name}",
+                    )
+
+    def test_public_interfaces_are_signature_stable(self) -> None:
+        import importlib
+        import inspect
+
+        for (module_name, qualname), expected in _PHASE3_PUBLIC_SIGNATURES.items():
+            with self.subTest(interface=f"{module_name}.{qualname}"):
+                target = importlib.import_module(module_name)
+                for part in qualname.split("."):
+                    target = getattr(target, part)
+                self.assertEqual(str(inspect.signature(target)), expected)
+
+
 if __name__ == "__main__":
     unittest.main()

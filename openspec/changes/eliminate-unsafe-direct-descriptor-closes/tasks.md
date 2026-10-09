@@ -84,23 +84,23 @@ Within every phase work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### RED
 
-- [ ] 3.1 Add snapshot destination tests for operation failure plus close failure, successful copy plus sole close failure, close interruption, and repeated cleanup; require operation-primary precedence, terminal ownership, existing unlink policy, and one close attempt, and verify the owner contract fails before migration.
-- [ ] 3.2 Add artifact-cache temporary-creation tests for sole child close failure, simultaneous parent close failure, interruption, and repeated cleanup; require the child failure to remain authoritative, parent cleanup to remain independent, terminal child ownership, and one attempt per fd, and verify the owner contract fails before migration.
-- [ ] 3.3 Add `ValidatedProjectState` direct-close and context-exit tests for success, sole close failure, active primary plus close failure, interruption, and repeated close; require existing public behavior, primary precedence, terminal ownership, and one close attempt, and verify shared-owner delegation fails before migration.
+- [x] 3.1 Add snapshot destination tests for operation failure plus close failure, successful copy plus sole close failure, close interruption, and repeated cleanup; require operation-primary precedence, terminal ownership, existing unlink policy, and one close attempt, and verify the owner contract fails before migration.
+- [x] 3.2 Add artifact-cache temporary-creation tests for sole child close failure, simultaneous parent close failure, interruption, and repeated cleanup; require the child failure to remain authoritative, parent cleanup to remain independent, terminal child ownership, and one attempt per fd, and verify the owner contract fails before migration.
+- [x] 3.3 Add `ValidatedProjectState` direct-close and context-exit tests for success, sole close failure, active primary plus close failure, interruption, and repeated close; require existing public behavior, primary precedence, terminal ownership, and one close attempt, and verify shared-owner delegation fails before migration.
 
 ### GREEN
 
-- [ ] 3.4 Refactor snapshot destination copy to transfer the created fd immediately to `OwnedDescriptor`, use the owner in active-primary close-plus-unlink accumulation, and use terminal owner release on success; verify task 3.1 passes with unchanged digest, mode, fsync, and unlink semantics.
-- [ ] 3.5 Refactor artifact-cache temporary creation to transfer the child fd immediately to `OwnedDescriptor` and retain the existing parent accumulator and domain policy; verify task 3.2 passes with unchanged path, mode, and creation behavior.
-- [ ] 3.6 Refactor `ValidatedProjectState` to delegate namespace fd lifecycle to a private `OwnedDescriptor` while preserving its constructor, public attributes/properties, context-manager behavior, and domain mapping; verify task 3.3 passes.
+- [x] 3.4 Refactor snapshot destination copy to transfer the created fd immediately to `OwnedDescriptor`, use the owner in active-primary close-plus-unlink accumulation, and use terminal owner release on success; verify task 3.1 passes with unchanged digest, mode, fsync, and unlink semantics.
+- [x] 3.5 Refactor artifact-cache temporary creation to transfer the child fd immediately to `OwnedDescriptor` and retain the existing parent accumulator and domain policy; verify task 3.2 passes with unchanged path, mode, and creation behavior.
+- [x] 3.6 Refactor `ValidatedProjectState` to delegate namespace fd lifecycle to a private `OwnedDescriptor` while preserving its constructor, public attributes/properties, context-manager behavior, and domain mapping; verify task 3.3 passes.
 
 ### INTROSPECT
 
-- [ ] 3.7 Add `inspect.signature` and AST assertions proving public snapshot/artifact/project-state interfaces are unchanged, migrated single releases contain no direct raw close or duplicate state machine, and explicit foundation imports introduce no aggregate or reverse dependency; verify all assertions pass.
+- [x] 3.7 Add `inspect.signature` and AST assertions proving public snapshot/artifact/project-state interfaces are unchanged, migrated single releases contain no direct raw close or duplicate state machine, and explicit foundation imports introduce no aggregate or reverse dependency; verify all assertions pass.
 
 ### VALIDATE
 
-- [ ] 3.8 Run snapshot, artifact-cache, project-state, rendering, effective-state, build-cleanup, and build-generation integration suites; require paths, bytes, modes, identities, publication, cleanup, exception graphs, and compatibility imports to pass before Phases 4 or 6.
+- [x] 3.8 Run snapshot, artifact-cache, project-state, rendering, effective-state, build-cleanup, and build-generation integration suites; require paths, bytes, modes, identities, publication, cleanup, exception graphs, and compatibility imports to pass before Phases 4 or 6.
 
 ## 4. Build-Cache Aggregate Owner
 

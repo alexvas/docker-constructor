@@ -25,6 +25,7 @@ Four test classes:
 from __future__ import annotations
 
 import base64
+import errno
 import hashlib
 import os
 import stat as stat_module
@@ -32,8 +33,11 @@ import tempfile
 import threading
 import unittest
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Iterator
+from unittest import mock
 
+from docker.versioning import artifact_cache as artifact_cache_module
 from docker.versioning.artifact_cache import (
     ArtifactMaterializationError,
     CacheBlobInspection,
@@ -2188,3 +2192,142 @@ class TestInterruptionSafety(_MaterializationTestCase):
         self.assertIn(integrity, lock.released)
         # The blob was published (before cleanup), and is verified.
         self.assertEqual(len(fs.published), 1)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# Phase 3 — artifact-cache temporary-creation lifecycle (tasks 3.2/3.5)
+# ═══════════════════════════════════════════════════════════════════════
+
+def _fd_owner_path(fd: int) -> str | None:
+    try:
+        return os.path.normpath(os.readlink(f"/proc/self/fd/{fd}"))
+    except OSError:
+        return None
+
+
+def _retained_secondary(exc: BaseException) -> list[object]:
+    secondary = getattr(exc, "secondary", None)
+    if isinstance(secondary, list):
+        return list(secondary)
+    slot = getattr(exc, "_transaction_secondary", None)
+    if isinstance(slot, list):
+        return list(slot)
+    return list(getattr(exc, "__notes__", []))
+
+
+def _carries_secondary(exc: BaseException, needle: BaseException) -> bool:
+    for item in _retained_secondary(exc):
+        if item is needle or (isinstance(item, str) and str(needle) in item):
+            return True
+    return False
+
+
+class TestTemporaryCreationLifecycle(unittest.TestCase):
+    """Phase 3 tasks 3.2 and 3.5.
+
+    ``LocalCacheFilesystem.create_temp`` transfers the freshly created blob
+    descriptor into a shared ``OwnedDescriptor`` immediately, so the child
+    close failure stays authoritative over the independent parent cleanup and
+    the child lifecycle is terminal and attempted exactly once.
+    """
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory(prefix="temp-creation-")
+        self.addCleanup(tmp.cleanup)
+        self.cache_root = Path(tmp.name) / "cache"
+        self.cache_root.mkdir(mode=0o700)
+        self.algorithm_dir = self.cache_root / "sha512"
+        self.algorithm_dir.mkdir(mode=0o700)
+        self.blob = self.algorithm_dir / "download.tmp"
+        self.blob_path = os.path.normpath(str(self.blob))
+        self.parent_path = os.path.normpath(str(self.algorithm_dir))
+
+    def _fail_close(
+        self,
+        *,
+        child_error: BaseException | None = None,
+        parent_error: BaseException | None = None,
+    ) -> tuple[object, list[int], list[int]]:
+        real_close = os.close
+        child_attempts: list[int] = []
+        parent_attempts: list[int] = []
+
+        def fake_close(fd, *args, **kwargs):
+            owner = _fd_owner_path(fd)
+            if owner == self.blob_path:
+                child_attempts.append(fd)
+                real_close(fd, *args, **kwargs)
+                if child_error is not None:
+                    raise child_error
+                return None
+            if owner == self.parent_path:
+                parent_attempts.append(fd)
+                real_close(fd, *args, **kwargs)
+                if parent_error is not None:
+                    raise parent_error
+                return None
+            return real_close(fd, *args, **kwargs)
+
+        return fake_close, child_attempts, parent_attempts
+
+    def test_sole_child_close_failure_remains_authoritative(self) -> None:
+        child_error = OSError(errno.EIO, "injected child close failure")
+        fake_close, child_attempts, parent_attempts = self._fail_close(
+            child_error=child_error,
+        )
+        with mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(OSError) as ctx:
+                LocalCacheFilesystem().create_temp(str(self.blob))
+        self.assertIs(ctx.exception, child_error)
+        self.assertEqual(len(child_attempts), 1)
+        self.assertEqual(len(parent_attempts), 1)
+        self.assertTrue(self.blob.exists())
+
+    def test_simultaneous_parent_close_failure_is_secondary(self) -> None:
+        child_error = OSError(errno.EIO, "injected child close failure")
+        parent_error = OSError(errno.EIO, "injected parent close failure")
+        fake_close, child_attempts, parent_attempts = self._fail_close(
+            child_error=child_error,
+            parent_error=parent_error,
+        )
+        with mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(OSError) as ctx:
+                LocalCacheFilesystem().create_temp(str(self.blob))
+        self.assertIs(ctx.exception, child_error)
+        self.assertTrue(_carries_secondary(ctx.exception, parent_error))
+        self.assertEqual(len(child_attempts), 1)
+        self.assertEqual(len(parent_attempts), 1)
+
+    def test_child_close_interruption_identity_preserved(self) -> None:
+        interruption = KeyboardInterrupt()
+        fake_close, child_attempts, _ = self._fail_close(
+            child_error=interruption,
+        )
+        with mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(KeyboardInterrupt) as ctx:
+                LocalCacheFilesystem().create_temp(str(self.blob))
+        self.assertIs(ctx.exception, interruption)
+        self.assertEqual(len(child_attempts), 1)
+
+    def test_terminal_owner_ignores_repeated_close(self) -> None:
+        child_error = OSError(errno.EIO, "injected child close failure")
+        fake_close, child_attempts, _ = self._fail_close(child_error=child_error)
+        created: list[object] = []
+        real_owner = artifact_cache_module.OwnedDescriptor
+
+        class _RecordingOwner(real_owner):  # type: ignore[misc, valid-type]
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                created.append(self)
+
+        with mock.patch.object(
+            artifact_cache_module, "OwnedDescriptor", _RecordingOwner,
+        ), mock.patch("os.close", side_effect=fake_close):
+            with self.assertRaises(OSError):
+                LocalCacheFilesystem().create_temp(str(self.blob))
+        self.assertEqual(len(created), 1)
+        owner = created[0]
+        self.assertTrue(owner.released)  # type: ignore[attr-defined]
+        before = len(child_attempts)
+        owner.close()  # type: ignore[attr-defined]
+        self.assertEqual(len(child_attempts), before)

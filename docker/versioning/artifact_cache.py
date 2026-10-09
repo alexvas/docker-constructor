@@ -17,6 +17,8 @@ import urllib.request
 from typing import Iterator, Protocol
 
 from docker.versioning.digest_identity import DigestIdentity, DigestIdentityError
+from docker.filesystem.descriptors import OwnedDescriptor
+from docker.filesystem.operations import PosixDescriptorOps
 from docker.transactions.capabilities import CapabilityError, DirectoryCapability
 from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
@@ -1185,7 +1187,10 @@ class LocalCacheFilesystem:
         try:
             flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
             fd = os.open(name, flags, 0o600, dir_fd=parent_fd)
-            os.close(fd)
+            owner = OwnedDescriptor(
+                PosixDescriptorOps(), fd, label=f"temporary blob {path}",
+            )
+            owner.close()
         except BaseException as exc:
             primary = exc
             raise

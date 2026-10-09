@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from docker.transactions.capabilities import DirectoryCapability
+from docker.filesystem.descriptors import OwnedDescriptor
+from docker.filesystem.operations import PosixDescriptorOps
 from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
     DestinationExists,
@@ -54,7 +56,9 @@ class ValidatedProjectState:
     def __init__(self, state: ProjectState, namespace_fd: int):
         self.state = state
         self.namespace_fd = namespace_fd
-        self._closed = False
+        self._owner = OwnedDescriptor(
+            PosixDescriptorOps(), namespace_fd, label="validated project namespace",
+        )
 
     def __enter__(self) -> "ValidatedProjectState":
         return self
@@ -62,18 +66,13 @@ class ValidatedProjectState:
     def __exit__(self, exc_type, exc, tb) -> None:
         # A namespace-close failure must never mask an active validation or
         # publication failure: it is attached as a secondary diagnostic and the
-        # original exception keeps propagating.  ``_closed`` is set before the
-        # POSIX close, so a failed close is never retried.  Only I/O close
+        # original exception keeps propagating.  The shared owner is released
+        # at most once, so a failed close is never retried.  Only I/O close
         # failures are caught; a process-control interruption during close
         # propagates unchanged.
         if exc is None:
             self.close()
             return
-        # A namespace-close failure must never mask an active validation or
-        # publication failure: it is attached as a secondary diagnostic and the
-        # original exception keeps propagating.  ``_closed`` is set before the
-        # POSIX close, so a failed close is never retried.  A process-control
-        # interruption from close is authoritative and is not converted.
         failures = CleanupFailures(exc)
         failures.run(self.close, ordinary=(OSError,))
         result = failures.complete()
@@ -81,9 +80,7 @@ class ValidatedProjectState:
             raise result
 
     def close(self) -> None:
-        if not self._closed:
-            self._closed = True
-            os.close(self.namespace_fd)
+        self._owner.close()
 
 
 _CHILD_NAMES = ("generated", "runtime", "evidence", "build-artifacts", "transactions")

@@ -15,6 +15,8 @@ from typing import Iterable
 from .build_cache import prepare_build_cache, validate_host_owner_traversal
 from .build_materialization import SelectedBuildArtifact
 from .project_state import ProjectState
+from docker.filesystem.descriptors import OwnedDescriptor
+from docker.filesystem.operations import PosixDescriptorOps
 from docker.transactions.cleanup import CleanupFailures
 from docker.npm_environment.errors import LockedNpmError
 from docker.npm_environment.evidence import AssemblerEvidence, parse_evidence
@@ -163,6 +165,9 @@ def _copy_source_fd_to_destination(
         fd = os.open(destination_name, flags, 0o444, dir_fd=dir_fd)
     except OSError as exc:
         raise SnapshotError(f"cannot create snapshot payload {destination_name!r}: {exc}") from exc
+    owner = OwnedDescriptor(
+        PosixDescriptorOps(), fd, label=f"snapshot payload {destination_name!r}",
+    )
     try:
         os.lseek(source_fd, 0, os.SEEK_SET)
         digest = hashlib.sha256()
@@ -173,18 +178,18 @@ def _copy_source_fd_to_destination(
             digest.update(chunk)
             view = memoryview(chunk)
             while view:
-                written = os.write(fd, view)
+                written = os.write(owner.fd, view)
                 view = view[written:]
         if digest.hexdigest() != expected:
             raise SnapshotError(f"snapshot payload {destination_name!r} failed digest verification")
-        os.fchmod(fd, 0o444)
-        os.fsync(fd)
+        os.fchmod(owner.fd, 0o444)
+        os.fsync(owner.fd)
     except BaseException as primary:
         # Release the owned descriptor and remove the owned destination name
         # exactly once each.  Absence is idempotent, but a non-absence close or
         # unlink failure remains observable as secondary context.
         failures = CleanupFailures(primary)
-        failures.run(lambda: os.close(fd), ordinary=(OSError,))
+        failures.run(owner.close, ordinary=(OSError,))
 
         def remove_destination(destination_name=destination_name):
             try:
@@ -200,8 +205,9 @@ def _copy_source_fd_to_destination(
     # Success path: release the owned destination descriptor.  There is no
     # primary in flight here, so this close is the sole failure and propagates
     # unchanged; the failure-path close already runs through the accumulator
-    # above.  A bare close is therefore correct only on this path.
-    os.close(fd)
+    # above.  The owner makes ownership terminal so a repeated release is a
+    # no-op rather than another close attempt.
+    owner.close()
 
 
 def _validate_hard_link_destination(

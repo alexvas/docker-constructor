@@ -783,5 +783,140 @@ class TwoBuildOwnershipMaintenanceRegression(unittest.TestCase):
             cleanup_artifact_snapshot(snap2)
 
 
+# ═══════════════════════════════════════════════════════════════════════
+# Phase 3 — snapshot destination descriptor lifecycle (tasks 3.1 and 3.4)
+# ═══════════════════════════════════════════════════════════════════════
+
+def _fd_path(fd: int) -> str | None:
+    """Return the normalized path an open descriptor refers to, or ``None``."""
+    try:
+        return os.path.normpath(os.readlink(f"/proc/self/fd/{fd}"))
+    except OSError:
+        return None
+
+
+def _secondary_items(exc: BaseException) -> list[object]:
+    secondary = getattr(exc, "secondary", None)
+    if isinstance(secondary, list):
+        return list(secondary)
+    slot = getattr(exc, "_transaction_secondary", None)
+    if isinstance(slot, list):
+        return list(slot)
+    return list(getattr(exc, "__notes__", []))
+
+
+def _retains(exc: BaseException, needle: BaseException) -> bool:
+    for item in _secondary_items(exc):
+        if item is needle or (isinstance(item, str) and str(needle) in item):
+            return True
+    return False
+
+
+class TestSnapshotDestinationLifecycle(unittest.TestCase):
+    """Phase 3 tasks 3.1 and 3.4.
+
+    ``_copy_source_fd_to_destination`` transfers its ``O_EXCL`` destination
+    descriptor into a shared ``OwnedDescriptor`` immediately, keeps an active
+    copy/digest failure primary over an ordinary close failure, unlinks the
+    unsafe destination, and releases the descriptor at most once.
+    """
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory(prefix="snapshot-destination-")
+        self.addCleanup(tmp.cleanup)
+        self.directory = Path(tmp.name)
+        self.destination_name = "payload.deb"
+        self.destination_path = os.path.normpath(
+            str(self.directory / self.destination_name)
+        )
+        self.source_path = self.directory / "source"
+        self.source_bytes = b"snapshot payload\n"
+        self.source_path.write_bytes(self.source_bytes)
+        self.expected = hashlib.sha256(self.source_bytes).hexdigest()
+        self.dir_fd = os.open(self.directory, os.O_RDONLY | os.O_DIRECTORY)
+        self.addCleanup(os.close, self.dir_fd)
+
+    def _fail_close(self, error: BaseException) -> tuple[object, list[int]]:
+        real_close = os.close
+        attempts: list[int] = []
+
+        def fake_close(fd, *args, **kwargs):
+            if _fd_path(fd) == self.destination_path:
+                attempts.append(fd)
+                real_close(fd, *args, **kwargs)
+                raise error
+            return real_close(fd, *args, **kwargs)
+
+        return fake_close, attempts
+
+    def _run_copy(self, *, expected: str | None = None) -> None:
+        source_fd = os.open(self.source_path, os.O_RDONLY)
+        try:
+            build_snapshot_module._copy_source_fd_to_destination(
+                source_fd,
+                self.destination_name,
+                self.dir_fd,
+                self.expected if expected is None else expected,
+            )
+        finally:
+            os.close(source_fd)
+
+    def test_operation_failure_primary_over_close_and_unlinks(self) -> None:
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_close, attempts = self._fail_close(close_error)
+        with patch("os.close", side_effect=fake_close):
+            with self.assertRaises(SnapshotError) as ctx:
+                self._run_copy(expected=hashlib.sha256(b"other").hexdigest())
+        self.assertIn("failed digest verification", str(ctx.exception))
+        self.assertTrue(_retains(ctx.exception, close_error))
+        self.assertEqual(len(attempts), 1)
+        self.assertFalse((self.directory / self.destination_name).exists())
+
+    def test_success_then_sole_close_failure_propagates_raw(self) -> None:
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_close, attempts = self._fail_close(close_error)
+        with patch("os.close", side_effect=fake_close):
+            with self.assertRaises(OSError) as ctx:
+                self._run_copy()
+        self.assertIs(ctx.exception, close_error)
+        self.assertEqual(len(attempts), 1)
+        self.assertEqual(
+            (self.directory / self.destination_name).read_bytes(),
+            self.source_bytes,
+        )
+
+    def test_close_interruption_identity_preserved(self) -> None:
+        interruption = KeyboardInterrupt()
+        fake_close, attempts = self._fail_close(interruption)
+        with patch("os.close", side_effect=fake_close):
+            with self.assertRaises(KeyboardInterrupt) as ctx:
+                self._run_copy()
+        self.assertIs(ctx.exception, interruption)
+        self.assertEqual(len(attempts), 1)
+
+    def test_terminal_owner_ignores_repeated_close(self) -> None:
+        close_error = OSError(errno.EIO, "injected close failure")
+        fake_close, attempts = self._fail_close(close_error)
+        created: list[object] = []
+        real_owner = build_snapshot_module.OwnedDescriptor
+
+        class _RecordingOwner(real_owner):  # type: ignore[misc, valid-type]
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                created.append(self)
+
+        with patch.object(
+            build_snapshot_module, "OwnedDescriptor", _RecordingOwner,
+        ), patch("os.close", side_effect=fake_close):
+            with self.assertRaises(OSError):
+                self._run_copy()
+        self.assertEqual(len(created), 1)
+        owner = created[0]
+        self.assertTrue(owner.released)  # type: ignore[attr-defined]
+        before = len(attempts)
+        owner.close()  # type: ignore[attr-defined]
+        self.assertEqual(len(attempts), before)
+
+
 if __name__ == "__main__":
     unittest.main()
