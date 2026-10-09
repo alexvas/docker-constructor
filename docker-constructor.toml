@@ -47,7 +47,7 @@ track = "tag-digest"
 [build.stages.toolchain.rust]
 components = ["rustfmt", "clippy"]
 profile = "minimal"
-version = "1.98.0"
+version = "1.99.0"
 
 [build.stages.toolchain.rust.rustup.artifacts.linux-amd64]
 sha256 = "4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10"
@@ -62,7 +62,7 @@ provider = "static-url"
 stable_only = true
 
 [build.stages.toolchain.rust.source]
-manifest = "https://static.rust-lang.org/dist/channel-rust-1.98.0.toml"
+manifest = "https://static.rust-lang.org/dist/channel-rust-1.99.0.toml"
 type = "rust-channel"
 
 [build.stages.toolchain.rust.update]
@@ -72,15 +72,15 @@ stable_only = true
 
 # --- toolchain.uv ---
 [build.stages.toolchain.uv]
-version = "0.12.5"
+version = "0.12.24"
 
 [build.stages.toolchain.uv.artifacts.linux-amd64]
-sha256 = "68a509da24b06b4223a1c0175fb5eb5bc79342b76cbeff0cfe51ac3f5b17b6b2"
-url = "https://github.com/astral-sh/uv/releases/download/0.12.5/uv-x86_64-unknown-linux-gnu.tar.gz"
+sha256 = "b4dfaef47d491a7296981f8374a4595f55dbf84e8937c8ecd2983574d8bb3da6"
+url = "https://github.com/astral-sh/uv/releases/download/0.12.24/uv-x86_64-unknown-linux-gnu.tar.gz"
 
 [build.stages.toolchain.uv.source]
 repository = "astral-sh/uv"
-tag = "0.12.5"
+tag = "0.12.24"
 type = "github-release"
 
 [build.stages.toolchain.uv.update]
@@ -109,7 +109,7 @@ stable_only = true
 # ty is installed via `uv tool install` in setup-python.sh
 # --- toolchain.ty ---
 [build.stages.toolchain.ty]
-version = "0.0.73"
+version = "0.0.85"
 
 [build.stages.toolchain.ty.source]
 package = "ty"
@@ -125,15 +125,15 @@ stable_only = true
 
 # --- rtk-prebuilt.rtk ---
 [build.stages.rtk-prebuilt.rtk]
-version = "v0.45.0"
+version = "v0.51.0"
 
 [build.stages.rtk-prebuilt.rtk.artifacts.linux-amd64]
-sha256 = "0ba496b2531cd4357edfb2ac2fe2eb19ec99eb9ba46401dffa8459e1cfbd0061"
-url = "https://github.com/rtk-ai/rtk/releases/download/v0.45.0/rtk_amd64.deb"
+sha256 = "be09163f633bb393d891fcf9eded32ed60a90b326c7b7df8e456e8666c81436e"
+url = "https://github.com/rtk-ai/rtk/releases/download/v0.51.0/rtk_amd64.deb"
 
 [build.stages.rtk-prebuilt.rtk.source]
 repository = "rtk-ai/rtk"
-tag = "v0.45.0"
+tag = "v0.51.0"
 type = "github-release"
 
 [build.stages.rtk-prebuilt.rtk.update]
@@ -144,22 +144,22 @@ tag_prefix = "v"
 
 # --- fd-prebuilt.fd ---
 [build.stages.fd-prebuilt.fd]
-version = "v10.4.2"
-
-[build.stages.fd-prebuilt.fd.source]
-type = "github-release"
-repository = "sharkdp/fd"
-tag = "v10.4.2"
+version = "v10.5.0"
 
 [build.stages.fd-prebuilt.fd.artifacts.linux-amd64]
-url = "https://github.com/sharkdp/fd/releases/download/v10.4.2/fd_10.4.2_amd64.deb"
-sha256 = "0e44eb5fca93f09bc6f5430b90acdf44c8e069d0a903700aeb4820629337b67b"
+sha256 = "1fca9f8fb221f26fe37b425db4935dc8180099bdecfd8e031538bfc9396e95f8"
+url = "https://github.com/sharkdp/fd/releases/download/v10.5.0/fd_10.5.0_amd64.deb"
+
+[build.stages.fd-prebuilt.fd.source]
+repository = "sharkdp/fd"
+tag = "v10.5.0"
+type = "github-release"
 
 [build.stages.fd-prebuilt.fd.update]
 provider = "github-release"
+required_platforms = ["linux-amd64"]
 stable_only = true
 tag_prefix = "v"
-required_platforms = ["linux-amd64"]
 
 # ---------------------------------------------------------------------------
 # Node tools — independent cache scopes
@@ -167,13 +167,13 @@ required_platforms = ["linux-amd64"]
 
 # --- pi-tools.pi ---
 [build.stages.pi-tools.pi]
-version = "0.85.1"
+version = "1.1.0"
 
 [build.stages.pi-tools.pi.source]
 package = "@earendil-works/pi-coding-agent"
-type = "pi-release"
 release_repository = "earendil-works/pi"
 release_tag_prefix = "v"
+type = "pi-release"
 
 [build.stages.pi-tools.pi.update]
 provider = "npm"
@@ -181,7 +181,7 @@ stable_only = true
 
 # --- openspec-tools.openspec ---
 [build.stages.openspec-tools.openspec]
-version = "1.13.0"
+version = "1.14.1"
 
 [build.stages.openspec-tools.openspec.source]
 package = "@fission-ai/openspec"
@@ -210,58 +210,6 @@ ref = "master"
 # ---------------------------------------------------------------------------
 # Pi extensions — installed at runtime by the entrypoint via docker.runtime_installer
 # ---------------------------------------------------------------------------
-
-# --- pi-extensions.pi-read ---
-[runtime.pi-extensions.pi-read]
-version = "0.2.1"
-
-[runtime.pi-extensions.pi-read.artifacts."0.2.1"]
-integrity = "sha512-Vq1axnAU513JW4oqYkSIO4bQZFTPFwXz6V70n4fPNPplcDqK2bTx23viML88+0CrmjgvmvTVuG1ZruNCShOyiA=="
-url = "https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.2.1.tgz"
-
-[runtime.pi-extensions.pi-read.override]
-allow_prerelease = false
-constraint = ">=0.2.0"
-scheme = "numeric"
-
-[runtime.pi-extensions.pi-read.source]
-package = "@arcanemachine/pi-read"
-type = "npm"
-
-[runtime.pi-extensions.pi-read.update]
-provider = "npm"
-stable_only = true
-
-[runtime.pi-extensions.pi-read.validation]
-metadata_file = "package.json"
-
-# --- pi-extensions.pi-usage ---
-[runtime.pi-extensions.pi-usage]
-version = "0.60.7"
-
-[runtime.pi-extensions.pi-usage.artifacts."0.52.3"]
-integrity = "sha512-G8Qrh46j9/omdb0U0oq0iM0emcidr1xG4ARMrrvfNEwAQ7HU9WUljwVxycrIYdQ8Xe7wqTe0UZIaFFv80C87vQ=="
-url = "https://registry.npmjs.org/@narumitw/pi-usage/-/pi-usage-0.52.3.tgz"
-
-[runtime.pi-extensions.pi-usage.artifacts."0.60.7"]
-integrity = "sha512-TPZx0CXtnMT9IquPj0kvsorwx4td0p2pjixSzoAdVyKhjs7m95nsXtfXufFrG2m4tUYcJHo/feOmb6iovdnq4A=="
-url = "https://registry.npmjs.org/@narumitw/pi-usage/-/pi-usage-0.60.7.tgz"
-
-[runtime.pi-extensions.pi-usage.override]
-allow_prerelease = false
-constraint = ">=0.52.0"
-scheme = "numeric"
-
-[runtime.pi-extensions.pi-usage.source]
-package = "@narumitw/pi-usage"
-type = "npm"
-
-[runtime.pi-extensions.pi-usage.update]
-provider = "npm"
-stable_only = true
-
-[runtime.pi-extensions.pi-usage.validation]
-metadata_file = "package.json"
 
 # --- pi-extensions.pi-proxy ---
 [runtime.pi-extensions.pi-proxy]
