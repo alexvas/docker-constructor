@@ -891,6 +891,10 @@ class _InventoryRule:
     # closes a raw fd rather than a shared descriptor capability.
     RAW_CLOSE_ACTIONS = {
         ("docker/versioning/build_cache.py", "state.close"),
+        # ``BuildCacheState.close`` aggregates its five shared ``owner.close``
+        # releases; each owner keeps the raw ``OSError`` contract of the
+        # lightweight foundation instead of the transaction close stage.
+        ("docker/versioning/build_cache.py", "owner.close"),
         ("docker/versioning/project_state.py", "self.close"),
         # ``OwnedDescriptor.close`` is the raw-``OSError`` lightweight release.
         ("docker/versioning/build_snapshot.py", "owner.close"),

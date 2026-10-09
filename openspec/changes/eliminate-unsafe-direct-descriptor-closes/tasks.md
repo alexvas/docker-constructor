@@ -110,23 +110,23 @@ Within every phase work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### RED
 
-- [ ] 4.1 Obtain the actual `BuildCacheState` from `open_build_cache_state()` and add `BuildCacheState.close()` tests proving `persistent_fd`, `blobs_fd`, `tmp_fd`, `markers_fd`, and `transactions_fd` each receive one close attempt when the first, middle, or last release raises an ordinary failure; verify current stop-on-first-failure behavior fails.
-- [ ] 4.2 Add tests against the `BuildCacheState` returned by `open_build_cache_state()` with several ordinary close failures; require all five attempts, first-failure authority, later failures as ordered secondary diagnostics, and no repeated operation, and verify current behavior fails.
-- [ ] 4.3 Add tests against the returned `BuildCacheState` for an unexpected close defect and process-control interruption at each of its five release positions; require every independent release attempt and shared precedence without wrapping the authoritative object, and verify current behavior fails.
-- [ ] 4.4 Add repeated direct/context cleanup tests for the returned `BuildCacheState`, requiring aggregate terminal state before the first close syscall and no operation after any success or failure outcome; verify current nonterminal lifecycle fails.
+- [x] 4.1 Obtain the actual `BuildCacheState` from `open_build_cache_state()` and add `BuildCacheState.close()` tests proving `persistent_fd`, `blobs_fd`, `tmp_fd`, `markers_fd`, and `transactions_fd` each receive one close attempt when the first, middle, or last release raises an ordinary failure; verify current stop-on-first-failure behavior fails.
+- [x] 4.2 Add tests against the `BuildCacheState` returned by `open_build_cache_state()` with several ordinary close failures; require all five attempts, first-failure authority, later failures as ordered secondary diagnostics, and no repeated operation, and verify current behavior fails.
+- [x] 4.3 Add tests against the returned `BuildCacheState` for an unexpected close defect and process-control interruption at each of its five release positions; require every independent release attempt and shared precedence without wrapping the authoritative object, and verify current behavior fails.
+- [x] 4.4 Add repeated direct/context cleanup tests for the returned `BuildCacheState`, requiring aggregate terminal state before the first close syscall and no operation after any success or failure outcome; verify current nonterminal lifecycle fails.
 
 ### GREEN
 
-- [ ] 4.5 Refactor `BuildCacheState` initialization to create one private `OwnedDescriptor` for each of `persistent_fd`, `blobs_fd`, `tmp_fd`, `markers_fd`, and `transactions_fd` while preserving the existing constructor, `paths`, integer field values, and the `BuildCacheState` instance returned by `open_build_cache_state()`; verify construction and compatibility tests pass before changing release behavior.
-- [ ] 4.6 Refactor `BuildCacheState.close()` to detach or terminally claim the complete five-owner set before release, run every `owner.close` through one `CleanupFailures(None)`, and make repeat close a no-op; verify tasks 4.1–4.4 pass.
+- [x] 4.5 Refactor `BuildCacheState` initialization to create one private `OwnedDescriptor` for each of `persistent_fd`, `blobs_fd`, `tmp_fd`, `markers_fd`, and `transactions_fd` while preserving the existing constructor, `paths`, integer field values, and the `BuildCacheState` instance returned by `open_build_cache_state()`; verify construction and compatibility tests pass before changing release behavior.
+- [x] 4.6 Refactor `BuildCacheState.close()` to detach or terminally claim the complete five-owner set before release, run every `owner.close` through one `CleanupFailures(None)`, and make repeat close a no-op; verify tasks 4.1–4.4 pass.
 
 ### INTROSPECT
 
-- [ ] 4.7 Add API/AST assertions proving `BuildCacheState` remains the class returned by `open_build_cache_state()`, its constructor/signatures and `paths`, `persistent_fd`, `blobs_fd`, `tmp_fd`, `markers_fd`, and `transactions_fd` fields are unchanged, exactly one shared owner state machine supplies per-fd terminal behavior, one aggregate accumulator supplies multi-release precedence, and no raw multi-close loop remains; verify all assertions pass.
+- [x] 4.7 Add API/AST assertions proving `BuildCacheState` remains the class returned by `open_build_cache_state()`, its constructor/signatures and `paths`, `persistent_fd`, `blobs_fd`, `tmp_fd`, `markers_fd`, and `transactions_fd` fields are unchanged, exactly one shared owner state machine supplies per-fd terminal behavior, one aggregate accumulator supplies multi-release precedence, and no raw multi-close loop remains; verify all assertions pass.
 
 ### VALIDATE
 
-- [ ] 4.8 Run direct `open_build_cache_state()`/`BuildCacheState` lifecycle and compatibility tests followed by build-cache publication, locking, maintenance, generation, retention, project-state, and consumer integration suites; require cache paths, identities, lock scope, modes, publication order, durability, and domain errors to pass before Phase 5 or 6.
+- [x] 4.8 Run direct `open_build_cache_state()`/`BuildCacheState` lifecycle and compatibility tests followed by build-cache publication, locking, maintenance, generation, retention, project-state, and consumer integration suites; require cache paths, identities, lock scope, modes, publication order, durability, and domain errors to pass before Phase 5 or 6.
 
 ## 5. Build-Cache Directory Handoff
 

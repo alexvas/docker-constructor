@@ -35,6 +35,8 @@ from typing import TYPE_CHECKING, NoReturn
 if TYPE_CHECKING:
     from docker.versioning.build_cleanup import BuildStorage
 
+from docker.filesystem.descriptors import OwnedDescriptor
+from docker.filesystem.operations import PosixDescriptorOps
 from docker.transactions.capabilities import CapabilityError, DirectoryCapability
 from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
@@ -473,6 +475,12 @@ class BuildCacheState:
     ``prepare_build_cache`` has validated and created every child.  Mutable
     control state is always addressed through these retained descriptors,
     never by reconstructing a ``Path`` from a previously validated path.
+
+    Each retained integer descriptor is privately owned by one shared
+    ``OwnedDescriptor``.  The integer fields stay public and unchanged for
+    descriptor-relative callers; release is terminal and at-most-once through
+    the owners, and one aggregate accumulator attempts every independent
+    release even when an earlier one fails.
     """
 
     paths: BuildCachePaths
@@ -482,10 +490,36 @@ class BuildCacheState:
     markers_fd: int
     transactions_fd: int
 
+    def __post_init__(self) -> None:
+        # One shared owner per retained descriptor.  The tuple order is the
+        # historical release order (reverse of the open order), so first-failure
+        # authority and ordered secondary diagnostics stay stable.
+        ops = PosixDescriptorOps()
+        self._owners = (
+            OwnedDescriptor(ops, self.transactions_fd, label="build-cache transactions"),
+            OwnedDescriptor(ops, self.markers_fd, label="build-cache markers"),
+            OwnedDescriptor(ops, self.tmp_fd, label="build-cache tmp"),
+            OwnedDescriptor(ops, self.blobs_fd, label="build-cache blobs"),
+            OwnedDescriptor(ops, self.persistent_fd, label="build-cache persistent"),
+        )
+
     def close(self) -> None:
-        for fd in (self.transactions_fd, self.markers_fd, self.tmp_fd,
-                   self.blobs_fd, self.persistent_fd):
-            os.close(fd)
+        # Detach the complete owner set before any release so a repeated close
+        # is a no-op and a re-entrant close from a failing release cannot retry
+        # an ambiguously failed descriptor.  Every independent owner is then
+        # attempted once under one aggregate accumulator; the first ordinary
+        # failure is authoritative and later failures stay ordered secondary
+        # diagnostics.  Process-control interruptions and unexpected defects
+        # keep the shared precedence without being wrapped.
+        owners, self._owners = self._owners, ()
+        if not owners:
+            return
+        failures = CleanupFailures(None)
+        for owner in owners:
+            failures.run(owner.close, ordinary=(OSError,))
+        result = failures.complete()
+        if result is not None:
+            raise result
 
 
 def _open_validated_child(parent_fd: int, name: str, *, label: str) -> int:

@@ -810,5 +810,158 @@ class VersioningConvergenceTests(unittest.TestCase):
                 self.assertEqual(str(inspect.signature(target)), expected)
 
 
+#: Phase 4 — the authoritative build-cache aggregate owner module.
+_BUILD_CACHE = _REPO / "docker" / "versioning" / "build_cache.py"
+
+#: Phase 4 — public interfaces whose exact signature must not change.
+_PHASE4_PUBLIC_SIGNATURES = {
+    ("docker.versioning.build_cache", "BuildCacheState"): (
+        "(paths: 'BuildCachePaths', persistent_fd: 'int', blobs_fd: 'int', "
+        "tmp_fd: 'int', markers_fd: 'int', transactions_fd: 'int') -> None"
+    ),
+    ("docker.versioning.build_cache", "BuildCacheState.close"): "(self) -> 'None'",
+    ("docker.versioning.build_cache", "open_build_cache_state"): (
+        "(constructor_project_root: 'str | Path', *, cache_root: 'str | Path | "
+        "None' = None, project_state: 'ProjectState | None' = None) -> "
+        "'BuildCacheState'"
+    ),
+}
+
+#: Phase 4 — the five private owners in historical release order.
+_PHASE4_OWNER_LABELS = (
+    "build-cache transactions",
+    "build-cache markers",
+    "build-cache tmp",
+    "build-cache blobs",
+    "build-cache persistent",
+)
+
+
+class BuildCacheStateConvergenceTests(unittest.TestCase):
+    """Task 4.7 — the build-cache aggregate owner stays converged."""
+
+    def _method(self, method_name: str):
+        tree = _parse(_BUILD_CACHE)
+        aliases = _module_aliases(tree)
+        return tree, aliases, _find_method(tree, "BuildCacheState", method_name)
+
+    def test_close_has_no_unowned_close_or_raw_multi_close_loop(self) -> None:
+        _, aliases, close = self._method("close")
+        self.assertEqual(_close_violations(close, aliases), [])
+        # The only loop left iterates the detached owner collection, never a
+        # raw fd tuple.
+        loops = [
+            node
+            for node in ast.walk(close)
+            if isinstance(node, (ast.For, ast.AsyncFor))
+        ]
+        self.assertEqual(len(loops), 1)
+        self.assertEqual(ast.unparse(loops[0].iter), "owners")
+
+    def test_close_uses_exactly_one_aggregate_accumulator(self) -> None:
+        _, aliases, close = self._method("close")
+        accumulators = [
+            node
+            for node in ast.walk(close)
+            if isinstance(node, ast.Call)
+            and _qualname(node.func, aliases)
+            == "docker.transactions.cleanup.CleanupFailures"
+        ]
+        self.assertEqual(len(accumulators), 1)
+        run_calls = [
+            node
+            for node in ast.walk(close)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "run"
+        ]
+        self.assertEqual(len(run_calls), 1)
+        self.assertEqual(ast.unparse(run_calls[0].args[0]), "owner.close")
+        ordinary = next(
+            keyword.value
+            for keyword in run_calls[0].keywords
+            if keyword.arg == "ordinary"
+        )
+        self.assertEqual(ast.unparse(ordinary), "(OSError,)")
+
+    def test_post_init_creates_one_owner_per_descriptor_field(self) -> None:
+        _, aliases, post = self._method("__post_init__")
+        names = {node.id for node in ast.walk(post) if isinstance(node, ast.Name)}
+        self.assertIn("OwnedDescriptor", names)
+        self.assertIn("PosixDescriptorOps", names)
+        targets = {
+            ast.unparse(target)
+            for node in ast.walk(post)
+            if isinstance(node, ast.Assign)
+            for target in node.targets
+        }
+        self.assertIn("self._owners", targets)
+        owner_calls = [
+            node
+            for node in ast.walk(post)
+            if isinstance(node, ast.Call)
+            and _qualname(node.func, aliases) in _OWNER_QUALNAMES
+        ]
+        self.assertEqual(len(owner_calls), 5)
+        labels = [
+            keyword.value.value
+            for call in owner_calls
+            for keyword in call.keywords
+            if keyword.arg == "label"
+        ]
+        self.assertEqual(labels, list(_PHASE4_OWNER_LABELS))
+
+    def test_no_bespoke_release_state_machine(self) -> None:
+        tree = _parse(_BUILD_CACHE)
+        for method_name in ("__post_init__", "close"):
+            method = _find_method(tree, "BuildCacheState", method_name)
+            found = {
+                node.id for node in ast.walk(method) if isinstance(node, ast.Name)
+            } | {
+                node.attr
+                for node in ast.walk(method)
+                if isinstance(node, ast.Attribute)
+            }
+            self.assertEqual(found & _BESPOKE_RELEASE_NAMES, set())
+
+    def test_open_build_cache_state_is_annotated_with_the_class(self) -> None:
+        tree = _parse(_BUILD_CACHE)
+        function = _find_function(tree, "open_build_cache_state")
+        self.assertEqual(ast.unparse(function.returns), "BuildCacheState")
+        classes = {
+            node.name
+            for node in tree.body
+            if isinstance(node, ast.ClassDef)
+        }
+        self.assertIn("BuildCacheState", classes)
+
+    def test_module_imports_explicit_foundation_submodules(self) -> None:
+        imports = _foundation_imports(_parse(_BUILD_CACHE))
+        self.assertTrue(
+            any(module.startswith("docker.filesystem.") for module in imports),
+            "no explicit foundation import in build_cache.py",
+        )
+        for module in imports:
+            if module == "docker.filesystem" or module.startswith(
+                "docker.filesystem."
+            ):
+                self.assertGreaterEqual(
+                    len(module.split(".")),
+                    3,
+                    f"aggregate foundation import {module!r}",
+                )
+
+    def test_public_interfaces_are_signature_stable(self) -> None:
+        import importlib
+        import inspect
+
+        for (module_name, qualname), expected in _PHASE4_PUBLIC_SIGNATURES.items():
+            with self.subTest(interface=f"{module_name}.{qualname}"):
+                target = importlib.import_module(module_name)
+                for part in qualname.split("."):
+                    target = getattr(target, part)
+                self.assertEqual(str(inspect.signature(target)), expected)
+
+
 if __name__ == "__main__":
     unittest.main()
