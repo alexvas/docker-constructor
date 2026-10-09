@@ -190,6 +190,29 @@ def validate_host_owner_traversal(path: str | Path) -> None:
 # ═══════════════════════════════════════════════════════════════════════
 
 
+def _release_owners(
+    primary: BaseException | None,
+    *owners: OwnedDescriptor | None,
+) -> None:
+    """Release shared owners under the lightweight cleanup precedence.
+
+    Every non-``None`` owner is attempted exactly once through one accumulator,
+    so an interruption raised while releasing one owner does not skip the
+    others.  The shared owner keeps the raw ``OSError`` contract: an active
+    *primary* stays authoritative with release failures attached as secondary
+    diagnostics, and a process-control interruption or unexpected defect is
+    never wrapped.  Without a primary, the first ordinary release failure is
+    raised.
+    """
+    failures = CleanupFailures(primary)
+    for owner in owners:
+        if owner is not None:
+            failures.run(owner.close, ordinary=(OSError,))
+    result = failures.complete()
+    if result is not None:
+        raise result
+
+
 def _open_namespace_fd(namespace: Path) -> int:
     """Open the external project-state namespace without following symlinks."""
     try:
@@ -232,26 +255,33 @@ def _open_relative_dir(
     component is missing and *create* is false.  Missing components are
     created descriptor-relatively with ``0700`` when *create* is true.
     Symlinked or non-directory components raise :class:`BuildCacheError`.
+
+    Every retained descriptor is tracked by a private ``OwnedDescriptor``
+    ledger: the child is owned before the parent is released, the parent is
+    made terminal before its handoff close, and the failure path releases the
+    child and the retained parent exactly once each without retrying an
+    ambiguously failed close.
     """
-    current_fd = os.dup(namespace_fd)
-    parent_fd = -1
+    ops = PosixDescriptorOps()
+    current = OwnedDescriptor(
+        ops, os.dup(namespace_fd), label="build-cache namespace"
+    )
+    parent: OwnedDescriptor | None = None
     try:
         for component in parts:
             created = False
             try:
                 value = os.stat(
-                    component, dir_fd=current_fd, follow_symlinks=False,
+                    component, dir_fd=current.fd, follow_symlinks=False,
                 )
             except FileNotFoundError:
                 if not create:
-                    # Relinquish ownership of the retained descriptor before
-                    # closing it so a failed close is never retried by the
-                    # handler and cannot leak the descriptor.
-                    releasing_fd, current_fd = current_fd, -1
-                    os.close(releasing_fd)
+                    # The owner makes release terminal before its syscall, so
+                    # a failed close is never retried by the handler.
+                    _release_owners(None, current)
                     return None
                 try:
-                    os.mkdir(component, 0o700, dir_fd=current_fd)
+                    os.mkdir(component, 0o700, dir_fd=current.fd)
                 except OSError as exc:
                     raise BuildCacheError(
                         f"cannot create build-cache component {component!r}: {exc}"
@@ -260,9 +290,9 @@ def _open_relative_dir(
                 # Set the exact owner-only mode before opening; os.mkdir's
                 # mode is subject to the ambient umask, which could otherwise
                 # strip the owner bits and make the new entry unopenable.
-                os.chmod(component, 0o700, dir_fd=current_fd, follow_symlinks=False)
+                os.chmod(component, 0o700, dir_fd=current.fd, follow_symlinks=False)
                 value = os.stat(
-                    component, dir_fd=current_fd, follow_symlinks=False,
+                    component, dir_fd=current.fd, follow_symlinks=False,
                 )
             except OSError as exc:
                 raise BuildCacheError(
@@ -274,34 +304,25 @@ def _open_relative_dir(
                     "entry or restore it as a directory"
                 )
             try:
-                next_fd = os.open(component, _DIR_FLAGS, dir_fd=current_fd)
+                next_fd = os.open(component, _DIR_FLAGS, dir_fd=current.fd)
             except OSError as exc:
                 raise BuildCacheError(
                     f"cannot open build-cache component {component!r}: {exc}"
                 ) from exc
-            # Transfer ownership of the child before any operation that can
-            # fail, so the parent and child are each released exactly once.
-            parent_fd, current_fd = current_fd, next_fd
+            # Adopt the child before any operation that can fail, then make
+            # the parent terminal before its handoff close.  The child is
+            # already tracked by ``current`` for the handler below.
+            child = OwnedDescriptor(ops, next_fd, label=component)
+            parent = current
+            current = child
             if created:
                 # Explicit mode, independent of the process umask.
-                os.fchmod(next_fd, 0o700)
-            # Release the parent last, relinquishing ownership first so a
-            # failed close is never retried; the child is still released by
-            # the handler.
-            releasing_fd, parent_fd = parent_fd, -1
-            os.close(releasing_fd)
-        return current_fd
+                os.fchmod(current.fd, 0o700)
+            _release_owners(None, parent)
+            parent = None
+        return current.detach()
     except BaseException as exc:
-        failures = CleanupFailures(exc)
-        child, current_fd = current_fd, -1
-        if child >= 0:
-            failures.run(lambda: os.close(child), ordinary=(OSError,))
-        parent, parent_fd = parent_fd, -1
-        if parent >= 0:
-            failures.run(lambda: os.close(parent), ordinary=(OSError,))
-        result = failures.complete()
-        if result is not None:
-            raise result
+        _release_owners(exc, current, parent)
         raise
 
 
@@ -1052,45 +1073,47 @@ def _bootstrap_constructor_project_lock_parent(constructor_project_root: str | P
         state = resolve_project_state(constructor_project, cache_root=cache_root, create=True, validate_children=False)
     except ProjectStateError as exc:
         raise BuildTransactionError(str(exc)) from exc
-    namespace_fd = _open_namespace_fd(state.namespace)
-    current_fd = namespace_fd
-    primary: BaseException | None = None
+    ops = PosixDescriptorOps()
+    namespace = OwnedDescriptor(
+        ops, _open_namespace_fd(state.namespace), label="build-cache namespace"
+    )
+    current = namespace
+    child: OwnedDescriptor | None = None
     try:
         for part in _PERSISTENT_PARTS:
             try:
-                child_fd = os.open(part, _DIR_FLAGS, dir_fd=current_fd)
+                opened_fd = os.open(part, _DIR_FLAGS, dir_fd=current.fd)
             except FileNotFoundError:
                 try:
-                    os.mkdir(part, 0o700, dir_fd=current_fd)
+                    os.mkdir(part, 0o700, dir_fd=current.fd)
                 except FileExistsError:
                     # Another first build won component creation; reopen it
                     # no-follow and validate it exactly like an existing one.
                     pass
-                child_fd = os.open(part, _DIR_FLAGS, dir_fd=current_fd)
-            info = os.fstat(child_fd)
+                opened_fd = os.open(part, _DIR_FLAGS, dir_fd=current.fd)
+            # Own the child before its validation or any parent release so a
+            # rejected or failing component is still released exactly once.
+            child = OwnedDescriptor(ops, opened_fd, label=part)
+            info = os.fstat(child.fd)
             if not _stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid():
-                os.close(child_fd)
                 raise BuildTransactionError(f"unsafe lock parent component: {part}")
-            if current_fd != namespace_fd:
-                os.close(current_fd)
-            current_fd = child_fd
-        return state, current_fd
+            parent = current
+            current = child
+            child = None
+            # Make each intermediate parent terminal before its handoff close;
+            # the namespace is released once at the end.
+            if parent is not namespace:
+                _release_owners(None, parent)
+        _release_owners(None, namespace)
+        return state, current.detach()
     except BaseException as exc:
-        primary = exc
-        if current_fd != namespace_fd:
-            failures = CleanupFailures(exc)
-            failures.run(lambda: os.close(current_fd), ordinary=(OSError,))
-            result = failures.complete()
-            if result is not None:
-                primary = result
-                raise result
+        _release_owners(
+            exc,
+            child,
+            current,
+            namespace if current is not namespace else None,
+        )
         raise
-    finally:
-        failures = CleanupFailures(primary)
-        failures.run(lambda: os.close(namespace_fd), ordinary=(OSError,))
-        result = failures.complete()
-        if result is not None:
-            raise result
 
 
 def _lock_entry_is_unsafe(directory: DirectoryCapability, base: str) -> bool:

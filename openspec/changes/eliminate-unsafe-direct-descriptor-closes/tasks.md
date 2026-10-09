@@ -136,26 +136,26 @@ Within every phase work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 
 ### RED
 
-- [ ] 5.1 Add `_open_relative_dir()` fd-ledger tests for successful traversal and missing-without-create; account for every open, transfer, return, and close, and verify the current implementation lacks the required explicit terminal ownership evidence.
-- [ ] 5.2 Add `_open_relative_dir()` tests for open, stat, mkdir, fchmod, and validation failures; require every still-owned fd to receive one release attempt under existing `BuildCacheError` mapping, and verify any unmet ledger case fails before migration.
-- [ ] 5.3 Add `_open_relative_dir()` parent-close failure tests proving the terminal parent is not retried, the already-open child receives one release attempt, no child is returned, and close interruption remains authoritative; verify the ownership contract fails before migration where applicable.
-- [ ] 5.4 Add tests targeting `docker.versioning.build_cache._bootstrap_constructor_project_lock_parent()` for unsafe child validation plus ordinary close failure; require the exact `BuildTransactionError` rejection to remain primary, close to remain secondary, and one child release attempt, and verify current masking behavior fails.
-- [ ] 5.5 Add parent-close failure tests targeting `docker.versioning.build_cache._bootstrap_constructor_project_lock_parent()` proving the parent is terminal before close, the opened child is tracked and released once, the parent is not retried, independent namespace cleanup still runs, and interruption remains authoritative; verify current leak/retry behavior fails.
-- [ ] 5.6 Add passing characterization tests against `_open_relative_dir()` and `_bootstrap_constructor_project_lock_parent()` in `docker/versioning/build_cache.py`, pinning validation order, owner/mode rules, missing-component creation, labels, path derivation, and public error text before production edits.
+- [x] 5.1 Add `_open_relative_dir()` fd-ledger tests for successful traversal and missing-without-create; account for every open, transfer, return, and close, and verify the current implementation lacks the required explicit terminal ownership evidence.
+- [x] 5.2 Add `_open_relative_dir()` tests for open, stat, mkdir, fchmod, and validation failures; require every still-owned fd to receive one release attempt under existing `BuildCacheError` mapping, and verify any unmet ledger case fails before migration.
+- [x] 5.3 Add `_open_relative_dir()` parent-close failure tests proving the terminal parent is not retried, the already-open child receives one release attempt, no child is returned, and close interruption remains authoritative; verify the ownership contract fails before migration where applicable.
+- [x] 5.4 Add tests targeting `docker.versioning.build_cache._bootstrap_constructor_project_lock_parent()` for unsafe child validation plus ordinary close failure; require the exact `BuildTransactionError` rejection to remain primary, close to remain secondary, and one child release attempt, and verify current masking behavior fails.
+- [x] 5.5 Add parent-close failure tests targeting `docker.versioning.build_cache._bootstrap_constructor_project_lock_parent()` proving the parent is terminal before close, the opened child is tracked and released once, the parent is not retried, independent namespace cleanup still runs, and interruption remains authoritative; verify current leak/retry behavior fails.
+- [x] 5.6 Add passing characterization tests against `_open_relative_dir()` and `_bootstrap_constructor_project_lock_parent()` in `docker/versioning/build_cache.py`, pinning validation order, owner/mode rules, missing-component creation, labels, path derivation, and public error text before production edits.
 
 ### GREEN
 
-- [ ] 5.7 Compare the characterized `_open_relative_dir()` contract with `DirectoryDescriptor` factories/child methods in an executable decision test; require direct capability use where all semantics match and an `OwnedDescriptor` ledger where any pre-transfer or policy contract differs.
-- [ ] 5.8 Refactor `_open_relative_dir()` according to task 5.7 so each child is capability- or owner-tracked before parent release, each parent is terminal before handoff close, and build-cache path/missing/mode/error policy remains local; verify tasks 5.1–5.3 pass.
-- [ ] 5.9 Refactor `docker/versioning/build_cache.py::_bootstrap_constructor_project_lock_parent()` so validation rejection remains primary, child ownership is established before parent release, and namespace/parent/child cleanup follows the shared lifecycle without retry; verify tasks 5.4 and 5.5 pass.
+- [x] 5.7 Compare the characterized `_open_relative_dir()` contract with `DirectoryDescriptor` factories/child methods in an executable decision test; require direct capability use where all semantics match and an `OwnedDescriptor` ledger where any pre-transfer or policy contract differs.
+- [x] 5.8 Refactor `_open_relative_dir()` according to task 5.7 so each child is capability- or owner-tracked before parent release, each parent is terminal before handoff close, and build-cache path/missing/mode/error policy remains local; verify tasks 5.1–5.3 pass.
+- [x] 5.9 Refactor `docker/versioning/build_cache.py::_bootstrap_constructor_project_lock_parent()` so validation rejection remains primary, child ownership is established before parent release, and namespace/parent/child cleanup follows the shared lifecycle without retry; verify tasks 5.4 and 5.5 pass.
 
 ### INTROSPECT
 
-- [ ] 5.10 Add AST and fd-ledger assertions proving migrated handoffs contain no second generic secure walker or bespoke reusable release state, every remaining direct close is a classified principal handoff operation, and build-cache recursion, path derivation, lock policy, and domain errors remain outside `docker.filesystem`; verify all assertions pass.
+- [x] 5.10 Add AST and fd-ledger assertions proving migrated handoffs contain no second generic secure walker or bespoke reusable release state, every remaining direct close is a classified principal handoff operation, and build-cache recursion, path derivation, lock policy, and domain errors remain outside `docker.filesystem`; verify all assertions pass.
 
 ### VALIDATE
 
-- [ ] 5.11 Run the build-cache tests that directly exercise `docker/versioning/build_cache.py::_bootstrap_constructor_project_lock_parent()`, followed by build-lock, build-cache, artifact-materialization, project-state, cleanup, orchestration, and generation suites; require namespace identity, persistent layout, modes, locking, durability, publication, and public failure behavior to pass before Phase 6.
+- [x] 5.11 Run the build-cache tests that directly exercise `docker/versioning/build_cache.py::_bootstrap_constructor_project_lock_parent()`, followed by build-lock, build-cache, artifact-materialization, project-state, cleanup, orchestration, and generation suites; require namespace identity, persistent layout, modes, locking, durability, publication, and public failure behavior to pass before Phase 6.
 
 ## 6. Residual Production Close Migration
 

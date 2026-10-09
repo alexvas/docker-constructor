@@ -963,5 +963,139 @@ class BuildCacheStateConvergenceTests(unittest.TestCase):
                 self.assertEqual(str(inspect.signature(target)), expected)
 
 
+#: Phase 5 — the two build-cache directory-handoff functions.
+_PHASE5_FUNCTIONS = (
+    "_open_relative_dir",
+    "_bootstrap_constructor_project_lock_parent",
+)
+
+#: Phase 5 — signatures that must stay stable across the migration.
+_PHASE5_SIGNATURES = {
+    ("docker.versioning.build_cache", "_open_relative_dir"): (
+        "(namespace_fd: 'int', parts: 'tuple[str, ...]', *, "
+        "create: 'bool') -> 'int | None'"
+    ),
+    (
+        "docker.versioning.build_cache",
+        "_bootstrap_constructor_project_lock_parent",
+    ): (
+        "(constructor_project_root: 'str | Path', *, cache_root: 'str | Path | "
+        "None' = None) -> 'tuple[ProjectState, int]'"
+    ),
+}
+
+
+class Phase5HandoffConvergenceTests(unittest.TestCase):
+    """Task 5.10 — build-cache directory handoffs stay converged."""
+
+    def _function(self, name: str):
+        tree = _parse(_BUILD_CACHE)
+        aliases = _module_aliases(tree)
+        return tree, aliases, _find_function(tree, name)
+
+    def test_migrated_functions_construct_an_owned_descriptor(self) -> None:
+        for name in _PHASE5_FUNCTIONS:
+            with self.subTest(function=name):
+                _, _, function = self._function(name)
+                names = {
+                    node.id
+                    for node in ast.walk(function)
+                    if isinstance(node, ast.Name)
+                }
+                self.assertIn("OwnedDescriptor", names)
+                self.assertIn("PosixDescriptorOps", names)
+
+    def test_migrated_functions_have_no_unowned_close_call(self) -> None:
+        for name in _PHASE5_FUNCTIONS:
+            with self.subTest(function=name):
+                _, aliases, function = self._function(name)
+                self.assertEqual(_close_violations(function, aliases), [])
+
+    def test_no_raw_close_remains_in_handoffs(self) -> None:
+        # Every release is a shared-owner close, so no direct handoff close or
+        # unowned raw close target remains in either migrated function.
+        for name in _PHASE5_FUNCTIONS:
+            with self.subTest(function=name):
+                _, aliases, function = self._function(name)
+                self.assertEqual(_raw_close_targets(function, aliases), [])
+
+    def test_migrated_functions_have_no_bespoke_release_state(self) -> None:
+        for name in _PHASE5_FUNCTIONS:
+            with self.subTest(function=name):
+                _, _, function = self._function(name)
+                found = {
+                    node.id
+                    for node in ast.walk(function)
+                    if isinstance(node, ast.Name)
+                } | {
+                    node.attr
+                    for node in ast.walk(function)
+                    if isinstance(node, ast.Attribute)
+                }
+                self.assertEqual(found & _BESPOKE_RELEASE_NAMES, set())
+
+    def test_handoffs_do_not_introduce_directory_descriptor(self) -> None:
+        tree = _parse(_BUILD_CACHE)
+        aliases = _module_aliases(tree)
+        self.assertNotIn("DirectoryDescriptor", aliases)
+        for name in _PHASE5_FUNCTIONS:
+            with self.subTest(function=name):
+                _, _, function = self._function(name)
+                names = {
+                    node.id
+                    for node in ast.walk(function)
+                    if isinstance(node, ast.Name)
+                }
+                self.assertNotIn("DirectoryDescriptor", names)
+
+    def test_bootstrap_is_not_a_second_generic_secure_walker(self) -> None:
+        _, _, function = self._function(
+            "_bootstrap_constructor_project_lock_parent"
+        )
+        # A generic walker would expose configuration (owner/creation policy)
+        # as parameters and define a reusable inner walk.  The domain bootstrap
+        # keeps its policy local and defines no nested walker.
+        argument_names = {
+            arg.arg for arg in function.args.args + function.args.kwonlyargs
+        }
+        self.assertEqual(
+            argument_names, {"constructor_project_root", "cache_root"}
+        )
+        nested = [
+            node
+            for node in ast.walk(function)
+            if node is not function
+            and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        ]
+        self.assertEqual(nested, [])
+
+    def test_build_domain_errors_remain_local(self) -> None:
+        # Path derivation and domain mapping stay in build_cache rather than
+        # moving into the domain-neutral foundation.
+        _, _, relative = self._function("_open_relative_dir")
+        relative_names = {
+            node.id for node in ast.walk(relative) if isinstance(node, ast.Name)
+        }
+        self.assertIn("BuildCacheError", relative_names)
+        _, _, bootstrap = self._function(
+            "_bootstrap_constructor_project_lock_parent"
+        )
+        bootstrap_names = {
+            node.id for node in ast.walk(bootstrap) if isinstance(node, ast.Name)
+        }
+        self.assertIn("BuildTransactionError", bootstrap_names)
+
+    def test_public_interfaces_are_signature_stable(self) -> None:
+        import importlib
+        import inspect
+
+        for (module_name, qualname), expected in _PHASE5_SIGNATURES.items():
+            with self.subTest(interface=f"{module_name}.{qualname}"):
+                target = importlib.import_module(module_name)
+                for part in qualname.split("."):
+                    target = getattr(target, part)
+                self.assertEqual(str(inspect.signature(target)), expected)
+
+
 if __name__ == "__main__":
     unittest.main()
