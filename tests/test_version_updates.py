@@ -5,6 +5,7 @@ Uses fake providers (not real network) via injected transports.
 from __future__ import annotations
 
 import json
+import pathlib
 import unittest
 
 from docker.versioning.model import (
@@ -58,17 +59,20 @@ from docker.versioning.model import (
     Stages,
 )
 from docker.versioning.constraints import parse_constraint
+from docker.versioning.inventory import load_inventory, load_inventory_raw
 from docker.versioning.providers.base import (
     ProviderContext,
     ProviderResult,
     UpdateProvider,
 )
+from docker.versioning.providers.npm import NpmProvider
 from docker.versioning.updates import (
     build_update_targets,
     check_updates,
     render_table,
     render_json,
     render_suggestions_json,
+    render_replacement_fragments,
     Scope,
 )
 from tests.versioning.support.fake_http import FakeHttpTransport, FailingHttpTransport
@@ -650,3 +654,73 @@ class TestTableRendering(unittest.TestCase):
         table = render_table(results)
         self.assertIn("test.path", table)
         self.assertIn("2.0.0", table)
+
+
+class TestPiReleaseNpmDiscovery(unittest.TestCase):
+    """The canonical Pi target discovers versions through its npm package
+    identity while retaining its dedicated ``pi-release`` installation
+    metadata in generated replacement fragments."""
+
+    def setUp(self) -> None:
+        self.http = FakeHttpTransport()
+        self.git = FakeGitTransport()
+        self.root = pathlib.Path(__file__).resolve().parents[1]
+        self.inventory_path = self.root / "docker-constructor.toml"
+
+    def _ctx(self) -> ProviderContext:
+        return ProviderContext(
+            http=self.http, git=self.git,
+            include_prerelease=False, tokens={},
+        )
+
+    def test_pi_target_is_outdated_and_fragment_retains_release_metadata(
+        self,
+    ) -> None:
+        inventory = load_inventory(self.inventory_path)
+        pi = inventory.stages.pi_tools.pi
+        self.assertEqual("pi-release", pi.source.type)
+        current = pi.version
+        package = pi.source.package
+
+        # Candidate strictly newer than the canonical current version.
+        core = current.split("-", 1)[0].split("+", 1)[0].split(".")
+        core[-1] = str(int(core[-1]) + 1)
+        candidate = ".".join(core)
+
+        from urllib.parse import quote
+        encoded = quote(package, safe="")
+        self.http.set(
+            "GET",
+            f"https://registry.npmjs.org/{encoded}",
+            status=200,
+            body=json.dumps({
+                "versions": {
+                    current: {"version": current},
+                    candidate: {"version": candidate},
+                },
+                "time": {candidate: "2026-01-02T03:04:05Z"},
+            }).encode(),
+        )
+
+        targets = build_update_targets(inventory)
+        results = check_updates(
+            inventory,
+            providers={"npm": NpmProvider()},
+            context=self._ctx(),
+            only=("build.stages.pi-tools.pi",),
+        )
+        self.assertEqual(1, len(results))
+        result = results[0]
+        self.assertEqual("build.stages.pi-tools.pi", result.path)
+        self.assertEqual(UpdateStatus.OUTDATED, result.status)
+        self.assertTrue(result.applicable)
+        self.assertEqual(candidate, result.candidate)
+        self.assertEqual("2026-01-02T03:04:05Z", result.published_at)
+
+        raw = load_inventory_raw(self.inventory_path)
+        fragments = render_replacement_fragments(raw, targets, results)
+        self.assertIn('type = "pi-release"', fragments)
+        self.assertIn('release_repository = "earendil-works/pi"', fragments)
+        self.assertIn('release_tag_prefix = "v"', fragments)
+        self.assertIn(f'version = "{candidate}"', fragments)
+        self.assertIn(f'package = "{package}"', fragments)

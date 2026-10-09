@@ -6,8 +6,10 @@ import json
 import unittest
 
 from docker.versioning.model import (
+    GitHubReleaseSource,
     NpmSource,
     NpmUpdate,
+    PiReleaseSource,
     UpdateTarget,
     UpdateKind,
 )
@@ -155,6 +157,82 @@ class TestNpmProvider(unittest.TestCase):
         url = self.http.requests[0][1]
         self.assertIn("%40", url)
         self.assertIn("%2F", url)
+
+    def _pi_target(
+        self,
+        version="1.2.3",
+        package="@earendil-works/pi-coding-agent",
+        stable_only=True,
+    ) -> UpdateTarget:
+        return UpdateTarget(
+            path="build.stages.pi-tools.pi",
+            current=version,
+            source=PiReleaseSource(
+                package=package,
+                release_repository="earendil-works/pi",
+                release_tag_prefix="v",
+            ),
+            update=NpmUpdate(stable_only=stable_only),
+            artifacts={},
+        )
+
+    def test_pi_release_source_queries_encoded_package_and_yields_candidate(
+        self,
+    ) -> None:
+        """A dedicated PiReleaseSource uses its npm package identity."""
+        self._set_versions("@earendil-works/pi-coding-agent", {
+            "1.2.3": {"version": "1.2.3"},
+            "1.3.0": {"version": "1.3.0"},
+        })
+        result = self.provider.discover(self._pi_target(), self._ctx())
+        self.assertIsNone(result.skipped_reason)
+        self.assertIsNone(result.unavailable_reason)
+        self.assertIsNotNone(result.candidate)
+        self.assertEqual("1.3.0", result.candidate.value)
+        url = self.http.requests[0][1]
+        self.assertIn("%40", url)
+        self.assertIn("%2F", url)
+
+    def test_pi_release_source_honors_stable_filter_and_publication_time(
+        self,
+    ) -> None:
+        """Pi follows ordinary npm stable filtering and publication time."""
+        import json as _json
+        from urllib.parse import quote
+        pkg = "@earendil-works/pi-coding-agent"
+        encoded = quote(pkg, safe="")
+        self.http.set(
+            "GET", f"https://registry.npmjs.org/{encoded}",
+            status=200,
+            body=_json.dumps({
+                "versions": {
+                    "1.2.3": {"version": "1.2.3"},
+                    "1.3.0-beta.1": {"version": "1.3.0-beta.1"},
+                },
+                "time": {"1.2.3": "2025-03-01T00:00:00Z"},
+            }).encode(),
+        )
+        result = self.provider.discover(
+            self._pi_target(stable_only=True), self._ctx()
+        )
+        self.assertIsNotNone(result.candidate)
+        self.assertEqual("1.2.3", result.candidate.value)
+        self.assertEqual("2025-03-01T00:00:00Z", result.candidate.published_at)
+
+    def test_unrelated_source_returns_skipped_diagnostic(self) -> None:
+        """Non-npm-discoverable source types keep the skipped diagnostic."""
+        target = UpdateTarget(
+            path="build.stages.rtk-prebuilt.rtk",
+            current="1.0.0",
+            source=GitHubReleaseSource(repository="rtk-ai/rtk", tag="v1.0.0"),
+            update=NpmUpdate(stable_only=True),
+            artifacts={},
+        )
+        result = self.provider.discover(target, self._ctx())
+        self.assertIsNotNone(result.skipped_reason)
+        self.assertIn("expected npm source", result.skipped_reason)
+        self.assertIn("GitHubReleaseSource", result.skipped_reason)
+        self.assertEqual(self.http.requests, [])
 
     def test_network_error(self):
         """Unexpected transport failure produces UNAVAILABLE."""

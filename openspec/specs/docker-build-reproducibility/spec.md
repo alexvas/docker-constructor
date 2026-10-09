@@ -279,7 +279,7 @@ Dependencies between these modules SHALL remain acyclic. Domain modules SHALL NO
 - **AND** the module dependency graph SHALL remain acyclic
 
 ### Requirement: Discover dependency updates explicitly
-The version helper SHALL provide an explicit best-effort `check-updates` operation, including the dedicated `uv-python` provider for uv-managed CPython. Normal builds, launches, validation, and runtime setup SHALL NOT invoke update-provider APIs. Text-mode reporting and interactive progress SHALL conform to the `update-check-reporting` capability rather than printing a serialized Python data structure. Discovery, applicability, suggestions, structured results, and exit policy remain owned by this capability.
+The version helper SHALL provide an explicit best-effort `check-updates` operation, including the dedicated `uv-python` provider for uv-managed CPython. The reviewed Pi entry SHALL use its npm package identity for version discovery while retaining its dedicated Pi release source metadata for authoritative installation assets. Normal builds, launches, validation, and runtime setup SHALL NOT invoke update-provider APIs. Text-mode reporting and interactive progress SHALL conform to the `update-check-reporting` capability rather than printing a serialized Python data structure. Discovery, applicability, suggestions, structured results, and exit policy remain owned by this capability.
 
 #### Scenario: Checking for stable updates
 - **WHEN** `./docker/docker-constructor.py check-updates` runs
@@ -287,6 +287,12 @@ The version helper SHALL provide an explicit best-effort `check-updates` operati
 - **AND** SHALL report current, outdated, skipped, unavailable, or incomplete status per dependency
 - **AND** its text output SHALL summarize result statuses and present every dependency according to the selected compact or detailed report defined by `update-check-reporting`
 - **AND** default execution SHALL not fail solely because an update exists or a provider is unavailable
+
+#### Scenario: Discovering a Pi update through npm metadata
+- **WHEN** the reviewed Pi entry has a dedicated Pi release source, an npm package identity, and an npm update provider
+- **AND** npm registry metadata contains a newer stable package version
+- **THEN** `check-updates` SHALL report that Pi version as an outdated candidate rather than skipping it for source-type incompatibility
+- **AND** SHALL retain the reviewed Pi release repository and tag-prefix metadata used for authoritative installation assets and replacement suggestions
 
 #### Scenario: Requesting detailed diagnostic output
 - **WHEN** `./docker/docker-constructor.py check-updates --details` runs in text mode

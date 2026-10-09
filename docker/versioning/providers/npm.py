@@ -13,6 +13,7 @@ from ..model import (
     CandidateArtifact,
     NpmSource,
     NpmUpdate,
+    PiReleaseSource,
     UpdateCandidate,
     UpdateKind,
     UpdateTarget,
@@ -126,7 +127,12 @@ class NpmProvider:
         context: ProviderContext,
     ) -> ProviderResult:
         source = target.source
-        if not isinstance(source, NpmSource):
+        # Pi uses its npm package identity for version discovery while its
+        # dedicated PiReleaseSource retains the GitHub release metadata used
+        # for authoritative installation assets.  Only these two explicit
+        # npm-discoverable source models are admitted; every other source
+        # type keeps the existing source-type skipped diagnostic.
+        if not isinstance(source, (NpmSource, PiReleaseSource)):
             return ProviderResult(
                 skipped_reason=f"{target.path}: expected npm source, got {type(source).__name__}"
             )
