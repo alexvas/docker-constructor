@@ -2,188 +2,206 @@
 
 ## Binding execution contract
 
-This checklist is the binding implementation and acceptance contract for this change. Proposal, design and delta specs define its behavior and scope; no task authorizes weakening those requirements. Each checkbox is one independently verifiable action. A checked task MUST have its stated result and evidence; checking a box is not itself evidence.
+Proposal, design and delta specs define the revised supported-scheme and overlapping-secret contract. This checklist is binding: completion requires the stated behavior and evidence, not merely a checkbox. The phase DAG is `P1 → P1A → P2 → P3 → P4 → P5 → P6`, with RED → GREEN → INTROSPECT → VALIDATE in each phase and successful predecessor gates before dependent work.
 
-Every phase MUST proceed RED → GREEN → INTROSPECT → VALIDATE. RED establishes the phase's executable obligations and records the expected unmet behavior before implementation. An unrelated exception, collection error or environmental failure is not a valid expected RED. A pre-existing passing obligation MUST be recorded honestly, not deliberately broken. In the final acceptance phase, RED means outstanding acceptance obligations, not manufactured test failures.
+The user-approved revision supersedes arbitrary UNKNOWN hiding, secret rejection for Text/URL crossings or scheme suffixes, independent per-span secret filters and unrestricted retained-suffix batch equivalence. Prior evidence remains historical. Affected P1–P3 tasks are reopened below; P3 must not close before current prefix delivery, one raw owner, overlapping continuation and cumulative linear recognition work are implemented and revalidated. The unchanged one-off baseline task 1.2 remains complete; other revised obligations need current evidence.
 
-GREEN MUST satisfy the established obligations without deleting coverage, shrinking stress fixtures, silently excluding failing tests or suppressing warnings. INTROSPECT MUST inspect correctness, ownership, complexity, scope and documentation and resolve identified defects. VALIDATE MUST verify the phase and all predecessor deliverables. A phase is complete only when every checkbox, named deliverable and validation gate is satisfied. A failed gate blocks dependent phases; rework must be revalidated before proceeding.
+GREEN must not reduce fixtures, exclude failures, suppress warnings or delay secret commits to raw delimiters. Phase-local tests and documentation are mandatory. INTROSPECT must resolve ownership, correctness, complexity and scope findings before VALIDATE. A failed gate blocks dependent phases; reopen and revalidate defects in their owning phase.
 
-Evidence MUST live under `openspec/changes/linearize-diagnostic-url-detection/verification/`, separate from the planning artifacts, with phase-labelled records linking commands, full stdout/stderr logs, runner exit statuses and relevant profiles. Automated tests MUST NOT measure recognizer elapsed time or assert timing thresholds. Baseline and before/after timings are one-off implementation experiments, not recurring CI benchmarks. Python verification MUST use the project virtual environment and eight workers; complete-suite acceptance uses `.venv/bin/python -m pytest tests -n 8 --dist loadfile --tb=short -q`. Preserve the complete log and actual runner exit status for every run; every nonzero exit is unsuccessful verification.
+Store phase-labelled command outputs, full logs, actual exit statuses, reviews and one-off profiles in verification/, never in requirement text. Tests must not measure recognizer elapsed time. Python verification uses the project virtual environment and eight loadfile workers; full-suite acceptance requires `.venv/bin/python -m pytest tests -n 8 --dist loadfile --tb=short -q`, complete stdout/stderr, warnings and actual successful exit status. Applicable configured checks must also pass the final code state.
 
-## Phase dependency DAG
-
-```text
-P1 → P2 → P3 → P4 → P5 → P6
-```
-
-Direct prerequisites are stated below. Transitive prerequisites remain binding. No earlier phase depends on later work. Each phase lands its own tests and documentation; P6 adds no deferred feature tests. If later validation finds an earlier defect, reopen the owning phase, repair and revalidate it, then revalidate affected dependent phases without introducing a backwards dependency.
-
-## 1. P1 — Recognition result contract
+## 1. P1 — Revised recognition and projection contract
 
 **Depends on:** none.
-**Deliverables:** affected-path inventory; baseline evidence; immutable candidate/outcome model; closed whitelist; contract tests; API documentation; P1 validation record.
+**Deliverables:** revised caller inventory, baseline, internal models and fixed scheme policy, contract tests/API documentation, P1 validation record.
 
 ### RED
 
-- [x] 1.1 Deliver the caller inventory covering detection, unresolved holding, EOF, structured projection, metadata and collector/fetch routes; verify each old integer-contract dependency and possible UNKNOWN fact bypass has an identified owner.
-- [x] 1.2 Capture the one-off baseline experiment outside tests/CI; verify the evidence records medians for 1/2/4/8/16 KiB uninterrupted and separated runs, per-mode capture profiles, existing oversized-tail timings, environment, commands, full logs and statuses without changing fixtures.
-- [x] 1.3 Add outcome/model contract tests; verify they express NO_MATCH/MATCH/NEED_MORE separately from KNOWN/UNKNOWN, raw coordinates, exclusive ends, end=None and every case-insensitive whitelist entry.
-- [x] 1.4 Record the pre-implementation P1 test run; verify failures are attributable to missing contract behavior and separately identify any already-passing obligations.
+- [ ] 1.1 Reconcile the caller inventory for normal/EOF/structured projection, secret registration, collector/fetch facts and grouping; deliver ownership of every changed detection, marker and metadata dependency.
+- [x] 1.2 Capture the one-off baseline experiment outside tests/CI; verify evidence records 1/2/4/8/16 KiB medians, capture profiles, oversized-tail timings, environment, commands, full logs and statuses without fixture changes.
+- [ ] 1.3 Revise contract tests for supported-only detection, raw inclusive starts/exclusive ends, end=None, ambiguous prefixes, embedded starts and unknown text; record which previous obligations are intentionally superseded.
+- [ ] 1.4 Record revised P1 RED results and unchanged passing obligations; verify failures map to the agreed contract rather than infrastructure.
 
 ### GREEN
 
-- [x] 1.5 Implement the immutable candidate and closed outcome model; verify P1 model assertions pass without introducing a public SDK or persistence contract.
-- [x] 1.6 Implement the fixed case-insensitive scheme whitelist; verify all listed schemes and non-whitelist variants classify as specified without changing shared transport or lock validation.
+- [ ] 1.5 Revise immutable internal outcomes/models for supported URLs and source secret coverage; verify tests do not make detection prove validity or introduce a public/persisted DTO.
+- [ ] 1.6 Define the exact case-insensitive scheme set and detection-versus-interpretation depth; verify all listed schemes and unknown variants without changing transport/lock acceptance.
 
 ### INTROSPECT
 
-- [x] 1.7 Document candidate validity, offset conversion, outcome ownership and classification semantics at the internal API; verify the documentation matches P1 tests and does not conflate incomplete separator and incomplete URL.
-- [x] 1.8 Review the P1 diff for scope and contract consistency; deliver a review record showing findings resolved or a blocking gate if they remain.
+- [ ] 1.7 Document raw coordinates, outcome validity, supported consumption boundaries and marker/fact separation; verify API documentation agrees with the revised tests.
+- [ ] 1.8 Review the revised P1 diff and historical evidence applicability; deliver resolved findings or a blocking gate without reusing obsolete UNKNOWN-hiding results.
 
 ### VALIDATE
 
-- [x] 1.9 Run P1 contract tests and affected pre-existing tests; verify zero runner exit status and deliver a P1 validation record linking full logs and every P1 deliverable.
+- [ ] 1.9 Run P1 and affected existing tests with successful statuses; deliver the revised P1 gate linking full logs and each deliverable.
 
-## 2. P2 — Compact raw recognition
+## 1A. P1A — Standalone Aho–Corasick streaming core
 
-**Depends on:** P1.
-**Deliverables:** bounded percent transducers and structural observers; raw provenance; depth-four detection coverage; deterministic compatibility/complexity tests; algorithm documentation; P2 validation record.
+**Depends on:** successful revised P1 gate.
+**Deliverables:** internal dependency-free trie with failure/output links, immutable registered patterns, independent stream cursors, deterministic counters, unit tests, API/complexity documentation and P1A validation record. This phase implements the generic matching core only; percent-decoding, URL semantics, secret selection and projector integration remain in P2/P3. Keep existing P1–P6 numbering and historical evidence labels unchanged.
 
 ### RED
 
-- [x] 2.1 Add raw recognition tests for literal separators, negative `:/`/`npm:` forms, arbitrary UNKNOWN lengths, raw end boundaries and earliest-source selection; verify assertions target P1 outcomes and source coordinates.
-- [x] 2.2 Add encoded recognition tests for depths zero through four, mixed depths, hex case, separately encoded escape characters and malformed/incomplete escapes; verify tests preserve three-pass-plus-encoded-separator detection semantics without granting a fourth interpretation pass.
-- [x] 2.3 Add a bounded deterministic differential corpus against the legacy detector; verify expected comparisons cover overlapping units, multibyte prefixes and earlier encoded versus later literal starts, excluding only explicitly intentional metadata differences.
-- [x] 2.4 Add deterministic work/state regression checks; verify they assert bounded structural work without elapsed-time measurements, input-sized search maps or encoded-variant enumeration.
-- [x] 2.5 Record the pre-implementation P2 test run; verify each expected failure maps to a missing raw-recognition obligation rather than unrelated infrastructure failure.
+- [ ] 1A.1 Define core contract tests for empty pattern sets, registered non-empty patterns, duplicates, prefix/suffix patterns, overlapping and simultaneous matches, Unicode Python-character coordinates and independent streams sharing one compiled trie; verify expected source spans without introducing a public SDK API.
+- [ ] 1A.2 Add one-feed/every-split/single-character continuation tests plus deterministic transition/failure/output-link counters and state ownership checks; verify chunk boundaries require neither overlap text nor retained payload.
+- [ ] 1A.3 Add a bounded differential corpus against a simple literal-match oracle and adversarial suffix-heavy patterns; verify every match exactly once, shared compilation stability, output-sensitive work and live cursor state independent of stream length without timing assertions.
+- [ ] 1A.4 Record P1A RED with full logs and actual statuses; map failures to missing core behavior and record already-passing obligations honestly.
 
 ### GREEN
 
-- [x] 2.6 Implement bounded incremental percent transducers with raw source-range provenance; verify encoded and malformed-escape unit tests pass with bounded pending state and no full decoded search buffers.
-- [x] 2.7 Implement structural observers and equivalent-state dominance; verify conservative scheme grammar, overlapping encoded units and earliest raw selection pass the P2 corpus.
-- [x] 2.8 Implement selected-candidate raw boundary detection and bounded scheme classification; verify exact source extents and arbitrary UNKNOWN lengths without repeated backwards or suffix scans.
+- [ ] 1A.5 Implement the internal trie builder and breadth-first failure/output-link construction without a new runtime dependency; verify registration tests and storage bounded by configured patterns, avoiding copied transitive output lists that multiply registration storage.
+- [ ] 1A.6 Implement a per-symbol streaming cursor over immutable compiled state, reporting pattern identities and exclusive match ends in Python-character coordinates; verify overlapping outputs, independent cursors and no retained source string, chunk replay or input-sized history.
+- [ ] 1A.7 Implement cumulative counters for input transitions, failure traversals and emitted-match/output-link work, with explicit cursor reset semantics that preserve lifetime totals; verify search work is O(N + matches) and reset cannot hide work.
 
 ### INTROSPECT
 
-- [x] 2.9 Document the fixed-depth transition/state bound and detection-versus-interpretation depth distinction; verify the argument covers encoded branching and preserves classification distinctions when states merge.
-- [x] 2.10 Audit P2 allocation and fallback paths; deliver evidence that no input-sized decoded search copies, variant tables, legacy regex fallback or performance-only scheme limit remains.
+- [ ] 1A.8 Document registration versus live-state ownership, Unicode/coordinate semantics, cursor continuation/reset, output ordering and O(N + matches) search bounds; verify examples and deterministic tests match the API without claiming this core resolves URL/secret coordination.
+- [ ] 1A.9 Audit construction/search allocations, output-link handling and failure paths; deliver resolved findings for immutable shared registration, payload-free cursors, pattern-dependent storage and cumulative work, with no production regex/library fallback.
 
 ### VALIDATE
 
-- [x] 2.11 Run P1/P2 tests and the affected pre-existing detection tests; verify zero exit status and deliver the P2 validation record with compatibility corpus and deterministic complexity results.
+- [ ] 1A.10 Run P1/P1A and applicable configured checks in the project environment with required eight-worker Python verification; preserve full logs/statuses and deliver a successful P1A gate before P2 integration. Historical recognition evidence does not substitute for this new gate.
 
-## 3. P3 — Incremental tail retention and finalization
+## 2. P2 — Compact supported-scheme and secret recognition
 
-**Depends on:** P2.
-**Deliverables:** projector state continuation; exact bounded raw tail; incremental buffer/byte accounting; EOF/abort/overflow recovery; partition-invariance tests; continuation documentation; P3 validation record.
+**Depends on:** successful revised P1 and new P1A gates.
+**Deliverables:** bounded percent transducers, fixed scheme automaton, literal/URL-decoded secret automata, overlap provenance, deterministic work/state tests and P2 review/validation.
 
 ### RED
 
-- [ ] 3.1 Add partial-separator continuation tests for scheme-colon, scheme-colon-slash and scheme-percent suffixes; verify retention starts at the earliest viable scheme/escape position and suspicious isolated characters do not cause unjustified retention.
-- [ ] 3.2 Add detected-but-unterminated and ordering tests; verify MATCH with end=None differs from NEED_MORE and completed candidates preceding an ambiguous suffix are consumed once in source order.
-- [ ] 3.3 Add chunk-partition tests using one feed, each split and single-byte feeds; verify expected final text and ordered metadata are invariant under existing overflow rules.
-- [ ] 3.4 Add secret-overlap, clean-EOF, abort and overflow/recovery tests; verify ordinary words, incomplete markers, byte limits and discarded suffix behavior have explicit expectations.
-- [ ] 3.5 Add deterministic incremental work/buffer tests; verify they detect restarts over growing tails and repeated copying/re-encoding without measuring elapsed time.
-- [ ] 3.6 Record the pre-implementation P3 test run; verify failures correspond to missing continuation, finalization or accounting behavior.
+- [ ] 2.1 Add raw scheme tests for literal separators, negative single-slash/npm forms, unknown text, embedded starts, earliest supported selection and raw terminators; verify exact outcomes/coordinates.
+- [ ] 2.2 Add mixed/nested depth-zero-through-four separator tests, malformed/incomplete escapes and encoded scheme validity checks; verify no fourth interpretation or secret-decoding pass.
+- [ ] 2.3 Revise the bounded differential corpus for intentional supported-only changes; add literal secret selection, scheme-prefix suffix overlap and secrets crossing raw terminators with explicit expected coverage.
+- [ ] 2.4 Add deterministic state/work and raw-provenance assertions for scheme/secret automata; verify fixed registration-dependent bounds without input-sized search maps, variant tables or timing.
+- [ ] 2.5 Record revised P2 RED with each failure mapped to scheme, decoder, secret selection, decoded scope or overlap obligations and honestly record already-passing cases.
 
 ### GREEN
 
-- [ ] 3.7 Integrate persistent recognizer state and exact tail ownership into projector draining; verify continuation consumes only new input with no reread, fixed overlap or duplicate candidate emissions.
-- [ ] 3.8 Implement incremental retained-buffer and byte-limit accounting; verify P3 work/buffer assertions pass without repeatedly processing the whole growing tail.
-- [ ] 3.9 Integrate existing secret holding with URL retention and offset conversion; verify earliest required retention and safe-prefix commitment pass secret-overlap tests.
-- [ ] 3.10 Implement clean-EOF and abort transitions for the new outcomes; verify ordinary-word preservation and existing complete/incomplete candidate finalization assertions pass.
-- [ ] 3.11 Implement overflow discard and recognizer-state reset at recovery; verify one existing oversized marker, no leaked suffix and correct processing after the raw boundary.
+- [ ] 2.6 Implement/reuse bounded percent transducers and provenance for supported recognition; verify raw and encoded tests without decoded search payload copies.
+- [ ] 2.7 Integrate the validated P1A core with fixed-scheme prefix/separator transitions and registered literal secret matching, retaining overlapping starts; implement selection/coverage outside the generic core and verify embedded schemes, leftmost/longest selection and no secret rejection for crossings/suffixes.
+- [ ] 2.8 Implement secret matching inside recognized URL views through three decoding passes and preserve continuation states across covered secret ranges; verify literal-only ordinary text and no suffix replay or duplicate coverage.
 
 ### INTROSPECT
 
-- [ ] 3.12 Document continuation, ownership, coordinate conversion and finalization transitions; verify documented 8 KiB retention is not presented as an assumed input read size.
-- [ ] 3.13 Audit incremental recognition and buffer paths for amortized bounded work and duplicate processing; deliver a review record with all findings resolved before the P3 gate.
+- [ ] 2.9 Document transition/state bounds at fixed depth, scheme set and registered secrets, including output-sensitive work and raw provenance; verify registration storage is distinguished from stream history.
+- [ ] 2.10 Audit P2 allocation, speculation, fallback and decoding scope; deliver findings proving no duplicate raw tail, decoded search buffer, input-sized search map, variant enumeration or regex fallback.
 
 ### VALIDATE
 
-- [ ] 3.14 Run P1–P3 tests and affected existing projection/lifecycle tests; verify zero exit status and deliver the P3 record covering partition invariance, byte bounds, EOF/abort and recovery.
+- [ ] 2.11 Run revised P1/P1A/P2 and affected existing detection/secret tests; deliver successful logs and P2 corpus/work/state evidence before P3 integration.
 
-## 4. P4 — Known/unknown projection and metadata
+## 3. P3 — Replay-free coordinated continuation and tail ownership
 
-**Depends on:** P3.
-**Deliverables:** classification-gated diagnostic interpretation; UNKNOWN metadata omission on every projection route; preserved KNOWN validation/identity; projection tests and documentation; P4 validation record.
+**Depends on:** successful revised P2 gate.
+**Deliverables:** persistent overlap coordinator, one projector-owned payload, exact bounded retention, current prefix delivery, cumulative counters, EOF/abort/overflow behavior and P3 validation.
 
 ### RED
 
-- [ ] 4.1 Add UNKNOWN projection tests for normal boundaries, structured diagnostics and clean EOF; verify hidden source and empty hostname, host/path and fingerprint facts are asserted on every inventoried route.
-- [ ] 4.2 Add KNOWN validation and identity tests; verify malformed authority, unsafe path, secret-bearing host, encoded forms and identity order/multiplicity retain existing permitted behavior.
-- [ ] 4.3 Add interpretation-depth and UNKNOWN parser-bypass checks; verify a depth-four detection match does not authorize deeper URL interpretation and UNKNOWN is not parsed merely to decide hiding.
-- [ ] 4.4 Record the pre-implementation P4 test run; verify expected failures concern the agreed metadata-policy change rather than accidental detection regressions.
+- [ ] 3.1 Add partial supported-scheme/percent/separator and secret-overlap retention tests; verify exact earliest required source suffix and prompt independent prefix delivery.
+- [ ] 3.2 Add detected-but-unterminated and source-order tests, including TOKENht/https overlap, multiple completed candidates and commits immediately before/after raw terminators; verify no lost/duplicate outputs or facts.
+- [ ] 3.3 Add one-feed/every-split/single-byte partition tests for literals, encoded prefixes, secrets and crossings at both Text/URL boundaries; verify final text and ordered facts under existing limits.
+- [ ] 3.4 Add feed-by-feed early redacted URL and host-path authority/path commitment tests followed by clean EOF, abort, token overflow and line overflow, plus unchanged partial-separator rules, immediate secret commits and cross-boundary coverage; verify irreversible output, exact markers and no leaked suffix.
+- [ ] 3.5 Add lifetime work/state/ownership regressions across repeated supported commits and resets; count all recognizer instances/speculation and assert linear input-doubling growth, not merely feed work within one instance.
+- [ ] 3.6 Record revised P3 RED for replay, ownership, commitment and recovery defects; distinguish historical successful feed-only checks from the currently missing cumulative guarantees.
 
 ### GREEN
 
-- [ ] 4.5 Gate ordinary diagnostic candidate interpretation on classification; verify UNKNOWN hiding and KNOWN validation tests pass with existing redaction/path markers.
-- [ ] 4.6 Apply the same classification gate to structured and clean-EOF metadata paths; verify P4 route coverage proves no UNKNOWN fact bypass remains.
-- [ ] 4.7 Preserve existing known URL canonicalization and interpretation depth; verify known fingerprint/host-path assertions and depth-bound checks pass without globally narrowing shared hostname helpers.
+- [ ] 3.7 Integrate persistent URL/secret coverage and continuation states into projector draining; remove recognizer `_tail` and consumption replay and projector retained-suffix resets; verify current prefix delivery and every existing projector commit remain supported without replay.
+- [ ] 3.8 Preserve incremental retained-buffer/byte accounting and add stream-lifetime recognition counters that survive resets; verify one raw owner and bounded storage/copying/encoding work.
+- [ ] 3.9 Integrate literal secret precedence, overlapping decoded URL coverage and absolute-to-buffer coordinate conversion; verify TOKENht continuations and cross-terminator secrets without delayed commitment or reconstructed payload.
+- [ ] 3.10 Implement clean EOF/abort and irreversible early rendering for coordinated outcomes; verify one early redacted marker, settled host/path components, incomplete markers only on unresolved uncommitted display remainders, unchanged partial-separator rules and single percent-state finalization.
+- [ ] 3.11 Implement bounded overflow recovery preserving secret coverage and committed output without replay; verify no duplicate marker for covered redacted URLs, one marker only for an uncovered remainder, unchanged line-overflow behavior and no leaked suffix.
 
 ### INTROSPECT
 
-- [ ] 4.8 Document UNKNOWN metadata omission and KNOWN validity requirements at affected projection APIs; verify examples agree with tests and authoritative local exact-mode behavior.
-- [ ] 4.9 Reconcile the P1 caller inventory against implemented gates; deliver a route-by-route review showing all bypass findings resolved and the §7.1 UNKNOWN successful-fetch fact/grouping obligations verified, with the fetch grammar and shared hostname/transport validation unchanged.
+- [ ] 3.12 Document recognition, rendering and metadata frontiers, ownership and early-output EOF/abort/overflow exceptions; verify component/secret settlement and that 8 KiB remains a whole-pending byte limit, not a read-size assumption.
+- [ ] 3.13 Correct the P3 audit against actual cumulative results; resolve suffix replay, duplicate payload and obsolete unrestricted batch-equivalence claims before closing the gate.
 
 ### VALIDATE
 
-- [ ] 4.10 Run P1–P4 tests and affected existing metadata/identity tests; verify zero exit status and deliver the P4 record identifying only intentional UNKNOWN compatibility differences.
+- [ ] 3.14 Run revised P1–P3 including P1A, affected projection/lifecycle tests, the mandated full suite and configured checks; preserve full logs/statuses and close P3 only when ownership, delivery and cumulative-work guarantees agree.
+
+## 4. P4 — Policy-specific rendering and secret-aware facts
+
+**Depends on:** successful revised P3 gate.
+**Deliverables:** policy markers, validated fact gates on all routes, metadata/identity coverage, documentation and P4 validation.
+
+### RED
+
+- [ ] 4.1 Add unknown-text tests for delimiter/EOF/structured routes plus TOKENhttps secret-prefix cases; verify unknown text stays text and no facts arise by deleting/replacing secrets and reparsing.
+- [ ] 4.2 Add policy tests for credential secrets, secret-bearing hosts/paths, malformed supported URLs and encoded secrets; verify early irreversible redacted hiding, separate settled host/path delivery, `<redacted-host>`, `/<redacted-path>`, delayed validated facts and unchanged exact source.
+- [ ] 4.3 Add three-pass decoded-secret scope and fact assertions: credential-only permits otherwise safe facts, host secret suppresses hostname/fingerprint, path secret suppresses fingerprint but permits a safe hostname.
+- [ ] 4.4 Record P4 RED for marker, route and metadata obligations, distinguishing agreed compatibility changes from accidental recognition failures.
+
+### GREEN
+
+- [ ] 4.5 Implement normal projection markers and distinct masked display products; verify markers are not normalized-host facts and standalone literal secrets render `<secret>`.
+- [ ] 4.6 Apply supported/secret coverage gates to normal, EOF and structured metadata; verify no transformed-source or unknown-fact bypass.
+- [ ] 4.7 Preserve eligible known URL canonicalization, explicit ports, fingerprint order/multiplicity and session isolation; verify no fingerprints from secret-bearing host/path or attached secret prefixes.
+
+### INTROSPECT
+
+- [ ] 4.8 Document policy rendering versus validated metadata, decoded-secret scope and the unchanged exact exception; verify examples match executable assertions.
+- [ ] 4.9 Reconcile every inventoried metadata/fetch route; verify unknown RFC-valid successful-fetch URLs still match fetch grammar without URL-derived facts/grouping fields and shared validation is unchanged.
+
+### VALIDATE
+
+- [ ] 4.10 Run revised P1–P4 and affected identity/metadata tests; deliver successful full logs and a compatibility record for the agreed policy changes.
 
 ## 5. P5 — Consumer channels and grouping
 
-**Depends on:** P4.
-**Deliverables:** integrated collector/retained-tail behavior; mode-independent safe SDK events; compatible grouping; user-facing policy documentation; P5 validation record.
+**Depends on:** successful P4 gate.
+**Deliverables:** collector channel isolation, SDK supported-URL contract, selected retained rendering/grouping, docs and P5 validation.
 
 ### RED
 
-- [ ] 5.1 Add collector/tail channel tests for all local modes with and without SDK delivery; verify UNKNOWN omission, exact source preservation including secrets, terminal neutralization and one selected retained representation are asserted.
-- [ ] 5.2 Add host grouping tests for otherwise identical UNKNOWN diagnostics and distinct validated KNOWN identities; verify line and interactive repeat/numeric grouping expectations are explicit.
-- [ ] 5.3 Add collector/fetch route regression coverage; verify known successful-fetch behavior remains intact, an UNKNOWN RFC-valid successful-fetch URL contributes no host/path/fingerprint facts and does not influence `host-path` grouping, and no side path produces UNKNOWN facts while the fetch grammar still recognizes such URLs.
-- [ ] 5.4 Record the pre-implementation P5 test run; verify already-passing integrations are recorded honestly and any expected missing behavior is identified precisely.
+- [ ] 5.1 Add all-mode collector/tail tests with/without SDK delivery; verify exact source/secrets, supported URL hiding, unknown text, secret host/path markers and exactly one selected retained representation.
+- [ ] 5.2 Add ordinary/fetch grouping tests for unknown rendered text, eligible fingerprints and suppressed secret-bearing host/path identities; verify line/interactive rules explicitly.
+- [ ] 5.3 Add fetch side-path regressions for supported, unknown and secret-bearing URLs; verify unchanged parser grammar and consistent permitted facts/rendered group keys.
+- [ ] 5.4 Record P5 RED and honestly record already-passing channel isolation; map missing behavior to the revised policy rather than old UNKNOWN omission assumptions.
 
 ### GREEN
 
-- [ ] 5.5 Integrate outcome/classification behavior into affected collector channels; verify P5 channel assertions pass without adding a retained representation or changing execution semantics.
-- [ ] 5.6 Align grouping and any affected collector side paths with UNKNOWN metadata omission; verify grouping and fetch regression assertions pass without weakening known identity distinctions.
+- [ ] 5.5 Integrate coordinated projection into collector channels without another retained tail; verify early redacted SDK output independent of selected local mode, unchanged exact local delivery, the unknown-text exception and no retraction in selected tails.
+- [ ] 5.6 Align grouping and fetch display paths with masked rendering/fact gates; verify no hidden-host identity leak and unchanged eligible known identity distinctions.
 
 ### INTROSPECT
 
-- [ ] 5.7 Update applicable user-facing diagnostic policy documentation; verify whitelist, UNKNOWN hiding/grouping and unchanged exact/SDK policies match executable examples.
-- [ ] 5.8 Review channel isolation and scope across the P5 diff; deliver findings confirming no new configuration, persistence, assembly identity, argv, timeout or shutdown-budget changes.
+- [ ] 5.7 Update user-facing scheme, secret-marker, host/path-marker and SDK policy documentation; verify examples and local exact behavior against tests.
+- [ ] 5.8 Review channel isolation and scope; deliver findings confirming unchanged configuration options, persistence, assembly identity, argv, deadlines and shutdown budgets.
 
 ### VALIDATE
 
-- [ ] 5.9 Run P1–P5 tests and affected existing collector/presentation acceptance tests; verify zero exit status and deliver the P5 record linking channel, grouping and documentation deliverables.
+- [ ] 5.9 Run revised P1–P5 and affected collector/presentation acceptance tests; deliver successful full logs and evidence linking channel/grouping/docs obligations.
 
 ## 6. P6 — Final acceptance
 
-**Depends on:** P5.
-**Deliverables:** requirement-to-test/evidence matrix; one-off before/after performance evidence; complete-suite and project-check records; final scope review; explicit acceptance decision.
+**Depends on:** successful P5 gate.
+**Deliverables:** revised requirement-to-evidence matrix, one-off comparison, final full-suite/check logs, scope review and acceptance decision.
 
 ### RED
 
-- [ ] 6.1 Deliver the acceptance matrix mapping every delta requirement/scenario and phase deliverable to existing tests or evidence; verify uncovered or unverified obligations are explicitly recorded as outstanding without manufacturing failures.
-- [ ] 6.2 Discover the project's applicable configured lint/type checks; verify the acceptance record lists exact commands or a justified absence, without inventing checks or deferring earlier feature coverage.
+- [ ] 6.1 Map every revised requirement/scenario and phase deliverable to actual tests/evidence; record outstanding obligations without manufacturing failures or claiming old gates prove changed behavior.
+- [ ] 6.2 Discover applicable configured lint/type checks; record exact commands or justified absence without inventing checks or deferring earlier coverage.
 
 ### GREEN
 
-- [ ] 6.3 Perform the one-off before/after recognition/capture experiment outside tests and CI; deliver baseline-compatible medians, profiles and allocation/work evidence confirming hotspot removal with unchanged stress fixtures, reporting single-feed and chunked results separately.
-- [ ] 6.4 Run the complete mandated eight-worker loadfile pytest command; verify zero runner exit status and preserve the full stdout/stderr log, warnings and summary without exclusions.
-- [ ] 6.5 Run the applicable configured lint/type checks; verify each exit status is zero and preserve complete outputs, or retain the verified absence recorded in 6.2.
+- [ ] 6.3 Perform one-off before/after recognition/capture experiments outside CI; deliver baseline-compatible single-feed/chunked medians, profiles and allocation/work evidence with unchanged stress fixtures.
+- [ ] 6.4 Run the complete mandated eight-worker loadfile pytest command; preserve full stdout/stderr, warnings, summary and actual zero runner status without exclusions.
+- [ ] 6.5 Run applicable configured checks; preserve full outputs and successful statuses, or retain the verified absence in 6.2.
 
 ### INTROSPECT
 
-- [ ] 6.6 Inspect the final implementation diff against the binding scope; deliver a review confirming unchanged stress inputs, scheduler, AGENTS.md, shutdown budget and unrelated execution semantics, with implementation-time spec edits limited to task completion boxes.
-- [ ] 6.7 Reconcile final evidence with the acceptance matrix; verify every obligation has an actual result and all findings are resolved, without claiming whole-pipeline linearity from recognizer-only evidence.
+- [ ] 6.6 Review final implementation scope; verify unchanged stress inputs, scheduler, AGENTS.md, shutdown budgets and unrelated execution semantics, with apply-time spec edits limited to completion boxes.
+- [ ] 6.7 Reconcile final acceptance evidence, cumulative work and raw ownership against the matrix; verify all findings resolved without claiming whole-pipeline linearity.
 
 ### VALIDATE
 
-- [ ] 6.8 Revalidate affected checks after any final review fix; verify the full suite and applicable project checks reflect the final code state with preserved logs and successful statuses.
-- [ ] 6.9 Deliver the final acceptance decision; verify P1–P6 gates and deliverables are all satisfied before marking implementation complete, otherwise explicitly report blocked acceptance and the outstanding obligations.
+- [ ] 6.8 Revalidate affected checks after final fixes; verify full-suite and applicable check logs reflect the final code state and successful statuses.
+- [ ] 6.9 Deliver final acceptance only after revised P1–P6 and added P1A gates pass; otherwise report blocked acceptance and outstanding obligations, keeping P3 reopened if its guarantees remain unverified.
 
 ## Workflow follow-up
 
-- Review the planning artifacts before starting implementation.
-- Review implementation and acceptance evidence before explicitly requesting sync/archive.
-- Sync/archive delta specs only through the requested OpenSpec workflow; these steps are outside tracked implementation completion.
+- Review planning revisions and historical evidence before resuming apply.
+- Sync/archive only on separate explicit request after successful acceptance.

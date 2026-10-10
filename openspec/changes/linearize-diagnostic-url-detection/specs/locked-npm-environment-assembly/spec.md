@@ -2,8 +2,8 @@
 
 ## ADDED Requirements
 
-### Requirement: Classify diagnostic URL candidates without interpreting unknown schemes
-Diagnostic projection SHALL classify schemes case-insensitively as known or unknown. Known schemes SHALL be exactly `http`, `https`, `ftp`, `ftps`, `ssh`, `git`, `git+ssh`, `git+http`, `git+https`, `file`, `ws`, `wss`, `socks`, `socks4`, `socks4a`, `socks5`, and `socks5h`. Unknown candidates SHALL be hidden without hostname, host/path or fingerprint derivation in safe channels. Known candidates SHALL still require existing safe URL validation.
+### Requirement: Recognize only supported diagnostic URL schemes
+Diagnostic projection SHALL detect only the case-insensitive schemes `http`, `https`, `ftp`, `ftps`, `ssh`, `git`, `git+ssh`, `git+http`, `git+https`, `file`, `ws`, `wss`, `socks`, `socks4`, `socks4a`, `socks5`, and `socks5h` followed by supported `://` spellings. It SHALL select the earliest supported start, including within longer text. Unknown schemes SHALL remain text without URL facts. Detection SHALL NOT prove URL validity.
 
 #### Scenario: Known scheme is not proof of validity
 - **WHEN** diagnostics contain an uppercase known scheme, a valid known URL, and a malformed known URL such as `https://[broken`
@@ -11,24 +11,29 @@ Diagnostic projection SHALL classify schemes case-insensitively as known or unkn
 - **AND** metadata SHALL be emitted only where existing URL validation permits it
 - **AND** malformed candidates SHALL not be emitted as source text in safe channels
 
-#### Scenario: Unknown URL remains hidden without metadata
-- **WHEN** a diagnostic contains `custom+transport://user:password@internal.example/private?token=value#fragment` followed by a safe boundary, or terminates cleanly after that complete candidate
-- **THEN** safe live text, safe retained tails and external SDK events SHALL hide the candidate
-- **AND** the candidate SHALL contribute no hostname, host/path or fingerprint
-- **AND** local `exact` SHALL preserve source content subject to existing framing, terminal neutralization and bounds
+#### Scenario: Unknown scheme remains ordinary text
+- **WHEN** a diagnostic contains `custom+transport://user:password@internal.example/private?token=value#fragment` with no supported embedded URL start
+- **THEN** local safe projection and SDK text SHALL preserve it as ordinary text subject to literal secret replacement, terminal safety and bounds
+- **AND** it SHALL contribute no hostname, host/path or fingerprint, including at clean EOF
+- **AND** URL-specific decoded secret matching SHALL NOT apply to it
 
-#### Scenario: Unknown identity does not distinguish otherwise equal diagnostics
-- **WHEN** two ordinary safe diagnostics differ only in their unknown-scheme URLs and have identical remaining presentation identities and text
-- **THEN** unknown URL metadata SHALL NOT distinguish their groups
-- **AND** existing repeat and numeric-update rules SHALL apply to the remaining identity and text
+#### Scenario: Supported scheme begins inside longer text
+- **WHEN** the source contains `TOKENhttps://host/public`
+- **THEN** URL recognition SHALL start at `https` rather than classify `TOKENhttps` as an unknown candidate
+- **AND** secret processing SHALL independently determine coverage and metadata eligibility
+
+#### Scenario: Unknown source differences remain text identity
+- **WHEN** ordinary diagnostics differ in unknown-scheme text with no supported embedded URL start
+- **THEN** no URL metadata SHALL be generated from that text
+- **AND** grouping SHALL use the resulting rendered text and existing event identity rather than assume unknown URLs were hidden
 
 ### Requirement: Detect encoded diagnostic URL boundaries conservatively
-Diagnostic projection SHALL preserve recognition of arbitrary scheme candidates followed by literal or encoded `://`, including effective separator encoding depth four under the existing three-pass-plus-encoded-separator rules. Mixed depth, hex case and encoded escape characters SHALL remain supported. Earliest source selection, raw boundaries and unfinished-candidate bounds SHALL be preserved; conservative encoded scheme units SHALL remain candidates for hiding.
+Diagnostic projection SHALL recognize supported schemes with literal or encoded `://`, including effective separator depth four under the existing three-pass-plus-encoded-separator rules. Mixed depth, hex case and separately encoded escapes SHALL remain supported with exact raw provenance. Detection SHALL NOT authorize a fourth whole-URL interpretation pass. Candidate ends SHALL use raw terminators, not virtual decoded boundaries.
 
 #### Scenario: Earlier encoded candidate precedes a literal candidate
-- **WHEN** a nested-encoded unknown URL precedes a literal known URL in the same diagnostic
-- **THEN** both SHALL be hidden in safe channels in source order
-- **AND** only the validated known URL SHALL contribute metadata
+- **WHEN** a nested-encoded supported URL precedes a literal supported URL in the same diagnostic
+- **THEN** both SHALL be projected in source order under the selected policy
+- **AND** each SHALL contribute metadata only where validation and secret-coverage rules permit
 - **AND** decoding SHALL not exceed the existing layer limit
 
 #### Scenario: Encoded known scheme uses the same presentation policy
@@ -50,19 +55,20 @@ Diagnostic projection SHALL preserve recognition of arbitrary scheme candidates 
 - **WHEN** a scheme, a percent escape or the `://` separator spans input chunks, including single-byte chunks
 - **THEN** safe projection SHALL retain ambiguous content rather than emit candidate fragments
 - **AND** completion SHALL produce the same safe result and metadata as unsplit input
-- **AND** overflow, abort and EOF SHALL preserve existing bounded finalization and recovery rules
+- **AND** overflow, abort and EOF SHALL preserve bounds and raw recovery while respecting irreversible URL/component commitments
 
 #### Scenario: Single slash does not complete the separator
 - **WHEN** a diagnostic contains `note:/section` or `npm:package` and a safe token boundary
 - **THEN** those forms SHALL NOT be classified as complete separator-based URL candidates
 - **AND** independent secret and terminal-control processing SHALL still apply
 
-#### Scenario: Ambiguous encoded scheme remains hidden
-- **WHEN** a scheme-like prefix includes valid `%XX` units whose decoded values are not valid scheme characters but the conservative candidate grammar recognizes a following separator
-- **THEN** safe projection SHALL hide the candidate without interpreting it as a known URL
+#### Scenario: Unsupported encoded scheme remains text
+- **WHEN** encoded scheme units do not form a supported scheme within permitted interpretation depth and expose no other supported start
+- **THEN** projection SHALL treat them as ordinary text rather than arbitrary-scheme URL candidates
+- **AND** encoded spaces inside a supported URL SHALL NOT shorten its raw hidden extent
 
 ### Requirement: Continue ambiguous diagnostic candidates across input boundaries
-Diagnostic projection SHALL retain the exact unresolved raw suffix from its earliest viable start and bounded recognition state across input feeds. It SHALL consume new input without rescanning the growing suffix or rereading committed text. Retention SHALL obey the existing 8 KiB limit and secret-overlap rules. Completion SHALL preserve source order without duplicate output or metadata; clean EOF, abort and overflow SHALL retain existing finalization behavior.
+Diagnostic projection SHALL retain the exact earliest unresolved URL/secret suffix under the existing 8 KiB limit. Feeds, prefix/secret commits and recovery resets SHALL preserve required overlapping recognition states without suffix replay or duplicate payload ownership. Independently safe prefixes SHALL remain promptly eligible for delivery; secret commits SHALL NOT be deferred to URL terminators. Completion SHALL preserve source order without duplicate output or metadata.
 
 #### Scenario: Separator prefix ends a feed
 - **WHEN** a feed ends with `https:`, `https:/` or `https%` and subsequent input can complete the candidate
@@ -88,7 +94,7 @@ Diagnostic projection SHALL retain the exact unresolved raw suffix from its earl
 - **AND** candidate recognition SHALL NOT restart over retained input on each feed
 
 ### Requirement: Avoid quadratic diagnostic candidate scanning
-At fixed encoding depth, candidate detection and boundary selection SHALL require amortized linear work across raw input feeds, including long tokens and single-byte feeds. Search-specific state SHALL remain bounded independently of input length, without whole decoded search buffers or enumerated encoding variants. Diagnostic draining SHALL retain existing memory bounds and SHALL NOT shorten accepted schemes merely for performance.
+At fixed encoding depth, scheme set and registered secret set, recognition and boundary selection SHALL require amortized linear cumulative work across feeds, commits and resets, including one-byte feeds. Live search state SHALL be independent of stream length, without decoded search buffers, input-sized search maps, encoding-variant tables or a duplicate raw tail. Registration storage may depend on configured patterns. Existing memory bounds SHALL remain binding.
 
 #### Scenario: Long uninterrupted non-URL diagnostic
 - **WHEN** diagnostic processing receives increasingly long runs of scheme characters without `://`
@@ -97,8 +103,132 @@ At fixed encoding depth, candidate detection and boundary selection SHALL requir
 
 #### Scenario: Long candidate recovers after overflow
 - **WHEN** a candidate exceeds pending limits and is followed by a boundary and another diagnostic
-- **THEN** draining SHALL remain bounded and emit the existing overflow marker
+- **THEN** draining SHALL remain bounded, preserving already-committed URL/component output and marking only an uncovered unresolved remainder
 - **AND** processing SHALL recover at the boundary without leaking discarded content
+
+#### Scenario: Cumulative work includes commits and resets
+- **WHEN** increasingly long input is processed with repeated supported prefix/secret commits and overflow recovery resets
+- **THEN** deterministic work accounting SHALL include every recognition instance, continuation, speculative transition and finalization
+- **AND** doubling input at fixed scheme, encoding and secret configuration SHALL show amortized linear cumulative recognition work without timing assertions
+- **AND** consumption or reset SHALL NOT replay an already-fed retained suffix
+
+#### Scenario: Retained raw text has one owner
+- **WHEN** unresolved source remains pending across feeds and commits
+- **THEN** only the projector retention buffer SHALL own that raw payload
+- **AND** recognition SHALL retain only bounded pending units, states and coordinates, never a duplicate raw suffix or committed payload tail
+
+### Requirement: Preserve secret recognition across URL boundaries
+Literal configured secret matching SHALL continue across Text/URL boundaries and raw terminators. Secrets SHALL NOT be rejected solely for spaces, boundary crossings or full/partial scheme suffixes. In safe text projection complete secrets SHALL become `<secret>`, not disappear. URL continuation states overlapping secrets SHALL survive commits without replay or copied suffixes. Existing secret selection and marker ordering SHALL remain except the agreed secret marker.
+
+#### Scenario: Secret overlaps a supported scheme prefix
+- **WHEN** secret `TOKENht` occurs in `bla-bla-blaTOKENhttps://host`
+- **THEN** the secret SHALL be covered and the overlapping `https://host` continuation SHALL remain recognized without refeeding `ht`
+- **AND** neither covered secret characters nor the supported URL suffix SHALL leak in redacted projection
+- **AND** all chunk partitions SHALL yield the same final output and facts
+
+#### Scenario: Secret crosses the end of a URL
+- **WHEN** secret `password done` occurs in `https://host/password done`
+- **THEN** secret recognition SHALL continue through the space ending the raw URL
+- **AND** the covered suffix ` done` SHALL NOT be emitted as ordinary text
+- **AND** secret registration SHALL NOT reject the pattern for containing a terminator
+
+#### Scenario: Secret is inside a URL authority
+- **WHEN** secret `hostsomething` occurs in `https://hostsomething`
+- **THEN** both URL and secret coverage SHALL be retained through finalization
+- **AND** host-path rendering SHALL use `<redacted-host>` and emit no normalized-host fact or fingerprint
+
+#### Scenario: Secret commitment is not delayed to a URL terminator
+- **WHEN** a complete secret can be committed under existing streaming rules while a supported URL continuation remains unresolved
+- **THEN** its safe replacement SHALL remain promptly eligible for delivery without waiting for the URL terminator
+- **AND** required overlapping continuation state SHALL survive without restoring source text or increasing the existing pending byte limit
+
+#### Scenario: Standalone secret replacement preserves surrounding text
+- **WHEN** secret `TOKEN` occurs in ordinary source `before TOKEN after`
+- **THEN** redacted and host-path text SHALL be `before <secret> after`
+- **AND** exact local text SHALL remain `before TOKEN after`
+
+### Requirement: Match decoded secrets only inside supported URLs
+Within recognized supported URLs, safe projection SHALL match configured secrets in literal content and through at most three percent-decoding passes, with raw-source coverage. Ordinary text SHALL retain literal-only secret matching. Detection depth four SHALL NOT extend secret decoding or URL interpretation depth. Overlapping decoded matches SHALL NOT cause duplicate replacement or expose secret components.
+
+#### Scenario: Encoded secret in a URL path
+- **WHEN** secret `TOKEN` occurs as `https://host/%54%4f%4b%45%4e/private`
+- **THEN** host-path rendering SHALL be `host/<redacted-path>` and redacted rendering SHALL be `<redacted>`
+- **AND** a safe normalized-host fact may remain but no URL fingerprint SHALL be derived
+
+#### Scenario: Encoded text is not a supported URL
+- **WHEN** ordinary text contains `%54%4f%4b%45%4e` and configured secret `TOKEN` but no supported URL
+- **THEN** URL-specific decoded secret matching SHALL NOT replace that encoded text
+
+#### Scenario: Decoding depth does not grow at finalization
+- **WHEN** secret spelling requires four percent-decoding passes inside a candidate detected using a depth-four separator
+- **THEN** secret matching and URL interpretation SHALL NOT perform a fourth pass at EOF or on a structured route
+
+### Requirement: Render secret-aware diagnostic URL components
+Redacted projection SHALL hide each supported URL as `<redacted>` regardless of secrets. Host-path SHALL omit scheme, credentials, port, query and fragment; a secret-bearing host SHALL render as `<redacted-host>`, and an unsafe or secret-bearing path as `/<redacted-path>`. Independently safe components may remain visible. Exact local source SHALL remain unchanged except existing terminal safety and bounds.
+
+#### Scenario: Credential secret permits safe host and path
+- **WHEN** secret `TOKEN` occurs in `https://user:TOKEN@host/public`
+- **THEN** host-path rendering SHALL be `host/public` and redacted rendering SHALL be `<redacted>`
+- **AND** otherwise validated host/path and fingerprint facts SHALL remain permitted
+
+#### Scenario: Host secret preserves only independently safe path
+- **WHEN** secret `TOKEN` occurs in `https://TOKEN.example/public`
+- **THEN** host-path rendering SHALL be `<redacted-host>/public`
+- **AND** if its path is also unsafe or secret-bearing, rendering SHALL instead use `<redacted-host>/<redacted-path>`
+
+#### Scenario: Path secret replaces the whole displayed path
+- **WHEN** secret `TOKEN` occurs in `https://host/TOKEN/private`
+- **THEN** host-path rendering SHALL be `host/<redacted-path>` rather than deleting a segment or substituting `<secret>` inside the path
+
+### Requirement: Commit recognized URL projection irreversibly
+On detecting a supported scheme and full `://`, redacted projection SHALL immediately emit one `<redacted>` and suppress the raw URL remainder through its terminator. Later EOF, abort or token overflow SHALL NOT replace or duplicate that marker. Host-path SHALL commit independently validated, secret-settled components as their boundaries resolve, without retraction. Before full separator detection, previous ambiguous-prefix finalization rules SHALL apply. Early output SHALL NOT grant metadata.
+
+#### Scenario: Redacted URL begins before authority is complete
+- **WHEN** redacted projection receives `https://ho` as a feed
+- **THEN** that feed SHALL return `<redacted>` without waiting for another character or URL validation
+- **AND** a subsequent feed `st/public done` SHALL suppress `st/public` and resume text at the raw terminator
+- **AND** clean EOF or abort instead of that continuation SHALL add no incomplete marker for the already-covered URL
+
+#### Scenario: Overflow cannot duplicate a committed redacted URL
+- **WHEN** a redacted URL already emitted `<redacted>` and its bounded token/metadata processing overflows
+- **THEN** the URL remainder SHALL remain suppressed until the raw recovery boundary
+- **AND** no oversized-token marker or invalid partial URL facts SHALL be emitted for that already-covered URL
+- **AND** the separate diagnostic-line overflow marker SHALL retain its existing behavior
+
+#### Scenario: Host and path commit separately
+- **WHEN** host-path projection receives `https://host/pa` with a settled secret-free authority
+- **THEN** validated host `host` SHALL be eligible for immediate delivery while the path remains pending
+- **AND** a later feed `th?query` SHALL make the safe canonical path `/path` eligible for delivery without waiting for a raw terminator of the omitted query
+- **AND** late userinfo, IPv6, port or possible secret overlap SHALL be resolved before authority commitment
+
+#### Scenario: Failure after host commitment preserves host output
+- **WHEN** host-path projection has committed a host but its display path remains unresolved at abort or token overflow
+- **THEN** the host SHALL NOT be retracted or emitted again
+- **AND** only the uncommitted display remainder SHALL receive the existing incomplete or oversized token marker once
+- **AND** if all display components are committed and only omitted query/fragment remains, no additional token marker SHALL be emitted
+
+#### Scenario: Partial separator still follows previous finalization
+- **WHEN** a feed ends with `https:/` without completing the separator
+- **THEN** projection SHALL NOT emit an early URL marker
+- **AND** EOF, abort and pending overflow SHALL use the existing unresolved-prefix rules and markers
+
+### Requirement: Separate rendering markers from validated URL facts
+Normalized-host facts SHALL require an independently validated secret-free host. Secret-bearing hosts SHALL yield no normalized-host fact or URL fingerprint. Secret-bearing paths SHALL yield no fingerprint but may retain a safe hostname fact. Rendering markers SHALL NOT serve as validated identities. URL facts SHALL NOT derive from deleting/replacing a secret and reparsing the remainder, including an adjacent secret prefix attached to a URL-looking suffix.
+
+#### Scenario: Masked host has no metadata identity
+- **WHEN** host-path text uses `<redacted-host>` for a supported URL
+- **THEN** neither that marker nor the original secret-bearing host SHALL enter normalized-host facts or URL-fingerprint identity
+- **AND** hidden host differences SHALL NOT distinguish groups through those facts
+
+#### Scenario: Secret prefix must not manufacture a valid URL
+- **WHEN** secret `TOKEN` occurs in `TOKENhttps://host/public`
+- **THEN** replacement SHALL retain the `<secret>` prefix rather than join away its source coverage
+- **AND** the attached URL-looking suffix SHALL yield no hostname, host/path or fingerprint facts
+- **AND** supported URL coverage SHALL still be hidden in redacted projection
+
+#### Scenario: Facts from unrelated URLs remain available
+- **WHEN** a diagnostic contains a secret-bearing URL and a separate validated secret-free supported URL
+- **THEN** omission of facts from the first SHALL NOT suppress permitted facts from the second
 
 ## MODIFIED Requirements
 
@@ -121,11 +251,11 @@ Numeric matching SHALL examine the entire maximal numeric-looking sequence and S
 
 The decoded stream SHALL undergo one bounded decoding, streaming line-accounting, and terminal-control-neutralization pipeline. While an unterminated diagnostic remains within its line bound, the collector SHALL emit committed terminal-safe prefixes promptly without waiting for newline. The resolved immutable policy SHALL feed exactly one byte-bounded per-stream retained tail with the original ordering and occurrences of the selected representation without grouping: URL-free sanitized text for `redacted`, safely rendered normalized hostname/path text for `host-path`, or terminal-safe source text for `exact`. Existing tail byte limits and truncation semantics SHALL remain unchanged. In `redacted` and `host-path`, terminal-safe source content SHALL NOT be retained. In `exact`, no projected-safe or host-path tail SHALL be retained.
 
-The safe projector SHALL perform secret redaction followed by boundary-safe URL sanitization, normalized-host extraction, safe host-path derivation, and ephemeral URL-identity derivation whenever required by the selected local mode or an external SDK event. Each complete, safely validated URL with a known scheme SHALL contribute an ordered fixed-width fingerprint produced by a cryptographic keyed digest with a fresh random presentation-session key. Fingerprint input SHALL remove userinfo, query, and fragment, exclude proxy information, and preserve scheme, normalized hostname, path, and any explicitly supplied port including an explicit default port. Fingerprint order and multiplicity SHALL be preserved. Pending sanitizer state for an ambiguous URL or secret candidate SHALL be capped at 8 KiB, and diagnostic-line accounting SHALL be capped at 64 KiB of decoded source text per unterminated line. The collector SHALL continue draining after either limit is reached. A candidate exceeding its limit SHALL emit only `[sanitized oversized token]` and discard its remaining content until a safe token boundary. When a diagnostic line first exceeds its limit, the collector SHALL append exactly one `[sanitized oversized diagnostic]` marker after any previously emitted committed safe prefix, SHALL NOT retract that prefix, and SHALL discard the remaining source content until newline or stream termination. A subsequent newline SHALL preserve the record boundary and resume normal processing; stream termination SHALL NOT add another overflow marker. No discarded suffix SHALL enter a live event or retained tail. At EOF, reader failure, or cancellation, an unresolved URL or secret candidate in projected processing SHALL emit only `[sanitized incomplete token]`, never ordinary candidate text, and any pending projected line SHALL be finalized only through the same bounded sanitizer.
+The safe projector SHALL coordinate supported-URL and secret coverage without deleting secrets to manufacture new URLs, then apply policy-specific projection and permitted facts whenever required by the selected local mode or an external SDK event. Each complete, safely validated supported URL eligible under secret-coverage rules SHALL contribute an ordered fixed-width fingerprint produced by a cryptographic keyed digest with a fresh random presentation-session key. Fingerprint input SHALL remove userinfo, query, and fragment, exclude proxy information, and preserve scheme, normalized hostname, path, and any explicitly supplied port including an explicit default port. Fingerprint order and multiplicity SHALL be preserved. Pending sanitizer state for an ambiguous URL or secret candidate SHALL be capped at 8 KiB, and diagnostic-line accounting SHALL be capped at 64 KiB of decoded source text per unterminated line. The collector SHALL continue draining after either limit is reached. A candidate exceeding its limit SHALL discard its remaining content until a safe token boundary. Before recognized URL output is committed it SHALL emit only `[sanitized oversized token]`; after commitment it SHALL preserve committed output and apply the early-projection requirement above, marking only an unresolved uncovered display remainder. When a diagnostic line first exceeds its limit, the collector SHALL append exactly one `[sanitized oversized diagnostic]` marker after any previously emitted committed safe prefix, SHALL NOT retract that prefix, and SHALL discard the remaining source content until newline or stream termination. A subsequent newline SHALL preserve the record boundary and resume normal processing; stream termination SHALL NOT add another overflow marker. No discarded suffix SHALL enter a live event or retained tail. At EOF, reader failure, or cancellation, an unresolved uncommitted URL or secret prefix in projected processing SHALL fail closed under the existing rules with `[sanitized incomplete token]`, never ordinary candidate text. Recognized URLs with irreversible committed output SHALL instead follow the early-projection requirement above; any pending projected line SHALL be finalized only through the same bounded sanitizer.
 
 Safe host-path facts MAY enter the selected internal live representation and `host-path` retained tail but SHALL NOT enter the external SDK DTO, verification or assembler evidence, or semantic identities. A projected-safe external SDK event SHALL be transient with respect to retained diagnostics: producing it SHALL NOT create or populate another retained tail. Session keys and fingerprints SHALL never enter rendered text, retained tails, failure reports, persistence, evidence, or policy identity and SHALL never permit cross-session correlation. Source content SHALL appear only in `exact` CLI text and text/JSON failure tails; it SHALL NOT enter external SDK events, verification evidence, assembler evidence, or semantic identities.
 
-A recognized successful npm HTTP fetch source line SHALL use the complete npm 11.16.0 grammar `npm http fetch <METHOD> <STATUS> <URL> <ASCII digits>ms [attempt #<ASCII digits>] [(cache <OUTCOME>)]`. The parser SHALL explicitly recognize and consume the `npm http fetch` prefix; no upstream prefix stripping SHALL be assumed. Its latency SHALL consist of one or more ASCII digits immediately followed by `ms`; the dedicated parser SHALL recognize this field independently of generic numeric-token boundary rules and SHALL reject other units as an unknown shape. Latency and optional attempt values SHALL contain at most 18 significant decimal digits (`MAX_NUMERIC_DIGITS = 18`) before integer conversion; leading zeros SHALL NOT count toward that limit, and a field with more than 18 significant digits SHALL remain an ordinary diagnostic. This deliberately generous presentation bound covers durations far beyond plausible npm execution (1,000 years in milliseconds requires 14 digits) while preventing pathological decimal conversion from untrusted output. A bare `<METHOD> ...` line, an unrelated or malformed prefix, and the distinct `npm http cache ...` form SHALL remain ordinary diagnostics. In `redacted` mode, consecutive recognized lines that differ only by URL and millisecond latency SHALL form one request-count group keyed by method, exact successful status, optional attempt number or its absence, and cache outcome. Its canonical text SHALL omit URL identity and latency and SHALL preserve `attempt #N` when present. In `host-path` mode, a complete URL SHALL render as normalized hostname plus terminal-safe path without scheme, userinfo, port, query, or fragment; consecutive recognized fetches SHALL share a request-count group only when method, exact status, optional attempt number or its absence, cache outcome, hostname, and safe path match while latency changes. Its canonical text SHALL omit latency and preserve `attempt #N` when present. Unsafe paths SHALL use `<redacted-path>`. For both modes, interactive presentation SHALL immediately show the first canonical line in one mutable slot and update it with ` — N requests` for the admitted total without waiting for another event; `lines` SHALL emit the first line immediately and the counted form at the existing one-second window or earlier boundary. Different group-key fields—including different attempt numbers or presence versus absence of an attempt—warnings, errors, retries, timeouts, malformed diagnostics, lifecycle events, and terminal events SHALL delimit a fetch group. Counts SHALL use `requests` without an `observed` qualifier.
+A recognized successful npm HTTP fetch source line SHALL use the complete npm 11.16.0 grammar `npm http fetch <METHOD> <STATUS> <URL> <ASCII digits>ms [attempt #<ASCII digits>] [(cache <OUTCOME>)]`. The parser SHALL explicitly recognize and consume the `npm http fetch` prefix; no upstream prefix stripping SHALL be assumed. Its latency SHALL consist of one or more ASCII digits immediately followed by `ms`; the dedicated parser SHALL recognize this field independently of generic numeric-token boundary rules and SHALL reject other units as an unknown shape. Latency and optional attempt values SHALL contain at most 18 significant decimal digits (`MAX_NUMERIC_DIGITS = 18`) before integer conversion; leading zeros SHALL NOT count toward that limit, and a field with more than 18 significant digits SHALL remain an ordinary diagnostic. This deliberately generous presentation bound covers durations far beyond plausible npm execution (1,000 years in milliseconds requires 14 digits) while preventing pathological decimal conversion from untrusted output. A bare `<METHOD> ...` line, an unrelated or malformed prefix, and the distinct `npm http cache ...` form SHALL remain ordinary diagnostics. In `redacted` mode, consecutive recognized lines that differ only by URL and millisecond latency SHALL form one request-count group keyed by method, exact successful status, optional attempt number or its absence, and cache outcome. Its canonical text SHALL omit URL identity and latency and SHALL preserve `attempt #N` when present. In `host-path` mode, a complete URL SHALL render as normalized hostname plus terminal-safe path without scheme, userinfo, port, query, or fragment; consecutive recognized fetches SHALL share a request-count group only when method, exact status, optional attempt number or its absence, cache outcome, hostname, and safe path match while latency changes. Its canonical text SHALL omit latency and preserve `attempt #N` when present. Unsafe or secret-bearing paths SHALL use `/<redacted-path>` and secret-bearing hosts SHALL use `<redacted-host>` under the same diagnostic projection rules. Unknown-scheme fetch URLs SHALL remain recognized by the fetch grammar but supply no URL-derived host/path/fingerprint grouping fields. For both modes, interactive presentation SHALL immediately show the first canonical line in one mutable slot and update it with ` — N requests` for the admitted total without waiting for another event; `lines` SHALL emit the first line immediately and the counted form at the existing one-second window or earlier boundary. Different group-key fields—including different attempt numbers or presence versus absence of an attempt—warnings, errors, retries, timeouts, malformed diagnostics, lifecycle events, and terminal events SHALL delimit a fetch group. Counts SHALL use `requests` without an `observed` qualifier.
 
 In `exact` mode, the constructor SHALL preserve complete source diagnostic content, including URL components, proxy details, credentials, and caller-provided secrets, as closely as decoding, line framing, and existing bounds allow. `exact` SHALL disable application content redaction, diagnostic aggregation, and numeric-variant replacement. In `redacted` and `host-path`, every prescribed transformation SHALL be mandatory. Because callers may select `exact`, application content redaction as a whole SHALL be treated as a user-selected noise/presentation facility rather than a security boundary. ANSI CSI/OSC/DCS sequences and terminal-affecting controls SHALL become inert visible text, and terminal-control neutralization and output bounds SHALL remain mandatory in every mode.
 
@@ -138,7 +268,7 @@ A step-terminal event SHALL be admitted only after stream readers finish safe sa
 Control-admission failure SHALL explicitly disable presentation and wake its actor without consuming another slot or changing the primary result. Renderer exceptions SHALL discard pending display state and disable output without retrying the failed stream while the actor can still complete. All presentation completion waits and joins SHALL share one five-second monotonic budget; repeated cleanup SHALL NOT restart it. If renderer I/O remains blocked, expiry SHALL cancel further presentation and allow execution/return to continue without an unbounded wait or synchronous CLI fallback. A daemon worker or an in-flight write MAY outlive this degraded boundary, but after unblocking no further renderer operation SHALL begin after cancellation is observed. Domain cleanup, timeout, SDK data, and retained capture guarantees SHALL remain independent of this presentation-only degradation.
 
 
-Diagnostic candidates SHALL follow the known/unknown scheme classification requirement below. Unknown-scheme candidates SHALL be hidden in projected-safe text and SHALL contribute no hostname, host/path, or URL fingerprint, including at clean EOF. Local `exact` source content SHALL remain unchanged by that classification.
+Diagnostic URL recognition and secret handling SHALL follow the added requirements above. Unknown schemes without a supported embedded start SHALL remain ordinary text subject to literal secret handling, without URL facts, including at clean EOF and on fetch routes. Throughout this requirement, URL hiding and URL-free guarantees apply to supported schemes, not unknown-scheme text. Original-source restrictions do not prohibit ordinary unknown-scheme text under this explicit exception. Local `exact` source behavior remains unchanged. Host-path rendering SHALL use `<redacted-host>` for secret-bearing hosts and `/<redacted-path>` for unsafe or secret-bearing paths; rendering markers SHALL NOT create normalized-host or fingerprint facts. No configured secret SHALL be rejected solely for text/URL crossings or scheme suffixes.
 
 #### Scenario: Presentation selector reaches collection
 - **WHEN** the facade resolves a valid `network_url_display` value and starts host materialization and Pi assembly
@@ -264,9 +394,11 @@ Diagnostic candidates SHALL follow the known/unknown scheme classification requi
 - **AND** existing retained-tail byte bounds and truncation behavior SHALL remain unchanged
 
 #### Scenario: Arbitrarily long URL has no terminating delimiter
-- **WHEN** an arbitrarily long URL-shaped candidate arrives across any number of chunks without a terminating delimiter
+- **WHEN** an arbitrarily long supported-scheme URL candidate arrives across any number of chunks without a terminating delimiter
 - **THEN** pending sanitizer state SHALL remain bounded at 8 KiB while input continues draining
-- **AND** the collector SHALL emit only `[sanitized oversized token]` for the candidate and discard its remaining content until a safe token boundary
+- **AND** redacted projection SHALL preserve its single early `<redacted>` without adding an oversized-token marker
+- **AND** host-path projection SHALL preserve committed components and mark only an unresolved display remainder once
+- **AND** the collector SHALL discard suppressed remaining content until a safe token boundary
 - **AND** processing SHALL recover after that boundary
 - **AND** no candidate fragment SHALL enter an external structured event or a `redacted` or `host-path` retained tail
 
@@ -282,7 +414,8 @@ Diagnostic candidates SHALL follow the known/unknown scheme classification requi
 
 #### Scenario: Stream terminates with an ambiguous sensitive prefix
 - **WHEN** EOF, reader failure, or cancellation occurs while an ambiguous URL, encoded URL, credential, or secret prefix or an unterminated diagnostic line is pending
-- **THEN** unresolved sensitive candidates SHALL be replaced only with `[sanitized incomplete token]` and SHALL NOT be flushed as ordinary text
+- **THEN** unresolved uncommitted sensitive prefixes SHALL follow the existing incomplete-token rules and SHALL NOT be flushed as ordinary text
+- **AND** already-covered redacted URLs SHALL retain only their early `<redacted>`; committed host-path components SHALL remain unchanged with markers only for an unresolved display remainder
 - **AND** any pending diagnostic line SHALL be finalized only through bounded secret redaction and URL sanitization
 - **AND** pending sanitizer and line-assembly state SHALL remain within their fixed limits
 - **AND** no complete or partial URL, credential, or secret SHALL enter an external structured event or a `redacted` or `host-path` retained tail
