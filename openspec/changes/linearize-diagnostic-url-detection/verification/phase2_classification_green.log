@@ -1,0 +1,10 @@
+=== phase2 bounded-classification regression GREEN run (post-fix: pre-slice length guard) ===
+command: .venv/bin/python -m pytest tests/test_diagnostic_recognizer_phase2.py::BoundedClassificationAllocationTests -n 8 --dist loadfile --tb=short -q
+
+bringing up nodes...
+bringing up nodes...
+
+...                                                                      [100%]
+3 passed in 0.67s
+
+classification green exit status: 0

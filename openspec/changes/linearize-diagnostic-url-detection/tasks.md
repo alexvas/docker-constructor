@@ -51,26 +51,26 @@ Direct prerequisites are stated below. Transitive prerequisites remain binding. 
 
 ### RED
 
-- [ ] 2.1 Add raw recognition tests for literal separators, negative `:/`/`npm:` forms, arbitrary UNKNOWN lengths, raw end boundaries and earliest-source selection; verify assertions target P1 outcomes and source coordinates.
-- [ ] 2.2 Add encoded recognition tests for depths zero through four, mixed depths, hex case, separately encoded escape characters and malformed/incomplete escapes; verify tests preserve three-pass-plus-encoded-separator detection semantics without granting a fourth interpretation pass.
-- [ ] 2.3 Add a bounded deterministic differential corpus against the legacy detector; verify expected comparisons cover overlapping units, multibyte prefixes and earlier encoded versus later literal starts, excluding only explicitly intentional metadata differences.
-- [ ] 2.4 Add deterministic work/state regression checks; verify they assert bounded structural work without elapsed-time measurements, input-sized search maps or encoded-variant enumeration.
-- [ ] 2.5 Record the pre-implementation P2 test run; verify each expected failure maps to a missing raw-recognition obligation rather than unrelated infrastructure failure.
+- [x] 2.1 Add raw recognition tests for literal separators, negative `:/`/`npm:` forms, arbitrary UNKNOWN lengths, raw end boundaries and earliest-source selection; verify assertions target P1 outcomes and source coordinates.
+- [x] 2.2 Add encoded recognition tests for depths zero through four, mixed depths, hex case, separately encoded escape characters and malformed/incomplete escapes; verify tests preserve three-pass-plus-encoded-separator detection semantics without granting a fourth interpretation pass.
+- [x] 2.3 Add a bounded deterministic differential corpus against the legacy detector; verify expected comparisons cover overlapping units, multibyte prefixes and earlier encoded versus later literal starts, excluding only explicitly intentional metadata differences.
+- [x] 2.4 Add deterministic work/state regression checks; verify they assert bounded structural work without elapsed-time measurements, input-sized search maps or encoded-variant enumeration.
+- [x] 2.5 Record the pre-implementation P2 test run; verify each expected failure maps to a missing raw-recognition obligation rather than unrelated infrastructure failure.
 
 ### GREEN
 
-- [ ] 2.6 Implement bounded incremental percent transducers with raw source-range provenance; verify encoded and malformed-escape unit tests pass with bounded pending state and no full decoded search buffers.
-- [ ] 2.7 Implement structural observers and equivalent-state dominance; verify conservative scheme grammar, overlapping encoded units and earliest raw selection pass the P2 corpus.
-- [ ] 2.8 Implement selected-candidate raw boundary detection and bounded scheme classification; verify exact source extents and arbitrary UNKNOWN lengths without repeated backwards or suffix scans.
+- [x] 2.6 Implement bounded incremental percent transducers with raw source-range provenance; verify encoded and malformed-escape unit tests pass with bounded pending state and no full decoded search buffers.
+- [x] 2.7 Implement structural observers and equivalent-state dominance; verify conservative scheme grammar, overlapping encoded units and earliest raw selection pass the P2 corpus.
+- [x] 2.8 Implement selected-candidate raw boundary detection and bounded scheme classification; verify exact source extents and arbitrary UNKNOWN lengths without repeated backwards or suffix scans.
 
 ### INTROSPECT
 
-- [ ] 2.9 Document the fixed-depth transition/state bound and detection-versus-interpretation depth distinction; verify the argument covers encoded branching and preserves classification distinctions when states merge.
-- [ ] 2.10 Audit P2 allocation and fallback paths; deliver evidence that no input-sized decoded search copies, variant tables, legacy regex fallback or performance-only scheme limit remains.
+- [x] 2.9 Document the fixed-depth transition/state bound and detection-versus-interpretation depth distinction; verify the argument covers encoded branching and preserves classification distinctions when states merge.
+- [x] 2.10 Audit P2 allocation and fallback paths; deliver evidence that no input-sized decoded search copies, variant tables, legacy regex fallback or performance-only scheme limit remains.
 
 ### VALIDATE
 
-- [ ] 2.11 Run P1/P2 tests and the affected pre-existing detection tests; verify zero exit status and deliver the P2 validation record with compatibility corpus and deterministic complexity results.
+- [x] 2.11 Run P1/P2 tests and the affected pre-existing detection tests; verify zero exit status and deliver the P2 validation record with compatibility corpus and deterministic complexity results.
 
 ## 3. P3 — Incremental tail retention and finalization
 

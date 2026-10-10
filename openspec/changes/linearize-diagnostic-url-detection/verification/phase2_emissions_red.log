@@ -1,0 +1,40 @@
+=== phase2 emissions RED run (pre-fix: _Transducer never increments stats.emissions) ===
+command: .venv/bin/python -m pytest tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests -n 8 --dist loadfile --tb=line -q
+
+bringing up nodes...
+bringing up nodes...
+
+...uuuuu.F.F                                                             [100%]
+=================================== FAILURES ===================================
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: 0 not greater than 0
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: 0 not greater than 0
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: 0 not greater than 0
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: 0 not greater than 0
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: 0 not greater than 0
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: 0 not greater than 0
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: 0 not greater than 0
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: 0 not greater than 0
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: 0 not greater than 0
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: 0 not greater than 0
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: 0 not greater than 0
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: 0 not greater than 0
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: 0 not greater than 0
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: 0 not greater than 0
+=========================== short test summary info ============================
+SUBFAILED(text="'a'") tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_representative_inputs_report_nonzero_emissions
+SUBFAILED(text="'https://host'") tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_representative_inputs_report_nonzero_emissions
+SUBFAILED(text="'%41'") tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_representative_inputs_report_nonzero_emissions
+SUBFAILED(text="'a b c'") tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_representative_inputs_report_nonzero_emissions
+SUBFAILED(text="'custom%3A%2F%2Fhost'") tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_representative_inputs_report_nonzero_emissions
+FAILED tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_stats_report_only_bounded_structural_counters
+FAILED tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_work_grows_linearly_for_uninterrupted_scheme_runs
+7 failed, 5 passed in 1.37s
+
+emissions red exit status: 1

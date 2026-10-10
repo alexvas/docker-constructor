@@ -1,0 +1,162 @@
+=== phase2 whitelist classification RED run (pre-fix fixed bound _CLASSIFY_BOUND=256) ===
+command: .venv/bin/python -m pytest tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests -n 8 --dist loadfile --tb=line -q
+
+bringing up nodes...
+bringing up nodes...
+
+uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu [ 16%]
+uuuuuuuuuuuuu.Fuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu [ 50%]
+uuuuuuuuuuuuuuuuuuuuuuuuuuuu.uuuuuuuuuuuuuuuuu..uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu. [100%]
+=================================== FAILURES ===================================
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: 256 not greater than or equal to 405
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: 256 not greater than or equal to 405
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: <CandidateKind.KNOWN: 'known'> is not <CandidateKind.UNKNOWN: 'unknown'>
+=========================== short test summary info ============================
+SUBFAILED(scheme="'file'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_every_whitelist_scheme_is_known_at_every_supported_depth
+SUBFAILED(scheme="'ftps'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_every_whitelist_scheme_is_known_at_every_supported_depth
+SUBFAILED(scheme="'git+http'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_every_whitelist_scheme_is_known_at_every_supported_depth
+SUBFAILED(scheme="'git+https'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_every_whitelist_scheme_is_known_at_every_supported_depth
+SUBFAILED(scheme="'git+ssh'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_every_whitelist_scheme_is_known_at_every_supported_depth
+SUBFAILED(scheme="'http'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_every_whitelist_scheme_is_known_at_every_supported_depth
+SUBFAILED(scheme="'https'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_every_whitelist_scheme_is_known_at_every_supported_depth
+SUBFAILED(scheme="'socks'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_every_whitelist_scheme_is_known_at_every_supported_depth
+SUBFAILED(scheme="'socks4'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_every_whitelist_scheme_is_known_at_every_supported_depth
+SUBFAILED(scheme="'socks4a'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_every_whitelist_scheme_is_known_at_every_supported_depth
+SUBFAILED(scheme="'socks5'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_every_whitelist_scheme_is_known_at_every_supported_depth
+SUBFAILED(scheme="'socks5h'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_every_whitelist_scheme_is_known_at_every_supported_depth
+FAILED tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_four_times_encoded_https_is_known
+SUBFAILED(scheme="'file'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_lowercase_hex_spellings_are_known
+SUBFAILED(scheme="'ftps'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_lowercase_hex_spellings_are_known
+SUBFAILED(scheme="'git+http'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_lowercase_hex_spellings_are_known
+SUBFAILED(scheme="'git+https'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_lowercase_hex_spellings_are_known
+SUBFAILED(scheme="'git+ssh'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_lowercase_hex_spellings_are_known
+SUBFAILED(scheme="'http'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_lowercase_hex_spellings_are_known
+SUBFAILED(scheme="'https'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_lowercase_hex_spellings_are_known
+SUBFAILED(scheme="'socks'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_lowercase_hex_spellings_are_known
+SUBFAILED(scheme="'socks4'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_lowercase_hex_spellings_are_known
+SUBFAILED(scheme="'socks4a'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_lowercase_hex_spellings_are_known
+SUBFAILED(scheme="'socks5'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_lowercase_hex_spellings_are_known
+SUBFAILED(scheme="'socks5h'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_lowercase_hex_spellings_are_known
+SUBFAILED(scheme="'file'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_uppercase_scheme_spellings_are_known
+SUBFAILED(scheme="'ftps'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_uppercase_scheme_spellings_are_known
+SUBFAILED(scheme="'git+http'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_uppercase_scheme_spellings_are_known
+SUBFAILED(scheme="'git+https'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_uppercase_scheme_spellings_are_known
+SUBFAILED(scheme="'git+ssh'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_uppercase_scheme_spellings_are_known
+SUBFAILED(scheme="'http'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_uppercase_scheme_spellings_are_known
+SUBFAILED(scheme="'https'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_uppercase_scheme_spellings_are_known
+SUBFAILED(scheme="'socks'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_uppercase_scheme_spellings_are_known
+SUBFAILED(scheme="'socks4'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_uppercase_scheme_spellings_are_known
+SUBFAILED(scheme="'socks4a'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_uppercase_scheme_spellings_are_known
+SUBFAILED(scheme="'socks5'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_uppercase_scheme_spellings_are_known
+SUBFAILED(scheme="'socks5h'", depth='4') tests/test_diagnostic_recognizer_phase2.py::WhitelistClassificationTests::test_uppercase_scheme_spellings_are_known
+37 failed, 5 passed, 236 subtests passed in 0.76s
+
+whitelist red exit status: 1

@@ -1,0 +1,54 @@
+=== phase2 source-range RED run (pre-fix: only a start offset, no exclusive end) ===
+command: .venv/bin/python -m pytest tests/test_diagnostic_recognizer_phase2.py::SourceRangeProvenanceTests -n 8 --dist loadfile --tb=line -q
+
+bringing up nodes...
+bringing up nodes...
+
+FF....Fuuu..                                                             [100%]
+=================================== FAILURES ===================================
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: Lists differ: [('A', 0, 3, True)] != [('A', 0, 1, True)]
+    
+    First differing element 0:
+    ('A', 0, 3, True)
+    ('A', 0, 1, True)
+    
+    - [('A', 0, 3, True)]
+    ?           ^
+    
+    + [('A', 0, 1, True)]
+    ?           ^
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: Lists differ: [('A', 0, 3, True)] != [('A', 0, 1, True)]
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: Tuples differ: (6, 9) != (6, 7)
+    
+    First differing element 1:
+    9
+    7
+    
+    - (6, 9)
+    ?     ^
+    
+    + (6, 7)
+    ?     ^
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: Tuples differ: (6, 9) != (6, 7)
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: Lists differ: [(':', 0, 5)] != [(':', 0, 1)]
+    
+    First differing element 0:
+    (':', 0, 5)
+    (':', 0, 1)
+    
+    - [(':', 0, 5)]
+    ?           ^
+    
+    + [(':', 0, 1)]
+    ?           ^
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: Lists differ: [(':', 0, 5)] != [(':', 0, 1)]
+=========================== short test summary info ============================
+FAILED tests/test_diagnostic_recognizer_phase2.py::SourceRangeProvenanceTests::test_decoded_escape_spans_all_three_raw_characters
+FAILED tests/test_diagnostic_recognizer_phase2.py::SourceRangeProvenanceTests::test_encoded_separator_range_covers_all_three_raw_characters
+FAILED tests/test_diagnostic_recognizer_phase2.py::SourceRangeProvenanceTests::test_nested_decode_range_spans_all_contributing_raw_characters
+3 failed, 6 passed, 3 subtests passed in 0.60s
+
+ranges red exit status: 1
