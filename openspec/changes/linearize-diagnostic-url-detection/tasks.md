@@ -8,7 +8,7 @@ Every phase MUST proceed RED → GREEN → INTROSPECT → VALIDATE. RED establis
 
 GREEN MUST satisfy the established obligations without deleting coverage, shrinking stress fixtures, silently excluding failing tests or suppressing warnings. INTROSPECT MUST inspect correctness, ownership, complexity, scope and documentation and resolve identified defects. VALIDATE MUST verify the phase and all predecessor deliverables. A phase is complete only when every checkbox, named deliverable and validation gate is satisfied. A failed gate blocks dependent phases; rework must be revalidated before proceeding.
 
-Evidence MUST live separately from planning specifications, under `docs/verification/linearize-diagnostic-url-detection/`, with phase-labelled records linking commands, full stdout/stderr logs, runner exit statuses and relevant profiles. Automated tests MUST NOT measure recognizer elapsed time or assert timing thresholds. Baseline and before/after timings are one-off implementation experiments, not recurring CI benchmarks. Python verification MUST use the project virtual environment and eight workers; complete-suite acceptance uses `.venv/bin/python -m pytest tests -n 8 --dist loadfile --tb=short -q`. Preserve the complete log and actual runner exit status for every run; every nonzero exit is unsuccessful verification.
+Evidence MUST live under `openspec/changes/linearize-diagnostic-url-detection/verification/`, separate from the planning artifacts, with phase-labelled records linking commands, full stdout/stderr logs, runner exit statuses and relevant profiles. Automated tests MUST NOT measure recognizer elapsed time or assert timing thresholds. Baseline and before/after timings are one-off implementation experiments, not recurring CI benchmarks. Python verification MUST use the project virtual environment and eight workers; complete-suite acceptance uses `.venv/bin/python -m pytest tests -n 8 --dist loadfile --tb=short -q`. Preserve the complete log and actual runner exit status for every run; every nonzero exit is unsuccessful verification.
 
 ## Phase dependency DAG
 
@@ -25,24 +25,24 @@ Direct prerequisites are stated below. Transitive prerequisites remain binding. 
 
 ### RED
 
-- [ ] 1.1 Deliver the caller inventory covering detection, unresolved holding, EOF, structured projection, metadata and collector/fetch routes; verify each old integer-contract dependency and possible UNKNOWN fact bypass has an identified owner.
-- [ ] 1.2 Capture the one-off baseline experiment outside tests/CI; verify the evidence records medians for 1/2/4/8/16 KiB uninterrupted and separated runs, per-mode capture profiles, existing oversized-tail timings, environment, commands, full logs and statuses without changing fixtures.
-- [ ] 1.3 Add outcome/model contract tests; verify they express NO_MATCH/MATCH/NEED_MORE separately from KNOWN/UNKNOWN, raw coordinates, exclusive ends, end=None and every case-insensitive whitelist entry.
-- [ ] 1.4 Record the pre-implementation P1 test run; verify failures are attributable to missing contract behavior and separately identify any already-passing obligations.
+- [x] 1.1 Deliver the caller inventory covering detection, unresolved holding, EOF, structured projection, metadata and collector/fetch routes; verify each old integer-contract dependency and possible UNKNOWN fact bypass has an identified owner.
+- [x] 1.2 Capture the one-off baseline experiment outside tests/CI; verify the evidence records medians for 1/2/4/8/16 KiB uninterrupted and separated runs, per-mode capture profiles, existing oversized-tail timings, environment, commands, full logs and statuses without changing fixtures.
+- [x] 1.3 Add outcome/model contract tests; verify they express NO_MATCH/MATCH/NEED_MORE separately from KNOWN/UNKNOWN, raw coordinates, exclusive ends, end=None and every case-insensitive whitelist entry.
+- [x] 1.4 Record the pre-implementation P1 test run; verify failures are attributable to missing contract behavior and separately identify any already-passing obligations.
 
 ### GREEN
 
-- [ ] 1.5 Implement the immutable candidate and closed outcome model; verify P1 model assertions pass without introducing a public SDK or persistence contract.
-- [ ] 1.6 Implement the fixed case-insensitive scheme whitelist; verify all listed schemes and non-whitelist variants classify as specified without changing shared transport or lock validation.
+- [x] 1.5 Implement the immutable candidate and closed outcome model; verify P1 model assertions pass without introducing a public SDK or persistence contract.
+- [x] 1.6 Implement the fixed case-insensitive scheme whitelist; verify all listed schemes and non-whitelist variants classify as specified without changing shared transport or lock validation.
 
 ### INTROSPECT
 
-- [ ] 1.7 Document candidate validity, offset conversion, outcome ownership and classification semantics at the internal API; verify the documentation matches P1 tests and does not conflate incomplete separator and incomplete URL.
-- [ ] 1.8 Review the P1 diff for scope and contract consistency; deliver a review record showing findings resolved or a blocking gate if they remain.
+- [x] 1.7 Document candidate validity, offset conversion, outcome ownership and classification semantics at the internal API; verify the documentation matches P1 tests and does not conflate incomplete separator and incomplete URL.
+- [x] 1.8 Review the P1 diff for scope and contract consistency; deliver a review record showing findings resolved or a blocking gate if they remain.
 
 ### VALIDATE
 
-- [ ] 1.9 Run P1 contract tests and affected pre-existing tests; verify zero runner exit status and deliver a P1 validation record linking full logs and every P1 deliverable.
+- [x] 1.9 Run P1 contract tests and affected pre-existing tests; verify zero runner exit status and deliver a P1 validation record linking full logs and every P1 deliverable.
 
 ## 2. P2 — Compact raw recognition
 
@@ -124,7 +124,7 @@ Direct prerequisites are stated below. Transitive prerequisites remain binding. 
 ### INTROSPECT
 
 - [ ] 4.8 Document UNKNOWN metadata omission and KNOWN validity requirements at affected projection APIs; verify examples agree with tests and authoritative local exact-mode behavior.
-- [ ] 4.9 Reconcile the P1 caller inventory against implemented gates; deliver a route-by-route review showing all bypass findings resolved and unrelated fetch/transport grammar unchanged.
+- [ ] 4.9 Reconcile the P1 caller inventory against implemented gates; deliver a route-by-route review showing all bypass findings resolved and the §7.1 UNKNOWN successful-fetch fact/grouping obligations verified, with the fetch grammar and shared hostname/transport validation unchanged.
 
 ### VALIDATE
 
@@ -139,7 +139,7 @@ Direct prerequisites are stated below. Transitive prerequisites remain binding. 
 
 - [ ] 5.1 Add collector/tail channel tests for all local modes with and without SDK delivery; verify UNKNOWN omission, exact source preservation including secrets, terminal neutralization and one selected retained representation are asserted.
 - [ ] 5.2 Add host grouping tests for otherwise identical UNKNOWN diagnostics and distinct validated KNOWN identities; verify line and interactive repeat/numeric grouping expectations are explicit.
-- [ ] 5.3 Add collector/fetch route regression coverage; verify known successful-fetch behavior remains intact and no side path produces UNKNOWN facts.
+- [ ] 5.3 Add collector/fetch route regression coverage; verify known successful-fetch behavior remains intact, an UNKNOWN RFC-valid successful-fetch URL contributes no host/path/fingerprint facts and does not influence `host-path` grouping, and no side path produces UNKNOWN facts while the fetch grammar still recognizes such URLs.
 - [ ] 5.4 Record the pre-implementation P5 test run; verify already-passing integrations are recorded honestly and any expected missing behavior is identified precisely.
 
 ### GREEN

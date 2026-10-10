@@ -1,0 +1,233 @@
+=== phase1 baseline experiment ===
+command: openspec/changes/linearize-diagnostic-url-detection/verification/phase1_baseline.py 5
+environment: {
+  "python_version": "3.14.7",
+  "python_implementation": "CPython",
+  "executable": "/home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python",
+  "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.41",
+  "machine": "x86_64",
+  "processor": "",
+  "cpu_count": 32,
+  "pending_limit_bytes": 8192,
+  "repeats": 5
+}
+
+--- _find_url_start: uninterrupted vs separated ---
+size=1024 bytes ...
+size=2048 bytes ...
+size=4096 bytes ...
+size=8192 bytes ...
+size=16384 bytes ...
+{
+  "1024": {
+    "uninterrupted": {
+      "length_chars": 1024,
+      "result": null,
+      "median_seconds": 0.013526930997613817,
+      "min_seconds": 0.01317346899304539,
+      "max_seconds": 0.013954213995020837,
+      "samples_seconds": [
+        0.01317346899304539,
+        0.013526930997613817,
+        0.013745342002948746,
+        0.013954213995020837,
+        0.01342539000324905
+      ]
+    },
+    "separated": {
+      "length_chars": 1016,
+      "result": null,
+      "median_seconds": 0.0001394210266880691,
+      "min_seconds": 0.00013765098992735147,
+      "max_seconds": 0.0002566410112194717,
+      "samples_seconds": [
+        0.0001416010200046003,
+        0.0002566410112194717,
+        0.0001394210266880691,
+        0.00013765098992735147,
+        0.0001378399902023375
+      ]
+    }
+  },
+  "2048": {
+    "uninterrupted": {
+      "length_chars": 2048,
+      "result": null,
+      "median_seconds": 0.05328462802572176,
+      "min_seconds": 0.053014427016023546,
+      "max_seconds": 0.05476383800851181,
+      "samples_seconds": [
+        0.054740787018090487,
+        0.05476383800851181,
+        0.053014427016023546,
+        0.05315623802016489,
+        0.05328462802572176
+      ]
+    },
+    "separated": {
+      "length_chars": 2042,
+      "result": null,
+      "median_seconds": 0.0002791520091705024,
+      "min_seconds": 0.000276842009043321,
+      "max_seconds": 0.0002847720170393586,
+      "samples_seconds": [
+        0.00027785199927166104,
+        0.0002791520091705024,
+        0.000276842009043321,
+        0.00028265200671739876,
+        0.0002847720170393586
+      ]
+    }
+  },
+  "4096": {
+    "uninterrupted": {
+      "length_chars": 4096,
+      "result": null,
+      "median_seconds": 0.21270429200376384,
+      "min_seconds": 0.21254588197916746,
+      "max_seconds": 0.213218285003677,
+      "samples_seconds": [
+        0.213218285003677,
+        0.21254588197916746,
+        0.2127288019983098,
+        0.21270429200376384,
+        0.21270395300234668
+      ]
+    },
+    "separated": {
+      "length_chars": 4094,
+      "result": null,
+      "median_seconds": 0.0005632830143440515,
+      "min_seconds": 0.0005482629931066185,
+      "max_seconds": 0.0005724430084228516,
+      "samples_seconds": [
+        0.0005632830143440515,
+        0.0005724430084228516,
+        0.0005690429825335741,
+        0.0005482629931066185,
+        0.0005608040082734078
+      ]
+    }
+  },
+  "8192": {
+    "uninterrupted": {
+      "length_chars": 8192,
+      "result": null,
+      "median_seconds": 0.8610888109833468,
+      "min_seconds": 0.8386367580096703,
+      "max_seconds": 0.8617318350006826,
+      "samples_seconds": [
+        0.8578585819923319,
+        0.8617318350006826,
+        0.8611247920198366,
+        0.8386367580096703,
+        0.8610888109833468
+      ]
+    },
+    "separated": {
+      "length_chars": 8189,
+      "result": null,
+      "median_seconds": 0.0011025560088455677,
+      "min_seconds": 0.0010945059766527265,
+      "max_seconds": 0.0011346670216880739,
+      "samples_seconds": [
+        0.0010945059766527265,
+        0.0011243170010857284,
+        0.0011021070240531117,
+        0.0011346670216880739,
+        0.0011025560088455677
+      ]
+    }
+  },
+  "16384": {
+    "uninterrupted": {
+      "length_chars": 16384,
+      "result": null,
+      "median_seconds": 3.4704523470136337,
+      "min_seconds": 3.4449378550052643,
+      "max_seconds": 3.4901907070016023,
+      "samples_seconds": [
+        3.4826330880168825,
+        3.4704523470136337,
+        3.4625073990027886,
+        3.4449378550052643,
+        3.4901907070016023
+      ]
+    },
+    "separated": {
+      "length_chars": 16379,
+      "result": null,
+      "median_seconds": 0.0022551929869223386,
+      "min_seconds": 0.0022482729982584715,
+      "max_seconds": 0.002320123981917277,
+      "samples_seconds": [
+        0.002320123981917277,
+        0.00225095302448608,
+        0.0022551929869223386,
+        0.0022482729982584715,
+        0.0023180140124168247
+      ]
+    }
+  }
+}
+
+--- existing oversized-tail timings ---
+oversized size=8192 bytes ...
+oversized size=16384 bytes ...
+{
+  "8192": {
+    "input_chars": 8196,
+    "result": "[sanitized oversized token] end",
+    "result_length": 31,
+    "median_seconds": 1.080485797021538,
+    "min_seconds": 1.0715188830217812,
+    "max_seconds": 1.0870534860005137,
+    "samples_seconds": [
+      1.0821449459763244,
+      1.073410723998677,
+      1.0715188830217812,
+      1.0870534860005137,
+      1.080485797021538
+    ]
+  },
+  "16384": {
+    "input_chars": 16388,
+    "result": "[sanitized oversized token] end",
+    "result_length": 31,
+    "median_seconds": 1.0761384910147171,
+    "min_seconds": 1.0745888919918798,
+    "max_seconds": 1.0837793670070823,
+    "samples_seconds": [
+      1.0758109989983495,
+      1.0837793670070823,
+      1.0834001349867322,
+      1.0745888919918798,
+      1.0761384910147171
+    ]
+  }
+}
+
+--- per-mode capture profiles ---
+mode=redacted ...
+mode=host-path ...
+mode=exact ...
+{
+  "redacted": {
+    "rendered": "GET <redacted> 15ms done token=<redacted> <redacted> ",
+    "repeats": 200,
+    "profile": "         520201 function calls in 0.120 seconds\n\n   Ordered by: cumulative time\n   List reduced from 89 to 10 due to restriction <10>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      200    0.001    0.000    0.120    0.001 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/npm_diagnostic_stream.py:122(project_tail)\n      200    0.000    0.000    0.064    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_projection.py:1293(sanitize_diagnostic_text)\n      200    0.000    0.000    0.062    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_projection.py:1063(feed_text)\n      400    0.001    0.000    0.062    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_projection.py:1177(_feed)\n      200    0.002    0.000    0.050    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_projection.py:1213(_drain)\n      200    0.003    0.000    0.046    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:550(feed_text)\n      400    0.005    0.000    0.031    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:583(_feed)\n      400    0.011    0.000    0.023    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:365(_feed)\n      200    0.000    0.000    0.023    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:282(feed_characters)\n      400    0.001    0.000    0.019    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_projection.py:1265(_sanitize_candidate)\n\n\n"
+  },
+  "host-path": {
+    "rendered": "GET registry.example.com/pkg/-/pkg-1.0.0.tgz 15ms done token=<redacted> internal.example/private ",
+    "repeats": 200,
+    "profile": "         547201 function calls in 0.127 seconds\n\n   Ordered by: cumulative time\n   List reduced from 90 to 10 due to restriction <10>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      200    0.001    0.000    0.127    0.001 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/npm_diagnostic_stream.py:122(project_tail)\n      200    0.000    0.000    0.064    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_projection.py:1063(feed_text)\n      400    0.001    0.000    0.064    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_projection.py:1177(_feed)\n      200    0.002    0.000    0.052    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_projection.py:1213(_drain)\n      200    0.003    0.000    0.047    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:550(feed_text)\n      400    0.005    0.000    0.031    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:583(_feed)\n      400    0.011    0.000    0.023    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:365(_feed)\n      200    0.000    0.000    0.023    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:282(feed_characters)\n      400    0.001    0.000    0.019    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_projection.py:1265(_sanitize_candidate)\n     1400    0.008    0.000    0.013    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_projection.py:217(_leftmost_secret_match)\n\n\n"
+  },
+  "exact": {
+    "rendered": "GET https://registry.example.com/pkg/-/pkg-1.0.0.tgz 15ms done token=supersecret custom+transport://user:password@internal.example/private?token=value ",
+    "repeats": 200,
+    "profile": "         308401 function calls in 0.064 seconds\n\n   Ordered by: cumulative time\n   List reduced from 26 to 10 due to restriction <10>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      200    0.001    0.000    0.064    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/npm_diagnostic_stream.py:122(project_tail)\n      200    0.003    0.000    0.045    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:550(feed_text)\n      400    0.005    0.000    0.030    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:583(_feed)\n      400    0.010    0.000    0.022    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:365(_feed)\n      200    0.000    0.000    0.022    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:282(feed_characters)\n      200    0.010    0.000    0.018    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/npm_diagnostic_stream.py:106(_bounded_tail)\n    30400    0.008    0.000    0.012    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:556(<genexpr>)\n    30200    0.007    0.000    0.010    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:474(_handle_normal)\n    90800    0.007    0.000    0.007    0.000 {method 'append' of 'list' objects}\n    60400    0.005    0.000    0.005    0.000 {method 'encode' of 'str' objects}\n\n\n"
+  }
+}
+
+=== baseline complete ===
+baseline exit status: 0

@@ -1,0 +1,39 @@
+=== phase1 retained-tail whole-file single-worker run ===
+command: .venv/bin/python -m pytest tests/test_retained_tail_phase6.py -n 8 --dist loadfile --durations=0 --tb=short -q
+
+bringing up nodes...
+bringing up nodes...
+
+....uuu.uuu..uuu.uuu.uuu.uuu.uuu.uuu.uuu.uuu.uuu.uuu.uuu.uuu.uuu.uuu.uuu [ 47%]
+.uuu.uuu.uuu.uuu.uu.uuu..uuu.uuu.uuu.uuu.uu.uuu..uuu..uuu.uuu.uuu......  [100%]
+============================== slowest durations ===============================
+7.91s call     tests/test_retained_tail_phase6.py::TestFailureContextChannels::test_truncated_tail_is_bounded_and_mode_selected
+7.90s call     tests/test_retained_tail_phase6.py::TestFailureChannelMatrix::test_truncated_tail_is_bounded_in_text_and_json
+5.10s call     tests/test_retained_tail_phase6.py::TestInterruptionPresentationOwnership::test_blocked_renderer_stays_within_shutdown_budget
+1.51s call     tests/test_retained_tail_phase6.py::TestConcurrentTimeoutReaderFailure::test_fired_timeout_reuses_reader_failure_capture
+0.28s call     tests/test_retained_tail_phase6.py::TestInterruptionEndToEnd::test_json_interruption_reports_selected_tail_without_live_sink
+0.26s call     tests/test_retained_tail_phase6.py::TestInterruptionEndToEnd::test_text_interruption_reports_selected_tail_once
+0.26s call     tests/test_retained_tail_phase6.py::TestInterruptionEndToEnd::test_orchestration_interruption_preserves_context_and_cleanup
+0.16s call     tests/test_retained_tail_phase6.py::TestFailureChannelMatrix::test_interruption_carries_its_selected_tail
+0.15s call     tests/test_retained_tail_phase6.py::TestPresentationOnlyInvariance::test_three_modes_have_identical_semantics
+0.14s call     tests/test_retained_tail_phase6.py::TestPresentationOnlyInvariance::test_all_modes_remain_independently_verifiable
+0.11s call     tests/test_retained_tail_phase6.py::TestInterruptionPresentationOwnership::test_healthy_session_owns_the_report_exactly_once
+0.11s call     tests/test_retained_tail_phase6.py::TestInterruptionEndToEnd::test_interruption_joins_presentation_worker_and_propagates
+0.10s call     tests/test_retained_tail_phase6.py::TestInterruptionPresentationOwnership::test_failed_renderer_never_falls_back_or_retries
+0.09s call     tests/test_retained_tail_phase6.py::TestInterruptionPresentationOwnership::test_broken_text_output_still_propagates_the_interruption
+0.09s call     tests/test_retained_tail_phase6.py::TestInterruptionPresentationOwnership::test_broken_json_output_still_propagates_the_interruption
+0.06s call     tests/test_retained_tail_phase6.py::TestPresentationOnlyInvariance::test_cache_lookup_and_reuse_ignore_the_selector
+0.02s call     tests/test_retained_tail_phase6.py::TestAssemblerReaderFailurePropagation::test_reader_failure_capture_reaches_structured_failure_context
+0.01s call     tests/test_retained_tail_phase6.py::TestAssemblerRequestBinding::test_request_tail_is_mode_selected_without_an_injected_factory
+0.01s call     tests/test_retained_tail_phase6.py::TestPresentationOnlyInvariance::test_failure_primary_result_and_cleanup_are_selector_independent
+0.01s call     tests/test_retained_tail_phase6.py::TestFailureContextChannels::test_json_failure_tail_is_mode_selected_and_one_document
+0.01s call     tests/test_retained_tail_phase6.py::TestFailureChannelMatrix::test_already_shown_live_tail_repeats_once_in_both_channels
+0.01s call     tests/test_retained_tail_phase6.py::TestFailureChannelMatrix::test_reader_failure_carries_its_selected_tail
+0.01s call     tests/test_retained_tail_phase6.py::TestFailureChannelMatrix::test_nonempty_renders_once_in_text_and_json
+0.01s call     tests/test_retained_tail_phase6.py::TestFailureChannelMatrix::test_timeout_uses_the_captured_tail_in_text_and_json
+0.01s call     tests/test_retained_tail_phase6.py::TestFailureChannelMatrix::test_empty_omits_the_section_in_text_and_json
+
+(210 durations < 0.005s hidden.  Use -vv to show these durations.)
+46 passed, 97 subtests passed in 25.11s
+
+exit status: 0

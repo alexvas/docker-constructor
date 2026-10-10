@@ -1,0 +1,283 @@
+bringing up nodes...
+bringing up nodes...
+
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF                                           [100%]
+=================================== FAILURES ===================================
+____ CandidateKindContractTests.test_candidate_kind_is_closed_known_unknown ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:76: in test_candidate_kind_is_closed_known_unknown
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+____ CandidateKindContractTests.test_known_and_unknown_are_distinct_members ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:81: in test_known_and_unknown_are_distinct_members
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ DiagnosticCandidateContractTests.test_candidate_carries_raw_inclusive_start_and_exclusive_end _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:87: in test_candidate_carries_raw_inclusive_start_and_exclusive_end
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ DiagnosticCandidateContractTests.test_candidate_end_is_exclusive_of_the_raw_terminator _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:96: in test_candidate_end_is_exclusive_of_the_raw_terminator
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ DiagnosticCandidateContractTests.test_candidate_end_none_marks_an_unterminated_candidate _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:106: in test_candidate_end_none_marks_an_unterminated_candidate
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_________ DiagnosticCandidateContractTests.test_candidate_is_immutable _________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:122: in test_candidate_is_immutable
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ DiagnosticCandidateContractTests.test_candidate_offsets_are_raw_character_indices _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:113: in test_candidate_offsets_are_raw_character_indices
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ DiagnosticCandidateContractTests.test_candidate_rejects_end_not_strictly_after_start _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:137: in test_candidate_rejects_end_not_strictly_after_start
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+____ DiagnosticCandidateContractTests.test_candidate_rejects_negative_start ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:130: in test_candidate_rejects_negative_start
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ DiagnosticCandidateContractTests.test_candidate_rejects_non_integer_offsets __
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:146: in test_candidate_rejects_non_integer_offsets
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+____ DiagnosticCandidateContractTests.test_candidate_requires_a_closed_kind ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:157: in test_candidate_requires_a_closed_kind
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ RecognitionOutcomeContractTests.test_match_and_need_more_are_distinct_from_no_match _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:202: in test_match_and_need_more_are_distinct_from_no_match
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ RecognitionOutcomeContractTests.test_match_carries_a_candidate_and_no_retention_point _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:176: in test_match_carries_a_candidate_and_no_retention_point
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ RecognitionOutcomeContractTests.test_match_may_carry_an_unterminated_candidate _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:186: in test_match_may_carry_an_unterminated_candidate
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ RecognitionOutcomeContractTests.test_need_more_carries_a_retention_start_and_no_candidate _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:195: in test_need_more_carries_a_retention_start_and_no_candidate
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ RecognitionOutcomeContractTests.test_need_more_rejects_a_negative_retention_start _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:259: in test_need_more_rejects_a_negative_retention_start
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ RecognitionOutcomeContractTests.test_no_match_carries_no_candidate_and_no_retention_point _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:169: in test_no_match_carries_no_candidate_and_no_retention_point
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+__________ RecognitionOutcomeContractTests.test_outcome_is_immutable ___________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:226: in test_outcome_is_immutable
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ RecognitionOutcomeContractTests.test_outcome_kind_is_closed_no_match_match_need_more _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:164: in test_outcome_kind_is_closed_no_match_match_need_more
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ RecognitionOutcomeContractTests.test_outcome_rejects_inconsistent_field_combinations _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:232: in test_outcome_rejects_inconsistent_field_combinations
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_____ RecognitionOutcomeContractTests.test_outcome_requires_a_closed_kind ______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:264: in test_outcome_requires_a_closed_kind
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+____ SchemeWhitelistContractTests.test_classifier_rejects_non_string_input _____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:326: in test_classifier_rejects_non_string_input
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ SchemeWhitelistContractTests.test_every_whitelist_entry_classifies_as_known __
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:276: in test_every_whitelist_entry_classifies_as_known
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ SchemeWhitelistContractTests.test_every_whitelist_entry_classifies_case_insensitively _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:284: in test_every_whitelist_entry_classifies_case_insensitively
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ SchemeWhitelistContractTests.test_non_whitelist_variants_classify_as_unknown _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:302: in test_non_whitelist_variants_classify_as_unknown
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ SchemeWhitelistContractTests.test_npm_is_not_a_separator_based_known_scheme __
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:333: in test_npm_is_not_a_separator_based_known_scheme
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ SchemeWhitelistContractTests.test_whitelist_matches_the_delta_requirement_exactly _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:271: in test_whitelist_matches_the_delta_requirement_exactly
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ StreamCoordinateContractTests.test_need_more_retain_from_is_an_absolute_stream_offset _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:409: in test_need_more_retain_from_is_an_absolute_stream_offset
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ StreamCoordinateContractTests.test_offsets_count_python_characters_not_utf8_bytes _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:395: in test_offsets_count_python_characters_not_utf8_bytes
+    self._stream_fixture()
+tests/test_diagnostic_recognition_contract.py:355: in _stream_fixture
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+_ StreamCoordinateContractTests.test_stream_offsets_convert_to_a_retained_buffer_index _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:372: in test_stream_offsets_convert_to_a_retained_buffer_index
+    self._stream_fixture()
+tests/test_diagnostic_recognition_contract.py:355: in _stream_fixture
+    module = self.contract()
+             ^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognition_contract.py:68: in contract
+    self.fail(
+E   AssertionError: docker.versioning.diagnostic_recognition must define the P1 recognition result contract
+=========================== short test summary info ============================
+FAILED tests/test_diagnostic_recognition_contract.py::CandidateKindContractTests::test_candidate_kind_is_closed_known_unknown
+FAILED tests/test_diagnostic_recognition_contract.py::CandidateKindContractTests::test_known_and_unknown_are_distinct_members
+FAILED tests/test_diagnostic_recognition_contract.py::DiagnosticCandidateContractTests::test_candidate_carries_raw_inclusive_start_and_exclusive_end
+FAILED tests/test_diagnostic_recognition_contract.py::DiagnosticCandidateContractTests::test_candidate_end_is_exclusive_of_the_raw_terminator
+FAILED tests/test_diagnostic_recognition_contract.py::DiagnosticCandidateContractTests::test_candidate_end_none_marks_an_unterminated_candidate
+FAILED tests/test_diagnostic_recognition_contract.py::DiagnosticCandidateContractTests::test_candidate_is_immutable
+FAILED tests/test_diagnostic_recognition_contract.py::DiagnosticCandidateContractTests::test_candidate_offsets_are_raw_character_indices
+FAILED tests/test_diagnostic_recognition_contract.py::DiagnosticCandidateContractTests::test_candidate_rejects_end_not_strictly_after_start
+FAILED tests/test_diagnostic_recognition_contract.py::DiagnosticCandidateContractTests::test_candidate_rejects_negative_start
+FAILED tests/test_diagnostic_recognition_contract.py::DiagnosticCandidateContractTests::test_candidate_rejects_non_integer_offsets
+FAILED tests/test_diagnostic_recognition_contract.py::DiagnosticCandidateContractTests::test_candidate_requires_a_closed_kind
+FAILED tests/test_diagnostic_recognition_contract.py::RecognitionOutcomeContractTests::test_match_and_need_more_are_distinct_from_no_match
+FAILED tests/test_diagnostic_recognition_contract.py::RecognitionOutcomeContractTests::test_match_carries_a_candidate_and_no_retention_point
+FAILED tests/test_diagnostic_recognition_contract.py::RecognitionOutcomeContractTests::test_match_may_carry_an_unterminated_candidate
+FAILED tests/test_diagnostic_recognition_contract.py::RecognitionOutcomeContractTests::test_need_more_carries_a_retention_start_and_no_candidate
+FAILED tests/test_diagnostic_recognition_contract.py::RecognitionOutcomeContractTests::test_need_more_rejects_a_negative_retention_start
+FAILED tests/test_diagnostic_recognition_contract.py::RecognitionOutcomeContractTests::test_no_match_carries_no_candidate_and_no_retention_point
+FAILED tests/test_diagnostic_recognition_contract.py::RecognitionOutcomeContractTests::test_outcome_is_immutable
+FAILED tests/test_diagnostic_recognition_contract.py::RecognitionOutcomeContractTests::test_outcome_kind_is_closed_no_match_match_need_more
+FAILED tests/test_diagnostic_recognition_contract.py::RecognitionOutcomeContractTests::test_outcome_rejects_inconsistent_field_combinations
+FAILED tests/test_diagnostic_recognition_contract.py::RecognitionOutcomeContractTests::test_outcome_requires_a_closed_kind
+FAILED tests/test_diagnostic_recognition_contract.py::SchemeWhitelistContractTests::test_classifier_rejects_non_string_input
+FAILED tests/test_diagnostic_recognition_contract.py::SchemeWhitelistContractTests::test_every_whitelist_entry_classifies_as_known
+FAILED tests/test_diagnostic_recognition_contract.py::SchemeWhitelistContractTests::test_every_whitelist_entry_classifies_case_insensitively
+FAILED tests/test_diagnostic_recognition_contract.py::SchemeWhitelistContractTests::test_non_whitelist_variants_classify_as_unknown
+FAILED tests/test_diagnostic_recognition_contract.py::SchemeWhitelistContractTests::test_npm_is_not_a_separator_based_known_scheme
+FAILED tests/test_diagnostic_recognition_contract.py::SchemeWhitelistContractTests::test_whitelist_matches_the_delta_requirement_exactly
+FAILED tests/test_diagnostic_recognition_contract.py::StreamCoordinateContractTests::test_need_more_retain_from_is_an_absolute_stream_offset
+FAILED tests/test_diagnostic_recognition_contract.py::StreamCoordinateContractTests::test_offsets_count_python_characters_not_utf8_bytes
+FAILED tests/test_diagnostic_recognition_contract.py::StreamCoordinateContractTests::test_stream_offsets_convert_to_a_retained_buffer_index
+30 failed in 0.74s
+
+red exit status: 1

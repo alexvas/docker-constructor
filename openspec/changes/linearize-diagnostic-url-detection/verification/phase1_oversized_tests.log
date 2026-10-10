@@ -1,0 +1,20 @@
+=== phase1 oversized-tail existing-test run ===
+command: .venv/bin/python -m pytest <12 oversized-tail node ids> -n 8 --dist loadfile --durations=0 --tb=short -q
+
+bringing up nodes...
+bringing up nodes...
+
+............                                                             [100%]
+============================== slowest durations ===============================
+0.51s call     tests/test_host_diagnostic_projection.py::TestBoundarySafeUrlSanitization::test_pending_state_remains_bounded_for_an_unterminated_token
+0.07s call     tests/test_npm_diagnostic_collection_phase8.py::TestCollectorBranch::test_recovery_after_safe_boundary
+0.05s call     tests/test_npm_diagnostic_collection_phase8.py::TestCollectorBranch::test_input_keeps_draining_after_overflow
+0.05s call     tests/test_npm_diagnostic_collection_phase8.py::TestCollectorBranch::test_oversized_newline_free_diagnostic_stays_within_line_limit
+0.04s call     tests/test_npm_diagnostic_collection_phase8.py::TestConsumablePerLineFacts::test_oversized_url_heavy_line_discards_metadata_and_recovers
+0.02s call     tests/test_npm_diagnostic_collection_phase8.py::TestCollectorBranch::test_oversized_unterminated_url_stays_within_pending_limit
+0.01s call     tests/test_host_diagnostic_projection.py::TestBoundarySafeUrlSanitization::test_multibyte_append_never_exceeds_the_limit_at_drain_entry
+
+(29 durations < 0.005s hidden.  Use -vv to show these durations.)
+12 passed in 1.18s
+
+exit status: 0
