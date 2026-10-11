@@ -69,19 +69,114 @@ The foundation SHALL provide `OwnedStream` in `docker.filesystem.streams` for al
 - **THEN** the owner SHALL synchronize and mark its release claim terminal before invoking the underlying close outside the claim lock
 - **AND** exactly one caller SHALL invoke the underlying close, including when it fails or is interrupted
 - **AND** a losing caller SHALL NOT retry, close the raw descriptor, or treat a terminal claim as proof that the winning close has completed
-- **AND** the consuming cleanup coordinator SHALL retain the winning outcome before returning
+- **AND** the consuming cleanup coordinator SHALL retain the winning outcome before claiming cleanup completion
+- **AND** a bounded return before completion SHALL explicitly expose incomplete cleanup with retained ownership and outcome observation
 
 #### Scenario: Adopt a stream without double ownership
 - **WHEN** a factory has already created a file object that owns its descriptor
 - **THEN** the consumer SHALL adopt the file object into the shared stream owner before fallible use
 - **AND** SHALL NOT independently adopt or close its `fileno()` descriptor
-- **AND** failure during multi-stream adoption SHALL release all acquired resources once under shared precedence
+- **AND** failure during multi-stream adoption SHALL account for every acquired resource under shared precedence and release it once when safe
+- **AND** resources still used by readers SHALL retain their owners until those readers stop
+
+#### Scenario: Reject a stream before ownership transfer
+- **WHEN** labeled stream adoption rejects an invalid label or stream interface, or fails while preparing synchronization
+- **THEN** ownership SHALL remain with the caller
+- **AND** no stream close SHALL be attempted and the stream SHALL remain untouched
+- **AND** the rejection SHALL NOT hide a close interruption or defect by attempting release
 
 #### Scenario: Close failure or interruption is terminal
 - **WHEN** an owned stream close fails ordinarily, raises an unexpected defect, or is interrupted
 - **THEN** ownership SHALL remain terminal and subsequent cleanup SHALL issue no further underlying close
-- **AND** independent owners SHALL still receive their release attempts
+- **AND** independently safe owners SHALL still receive their release attempts
+- **AND** a pipe still accessed by a reader SHALL retain its owner until safe release
 - **AND** authoritative failure selection SHALL follow shared cleanup precedence without wrapping process-control objects
+
+### Requirement: Acquire subprocess resources through one prepared lifecycle
+A reusable process lifecycle SHALL own launch, captured output streams, internally controlled readers, and coordinated cleanup. Fallible ownership and cleanup-continuation preparation SHALL precede launch. Every acquired pipe SHALL have one prepared release authority before fallible use. Process coordination SHALL remain outside the filesystem foundation and SHALL NOT acquire domain cleanup or diagnostic policy.
+
+#### Scenario: Preparation fails before launch
+- **WHEN** validation, owner preparation, lock/event creation, or cleanup-continuation preparation/startup fails
+- **THEN** no subprocess SHALL be launched and no pipe SHALL be acquired
+- **AND** any already-prepared idle workers SHALL undergo cleanup
+- **AND** the authoritative failure SHALL retain its identity under shared precedence
+
+#### Scenario: Process launch fails after preparation
+- **WHEN** the subprocess factory fails without returning a launched child
+- **THEN** preparation SHALL NOT leave idle cleanup workers running or pipe ownership stranded
+- **AND** cleanup failures SHALL participate in shared precedence
+
+#### Scenario: Launch succeeds but setup fails
+- **WHEN** a subprocess has launched and first or second stream transfer, reader configuration/startup, supervisor startup, or a launch callback fails
+- **THEN** every acquired pipe SHALL remain accounted for by its designated prepared release authority
+- **AND** both pipe positions SHALL be handled independently without raw consumer-close fallback, constructor retry as release authority, or self-closing rejected adoption
+- **AND** safe pipe release and bounded child termination/reaping SHALL still be attempted
+- **AND** incomplete cleanup SHALL retain responsibility and expose observation access even when launch returns no owner
+
+#### Scenario: Separate process coordination from domain policy
+- **WHEN** a consumer uses the reusable process lifecycle
+- **THEN** the mechanism SHALL depend on lightweight filesystem ownership rather than domain packages
+- **AND** filesystem ownership SHALL NOT depend on process coordination
+- **AND** Docker removal, domain errors, staging, cache, publication, and redaction SHALL remain consumer responsibilities
+- **AND** the supported scope SHALL be one direct child and captured stdout/stderr, not process groups/trees, stdin, PTY, or arbitrary externally supplied reader threads
+
+### Requirement: Preserve precedence throughout process cleanup
+All process setup and independent cleanup failures SHALL participate in shared cleanup precedence with explicit ordinary-error policies. Join, release, and reaping failures SHALL NOT skip independent actions. Existing process-control interruptions SHALL retain identity over later defects or interruptions; a later interruption SHALL outrank an ordinary setup failure. Repeated or concurrent cleanup SHALL share one retained outcome without retries or duplicate diagnostics.
+
+#### Scenario: Second transfer interrupts after an ordinary first failure
+- **WHEN** the first stream transfer fails ordinarily and the second raises a process-control interruption
+- **THEN** the second interruption SHALL be authoritative with its exact identity preserved
+- **AND** the first failure SHALL be retained secondarily
+- **AND** both acquired pipes SHALL remain accounted for and the child SHALL undergo bounded reaping
+
+#### Scenario: Operation interruption precedes cleanup failures
+- **WHEN** the active operation is interrupted and join, stream release, or reaping subsequently fails
+- **THEN** the original interruption SHALL remain authoritative with its exact identity preserved
+- **AND** all independent cleanup actions SHALL still be attempted and their failures retained once
+
+#### Scenario: Join is interrupted during setup cleanup
+- **WHEN** joining a started reader raises an interruption or unexpected defect
+- **THEN** sibling cleanup and bounded child termination/reaping SHALL still be attempted
+- **AND** the reader's stream SHALL NOT be released while the reader can still access it
+- **AND** failure selection SHALL include the join failure under shared precedence
+
+#### Scenario: Cleanup is requested repeatedly or concurrently
+- **WHEN** deadline, cancellation, context exit, or explicit shutdown targets the same process lifecycle
+- **THEN** callers SHALL share the existing cleanup coordination, monotonic budgets, owners, and winning outcomes
+- **AND** they SHALL NOT re-adopt a pipe, retry its close, restart shutdown budgets, or duplicate retained failures
+
+### Requirement: Retain safe ownership during incomplete process shutdown
+Process shutdown SHALL bound caller waiting and distinguish completed cleanup from `shutdown_incomplete`. A pipe still used by a reader SHALL retain its owner until safe release. Incomplete cleanup SHALL provide retained status/outcome observation and bounded waiting. Completion SHALL require child reaping, reader-stop confirmation, terminal pipe release attempts, and published cleanup outcomes, not successful release of every resource.
+
+#### Scenario: Reader exceeds its shutdown budget
+- **WHEN** cancellation and bounded shutdown leave a descriptor-backed reader alive
+- **THEN** shutdown SHALL report incomplete cleanup rather than success
+- **AND** that reader's pipe SHALL remain owned and SHALL NOT be closed beneath the reader
+- **AND** independently safe releases and child termination/reaping SHALL proceed
+- **AND** prepared per-process continuation SHALL retain responsibility without relying on garbage collection or a global ownership registry
+
+#### Scenario: Reader later stops
+- **WHEN** a retained reader actually stops after incomplete shutdown was reported
+- **THEN** its designated owner SHALL receive exactly one release attempt
+- **AND** the retained cleanup result SHALL expose completion and any late failure without duplicate diagnostics
+- **AND** no late domain output or callback SHALL begin
+
+#### Scenario: Cleanup observation times out
+- **WHEN** bounded waiting for cleanup expires and a reader still has not stopped
+- **THEN** status SHALL remain incomplete and the same owner SHALL remain retained
+- **AND** observation SHALL NOT retry close, restart shutdown, or claim completion
+- **AND** a reader that never stops SHALL NOT be promised eventual resource release
+
+#### Scenario: Context exit cannot finish cleanup
+- **WHEN** context exit reaches its shutdown budget without completing cleanup
+- **THEN** without an active operation failure it SHALL report a controlled incomplete-cleanup failure with observation access
+- **AND** with an active failure it SHALL preserve shared precedence and attach incomplete-cleanup observation to the authoritative failure
+- **AND** incomplete-shutdown timeout SHALL be ordinary and SHALL NOT mask an existing interruption
+
+#### Scenario: Late release fails after result delivery
+- **WHEN** deferred stream release fails after the operation result or exception has already been delivered
+- **THEN** the late failure SHALL remain observable in the retained cleanup result
+- **AND** it SHALL NOT retroactively replace or mutate the delivered result or authoritative exception
 
 ### Requirement: Regulate new descriptor-owning code through documented filesystem wrappers
 New descriptor-owning code SHALL select a filesystem lifecycle wrapper and verify its ownership paths. The project SHALL publish that contract in `docs/filesystem-lifecycle.md`, reference it from root `AGENTS.md`, OpenSpec project context, and README links, and enforce it through complete-production-tree convergence checks.
@@ -96,6 +191,8 @@ New descriptor-owning code SHALL select a filesystem lifecycle wrapper and verif
 - **THEN** it SHALL immediately use `OwnedDescriptor`, the applicable `DirectoryDescriptor` capability, or `OwnedStream` respectively, with constructor inputs prepared before acquisition
 - **AND** raw-fd file-object wrappers SHALL retain `closefd=False` with a live external descriptor owner
 - **AND** every transfer SHALL explicitly identify the receiving ownership responsibility
+- **AND** subprocess consumers SHALL use the prepared unified process lifecycle rather than compose independent launch/adoption/reader/shutdown machinery
+- **AND** the process lifecycle SHALL still use one filesystem stream owner per acquired pipe, without broadening direct-close permissions
 
 #### Scenario: Verify a new ownership path
 - **WHEN** a new acquisition, transfer, wrapper, or cleanup branch is introduced
