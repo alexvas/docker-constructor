@@ -1,463 +1,1294 @@
-=== phase2 recognizer RED run (recognizer module absent) ===
-command: .venv/bin/python -m pytest tests/test_diagnostic_recognizer_phase2.py -n 8 --dist loadfile --tb=short -q
-
 bringing up nodes...
 bringing up nodes...
 
-FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF                             [100%]
+FFFFFFFFFFFFFFFFuuuuuuuu.FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF [ 54%]
+FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFuuu.FFFFFFFFFFFFFFF                [100%]
 =================================== FAILURES ===================================
-_____ RawRecognitionTests.test_arbitrarily_long_unknown_scheme_is_detected _____
+__ SupportedSchemeTests.test_arbitrarily_long_unknown_scheme_is_not_detected ___
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:142: in test_arbitrarily_long_unknown_scheme_is_detected
-    result = self.recognize(text)
-             ^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
+tests/test_diagnostic_recognizer_phase2.py:257: in test_arbitrarily_long_unknown_scheme_is_not_detected
+    result = self.recognize(f"{scheme}://internal.example/private")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
     return self.recognizer().recognize(text, offset=offset)
            ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-____ RawRecognitionTests.test_candidate_end_is_the_exclusive_raw_terminator ____
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+___ SupportedSchemeTests.test_candidate_end_is_the_exclusive_raw_terminator ____
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:108: in test_candidate_end_is_the_exclusive_raw_terminator
+tests/test_diagnostic_recognizer_phase2.py:202: in test_candidate_end_is_the_exclusive_raw_terminator
     result = self.recognize(text)
              ^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
     return self.recognizer().recognize(text, offset=offset)
            ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_ RawRecognitionTests.test_earliest_source_selection_prefers_earlier_encoded_candidate _
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SupportedSchemeTests.test_earliest_supported_start_wins_between_two_supported_urls _
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:166: in test_earliest_source_selection_prefers_earlier_encoded_candidate
+tests/test_diagnostic_recognizer_phase2.py:274: in test_earliest_supported_start_wins_between_two_supported_urls
     result = self.recognize(text)
              ^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
     return self.recognizer().recognize(text, offset=offset)
            ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_ RawRecognitionTests.test_earliest_source_selection_prefers_earlier_literal_candidate _
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SupportedSchemeTests.test_earliest_supported_start_wins_over_earlier_unknown_text _
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:173: in test_earliest_source_selection_prefers_earlier_literal_candidate
+tests/test_diagnostic_recognizer_phase2.py:268: in test_earliest_supported_start_wins_over_earlier_unknown_text
     result = self.recognize(text)
              ^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
     return self.recognizer().recognize(text, offset=offset)
            ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-__________ RawRecognitionTests.test_known_scheme_is_classified_known ___________
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+________ SupportedSchemeTests.test_embedded_supported_start_is_selected ________
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:148: in test_known_scheme_is_classified_known
+tests/test_diagnostic_recognizer_phase2.py:262: in test_embedded_supported_start_is_selected
+    result = self.recognize(text)
+             ^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_________ SupportedSchemeTests.test_every_supported_scheme_is_detected _________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:230: in test_every_supported_scheme_is_detected
     self.recognizer()
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-__ RawRecognitionTests.test_literal_separator_is_a_candidate_at_its_raw_start __
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SupportedSchemeTests.test_literal_separator_is_a_candidate_at_its_raw_start __
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:98: in test_literal_separator_is_a_candidate_at_its_raw_start
+tests/test_diagnostic_recognizer_phase2.py:192: in test_literal_separator_is_a_candidate_at_its_raw_start
     result = self.recognize(text)
              ^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
     return self.recognizer().recognize(text, offset=offset)
            ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-___ RawRecognitionTests.test_multibyte_prefix_offsets_are_character_indices ____
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+___ SupportedSchemeTests.test_multibyte_prefix_offsets_are_character_indices ___
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:213: in test_multibyte_prefix_offsets_are_character_indices
+tests/test_diagnostic_recognizer_phase2.py:333: in test_multibyte_prefix_offsets_are_character_indices
     result = self.recognize(text)
              ^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
     return self.recognizer().recognize(text, offset=offset)
            ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-___ RawRecognitionTests.test_npm_colon_form_does_not_complete_the_separator ____
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+___ SupportedSchemeTests.test_npm_colon_form_does_not_complete_the_separator ___
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:136: in test_npm_colon_form_does_not_complete_the_separator
+tests/test_diagnostic_recognizer_phase2.py:226: in test_npm_colon_form_does_not_complete_the_separator
+    result = self.recognize("npm:package")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+______ SupportedSchemeTests.test_offset_is_added_to_absolute_coordinates _______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:279: in test_offset_is_added_to_absolute_coordinates
+    result = self.recognize("https://host tail", offset=100)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SupportedSchemeTests.test_ordinary_tokens_without_a_supported_prefix_return_no_match _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:285: in test_ordinary_tokens_without_a_supported_prefix_return_no_match
+    self.recognizer()
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SupportedSchemeTests.test_retention_restarts_at_a_trailing_supported_prefix __
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:316: in test_retention_restarts_at_a_trailing_supported_prefix
     result = self.recognize(text)
              ^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
     return self.recognizer().recognize(text, offset=offset)
            ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_______ RawRecognitionTests.test_offset_is_added_to_absolute_coordinates _______
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+____ SupportedSchemeTests.test_retention_skips_non_scheme_prefix_of_a_token ____
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:179: in test_offset_is_added_to_absolute_coordinates
-    result = self.recognize(text, offset=100)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
-    return self.recognizer().recognize(text, offset=offset)
-           ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_ RawRecognitionTests.test_ordinary_tokens_without_a_viable_prefix_return_no_match _
-[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:185: in test_ordinary_tokens_without_a_viable_prefix_return_no_match
-    self.recognizer()
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_________ RawRecognitionTests.test_plain_scheme_word_reports_need_more _________
-[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:193: in test_plain_scheme_word_reports_need_more
-    result = self.recognize("git")
-             ^^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
-    return self.recognizer().recognize(text, offset=offset)
-           ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-____ RawRecognitionTests.test_single_slash_does_not_complete_the_separator _____
-[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:131: in test_single_slash_does_not_complete_the_separator
+tests/test_diagnostic_recognizer_phase2.py:327: in test_retention_skips_non_scheme_prefix_of_a_token
     result = self.recognize(text)
              ^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
     return self.recognizer().recognize(text, offset=offset)
            ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_____ RawRecognitionTests.test_started_separator_prefix_reports_need_more ______
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+____ SupportedSchemeTests.test_single_slash_does_not_complete_the_separator ____
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:198: in test_started_separator_prefix_reports_need_more
+tests/test_diagnostic_recognizer_phase2.py:222: in test_single_slash_does_not_complete_the_separator
+    result = self.recognize("note:/section")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_____ SupportedSchemeTests.test_started_separator_prefix_reports_need_more _____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:299: in test_started_separator_prefix_reports_need_more
     self.recognizer()
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-________ RawRecognitionTests.test_terminator_variants_end_the_candidate ________
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_________ SupportedSchemeTests.test_supported_prefix_reports_need_more _________
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:121: in test_terminator_variants_end_the_candidate
+tests/test_diagnostic_recognizer_phase2.py:291: in test_supported_prefix_reports_need_more
     self.recognizer()
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-________ RawRecognitionTests.test_trailing_token_is_the_retention_start ________
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SupportedSchemeTests.test_terminator_variants_end_the_candidate (separator='"\' \'"') _
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:207: in test_trailing_token_is_the_retention_start
+tests/test_diagnostic_recognizer_phase2.py:217: in test_terminator_variants_end_the_candidate
     result = self.recognize(text)
              ^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
     return self.recognizer().recognize(text, offset=offset)
            ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-________ RawRecognitionTests.test_unknown_scheme_is_classified_unknown _________
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SupportedSchemeTests.test_terminator_variants_end_the_candidate (separator='"\'\\\\t\'"') _
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:156: in test_unknown_scheme_is_classified_unknown
-    self.recognizer()
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_________ RawRecognitionTests.test_unterminated_candidate_has_end_none _________
-[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:116: in test_unterminated_candidate_has_end_none
+tests/test_diagnostic_recognizer_phase2.py:217: in test_terminator_variants_end_the_candidate
     result = self.recognize(text)
              ^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
     return self.recognizer().recognize(text, offset=offset)
            ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_ EncodedRecognitionTests.test_conservative_encoded_scheme_units_remain_candidates _
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SupportedSchemeTests.test_terminator_variants_end_the_candidate (separator='"\'\\\\n\'"') _
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:284: in test_conservative_encoded_scheme_units_remain_candidates
+tests/test_diagnostic_recognizer_phase2.py:217: in test_terminator_variants_end_the_candidate
+    result = self.recognize(text)
+             ^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SupportedSchemeTests.test_terminator_variants_end_the_candidate (separator='"\'\\\\r\'"') _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:217: in test_terminator_variants_end_the_candidate
+    result = self.recognize(text)
+             ^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SupportedSchemeTests.test_terminator_variants_end_the_candidate (separator='"\'<\'"') _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:217: in test_terminator_variants_end_the_candidate
+    result = self.recognize(text)
+             ^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SupportedSchemeTests.test_terminator_variants_end_the_candidate (separator='"\'|\'"') _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:217: in test_terminator_variants_end_the_candidate
+    result = self.recognize(text)
+             ^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SupportedSchemeTests.test_terminator_variants_end_the_candidate (separator='\'\\\'"\\\'\'') _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:217: in test_terminator_variants_end_the_candidate
+    result = self.recognize(text)
+             ^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SupportedSchemeTests.test_terminator_variants_end_the_candidate (separator='"\'\\\\x01\'"') _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:217: in test_terminator_variants_end_the_candidate
+    result = self.recognize(text)
+             ^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SupportedSchemeTests.test_trailing_token_retention_is_the_earliest_supported_start _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:321: in test_trailing_token_retention_is_the_earliest_supported_start
+    result = self.recognize("alpha beta git+")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_________ SupportedSchemeTests.test_unknown_schemes_are_not_candidates _________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:239: in test_unknown_schemes_are_not_candidates
     self.recognizer()
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_____ EncodedRecognitionTests.test_depth_five_separator_is_not_recognized ______
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+________ SupportedSchemeTests.test_unsupported_prefix_is_not_need_more _________
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:244: in test_depth_five_separator_is_not_recognized
-    result = self.recognize("custom%252525253A%252525252F%252525252Fhost")
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
-    return self.recognizer().recognize(text, offset=offset)
-           ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-__________ EncodedRecognitionTests.test_depth_four_encoded_separator ___________
-[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:240: in test_depth_four_encoded_separator
-    result = self.recognize("custom%2525253A%2525252F%2525252Fhost")
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
-    return self.recognizer().recognize(text, offset=offset)
-           ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-___________ EncodedRecognitionTests.test_depth_one_encoded_separator ___________
-[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:227: in test_depth_one_encoded_separator
-    result = self.recognize("custom%3A%2F%2Fhost")
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
-    return self.recognizer().recognize(text, offset=offset)
-           ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-__________ EncodedRecognitionTests.test_depth_three_encoded_separator __________
-[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:236: in test_depth_three_encoded_separator
-    result = self.recognize("custom%25253A%25252F%25252Fhost")
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
-    return self.recognizer().recognize(text, offset=offset)
-           ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-___________ EncodedRecognitionTests.test_depth_two_encoded_separator ___________
-[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:232: in test_depth_two_encoded_separator
-    result = self.recognize("custom%253A%252F%252Fhost")
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
-    return self.recognizer().recognize(text, offset=offset)
-           ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-__________ EncodedRecognitionTests.test_depth_zero_literal_separator ___________
-[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:223: in test_depth_zero_literal_separator
-    result = self.recognize("https://host")
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
-    return self.recognizer().recognize(text, offset=offset)
-           ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-______ EncodedRecognitionTests.test_encoded_known_scheme_classifies_known ______
-[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:266: in test_encoded_known_scheme_classifies_known
+tests/test_diagnostic_recognizer_phase2.py:307: in test_unsupported_prefix_is_not_need_more
     self.recognizer()
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_ EncodedRecognitionTests.test_encoded_separator_without_scheme_is_not_a_candidate _
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+________ SupportedSchemeTests.test_unterminated_candidate_has_end_none _________
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:311: in test_encoded_separator_without_scheme_is_not_a_candidate
+tests/test_diagnostic_recognizer_phase2.py:209: in test_unterminated_candidate_has_end_none
+    result = self.recognize("see https://host/path")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ EncodedSchemeTests.test_conservative_encoded_units_do_not_manufacture_a_scheme _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:442: in test_conservative_encoded_units_do_not_manufacture_a_scheme
     self.recognizer()
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-____ EncodedRecognitionTests.test_encoded_unknown_scheme_classifies_unknown ____
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+________ EncodedSchemeTests.test_depth_five_separator_is_not_recognized ________
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:277: in test_encoded_unknown_scheme_classifies_unknown
+tests/test_diagnostic_recognizer_phase2.py:402: in test_depth_five_separator_is_not_recognized
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+__ EncodedSchemeTests.test_depth_four_separator_over_permitted_encoded_scheme __
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:392: in test_depth_four_separator_over_permitted_encoded_scheme
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ EncodedSchemeTests.test_encoded_separator_without_supported_scheme_is_not_a_candidate _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:458: in test_encoded_separator_without_supported_scheme_is_not_a_candidate
+    self.recognizer()
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+______ EncodedSchemeTests.test_encoded_unknown_scheme_is_not_a_candidate _______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:436: in test_encoded_unknown_scheme_is_not_a_candidate
     result = self.recognize("%63ustom%253A%252F%252Fhost")
              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
     return self.recognizer().recognize(text, offset=offset)
            ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-__________ EncodedRecognitionTests.test_hex_letter_case_is_recognized __________
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+________ EncodedSchemeTests.test_encoded_uppercase_scheme_is_recognized ________
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:259: in test_hex_letter_case_is_recognized
+tests/test_diagnostic_recognizer_phase2.py:432: in test_encoded_uppercase_scheme_is_recognized
+    result = self.recognize(_encode_depth("HTTPS", 1) + "://host")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ EncodedSchemeTests.test_four_pass_encoded_scheme_with_literal_separator_is_not_detected _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:370: in test_four_pass_encoded_scheme_with_literal_separator_is_not_detected
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+____ EncodedSchemeTests.test_four_pass_scheme_and_separator_is_not_detected ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:377: in test_four_pass_scheme_and_separator_is_not_detected
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+____________ EncodedSchemeTests.test_hex_letter_case_is_recognized _____________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:418: in test_hex_letter_case_is_recognized
     self.recognizer()
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-__ EncodedRecognitionTests.test_incomplete_trailing_escape_reports_need_more ___
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_____ EncodedSchemeTests.test_incomplete_trailing_escape_reports_need_more _____
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:304: in test_incomplete_trailing_escape_reports_need_more
+tests/test_diagnostic_recognizer_phase2.py:451: in test_incomplete_trailing_escape_reports_need_more
     self.recognizer()
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-__ EncodedRecognitionTests.test_malformed_escape_does_not_form_a_scheme_unit ___
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+______ EncodedSchemeTests.test_malformed_escape_does_not_form_a_candidate ______
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:300: in test_malformed_escape_does_not_form_a_scheme_unit
-    self.assertIsNot(RecognitionKind.MATCH, self.recognize("a%zz").kind)
+tests/test_diagnostic_recognizer_phase2.py:448: in test_malformed_escape_does_not_form_a_candidate
+    self.assertIs(RecognitionKind.NO_MATCH, self.recognize("a%zz").kind)
                                             ^^^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
     return self.recognizer().recognize(text, offset=offset)
            ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-______ EncodedRecognitionTests.test_malformed_escape_is_copied_literally _______
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+________ EncodedSchemeTests.test_mixed_depth_separators_are_recognized _________
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:294: in test_malformed_escape_is_copied_literally
+tests/test_diagnostic_recognizer_phase2.py:407: in test_mixed_depth_separators_are_recognized
+    self.recognizer()
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ EncodedSchemeTests.test_scheme_and_separator_at_every_permitted_scheme_depth _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:343: in test_scheme_and_separator_at_every_permitted_scheme_depth
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ EncodedSchemeTests.test_scheme_encoded_at_every_permitted_depth_with_literal_separator _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:361: in test_scheme_encoded_at_every_permitted_depth_with_literal_separator
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_________ EncodedSchemeTests.test_separately_encoded_escape_characters _________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:414: in test_separately_encoded_escape_characters
+    result = self.recognize("https%25%33%41%25%32%46/host")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ EncodedSchemeTests.test_separator_encoded_at_every_depth_over_literal_scheme _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:383: in test_separator_encoded_at_every_depth_over_literal_scheme
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+______ EncodedSchemeTests.test_uppercase_scheme_spellings_are_recognized _______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:425: in test_uppercase_scheme_spellings_are_recognized
+    self.recognizer()
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+__________ DifferentialCorpusTests.test_curated_corpus_matches_oracle __________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:555: in test_curated_corpus_matches_oracle
+    self.recognizer()
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+___ DifferentialCorpusTests.test_deterministic_random_corpus_matches_oracle ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:561: in test_deterministic_random_corpus_matches_oracle
+    self.recognizer()
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ DifferentialCorpusTests.test_deterministic_random_long_corpus_matches_oracle _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:570: in test_deterministic_random_long_corpus_matches_oracle
+    self.recognizer()
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ DifferentialCorpusTests.test_deterministic_supported_spelling_corpus_matches_oracle _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:579: in test_deterministic_supported_spelling_corpus_matches_oracle
+    self.recognizer()
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_______ LiteralSecretTests.test_literal_secret_crosses_a_raw_terminator ________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:613: in test_literal_secret_crosses_a_raw_terminator
+    _result, matches = self.recognize_secrets(text, ("password done",))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:182: in recognize_secrets
+    return self.recognizer().recognize_with_secrets(
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_______ LiteralSecretTests.test_literal_secret_outside_a_url_is_reported _______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:602: in test_literal_secret_outside_a_url_is_reported
+    _result, matches = self.recognize_secrets(
+tests/test_diagnostic_recognizer_phase2.py:182: in recognize_secrets
+    return self.recognizer().recognize_with_secrets(
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ LiteralSecretTests.test_literal_secret_that_is_a_full_scheme_suffix_is_not_rejected _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:628: in test_literal_secret_that_is_a_full_scheme_suffix_is_not_rejected
+    _result, matches = self.recognize_secrets(text, ("schemehttps",))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:182: in recognize_secrets
+    return self.recognizer().recognize_with_secrets(
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_____ LiteralSecretTests.test_literal_secret_with_a_space_is_not_rejected ______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:621: in test_literal_secret_with_a_space_is_not_rejected
+    _result, matches = self.recognize_secrets(
+tests/test_diagnostic_recognizer_phase2.py:182: in recognize_secrets
+    return self.recognizer().recognize_with_secrets(
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+____ LiteralSecretTests.test_ordinary_text_without_a_url_stays_literal_only ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:651: in test_ordinary_text_without_a_url_stays_literal_only
+    _result, matches = self.recognize_secrets(text, ("TOKEN",))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:182: in recognize_secrets
+    return self.recognizer().recognize_with_secrets(
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+___ LiteralSecretTests.test_overlapping_literal_secrets_are_deduped_by_span ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:646: in test_overlapping_literal_secrets_are_deduped_by_span
+    _result, matches = self.recognize_secrets(text, ("TOKEN", "TOKEN"))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:182: in recognize_secrets
+    return self.recognizer().recognize_with_secrets(
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+___________ LiteralSecretTests.test_secret_selects_leftmost_longest ____________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:635: in test_secret_selects_leftmost_longest
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ UrlDecodedSecretTests.test_decoded_secret_ending_at_a_raw_terminator_is_reported _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:706: in test_decoded_secret_ending_at_a_raw_terminator_is_reported
+    _result, matches = self.recognize_secrets(text, ("TOKEN",))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:182: in recognize_secrets
+    return self.recognizer().recognize_with_secrets(
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_____ UrlDecodedSecretTests.test_decoded_secret_in_a_url_path_is_reported ______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:660: in test_decoded_secret_in_a_url_path_is_reported
+    _result, matches = self.recognize_secrets(text, ("TOKEN",))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:182: in recognize_secrets
+    return self.recognizer().recognize_with_secrets(
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ UrlDecodedSecretTests.test_decoded_secret_is_confined_to_the_recognized_span _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:695: in test_decoded_secret_is_confined_to_the_recognized_span
+    _result, matches = self.recognize_secrets(text, ("TOKEN",))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:182: in recognize_secrets
+    return self.recognizer().recognize_with_secrets(
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+___ UrlDecodedSecretTests.test_encoded_decoding_does_not_exceed_three_passes ___
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:676: in test_encoded_decoding_does_not_exceed_three_passes
+    _result, matches = self.recognize_secrets(text, ("TOKEN",))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:182: in recognize_secrets
+    return self.recognizer().recognize_with_secrets(
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+____ UrlDecodedSecretTests.test_encoded_secret_without_a_url_is_not_decoded ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:688: in test_encoded_secret_without_a_url_is_not_decoded
     result = self.recognize(text)
              ^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
     return self.recognizer().recognize(text, offset=offset)
            ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-______________ EncodedRecognitionTests.test_mixed_depth_separator ______________
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ UrlDecodedSecretTests.test_literal_secret_inside_a_url_is_reported_at_depth_zero _
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:248: in test_mixed_depth_separator
-    self.recognizer()
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-______ EncodedRecognitionTests.test_separately_encoded_escape_characters _______
+tests/test_diagnostic_recognizer_phase2.py:681: in test_literal_secret_inside_a_url_is_reported_at_depth_zero
+    _result, matches = self.recognize_secrets(text, ("TOKEN",))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:182: in recognize_secrets
+    return self.recognizer().recognize_with_secrets(
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ UrlDecodedSecretTests.test_secret_found_at_two_decoded_depths_is_reported_once _
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:255: in test_separately_encoded_escape_characters
-    result = self.recognize("custom%25%33%41%25%32%46/host")
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
+tests/test_diagnostic_recognizer_phase2.py:670: in test_secret_found_at_two_decoded_depths_is_reported_once
+    _result, matches = self.recognize_secrets(text, ("TOKEN",))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:182: in recognize_secrets
+    return self.recognizer().recognize_with_secrets(
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SchemePrefixSuffixOverlapTests.test_partition_invariance_with_registered_secrets _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:732: in test_partition_invariance_with_registered_secrets
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SchemePrefixSuffixOverlapTests.test_secret_overlapping_a_scheme_prefix_is_covered_and_url_kept _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:716: in test_secret_overlapping_a_scheme_prefix_is_covered_and_url_kept
+    result = self.recognize(text)
+             ^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
     return self.recognizer().recognize(text, offset=offset)
            ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_____ DifferentialCorpusTests.test_curated_corpus_matches_legacy_detector ______
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SchemePrefixSuffixOverlapTests.test_url_start_inside_a_covered_secret_still_recognized _
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:418: in test_curated_corpus_matches_legacy_detector
-    self.recognizer()
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_ DifferentialCorpusTests.test_deterministic_random_corpus_matches_legacy_detector _
+tests/test_diagnostic_recognizer_phase2.py:725: in test_url_start_inside_a_covered_secret_still_recognized
+    _result, matches = self.recognize_secrets(text, ("TOKEN",))
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:182: in recognize_secrets
+    return self.recognizer().recognize_with_secrets(
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ WorkStateRegressionTests.test_batch_recognition_retains_a_constant_number_of_matches _
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:424: in test_deterministic_random_corpus_matches_legacy_detector
-    self.recognizer()
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_ DifferentialCorpusTests.test_deterministic_random_long_corpus_matches_legacy_detector _
-[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:433: in test_deterministic_random_long_corpus_matches_legacy_detector
-    self.recognizer()
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-______ WorkStateRegressionTests.test_long_escaped_token_state_is_bounded _______
-[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:477: in test_long_escaped_token_state_is_bounded
+tests/test_diagnostic_recognizer_phase2.py:783: in test_batch_recognition_retains_a_constant_number_of_matches
     module = self.recognizer()
              ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-___ WorkStateRegressionTests.test_pending_state_is_bounded_for_a_long_token ____
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ WorkStateRegressionTests.test_pending_and_queue_state_is_bounded_for_long_tokens _
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:471: in test_pending_state_is_bounded_for_a_long_token
+tests/test_diagnostic_recognizer_phase2.py:775: in test_pending_and_queue_state_is_bounded_for_long_tokens
     module = self.recognizer()
              ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_ WorkStateRegressionTests.test_stats_report_only_bounded_structural_counters __
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ WorkStateRegressionTests.test_registration_storage_is_bounded_by_the_scheme_set _
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:483: in test_stats_report_only_bounded_structural_counters
+tests/test_diagnostic_recognizer_phase2.py:801: in test_registration_storage_is_bounded_by_the_scheme_set
     module = self.recognizer()
              ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_____ WorkStateRegressionTests.test_secret_work_is_structural_and_nonzero ______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:793: in test_secret_work_is_structural_and_nonzero
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
 _____ WorkStateRegressionTests.test_work_grows_linearly_for_separated_runs _____
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:460: in test_work_grows_linearly_for_separated_runs
+tests/test_diagnostic_recognizer_phase2.py:766: in test_work_grows_linearly_for_separated_runs
     module = self.recognizer()
              ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
 _ WorkStateRegressionTests.test_work_grows_linearly_for_uninterrupted_scheme_runs _
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:446: in test_work_grows_linearly_for_uninterrupted_scheme_runs
+tests/test_diagnostic_recognizer_phase2.py:750: in test_work_grows_linearly_for_uninterrupted_scheme_runs
     module = self.recognizer()
              ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-______ ContractIntegrationTests.test_match_emits_a_p1_recognition_result _______
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SecretRetentionWorkTests.test_coverage_selection_is_deterministic_for_many_urls _
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:496: in test_match_emits_a_p1_recognition_result
-    result = self.recognize("https://host")
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:90: in recognize
+tests/test_diagnostic_recognizer_phase2.py:838: in test_coverage_selection_is_deterministic_for_many_urls
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+____ SecretRetentionWorkTests.test_cumulative_work_is_linear_across_commits ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:852: in test_cumulative_work_is_linear_across_commits
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SecretRetentionWorkTests.test_decoded_secret_after_an_abandoned_prefix_is_discarded _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:832: in test_decoded_secret_after_an_abandoned_prefix_is_discarded
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SecretRetentionWorkTests.test_decoded_secret_inside_a_url_keeps_its_raw_span _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:822: in test_decoded_secret_inside_a_url_keeps_its_raw_span
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SecretRetentionWorkTests.test_decoded_secret_retention_does_not_grow_with_ordinary_text _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:810: in test_decoded_secret_retention_does_not_grow_with_ordinary_text
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SecretRetentionWorkTests.test_pruning_counters_are_preserved_across_consumption _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:912: in test_pruning_counters_are_preserved_across_consumption
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SecretRetentionWorkTests.test_speculative_pruning_work_is_linear_for_long_url_paths _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:874: in test_speculative_pruning_work_is_linear_for_long_url_paths
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SecretRetentionWorkTests.test_speculative_pruning_work_is_linear_with_consumption_boundaries _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:897: in test_speculative_pruning_work_is_linear_with_consumption_boundaries
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ CommittedDecoderEmissionTests.test_delayed_atoms_preserve_straddling_secret_continuations _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:961: in test_delayed_atoms_preserve_straddling_secret_continuations
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ CommittedDecoderEmissionTests.test_delayed_feed_cannot_resurrect_committed_percent _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:931: in test_delayed_feed_cannot_resurrect_committed_percent
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ CommittedDecoderEmissionTests.test_encoded_secret_crossing_commit_is_not_suppressed _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:980: in test_encoded_secret_crossing_commit_is_not_suppressed
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ CommittedDecoderEmissionTests.test_finalization_cannot_resurrect_committed_percent _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:947: in test_finalization_cannot_resurrect_committed_percent
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ PendingTransducerSecretTests.test_batch_pending_transducer_preserves_complete_raw_coverage _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:997: in test_batch_pending_transducer_preserves_complete_raw_coverage
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ PendingTransducerSecretTests.test_every_split_pending_transducer_preserves_decoded_coverage _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1006: in test_every_split_pending_transducer_preserves_decoded_coverage
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ PendingTransducerSecretTests.test_pending_speculation_state_and_work_are_bounded _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1020: in test_pending_speculation_state_and_work_are_bounded
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ CappedPrefixAndLongTokenTests.test_four_pass_scheme_prefixes_are_not_retained _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1042: in test_four_pass_scheme_prefixes_are_not_retained
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ CappedPrefixAndLongTokenTests.test_incomplete_four_pass_scheme_escapes_are_not_retained _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1056: in test_incomplete_four_pass_scheme_escapes_are_not_retained
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ CappedPrefixAndLongTokenTests.test_later_valid_prefix_has_exact_raw_retention _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1085: in test_later_valid_prefix_has_exact_raw_retention
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ CappedPrefixAndLongTokenTests.test_long_encoded_overlapping_token_finalization_is_linear _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1164: in test_long_encoded_overlapping_token_finalization_is_linear
+    self._long_token_work(encoded=True, overlap=True)
+tests/test_diagnostic_recognizer_phase2.py:1107: in _long_token_work
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ CappedPrefixAndLongTokenTests.test_long_encoded_token_finalization_is_linear _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1158: in test_long_encoded_token_finalization_is_linear
+    self._long_token_work(encoded=True)
+tests/test_diagnostic_recognizer_phase2.py:1107: in _long_token_work
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ CappedPrefixAndLongTokenTests.test_long_literal_overlapping_token_finalization_is_linear _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1155: in test_long_literal_overlapping_token_finalization_is_linear
+    self._long_token_work(overlap=True)
+tests/test_diagnostic_recognizer_phase2.py:1107: in _long_token_work
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ CappedPrefixAndLongTokenTests.test_long_literal_token_crossing_consumption_is_linear _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1161: in test_long_literal_token_crossing_consumption_is_linear
+    self._long_token_work(overlap=True, consume=True)
+tests/test_diagnostic_recognizer_phase2.py:1107: in _long_token_work
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ CappedPrefixAndLongTokenTests.test_long_literal_token_finalization_is_linear _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1152: in test_long_literal_token_finalization_is_linear
+    self._long_token_work()
+tests/test_diagnostic_recognizer_phase2.py:1107: in _long_token_work
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ CappedPrefixAndLongTokenTests.test_long_token_crossing_consumption_is_linear _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1167: in test_long_token_crossing_consumption_is_linear
+    self._long_token_work(encoded=True, overlap=True, consume=True)
+tests/test_diagnostic_recognizer_phase2.py:1107: in _long_token_work
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ CappedPrefixAndLongTokenTests.test_pending_four_pass_separator_escapes_retain_permitted_scheme _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1071: in test_pending_four_pass_separator_escapes_retain_permitted_scheme
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ CappedPrefixAndLongTokenTests.test_three_pass_scheme_with_four_pass_separator_is_retained _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1097: in test_three_pass_scheme_with_four_pass_separator_is_retained
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_________ FinalizationWorkTests.test_batch_finalization_work_is_linear _________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1197: in test_batch_finalization_work_is_linear
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+______ FinalizationWorkTests.test_incremental_finalization_work_is_linear ______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1214: in test_incremental_finalization_work_is_linear
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ AdversarialCoverageWorkTests.test_coverage_work_is_deterministic_when_input_doubles _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1288: in test_coverage_work_is_deterministic_when_input_doubles
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ AdversarialCoverageWorkTests.test_many_embedded_candidates_share_token_boundary_work _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1234: in test_many_embedded_candidates_share_token_boundary_work
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ AdversarialCoverageWorkTests.test_many_separate_urls_have_exact_spans_and_linear_work _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1257: in test_many_separate_urls_have_exact_spans_and_linear_work
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SourceRangeProvenanceTests.test_decoded_escape_spans_all_three_raw_characters _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1367: in test_decoded_escape_spans_all_three_raw_characters
+    [("A", 0, 3, True)], self._single_layer_emissions("%41")
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:1325: in _single_layer_emissions
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SourceRangeProvenanceTests.test_encoded_separator_range_covers_all_three_raw_characters _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1397: in test_encoded_separator_range_covers_all_three_raw_characters
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SourceRangeProvenanceTests.test_literal_emissions_carry_single_character_ranges _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1362: in test_literal_emissions_carry_single_character_ranges
+    self._single_layer_emissions("abc"),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:1325: in _single_layer_emissions
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SourceRangeProvenanceTests.test_malformed_and_incomplete_escapes_preserve_literal_ranges _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1373: in test_malformed_and_incomplete_escapes_preserve_literal_ranges
+    self._single_layer_emissions("%zz"),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:1325: in _single_layer_emissions
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SourceRangeProvenanceTests.test_match_observer_retains_unit_and_colon_raw_ranges _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1388: in test_match_observer_retains_unit_and_colon_raw_ranges
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SourceRangeProvenanceTests.test_nested_decode_range_spans_all_contributing_raw_characters _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1385: in test_nested_decode_range_spans_all_contributing_raw_characters
+    self.assertEqual([(":", 0, 5)], self._nested_emissions("%253A"))
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:1339: in _nested_emissions
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SourceRangeProvenanceTests.test_range_provenance_keeps_candidate_coordinates (text="'https://host tail'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1413: in test_range_provenance_keeps_candidate_coordinates
+    result = self.recognize(text)
+             ^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
     return self.recognizer().recognize(text, offset=offset)
            ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_ ContractIntegrationTests.test_recognizer_exposes_a_callable_batch_entry_point _
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SourceRangeProvenanceTests.test_range_provenance_keeps_candidate_coordinates (text="'https%3A%2F%2Fhost tail'") _
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:501: in test_recognizer_exposes_a_callable_batch_entry_point
+tests/test_diagnostic_recognizer_phase2.py:1413: in test_range_provenance_keeps_candidate_coordinates
+    result = self.recognize(text)
+             ^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SourceRangeProvenanceTests.test_range_provenance_keeps_candidate_coordinates (text="'%68ttps://host tail'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1413: in test_range_provenance_keeps_candidate_coordinates
+    result = self.recognize(text)
+             ^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+____ IncrementalContinuationTests.test_committed_secret_does_not_resurface _____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1463: in test_committed_secret_does_not_resurface
     module = self.recognizer()
              ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
-_ ContractIntegrationTests.test_recognizer_has_no_legacy_regex_or_detector_fallback _
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ IncrementalContinuationTests.test_consumption_does_not_replay_input_processing _
 [gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
-tests/test_diagnostic_recognizer_phase2.py:509: in test_recognizer_has_no_legacy_regex_or_detector_fallback
+tests/test_diagnostic_recognizer_phase2.py:1512: in test_consumption_does_not_replay_input_processing
     module = self.recognizer()
              ^^^^^^^^^^^^^^^^^
-tests/test_diagnostic_recognizer_phase2.py:84: in recognizer
-    self.fail(
-E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 raw URL recognizer
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ IncrementalContinuationTests.test_literal_secret_spanning_a_commit_and_raw_terminator _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1501: in test_literal_secret_spanning_a_commit_and_raw_terminator
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ IncrementalContinuationTests.test_literal_secret_straddling_a_commit_is_reported_once _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1490: in test_literal_secret_straddling_a_commit_is_reported_once
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ IncrementalContinuationTests.test_overlapping_secret_and_scheme_prefix_survive_a_commit _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1474: in test_overlapping_secret_and_scheme_prefix_survive_a_commit
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+__ IncrementalContinuationTests.test_partition_invariance_for_supported_urls ___
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1423: in test_partition_invariance_for_supported_urls
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ IncrementalContinuationTests.test_prefix_state_and_retain_from_track_supported_prefix _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1440: in test_prefix_state_and_retain_from_track_supported_prefix
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+____ IncrementalContinuationTests.test_recognition_continues_after_a_commit ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1447: in test_recognition_continues_after_a_commit
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SuccessiveConsumptionTests.test_successive_consumption_of_encoded_candidates_is_linear _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1567: in test_successive_consumption_of_encoded_candidates_is_linear
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SuccessiveConsumptionTests.test_successive_consumption_retires_each_candidate_once _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1547: in test_successive_consumption_retires_each_candidate_once
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ SuccessiveConsumptionTests.test_successive_consumption_with_overlapping_secrets_is_linear _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1591: in test_successive_consumption_with_overlapping_secrets_is_linear
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ ContractIntegrationTests.test_incremental_recognizer_owns_no_source_payload __
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1633: in test_incremental_recognizer_owns_no_source_payload
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+______ ContractIntegrationTests.test_match_emits_a_p1_recognition_result _______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1618: in test_match_emits_a_p1_recognition_result
+    result = self.recognize("https://host")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:179: in recognize
+    return self.recognizer().recognize(text, offset=offset)
+           ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ ContractIntegrationTests.test_recognizer_exposes_callable_batch_entry_points _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1623: in test_recognizer_exposes_callable_batch_entry_points
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
+_ ContractIntegrationTests.test_recognizer_uses_the_p1a_core_and_no_legacy_fallback _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase2.py:1641: in test_recognizer_uses_the_p1a_core_and_no_legacy_fallback
+    module = self.recognizer()
+             ^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase2.py:175: in recognizer
+    self.fail(f"{_MODULE_NAME} must define the P2 recognizer")
+E   AssertionError: docker.versioning.diagnostic_recognizer must define the P2 recognizer
 =========================== short test summary info ============================
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_arbitrarily_long_unknown_scheme_is_detected
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_candidate_end_is_the_exclusive_raw_terminator
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_earliest_source_selection_prefers_earlier_encoded_candidate
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_earliest_source_selection_prefers_earlier_literal_candidate
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_known_scheme_is_classified_known
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_literal_separator_is_a_candidate_at_its_raw_start
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_multibyte_prefix_offsets_are_character_indices
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_npm_colon_form_does_not_complete_the_separator
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_offset_is_added_to_absolute_coordinates
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_ordinary_tokens_without_a_viable_prefix_return_no_match
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_plain_scheme_word_reports_need_more
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_single_slash_does_not_complete_the_separator
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_started_separator_prefix_reports_need_more
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_terminator_variants_end_the_candidate
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_trailing_token_is_the_retention_start
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_unknown_scheme_is_classified_unknown
-FAILED tests/test_diagnostic_recognizer_phase2.py::RawRecognitionTests::test_unterminated_candidate_has_end_none
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_conservative_encoded_scheme_units_remain_candidates
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_depth_five_separator_is_not_recognized
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_depth_four_encoded_separator
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_depth_one_encoded_separator
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_depth_three_encoded_separator
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_depth_two_encoded_separator
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_depth_zero_literal_separator
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_encoded_known_scheme_classifies_known
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_encoded_separator_without_scheme_is_not_a_candidate
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_encoded_unknown_scheme_classifies_unknown
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_hex_letter_case_is_recognized
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_incomplete_trailing_escape_reports_need_more
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_malformed_escape_does_not_form_a_scheme_unit
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_malformed_escape_is_copied_literally
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_mixed_depth_separator
-FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedRecognitionTests::test_separately_encoded_escape_characters
-FAILED tests/test_diagnostic_recognizer_phase2.py::DifferentialCorpusTests::test_curated_corpus_matches_legacy_detector
-FAILED tests/test_diagnostic_recognizer_phase2.py::DifferentialCorpusTests::test_deterministic_random_corpus_matches_legacy_detector
-FAILED tests/test_diagnostic_recognizer_phase2.py::DifferentialCorpusTests::test_deterministic_random_long_corpus_matches_legacy_detector
-FAILED tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_long_escaped_token_state_is_bounded
-FAILED tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_pending_state_is_bounded_for_a_long_token
-FAILED tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_stats_report_only_bounded_structural_counters
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_arbitrarily_long_unknown_scheme_is_not_detected
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_candidate_end_is_the_exclusive_raw_terminator
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_earliest_supported_start_wins_between_two_supported_urls
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_earliest_supported_start_wins_over_earlier_unknown_text
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_embedded_supported_start_is_selected
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_every_supported_scheme_is_detected
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_literal_separator_is_a_candidate_at_its_raw_start
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_multibyte_prefix_offsets_are_character_indices
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_npm_colon_form_does_not_complete_the_separator
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_offset_is_added_to_absolute_coordinates
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_ordinary_tokens_without_a_supported_prefix_return_no_match
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_retention_restarts_at_a_trailing_supported_prefix
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_retention_skips_non_scheme_prefix_of_a_token
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_single_slash_does_not_complete_the_separator
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_started_separator_prefix_reports_need_more
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_supported_prefix_reports_need_more
+SUBFAILED(separator='"\' \'"') tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_terminator_variants_end_the_candidate
+SUBFAILED(separator='"\'\\\\t\'"') tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_terminator_variants_end_the_candidate
+SUBFAILED(separator='"\'\\\\n\'"') tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_terminator_variants_end_the_candidate
+SUBFAILED(separator='"\'\\\\r\'"') tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_terminator_variants_end_the_candidate
+SUBFAILED(separator='"\'<\'"') tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_terminator_variants_end_the_candidate
+SUBFAILED(separator='"\'|\'"') tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_terminator_variants_end_the_candidate
+SUBFAILED(separator='\'\\\'"\\\'\'') tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_terminator_variants_end_the_candidate
+SUBFAILED(separator='"\'\\\\x01\'"') tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_terminator_variants_end_the_candidate
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_trailing_token_retention_is_the_earliest_supported_start
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_unknown_schemes_are_not_candidates
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_unsupported_prefix_is_not_need_more
+FAILED tests/test_diagnostic_recognizer_phase2.py::SupportedSchemeTests::test_unterminated_candidate_has_end_none
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_conservative_encoded_units_do_not_manufacture_a_scheme
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_depth_five_separator_is_not_recognized
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_depth_four_separator_over_permitted_encoded_scheme
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_encoded_separator_without_supported_scheme_is_not_a_candidate
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_encoded_unknown_scheme_is_not_a_candidate
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_encoded_uppercase_scheme_is_recognized
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_four_pass_encoded_scheme_with_literal_separator_is_not_detected
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_four_pass_scheme_and_separator_is_not_detected
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_hex_letter_case_is_recognized
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_incomplete_trailing_escape_reports_need_more
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_malformed_escape_does_not_form_a_candidate
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_mixed_depth_separators_are_recognized
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_scheme_and_separator_at_every_permitted_scheme_depth
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_scheme_encoded_at_every_permitted_depth_with_literal_separator
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_separately_encoded_escape_characters
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_separator_encoded_at_every_depth_over_literal_scheme
+FAILED tests/test_diagnostic_recognizer_phase2.py::EncodedSchemeTests::test_uppercase_scheme_spellings_are_recognized
+FAILED tests/test_diagnostic_recognizer_phase2.py::DifferentialCorpusTests::test_curated_corpus_matches_oracle
+FAILED tests/test_diagnostic_recognizer_phase2.py::DifferentialCorpusTests::test_deterministic_random_corpus_matches_oracle
+FAILED tests/test_diagnostic_recognizer_phase2.py::DifferentialCorpusTests::test_deterministic_random_long_corpus_matches_oracle
+FAILED tests/test_diagnostic_recognizer_phase2.py::DifferentialCorpusTests::test_deterministic_supported_spelling_corpus_matches_oracle
+FAILED tests/test_diagnostic_recognizer_phase2.py::LiteralSecretTests::test_literal_secret_crosses_a_raw_terminator
+FAILED tests/test_diagnostic_recognizer_phase2.py::LiteralSecretTests::test_literal_secret_outside_a_url_is_reported
+FAILED tests/test_diagnostic_recognizer_phase2.py::LiteralSecretTests::test_literal_secret_that_is_a_full_scheme_suffix_is_not_rejected
+FAILED tests/test_diagnostic_recognizer_phase2.py::LiteralSecretTests::test_literal_secret_with_a_space_is_not_rejected
+FAILED tests/test_diagnostic_recognizer_phase2.py::LiteralSecretTests::test_ordinary_text_without_a_url_stays_literal_only
+FAILED tests/test_diagnostic_recognizer_phase2.py::LiteralSecretTests::test_overlapping_literal_secrets_are_deduped_by_span
+FAILED tests/test_diagnostic_recognizer_phase2.py::LiteralSecretTests::test_secret_selects_leftmost_longest
+FAILED tests/test_diagnostic_recognizer_phase2.py::UrlDecodedSecretTests::test_decoded_secret_ending_at_a_raw_terminator_is_reported
+FAILED tests/test_diagnostic_recognizer_phase2.py::UrlDecodedSecretTests::test_decoded_secret_in_a_url_path_is_reported
+FAILED tests/test_diagnostic_recognizer_phase2.py::UrlDecodedSecretTests::test_decoded_secret_is_confined_to_the_recognized_span
+FAILED tests/test_diagnostic_recognizer_phase2.py::UrlDecodedSecretTests::test_encoded_decoding_does_not_exceed_three_passes
+FAILED tests/test_diagnostic_recognizer_phase2.py::UrlDecodedSecretTests::test_encoded_secret_without_a_url_is_not_decoded
+FAILED tests/test_diagnostic_recognizer_phase2.py::UrlDecodedSecretTests::test_literal_secret_inside_a_url_is_reported_at_depth_zero
+FAILED tests/test_diagnostic_recognizer_phase2.py::UrlDecodedSecretTests::test_secret_found_at_two_decoded_depths_is_reported_once
+FAILED tests/test_diagnostic_recognizer_phase2.py::SchemePrefixSuffixOverlapTests::test_partition_invariance_with_registered_secrets
+FAILED tests/test_diagnostic_recognizer_phase2.py::SchemePrefixSuffixOverlapTests::test_secret_overlapping_a_scheme_prefix_is_covered_and_url_kept
+FAILED tests/test_diagnostic_recognizer_phase2.py::SchemePrefixSuffixOverlapTests::test_url_start_inside_a_covered_secret_still_recognized
+FAILED tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_batch_recognition_retains_a_constant_number_of_matches
+FAILED tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_pending_and_queue_state_is_bounded_for_long_tokens
+FAILED tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_registration_storage_is_bounded_by_the_scheme_set
+FAILED tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_secret_work_is_structural_and_nonzero
 FAILED tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_work_grows_linearly_for_separated_runs
 FAILED tests/test_diagnostic_recognizer_phase2.py::WorkStateRegressionTests::test_work_grows_linearly_for_uninterrupted_scheme_runs
+FAILED tests/test_diagnostic_recognizer_phase2.py::SecretRetentionWorkTests::test_coverage_selection_is_deterministic_for_many_urls
+FAILED tests/test_diagnostic_recognizer_phase2.py::SecretRetentionWorkTests::test_cumulative_work_is_linear_across_commits
+FAILED tests/test_diagnostic_recognizer_phase2.py::SecretRetentionWorkTests::test_decoded_secret_after_an_abandoned_prefix_is_discarded
+FAILED tests/test_diagnostic_recognizer_phase2.py::SecretRetentionWorkTests::test_decoded_secret_inside_a_url_keeps_its_raw_span
+FAILED tests/test_diagnostic_recognizer_phase2.py::SecretRetentionWorkTests::test_decoded_secret_retention_does_not_grow_with_ordinary_text
+FAILED tests/test_diagnostic_recognizer_phase2.py::SecretRetentionWorkTests::test_pruning_counters_are_preserved_across_consumption
+FAILED tests/test_diagnostic_recognizer_phase2.py::SecretRetentionWorkTests::test_speculative_pruning_work_is_linear_for_long_url_paths
+FAILED tests/test_diagnostic_recognizer_phase2.py::SecretRetentionWorkTests::test_speculative_pruning_work_is_linear_with_consumption_boundaries
+FAILED tests/test_diagnostic_recognizer_phase2.py::CommittedDecoderEmissionTests::test_delayed_atoms_preserve_straddling_secret_continuations
+FAILED tests/test_diagnostic_recognizer_phase2.py::CommittedDecoderEmissionTests::test_delayed_feed_cannot_resurrect_committed_percent
+FAILED tests/test_diagnostic_recognizer_phase2.py::CommittedDecoderEmissionTests::test_encoded_secret_crossing_commit_is_not_suppressed
+FAILED tests/test_diagnostic_recognizer_phase2.py::CommittedDecoderEmissionTests::test_finalization_cannot_resurrect_committed_percent
+FAILED tests/test_diagnostic_recognizer_phase2.py::PendingTransducerSecretTests::test_batch_pending_transducer_preserves_complete_raw_coverage
+FAILED tests/test_diagnostic_recognizer_phase2.py::PendingTransducerSecretTests::test_every_split_pending_transducer_preserves_decoded_coverage
+FAILED tests/test_diagnostic_recognizer_phase2.py::PendingTransducerSecretTests::test_pending_speculation_state_and_work_are_bounded
+FAILED tests/test_diagnostic_recognizer_phase2.py::CappedPrefixAndLongTokenTests::test_four_pass_scheme_prefixes_are_not_retained
+FAILED tests/test_diagnostic_recognizer_phase2.py::CappedPrefixAndLongTokenTests::test_incomplete_four_pass_scheme_escapes_are_not_retained
+FAILED tests/test_diagnostic_recognizer_phase2.py::CappedPrefixAndLongTokenTests::test_later_valid_prefix_has_exact_raw_retention
+FAILED tests/test_diagnostic_recognizer_phase2.py::CappedPrefixAndLongTokenTests::test_long_encoded_overlapping_token_finalization_is_linear
+FAILED tests/test_diagnostic_recognizer_phase2.py::CappedPrefixAndLongTokenTests::test_long_encoded_token_finalization_is_linear
+FAILED tests/test_diagnostic_recognizer_phase2.py::CappedPrefixAndLongTokenTests::test_long_literal_overlapping_token_finalization_is_linear
+FAILED tests/test_diagnostic_recognizer_phase2.py::CappedPrefixAndLongTokenTests::test_long_literal_token_crossing_consumption_is_linear
+FAILED tests/test_diagnostic_recognizer_phase2.py::CappedPrefixAndLongTokenTests::test_long_literal_token_finalization_is_linear
+FAILED tests/test_diagnostic_recognizer_phase2.py::CappedPrefixAndLongTokenTests::test_long_token_crossing_consumption_is_linear
+FAILED tests/test_diagnostic_recognizer_phase2.py::CappedPrefixAndLongTokenTests::test_pending_four_pass_separator_escapes_retain_permitted_scheme
+FAILED tests/test_diagnostic_recognizer_phase2.py::CappedPrefixAndLongTokenTests::test_three_pass_scheme_with_four_pass_separator_is_retained
+FAILED tests/test_diagnostic_recognizer_phase2.py::FinalizationWorkTests::test_batch_finalization_work_is_linear
+FAILED tests/test_diagnostic_recognizer_phase2.py::FinalizationWorkTests::test_incremental_finalization_work_is_linear
+FAILED tests/test_diagnostic_recognizer_phase2.py::AdversarialCoverageWorkTests::test_coverage_work_is_deterministic_when_input_doubles
+FAILED tests/test_diagnostic_recognizer_phase2.py::AdversarialCoverageWorkTests::test_many_embedded_candidates_share_token_boundary_work
+FAILED tests/test_diagnostic_recognizer_phase2.py::AdversarialCoverageWorkTests::test_many_separate_urls_have_exact_spans_and_linear_work
+FAILED tests/test_diagnostic_recognizer_phase2.py::SourceRangeProvenanceTests::test_decoded_escape_spans_all_three_raw_characters
+FAILED tests/test_diagnostic_recognizer_phase2.py::SourceRangeProvenanceTests::test_encoded_separator_range_covers_all_three_raw_characters
+FAILED tests/test_diagnostic_recognizer_phase2.py::SourceRangeProvenanceTests::test_literal_emissions_carry_single_character_ranges
+FAILED tests/test_diagnostic_recognizer_phase2.py::SourceRangeProvenanceTests::test_malformed_and_incomplete_escapes_preserve_literal_ranges
+FAILED tests/test_diagnostic_recognizer_phase2.py::SourceRangeProvenanceTests::test_match_observer_retains_unit_and_colon_raw_ranges
+FAILED tests/test_diagnostic_recognizer_phase2.py::SourceRangeProvenanceTests::test_nested_decode_range_spans_all_contributing_raw_characters
+SUBFAILED(text="'https://host tail'") tests/test_diagnostic_recognizer_phase2.py::SourceRangeProvenanceTests::test_range_provenance_keeps_candidate_coordinates
+SUBFAILED(text="'https%3A%2F%2Fhost tail'") tests/test_diagnostic_recognizer_phase2.py::SourceRangeProvenanceTests::test_range_provenance_keeps_candidate_coordinates
+SUBFAILED(text="'%68ttps://host tail'") tests/test_diagnostic_recognizer_phase2.py::SourceRangeProvenanceTests::test_range_provenance_keeps_candidate_coordinates
+FAILED tests/test_diagnostic_recognizer_phase2.py::IncrementalContinuationTests::test_committed_secret_does_not_resurface
+FAILED tests/test_diagnostic_recognizer_phase2.py::IncrementalContinuationTests::test_consumption_does_not_replay_input_processing
+FAILED tests/test_diagnostic_recognizer_phase2.py::IncrementalContinuationTests::test_literal_secret_spanning_a_commit_and_raw_terminator
+FAILED tests/test_diagnostic_recognizer_phase2.py::IncrementalContinuationTests::test_literal_secret_straddling_a_commit_is_reported_once
+FAILED tests/test_diagnostic_recognizer_phase2.py::IncrementalContinuationTests::test_overlapping_secret_and_scheme_prefix_survive_a_commit
+FAILED tests/test_diagnostic_recognizer_phase2.py::IncrementalContinuationTests::test_partition_invariance_for_supported_urls
+FAILED tests/test_diagnostic_recognizer_phase2.py::IncrementalContinuationTests::test_prefix_state_and_retain_from_track_supported_prefix
+FAILED tests/test_diagnostic_recognizer_phase2.py::IncrementalContinuationTests::test_recognition_continues_after_a_commit
+FAILED tests/test_diagnostic_recognizer_phase2.py::SuccessiveConsumptionTests::test_successive_consumption_of_encoded_candidates_is_linear
+FAILED tests/test_diagnostic_recognizer_phase2.py::SuccessiveConsumptionTests::test_successive_consumption_retires_each_candidate_once
+FAILED tests/test_diagnostic_recognizer_phase2.py::SuccessiveConsumptionTests::test_successive_consumption_with_overlapping_secrets_is_linear
+FAILED tests/test_diagnostic_recognizer_phase2.py::ContractIntegrationTests::test_incremental_recognizer_owns_no_source_payload
 FAILED tests/test_diagnostic_recognizer_phase2.py::ContractIntegrationTests::test_match_emits_a_p1_recognition_result
-FAILED tests/test_diagnostic_recognizer_phase2.py::ContractIntegrationTests::test_recognizer_exposes_a_callable_batch_entry_point
-FAILED tests/test_diagnostic_recognizer_phase2.py::ContractIntegrationTests::test_recognizer_has_no_legacy_regex_or_detector_fallback
-44 failed in 1.10s
+FAILED tests/test_diagnostic_recognizer_phase2.py::ContractIntegrationTests::test_recognizer_exposes_callable_batch_entry_points
+FAILED tests/test_diagnostic_recognizer_phase2.py::ContractIntegrationTests::test_recognizer_uses_the_p1a_core_and_no_legacy_fallback
+127 failed, 2 passed in 5.13s
 
-red exit status: 1
+[phase2 RED exit status: 1]

@@ -70,26 +70,26 @@ Store phase-labelled command outputs, full logs, actual exit statuses, reviews a
 
 ### RED
 
-- [ ] 2.1 Add raw scheme tests for literal separators, negative single-slash/npm forms, unknown text, embedded starts, earliest supported selection and raw terminators; verify exact outcomes/coordinates.
-- [ ] 2.2 Add mixed/nested depth-zero-through-four separator tests, malformed/incomplete escapes and encoded scheme validity checks; verify no fourth interpretation or secret-decoding pass.
-- [ ] 2.3 Revise the bounded differential corpus for intentional supported-only changes; add literal secret selection, scheme-prefix suffix overlap and secrets crossing raw terminators with explicit expected coverage.
-- [ ] 2.4 Add deterministic state/work and raw-provenance assertions for scheme/secret automata; verify fixed registration-dependent bounds without input-sized search maps, variant tables or timing.
-- [ ] 2.5 Record revised P2 RED with each failure mapped to scheme, decoder, secret selection, decoded scope or overlap obligations and honestly record already-passing cases.
+- [x] 2.1 Add raw scheme tests for literal separators, negative single-slash/npm forms, unknown text, embedded starts, earliest supported selection and raw terminators; verify exact outcomes/coordinates.
+- [x] 2.2 Add mixed/nested depth-zero-through-four separator tests, malformed/incomplete escapes and encoded scheme validity checks; verify no fourth interpretation or secret-decoding pass.
+- [x] 2.3 Revise the bounded differential corpus for intentional supported-only changes; add literal secret selection, scheme-prefix suffix overlap and secrets crossing raw terminators with explicit expected coverage.
+- [x] 2.4 Add deterministic state/work and raw-provenance assertions for scheme/secret automata; verify fixed registration-dependent bounds without input-sized search maps, variant tables or timing.
+- [x] 2.5 Record revised P2 RED with each failure mapped to scheme, decoder, secret selection, decoded scope or overlap obligations and honestly record already-passing cases.
 
 ### GREEN
 
-- [ ] 2.6 Implement/reuse bounded percent transducers and provenance for supported recognition; verify raw and encoded tests without decoded search payload copies.
-- [ ] 2.7 Integrate the validated P1A core with fixed-scheme prefix/separator transitions and registered literal secret matching, retaining overlapping starts; implement selection/coverage outside the generic core and verify embedded schemes, leftmost/longest selection and no secret rejection for crossings/suffixes.
-- [ ] 2.8 Implement secret matching inside recognized URL views through three decoding passes and preserve continuation states across covered secret ranges; verify literal-only ordinary text and no suffix replay or duplicate coverage.
+- [x] 2.6 Implement/reuse bounded percent transducers and provenance for supported recognition; verify raw and encoded tests without decoded search payload copies.
+- [x] 2.7 Integrate the validated P1A core with fixed-scheme prefix/separator transitions and registered literal secret matching, retaining overlapping starts; implement selection/coverage outside the generic core and verify embedded schemes, leftmost/longest selection and no secret rejection for crossings/suffixes.
+- [x] 2.8 Implement secret matching inside recognized URL views through three decoding passes and preserve continuation states across covered secret ranges; verify literal-only ordinary text and no suffix replay or duplicate coverage.
 
 ### INTROSPECT
 
-- [ ] 2.9 Document transition/state bounds at fixed depth, scheme set and registered secrets, including output-sensitive work and raw provenance; verify registration storage is distinguished from stream history.
-- [ ] 2.10 Audit P2 allocation, speculation, fallback and decoding scope; deliver findings proving no duplicate raw tail, decoded search buffer, input-sized search map, variant enumeration or regex fallback.
+- [x] 2.9 Document transition/state bounds at fixed depth, scheme set and registered secrets, including output-sensitive work and raw provenance; verify registration storage is distinguished from stream history.
+- [x] 2.10 Audit P2 allocation, speculation, fallback and decoding scope; deliver findings proving no duplicate raw tail, decoded search buffer, input-sized search map, variant enumeration or regex fallback.
 
 ### VALIDATE
 
-- [ ] 2.11 Run revised P1/P1A/P2 and affected existing detection/secret tests; deliver successful logs and P2 corpus/work/state evidence before P3 integration.
+- [x] 2.11 Run revised P1/P1A/P2 and affected existing detection/secret tests; deliver successful logs and P2 corpus/work/state evidence before P3 integration.
 
 ## 3. P3 — Replay-free coordinated continuation and tail ownership
 

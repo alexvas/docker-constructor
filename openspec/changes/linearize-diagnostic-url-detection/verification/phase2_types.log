@@ -1,5 +1,3 @@
-=== phase2 type check ===
-command: ./scripts/check-types
-
 All checks passed!
-types exit status: 0
+
+[phase2 TYPES exit status: 0]
