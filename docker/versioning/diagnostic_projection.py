@@ -27,6 +27,47 @@ Validation/canonicalization helpers below operate on bounded settled URL
 snapshots, not growing search buffers. Historical private batch recognizers
 are not production fallbacks (P3 tests deliberately make them raise).
 Logical resources and exception-type projection retain their existing rules.
+
+Policy rendering versus validated metadata
+-----------------------------------------
+
+Rendering and metadata are separate products with separate frontiers.  The
+selected local policy controls only the rendered text: ``redacted`` hides each
+supported URL as ``<redacted>``, ``host-path`` renders settled host/path
+components with the distinct masked products ``<redacted-host>`` and
+``/<redacted-path>``, and an ordinary safe-text secret renders ``<secret>``.
+None of those markers is a validated identity.  Metadata is derived
+independently, only from an independently validated, secret-free supported
+URL: a secret-bearing host yields no normalized-host fact and no URL
+fingerprint; a secret-bearing path yields no fingerprint but may retain the
+safe hostname; a preceding adjacent secret (``TOKENhttps://host/public``) is
+never removed and reparsed into a valid URL, so it supplies no facts either.
+Fingerprint input preserves the lowercased scheme, normalized hostname, path,
+and an explicitly supplied port (including an explicit default port), while
+excluding user information, query, fragment, and proxy detail; order and
+multiplicity are preserved and each presentation session keys them freshly.
+Early rendering never authorizes early metadata.
+
+Decoded-secret scope
+--------------------
+
+Configured literal secrets are matched in the original source everywhere and,
+inside a recognized supported URL only, through at most three percent-decoding
+passes.  Ordinary text keeps literal-only matching: encoded text such as
+``%54%4f%4b%45%4e`` is never decoded outside a URL, and a fourth-percent-decoded
+secret is never matched even when the URL separator itself uses the effective
+depth-four spelling.  A path secret suppresses the fingerprint while leaving
+the safe hostname fact; a credential secret leaves otherwise safe host/path
+facts and the fingerprint intact.
+
+Exact exception
+---------------
+
+Local ``exact`` mode bypasses content substitution entirely: the collector
+preserves terminal-safe source, including secrets, within the existing bounds.
+The external SDK product is always the redacted projection, independent of the
+local mode, so an attached SDK sink still receives ``<redacted>`` and
+``<secret>`` and never the source URL, its credentials, or a fingerprint.
 """
 from __future__ import annotations
 

@@ -129,25 +129,25 @@ Store phase-labelled command outputs, full logs, actual exit statuses, reviews a
 
 ### RED
 
-- [ ] 4.1 Add unknown-text tests for delimiter/EOF/structured routes plus TOKENhttps secret-prefix cases; verify unknown text stays text and no facts arise by deleting/replacing secrets and reparsing.
-- [ ] 4.2 Add policy tests for credential secrets, secret-bearing hosts/paths, malformed supported URLs and encoded secrets; verify early irreversible redacted hiding, separate settled host/path delivery, `<redacted-host>`, `/<redacted-path>`, delayed validated facts and unchanged exact source.
-- [ ] 4.3 Add three-pass decoded-secret scope and fact assertions: credential-only permits otherwise safe facts, host secret suppresses hostname/fingerprint, path secret suppresses fingerprint but permits a safe hostname.
-- [ ] 4.4 Record P4 RED for marker, route and metadata obligations, distinguishing agreed compatibility changes from accidental recognition failures.
+- [x] 4.1 Add unknown-text tests for delimiter/EOF/structured routes plus TOKENhttps secret-prefix cases; verify unknown text stays text and no facts arise by deleting/replacing secrets and reparsing.
+- [x] 4.2 Add policy tests for credential secrets, secret-bearing hosts/paths, malformed supported URLs and encoded secrets; verify early irreversible redacted hiding, separate settled host/path delivery, `<redacted-host>`, `/<redacted-path>`, delayed validated facts and unchanged exact source.
+- [x] 4.3 Add three-pass decoded-secret scope and fact assertions: credential-only permits otherwise safe facts, host secret suppresses hostname/fingerprint, path secret suppresses fingerprint but permits a safe hostname.
+- [x] 4.4 Record P4 RED for marker, route and metadata obligations, distinguishing agreed compatibility changes from accidental recognition failures.
 
 ### GREEN
 
-- [ ] 4.5 Implement normal projection markers and distinct masked display products; verify markers are not normalized-host facts and standalone literal secrets render `<secret>`.
-- [ ] 4.6 Apply supported/secret coverage gates to normal, EOF and structured metadata; verify no transformed-source or unknown-fact bypass.
-- [ ] 4.7 Preserve eligible known URL canonicalization, explicit ports, fingerprint order/multiplicity and session isolation; verify no fingerprints from secret-bearing host/path or attached secret prefixes.
+- [x] 4.5 Implement normal projection markers and distinct masked display products; verify markers are not normalized-host facts and standalone literal secrets render `<secret>`.
+- [x] 4.6 Apply supported/secret coverage gates to normal, EOF and structured metadata; verify no transformed-source or unknown-fact bypass.
+- [x] 4.7 Preserve eligible known URL canonicalization, explicit ports, fingerprint order/multiplicity and session isolation; verify no fingerprints from secret-bearing host/path or attached secret prefixes.
 
 ### INTROSPECT
 
-- [ ] 4.8 Document policy rendering versus validated metadata, decoded-secret scope and the unchanged exact exception; verify examples match executable assertions.
-- [ ] 4.9 Reconcile every inventoried metadata/fetch route; verify unknown RFC-valid successful-fetch URLs still match fetch grammar without URL-derived facts/grouping fields and shared validation is unchanged.
+- [x] 4.8 Document policy rendering versus validated metadata, decoded-secret scope and the unchanged exact exception; verify examples match executable assertions.
+- [x] 4.9 Reconcile every inventoried metadata/fetch route; verify unknown RFC-valid successful-fetch URLs still match fetch grammar without URL-derived facts/grouping fields and shared validation is unchanged.
 
 ### VALIDATE
 
-- [ ] 4.10 Run revised P1–P4 and affected identity/metadata tests; deliver successful full logs and a compatibility record for the agreed policy changes.
+- [x] 4.10 Run revised P1–P4 and affected identity/metadata tests; deliver successful full logs and a compatibility record for the agreed policy changes.
 
 ## 5. P5 — Consumer channels and grouping
 

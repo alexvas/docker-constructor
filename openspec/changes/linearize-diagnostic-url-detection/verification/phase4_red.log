@@ -1,0 +1,36 @@
+bringing up nodes...
+bringing up nodes...
+
+uu.uuu...uuu.uu.uu.uuu.....uu..uu...uuuu...uuu.....uu...uu.uu..          [100%]
+=================================== FAILURES ===================================
+_ UnknownTextPolicyTests.test_unknown_scheme_at_a_delimiter_stays_text (mode="<NetworkUrlDisplay.EXACT: 'exact'>") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_policy_phase4.py:96: in test_unknown_scheme_at_a_delimiter_stays_text
+    result = _project(text, mode=mode)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_policy_phase4.py:70: in _project
+    return _Projection(text, secrets, mode)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_policy_phase4.py:58: in __init__
+    self.projector = DiagnosticProjector(
+docker/versioning/diagnostic_projection.py:1021: in __init__
+    self._init_coordination(url_display, capture_redacted)
+docker/versioning/diagnostic_coordinator.py:74: in _init_coordination
+    raise ValueError("projector requires a safe NetworkUrlDisplay")
+E   ValueError: projector requires a safe NetworkUrlDisplay
+_ FetchRouteReconciliationTests.test_secret_bearing_fetch_url_yields_no_host_path_fact (url="'https://host.example/TOKEN/private'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_policy_phase4.py:461: in test_secret_bearing_fetch_url_yields_no_host_path_fact
+    self.assertEqual(
+E   AssertionError: Tuples differ: () != (SafeHostPath(hostname='host.example', path='/<redacted-path>'),)
+E   
+E   Second tuple contains 1 additional elements.
+E   First extra element 0:
+E   SafeHostPath(hostname='host.example', path='/<redacted-path>')
+E   
+E   - ()
+E   + (SafeHostPath(hostname='host.example', path='/<redacted-path>'),)
+=========================== short test summary info ============================
+SUBFAILED(mode="<NetworkUrlDisplay.EXACT: 'exact'>") tests/test_diagnostic_policy_phase4.py::UnknownTextPolicyTests::test_unknown_scheme_at_a_delimiter_stays_text
+SUBFAILED(url="'https://host.example/TOKEN/private'") tests/test_diagnostic_policy_phase4.py::FetchRouteReconciliationTests::test_secret_bearing_fetch_url_yields_no_host_path_fact
+2 failed, 31 passed, 30 subtests passed in 0.73s
