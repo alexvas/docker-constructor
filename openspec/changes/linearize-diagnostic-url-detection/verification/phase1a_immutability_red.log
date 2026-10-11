@@ -1,0 +1,93 @@
+bringing up nodes...
+bringing up nodes...
+
+.uuuuu.Fuuuuu.F                                                          [100%]
+=================================== FAILURES ===================================
+_ CompiledStateImmutabilityTests.test_deleting_compiled_attributes_raises (name="'_patterns'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:274: in test_deleting_compiled_attributes_raises
+    with self.assertRaises(AttributeError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: AttributeError not raised
+_ CompiledStateImmutabilityTests.test_deleting_compiled_attributes_raises (name="'_goto'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:274: in test_deleting_compiled_attributes_raises
+    with self.assertRaises(AttributeError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: AttributeError not raised
+_ CompiledStateImmutabilityTests.test_deleting_compiled_attributes_raises (name="'_fail'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:274: in test_deleting_compiled_attributes_raises
+    with self.assertRaises(AttributeError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: AttributeError not raised
+_ CompiledStateImmutabilityTests.test_deleting_compiled_attributes_raises (name="'_output'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:274: in test_deleting_compiled_attributes_raises
+    with self.assertRaises(AttributeError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: AttributeError not raised
+_ CompiledStateImmutabilityTests.test_deleting_compiled_attributes_raises (name="'_output_link'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:274: in test_deleting_compiled_attributes_raises
+    with self.assertRaises(AttributeError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: AttributeError not raised
+_ CompiledStateImmutabilityTests.test_rejected_mutation_cannot_alter_shared_cursor_matching _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:291: in test_rejected_mutation_cannot_alter_shared_cursor_matching
+    with self.assertRaises(TypeError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: TypeError not raised
+_ CompiledStateImmutabilityTests.test_replacing_compiled_attributes_raises (name="'_patterns'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:267: in test_replacing_compiled_attributes_raises
+    with self.assertRaises(AttributeError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: AttributeError not raised
+_ CompiledStateImmutabilityTests.test_replacing_compiled_attributes_raises (name="'_goto'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:267: in test_replacing_compiled_attributes_raises
+    with self.assertRaises(AttributeError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: AttributeError not raised
+_ CompiledStateImmutabilityTests.test_replacing_compiled_attributes_raises (name="'_fail'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:267: in test_replacing_compiled_attributes_raises
+    with self.assertRaises(AttributeError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: AttributeError not raised
+_ CompiledStateImmutabilityTests.test_replacing_compiled_attributes_raises (name="'_output'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:267: in test_replacing_compiled_attributes_raises
+    with self.assertRaises(AttributeError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: AttributeError not raised
+_ CompiledStateImmutabilityTests.test_replacing_compiled_attributes_raises (name="'_output_link'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:267: in test_replacing_compiled_attributes_raises
+    with self.assertRaises(AttributeError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: AttributeError not raised
+______ CompiledStateImmutabilityTests.test_transition_maps_are_read_only _______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:254: in test_transition_maps_are_read_only
+    with self.assertRaises(TypeError):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AssertionError: TypeError not raised
+=========================== short test summary info ============================
+SUBFAILED(name="'_patterns'") tests/test_aho_corasick_core.py::CompiledStateImmutabilityTests::test_deleting_compiled_attributes_raises
+SUBFAILED(name="'_goto'") tests/test_aho_corasick_core.py::CompiledStateImmutabilityTests::test_deleting_compiled_attributes_raises
+SUBFAILED(name="'_fail'") tests/test_aho_corasick_core.py::CompiledStateImmutabilityTests::test_deleting_compiled_attributes_raises
+SUBFAILED(name="'_output'") tests/test_aho_corasick_core.py::CompiledStateImmutabilityTests::test_deleting_compiled_attributes_raises
+SUBFAILED(name="'_output_link'") tests/test_aho_corasick_core.py::CompiledStateImmutabilityTests::test_deleting_compiled_attributes_raises
+FAILED tests/test_aho_corasick_core.py::CompiledStateImmutabilityTests::test_rejected_mutation_cannot_alter_shared_cursor_matching
+SUBFAILED(name="'_patterns'") tests/test_aho_corasick_core.py::CompiledStateImmutabilityTests::test_replacing_compiled_attributes_raises
+SUBFAILED(name="'_goto'") tests/test_aho_corasick_core.py::CompiledStateImmutabilityTests::test_replacing_compiled_attributes_raises
+SUBFAILED(name="'_fail'") tests/test_aho_corasick_core.py::CompiledStateImmutabilityTests::test_replacing_compiled_attributes_raises
+SUBFAILED(name="'_output'") tests/test_aho_corasick_core.py::CompiledStateImmutabilityTests::test_replacing_compiled_attributes_raises
+SUBFAILED(name="'_output_link'") tests/test_aho_corasick_core.py::CompiledStateImmutabilityTests::test_replacing_compiled_attributes_raises
+FAILED tests/test_aho_corasick_core.py::CompiledStateImmutabilityTests::test_transition_maps_are_read_only
+12 failed, 3 passed in 0.58s
+
+[phase1a immutability RED exit status: 1]

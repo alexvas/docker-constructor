@@ -1,0 +1,25 @@
+[ok] node_count 66 <= 1 + sum(len(pattern)) 951
+[ok] caller pattern input is copied, not aliased (isolation, not immutability)
+[ok] registration storage is O(nodes): one output/fail/link slot per node
+[ok] every compiled transition map is a read-only mappingproxy
+[ok] adding, deleting and replacing transitions each raise TypeError
+[ok] replacing or deleting any compiled attribute raises AttributeError
+[ok] compiled automaton has no instance dict for attribute injection
+[ok] matching is unchanged after every rejected mutation attempt
+[ok] exactly 50 own-output nodes, got 50
+[ok] no node copies a transitive output list
+[ok] suffix-heavy matching emits 1275 matches, got 1275
+[ok] outputs counter equals matches
+[ok] cursor retains no string payload (slots=('_automaton', '_state', '_offset', '_transitions', '_failures', '_outputs'))
+[ok] live state is a single integer node index
+[ok] lifetime transitions survive resets: 10
+[ok] lifetime outputs survive resets: 5
+[ok] replacing a cursor cannot hide its cumulative work
+[ok] one transition per input symbol
+[ok] failures 3999 amortized within transitions 4000
+[ok] outputs counter equals emitted matches
+[ok] module imports only stdlib allowlist ['__future__', 'collections', 'dataclasses', 'types']; unexpected=[]
+[ok] no production regular-expression fallback
+P1A CORE AUDIT PASS
+
+[phase1a immutability audit exit status: 0]

@@ -1,0 +1,1563 @@
+bringing up nodes...
+bringing up nodes...
+
+FFFFFFFFFFFFFFFFFFFFuuuuuu.FFFFFuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu [ 84%]
+uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu.FFFFF                           [100%]
+=================================== FAILURES ===================================
+_ RegistrationAndMatchTests.test_compiled_registration_does_not_alias_caller_input _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:201: in test_compiled_registration_does_not_alias_caller_input
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+__ RegistrationAndMatchTests.test_cursor_offset_supplies_absolute_coordinates __
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:184: in test_cursor_offset_supplies_absolute_coordinates
+    matcher = self.matcher(["TOKEN"])
+              ^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+___ RegistrationAndMatchTests.test_documented_usage_example_matches_the_api ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:128: in test_documented_usage_example_matches_the_api
+    matcher = self.matcher(["he", "she", "hers"])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+___ RegistrationAndMatchTests.test_empty_and_duplicate_patterns_are_ignored ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:113: in test_empty_and_duplicate_patterns_are_ignored
+    matcher = self.matcher(["", "TOKEN", "", "TOKEN", "OTHER", "OTHER"])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ RegistrationAndMatchTests.test_empty_pattern_set_registers_nothing_and_matches_nothing _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:105: in test_empty_pattern_set_registers_nothing_and_matches_nothing
+    matcher = self.matcher(())
+              ^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+__ RegistrationAndMatchTests.test_independent_cursors_share_one_compiled_trie __
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:191: in test_independent_cursors_share_one_compiled_trie
+    matcher = self.matcher(["ab", "bc"])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+______ RegistrationAndMatchTests.test_module_is_not_a_public_sdk_surface _______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:229: in test_module_is_not_a_public_sdk_surface
+    module = self.core()
+             ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ RegistrationAndMatchTests.test_node_storage_is_bounded_by_registered_patterns _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:213: in test_node_storage_is_bounded_by_registered_patterns
+    matcher = self.matcher(["ab", "abc", "bcd", "z", "abcd"])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+__________ RegistrationAndMatchTests.test_pattern_match_is_immutable ___________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:207: in test_pattern_match_is_immutable
+    matcher = self.matcher(["TOKEN"])
+              ^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+___ RegistrationAndMatchTests.test_patterns_preserve_first_occurrence_order ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:117: in test_patterns_preserve_first_occurrence_order
+    matcher = self.matcher(["zeta", "alpha", "zeta", "beta"])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_______ RegistrationAndMatchTests.test_prefix_patterns_report_both_ends ________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:137: in test_prefix_patterns_report_both_ends
+    matcher = self.matcher(["ab", "abc"])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ RegistrationAndMatchTests.test_simultaneous_matches_at_one_end_are_all_reported _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:153: in test_simultaneous_matches_at_one_end_are_all_reported
+    matcher = self.matcher(["aba", "ba", "a"])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ RegistrationAndMatchTests.test_single_pattern_reports_inclusive_start_exclusive_end _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:121: in test_single_pattern_reports_inclusive_start_exclusive_end
+    matcher = self.matcher(["TOKEN"])
+              ^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+__ RegistrationAndMatchTests.test_suffix_patterns_report_overlapping_matches ___
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:145: in test_suffix_patterns_report_overlapping_matches
+    matcher = self.matcher(["bcd", "cd", "d"])
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ RegistrationAndMatchTests.test_unicode_coordinates_are_python_character_offsets _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:171: in test_unicode_coordinates_are_python_character_offsets
+    matcher = self.matcher(["TOKEN"])
+              ^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ ContinuationAndCountersTests.test_counters_are_deterministic_and_partition_independent _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:301: in test_counters_are_deterministic_and_partition_independent
+    reference = self.matcher(patterns).cursor()
+                ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+______ ContinuationAndCountersTests.test_cursor_retains_no_source_payload ______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:339: in test_cursor_retains_no_source_payload
+    cursor = self.matcher(["TOKEN"]).cursor()
+             ^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ ContinuationAndCountersTests.test_cursor_state_depends_only_on_recent_characters _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:331: in test_cursor_state_depends_only_on_recent_characters
+    matcher = self.matcher(["ab"])
+              ^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ ContinuationAndCountersTests.test_failures_are_amortized_within_input_length _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:288: in test_failures_are_amortized_within_input_length
+    cursor = self.matcher(patterns).cursor()
+             ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+___________ ContinuationAndCountersTests.test_feed_and_advance_agree ___________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:263: in test_feed_and_advance_agree
+    chunked = self.matcher(patterns).cursor()
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ ContinuationAndCountersTests.test_one_feed_every_split_and_single_character_agree (patterns="('ab', 'bab', 'bc', 'bca', 'c', 'caa')", text="'abccab'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:249: in test_one_feed_every_split_and_single_character_agree
+    self.triplets(self.matcher(patterns).find_all(text))
+                  ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ ContinuationAndCountersTests.test_one_feed_every_split_and_single_character_agree (patterns="('TOKEN',)", text="'pre TOKEN mid TOKEN end'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:249: in test_one_feed_every_split_and_single_character_agree
+    self.triplets(self.matcher(patterns).find_all(text))
+                  ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ ContinuationAndCountersTests.test_one_feed_every_split_and_single_character_agree (patterns="('aa', 'a')", text="'aaaa'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:249: in test_one_feed_every_split_and_single_character_agree
+    self.triplets(self.matcher(patterns).find_all(text))
+                  ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ ContinuationAndCountersTests.test_one_feed_every_split_and_single_character_agree (patterns="('abc', 'bc', 'c')", text="'zabc'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:249: in test_one_feed_every_split_and_single_character_agree
+    self.triplets(self.matcher(patterns).find_all(text))
+                  ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ ContinuationAndCountersTests.test_one_feed_every_split_and_single_character_agree (patterns="('xy', 'xyz')", text="'wxyz'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:249: in test_one_feed_every_split_and_single_character_agree
+    self.triplets(self.matcher(patterns).find_all(text))
+                  ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ ContinuationAndCountersTests.test_one_feed_every_split_and_single_character_agree (patterns='()', text="'no patterns here'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:249: in test_one_feed_every_split_and_single_character_agree
+    self.triplets(self.matcher(patterns).find_all(text))
+                  ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_____ ContinuationAndCountersTests.test_outputs_count_every_emitted_match ______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:281: in test_outputs_count_every_emitted_match
+    cursor = self.matcher(patterns).cursor()
+             ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ ContinuationAndCountersTests.test_reset_clears_state_and_preserves_lifetime_totals _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:310: in test_reset_clears_state_and_preserves_lifetime_totals
+    cursor = self.matcher(["ab"]).cursor()
+             ^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+________ ContinuationAndCountersTests.test_reset_does_not_replay_input _________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:323: in test_reset_does_not_replay_input
+    cursor = self.matcher(["ab"]).cursor()
+             ^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+____ ContinuationAndCountersTests.test_transitions_count_every_input_symbol ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:274: in test_transitions_count_every_input_symbol
+    cursor = self.matcher(["ab"]).cursor()
+             ^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_adversarial_suffix_heavy_patterns_match_oracle __
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:388: in test_adversarial_suffix_heavy_patterns_match_oracle
+    actual = self._assert_matches_oracle(patterns, text)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns='[]', text="'bbbdbabbbcadbcbbdadbacbdaddac'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns='[]', text="'baaca'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['c', 'b', 'ab', 'bcab', 'bca']", text="'dbccccbbbacdbbacabc'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['b', 'ca']", text="'ddadbccaaaabbbaaac'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['cbab', 'cac']", text="'babaddcadabbabddccbdaadccdcb'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['b', 'caac', 'bb']", text="'ddcdddba'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ab', 'ab']", text="'dcddbbaddcb'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns='[]', text="'dbcacbdccccdacbcaddccbdabaa'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ccbb', 'b', 'b', 'bc', 'ba']", text="'cdbdccbbdacddacddcbbbcda'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['bb', 'ca', 'b']", text="'dbbabacddaaaccadacddbbdadd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ccbb']", text="'dadcdbbabacaababdcccad'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ba']", text="'dcccbaaab'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ccca', 'abb', 'aa', 'bbab', 'bcaa']", text="'ddcbdadcdbdcc'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns='[]', text="'aabbaabadcdccccbcad'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['bc', 'ccb', 'a']", text="'ccddaabddacadddbdccaabac'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['a', 'ca', 'a', 'bbb']", text="'bbdbadbadbbcb'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['abaa']", text="'ccadabbadcdcbcdcdaa'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['bab', 'a', 'abc']", text="'cccddbbdcadddbdcb'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['cccc', 'cbbc']", text="'abdadbdbcaaacbdcadbccdcdbdc'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns='[]', text="'bddbd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ac', 'c', 'bb', 'b']", text="'adaadbdddcd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['abc', 'a']", text="'dcdbdddaadbccadcbbcdcbbbd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['a', 'bba']", text="'dbbbbbddbbbcccccabacbb'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns='[]', text="'cabbdadcbbbddbbcaadbdaaacdad'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['b', 'a', 'c']", text="'ddc'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns='[]', text="'acdabdd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['bcc']", text="'bcbbccb'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['c', 'ab', 'ccbc']", text="'bdbabacbcdcdadcbbdbbdcbdb'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['bbcc', 'bca']", text="'dadbbb'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['bc', 'caac']", text="'bbbbccaddddcbbbccdcc'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['c', 'b']", text="'cbcdddb'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['babb', 'ca', 'a', 'bc']", text="'aa'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns='[]', text="'ccdabcbdaddcbdd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['abbc', 'ca', 'abb', 'bab', 'b']", text="'acaaadbaabdbcacbacdcdcaadbca'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['cbba', 'bc', 'abc', 'ccba']", text="'ccccacadddddbcc'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['caac']", text="'addcaadcacbdcbb'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ac']", text="'adcbcbdadbcbd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['cba']", text="'ddcbbbcddd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['c', 'bbba', 'c']", text="'acabdcdccdccacbacad'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['babc', 'bb']", text="'badcaa'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['cb', 'bb', 'aaac', 'babc', 'c']", text="'dcbbccbadca'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns='[]', text="'cddddcbdcbbadacbdaadadca'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['cb']", text="'ccccbbccacacbcbcccb'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['cba', 'ac', 'aa', 'cb']", text="'adccbbbaddcacdccbd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['aabc', 'cbaa']", text="'abdadaaaadbc'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['b', 'bbcc', 'bbcb', 'aab']", text="'bbcabaabddccdb'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['cab', 'bcb', 'ba']", text="'bbaaadcbbdbdacbadccbabdaba'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['c', 'cccb']", text="'cdcccbccdbdadbacddaa'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ac', 'ba', 'cbb', 'ca', 'acb']", text="'da'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['cbca']", text="'ccddaddbddcaaddab'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['aca', 'ba', 'b', 'bc', 'baac']", text="'b'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['a', 'bcac', 'aab', 'baa']", text="'ddaabbdbdd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['aa', 'a', 'a']", text="'dcacbbbdcdbb'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['c', 'ccb', 'bcac']", text="'acabcdcbbcddbabadbbdccabd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['cb', 'a', 'caa', 'cac']", text="'cadbadcbccdacdbbabdd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns='[]', text="'dcddd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['cb']", text="'adddbdadcbdabdcdab'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ccb', 'bbbb', 'cbb']", text="'abadd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['c', 'ba']", text="'cacaaca'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns='[]', text="'acaab'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['aaaa', 'acbc', 'caca', 'baaa']", text="'cc'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns='[]', text="'dbabccdaddbbdcbcccccccacbdbccc'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ba', 'cc', 'c', 'a']", text="'babbcc'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ba', 'ccaa', 'a']", text="'dadc'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['bcac']", text="'babdcadcbda'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['cac']", text="'dddbccacabcbbbadccabdcabdbdaa'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['bcca', 'acbb']", text="'cac'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['a', 'bb', 'acbb', 'ba']", text="'aacadabdd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['c', 'b']", text="'dbaaabddbc'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ccc', 'ac', 'cab', 'aabc']", text="'dabbaacaabdccbbdb'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['c', 'bca', 'baba', 'cbaa']", text="'addadbddbbbcccdaadbbaadbad'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ac', 'b', 'baa']", text="'acaabcaabcbaadcbcbbcbbbbaba'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ba', 'c', 'caba', 'acbb', 'aba']", text="'ddadbcacbdcdb'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ccc', 'caaa', 'ba', 'cac']", text="'acdddccccbaacaacdbaadbc'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['acbb', 'bab', 'bac', 'acac']", text="'bcbbcdd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ba', 'bacc', 'acca', 'abcc']", text="'a'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['b', 'ac', 'bba', 'b', 'b']", text="'cdccbccdcdcadc'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['ac']", text="'bbccaadcaaddabdcd'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['cbaa', 'b']", text="'acada'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_bounded_differential_corpus_matches_literal_oracle (patterns="['cbc', 'aa', 'aab']", text="'cbdcbbccddacbdbbbabadacddabbab'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:373: in test_bounded_differential_corpus_matches_literal_oracle
+    self._assert_matches_oracle(patterns, text)
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_differential_corpus_agrees_across_every_chunk_split _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:379: in test_differential_corpus_agrees_across_every_chunk_split
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+________ DifferentialCorpusTests.test_every_match_reported_exactly_once ________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:396: in test_every_match_reported_exactly_once
+    actual = self._assert_matches_oracle(patterns, text)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:361: in _assert_matches_oracle
+    matcher = self.matcher(patterns)
+              ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_live_cursor_state_is_independent_of_stream_length _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:424: in test_live_cursor_state_is_independent_of_stream_length
+    matcher = self.matcher(["ab"])
+              ^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_output_sensitive_work_counts_matches_separately _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:409: in test_output_sensitive_work_counts_matches_separately
+    no_match = self.matcher(["z"]).cursor()
+               ^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+_ DifferentialCorpusTests.test_shared_compilation_is_stable_across_repeated_runs _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_aho_corasick_core.py:400: in test_shared_compilation_is_stable_across_repeated_runs
+    matcher = self.matcher(("ab", "bc", "abc", "c"))
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_aho_corasick_core.py:80: in matcher
+    return self.core().AhoCorasick(patterns)
+           ^^^^^^^^^^^
+tests/test_aho_corasick_core.py:74: in core
+    self.fail(
+E   AssertionError: docker.versioning.aho_corasick must define the P1A Aho-Corasick core
+=========================== short test summary info ============================
+FAILED tests/test_aho_corasick_core.py::RegistrationAndMatchTests::test_compiled_registration_does_not_alias_caller_input
+FAILED tests/test_aho_corasick_core.py::RegistrationAndMatchTests::test_cursor_offset_supplies_absolute_coordinates
+FAILED tests/test_aho_corasick_core.py::RegistrationAndMatchTests::test_documented_usage_example_matches_the_api
+FAILED tests/test_aho_corasick_core.py::RegistrationAndMatchTests::test_empty_and_duplicate_patterns_are_ignored
+FAILED tests/test_aho_corasick_core.py::RegistrationAndMatchTests::test_empty_pattern_set_registers_nothing_and_matches_nothing
+FAILED tests/test_aho_corasick_core.py::RegistrationAndMatchTests::test_independent_cursors_share_one_compiled_trie
+FAILED tests/test_aho_corasick_core.py::RegistrationAndMatchTests::test_module_is_not_a_public_sdk_surface
+FAILED tests/test_aho_corasick_core.py::RegistrationAndMatchTests::test_node_storage_is_bounded_by_registered_patterns
+FAILED tests/test_aho_corasick_core.py::RegistrationAndMatchTests::test_pattern_match_is_immutable
+FAILED tests/test_aho_corasick_core.py::RegistrationAndMatchTests::test_patterns_preserve_first_occurrence_order
+FAILED tests/test_aho_corasick_core.py::RegistrationAndMatchTests::test_prefix_patterns_report_both_ends
+FAILED tests/test_aho_corasick_core.py::RegistrationAndMatchTests::test_simultaneous_matches_at_one_end_are_all_reported
+FAILED tests/test_aho_corasick_core.py::RegistrationAndMatchTests::test_single_pattern_reports_inclusive_start_exclusive_end
+FAILED tests/test_aho_corasick_core.py::RegistrationAndMatchTests::test_suffix_patterns_report_overlapping_matches
+FAILED tests/test_aho_corasick_core.py::RegistrationAndMatchTests::test_unicode_coordinates_are_python_character_offsets
+FAILED tests/test_aho_corasick_core.py::ContinuationAndCountersTests::test_counters_are_deterministic_and_partition_independent
+FAILED tests/test_aho_corasick_core.py::ContinuationAndCountersTests::test_cursor_retains_no_source_payload
+FAILED tests/test_aho_corasick_core.py::ContinuationAndCountersTests::test_cursor_state_depends_only_on_recent_characters
+FAILED tests/test_aho_corasick_core.py::ContinuationAndCountersTests::test_failures_are_amortized_within_input_length
+FAILED tests/test_aho_corasick_core.py::ContinuationAndCountersTests::test_feed_and_advance_agree
+SUBFAILED(patterns="('ab', 'bab', 'bc', 'bca', 'c', 'caa')", text="'abccab'") tests/test_aho_corasick_core.py::ContinuationAndCountersTests::test_one_feed_every_split_and_single_character_agree
+SUBFAILED(patterns="('TOKEN',)", text="'pre TOKEN mid TOKEN end'") tests/test_aho_corasick_core.py::ContinuationAndCountersTests::test_one_feed_every_split_and_single_character_agree
+SUBFAILED(patterns="('aa', 'a')", text="'aaaa'") tests/test_aho_corasick_core.py::ContinuationAndCountersTests::test_one_feed_every_split_and_single_character_agree
+SUBFAILED(patterns="('abc', 'bc', 'c')", text="'zabc'") tests/test_aho_corasick_core.py::ContinuationAndCountersTests::test_one_feed_every_split_and_single_character_agree
+SUBFAILED(patterns="('xy', 'xyz')", text="'wxyz'") tests/test_aho_corasick_core.py::ContinuationAndCountersTests::test_one_feed_every_split_and_single_character_agree
+SUBFAILED(patterns='()', text="'no patterns here'") tests/test_aho_corasick_core.py::ContinuationAndCountersTests::test_one_feed_every_split_and_single_character_agree
+FAILED tests/test_aho_corasick_core.py::ContinuationAndCountersTests::test_outputs_count_every_emitted_match
+FAILED tests/test_aho_corasick_core.py::ContinuationAndCountersTests::test_reset_clears_state_and_preserves_lifetime_totals
+FAILED tests/test_aho_corasick_core.py::ContinuationAndCountersTests::test_reset_does_not_replay_input
+FAILED tests/test_aho_corasick_core.py::ContinuationAndCountersTests::test_transitions_count_every_input_symbol
+FAILED tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_adversarial_suffix_heavy_patterns_match_oracle
+SUBFAILED(patterns='[]', text="'bbbdbabbbcadbcbbdadbacbdaddac'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns='[]', text="'baaca'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['c', 'b', 'ab', 'bcab', 'bca']", text="'dbccccbbbacdbbacabc'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['b', 'ca']", text="'ddadbccaaaabbbaaac'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['cbab', 'cac']", text="'babaddcadabbabddccbdaadccdcb'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['b', 'caac', 'bb']", text="'ddcdddba'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ab', 'ab']", text="'dcddbbaddcb'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns='[]', text="'dbcacbdccccdacbcaddccbdabaa'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ccbb', 'b', 'b', 'bc', 'ba']", text="'cdbdccbbdacddacddcbbbcda'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['bb', 'ca', 'b']", text="'dbbabacddaaaccadacddbbdadd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ccbb']", text="'dadcdbbabacaababdcccad'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ba']", text="'dcccbaaab'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ccca', 'abb', 'aa', 'bbab', 'bcaa']", text="'ddcbdadcdbdcc'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns='[]', text="'aabbaabadcdccccbcad'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['bc', 'ccb', 'a']", text="'ccddaabddacadddbdccaabac'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['a', 'ca', 'a', 'bbb']", text="'bbdbadbadbbcb'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['abaa']", text="'ccadabbadcdcbcdcdaa'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['bab', 'a', 'abc']", text="'cccddbbdcadddbdcb'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['cccc', 'cbbc']", text="'abdadbdbcaaacbdcadbccdcdbdc'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns='[]', text="'bddbd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ac', 'c', 'bb', 'b']", text="'adaadbdddcd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['abc', 'a']", text="'dcdbdddaadbccadcbbcdcbbbd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['a', 'bba']", text="'dbbbbbddbbbcccccabacbb'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns='[]', text="'cabbdadcbbbddbbcaadbdaaacdad'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['b', 'a', 'c']", text="'ddc'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns='[]', text="'acdabdd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['bcc']", text="'bcbbccb'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['c', 'ab', 'ccbc']", text="'bdbabacbcdcdadcbbdbbdcbdb'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['bbcc', 'bca']", text="'dadbbb'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['bc', 'caac']", text="'bbbbccaddddcbbbccdcc'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['c', 'b']", text="'cbcdddb'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['babb', 'ca', 'a', 'bc']", text="'aa'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns='[]', text="'ccdabcbdaddcbdd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['abbc', 'ca', 'abb', 'bab', 'b']", text="'acaaadbaabdbcacbacdcdcaadbca'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['cbba', 'bc', 'abc', 'ccba']", text="'ccccacadddddbcc'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['caac']", text="'addcaadcacbdcbb'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ac']", text="'adcbcbdadbcbd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['cba']", text="'ddcbbbcddd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['c', 'bbba', 'c']", text="'acabdcdccdccacbacad'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['babc', 'bb']", text="'badcaa'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['cb', 'bb', 'aaac', 'babc', 'c']", text="'dcbbccbadca'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns='[]', text="'cddddcbdcbbadacbdaadadca'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['cb']", text="'ccccbbccacacbcbcccb'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['cba', 'ac', 'aa', 'cb']", text="'adccbbbaddcacdccbd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['aabc', 'cbaa']", text="'abdadaaaadbc'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['b', 'bbcc', 'bbcb', 'aab']", text="'bbcabaabddccdb'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['cab', 'bcb', 'ba']", text="'bbaaadcbbdbdacbadccbabdaba'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['c', 'cccb']", text="'cdcccbccdbdadbacddaa'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ac', 'ba', 'cbb', 'ca', 'acb']", text="'da'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['cbca']", text="'ccddaddbddcaaddab'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['aca', 'ba', 'b', 'bc', 'baac']", text="'b'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['a', 'bcac', 'aab', 'baa']", text="'ddaabbdbdd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['aa', 'a', 'a']", text="'dcacbbbdcdbb'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['c', 'ccb', 'bcac']", text="'acabcdcbbcddbabadbbdccabd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['cb', 'a', 'caa', 'cac']", text="'cadbadcbccdacdbbabdd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns='[]', text="'dcddd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['cb']", text="'adddbdadcbdabdcdab'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ccb', 'bbbb', 'cbb']", text="'abadd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['c', 'ba']", text="'cacaaca'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns='[]', text="'acaab'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['aaaa', 'acbc', 'caca', 'baaa']", text="'cc'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns='[]', text="'dbabccdaddbbdcbcccccccacbdbccc'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ba', 'cc', 'c', 'a']", text="'babbcc'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ba', 'ccaa', 'a']", text="'dadc'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['bcac']", text="'babdcadcbda'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['cac']", text="'dddbccacabcbbbadccabdcabdbdaa'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['bcca', 'acbb']", text="'cac'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['a', 'bb', 'acbb', 'ba']", text="'aacadabdd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['c', 'b']", text="'dbaaabddbc'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ccc', 'ac', 'cab', 'aabc']", text="'dabbaacaabdccbbdb'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['c', 'bca', 'baba', 'cbaa']", text="'addadbddbbbcccdaadbbaadbad'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ac', 'b', 'baa']", text="'acaabcaabcbaadcbcbbcbbbbaba'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ba', 'c', 'caba', 'acbb', 'aba']", text="'ddadbcacbdcdb'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ccc', 'caaa', 'ba', 'cac']", text="'acdddccccbaacaacdbaadbc'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['acbb', 'bab', 'bac', 'acac']", text="'bcbbcdd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ba', 'bacc', 'acca', 'abcc']", text="'a'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['b', 'ac', 'bba', 'b', 'b']", text="'cdccbccdcdcadc'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['ac']", text="'bbccaadcaaddabdcd'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['cbaa', 'b']", text="'acada'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+SUBFAILED(patterns="['cbc', 'aa', 'aab']", text="'cbdcbbccddacbdbbbabadacddabbab'") tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_bounded_differential_corpus_matches_literal_oracle
+FAILED tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_differential_corpus_agrees_across_every_chunk_split
+FAILED tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_every_match_reported_exactly_once
+FAILED tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_live_cursor_state_is_independent_of_stream_length
+FAILED tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_output_sensitive_work_counts_matches_separately
+FAILED tests/test_aho_corasick_core.py::DifferentialCorpusTests::test_shared_compilation_is_stable_across_repeated_runs
+116 failed, 2 passed in 2.09s

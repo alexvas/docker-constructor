@@ -43,25 +43,25 @@ Store phase-labelled command outputs, full logs, actual exit statuses, reviews a
 
 ### RED
 
-- [ ] 1A.1 Define core contract tests for empty pattern sets, registered non-empty patterns, duplicates, prefix/suffix patterns, overlapping and simultaneous matches, Unicode Python-character coordinates and independent streams sharing one compiled trie; verify expected source spans without introducing a public SDK API.
-- [ ] 1A.2 Add one-feed/every-split/single-character continuation tests plus deterministic transition/failure/output-link counters and state ownership checks; verify chunk boundaries require neither overlap text nor retained payload.
-- [ ] 1A.3 Add a bounded differential corpus against a simple literal-match oracle and adversarial suffix-heavy patterns; verify every match exactly once, shared compilation stability, output-sensitive work and live cursor state independent of stream length without timing assertions.
-- [ ] 1A.4 Record P1A RED with full logs and actual statuses; map failures to missing core behavior and record already-passing obligations honestly.
+- [x] 1A.1 Define core contract tests for empty pattern sets, registered non-empty patterns, duplicates, prefix/suffix patterns, overlapping and simultaneous matches, Unicode Python-character coordinates and independent streams sharing one compiled trie; verify expected source spans without introducing a public SDK API.
+- [x] 1A.2 Add one-feed/every-split/single-character continuation tests plus deterministic transition/failure/output-link counters and state ownership checks; verify chunk boundaries require neither overlap text nor retained payload.
+- [x] 1A.3 Add a bounded differential corpus against a simple literal-match oracle and adversarial suffix-heavy patterns; verify every match exactly once, shared compilation stability, output-sensitive work and live cursor state independent of stream length without timing assertions.
+- [x] 1A.4 Record P1A RED with full logs and actual statuses; map failures to missing core behavior and record already-passing obligations honestly.
 
 ### GREEN
 
-- [ ] 1A.5 Implement the internal trie builder and breadth-first failure/output-link construction without a new runtime dependency; verify registration tests and storage bounded by configured patterns, avoiding copied transitive output lists that multiply registration storage.
-- [ ] 1A.6 Implement a per-symbol streaming cursor over immutable compiled state, reporting pattern identities and exclusive match ends in Python-character coordinates; verify overlapping outputs, independent cursors and no retained source string, chunk replay or input-sized history.
-- [ ] 1A.7 Implement cumulative counters for input transitions, failure traversals and emitted-match/output-link work, with explicit cursor reset semantics that preserve lifetime totals; verify search work is O(N + matches) and reset cannot hide work.
+- [x] 1A.5 Implement the internal trie builder and breadth-first failure/output-link construction without a new runtime dependency; verify registration tests and storage bounded by configured patterns, avoiding copied transitive output lists that multiply registration storage.
+- [x] 1A.6 Implement a per-symbol streaming cursor over immutable compiled state, reporting pattern identities and exclusive match ends in Python-character coordinates; verify overlapping outputs, independent cursors and no retained source string, chunk replay or input-sized history.
+- [x] 1A.7 Implement cumulative counters for input transitions, failure traversals and emitted-match/output-link work, with explicit cursor reset semantics that preserve lifetime totals; verify search work is O(N + matches) and reset cannot hide work.
 
 ### INTROSPECT
 
-- [ ] 1A.8 Document registration versus live-state ownership, Unicode/coordinate semantics, cursor continuation/reset, output ordering and O(N + matches) search bounds; verify examples and deterministic tests match the API without claiming this core resolves URL/secret coordination.
-- [ ] 1A.9 Audit construction/search allocations, output-link handling and failure paths; deliver resolved findings for immutable shared registration, payload-free cursors, pattern-dependent storage and cumulative work, with no production regex/library fallback.
+- [x] 1A.8 Document registration versus live-state ownership, Unicode/coordinate semantics, cursor continuation/reset, output ordering and O(N + matches) search bounds; verify examples and deterministic tests match the API without claiming this core resolves URL/secret coordination.
+- [x] 1A.9 Audit construction/search allocations, output-link handling and failure paths; deliver resolved findings for immutable shared registration, payload-free cursors, pattern-dependent storage and cumulative work, with no production regex/library fallback.
 
 ### VALIDATE
 
-- [ ] 1A.10 Run P1/P1A and applicable configured checks in the project environment with required eight-worker Python verification; preserve full logs/statuses and deliver a successful P1A gate before P2 integration. Historical recognition evidence does not substitute for this new gate.
+- [x] 1A.10 Run P1/P1A and applicable configured checks in the project environment with required eight-worker Python verification; preserve full logs/statuses and deliver a successful P1A gate before P2 integration. Historical recognition evidence does not substitute for this new gate.
 
 ## 2. P2 — Compact supported-scheme and secret recognition
 
