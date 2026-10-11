@@ -181,13 +181,49 @@ Redacted projection SHALL hide each supported URL as `<redacted>` regardless of 
 - **THEN** host-path rendering SHALL be `host/<redacted-path>` rather than deleting a segment or substituting `<secret>` inside the path
 
 ### Requirement: Commit recognized URL projection irreversibly
-On detecting a supported scheme and full `://`, redacted projection SHALL immediately emit one `<redacted>` and suppress the raw URL remainder through its terminator. Later EOF, abort or token overflow SHALL NOT replace or duplicate that marker. Host-path SHALL commit independently validated, secret-settled components as their boundaries resolve, without retraction. Before full separator detection, previous ambiguous-prefix finalization rules SHALL apply. Early output SHALL NOT grant metadata.
+Projection SHALL commit URL rendering irreversibly. Redacted projection SHALL emit one `<redacted>` on complete supported scheme/separator detection, subject only to the crossing-secret delay below, and suppress the remaining raw URL. Host-path SHALL commit independently validated, secret-settled components at their boundaries. Committed output SHALL NOT be retracted, replaced or duplicated. Early rendering SHALL NOT grant metadata.
 
 #### Scenario: Redacted URL begins before authority is complete
 - **WHEN** redacted projection receives `https://ho` as a feed
 - **THEN** that feed SHALL return `<redacted>` without waiting for another character or URL validation
 - **AND** a subsequent feed `st/public done` SHALL suppress `st/public` and resume text at the raw terminator
 - **AND** clean EOF or abort instead of that continuation SHALL add no incomplete marker for the already-covered URL
+
+#### Scenario: Crossing-secret delay is mandatory and narrowly scoped
+- **WHEN** a registered secret includes the URL separator and an earlier unresolved literal prefix of that secret crosses the recognized separator
+- **THEN** redacted marker delivery SHALL wait until that prefix resolves to preserve source order
+- **AND** upon resolution projection SHALL emit exactly one irreversible URL marker without waiting for unrelated authority completion or a raw terminator
+- **AND** in all other cases immediate separator-triggered delivery SHALL remain mandatory
+- **AND** the exception SHALL NOT change retention bounds, replay-free continuation or metadata eligibility
+- **AND** clean EOF without secret completion SHALL resolve this crossing literal prefix as a non-match under the clean-EOF scenario below
+- **AND** existing finalization rules SHALL govern other unresolved uncommitted state; abort and overflow rules SHALL remain unchanged
+
+#### Scenario: Finalization preserves a committed redacted URL
+- **WHEN** a recognized redacted URL has emitted its marker and then reaches clean EOF, abort or token overflow
+- **THEN** projection SHALL NOT replace or duplicate that marker
+- **AND** source suppression SHALL continue through the raw URL terminator or stream termination without another URL marker
+
+#### Scenario: Earlier unresolved crossing secret delays marker delivery
+- **GIVEN** configured secret `Xhttps://host`
+- **WHEN** redacted projection receives `Xhttps://ho` as its first feed
+- **THEN** it SHALL return no output despite recognizing the complete supported separator, because the earlier literal secret prefix remains unresolved
+- **AND** it SHALL retain bounded continuation state without replay and SHALL NOT emit that unresolved prefix as ordinary text or prematurely classify it as a complete secret
+- **WHEN** the next feed is `st done`
+- **THEN** concatenated output SHALL be `<secret><redacted> done`, in source order with exactly one irreversible URL marker
+
+#### Scenario: Mismatching continuation releases ordinary prefix before URL marker
+- **GIVEN** configured secret `Xhttps://host` and first feed `Xhttps://ho`
+- **WHEN** the next feed is `r done` instead of completing the secret
+- **THEN** concatenated output SHALL be `X<redacted> done`, preserving the ordinary `X` before exactly one irreversible URL marker
+- **AND** the delivery exception SHALL NOT authorize transformed-source URL facts or alter existing source-validation and secret-coverage gates
+
+#### Scenario: Clean EOF resolves an incomplete crossing secret as a non-match
+- **GIVEN** configured secret `Xhttps://host` and first feed `Xhttps://ho`, with output withheld under the crossing-secret delay
+- **WHEN** clean EOF occurs without further source input
+- **THEN** the literal secret SHALL be treated as not matched, and final output SHALL be `X<redacted>` in source order
+- **AND** projection SHALL emit neither `<secret>` nor `[sanitized incomplete token]` for this case
+- **AND** it SHALL emit exactly one irreversible URL marker without replay or changed retention bounds
+- **AND** this clean-EOF outcome SHALL NOT change abort or overflow behavior or authorize metadata without existing source validation and secret-coverage checks
 
 #### Scenario: Overflow cannot duplicate a committed redacted URL
 - **WHEN** a redacted URL already emitted `<redacted>` and its bounded token/metadata processing overflows
@@ -251,7 +287,7 @@ Numeric matching SHALL examine the entire maximal numeric-looking sequence and S
 
 The decoded stream SHALL undergo one bounded decoding, streaming line-accounting, and terminal-control-neutralization pipeline. While an unterminated diagnostic remains within its line bound, the collector SHALL emit committed terminal-safe prefixes promptly without waiting for newline. The resolved immutable policy SHALL feed exactly one byte-bounded per-stream retained tail with the original ordering and occurrences of the selected representation without grouping: URL-free sanitized text for `redacted`, safely rendered normalized hostname/path text for `host-path`, or terminal-safe source text for `exact`. Existing tail byte limits and truncation semantics SHALL remain unchanged. In `redacted` and `host-path`, terminal-safe source content SHALL NOT be retained. In `exact`, no projected-safe or host-path tail SHALL be retained.
 
-The safe projector SHALL coordinate supported-URL and secret coverage without deleting secrets to manufacture new URLs, then apply policy-specific projection and permitted facts whenever required by the selected local mode or an external SDK event. Each complete, safely validated supported URL eligible under secret-coverage rules SHALL contribute an ordered fixed-width fingerprint produced by a cryptographic keyed digest with a fresh random presentation-session key. Fingerprint input SHALL remove userinfo, query, and fragment, exclude proxy information, and preserve scheme, normalized hostname, path, and any explicitly supplied port including an explicit default port. Fingerprint order and multiplicity SHALL be preserved. Pending sanitizer state for an ambiguous URL or secret candidate SHALL be capped at 8 KiB, and diagnostic-line accounting SHALL be capped at 64 KiB of decoded source text per unterminated line. The collector SHALL continue draining after either limit is reached. A candidate exceeding its limit SHALL discard its remaining content until a safe token boundary. Before recognized URL output is committed it SHALL emit only `[sanitized oversized token]`; after commitment it SHALL preserve committed output and apply the early-projection requirement above, marking only an unresolved uncovered display remainder. When a diagnostic line first exceeds its limit, the collector SHALL append exactly one `[sanitized oversized diagnostic]` marker after any previously emitted committed safe prefix, SHALL NOT retract that prefix, and SHALL discard the remaining source content until newline or stream termination. A subsequent newline SHALL preserve the record boundary and resume normal processing; stream termination SHALL NOT add another overflow marker. No discarded suffix SHALL enter a live event or retained tail. At EOF, reader failure, or cancellation, an unresolved uncommitted URL or secret prefix in projected processing SHALL fail closed under the existing rules with `[sanitized incomplete token]`, never ordinary candidate text. Recognized URLs with irreversible committed output SHALL instead follow the early-projection requirement above; any pending projected line SHALL be finalized only through the same bounded sanitizer.
+The safe projector SHALL coordinate supported-URL and secret coverage without deleting secrets to manufacture new URLs, then apply policy-specific projection and permitted facts whenever required by the selected local mode or an external SDK event. Each complete, safely validated supported URL eligible under secret-coverage rules SHALL contribute an ordered fixed-width fingerprint produced by a cryptographic keyed digest with a fresh random presentation-session key. Fingerprint input SHALL remove userinfo, query, and fragment, exclude proxy information, and preserve scheme, normalized hostname, path, and any explicitly supplied port including an explicit default port. Fingerprint order and multiplicity SHALL be preserved. Pending sanitizer state for an ambiguous URL or secret candidate SHALL be capped at 8 KiB, and diagnostic-line accounting SHALL be capped at 64 KiB of decoded source text per unterminated line. The collector SHALL continue draining after either limit is reached. A candidate exceeding its limit SHALL discard its remaining content until a safe token boundary. Before recognized URL output is committed it SHALL emit only `[sanitized oversized token]`; after commitment it SHALL preserve committed output and apply the early-projection requirement above, marking only an unresolved uncovered display remainder. When a diagnostic line first exceeds its limit, the collector SHALL append exactly one `[sanitized oversized diagnostic]` marker after any previously emitted committed safe prefix, SHALL NOT retract that prefix, and SHALL discard the remaining source content until newline or stream termination. A subsequent newline SHALL preserve the record boundary and resume normal processing; stream termination SHALL NOT add another overflow marker. No discarded suffix SHALL enter a live event or retained tail. Except for the clean-EOF crossing-secret non-match scenario above, at EOF, reader failure, or cancellation, an unresolved uncommitted URL or secret prefix in projected processing SHALL fail closed under the existing rules with `[sanitized incomplete token]`, never ordinary candidate text. Recognized URLs with irreversible committed output SHALL instead follow the early-projection requirement above; any pending projected line SHALL be finalized only through the same bounded sanitizer.
 
 Safe host-path facts MAY enter the selected internal live representation and `host-path` retained tail but SHALL NOT enter the external SDK DTO, verification or assembler evidence, or semantic identities. A projected-safe external SDK event SHALL be transient with respect to retained diagnostics: producing it SHALL NOT create or populate another retained tail. Session keys and fingerprints SHALL never enter rendered text, retained tails, failure reports, persistence, evidence, or policy identity and SHALL never permit cross-session correlation. Source content SHALL appear only in `exact` CLI text and text/JSON failure tails; it SHALL NOT enter external SDK events, verification evidence, assembler evidence, or semantic identities.
 
@@ -414,7 +450,7 @@ Diagnostic URL recognition and secret handling SHALL follow the added requiremen
 
 #### Scenario: Stream terminates with an ambiguous sensitive prefix
 - **WHEN** EOF, reader failure, or cancellation occurs while an ambiguous URL, encoded URL, credential, or secret prefix or an unterminated diagnostic line is pending
-- **THEN** unresolved uncommitted sensitive prefixes SHALL follow the existing incomplete-token rules and SHALL NOT be flushed as ordinary text
+- **THEN** unresolved uncommitted sensitive prefixes SHALL follow the existing incomplete-token rules and SHALL NOT be flushed as ordinary text, except that clean EOF resolving the described crossing-secret non-match SHALL produce the ordinary preceding prefix followed by its single URL marker
 - **AND** already-covered redacted URLs SHALL retain only their early `<redacted>`; committed host-path components SHALL remain unchanged with markers only for an unresolved display remainder
 - **AND** any pending diagnostic line SHALL be finalized only through bounded secret redaction and URL sanitization
 - **AND** pending sanitizer and line-assembly state SHALL remain within their fixed limits
