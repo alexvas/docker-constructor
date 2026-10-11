@@ -33,3 +33,49 @@ Assembler lockfile-input writing and canonical tree-file hashing SHALL own each 
 - **AND** its sole descriptor release fails
 - **THEN** the exact close `OSError` SHALL propagate unchanged without conversion to `LockedNpmError`
 - **AND** the release attempt SHALL remain terminal
+
+### Requirement: Own subprocess pipes across all assembly cleanup paths
+Assembler subprocess execution and captured cleanup clients SHALL immediately adopt each stdout/stderr file object returned by `Popen(..., PIPE)` into one filesystem `OwnedStream` for the complete process lifecycle. All cleanup paths SHALL reuse those owners, with terminal at-most-once underlying release and shared cleanup precedence. Consumers SHALL NOT separately adopt or close the streams' raw descriptor numbers.
+
+#### Scenario: Preserve subprocess compatibility
+- **WHEN** subprocess stream ownership is migrated
+- **THEN** existing consumer signatures, process-result shapes, output tails, decoding, npm identities, controlled public errors, redaction, and configured shutdown bounds SHALL remain unchanged
+- **AND** terminal at-most-once release and shared cleanup precedence SHALL be required corrections rather than baseline defects to preserve
+
+#### Scenario: A reader failure triggers multiple cleanup hooks
+- **WHEN** a stream reader fails and reader-failure cleanup is followed by exception-path or final cleanup
+- **THEN** all hooks SHALL reuse the same stdout/stderr owners
+- **AND** each underlying stream close SHALL be attempted once, not retried because file objects are normally idempotent
+- **AND** an ordinary close failure SHALL remain secondary to the active reader failure
+- **AND** shared higher-precedence interruption or unexpected-defect behavior SHALL retain the displaced failure diagnostically
+
+#### Scenario: Deadline and interruption race to release streams
+- **WHEN** deadline cleanup races with caller interruption or finalization
+- **THEN** release claims SHALL be synchronized and no stream SHALL receive a second underlying close
+- **AND** the process cleanup coordinator SHALL await and retain the winning cleanup outcome without duplicating close diagnostics
+- **AND** process-control objects SHALL retain identity under shared precedence
+- **AND** diagnostics exposed to users SHALL remain bounded and sanitized
+
+#### Scenario: One stream fails to close
+- **WHEN** stdout or stderr close fails ordinarily, unexpectedly, or by interruption
+- **THEN** the other independent stream SHALL still receive its release attempt
+- **AND** process termination, removal where applicable, and bounded reaping SHALL not be skipped
+- **AND** repeated cleanup SHALL issue no raw-close fallback or stream-close retry
+
+#### Scenario: Post-launch setup fails
+- **WHEN** stream adoption, reader setup, supervisor setup, or a launch callback fails after a successful process launch
+- **THEN** all acquired streams SHALL be accounted for and released once under shared precedence
+- **AND** the launched child SHALL undergo the established bounded process cleanup
+- **AND** no not-yet-adopted stream SHALL be stranded by failure while adopting its sibling
+
+#### Scenario: Real pipe readers remain safe during bounded shutdown
+- **WHEN** a descendant holds a pipe write end open, a reader fails, or cancellation requires forced shutdown
+- **THEN** subprocess-layer coordination SHALL stop descriptor readers safely within the supported shutdown bounds before final underlying stream release
+- **AND** it SHALL NOT close a raw descriptor number while a worker can still use it or block cleanup on a buffered-reader lock
+- **AND** output draining, retained tails, decoding, abort redaction, and supported worker completion guarantees SHALL remain intact
+- **AND** real-pipe tests SHALL verify fd-reuse safety and bounded completion, independently of descriptor-less test doubles
+
+#### Scenario: Audit subprocess stream origins
+- **WHEN** a subprocess factory, `PIPE`, stream attribute, or stream-close callable is reached through an alias
+- **THEN** the convergence ledger SHALL track its ownership origin and classify the underlying close as a shared-owner internal release only after terminal synchronized ownership is proved
+- **AND** it SHALL reject per-cleanup owner reconstruction, duplicate raw-fd ownership, and blanket non-descriptor exemptions for subprocess streams
