@@ -112,6 +112,12 @@ with masked rendering/fact gates") owns the fix, together with the existing
 the pre-revision `<redacted>` fallback.  This is a P5 obligation, not a P4
 defect: P4's fact gate (no normalized-host fact) is correct.
 
+**Resolved in P5 (task 5.6):** the masked host/path display product is now
+carried separately from the validated fact, so the fetch group key and
+canonical text render `<redacted-host>/public`.  The two pre-revision tests
+were renamed to `test_host_path_identity_masks_secret_host` and
+`test_host_path_canonical_text_masks_secret_host`; see `phase-5.md`.
+
 ## Final-state verification
 
 All pytest commands use `.venv/bin/python -m pytest ... -n 8 --dist loadfile

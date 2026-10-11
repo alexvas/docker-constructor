@@ -249,6 +249,12 @@ class NpmDiagnosticStream:
         #: facts (never the raw URL), and they are the only URL-derived state the
         #: recognizer needs for ``host-path`` grouping.
         self._line_host_paths: list[SafeHostPath] = []
+        #: Rendered ``host-path`` display products for the current line,
+        #: including masked hosts/paths.  Distinct from the validated
+        #: :attr:`_line_host_paths` facts: a secret-bearing host has no fact but
+        #: still renders ``<redacted-host>``, which is what the fetch group key
+        #: and canonical text must use.
+        self._line_host_path_displays: list[SafeHostPath] = []
         #: Incremental grammar recognizer.  It retains only bounded parser state
         #: (method, status, attempt, cache, and an unsafe-canonicalization flag)
         #: and never the complete source line or raw URL.
@@ -473,6 +479,9 @@ class NpmDiagnosticStream:
         for fact in self._retained_projector.take_host_paths():
             if fact not in self._line_host_paths:
                 self._line_host_paths.append(fact)
+        for display in self._retained_projector.take_host_path_displays():
+            if display not in self._line_host_path_displays:
+                self._line_host_path_displays.append(display)
 
     def _emit_projected(self, text: str, *, retain: bool) -> list[StreamChunk]:
         """Deliver committed safe prefixes and finalized line events.
@@ -607,8 +616,13 @@ class NpmDiagnosticStream:
             # way it stays the sanitized ordinary diagnostic with no group
             # identity, so no secret-bearing canonical text is ever presented.
             return local, None, None
-        if mode is NetworkUrlDisplay.HOST_PATH and self._line_host_paths:
-            record = replace(record, host_path=self._line_host_paths[0])
+        chosen = self._line_host_path_displays or self._line_host_paths
+        if mode is NetworkUrlDisplay.HOST_PATH and chosen:
+            # Prefer the rendered display over the validated fact so a masked
+            # host contributes ``<redacted-host>`` to grouping and canonical
+            # text instead of falling back to ``<redacted>``.  A secret-free
+            # resource has both and they are equal.
+            record = replace(record, host_path=chosen[0])
         key = fetch_group_identity(record, mode, secrets=self._secrets)
         canonical = canonical_fetch_text(record, mode, secrets=self._secrets)
         if key is None or not canonical:
@@ -639,6 +653,7 @@ class NpmDiagnosticStream:
         self._line_chars = []
         self._selected_line_chars = []
         self._line_host_paths = []
+        self._line_host_path_displays = []
         self._line_hostnames = []
         self._line_fingerprints = []
         self._line_overflowed = False
@@ -647,6 +662,7 @@ class NpmDiagnosticStream:
     def _resync_line_facts(self) -> None:
         self._selected_line_chars = []
         self._line_host_paths = []
+        self._line_host_path_displays = []
         self._line_hostnames = []
         self._line_fingerprints = []
         self._fetch_recognizer.reset()

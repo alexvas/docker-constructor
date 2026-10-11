@@ -1133,6 +1133,22 @@ class DiagnosticProjector(CoordinatedProjection):
         self._host_paths = []
         return facts
 
+    def take_host_path_displays(self) -> tuple[SafeHostPath, ...]:
+        """Return and clear the rendered host/path display products.
+
+        These are the same masked products the ``host-path`` local text emits:
+        a secret-bearing host renders ``<redacted-host>`` and an unsafe or
+        secret-bearing path renders ``/<redacted-path>``.  Unlike
+        :meth:`take_host_paths`, a masked host is included, because this is a
+        display/grouping product and never a validated identity.  It MUST NOT
+        enter the external SDK DTO, evidence, persistence, or semantic
+        identity; callers use it only for local ``host-path`` grouping and
+        canonical fetch rendering.
+        """
+        displays = tuple(self._host_path_displays)
+        self._host_path_displays = []
+        return displays
+
     def take_facts(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
         """Return and clear the facts extracted since the previous call.
 

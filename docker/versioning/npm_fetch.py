@@ -76,7 +76,6 @@ from docker.versioning.diagnostic_projection import (
     literal_authority_host,
     normalized_authority_host,
     normalized_url_host,
-    sanitize_host_paths,
 )
 from docker.versioning.fetch_identity import FetchGroupKey
 from docker.versioning.model import NetworkUrlDisplay
@@ -877,10 +876,36 @@ class NpmFetchRecognizer:
             self._malformed = True
 
 
+def _rendered_host_path_text(url: str, secrets: Sequence[str]) -> str | None:
+    """Return the supported URL's host/path display product, or ``None``.
+
+    Only a *supported* URL yields a host/path display: normalized host plus
+    canonical safe path, with a secret-bearing host rendered as
+    ``<redacted-host>`` and an unsafe or secret-bearing path as
+    ``/<redacted-path>``.  The display list is the projector's URL-derived
+    product, so it is read directly rather than inferred from changed text.
+    An unknown-scheme URL is never recognized as a supported URL, so it emits
+    no display and returns ``None`` -- even when it contains a literal secret
+    whose ``<secret>`` substitution would otherwise look like a group field.
+    A URL whose host cannot be normalized likewise emits no display, and the
+    caller falls back to ``<redacted>``.  This is a local display/grouping
+    product only, never a validated identity.
+    """
+    from docker.versioning.diagnostic_projection import DiagnosticProjector
+
+    projector = DiagnosticProjector(secrets, url_display=NetworkUrlDisplay.HOST_PATH)
+    list(projector.feed_text(url + " "))
+    projector.finish()
+    displays = projector.take_host_path_displays()
+    if len(displays) != 1:
+        return None
+    return displays[0].text
+
+
 def _safe_host_path_text(
     record: NpmFetchRecord | SafeFetchRecord, secrets: Sequence[str]
 ) -> str | None:
-    """Return the projector's normalized host plus canonical safe path.
+    """Return the policy-rendered host plus canonical safe path, or ``None``.
 
     The parser already knows the URL field ends before the latency field, so
     the URL is projected as a delimiter-complete field (a trailing space)
@@ -891,15 +916,16 @@ def _safe_host_path_text(
     unchanged for callers that really may receive truncated URLs.
 
     A :class:`SafeFetchRecord` already carries the sanitized
-    :class:`SafeHostPath` supplied by the streaming projector, so it is used
-    directly without re-deriving or re-retaining the URL.
+    :class:`SafeHostPath` display supplied by the streaming projector -- which
+    includes the masked ``<redacted-host>`` / ``/<redacted-path>`` products --
+    so it is used directly without re-deriving or re-retaining the URL.  A
+    complete-line :class:`NpmFetchRecord` renders its URL through the shared
+    projector so a secret-bearing host contributes the same masked product
+    instead of falling back to ``<redacted>``.
     """
     if isinstance(record, SafeFetchRecord):
         return record.host_path.text if record.host_path is not None else None
-    facts = sanitize_host_paths(record.url + " ", secrets)
-    if not facts:
-        return None
-    return facts[0].text
+    return _rendered_host_path_text(record.url, secrets)
 
 
 def fetch_group_identity(

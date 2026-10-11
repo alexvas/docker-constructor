@@ -14,19 +14,25 @@ network_url_display = "redacted"
 
 `network_url_display` is a closed setting with exactly three values:
 
-- `redacted` omits source URL details. `network_url_display` defaults to `redacted` when the key or `[output]` table is absent.
-- `host-path` may show a normalized hostname and safe canonical path. It omits scheme, user information, explicit port, query, fragment, proxy details, credentials, and exception messages. Unsafe paths use `<redacted-path>`. Package names and other sensitive path information can still be disclosed, so select this mode deliberately.
+- `redacted` omits source URL details. It replaces a recognized supported-scheme URL with a single `<redacted>` as soon as the complete scheme and `://` are recognized, and standalone configured secrets with `<secret>`. `network_url_display` defaults to `redacted` when the key or `[output]` table is absent.
+- `host-path` may show a normalized hostname and safe canonical path. It omits scheme, user information, explicit port, query, fragment, proxy details, credentials, and exception messages. A secret-bearing host becomes `<redacted-host>`; an unsafe or secret-bearing path becomes `/<redacted-path>`. Standalone configured secrets become `<secret>`. Package names and other sensitive path information can still be disclosed, so select this mode deliberately.
 - `exact` preserves bounded third-party diagnostic content as closely as terminal safety permits. It can disclose URL credentials, proxy details, query values, fragments, and caller-provided secrets. It is not secret-safe.
 
 Application-content redaction is therefore a user-selected presentation and noise-control facility, not a security boundary. Operators are responsible for controlling third-party output and sensitive input values, especially when selecting `host-path` or `exact`.
 
-In `redacted`, consecutive recognized successful `npm http fetch` diagnostics can aggregate without URL or latency. In `host-path`, only latency variants for the same safe hostname/path and request identity aggregate. In `exact`, diagnostics are not aggregated or numerically replaced.
+### Supported schemes and unknown text
+
+Recognition is limited to the case-insensitive schemes `http`, `https`, `ftp`, `ftps`, `ssh`, `git`, `git+ssh`, `git+http`, `git+https`, `file`, `ws`, `wss`, `socks`, `socks4`, `socks4a`, `socks5`, and `socks5h` followed by `://`. An unknown scheme stays ordinary text: it is not hidden, no hostname/host-path/fingerprint is derived from it, and a configured secret inside it is still replaced. Recognized `host-path` components are display text only; for example `https://TOKEN.example/public` renders `<redacted-host>/public` and `https://host.example/TOKEN/private` renders `host.example/<redacted-path>`. Rendering markers are never validated hostname or URL-identity facts.
+
+In `redacted`, consecutive recognized successful `npm http fetch` diagnostics can aggregate without URL or latency. In `host-path`, only latency variants for the same rendered hostname/path and request identity aggregate; a masked `<redacted-host>` or `/<redacted-path>` keeps hidden differences from splitting or disclosing a group. In `exact`, diagnostics are not aggregated or numerically replaced.
 
 ## Propagation and isolation
 
 The facade resolves one typed `NetworkUrlDisplay` value before host materialization. That enum propagates through host materialization, Pi assembly, and the assembler execution request into immutable stream-collector configuration; it is never converted to a string or boolean in that request path. Direct assembler, SDK, and injected callers that omit the selector default to `redacted`, and invalid values are rejected before effects.
 
-This selector is presentation-only. It does not enter assembler identity, assembler-input identity, assembled-output identity, cache hashing or equality, verification or assembler evidence, publication decisions, npm or Docker arguments, network behavior, lifecycle events, cleanup, or primary results. External SDK diagnostics remain transient, secret-redacted, URL-free, and path-free under every local mode.
+This selector is presentation-only. It does not enter assembler identity, assembler-input identity, assembled-output identity, cache hashing or equality, verification or assembler evidence, publication decisions, npm or Docker arguments, network behavior, lifecycle events, cleanup, or primary results. External SDK diagnostics remain transient, secret-redacted, and free of supported-scheme URLs and paths under every local mode. That guarantee covers supported schemes; unknown-scheme URL-shaped text is ordinary text and is outside it.
+
+Local `exact` retains source content, including secrets, for interactive text, `lines`, and the selected failure tail. An attached external SDK sink still receives the redacted projection, so it never sees the source URL, its credentials, or a fingerprint.
 
 ## Output channels and retention
 

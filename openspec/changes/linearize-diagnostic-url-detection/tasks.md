@@ -156,24 +156,24 @@ Store phase-labelled command outputs, full logs, actual exit statuses, reviews a
 
 ### RED
 
-- [ ] 5.1 Add all-mode collector/tail tests with/without SDK delivery; verify exact source/secrets, supported URL hiding, unknown text, secret host/path markers and exactly one selected retained representation.
-- [ ] 5.2 Add ordinary/fetch grouping tests for unknown rendered text, eligible fingerprints and suppressed secret-bearing host/path identities; verify line/interactive rules explicitly.
-- [ ] 5.3 Add fetch side-path regressions for supported, unknown and secret-bearing URLs; verify unchanged parser grammar and consistent permitted facts/rendered group keys.
-- [ ] 5.4 Record P5 RED and honestly record already-passing channel isolation; map missing behavior to the revised policy rather than old UNKNOWN omission assumptions.
+- [x] 5.1 Add all-mode collector/tail tests with/without SDK delivery; verify exact source/secrets, supported URL hiding, unknown text, secret host/path markers and exactly one selected retained representation.
+- [x] 5.2 Add ordinary/fetch grouping tests for unknown rendered text, eligible fingerprints and suppressed secret-bearing host/path identities; verify line/interactive rules explicitly.
+- [x] 5.3 Add fetch side-path regressions for supported, unknown and secret-bearing URLs; verify unchanged parser grammar and consistent permitted facts/rendered group keys.
+- [x] 5.4 Record P5 RED and honestly record already-passing channel isolation; map missing behavior to the revised policy rather than old UNKNOWN omission assumptions.
 
 ### GREEN
 
-- [ ] 5.5 Integrate coordinated projection into collector channels without another retained tail; verify early redacted SDK output independent of selected local mode, unchanged exact local delivery, the unknown-text exception and no retraction in selected tails.
-- [ ] 5.6 Align grouping and fetch display paths with masked rendering/fact gates; verify no hidden-host identity leak and unchanged eligible known identity distinctions.
+- [x] 5.5 Integrate coordinated projection into collector channels without another retained tail; verify early redacted SDK output independent of selected local mode, unchanged exact local delivery, the unknown-text exception and no retraction in selected tails.
+- [x] 5.6 Align grouping and fetch display paths with masked rendering/fact gates; verify no hidden-host identity leak and unchanged eligible known identity distinctions.
 
 ### INTROSPECT
 
-- [ ] 5.7 Update user-facing scheme, secret-marker, host/path-marker and SDK policy documentation; verify examples and local exact behavior against tests.
-- [ ] 5.8 Review channel isolation and scope; deliver findings confirming unchanged configuration options, persistence, assembly identity, argv, deadlines and shutdown budgets.
+- [x] 5.7 Update user-facing scheme, secret-marker, host/path-marker and SDK policy documentation; verify examples and local exact behavior against tests.
+- [x] 5.8 Review channel isolation and scope; deliver findings confirming unchanged configuration options, persistence, assembly identity, argv, deadlines and shutdown budgets.
 
 ### VALIDATE
 
-- [ ] 5.9 Run revised P1–P5 and affected collector/presentation acceptance tests; deliver successful full logs and evidence linking channel/grouping/docs obligations.
+- [x] 5.9 Run revised P1–P5 and affected collector/presentation acceptance tests; deliver successful full logs and evidence linking channel/grouping/docs obligations.
 
 ## 6. P6 — Final acceptance
 

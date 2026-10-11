@@ -24,9 +24,14 @@ class FetchGroupKey:
     """Policy-specific request-count group identity for one recognized fetch.
 
     ``display`` keeps ``redacted`` and ``host-path`` identities from ever
-    comparing equal.  ``host_path`` is the normalized hostname plus canonical
-    safe path for ``host-path`` mode and ``None`` for ``redacted`` mode, where
-    the URL is intentionally excluded from the key.
+    comparing equal.  ``host_path`` is the rendered host/path display for
+    ``host-path`` mode and ``None`` for ``redacted`` mode, where the URL is
+    intentionally excluded from the key.  A secret-free resource renders its
+    normalized hostname plus canonical safe path; a secret-bearing host
+    renders ``<redacted-host>`` and an unsafe or secret-bearing path renders
+    ``/<redacted-path>``, so hidden components cannot leak or split a group.
+    This is a display/grouping key, never a validated hostname or fingerprint
+    fact.
     """
 
     display: NetworkUrlDisplay

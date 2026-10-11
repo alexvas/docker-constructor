@@ -65,6 +65,7 @@ class CoordinatedProjection:
     _secrets: tuple[str, ...]
     _hostnames: list[str]
     _host_paths: list[SafeHostPath]
+    _host_path_displays: list[SafeHostPath]
     _fingerprints: list[str]
     _url_identity: SessionUrlIdentity | None
     _decoder: codecs.IncrementalDecoder
@@ -83,6 +84,7 @@ class CoordinatedProjection:
         self._last_secret_end: int | None = None
         self._selected_secret_start: int | None = None
         self._selected_secret_end = 0
+        self._host_path_displays = []
         self._encoded_bytes = 0
         self._appends = 0
         self._pops = 0
@@ -209,7 +211,8 @@ class CoordinatedProjection:
 
     def _settle_components(self, *, final: bool = False, abort: bool = False) -> list[str]:
         from docker.versioning.diagnostic_projection import (
-            INCOMPLETE_TOKEN_MARKER, REDACTED_PATH_MARKER, _candidate_url_layer,
+            INCOMPLETE_TOKEN_MARKER, REDACTED_PATH_MARKER, SafeHostPath,
+            _candidate_url_layer,
             normalized_url_host, _host_contains_secret, _safe_host_path,
         )
         import urllib.parse
@@ -261,6 +264,10 @@ class CoordinatedProjection:
                     url.path = REDACTED_PATH_MARKER
             url.path_done = True
             out.append(url.path)
+            if url.host is not None:
+                display = SafeHostPath(url.host, url.path)
+                if display not in self._host_path_displays:
+                    self._host_path_displays.append(display)
         return out
 
     def _raw_host_start(self, source: str, layer: str | None, url: _Url, boundary: int) -> int:

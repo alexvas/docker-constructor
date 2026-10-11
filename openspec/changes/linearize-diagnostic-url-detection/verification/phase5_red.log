@@ -1,0 +1,52 @@
+bringing up nodes...
+bringing up nodes...
+
+.F..uuu.uu.uu.uuu..FF...uu.F...                                          [100%]
+=================================== FAILURES ===================================
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: 'npm http fetch GET 200 <redacted-host>/public (cache miss)' != 'npm http fetch GET 200 <redacted> (cache miss)'
+    - npm http fetch GET 200 <redacted-host>/public (cache miss)
+    ?                                 ----- -------
+    + npm http fetch GET 200 <redacted> (cache miss)
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: 'npm http fetch GET 200 <redacted-host>/public (cache miss)' != 'npm http fetch GET 200 <redacted> (cache miss)'
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: Lists differ: ['npm[24 chars]acted-host>/public (cache miss)', 'npm http fe[57 chars]sts'] != ['npm[24 chars]acted> (cache miss)', 'npm http fetch GET 200 [33 chars]sts']
+    
+    First differing element 0:
+    'npm http fetch GET 200 <redacted-host>/public (cache miss)'
+    'npm http fetch GET 200 <redacted> (cache miss)'
+    
+    - ['npm http fetch GET 200 <redacted-host>/public (cache miss)',
+    ?                                   ----- -------
+    
+    + ['npm http fetch GET 200 <redacted> (cache miss)',
+    -  'npm http fetch GET 200 <redacted-host>/public (cache miss) — 2 requests']
+    ?                                   ----- -------
+    
+    +  'npm http fetch GET 200 <redacted> (cache miss) — 2 requests']
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: Lists differ: ['npm[24 chars]acted-host>/public (cache miss)', 'npm http fe[57 chars]sts'] != ['npm[24 chars]acted> (cache miss)', 'npm http fetch GET 200 [33 chars]sts']
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: Lists differ: ['npm[24 chars]acted-host>/public (cache miss)', 'npm http fe[57 chars]sts'] != ['npm[24 chars]acted> (cache miss)', 'npm http fetch GET 200 [33 chars]sts']
+    
+    First differing element 0:
+    'npm http fetch GET 200 <redacted-host>/public (cache miss)'
+    'npm http fetch GET 200 <redacted> (cache miss)'
+    
+    - ['npm http fetch GET 200 <redacted-host>/public (cache miss)',
+    ?                                   ----- -------
+    
+    + ['npm http fetch GET 200 <redacted> (cache miss)',
+    -  'npm http fetch GET 200 <redacted-host>/public (cache miss) — 2 requests']
+    ?                                   ----- -------
+    
+    +  'npm http fetch GET 200 <redacted> (cache miss) — 2 requests']
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:750: AssertionError: Lists differ: ['npm[24 chars]acted-host>/public (cache miss)', 'npm http fe[57 chars]sts'] != ['npm[24 chars]acted> (cache miss)', 'npm http fetch GET 200 [33 chars]sts']
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+E   AssertionError: '<redacted-host>/public' != None
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/case.py:918: AssertionError: '<redacted-host>/public' != None
+=========================== short test summary info ============================
+FAILED tests/test_diagnostic_channels_phase5.py::TestCollectorChannelModes::test_host_path_masks_secret_host_in_all_channels
+FAILED tests/test_diagnostic_channels_phase5.py::TestGroupingPolicy::test_lines_mode_uses_the_masked_group
+FAILED tests/test_diagnostic_channels_phase5.py::TestGroupingPolicy::test_secret_bearing_fetches_share_the_masked_group
+FAILED tests/test_diagnostic_channels_phase5.py::TestFetchSidePaths::test_secret_bearing_host_fetch_is_recognized_and_masked
+4 failed, 15 passed, 12 subtests passed in 0.68s

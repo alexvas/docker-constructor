@@ -445,13 +445,16 @@ class TestFetchGroupIdentity(unittest.TestCase):
         assert key is not None
         self.assertEqual("registry.npmjs.org/<redacted-path>", key.host_path)
 
-    def test_host_path_identity_fails_closed_for_secret_host(self):
+    def test_host_path_identity_masks_secret_host(self):
         record = self._recognized(_line(url="https://secret.example.org/a/b"))
         key = fetch_group_identity(
             record, NetworkUrlDisplay.HOST_PATH, secrets=("secret",)
         )
         assert key is not None
-        self.assertIn(key.host_path, (None, REDACTED_PATH_MARKER))
+        # The hidden host is masked, not dropped: a masked display key keeps
+        # different hidden hosts from leaking through grouping while still
+        # separating different safe paths.
+        self.assertEqual("<redacted-host>/a/b", key.host_path)
 
     def test_exact_mode_has_no_fetch_group_identity(self):
         self.assertIsNone(
@@ -520,14 +523,16 @@ class TestCanonicalFetchText(unittest.TestCase):
             "npm http fetch GET 200 registry.npmjs.org/<redacted-path>", text
         )
 
-    def test_host_path_canonical_text_fails_closed_for_secret_host(self):
+    def test_host_path_canonical_text_masks_secret_host(self):
         text = canonical_fetch_text(
             self._recognized(_line(url="https://secret.example.org/a/b")),
             NetworkUrlDisplay.HOST_PATH,
             secrets=("secret",),
         )
         self.assertNotIn("secret.example.org", text)
-        self.assertIn("<redacted>", text)
+        self.assertEqual(
+            "npm http fetch GET 200 <redacted-host>/a/b", text
+        )
 
     def test_host_path_canonical_text_preserves_attempt_and_cache(self):
         self.assertEqual(
