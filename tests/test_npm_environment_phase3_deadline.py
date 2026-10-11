@@ -818,11 +818,11 @@ class TestForcedCleanup(DeadlineTestCase):
         self.assertTrue(proc.terminated)
         self.assertTrue(proc.killed)
         self.assertFalse(proc.reaped)
-        # Both pipes were closed by reader-failure cleanup: the failed pipe
-        # immediately plus the post-reap close of both pipes (the exception
-        # path re-close adds one more idempotent attempt each).
-        self.assertGreaterEqual(proc.stdout.close_attempts, 2)
-        self.assertGreaterEqual(proc.stderr.close_attempts, 1)
+        # Both streams are released through one terminal owner per stream:
+        # the failed pipe is claimed once and the exception path's cleanup
+        # reuses that owner, issuing no second underlying close.
+        self.assertEqual(proc.stdout.close_attempts, 1)
+        self.assertEqual(proc.stderr.close_attempts, 1)
         notes = "\n".join(getattr(exc, "__notes__", ()))
         self.assertIn("on_reader_failure cleanup failed", notes)
         self.assertIn("did not exit after SIGKILL", notes)

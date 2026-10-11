@@ -30,6 +30,7 @@ _PUBLIC_DEFINITIONS = {
     "docker/filesystem/descriptors.py": frozenset(
         {"DescriptorError", "UnsafeDescriptorError", "OwnedDescriptor", "DirectoryDescriptor"}
     ),
+    "docker/filesystem/streams.py": frozenset({"OwnedStream"}),
 }
 _CONSUMER_IMPORTS = {
     "docker/transactions/capabilities.py": frozenset(
@@ -80,6 +81,7 @@ _NPM_PACKAGE_IMPORT_BASELINE = frozenset(
         "docker.filesystem.cleanup",
         "docker.filesystem.descriptors",
         "docker.filesystem.operations",
+        "docker.filesystem.streams",
         "docker.npm_environment",
         "docker.npm_environment.assembler",
         "docker.npm_environment.errors",
@@ -319,6 +321,10 @@ def _runtime_violations(matrix: dict[str, list[str]]) -> list[str]:
             "docker", "docker.filesystem", "docker.filesystem.cleanup",
             "docker.filesystem.descriptors",
         },
+        "docker.filesystem.streams": {
+            "docker", "docker.filesystem", "docker.filesystem.cleanup",
+            "docker.filesystem.streams",
+        },
     }
     for target, allowed in foundation_allowed.items():
         actual = set(matrix.get(target, []))
@@ -367,6 +373,18 @@ def _runtime_violations(matrix: dict[str, list[str]]) -> list[str]:
 
 
 class RepositoryWideAstContractTests(unittest.TestCase):
+    def test_stream_preparation_precedes_transfer_without_release(self) -> None:
+        tree = ast.parse(_sources()["docker/filesystem/streams.py"])
+        owner = next(node for node in tree.body if isinstance(node, ast.ClassDef))
+        constructor = next(node for node in owner.body if isinstance(node, ast.FunctionDef) and node.name == "__init__")
+        transfer = next(node.lineno for node in ast.walk(constructor) if isinstance(node, ast.Assign) and any(isinstance(target, ast.Attribute) and target.attr == "_stream" for target in node.targets))
+        checks = [node for node in constructor.body if isinstance(node, ast.If)]
+        self.assertEqual(len(checks), 2)
+        self.assertTrue(all(node.lineno < transfer for node in checks))
+        lock = next(node for node in ast.walk(constructor) if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "Lock")
+        self.assertLess(lock.lineno, transfer)
+        self.assertFalse(any(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "close" for node in ast.walk(constructor)))
+
     def test_repository_converges_on_one_descriptor_foundation(self) -> None:
         self.assertEqual(_static_violations(_sources()), [])
 
@@ -407,6 +425,7 @@ class IsolatedImportMatrixTests(unittest.TestCase):
         "docker.filesystem.cleanup",
         "docker.filesystem.operations",
         "docker.filesystem.descriptors",
+        "docker.filesystem.streams",
         "docker.transactions.cleanup",
         "docker.transactions.errors",
         "docker.transactions.capabilities",

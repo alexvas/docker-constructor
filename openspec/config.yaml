@@ -2,19 +2,23 @@ schema: spec-driven
 
 # Project context (optional)
 # This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Descriptor and stream lifecycle: any new code that acquires an operating-system
+  descriptor or an already fd-owning stream must select a docker.filesystem
+  wrapper (OwnedDescriptor, DirectoryDescriptor, or OwnedStream), adopt the
+  resource immediately, release it through that single shared owner, and add
+  operation-plus-close, sole-close, interruption, repeat-cleanup, and
+  independent-cleanup tests (plus handoff/concurrency where applicable). Never
+  retry a close, never give one fd two owners, and never rely on garbage
+  collection or on a borrowed stream for release. Import explicit
+  docker.filesystem submodules, never the aggregate package. See
+  docs/filesystem-lifecycle.md and the root AGENTS.md.
 
 # Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  tasks:
+    - Name the single docker.filesystem owner for every new descriptor or
+      stream acquisition, transfer, wrapper, and release.
+    - Require lifecycle tests (operation-plus-close, sole-close, interruption,
+      repeat cleanup, independent cleanup, and handoff/concurrency where
+      applicable) for each new ownership path.

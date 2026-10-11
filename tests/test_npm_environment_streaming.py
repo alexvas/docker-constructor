@@ -2772,13 +2772,16 @@ class TestReaderFailure(unittest.TestCase):
         self.assertIsInstance(exc, StreamReaderFailure)
         assert isinstance(exc, StreamReaderFailure)
         # The reader failure stays primary; the close failure is only
-        # bounded, redacted secondary context.
+        # bounded, redacted secondary context.  The failed sibling's close is
+        # claimed by the shared stream owner inside reader-failure cleanup, so
+        # its diagnostic is retained once under that hook's bounded note.
         self.assertEqual(exc.stream, STREAM_STDOUT)
         self.assertIn("reader failure", exc.detail)
         self.assertNotIn("close failed", exc.detail)
         notes = "\n".join(getattr(exc, "__notes__", ()))
-        self.assertIn("pipe close failed", notes)
+        self.assertIn("on_reader_failure cleanup failed", notes)
         self.assertIn("OSError", notes)
+        self.assertIn("close failed", notes)
         self.assertNotIn("SUPERSECRET", notes)
         self.assertIn("<redacted>", notes)
         # Both pipes received a close attempt even though one close raised.

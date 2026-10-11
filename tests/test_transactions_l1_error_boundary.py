@@ -906,6 +906,10 @@ class _InventoryRule:
         ("docker/transactions/capabilities.py", "owner.close"),
         ("docker/transactions/locking.py", "owner.close"),
         ("docker/transactions/regular.py", "owner.close"),
+        # The domain-neutral subprocess lifecycle releases pipe ``OwnedStream``
+        # owners whose ``close()`` keeps the raw ``OSError`` contract; it has
+        # no transaction-substrate knowledge and never opens a capability.
+        ("docker/npm_environment/lifecycle.py", "pipe.close"),
     }
     # Consumers that hold raw-``OSError`` foundation capabilities and
     # deliberately keep a descriptor release failure raw instead of

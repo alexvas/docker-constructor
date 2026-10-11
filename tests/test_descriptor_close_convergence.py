@@ -648,6 +648,21 @@ def _close_violations_with_owners(
         if not isinstance(node, ast.Call):
             continue
         func = node.func
+        if (
+            isinstance(func, ast.Attribute)
+            and func.attr == "run"
+            and node.args
+            and isinstance(node.args[0], ast.Attribute)
+            and node.args[0].attr == "close"
+        ):
+            # A cleanup accumulator releases an owner by passing its bound
+            # close callable: ``failures.run(owner.close, ordinary=...)``.
+            # The receiver must still be a proven owner, so the gate inspects
+            # the bound method rather than losing the release.
+            if _base_names(node.args[0].value) & owners:
+                continue
+            violations.append(ast.unparse(node.args[0]))
+            continue
         if isinstance(func, ast.Attribute) and func.attr == "close":
             if _base_names(func.value) & owners:
                 continue
@@ -709,6 +724,27 @@ def _guarded_by_terminal_field(
     return False
 
 
+def _synchronized_release_proof(
+    function: ast.FunctionDef, close_node: ast.Call
+) -> bool:
+    """Prove a synchronized terminal claim precedes the underlying close.
+
+    ``OwnedStream.close`` claims the live-to-release-attempted transition
+    under ``self._lock`` before invoking ``stream.close()`` outside the lock,
+    so a concurrent/repeated caller issues no second close.  This is the
+    bounded stream-owner internal release, not a consumer close.
+    """
+    source = ast.unparse(function)
+    return (
+        "self._lock" in source
+        and "self._state" in source
+        and any(
+            isinstance(node, ast.Attribute) and node.attr == "_state"
+            for node in ast.walk(function)
+        )
+    )
+
+
 def _shared_owner_release_proof(
     function: ast.FunctionDef, close_node: ast.Call
 ) -> bool:
@@ -716,13 +752,15 @@ def _shared_owner_release_proof(
 
     The caller supplies the verified shared-owner identity; this proof
     additionally requires the method to mark itself terminal before the close
-    and to guard the close behind the same terminal field.  A consumer that
-    merely sets ``self._closed = True`` before ``self._ops.close(...)`` does
-    not satisfy the repeat-safe guard and is rejected.
+    and to guard the close behind the same terminal field.  A verified
+    synchronized state claim (the bounded ``OwnedStream`` owner) is accepted
+    as the stream-family equivalent.  A consumer that merely sets
+    ``self._closed = True`` before ``self._ops.close(...)`` does not satisfy
+    the repeat-safe guard and is rejected.
     """
     field = _terminal_field_before(function, close_node)
     if field is None:
-        return False
+        return _synchronized_release_proof(function, close_node)
     return _guarded_by_terminal_field(function, close_node, field)
 
 
@@ -1168,7 +1206,12 @@ class Phase5HandoffConvergenceTests(unittest.TestCase):
 # ═══════════════════════════════════════════════════════════════════
 
 #: Fully-qualified descriptor factories that yield an equivalent owner.
-_OWNERISH_QUALNAME_TOKENS = ("OwnedDescriptor", "Capability", "DirectoryDescriptor")
+_OWNERISH_QUALNAME_TOKENS = (
+    "OwnedDescriptor",
+    "OwnedStream",
+    "Capability",
+    "DirectoryDescriptor",
+)
 _OWNERISH_QUALNAME_SUFFIXES = (
     ".open_secure_path",
     ".from_fd",
@@ -1180,8 +1223,17 @@ _OWNERISH_QUALNAME_SUFFIXES = (
 #: Type hints that mark an injected parameter/field as a shared owner.
 _DESCRIPTOR_TYPE_HINTS = (
     "OwnedDescriptor",
+    "OwnedStream",
     "Capability",
     "DirectoryDescriptor",
+)
+
+#: Domain-neutral stream-owner factory helpers whose return value is an owner.
+_OWNERISH_FACTORY_QUALNAMES = frozenset(
+    {
+        "_adopt_stream_owners",
+        "docker.npm_environment.execution._adopt_stream_owners",
+    }
 )
 
 #: Fully-qualified implicit-ownership and descriptor-creation primitives.
@@ -1193,7 +1245,10 @@ _MKSTEMP_QUALNAMES = frozenset({"tempfile.mkstemp"})
 #: before its backend close and suppresses a repeated release, but only these
 #: explicitly verified methods may keep an injected backend close.
 _VERIFIED_SHARED_OWNER_RELEASES = frozenset(
-    {"docker/transactions/capabilities.py::FileCapability.close"}
+    {
+        "docker/transactions/capabilities.py::FileCapability.close",
+        "docker/filesystem/streams.py::OwnedStream.close",
+    }
 )
 
 #: Tasks 6.1–6.18 — migrated module-level functions.
@@ -1269,6 +1324,34 @@ _PHASE6_METHODS: dict[str, tuple[tuple[str, str], ...]] = {
     "docker/versioning/cache.py": (("DiskCache", "set"),),
 }
 
+#: Task 6B.14 — subprocess stream ownership functions and methods.  Their
+#: stdout/stderr origins are the file objects returned by ``Popen(..., PIPE)``
+#: and their only release authority is one shared ``OwnedStream`` per stream.
+_PHASE6B_STREAM_FUNCTIONS: dict[str, tuple[str, ...]] = {
+    "docker/npm_environment/execution.py": (
+        "_close_stream_owners",
+        "_close_blocking_stream_owners",
+        "_adopt_stream_owners",
+        "_finalize_setup_failure",
+        "_make_streaming_reader",
+        "_reap_if_live",
+    ),
+    "docker/npm_environment/lifecycle.py": (
+        "_finish_captured_setup_failure",
+        "close_descriptors",
+        "reap_process",
+        "terminate_and_reap",
+        "run_captured",
+    ),
+}
+
+_PHASE6B_STREAM_METHODS: dict[str, tuple[tuple[str, str], ...]] = {
+    "docker/npm_environment/execution.py": (
+        ("DockerRunExecutor", "run_streaming"),
+    ),
+    "docker/filesystem/streams.py": (("OwnedStream", "close"),),
+}
+
 
 def _call_origin(node: ast.Call, aliases: dict[str, str]) -> str:
     """Resolve a call's callee to a dotted origin (aliases included)."""
@@ -1292,11 +1375,51 @@ def _is_ownerish_call(value: ast.expr | None, aliases: dict[str, str]) -> bool:
     if not isinstance(value, ast.Call):
         return False
     loc = _qualname(value.func, aliases)
+    if loc in _OWNERISH_FACTORY_QUALNAMES:
+        return True
     if loc in _OWNER_QUALNAMES:
         return True
     if any(token in loc for token in _OWNERISH_QUALNAME_TOKENS):
         return True
     return loc.endswith(_OWNERISH_QUALNAME_SUFFIXES)
+
+
+def _ownerish_expression(value: ast.expr, owners: set[str]) -> bool:
+    """True when *value* is a name/conditional composed solely of owners."""
+    if isinstance(value, ast.Name):
+        return value.id in owners
+    if isinstance(value, ast.IfExp):
+        return _ownerish_expression(value.body, owners) and _ownerish_expression(
+            value.orelse, owners
+        )
+    if isinstance(value, ast.BoolOp):
+        return bool(value.values) and all(
+            _ownerish_expression(item, owners) for item in value.values
+        )
+    return False
+
+
+def _ownerish_iterable(iterable: ast.expr, owners: set[str]) -> bool:
+    """True when iterating *iterable* yields owned values.
+
+    Accepts an owner name, a tuple/list literal of owned expressions, and
+    ``reversed(<ownerish iterable>)``, so a release loop cannot hide an owner
+    behind a container or a reversal.
+    """
+    if isinstance(iterable, ast.Name):
+        return iterable.id in owners
+    if isinstance(iterable, ast.Call):
+        return (
+            isinstance(iterable.func, ast.Name)
+            and iterable.func.id == "reversed"
+            and len(iterable.args) == 1
+            and _ownerish_iterable(iterable.args[0], owners)
+        )
+    if isinstance(iterable, (ast.Tuple, ast.List)):
+        return bool(iterable.elts) and all(
+            _ownerish_expression(element, owners) for element in iterable.elts
+        )
+    return False
 
 
 def _ownerish_names(
@@ -1338,33 +1461,72 @@ def _ownerish_names(
                 for element in target.elts:
                     if isinstance(element, ast.Name):
                         owners.add(element.id)
+    # A local variable annotated with a shared-owner type is an owner even
+    # when its value is a factory call the name-based rule cannot resolve
+    # (for example ``capability: LockCapability | None = acquire_lock(...)``).
+    for node in ast.walk(function):
+        if (
+            isinstance(node, ast.AnnAssign)
+            and _annotation_is_owner(node.annotation)
+            and isinstance(node.target, ast.Name)
+        ):
+            owners.add(node.target.id)
     # Propagate parallel/aliased assignments where the value tuple already
     # holds an owner: ``previous, current = current, child``.
     changed = True
     while changed:
         changed = False
         for node in ast.walk(function):
-            if not isinstance(node, ast.Assign):
+            if isinstance(node, ast.For):
+                if _ownerish_iterable(node.iter, owners):
+                    elements = (
+                        node.target.elts
+                        if isinstance(node.target, (ast.Tuple, ast.List))
+                        else [node.target]
+                    )
+                    for element in elements:
+                        if (
+                            isinstance(element, ast.Name)
+                            and element.id not in owners
+                        ):
+                            owners.add(element.id)
+                            changed = True
+                continue
+            if not isinstance(node, (ast.Assign, ast.AnnAssign, ast.NamedExpr)):
                 continue
             value = node.value
-            if not isinstance(value, (ast.Tuple, ast.List)):
+            if value is None:
                 continue
-            member_names = {
-                element.id
-                for element in value.elts
-                if isinstance(element, ast.Name)
-            }
-            if not (member_names & owners):
-                continue
-            for target in node.targets:
-                elements = (
-                    target.elts
-                    if isinstance(target, (ast.Tuple, ast.List))
-                    else [target]
-                )
-                for element in elements:
-                    if isinstance(element, ast.Name) and element.id not in owners:
-                        owners.add(element.id)
+            targets = (
+                list(node.targets)
+                if isinstance(node, ast.Assign)
+                else [node.target]
+            )
+            if isinstance(value, (ast.Tuple, ast.List)):
+                member_names = {
+                    element.id
+                    for element in value.elts
+                    if isinstance(element, ast.Name)
+                }
+                if not (member_names & owners):
+                    continue
+                for target in targets:
+                    elements = (
+                        target.elts
+                        if isinstance(target, (ast.Tuple, ast.List))
+                        else [target]
+                    )
+                    for element in elements:
+                        if (
+                            isinstance(element, ast.Name)
+                            and element.id not in owners
+                        ):
+                            owners.add(element.id)
+                            changed = True
+            elif _ownerish_expression(value, owners):
+                for target in targets:
+                    if isinstance(target, ast.Name) and target.id not in owners:
+                        owners.add(target.id)
                         changed = True
     return owners
 
@@ -1633,12 +1795,12 @@ def _mkstemp_violations(
 
 def _phase6_function_nodes():
     """Yield ``(label, tree, aliases, function, class_owners)`` per function."""
-    for rel, names in _PHASE6_FUNCTIONS.items():
+    for rel, names in {**_PHASE6_FUNCTIONS, **_PHASE6B_STREAM_FUNCTIONS}.items():
         tree = _parse(_REPO / rel)
         aliases = _module_aliases(tree)
         for name in names:
             yield f"{rel}::{name}", tree, aliases, _find_function(tree, name), set()
-    for rel, methods in _PHASE6_METHODS.items():
+    for rel, methods in {**_PHASE6_METHODS, **_PHASE6B_STREAM_METHODS}.items():
         tree = _parse(_REPO / rel)
         aliases = _module_aliases(tree)
         for class_name, method_name in methods:
@@ -1650,6 +1812,41 @@ def _phase6_function_nodes():
                 function,
                 _class_owner_names(tree, class_name, aliases),
             )
+
+
+def _adopted_fd_argument(
+    call: ast.Call, aliases: dict[str, str]
+) -> ast.expr | None:
+    """Return the integer-fd argument of a shared-descriptor adoption call."""
+    loc = _qualname(call.func, aliases)
+    if "OwnedDescriptor" not in loc and "DirectoryDescriptor" not in loc:
+        return None
+    if len(call.args) >= 2:
+        return call.args[1]
+    for keyword in call.keywords:
+        if keyword.arg == "fd":
+            return keyword.value
+    return None
+
+
+def _duplicate_fd_adoption_violations(
+    function: ast.FunctionDef, aliases: dict[str, str]
+) -> list[str]:
+    """Reject one integer descriptor adopted by two independent owners."""
+    seen: dict[str, int] = {}
+    violations: list[str] = []
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Call):
+            continue
+        fd_arg = _adopted_fd_argument(node, aliases)
+        if fd_arg is None or not isinstance(fd_arg, ast.Name):
+            continue
+        if fd_arg.id in seen:
+            violations.append(
+                f"duplicate fd adoption {fd_arg.id} at line {node.lineno}"
+            )
+        seen[fd_arg.id] = node.lineno
+    return violations
 
 
 def _ownership_ledger() -> dict[str, dict[str, object]]:
@@ -1670,6 +1867,9 @@ def _ownership_ledger() -> dict[str, dict[str, object]]:
             "fdopen_violations": _fdopen_violations(function, owners, aliases),
             "mkstemp_violations": _mkstemp_violations(function, owners, aliases),
             "raw_close_targets": _raw_close_targets(function, aliases),
+            "duplicate_fd_adoption_violations": _duplicate_fd_adoption_violations(
+                function, aliases
+            ),
         }
     return ledger
 
@@ -1679,12 +1879,14 @@ class GeneratedOwnershipLedgerTests(unittest.TestCase):
 
     def test_ledger_covers_every_named_phase6_function(self) -> None:
         ledger = _ownership_ledger()
-        for rel, names in _PHASE6_FUNCTIONS.items():
-            for name in names:
-                self.assertIn(f"{rel}::{name}", ledger)
-        for rel, methods in _PHASE6_METHODS.items():
-            for class_name, method_name in methods:
-                self.assertIn(f"{rel}::{class_name}.{method_name}", ledger)
+        for mapping in (_PHASE6_FUNCTIONS, _PHASE6B_STREAM_FUNCTIONS):
+            for rel, names in mapping.items():
+                for name in names:
+                    self.assertIn(f"{rel}::{name}", ledger)
+        for mapping in (_PHASE6_METHODS, _PHASE6B_STREAM_METHODS):
+            for rel, methods in mapping.items():
+                for class_name, method_name in methods:
+                    self.assertIn(f"{rel}::{class_name}.{method_name}", ledger)
 
     def test_no_unresolved_close_like_call(self) -> None:
         for label, facts in _ownership_ledger().items():
@@ -1716,6 +1918,11 @@ class GeneratedOwnershipLedgerTests(unittest.TestCase):
         for label, facts in _ownership_ledger().items():
             with self.subTest(function=label):
                 self.assertEqual(facts["raw_close_targets"], [])
+
+    def test_every_fd_adopts_at_most_one_owner(self) -> None:
+        for label, facts in _ownership_ledger().items():
+            with self.subTest(function=label):
+                self.assertEqual(facts["duplicate_fd_adoption_violations"], [])
 
 
 def _inline_ledger(source: str):
@@ -1925,6 +2132,202 @@ class OwnershipLedgerEvasionTests(unittest.TestCase):
                 function, owners, aliases, shared_owner_release=True
             ),
             [],
+        )
+
+    def test_reversed_owner_sequence_release_is_accepted(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            from collections.abc import Sequence
+            from docker.filesystem.streams import OwnedStream
+
+            def f(owners: Sequence[OwnedStream], failures):
+                for owner in reversed(owners):
+                    failures.run(owner.close, ordinary=(OSError,))
+            """
+        )
+        self.assertEqual(
+            _close_violations_with_owners(function, owners, aliases), []
+        )
+
+    def test_tuple_of_owners_release_is_accepted(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            from docker.filesystem.streams import OwnedStream
+
+            def f(first: OwnedStream, second: OwnedStream, failures):
+                for owner in (first, second):
+                    failures.run(owner.close, ordinary=(OSError,))
+            """
+        )
+        self.assertEqual(
+            _close_violations_with_owners(function, owners, aliases), []
+        )
+
+    def test_annotated_local_owner_release_is_accepted(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            from docker.filesystem.streams import OwnedStream
+
+            def f(factory):
+                owner: OwnedStream | None = None
+                owner = factory()
+                owner.close()
+            """
+        )
+        self.assertEqual(
+            _close_violations_with_owners(function, owners, aliases), []
+        )
+
+
+class SubprocessStreamOwnershipTests(unittest.TestCase):
+    """Task 6B.14 — subprocess stream origins cannot evade the ledger."""
+
+    def test_unowned_subprocess_pipe_close_is_rejected(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            def f(proc):
+                proc.stdout.close()
+            """
+        )
+        self.assertNotEqual(
+            _close_violations_with_owners(function, owners, aliases), []
+        )
+
+    def test_borrowed_stream_close_after_adoption_is_rejected(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            from docker.filesystem.streams import OwnedStream
+
+            def f(stream):
+                owner = OwnedStream(stream, label="stdout")
+                stream.close()
+            """
+        )
+        self.assertNotEqual(
+            _close_violations_with_owners(function, owners, aliases), []
+        )
+
+    def test_per_cleanup_owner_recreation_is_rejected(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            from docker.filesystem.streams import OwnedStream
+
+            def f(stream):
+                OwnedStream(stream, label="stdout").close()
+            """
+        )
+        self.assertNotEqual(
+            _close_violations_with_owners(function, owners, aliases), []
+        )
+
+    def test_consumer_class_disguised_as_owned_stream_is_rejected(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            def f(self, stream):
+                class OwnedStream:
+                    def close(self):
+                        stream.close()
+                return OwnedStream
+            """
+        )
+        self.assertNotEqual(
+            _close_violations_with_owners(function, owners, aliases), []
+        )
+
+    def test_annotated_owned_stream_release_is_accepted(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            from docker.filesystem.streams import OwnedStream
+
+            def f(owner: OwnedStream):
+                owner.close()
+            """
+        )
+        self.assertEqual(
+            _close_violations_with_owners(function, owners, aliases), []
+        )
+
+    def test_loop_over_owned_stream_sequence_is_accepted(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            from collections.abc import Sequence
+            from docker.filesystem.streams import OwnedStream
+
+            def f(owners: Sequence[OwnedStream]):
+                for owner in owners:
+                    owner.close()
+            """
+        )
+        self.assertEqual(
+            _close_violations_with_owners(function, owners, aliases), []
+        )
+
+    def test_conditional_owner_binding_is_accepted(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            from docker.filesystem.streams import OwnedStream
+
+            def f(failed, first: OwnedStream, second: OwnedStream):
+                selected = first if failed == "stdout" else second
+                selected.close()
+            """
+        )
+        self.assertEqual(
+            _close_violations_with_owners(function, owners, aliases), []
+        )
+
+    def test_foundation_owned_stream_close_is_verified_internal_release(self) -> None:
+        tree = _parse(_REPO / "docker" / "filesystem" / "streams.py")
+        function = _find_method(tree, "OwnedStream", "close")
+        aliases = _module_aliases(tree)
+        self.assertEqual(
+            _close_violations_with_owners(
+                function, set(), aliases, shared_owner_release=True
+            ),
+            [],
+        )
+
+    def test_duplicate_integer_fd_adoption_is_rejected(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            from docker.filesystem.descriptors import OwnedDescriptor
+            from docker.filesystem.operations import PosixDescriptorOps
+
+            def f(fd):
+                first = OwnedDescriptor(PosixDescriptorOps(), fd, label="a")
+                second = OwnedDescriptor(PosixDescriptorOps(), fd, label="b")
+                first.close()
+                second.close()
+            """
+        )
+        self.assertNotEqual(
+            _duplicate_fd_adoption_violations(function, aliases), []
+        )
+
+    def test_accumulator_bound_owner_close_is_accepted(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            from collections.abc import Sequence
+            from docker.filesystem.streams import OwnedStream
+
+            def f(owners: Sequence[OwnedStream], failures):
+                for owner in owners:
+                    failures.run(owner.close, ordinary=(OSError,))
+            """
+        )
+        self.assertEqual(
+            _close_violations_with_owners(function, owners, aliases), []
+        )
+
+    def test_accumulator_bound_consumer_close_is_rejected(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            def f(proc, failures):
+                failures.run(proc.stdout.close, ordinary=(OSError,))
+            """
+        )
+        self.assertNotEqual(
+            _close_violations_with_owners(function, owners, aliases), []
         )
 
 

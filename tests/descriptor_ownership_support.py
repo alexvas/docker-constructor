@@ -217,3 +217,105 @@ def file_object_faults(
 def secondary_diagnostics(exc: BaseException) -> list[BaseException]:
     """Return the ordinary secondary cleanup diagnostics retained by *exc*."""
     return list(getattr(exc, "_transaction_secondary", []))
+
+
+class StreamOwnershipRecorder:
+    """Record ``OwnedStream`` construction and release attempts for one module.
+
+    Mirrors :class:`OwnershipRecorder` for the Phase 6B stream family: the
+    production module's ``OwnedStream`` symbol is patched with a recording
+    subclass whose wrapped stream records the release claim state at close
+    time and can inject ordinary close failures.
+    """
+
+    def __init__(
+        self,
+        close_faults: Sequence[BaseException | None] = (),
+        close_fault: Callable[[object], BaseException | None] | None = None,
+    ) -> None:
+        from docker.filesystem.streams import OwnedStream
+
+        self._owner_type = OwnedStream
+        self.owners: list[object] = []
+        # ``(released_before_close, owner)`` in underlying-close order.
+        self.close_calls: list[tuple[bool, object]] = []
+        self.faults: list[BaseException | None] = list(close_faults)
+        self.close_fault = close_fault
+
+    @property
+    def released_before_close(self) -> list[bool]:
+        return [released for released, _ in self.close_calls]
+
+    def owner_for(self, stream: Any) -> object:
+        for owner in self.owners:
+            if owner.stream is stream:
+                return owner
+        raise AssertionError(f"no recorded owner for stream {stream!r}")
+
+    def assert_terminal_and_at_most_once(self, case: Any) -> None:
+        case.assertTrue(
+            self.close_calls, "migration must release through a shared owner"
+        )
+        case.assertTrue(
+            all(self.released_before_close),
+            f"close ran before ownership was terminal: {self.close_calls!r}",
+        )
+        counts: dict[int, int] = {}
+        for _, owner in self.close_calls:
+            counts[id(owner)] = counts.get(id(owner), 0) + 1
+        case.assertTrue(
+            all(count == 1 for count in counts.values()),
+            f"an owner received more than one close attempt: {counts!r}",
+        )
+
+    def _wrap(self, stream: Any, owner: object) -> Any:
+        recorder = self
+
+        class _RecordingStream:
+            def close(self) -> None:
+                recorder.close_calls.append((owner.released, owner))
+                fault: BaseException | None = None
+                if recorder.faults:
+                    fault = recorder.faults.pop(0)
+                if fault is None and recorder.close_fault is not None:
+                    fault = recorder.close_fault(owner)
+                if fault is not None:
+                    # Emulate a failed underlying close that still released
+                    # the resource so the stream double cannot be reused.
+                    try:
+                        stream.close()
+                    except BaseException:  # pragma: no cover - defensive
+                        pass
+                    raise fault
+                stream.close()
+
+            def __getattr__(self, name: str) -> Any:
+                return getattr(stream, name)
+
+        return _RecordingStream()
+
+    @contextlib.contextmanager
+    def install(self, module: Any) -> Iterator[StreamOwnershipRecorder]:
+        recorder = self
+        real_owner = getattr(module, "OwnedStream", self._owner_type)
+
+        class _RecordingOwner(real_owner):  # type: ignore[misc, valid-type]
+            def __init__(self, stream: Any, *, label: str) -> None:
+                super().__init__(recorder._wrap(stream, self), label=label)
+                recorder.owners.append(self)
+
+        with mock.patch.object(module, "OwnedStream", _RecordingOwner, create=True):
+            yield recorder
+
+
+@contextlib.contextmanager
+def recording_streams(
+    module: Any,
+    *,
+    close_faults: Sequence[BaseException | None] = (),
+    close_fault: Callable[[object], BaseException | None] | None = None,
+):
+    """Patch *module*'s ``OwnedStream`` and yield a :class:`StreamOwnershipRecorder`."""
+    recorder = StreamOwnershipRecorder(close_faults, close_fault)
+    with recorder.install(module):
+        yield recorder

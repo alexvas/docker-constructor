@@ -240,20 +240,20 @@ Within every phase work proceeds strictly `RED → GREEN → INTROSPECT → VALI
 ### RED
 
 - [x] 6BA.1 Retain the original 6B.1 passing baseline/inventory in `phase6b-verification.md`: consumer signatures, descriptor-less/missing streams, result/error shapes, decoding/tails, terminate/remove/reap order, grace/deadline bounds, supported workers, and bounded URL/secret redaction. This historical evidence exists; it does not mark the revised process architecture complete.
-- [ ] 6BA.2 Replace invalid-label self-release expectations with rejection-before-transfer tests; inject actual label/interface and lock-construction failures, assert no close attempt or mutation of caller-owned streams, and retain operation-plus-close, sole-close, interruption-identity, context-exit, repeat/reentrant/concurrent release contracts. Demonstrate the new rejection assertions RED before production edits and record the log/status separately from historical results.
+- [x] 6BA.2 Replace invalid-label self-release expectations with rejection-before-transfer tests; inject actual label/interface and lock-construction failures, assert no close attempt or mutation of caller-owned streams, and retain operation-plus-close, sole-close, interruption-identity, context-exit, repeat/reentrant/concurrent release contracts. Demonstrate the new rejection assertions RED before production edits and record the log/status separately from historical results.
 
 ### GREEN
 
-- [ ] 6BA.3 Restore `OwnedStream` label/interface validation and synchronization preparation before ownership transfer, remove rejection-triggered close, and preserve terminal claim-before-close/outside-lock behavior with `CleanupFailures`; verify 6BA.2 passes without constructor/API expansion, raw-fd ownership, retry, generic proxy or process policy.
-- [ ] 6BA.4 Update the stream-adoption examples and rejection contract in `docs/filesystem-lifecycle.md`, preserving all raw-fd/directory/file-wrapper examples and the three direct-close categories; verify positive and negative examples execute and rejected caller streams remain untouched.
+- [x] 6BA.3 Restore `OwnedStream` label/interface validation and synchronization preparation before ownership transfer, remove rejection-triggered close, and preserve terminal claim-before-close/outside-lock behavior with `CleanupFailures`; verify 6BA.2 passes without constructor/API expansion, raw-fd ownership, retry, generic proxy or process policy.
+- [x] 6BA.4 Update the stream-adoption examples and rejection contract in `docs/filesystem-lifecycle.md`, preserving all raw-fd/directory/file-wrapper examples and the three direct-close categories; verify positive and negative examples execute and rejected caller streams remain untouched.
 
 ### INTROSPECT
 
-- [ ] 6BA.5 Update `tests/test_filesystem_convergence.py` and owned-stream API assertions to prove the unchanged bounded public surface, validation/preparation before transfer, synchronized release, empty aggregate initializer, and no process/domain imports; run isolated imports and verify violating ownership fixtures remain rejected.
+- [x] 6BA.5 Update `tests/test_filesystem_convergence.py` and owned-stream API assertions to prove the unchanged bounded public surface, validation/preparation before transfer, synchronized release, empty aggregate initializer, and no process/domain imports; run isolated imports and verify violating ownership fixtures remain rejected.
 
 ### VALIDATE
 
-- [ ] 6BA.6 Run focused owned-stream, filesystem cleanup/API/convergence and lifecycle-doc example suites; preserve complete logs and exit statuses and record the restored contract in `phase6b-verification.md` before starting 6B-B. Do not treat affected legacy self-cleaning adoption tests as final acceptance; replace them in 6BC.2 before the migration gate.
+- [x] 6BA.6 Run focused owned-stream, filesystem cleanup/API/convergence and lifecycle-doc example suites; preserve complete logs and exit statuses and record the restored contract in `phase6b-verification.md` before starting 6B-B. Do not treat affected legacy self-cleaning adoption tests as final acceptance; replace them in 6BC.2 before the migration gate.
 
 ## 6B-B. Reusable OwnedProcess in docker.process
 

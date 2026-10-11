@@ -15,6 +15,9 @@ import time
 from dataclasses import dataclass, field
 from typing import IO, Callable, Sequence
 
+from docker.filesystem.cleanup import CleanupFailures, attach_secondary
+from docker.filesystem.streams import OwnedStream
+
 _CAPTURE_READ_BYTES = 16 * 1024
 _CAPTURE_TAIL_BYTES = 64 * 1024
 
@@ -152,25 +155,33 @@ class DeadlineSupervisor:
 
 
 def close_descriptors(
-    pipes: Sequence[IO[str] | IO[bytes] | None],
+    pipes: Sequence[OwnedStream | None],
 ) -> list[BaseException]:
-    """Close every descriptor independently and return all close failures."""
-    errors: list[BaseException] = []
+    """Release every owned stream independently and return all failures.
+
+    Each stream is released through its shared owner exactly once, so one
+    close failure cannot skip another stream's release.  Failures are
+    classified with an explicit ``OSError`` ordinary-error policy and returned
+    in shared-precedence order (interruptions/defects first), so a caller can
+    preserve authority without downgrading an unexpected defect.
+    """
+    failures = CleanupFailures(None)
     for pipe in pipes:
         if pipe is None:
             continue
-        try:
-            pipe.close()
-        except BaseException as exc:
-            errors.append(exc)
-    return errors
+        failures.run(pipe.close, ordinary=(OSError,))
+    return (
+        list(failures.interruptions)
+        + list(failures.unexpected)
+        + list(failures.ordinary_failures)
+    )
 
 
 def reap_process(
     proc: subprocess.Popen,
     *,
     policy: LifecyclePolicy,
-    pipes: Sequence[IO[str] | IO[bytes] | None] = (),
+    pipes: Sequence[OwnedStream | None] = (),
 ) -> LifecycleOutcome:
     """Boundedly reap, kill, final-reap, and close *pipes*.
 
@@ -209,7 +220,7 @@ def terminate_and_reap(
     proc: subprocess.Popen,
     *,
     policy: LifecyclePolicy,
-    pipes: Sequence[IO[str] | IO[bytes] | None] = (),
+    pipes: Sequence[OwnedStream | None] = (),
 ) -> LifecycleOutcome:
     """Terminate then delegate bounded reaping and closure to one primitive."""
     errors: list[BaseException] = []
@@ -220,6 +231,71 @@ def terminate_and_reap(
     outcome = reap_process(proc, policy=policy, pipes=pipes)
     outcome.errors[:0] = errors
     return outcome
+
+
+def _raising(exc: BaseException) -> Callable[[], None]:
+    """Return a cleanup action that re-raises *exc* for classification."""
+
+    def action() -> None:
+        raise exc
+
+    return action
+
+
+def _ordered_lifecycle_errors(failures: CleanupFailures) -> list[BaseException]:
+    """Return classified failures in shared-precedence order."""
+    ordered: list[BaseException] = list(failures.interruptions)
+    ordered.extend(failures.unexpected)
+    if failures.original_primary is not None:
+        ordered.append(failures.original_primary)
+    ordered.extend(failures.ordinary_failures)
+    return ordered
+
+
+def _finish_captured_setup_failure(
+    primary: BaseException,
+    proc: subprocess.Popen,
+    owners: Sequence[OwnedStream],
+    started_readers: Sequence[threading.Thread],
+    stop_readers: threading.Event,
+    policy: LifecyclePolicy,
+) -> LifecycleOutcome:
+    """Stop started readers, release every acquired pipe, and reap the child.
+
+    Every started reader is joined before its stream is released, each adopted
+    owner is released exactly once, and the child is boundedly reaped.  The
+    returned errors use shared cleanup precedence: a process-control
+    interruption and then an unexpected defect precede the setup failure,
+    which precedes ordinary close failures.  The lifecycle outcome interface
+    and bounded diagnostics are preserved.
+    """
+    failures = CleanupFailures(primary)
+    stop_readers.set()
+    join_deadline = time.monotonic() + policy.grace_seconds
+    for reader in started_readers:
+        if reader.is_alive():
+            reader.join(timeout=max(0.0, join_deadline - time.monotonic()))
+    for owner in owners:
+        failures.run(owner.close, ordinary=(OSError,))
+    # A descriptor-less reader is released by the close above, so join once
+    # more to guarantee no started worker outlives the failed setup.
+    final_deadline = time.monotonic() + policy.grace_seconds
+    for reader in started_readers:
+        if reader.is_alive():
+            reader.join(timeout=max(0.0, final_deadline - time.monotonic()))
+        if reader.is_alive():
+            failures.run(
+                _raising(
+                    TimeoutError(
+                        f"{reader.name} did not stop within "
+                        f"{policy.grace_seconds:g}s"
+                    )
+                ),
+                ordinary=(OSError,),
+            )
+    for exc in terminate_and_reap(proc, policy=policy).errors:
+        failures.run(_raising(exc), ordinary=(OSError,))
+    return LifecycleOutcome(errors=_ordered_lifecycle_errors(failures))
 
 
 def run_captured(
@@ -249,17 +325,9 @@ def run_captured(
     stop_readers = threading.Event()
     pipes = (("stdout", proc.stdout), ("stderr", proc.stderr))
     raw_fds: dict[str, int] = {}
-    for name, pipe in pipes:
-        if pipe is None:
-            continue
-        try:
-            fd = pipe.fileno()
-            os.set_blocking(fd, False)
-            raw_fds[name] = fd
-        except (AttributeError, OSError):
-            # In-memory injected test pipes have no descriptor.  Production
-            # Popen pipes always use the non-blocking descriptor path below.
-            pass
+    owners: dict[str, OwnedStream] = {}
+    readers: list[threading.Thread] = []
+    started_readers: list[threading.Thread] = []
 
     def retain(name: str, data: bytes) -> None:
         tail = tails[name]
@@ -302,17 +370,64 @@ def run_captured(
         except BaseException as exc:
             reader_errors.append(exc)
 
-    readers = [
-        threading.Thread(
-            target=drain,
-            args=(name, pipe),
-            name=f"captured-{name}-reader",
-            daemon=True,
+    try:
+        # Adopt the returned streams before any descriptor configuration so a
+        # rejected adoption is released by the foundation owner itself and no
+        # acquired pipe is left without a release authority.  Every pipe is
+        # attempted, so a first failure cannot strand the second.
+        adoption_failure: BaseException | None = None
+        for name, pipe in pipes:
+            if pipe is None:
+                continue
+            try:
+                owners[name] = OwnedStream(
+                    pipe, label=f"{policy.process_label} {name}"
+                )
+            except BaseException as exc:
+                if adoption_failure is None:
+                    adoption_failure = exc
+                else:
+                    attach_secondary(adoption_failure, [exc])
+        if adoption_failure is not None:
+            raise adoption_failure
+        # Descriptor configuration: production ``Popen`` pipes are switched
+        # to the non-blocking descriptor path; an in-memory injected pipe
+        # without a descriptor keeps the compatibility seam.
+        for name, pipe in pipes:
+            if pipe is None:
+                continue
+            try:
+                fd = pipe.fileno()
+                os.set_blocking(fd, False)
+                raw_fds[name] = fd
+            except (AttributeError, OSError):
+                pass
+        # Reader construction and startup.  Track exactly which readers
+        # started so a partial startup can be stopped and joined safely.
+        readers = [
+            threading.Thread(
+                target=drain,
+                args=(name, pipe),
+                name=f"captured-{name}-reader",
+                daemon=True,
+            )
+            for name, pipe in pipes
+        ]
+        for reader in readers:
+            reader.start()
+            started_readers.append(reader)
+    except BaseException as exc:
+        # A setup failure can strand neither pipe nor the child: readers that
+        # started are stopped and joined, every adopted pipe is released
+        # exactly once through its owner, and the client is boundedly reaped.
+        return proc, _finish_captured_setup_failure(
+            exc,
+            proc,
+            list(owners.values()),
+            started_readers,
+            stop_readers,
+            policy,
         )
-        for name, pipe in pipes
-    ]
-    for reader in readers:
-        reader.start()
 
     outcome = LifecycleOutcome()
     allow_drain = False
@@ -354,9 +469,12 @@ def run_captured(
                     )
                 )
         if not any(reader.is_alive() for reader in readers):
-            # Buffered wrappers are only closed after their readers released
-            # them, avoiding cross-thread buffer-lock and fd-reuse hazards.
-            outcome.errors.extend(close_descriptors((proc.stdout, proc.stderr)))
+            # Buffered wrappers are only released after their readers
+            # released them, avoiding cross-thread buffer-lock and fd-reuse
+            # hazards.  Each stream reaches its owner exactly once.
+            outcome.errors.extend(
+                close_descriptors(tuple(owners.values()))
+            )
         # A descriptor-less injected reader that ignores shutdown is daemonized
         # so it cannot keep Python alive; it remains an explicit degraded path.
         outcome.errors.extend(reader_errors)

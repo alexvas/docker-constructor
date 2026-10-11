@@ -108,3 +108,40 @@ substituted published candidate is never reused; recovery happens only
 through locked replacement assembly. A corrupt committed output is
 quarantined, never followed or deleted, and republished at the same identity.
 Removing the npm download cache affects performance only.
+
+## Subprocess stream ownership and shutdown
+
+The assembler runs the local `docker` client with
+`subprocess.Popen(..., stdout=PIPE, stderr=PIPE)`. Each returned file object
+is adopted into one `docker.filesystem.streams.OwnedStream` immediately after
+launch and that same owner pair is reused by every cleanup path — the reader
+failure hook, the deadline supervisor, interruption handling, bounded reaping,
+and finalization. A new owner is never reconstructed per cleanup, and the
+streams' raw `fileno()` descriptors are never adopted or closed separately, so
+there is no second release authority.
+
+Release order is deliberate. On a reader failure or deadline the client is
+terminated first, the named container is force-removed, and the client is
+reaped within the configured `grace_seconds` (with a bounded SIGKILL fallback)
+before the owners release their streams. Interruptions follow the same bounded
+cleanup; when the deadline supervisor already owns cleanup the interrupting
+caller waits for that one bounded cleanup instead of starting a concurrent
+terminate/remove sequence. The supported total deadline and every grace bound
+are unchanged.
+
+Descriptor readers drain stdout/stderr concurrently without waiting for
+newlines. Real pipes are read with cancellation-aware `select`/`os.read` so a
+descendant that retains a pipe write end cannot block shutdown past the grace
+bound: once the client has exited, at most `grace_seconds` of no-data time
+elapses before the reader reports EOF. A shared abort signal is set before any
+forced termination so a reader that reaches a forced EOF finalizes with
+`abort=True` and fails an ambiguous URL/secret prefix closed rather than
+flushing it as ordinary text. Readers are stopped and joined before the final
+owner release; a raw descriptor number is never closed under a live reader.
+
+Every ordinary reader, wait, or domain failure stays primary over an ordinary
+stream-close failure. Independent stdout/stderr owners are each released once
+even when one close fails, process termination/removal/reaping is never
+skipped, and all public cleanup diagnostics remain bounded and sanitized
+through the assembler's URL-aware tail projector. Subprocess stream ownership
+is documented in full in [docs/filesystem-lifecycle.md](filesystem-lifecycle.md).

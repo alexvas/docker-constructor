@@ -22,14 +22,18 @@ import dataclasses
 import functools
 import inspect
 import os
+import select
 import subprocess
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Callable, Protocol, Sequence
 
+from docker.filesystem.cleanup import CleanupFailures, attach_secondary
 from docker.filesystem.descriptors import OwnedDescriptor
 from docker.filesystem.operations import PosixDescriptorOps
+from docker.filesystem.streams import OwnedStream
 from docker.versioning.model import NetworkUrlDisplay
 
 from .assembler import (
@@ -311,20 +315,275 @@ def _timeout_error(
     )
 
 
-def _close_stream_pipes(pipes: Sequence[IO[bytes]]) -> list[Exception]:
-    """Close every pipe independently, returning any close failures.
+_READER_POLL_SECONDS = 0.05
 
-    Each pipe is closed in its own try/except so one close failure cannot
-    skip another pipe's close; failures are collected, never raised here, so
-    the caller can guarantee downstream cleanup (process reaping) first.
+
+def _requires_close_to_unblock(owner: OwnedStream) -> bool:
+    """Return whether a close is needed to release a blocked reader.
+
+    A real descriptor-backed stream is stopped through the shared
+    cancellation signal and released after its reader has stopped, so no raw
+    descriptor number is closed under a live reader.  A descriptor-less
+    injected stream has no cancellation seam, so only an actual close
+    unblocks it.
     """
-    close_errors: list[Exception] = []
-    for pipe in pipes:
+    if owner.released:
+        return False
+    try:
+        owner.stream.fileno()
+    except (AttributeError, OSError, ValueError):
+        return True
+    return False
+
+
+def _close_stream_owners(
+    owners: Sequence[OwnedStream],
+) -> list[BaseException]:
+    """Release every owned stream independently, returning every failure.
+
+    Every owner is attempted even when an earlier release raises a
+    process-control interruption or an unexpected defect.  Failures are
+    classified by :class:`CleanupFailures` with an explicit ordinary-error
+    policy (``OSError``) and returned in precedence order — authoritative
+    interruptions/defects first, then ordinary close failures — so the caller
+    can apply shared precedence without skipping a sibling release.
+    """
+    failures = CleanupFailures(None)
+    for owner in owners:
+        failures.run(owner.close, ordinary=(OSError,))
+    return (
+        list(failures.interruptions)
+        + list(failures.unexpected)
+        + list(failures.ordinary_failures)
+    )
+
+
+def _close_blocking_stream_owners(
+    owners: Sequence[OwnedStream],
+) -> list[BaseException]:
+    """Close only descriptor-less owners that need a close to unblock a reader.
+
+    Like :func:`_close_stream_owners`, every applicable owner is attempted and
+    failures are returned in shared-precedence order so an interruption in one
+    stream cannot skip its sibling.
+    """
+    failures = CleanupFailures(None)
+    for owner in owners:
+        if not _requires_close_to_unblock(owner):
+            continue
+        failures.run(owner.close, ordinary=(OSError,))
+    return (
+        list(failures.interruptions)
+        + list(failures.unexpected)
+        + list(failures.ordinary_failures)
+    )
+
+
+def _raising(exc: BaseException) -> Callable[[], None]:
+    """Return a cleanup action that re-raises *exc* for classification.
+
+    :class:`CleanupFailures` classifies an outcome only while running an
+    action, so a failure that was already caught is replayed once through an
+    accumulator with the same shared precedence instead of being classified
+    ad hoc.
+    """
+
+    def action() -> None:
+        raise exc
+
+    return action
+
+
+def _ordered_cleanup_failures(
+    failures: CleanupFailures,
+) -> list[BaseException]:
+    """Return classified failures in shared-precedence order."""
+    ordered: list[BaseException] = list(failures.interruptions)
+    ordered.extend(failures.unexpected)
+    if failures.original_primary is not None:
+        ordered.append(failures.original_primary)
+    ordered.extend(failures.ordinary_failures)
+    return ordered
+
+
+def _raise_close_authority(
+    failures: Sequence[BaseException],
+    primary: BaseException | None = None,
+) -> None:
+    """Apply shared precedence to *failures* against the active *primary*.
+
+    Every close failure is classified by :class:`CleanupFailures` (``OSError``
+    is ordinary) with *primary* installed as the active operation failure, so
+    an existing operation interruption keeps its identity over a later close
+    defect or interruption.  When a process-control interruption or an
+    unexpected close defect is authoritative it is raised with the remaining
+    failures and the displaced primary attached exactly once.  Otherwise the
+    function returns so the caller can attach the ordinary close failures as
+    bounded redacted notes and re-raise its own primary.
+    """
+    accumulator = CleanupFailures(primary)
+    for exc in failures:
+        if exc is primary:
+            continue
+        accumulator.run(_raising(exc), ordinary=(OSError,))
+    if accumulator.interruptions:
+        authoritative: BaseException | None = accumulator.interruptions[0]
+    elif accumulator.unexpected:
+        authoritative = accumulator.unexpected[0]
+    else:
+        return
+    secondary = [
+        exc
+        for exc in _ordered_cleanup_failures(accumulator)
+        if exc is not authoritative
+    ]
+    attach_secondary(authoritative, secondary)
+    raise authoritative
+
+
+def _raise_first(errors: Sequence[BaseException]) -> None:
+    if errors:
+        raise errors[0]
+
+
+def _process_exited(proc: subprocess.Popen) -> bool:
+    poll = getattr(proc, "poll", None)
+    if callable(poll):
+        return poll() is not None
+    return getattr(proc, "returncode", None) is not None
+
+
+def _reap_if_live(
+    proc: subprocess.Popen, *, grace_seconds: float
+) -> list[BaseException]:
+    """Boundedly terminate and reap *proc* unless it has already exited."""
+    if getattr(proc, "returncode", None) is not None:
+        return []
+    return _terminate_and_reap(proc, grace_seconds=grace_seconds)
+
+
+def _make_streaming_reader(
+    stream: IO[bytes],
+    proc: subprocess.Popen,
+    *,
+    abort_event: threading.Event,
+    grace_seconds: float,
+) -> Callable[[int], bytes]:
+    """Return a cancellation-aware reader for one owned subprocess stream.
+
+    Real descriptor-backed pipes are read with ``select`` and ``os.read`` so a
+    descendant that retains a pipe write end cannot block shutdown beyond the
+    configured grace period: once the client has exited, at most
+    ``grace_seconds`` of no-data time elapses before the reader reports EOF.
+    The shared ``abort_event`` forces the same EOF without closing a raw
+    descriptor number under a live reader.  Descriptor-less injected streams
+    fall back to their blocking ``read`` compatibility seam.
+    """
+    try:
+        fd = stream.fileno()
+    except (AttributeError, OSError, ValueError):
+        return stream.read
+    os.set_blocking(fd, False)
+    poll_seconds = min(_READER_POLL_SECONDS, max(0.001, grace_seconds))
+    drain_deadline: float | None = None
+
+    def read(count: int) -> bytes:
+        nonlocal drain_deadline
+        while True:
+            if abort_event.is_set():
+                return b""
+            ready, _, _ = select.select((fd,), (), (), poll_seconds)
+            if ready:
+                try:
+                    return os.read(fd, count)
+                except BlockingIOError:
+                    continue
+                except OSError:
+                    if abort_event.is_set():
+                        return b""
+                    raise
+            if _process_exited(proc):
+                if drain_deadline is None:
+                    drain_deadline = time.monotonic() + grace_seconds
+                elif time.monotonic() >= drain_deadline:
+                    return b""
+
+    return read
+
+
+def _adopt_stream_owners(
+    proc: subprocess.Popen, *, grace_seconds: float
+) -> tuple[OwnedStream, OwnedStream]:
+    """Adopt stdout/stderr into one shared owner each, or clean up and raise.
+
+    Every acquired stream is attempted exactly once.  A successful adoption
+    yields an owner; a rejected adoption is released by the foundation owner
+    itself (:class:`OwnedStream` acquires before it validates), so a failed
+    adoption never leaves an acquired stream without a release authority.  On
+    a rejection the adopted prefix releases through its owners, the child is
+    boundedly reaped, and the setup failure stays authoritative unless shared
+    precedence selects a higher-priority interruption or unexpected defect.
+    """
+    acquired = (
+        ("docker run stdout", proc.stdout),
+        ("docker run stderr", proc.stderr),
+    )
+    owners: list[OwnedStream] = []
+    failure: BaseException | None = None
+    for label, stream in acquired:
         try:
-            pipe.close()
-        except Exception as exc:
-            close_errors.append(exc)
-    return close_errors
+            owners.append(OwnedStream(stream, label=label))
+        except BaseException as exc:
+            if failure is None:
+                failure = exc
+            else:
+                attach_secondary(failure, [exc])
+    if failure is not None:
+        _finalize_setup_failure(
+            failure,
+            owners,
+            proc,
+            supervisor=None,
+            grace_seconds=grace_seconds,
+        )
+        raise failure
+    return owners[0], owners[1]
+
+
+def _finalize_setup_failure(
+    primary: BaseException,
+    owners: Sequence[OwnedStream],
+    proc: subprocess.Popen,
+    *,
+    supervisor: DeadlineSupervisor | None,
+    grace_seconds: float,
+) -> None:
+    """Stop started workers, release owners once, and reap after setup fails.
+
+    Every fallible post-launch step shares this path.  A started deadline
+    supervisor is cancelled and joined before its streams are released, the
+    child is boundedly reaped, and *primary* stays authoritative unless a
+    higher-precedence interruption or unexpected defect is selected.  Every
+    independent cleanup failure is classified and attempted once.
+    """
+    failures = CleanupFailures(primary)
+    if supervisor is not None:
+        # ``_join_supervisor`` raises when the supervisor thread was never
+        # started (for example ``start`` itself failed); the action wrapper
+        # captures that as an unexpected defect without skipping owner release.
+        failures.run(
+            lambda: _raise_first(
+                _join_supervisor(supervisor, grace_seconds=grace_seconds)
+            ),
+            ordinary=(OSError,),
+        )
+    for owner in owners:
+        failures.run(owner.close, ordinary=(OSError,))
+    for exc in _terminate_and_reap(proc, grace_seconds=grace_seconds):
+        failures.run(_raising(exc), ordinary=(OSError,))
+    result = failures.complete()
+    if result is not None:
+        raise result
 
 
 def _render_close_failure(
@@ -599,17 +858,22 @@ class DockerRunExecutor:
         expiry, reusing its bounded outcome instead of an unbounded
         ``proc.wait()``.
         """
-        proc = subprocess.Popen(
-            argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-        )
-        assert proc.stdout is not None and proc.stderr is not None
-        stdout_pipe = proc.stdout
-        stderr_pipe = proc.stderr
         #: Shared cancellation signal handed to the collector.  It is set
         #: before any forced termination or pipe closure so a reader that
         #: reaches forced EOF finalizes with ``abort=True`` instead of
-        #: flushing an ambiguous secret/URL prefix as ordinary text.
+        #: flushing an ambiguous secret/URL prefix as ordinary text.  It is
+        #: created before the launch so every fallible operation after
+        #: ``Popen`` sits inside the protected setup below.
         abort_event = threading.Event()
+        proc = subprocess.Popen(
+            argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        #: Shared owners are created by the protected setup below and reused
+        #: by every reader-failure, deadline, interruption, reaping, and
+        #: finalization cleanup path.  The readers borrow the streams before
+        #: any cleanup path can release the owners.
+        owners: list[OwnedStream] = []
+        supervisor: DeadlineSupervisor | None = None
 
         def bounded_streaming_cleanup() -> list[BaseException]:
             # Signal forced termination before terminating the client or
@@ -623,39 +887,29 @@ class DockerRunExecutor:
 
         def react_to_reader_failure(failed_stream: str) -> None:
             # Attempt every cleanup step independently so a failure in one
-            # (e.g. closing the failed pipe) cannot skip the others (e.g.
-            # terminating the client, which unblocks the sibling reader).
-            # Both pipes are closed after the bounded reap — independently,
-            # so a close failure on one cannot skip the other — which
-            # guarantees the sibling reader reaches EOF even when the client
-            # ignores terminate and survives kill.  Collected errors are
-            # re-raised so collect_streams records them as secondary context
-            # without masking the reader failure; the run_streaming finally
-            # block still guarantees both pipes close.
-            failed_pipe = (
-                stdout_pipe if failed_stream == STREAM_STDOUT else stderr_pipe
+            # (including an interruption or an unexpected close defect) cannot
+            # skip the others.  Both pipes are closed after the bounded reap,
+            # so the sibling reader reaches EOF even when the client ignores
+            # terminate and survives kill.  Collected failures are raised in
+            # shared-precedence order so collect_streams records them as
+            # secondary context without masking the reader failure.
+            failed_owner = (
+                stdout_owner if failed_stream == STREAM_STDOUT else stderr_owner
             )
-            cleanup_errors: list[BaseException] = []
+            failures: list[BaseException] = []
             try:
-                failed_pipe.close()
-            except Exception as exc:
-                cleanup_errors.append(exc)
-            cleanup_errors.extend(
+                failed_owner.close()
+            except BaseException as exc:
+                failures.append(exc)
+            failures.extend(
                 _terminate_and_reap(proc, grace_seconds=grace_seconds)
             )
-            cleanup_errors.extend(
-                _close_stream_pipes((stdout_pipe, stderr_pipe))
+            failures.extend(
+                _close_blocking_stream_owners((stdout_owner, stderr_owner))
             )
-            if cleanup_errors:
-                primary = cleanup_errors[0]
-                for extra in cleanup_errors[1:]:
-                    primary.add_note(
-                        f"also ({type(extra).__name__}): "
-                        f"{str(extra) or repr(extra)}"
-                    )
-                raise primary
-
-        supervisor: DeadlineSupervisor | None = None
+            _raise_close_authority(failures)
+            if failures:
+                _raise_first(failures)
 
         def react_to_interruption() -> None:
             # The reusable supervisor atomically decides whether deadline
@@ -671,7 +925,12 @@ class DockerRunExecutor:
                 if not shutdown_failures:
                     return
                 errors = bounded_streaming_cleanup()
-                errors.extend(_close_stream_pipes((stdout_pipe, stderr_pipe)))
+                errors.extend(
+                    _close_blocking_stream_owners(
+                        (stdout_owner, stderr_owner)
+                    )
+                )
+                _raise_close_authority(errors + shutdown_failures)
                 primary = shutdown_failures[0]
                 for extra in list(shutdown_failures[1:]) + errors:
                     primary.add_note(
@@ -680,7 +939,10 @@ class DockerRunExecutor:
                     )
                 raise primary
             errors = bounded_streaming_cleanup()
-            errors.extend(_close_stream_pipes((stdout_pipe, stderr_pipe)))
+            errors.extend(
+                _close_blocking_stream_owners((stdout_owner, stderr_owner))
+            )
+            _raise_close_authority(errors)
             if errors:
                 primary = errors[0]
                 for extra in errors[1:]:
@@ -690,45 +952,76 @@ class DockerRunExecutor:
                     )
                 raise primary
 
-        if deadline_seconds is not None:
-            def poll_process() -> bool:
-                try:
-                    proc.wait(timeout=0)
-                except subprocess.TimeoutExpired:
-                    return False
-                return True
+        def poll_process() -> bool:
+            try:
+                proc.wait(timeout=0)
+            except subprocess.TimeoutExpired:
+                return False
+            return True
 
-            def deadline_cleanup() -> tuple[
-                list[BaseException], list[BaseException]
-            ]:
-                # Terminate/remove/reap first.  Closing pipes before that can
-                # release readers while the Docker client is still running.
-                cleanup_errors = bounded_streaming_cleanup()
-                close_errors: list[BaseException] = list(
-                    _close_stream_pipes((stdout_pipe, stderr_pipe))
-                )
-                return cleanup_errors, close_errors
-
-            supervisor = DeadlineSupervisor(
-                deadline_seconds=deadline_seconds,
-                poll=poll_process,
-                cleanup=deadline_cleanup,
-                poll_seconds=_SUPERVISOR_POLL_SECONDS,
-                thread_name="npm-deadline-supervisor",
+        def deadline_cleanup() -> tuple[
+            list[BaseException], list[BaseException]
+        ]:
+            # Terminate/remove/reap first.  Closing streams before that can
+            # release readers while the Docker client is still running.
+            cleanup_errors = bounded_streaming_cleanup()
+            close_errors = _close_blocking_stream_owners(
+                (stdout_owner, stderr_owner)
             )
-            supervisor.start()
+            return cleanup_errors, close_errors
 
         try:
+            # Adopt each returned file object into one shared owner
+            # immediately, then build the readers and start the supervisor.
+            # Every fallible post-launch step shares one cleanup path that
+            # stops started workers, releases each stream once, and boundedly
+            # reaps the child.
+            stdout_owner, stderr_owner = _adopt_stream_owners(
+                proc, grace_seconds=grace_seconds
+            )
+            owners = [stdout_owner, stderr_owner]
+            stdout_read = _make_streaming_reader(
+                stdout_owner.stream,
+                proc,
+                abort_event=abort_event,
+                grace_seconds=grace_seconds,
+            )
+            stderr_read = _make_streaming_reader(
+                stderr_owner.stream,
+                proc,
+                abort_event=abort_event,
+                grace_seconds=grace_seconds,
+            )
+            if deadline_seconds is not None:
+                supervisor = DeadlineSupervisor(
+                    deadline_seconds=deadline_seconds,
+                    poll=poll_process,
+                    cleanup=deadline_cleanup,
+                    poll_seconds=_SUPERVISOR_POLL_SECONDS,
+                    thread_name="npm-deadline-supervisor",
+                )
+                supervisor.start()
             # Report the launch boundary now that the container client process
             # exists, so CONTAINER_STARTUP ends at launch and NPM_EXECUTION
-            # spans stream collection and process completion.  The call is
-            # inside the collection try so a callback failure still runs the
-            # normal supervisor/pipe cleanup below.
+            # spans stream collection and process completion.  A callback
+            # failure still stops started workers, releases the owners, and
+            # boundedly reaps the child.
             if on_launched is not None:
                 on_launched()
+        except BaseException as exc:
+            _finalize_setup_failure(
+                exc,
+                owners,
+                proc,
+                supervisor=supervisor,
+                grace_seconds=grace_seconds,
+            )
+            raise
+
+        try:
             capture: StreamingCapture = collect_streams(
-                stdout_read=stdout_pipe.read,
-                stderr_read=stderr_pipe.read,
+                stdout_read=stdout_read,
+                stderr_read=stderr_read,
                 secrets=secrets,
                 sink=sink,
                 on_reader_failure=react_to_reader_failure,
@@ -753,9 +1046,15 @@ class DockerRunExecutor:
             timeout_close_errors = (
                 deadline_outcome.close_errors if deadline_outcome is not None else []
             )
-            close_errors = timeout_close_errors + _close_stream_pipes(
-                (stdout_pipe, stderr_pipe)
+            close_errors = timeout_close_errors + _close_stream_owners(
+                (stdout_owner, stderr_owner)
             )
+            # Reap a still-live client before any close defect or interruption
+            # can take authority, so no supported path raises with the child
+            # still running.  A post-launch setup failure (for example a
+            # raising launch callback or stream factory) has no reader-failure
+            # hook to reap the child, so this is its only reap.
+            reap_errors = _reap_if_live(proc, grace_seconds=grace_seconds)
             if fired:
                 # The deadline won: the timeout is primary; the concurrent
                 # reader/interruption failure becomes bounded secondary context.
@@ -795,6 +1094,14 @@ class DockerRunExecutor:
             _attach_close_failure_notes(
                 exc, close_errors, secrets, tail_projector=tail_projector
             )
+            _attach_bounded_cleanup_notes(
+                exc,
+                reap_errors,
+                (),
+                secrets,
+                cleanup_prefix="stream cleanup failed",
+                tail_projector=tail_projector,
+            )
             if wait_failure is not None:
                 exc.add_note(
                     f"supervisor wait failed ({type(wait_failure).__name__}): "
@@ -808,6 +1115,9 @@ class DockerRunExecutor:
                 cleanup_prefix="supervisor shutdown failed",
                 tail_projector=tail_projector,
             )
+            # The child is already reaped; a close/reap defect or interruption
+            # may now take authority with the operation failure attached.
+            _raise_close_authority(close_errors + reap_errors, exc)
             raise
 
         if supervisor is None:
@@ -835,9 +1145,10 @@ class DockerRunExecutor:
         # subprocess outcome is always known before any deferred cleanup
         # failure surfaces.  The supervisor may already have closed both
         # pipes to unblock readers; re-closing is idempotent and only
-        # appends any fresh close failures.
-        close_errors = timeout_close_errors + _close_stream_pipes(
-            (stdout_pipe, stderr_pipe)
+        # appends any fresh close failures.  A close defect/interruption is
+        # only allowed to take authority after the child is reaped below.
+        close_errors = timeout_close_errors + _close_stream_owners(
+            (stdout_owner, stderr_owner)
         )
 
         if fired:
@@ -886,6 +1197,8 @@ class DockerRunExecutor:
             # cleanup-grace bound; surface that as primary (bounded,
             # redacted) with pipe-close failures as notes instead of an
             # unbounded proc.wait() that could block past the deadline.
+            # Reap a still-live client first so the raise cannot leave it
+            # running.
             primary = supervisor_failures[0]
             message = _render_close_failure(
                 primary, secrets, tail_projector=tail_projector
@@ -899,8 +1212,13 @@ class DockerRunExecutor:
                     f"also ({type(extra).__name__}): "
                     f"{_render_close_failure(extra, secrets, tail_projector=tail_projector)}"
                 )
-            _attach_close_failure_notes(
-                raised, close_errors, secrets, tail_projector=tail_projector
+            _attach_bounded_cleanup_notes(
+                raised,
+                _reap_if_live(proc, grace_seconds=grace_seconds),
+                close_errors,
+                secrets,
+                cleanup_prefix="stream cleanup failed",
+                tail_projector=tail_projector,
             )
             raise raised
 
@@ -923,6 +1241,9 @@ class DockerRunExecutor:
             return_code = proc.returncode
             assert return_code is not None
 
+        # The child is reaped (or its wait returned); only now may a close
+        # defect or interruption take authority with the outcome still known.
+        _raise_close_authority(close_errors)
         if close_errors:
             _raise_close_failures(
                 close_errors, secrets, tail_projector=tail_projector

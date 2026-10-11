@@ -216,6 +216,10 @@ no_proxy = "localhost,.corp.example"
 
 ## 维护
 
+### 描述符与流生命周期
+
+在添加拥有描述符或流的代码之前，请阅读 [docs/filesystem-lifecycle.md](docs/filesystem-lifecycle.md) 中的契约与可执行示例。每个新的所有权路径都必须指定一个共享的 `docker.filesystem` 所有者并添加生命周期测试；强制规则也记录在根目录的 [AGENTS.md](AGENTS.md) 中。
+
 ### 验证 Dockerfile 更改
 
 请分别运行无额外依赖的静态契约测试和容器化 linter：
