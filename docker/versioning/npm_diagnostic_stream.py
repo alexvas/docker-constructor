@@ -71,10 +71,6 @@ from docker.versioning.npm_fetch import (
 )
 
 
-def _host_path_formatter(fact: SafeHostPath) -> str:
-    """Render one validated safe host/path fact for the retained `host-path` tail."""
-    return fact.text
-
 _WARNING_RE = re.compile(r"(?i)(?:^|\s)npm\s+warn\b|(?:^|\s)warn(?:ing)?\b")
 _TIMEOUT_RE = re.compile(r"(?i)\btime(?:d)?[ _-]?out\b|\btimeout\b")
 _RETRY_RE = re.compile(r"(?i)\bretry\b|\bretrying\b|\battempt\b")
@@ -147,7 +143,7 @@ def project_tail(
         return _bounded_tail(neutralized, tail_bytes)
     if network_url_display is NetworkUrlDisplay.HOST_PATH:
         projector = DiagnosticProjector(
-            secrets, url_formatter=_host_path_formatter
+            secrets, url_display=NetworkUrlDisplay.HOST_PATH
         )
         safe = "".join(projector.feed_text(neutralized))
         safe += "".join(projector.finish())
@@ -220,14 +216,20 @@ class NpmDiagnosticStream:
         self._network_url_display = network_url_display
         self._secrets = tuple(secrets)
         self._framer = TerminalSafeLineFramer(line_limit_bytes=line_limit)
-        self._projector = DiagnosticProjector(secrets, url_identity=fingerprinter)
+        self._projector = DiagnosticProjector(
+            secrets, url_identity=fingerprinter,
+            url_display=(NetworkUrlDisplay.HOST_PATH
+                         if network_url_display is NetworkUrlDisplay.HOST_PATH
+                         else NetworkUrlDisplay.REDACTED),
+            capture_redacted=network_url_display is NetworkUrlDisplay.HOST_PATH,
+        )
         # The single retained tail is mode-selected.  ``redacted`` retains the
-        # URL-free projection directly; ``host-path`` derives its render from
-        # a dedicated projector over the same terminal-safe source; ``exact``
+        # URL-free projection directly; ``host-path`` drains two products
+        # from the same projector / raw owner; ``exact``
         # appends the neutralized source itself.  At most one of these feeds
         # the one retained buffer -- no second tail is created.
         self._retained_projector = (
-            DiagnosticProjector(secrets, url_formatter=_host_path_formatter)
+            self._projector
             if network_url_display is NetworkUrlDisplay.HOST_PATH
             else None
         )
@@ -291,6 +293,12 @@ class NpmDiagnosticStream:
         for text in self._framer.finish(abort=abort):
             chunks.extend(self._emit_neutralized(text))
         projected = self._projector.finish(abort=abort)
+        if self._retained_projector is not None:
+            for retained in projected:
+                self._selected_line_chars.append(retained)
+                self._append_tail(retained)
+            self._drain_retained_facts()
+            projected = self._projector.take_redacted_chunks()
         self._absorb_projector_facts()
         for text in projected:
             chunks.extend(
@@ -301,11 +309,6 @@ class NpmDiagnosticStream:
                     ),
                 )
             )
-        if self._retained_projector is not None:
-            for retained in self._retained_projector.finish(abort=abort):
-                self._selected_line_chars.append(retained)
-                self._append_tail(retained)
-            self._drain_retained_facts()
         if (
             self._line_chars
             or self._line_hostnames
@@ -342,6 +345,17 @@ class NpmDiagnosticStream:
             # recognizer stops retaining token content and waits for the next
             # record boundary.
             self._fetch_recognizer.mark_overflowed()
+            self._projector.discard_pending()
+            # A framer marker is synthetic display, not an extension of a
+            # suppressed URL. Both products share the same raw owner.
+            chunks: list[StreamChunk] = []
+            if self._network_url_display is not NetworkUrlDisplay.REDACTED:
+                self._selected_line_chars.append(text)
+                self._append_tail(text)
+                chunks.extend(self._local_prefix_chunks(text))
+            chunks.extend(self._emit_projected(
+                text, retain=self._network_url_display is NetworkUrlDisplay.REDACTED))
+            return chunks
         chunks: list[StreamChunk] = []
         start = 0
 
@@ -361,7 +375,9 @@ class NpmDiagnosticStream:
             # selected representation commits it, before the safe projection
             # finalizes the record at the newline.
             chunks.extend(self._emit_selected_prefix(source_segment))
-            projected = self._projector.feed_text(source_segment)
+            projected = (self._projector.take_redacted_chunks()
+                         if self._retained_projector is not None
+                         else self._projector.feed_text(source_segment))
             self._absorb_projector_facts()
             for projected_text in projected:
                 chunks.extend(
@@ -382,7 +398,7 @@ class NpmDiagnosticStream:
         ``redacted`` selects the URL-free projection released by
         :meth:`_emit_projected`, so nothing is emitted here.  ``host-path``
         selects the normalized hostname/path rendering committed by the
-        dedicated selected projector -- the same output that feeds the one
+        shared coordinator -- the same output that feeds the one
         bounded retained tail, so the live and retained representations never
         diverge.  ``exact`` selects the terminal-safe neutralized source
         fragment itself.
@@ -448,13 +464,12 @@ class NpmDiagnosticStream:
     def _drain_retained_facts(self) -> None:
         """Collect the selected projector's safe host/path facts for the line.
 
-        The alternate projector's text already carries the host/path rendering,
-        so its hostname/fingerprint facts are discarded; only the bounded,
-        sanitized :class:`SafeHostPath` fact is kept so ``host-path`` grouping
+        The shared projector's selected text carries host/path rendering;
+        its hostname/fingerprint facts are drained separately for SDK delivery.
+        Only bounded, sanitized :class:`SafeHostPath` values enter ``host-path`` grouping
         never needs the raw URL.
         """
         assert self._retained_projector is not None
-        self._retained_projector.take_facts()
         for fact in self._retained_projector.take_host_paths():
             if fact not in self._line_host_paths:
                 self._line_host_paths.append(fact)

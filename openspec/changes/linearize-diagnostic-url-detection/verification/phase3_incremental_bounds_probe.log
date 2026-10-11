@@ -1,0 +1,15 @@
+[ok] ordinary, host-path=False: cumulative work 186029 -> 372029
+[ok] commits, host-path=False: cumulative work 281129 -> 562229
+[ok] overflow, host-path=False: cumulative work 676833 -> 1353637
+[ok] ordinary, host-path=True: cumulative work 186029 -> 372029
+[ok] commits, host-path=True: cumulative work 282229 -> 564429
+[ok] overflow, host-path=True: cumulative work 676885 -> 1353741
+[ok] crossing-prefix settlement, host-path=False: cumulative work 261117 -> 522217
+[ok] crossing-prefix one-character / one-feed work and text agree, host-path=False
+[ok] crossing-prefix settlement, host-path=True: cumulative work 264417 -> 528817
+[ok] crossing-prefix one-character / one-feed work and text agree, host-path=True
+[ok] one-character / one-feed work and text agree
+[ok] no discarded secret suffix or duplicate URL marker
+P3 OWNERSHIP / LIFETIME AUDIT PASS
+
+Exit status: 0

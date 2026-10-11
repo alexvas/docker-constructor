@@ -1,0 +1,17 @@
+bringing up nodes...
+bringing up nodes...
+
+............Fuu..................uuuuuuuuu........                       [100%]
+=================================== FAILURES ===================================
+__ Phase3Tests.test_delayed_host_path_activation_recovers_crossed_boundaries ___
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:257: in test_delayed_host_path_activation_recovers_crossed_boundaries
+    self.assertEqual("Xhost/path", "".join(p.feed_text("?q")))
+E   AssertionError: 'Xhost/path' != 'X<redacted-host>/<redacted-path>'
+E   - Xhost/path
+E   + X<redacted-host>/<redacted-path>
+=========================== short test summary info ============================
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_delayed_host_path_activation_recovers_crossed_boundaries
+1 failed, 38 passed, 11 subtests passed in 4.53s
+
+Exit status: 1

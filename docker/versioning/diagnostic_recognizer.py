@@ -224,7 +224,13 @@ class RecognitionStats:
     characters examined while locating candidate terminators and
     ``coverage_checks`` counts secret versus interval comparisons in the
     coverage sweep; these make the otherwise-hidden maintenance, pruning and
-    coverage work visible.  The ``peak_*`` values bound retained state and the
+    coverage work visible. ``prefix_checks`` is a deterministic bound on
+    supported-prefix / capped-escape inspections; ``failure_traversals`` and
+    ``automaton_outputs`` sum every URL/secret core cursor's lifetime work.
+    Coordinated secret-record iteration charges ``coverage_checks`` and never
+    calls the batch deduplication/sorting helpers. Registration-owned node
+    lengths support secret settlement without retained source or replay.
+    The ``peak_*`` values bound retained state and the
     ``retained_*`` values report the live unconsumed totals.  They exist so
     tests can assert bounded work and state without measuring elapsed time.
     """
@@ -247,6 +253,9 @@ class RecognitionStats:
     candidate_retirement_visits: int
     boundary_chars: int
     coverage_checks: int
+    prefix_checks: int = 0
+    failure_traversals: int = 0
+    automaton_outputs: int = 0
 
 
 class _MutableStats:
@@ -267,6 +276,7 @@ class _MutableStats:
         "candidate_retirement_visits",
         "boundary_chars",
         "coverage_checks",
+        "prefix_checks",
     )
 
     def __init__(self) -> None:
@@ -286,6 +296,7 @@ class _MutableStats:
         self.candidate_retirement_visits = 0
         self.boundary_chars = 0
         self.coverage_checks = 0
+        self.prefix_checks = 0
 
     def freeze(self) -> RecognitionStats:
         return RecognitionStats(
@@ -307,6 +318,7 @@ class _MutableStats:
             candidate_retirement_visits=self.candidate_retirement_visits,
             boundary_chars=self.boundary_chars,
             coverage_checks=self.coverage_checks,
+            prefix_checks=self.prefix_checks,
         )
 
 
@@ -453,7 +465,7 @@ class _LayerMatcher:
         self._pending: dict[int, tuple[int, int | None]] = {}
         self._active: list[tuple[int, dict]] = []
         self._buf: list[tuple[str, int, int]] = []
-        self._matches: deque[tuple[int, int | None, int, int]] = deque()
+        self._matches: deque[tuple[int, int | None, int, int, int]] = deque()
         self._token_match_start: int | None = None
         self.match_start: int | None = None
         self.match_start_end: int | None = None
@@ -544,6 +556,7 @@ class _LayerMatcher:
         """
         if not self._scheme_cap:
             return True
+        self._stats.prefix_checks += end - start
         return not any(index in self._escaped_atoms for index in range(start, end))
 
     def _feed_prefix(
@@ -555,6 +568,7 @@ class _LayerMatcher:
             self._active = []
             return
         character = _fold(decoded)
+        self._stats.prefix_checks += len(self._active) + 1
         active: list[tuple[int, dict]] = []
         for start, node in self._active:
             child = node.get(character)
@@ -567,6 +581,7 @@ class _LayerMatcher:
             self._active = []
             return
         best: dict[int, tuple[int, dict]] = {}
+        self._stats.prefix_checks += len(active)
         for start, node in active:
             key = id(node)
             current = best.get(key)
@@ -592,6 +607,7 @@ class _LayerMatcher:
                         scheme_start_end,
                         queue[0].source_start,
                         queue[0].source_end,
+                        queue[2].source_end,
                     )
                 del self._pending[index]
             queue.popleft()
@@ -602,6 +618,7 @@ class _LayerMatcher:
         start_end: int | None,
         colon: int,
         colon_end: int,
+        separator_end: int,
     ) -> None:
         if self._token_match_start is None or start < self._token_match_start:
             self._token_match_start = start
@@ -616,16 +633,16 @@ class _LayerMatcher:
         # the front of the atom queue, so matches are appended in increasing
         # raw ``start`` order within this layer.  ``retire`` relies on it to
         # pop committed candidates from the left.
-        self._matches.append((start, start_end, colon, colon_end))
+        self._matches.append((start, start_end, colon, colon_end, separator_end))
         if len(self._matches) > self._stats.peak_retained_matches:
             self._stats.peak_retained_matches = len(self._matches)
 
-    def unconsumed_match(self) -> tuple[int, int | None, int, int] | None:
+    def unconsumed_match(self) -> tuple[int, int | None, int, int, int] | None:
         if not self._matches:
             return None
         return self._matches[0]
 
-    def all_matches(self) -> tuple[tuple[int, int | None, int, int], ...]:
+    def all_matches(self) -> tuple[tuple[int, int | None, int, int, int], ...]:
         return tuple(self._matches)
 
     def reset_prefix(self) -> None:
@@ -672,6 +689,7 @@ class _LayerMatcher:
         though its atom has not been emitted yet.
         """
         buf = self._buf
+        self._stats.prefix_checks += 3 * len(self._active) + 1
         if self._scheme_cap and buf and buf[0][0] == "%":
             # This extra decode step may only traverse separator edges of
             # an already permitted prefix, never begin or extend a scheme.
@@ -726,6 +744,7 @@ class _SecretObserver:
         "_speculative",
         "_retained",
         "_committed",
+        "_prefix_lengths",
     )
 
     def __init__(
@@ -734,6 +753,11 @@ class _SecretObserver:
         self._stats = stats
         self._depth = depth
         self._cursor = automaton.cursor()
+        depths = [0] * automaton.node_count
+        for node, edges in enumerate(automaton._goto):
+            for child in edges.values():
+                depths[child] = depths[node] + 1
+        self._prefix_lengths = tuple(depths)
         self._max_len = max((len(p) for p in automaton.patterns), default=0)
         self._fed = 0
         self._spans: dict[int, tuple[int, int]] = {}
@@ -774,6 +798,24 @@ class _SecretObserver:
         retained = self._retained
         if retained > self._stats.peak_retained_secrets:
             self._stats.peak_retained_secrets = retained
+
+    def prefix_start(self, minimum_start: int | None = None, include_start: int | None = None) -> int | None:
+        """Earliest source of a still-extendable secret, even across commits.
+
+        Node lengths are registration-owned. Failure traversal here is bounded
+        by registration, not by stream length, and all inspections are counted.
+        """
+        automaton = self._cursor._automaton
+        node = self._cursor.state
+        while node:
+            self._stats.speculative_record_visits += 1
+            if automaton._goto[node]:
+                span = self._spans.get(self._fed - self._prefix_lengths[node])
+                if span is not None and (minimum_start is None or
+                    span[0] >= minimum_start or span[0] == include_start):
+                    return span[0]
+            node = automaton._fail[node]
+        return None
 
     def matches(self) -> tuple[SecretMatch, ...]:
         finalized = (
@@ -859,6 +901,7 @@ class _Pipeline:
     ) -> None:
         self._stats = stats
         self._incremental = incremental
+        self._structure: list[tuple[str, int, int] | None] = [None] * _LAYERS
         self._layer = [
             _LayerMatcher(
                 stats,
@@ -901,6 +944,8 @@ class _Pipeline:
         from_token: bool,
     ) -> None:
         self._stats.layer_char_visits += 1
+        if character in "/?#":
+            self._structure[layer] = (character, source_start, source_end)
         self._layer[layer].feed(character, source_start, source_end)
         if layer == 0:
             if self._literal is not None:
@@ -926,6 +971,7 @@ class _Pipeline:
     def feed(self, text: str, base: int = 0) -> None:
         self._stats.chars += len(text)
         for index, character in enumerate(text):
+            self._structure = [None] * _LAYERS
             from_token = not _is_terminator(character)
             if not from_token:
                 self._flush_token()
@@ -952,6 +998,7 @@ class _Pipeline:
         # e.g. the first '%' in '%%25368ttps' waits while '%25' has already
         # emitted a secret in a shallower view. Decoder pending provenance is
         # fixed-depth/bounded, so this does not retain arbitrary token history.
+        self._stats.prefix_checks += len(self._transducers)
         for transducer in self._transducers:
             if transducer._pending:
                 pending_start = transducer._pending[0][1]
@@ -991,8 +1038,8 @@ class _Pipeline:
         ]
         return min(starts) if starts else None
 
-    def matches(self) -> tuple[int, int | None, int, int] | None:
-        best: tuple[int, int | None, int, int] | None = None
+    def matches(self) -> tuple[int, int | None, int, int, int] | None:
+        best: tuple[int, int | None, int, int, int] | None = None
         for matcher in self._layer:
             match = matcher.unconsumed_match()
             if match is None:
@@ -1001,8 +1048,8 @@ class _Pipeline:
                 best = match
         return best
 
-    def all_matches(self) -> tuple[tuple[int, int | None, int, int], ...]:
-        matches: list[tuple[int, int | None, int, int]] = []
+    def all_matches(self) -> tuple[tuple[int, int | None, int, int, int], ...]:
+        matches: list[tuple[int, int | None, int, int, int]] = []
         for matcher in self._layer:
             matches.extend(matcher.all_matches())
         return tuple(matches)
@@ -1025,8 +1072,14 @@ class _Pipeline:
         return self.literal_secrets() + self.decoded_secrets()
 
     def stats(self) -> RecognitionStats:
+        cursors = [matcher._cursor for matcher in self._layer]
+        if self._literal is not None:
+            cursors.append(self._literal._cursor)
+        cursors.extend(observer._cursor for observer in self._decoded)
         return replace(
             self._stats.freeze(),
+            failure_traversals=sum(cursor.counters.failures for cursor in cursors),
+            automaton_outputs=sum(cursor.counters.outputs for cursor in cursors),
             retained_matches=self.retained_matches(),
             retained_secrets=len(self.all_secrets()),
         )
@@ -1073,7 +1126,7 @@ def select_secret_matches(
 def _candidate_spans(
     text: str,
     offset: int,
-    matches: tuple[tuple[int, int | None, int, int], ...],
+    matches: tuple[tuple[int, int | None, int, int, int], ...],
     stats: _MutableStats,
 ) -> tuple[tuple[int, int], ...]:
     """Absolute ``(start, end)`` spans for candidates, sharing token ends.
@@ -1090,7 +1143,7 @@ def _candidate_spans(
     cached_end = 0
     cached_limit = -1
     has_cache = False
-    for start, _start_end, _colon, _colon_end in ordered:
+    for start, _start_end, _colon, _colon_end, _separator_end in ordered:
         relative = start - offset
         if relative < 0:
             relative = 0
@@ -1167,7 +1220,7 @@ def recognize_with_stats(
     prefix_start = pipeline.finish()
     match = pipeline.matches()
     if match is not None:
-        start, _start_end, _colon, _colon_end = match
+        start = match[0]
         end = _find_terminator(text, start - offset)
         candidate = DiagnosticCandidate(
             start=start,
@@ -1210,7 +1263,7 @@ def _recognize_with_secrets(
     prefix_start = pipeline.finish()
     match = pipeline.matches()
     if match is not None:
-        start, _start_end, _colon, _colon_end = match
+        start = match[0]
         end = _find_terminator(text, start - offset)
         candidate = DiagnosticCandidate(
             start=start,
@@ -1259,13 +1312,16 @@ class RecognizedMatch:
     ``start``/``start_end`` bound the scheme's first unit and
     ``colon``/``colon_end`` bound the ``:`` atom; the candidate itself extends
     to the raw terminator, which the incremental caller locates in its own
-    retained buffer.  All four coordinates are absolute raw stream offsets.
+    retained buffer. ``separator_end`` is the exclusive raw end of the full
+    separator, independent of when a coordinator activates the candidate.
+    All coordinates are absolute raw stream offsets.
     """
 
     start: int
     start_end: int | None
     colon: int
     colon_end: int
+    separator_end: int
 
 
 class IncrementalRecognizer:
@@ -1363,6 +1419,41 @@ class IncrementalRecognizer:
             return self._committed
         return max(start, self._committed)
 
+    def secret_prefix_start(self, *, decoded: bool = False,
+                            minimum_start: int | None = None,
+                            include_start: int | None = None) -> int | None:
+        """Unsettled secret coverage start, preserving crossing continuations."""
+        observers = list(self._pipeline._decoded) if decoded else []
+        if self._pipeline._literal is not None:
+            observers.append(self._pipeline._literal)
+        starts = [start for observer in observers
+                  if (start := observer.prefix_start(minimum_start, include_start)) is not None]
+        return min(starts) if starts else None
+
+    @property
+    def structural_events(self) -> tuple[tuple[str, int, int] | None, ...]:
+        """Fixed-depth structural emissions from the last fed source unit.
+
+        This is bounded renderer lookahead, not a decoded payload/history.
+        A coordinated caller feeds single source symbols before inspecting it.
+        """
+        return tuple(self._pipeline._structure)
+
+    def secret_records(self, *, decoded: bool = False):
+        """Iterate retained coverage without batch deduplication or sorting.
+
+        Coordinated boundary selection needs only minima and intersections;
+        duplicate decoded views are harmless to those operations. Charge each
+        inspected coordinate record, rather than hiding work in a batch sort.
+        """
+        observers = list(self._pipeline._decoded) if decoded else []
+        if self._pipeline._literal is not None:
+            observers.append(self._pipeline._literal)
+        for observer in observers:
+            for record in observer.matches():
+                self._stats.coverage_checks += 1
+                yield record
+
     def literal_secrets(self) -> tuple[SecretMatch, ...]:
         """Literal (undecoded) secret matches still retained."""
         return _dedupe_secret_matches(self._pipeline.literal_secrets())
@@ -1383,7 +1474,7 @@ class IncrementalRecognizer:
             raise TypeError("text must be a string")
         match = self._pipeline.matches()
         if match is not None:
-            start, _start_end, _colon, _colon_end = match
+            start = match[0]
             relative = max(start - self._committed, 0)
             end = _find_terminator(text, relative)
             return RecognitionResult.matched(

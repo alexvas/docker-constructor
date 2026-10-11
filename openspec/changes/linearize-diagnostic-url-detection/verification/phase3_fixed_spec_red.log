@@ -1,0 +1,25 @@
+bringing up nodes...
+bringing up nodes...
+
+..F......F.uu.........................                                   [100%]
+=================================== FAILURES ===================================
+___ Phase3Tests.test_clean_eof_resolves_earlier_crossing_secret_as_non_match ___
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:483: in test_clean_eof_resolves_earlier_crossing_secret_as_non_match
+    self.assertEqual("X<redacted>", "".join(p.finish()))
+E   AssertionError: 'X<redacted>' != '[sanitized incomplete token]<redacted>'
+E   - X<redacted>
+E   + [sanitized incomplete token]<redacted>
+______ Phase3Tests.test_crossing_secret_outcomes_are_partition_invariant _______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:493: in test_crossing_secret_outcomes_are_partition_invariant
+    self.assertEqual(expected, baseline[0])
+E   AssertionError: 'X<redacted>' != '[sanitized incomplete token]<redacted>'
+E   - X<redacted>
+E   + [sanitized incomplete token]<redacted>
+=========================== short test summary info ============================
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_clean_eof_resolves_earlier_crossing_secret_as_non_match
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_crossing_secret_outcomes_are_partition_invariant
+2 failed, 34 passed, 2 subtests passed in 4.54s
+
+Exit status: 1

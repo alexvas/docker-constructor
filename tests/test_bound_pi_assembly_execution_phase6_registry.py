@@ -34,6 +34,36 @@ from docker.versioning.inventory import load_inventory
 from tests.phase6_acceptance_harness import LocalRegistryProxy, make_lock, make_package
 
 
+class TestRegistryProxyCleanup(unittest.TestCase):
+    def test_cleanup_releases_waiters_before_loop_can_close(self):
+        # Reproduce the race deterministically: the registry loop completes
+        # shutdown before the owner can schedule another callback.
+        proxy = LocalRegistryProxy(make_package(), Path("unused-registry-root"))
+        proxy._server = mock.Mock()
+        proxy._loop = mock.Mock()
+        proxy._thread = mock.Mock()
+        proxy._thread.is_alive.return_value = False
+        closed = False
+
+        def schedule(callback):
+            nonlocal closed
+            if closed:
+                raise RuntimeError("Event loop is closed")
+            callback()
+            closed = True
+
+        released_at_close = []
+        proxy._loop.call_soon_threadsafe.side_effect = schedule
+        proxy._server.close.side_effect = lambda: released_at_close.append(
+            proxy.controller.release.is_set())
+        proxy.__exit__(None, None, None)
+        self.assertTrue(closed)
+        self.assertEqual([True], released_at_close)
+        proxy._loop.call_soon_threadsafe.assert_called_once_with(proxy._server.close)
+        proxy._thread.join.assert_called_once_with(10)
+        proxy._thread.is_alive.assert_called_once_with()
+
+
 class TestPhase6RegistryHarness(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory(prefix="phase6-registry-")

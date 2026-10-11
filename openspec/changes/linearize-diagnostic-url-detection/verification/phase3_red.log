@@ -1,0 +1,278 @@
+bringing up nodes...
+bringing up nodes...
+
+FF..FFFFFFFFFFF.F.FFFFFFFFFFFFFF                                         [100%]
+=================================== FAILURES ===================================
+____ Phase3Tests.test_all_search_instances_are_counted_even_across_recovery ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:342: in test_all_search_instances_are_counted_even_across_recovery
+    p = self.projector(("TOKENht",))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+_________ Phase3Tests.test_authority_waits_for_userinfo_ipv6_and_port __________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:127: in test_authority_waits_for_userinfo_ipv6_and_port
+    p = self.projector(host_path=True)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+_________ Phase3Tests.test_completed_display_has_no_abort_token_marker _________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:173: in test_completed_display_has_no_abort_token_marker
+    p = self.projector(host_path=True)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+____________ Phase3Tests.test_completed_url_precedes_ambiguous_tail ____________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:73: in test_completed_url_precedes_ambiguous_tail
+    p = self.projector()
+        ^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+______ Phase3Tests.test_component_secret_settlement_and_crossing_coverage ______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:133: in test_component_secret_settlement_and_crossing_coverage
+    p = self.projector(("host/path",), host_path=True)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+_____ Phase3Tests.test_cumulative_work_includes_repeated_overflow_recovery _____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:307: in test_cumulative_work_includes_repeated_overflow_recovery
+    p = self.projector(("password done",))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+_____________ Phase3Tests.test_every_split_and_utf8_byte_partition _____________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:108: in test_every_split_and_utf8_byte_partition
+    baseline = self.project(text, secrets)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:33: in project
+    p = self.projector(secrets, host_path=host_path)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+_______ Phase3Tests.test_exact_retention_and_independent_prefix_delivery _______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:51: in test_exact_retention_and_independent_prefix_delivery
+    p = self.projector()
+        ^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+___________ Phase3Tests.test_fingerprint_order_waits_for_completion ____________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:228: in test_fingerprint_order_waits_for_completion
+    p = self.projector()
+        ^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+___ Phase3Tests.test_host_and_path_commit_independently_without_early_facts ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:115: in test_host_and_path_commit_independently_without_early_facts
+    p = self.projector(host_path=True)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+___________ Phase3Tests.test_host_commit_survives_abort_and_overflow ___________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:163: in test_host_commit_survives_abort_and_overflow
+    p = self.projector(host_path=True)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+_______________ Phase3Tests.test_host_path_partition_invariance ________________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:145: in test_host_path_partition_invariance
+    baseline = self.project(text, secrets, host_path=True)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:33: in project
+    p = self.projector(secrets, host_path=host_path)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+_ Phase3Tests.test_leftmost_longest_selection_survives_pending_and_overlapping_patterns _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:450: in test_leftmost_longest_selection_survives_pending_and_overlapping_patterns
+    self.assertEqual(expected, self.project(text, secrets)[0])
+                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:33: in project
+    p = self.projector(secrets, host_path=host_path)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+___ Phase3Tests.test_legacy_long_run_copy_and_encoding_workloads_are_linear ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:414: in test_legacy_long_run_copy_and_encoding_workloads_are_linear
+    p = self.projector(secrets)
+        ^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+_ Phase3Tests.test_legacy_regex_and_payload_map_helpers_are_not_production_fallbacks _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:441: in test_legacy_regex_and_payload_map_helpers_are_not_production_fallbacks
+    result = self.project("pre h%74tps%3A%2F%2Fh.example/x end", host_path=host_path)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:33: in project
+    p = self.projector(secrets, host_path=host_path)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+________ Phase3Tests.test_lifetime_work_state_and_single_payload_owner _________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:203: in test_lifetime_work_state_and_single_payload_owner
+    p = self.projector(("TOKENht", "%", "password done"))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+___ Phase3Tests.test_literal_secret_crossing_url_start_is_prompt_and_ordered ___
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:246: in test_literal_secret_crossing_url_start_is_prompt_and_ordered
+    expected = self.project(text, ("Xhttps",))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:33: in project
+    p = self.projector(secrets, host_path=host_path)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+_____ Phase3Tests.test_overflow_recovery_observes_boundary_without_replay ______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:188: in test_overflow_recovery_observes_boundary_without_replay
+    p = self.projector(("password done",))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+__________ Phase3Tests.test_partial_separators_keep_fail_closed_rules __________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:180: in test_partial_separators_keep_fail_closed_rules
+    p = self.projector()
+        ^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+__ Phase3Tests.test_pending_secret_at_eof_cannot_release_unsettled_components __
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:251: in test_pending_secret_at_eof_cannot_release_unsettled_components
+    p = self.projector(("host/path",), host_path=True)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+____ Phase3Tests.test_redacted_early_marker_survives_eof_abort_and_overflow ____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:152: in test_redacted_early_marker_survives_eof_abort_and_overflow
+    p = self.projector()
+        ^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+_________ Phase3Tests.test_secret_crossing_url_end_never_leaks_suffix __________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:91: in test_secret_crossing_url_end_never_leaks_suffix
+    p = self.projector(("password done",))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+_ Phase3Tests.test_secret_ending_in_raw_boundary_does_not_suppress_unrelated_facts _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:401: in test_secret_ending_in_raw_boundary_does_not_suppress_unrelated_facts
+    result = self.project("TOKEN https://host/public end", ("TOKEN ",))
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:33: in project
+    p = self.projector(secrets, host_path=host_path)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+____ Phase3Tests.test_secret_prefix_commit_preserves_overlapping_url_state _____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:82: in test_secret_prefix_commit_preserves_overlapping_url_state
+    p = self.projector(("TOKENht",))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+_________ Phase3Tests.test_single_percent_finalization_and_idempotence _________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:274: in test_single_percent_finalization_and_idempotence
+    p = self.projector(("%",))
+        ^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+_ Phase3Tests.test_two_products_share_one_collector_raw_owner_and_line_overflow _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:287: in test_two_products_share_one_collector_raw_owner_and_line_overflow
+    stream = NpmDiagnosticStream(HostDiagnosticStream.STDERR,
+docker/versioning/npm_diagnostic_stream.py:219: in __init__
+    self._projector = DiagnosticProjector(
+E   TypeError: DiagnosticProjector.__init__() got an unexpected keyword argument 'url_display'
+_________ Phase3Tests.test_unknown_text_is_not_an_unbounded_candidate __________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:58: in test_unknown_text_is_not_an_unbounded_candidate
+    p = self.projector()
+        ^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+_________ Phase3Tests.test_utf8_pending_limit_applies_to_whole_buffer __________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognizer_phase3.py:237: in test_utf8_pending_limit_applies_to_whole_buffer
+    p = self.projector(host_path=True)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_diagnostic_recognizer_phase3.py:28: in projector
+    self.fail("P3 requires projector lifetime recognition counters")
+E   AssertionError: P3 requires projector lifetime recognition counters
+=========================== short test summary info ============================
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_all_search_instances_are_counted_even_across_recovery
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_authority_waits_for_userinfo_ipv6_and_port
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_completed_display_has_no_abort_token_marker
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_completed_url_precedes_ambiguous_tail
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_component_secret_settlement_and_crossing_coverage
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_cumulative_work_includes_repeated_overflow_recovery
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_every_split_and_utf8_byte_partition
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_exact_retention_and_independent_prefix_delivery
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_fingerprint_order_waits_for_completion
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_host_and_path_commit_independently_without_early_facts
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_host_commit_survives_abort_and_overflow
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_host_path_partition_invariance
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_leftmost_longest_selection_survives_pending_and_overlapping_patterns
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_legacy_long_run_copy_and_encoding_workloads_are_linear
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_legacy_regex_and_payload_map_helpers_are_not_production_fallbacks
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_lifetime_work_state_and_single_payload_owner
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_literal_secret_crossing_url_start_is_prompt_and_ordered
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_overflow_recovery_observes_boundary_without_replay
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_partial_separators_keep_fail_closed_rules
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_pending_secret_at_eof_cannot_release_unsettled_components
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_redacted_early_marker_survives_eof_abort_and_overflow
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_secret_crossing_url_end_never_leaks_suffix
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_secret_ending_in_raw_boundary_does_not_suppress_unrelated_facts
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_secret_prefix_commit_preserves_overlapping_url_state
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_single_percent_finalization_and_idempotence
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_two_products_share_one_collector_raw_owner_and_line_overflow
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_unknown_text_is_not_an_unbounded_candidate
+FAILED tests/test_diagnostic_recognizer_phase3.py::Phase3Tests::test_utf8_pending_limit_applies_to_whole_buffer
+28 failed, 4 passed in 1.17s
+
+[P3 RED exit status: 1]

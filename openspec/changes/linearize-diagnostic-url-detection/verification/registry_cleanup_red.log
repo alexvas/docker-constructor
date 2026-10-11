@@ -1,0 +1,28 @@
+bringing up nodes...
+bringing up nodes...
+
+F....sssssss                                                             [100%]
+=================================== FAILURES ===================================
+_ TestRegistryProxyCleanup.test_cleanup_releases_waiters_before_loop_can_close _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_bound_pi_assembly_execution_phase6_registry.py:59: in test_cleanup_releases_waiters_before_loop_can_close
+    proxy.__exit__(None, None, None)
+tests/phase6_acceptance_harness.py:154: in __exit__
+    self._loop.call_soon_threadsafe(self.controller.release.set)
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/mock.py:1176: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/mock.py:1180: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/unittest/mock.py:1247: in _execute_mock_call
+    result = effect(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_bound_pi_assembly_execution_phase6_registry.py:51: in schedule
+    raise RuntimeError("Event loop is closed")
+E   RuntimeError: Event loop is closed
+=========================== short test summary info ============================
+FAILED tests/test_bound_pi_assembly_execution_phase6_registry.py::TestRegistryProxyCleanup::test_cleanup_releases_waiters_before_loop_can_close
+1 failed, 4 passed, 7 skipped in 1.22s
+
+Exit status: 1

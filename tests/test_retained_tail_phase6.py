@@ -610,13 +610,15 @@ class TestFailureContextChannels(unittest.TestCase):
                         "npm status https://registry.npmjs.org/pkg.tgz",
                         capture.stdout_tail,
                     )
+                elif mode is NetworkUrlDisplay.REDACTED:
+                    self.assertEqual("npm status <redacted>", capture.stdout_tail)
+                    self.assertNotIn(INCOMPLETE_TOKEN_MARKER, capture.stdout_tail)
                 else:
-                    self.assertIn(
-                        INCOMPLETE_TOKEN_MARKER, capture.stdout_tail
+                    self.assertEqual(
+                        f"npm status registry.npmjs.org{INCOMPLETE_TOKEN_MARKER}",
+                        capture.stdout_tail,
                     )
-                    self.assertNotIn(
-                        "registry.npmjs.org", capture.stdout_tail
-                    )
+                    self.assertNotIn("/pkg.tgz", capture.stdout_tail)
 
     def test_json_failure_tail_is_mode_selected_and_one_document(self):
         for mode, expected in EXPECTED.items():
@@ -1166,12 +1168,13 @@ class TestSingleBufferOwnership(unittest.TestCase):
                 # The alternate projector owns no retained tail buffer.
                 alternate = stream._retained_projector
                 if mode is NetworkUrlDisplay.HOST_PATH:
-                    self.assertIsNotNone(alternate)
-                    self.assertFalse(
-                        any(
-                            isinstance(value, collections.deque)
-                            for value in vars(alternate).values()
-                        )
+                    self.assertIs(alternate, stream._projector)
+                    # Two display products share exactly one raw owner;
+                    # this deque is pending source, not another retained tail.
+                    self.assertEqual(
+                        ["_buffer"],
+                        [name for name, value in vars(alternate).items()
+                         if isinstance(value, collections.deque)],
                     )
                 else:
                     self.assertIsNone(alternate)

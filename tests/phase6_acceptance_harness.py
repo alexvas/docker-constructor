@@ -149,9 +149,12 @@ class LocalRegistryProxy:
         return f"http://{host_access_address}:{self.port}"
 
     def __exit__(self, *_: object) -> None:
+        # This is a threading.Event, not an asyncio.Event. Release paused
+        # response workers directly before requesting server shutdown: closing
+        # the server can finish asyncio.run() and close its loop immediately.
+        self.controller.release.set()
         if self._loop and self._server:
             self._loop.call_soon_threadsafe(self._server.close)
-            self._loop.call_soon_threadsafe(self.controller.release.set)
         if self._thread:
             self._thread.join(10)
             if self._thread.is_alive():

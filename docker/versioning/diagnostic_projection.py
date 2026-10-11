@@ -1,53 +1,32 @@
-"""Boundary-safe, output-policy-independent diagnostic projection.
+"""Boundary-safe diagnostic projection with replay-free source coordination.
 
-Phase 2 of ``improve-host-build-observability`` introduces one shared
-projection layer for host-pipeline diagnostics.  It:
+The internal coordinator owns one UTF-8-byte-accounted raw deque (8 KiB for
+all pending source), and one persistent supported-URL / literal / decoded
+secret recognizer. Commits and overflow never reconstruct or re-feed source.
+Only supported schemes are hidden; unknown schemes stay literal-only text.
 
-* validates logical host-resource context against the closed reviewed asset
-  names and the fixed ``npm-assembler-<digest-prefix>`` container form;
-* applies the existing deterministic secret redaction and then incrementally
-  identifies URL-shaped tokens across arbitrary decoder/chunk boundaries,
-  including percent-encoded scheme characters (``h%74tps``,
-  ``%68%74%74%70%73``) and percent-encoded scheme separators (``%3A%2F%2F``),
-  applying percent-decoding in bounded repeated passes so nested-encoded forms
-  such as ``https%253A%252F%252Fhost`` are detected as well, and withholding
-  any syntactically valid scheme prefix (not only a fixed scheme list) until a
-  safe boundary disambiguates it;
-* removes each complete URL from text and records only its normalized hostname
-  separately, discarding scheme, port, user information, path, query,
-  fragment, and proxy details, and suppresses that hostname fact whenever it
-  canonically matches a registered secret -- after the same bounded percent
-  decoding applied to diagnostic URL candidates and with the same case,
-  trailing-dot, and IDNA normalization -- so an uppercase, encoded, or IDN
-  proxy secret cannot leak its host;
-* additionally derives a bounded internal :class:`SafeHostPath` fact
-  (normalized hostname plus a canonical safe encoded path) for local
-  presentation only, excluding scheme, user information, explicit port, query,
-  fragment, and proxy detail, never decoding percent-encoded controls into
-  active text, percent-encoding every raw non-ASCII character (including bidi
-  and format controls such as U+202E) from its UTF-8 bytes, and failing closed
-  to :data:`REDACTED_PATH_MARKER` when the path is ambiguous, secret-bearing,
-  or otherwise unsafe.  This fact is deliberately absent from the external SDK
-  DTO, evidence, persistence, and semantic identities;
-* keeps ambiguous trailing URL/secret state in a pending buffer capped at
-  8 KiB, appending only UTF-8-byte-bounded slices so a multibyte feed cannot
-  transiently exceed the bound, emitting the fixed
-  ``sanitized oversized token`` marker and
-  discarding through the next safe boundary, and finalizing unresolved
-  candidates with the fixed ``sanitized incomplete token`` marker: at clean
-  EOF a syntactically complete URL is still removed with its hostname fact
-  while an entered separator or a partial secret fails closed, and a bare
-  scheme-like word is flushed unchanged, whereas reader failure or
-  cancellation fails closed for every ambiguous URL or encoded-scheme prefix;
-* projects deterministic exception-type chains of at most four unique names
-  without evaluating exception messages; and
-* never accepts output policy: an optional low-level ``url_formatter`` can
-  render an already-validated :class:`SafeHostPath` fact for the selected
-  local tail, while every safety decision and the default URL-free external
-  projection stay in the projector.
+Redacted rendering commits one irreversible marker at the complete separator,
+except that an earlier unresolved literal secret prefix crossing the separator
+must settle first to preserve source order. Clean EOF resolves that crossing
+prefix as a non-match (``Xhttps://ho`` with secret ``Xhttps://host`` becomes
+``X<redacted>``); other incomplete prefixes, abort and overflow keep existing
+fail-closed rules. Host/path rendering commits secret-settled validated components separately.
+Standalone secrets become ``<secret>``. Rendering does not grant facts: source
+validation, secret coverage and metadata completion are independent frontiers.
+EOF/abort/overflow preserve committed products, marking only an uncovered
+unresolved display remainder. Synthetic line-overflow markers bypass source
+recognition, while bounded continuation state protects crossing secrets.
 
-The module is deliberately free of transport, Docker, filesystem, and
-presentation dependencies.
+An explicit internal safe display selector replaces the legacy formatter.
+The collector can drain a transient redacted product from the same coordinator
+as host/path output; neither SDK delivery nor recognition owns another raw
+payload or retained failure tail. Exact local delivery remains the collector's
+terminal-safe source route, outside content substitution.
+
+Validation/canonicalization helpers below operate on bounded settled URL
+snapshots, not growing search buffers. Historical private batch recognizers
+are not production fallbacks (P3 tests deliberately make them raise).
+Logical resources and exception-type projection retain their existing rules.
 """
 from __future__ import annotations
 
@@ -57,7 +36,10 @@ import json
 import re
 import urllib.parse
 from dataclasses import dataclass
-from typing import Callable, Sequence
+from typing import Sequence
+
+from docker.versioning.diagnostic_coordinator import CoordinatedProjection
+from docker.versioning.model import NetworkUrlDisplay
 
 from docker.npm_environment.streaming import (
     REDACTED,
@@ -1013,17 +995,14 @@ def _host_contains_secret(host: str, secrets: tuple[str, ...]) -> bool:
     return False
 
 
-class DiagnosticProjector:
+class DiagnosticProjector(CoordinatedProjection):
     """Incremental, boundary-safe URL/secret projector for host diagnostics.
 
-    The projector owns a pending buffer whose retained UTF-8 byte length never
-    exceeds :data:`PENDING_LIMIT_BYTES`.  It decodes UTF-8 incrementally, so
-    multibyte characters split across chunks stay intact, and it withholds
-    only the shortest ambiguous trailing suffix needed by secret overlap and
-    partial URL-scheme detection.  It never buffers an entire unbounded token
-    while waiting for a delimiter: an oversized candidate is replaced by
-    :data:`OVERSIZED_TOKEN_MARKER` and its remainder is discarded through the
-    next safe token boundary before normal processing resumes.
+    The coordinator retains exactly the unresolved source needed for overlap,
+    component settlement or bounded metadata. Rendering may commit before raw
+    ownership advances. UTF-8 decoding and byte accounting are incremental;
+    recognition counters survive every commit and recovery. Overflow abandons
+    metadata without replacing an already-covered redacted URL or component.
     """
 
     def __init__(
@@ -1031,22 +1010,19 @@ class DiagnosticProjector:
         secrets: Sequence[str] = (),
         *,
         url_identity: SessionUrlIdentity | None = None,
-        url_formatter: Callable[[SafeHostPath], str] | None = None,
+        url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED,
+        capture_redacted: bool = False,
     ) -> None:
         if url_identity is not None and not isinstance(url_identity, SessionUrlIdentity):
             raise TypeError("url_identity must be a SessionUrlIdentity or None")
-        if url_formatter is not None and not callable(url_formatter):
-            raise TypeError("url_formatter must be callable or None")
         self._secrets = dedupe_secrets(secrets)
         self._longest = longest_secret_length(self._secrets)
         self._decoder = codecs.getincrementaldecoder("utf-8")("replace")
-        self._pending = ""
-        self._overflow = False
+        self._init_coordination(url_display, capture_redacted)
         self._eof = False
         self._hostnames: list[str] = []
         self._host_paths: list[SafeHostPath] = []
         self._url_identity = url_identity
-        self._url_formatter = url_formatter
         self._fingerprints: list[str] = []
 
     # -- public surface -------------------------------------------------
@@ -1070,46 +1046,16 @@ class DiagnosticProjector:
     def finish(self, *, abort: bool = False) -> tuple[str, ...]:
         """Flush the decoder and finalize any pending candidate.
 
-        A pending URL or secret candidate is never flushed as ordinary text;
-        it becomes exactly :data:`INCOMPLETE_TOKEN_MARKER`.  The one
-        exception is a syntactically complete URL that ends exactly at a
-        clean EOF: it is removed like any other URL and keeps its normalized
-        hostname fact, because it can no longer grow into a different token.
-        Only at clean EOF may a bare, still syntactically valid scheme prefix
-        (``git``) be ordinary text, and it is then flushed unchanged.  When
-        *abort* is set the stream ended through reader failure or
-        cancellation, so every pending candidate -- including a complete URL
-        -- fails closed and no hostname fact is emitted.
+        Flush percent state once. Clean EOF may validate an uncommitted
+        component and complete metadata; abort grants no pending URL facts.
+        Existing ambiguous-prefix rules apply before separator detection.
+        Clean EOF resolves an earlier incomplete literal secret crossing a
+        recognized separator as a non-match, releasing preceding ordinary
+        source and exactly one URL marker; abort/overflow remain fail-closed.
+        Committed redacted URLs/components are never retracted or duplicated;
+        only unresolved uncovered display receives an incomplete marker.
         """
-        if self._eof:
-            return ()
-        self._eof = True
-        chunks = list(self._feed(self._decoder.decode(b"", final=True)))
-        if self._overflow:
-            # The oversized candidate was already replaced and its remainder
-            # discarded; nothing further is emitted for it.
-            self._pending = ""
-            self._overflow = False
-            return tuple(chunks)
-        if self._pending:
-            if (
-                not abort
-                and not _secret_overlap_hold(
-                    self._pending, self._secrets, self._longest
-                )
-                and _is_complete_url_at_eof(self._pending)
-            ):
-                chunks.append(self._sanitize_candidate(self._pending))
-            elif _unresolved_candidate(
-                self._pending, self._secrets, self._longest, abort=abort
-            ):
-                chunks.append(INCOMPLETE_TOKEN_MARKER)
-            else:
-                # Clean EOF: a bare scheme-like suffix (``git``) is ordinary
-                # text because it never became a URL.
-                chunks.append(self._pending)
-            self._pending = ""
-        return tuple(chunks)
+        return super().finish(abort=abort)
 
     @property
     def hostnames(self) -> tuple[str, ...]:
@@ -1166,129 +1112,13 @@ class DiagnosticProjector:
     @property
     def pending_size(self) -> int:
         """Retained ambiguous pending state in UTF-8 bytes."""
-        return len(self._pending.encode("utf-8"))
+        return self._pending_bytes
 
     # -- internals ------------------------------------------------------
 
     def _reject_if_finished(self) -> None:
         if self._eof:
             raise RuntimeError("projector is already finished")
-
-    def _feed(self, text: str) -> tuple[str, ...]:
-        """Append *text* within the retained-state bound.
-
-        Input is consumed in UTF-8 byte-bounded slices and never appended past
-        :data:`PENDING_LIMIT_BYTES`, so a multibyte slice cannot transiently
-        exceed the limit.  When the next character cannot fit, the unresolved
-        candidate is oversized: it is replaced by
-        :data:`OVERSIZED_TOKEN_MARKER` and its remainder is discarded through
-        the next safe boundary before processing resumes.
-        """
-        chunks: list[str] = []
-        offset = 0
-        length = len(text)
-        while offset < length:
-            room = PENDING_LIMIT_BYTES - len(self._pending.encode("utf-8"))
-            if room <= 0:
-                chunks.extend(self._begin_overflow())
-                continue
-            piece, offset = _take_utf8_prefix(
-                text, offset, min(_FEED_SLICE_BYTES, room)
-            )
-            if not piece:
-                # The remaining room cannot hold the next character, so the
-                # retained candidate cannot grow without breaking the bound.
-                chunks.extend(self._begin_overflow())
-                continue
-            self._pending += piece
-            chunks.extend(self._drain())
-        return tuple(chunks)
-
-    def _begin_overflow(self) -> list[str]:
-        """Replace an unretainable candidate and discard through a boundary."""
-        self._pending = ""
-        self._overflow = True
-        return [OVERSIZED_TOKEN_MARKER, *self._drain()]
-
-    def _drain(self) -> list[str]:
-        chunks: list[str] = []
-        while self._pending:
-            if self._overflow:
-                boundary = _find_terminator(self._pending)
-                if boundary is None:
-                    self._pending = ""
-                    break
-                self._pending = self._pending[boundary:]
-                self._overflow = False
-                continue
-
-            secret = _leftmost_secret_match(self._pending, self._secrets)
-            url_index = _find_url_start(self._pending)
-            secret_index = secret[0] if secret is not None else None
-
-            if url_index is not None and (
-                secret_index is None or url_index <= secret_index
-            ):
-                if url_index:
-                    chunks.append(self._pending[:url_index])
-                    self._pending = self._pending[url_index:]
-                    continue
-                boundary = _find_terminator(self._pending)
-                if boundary is None:
-                    break
-                chunks.append(self._sanitize_candidate(self._pending[:boundary]))
-                self._pending = self._pending[boundary:]
-                continue
-
-            if secret is not None:
-                assert secret_index is not None
-                if secret_index:
-                    chunks.append(self._pending[:secret_index])
-                    self._pending = self._pending[secret_index:]
-                    continue
-                chunks.append(REDACTED)
-                self._pending = self._pending[secret[1] :]
-                continue
-
-            hold = _ambiguous_hold(self._pending, self._secrets, self._longest)
-            if hold:
-                emit = self._pending[:-hold]
-                if emit:
-                    chunks.append(emit)
-                self._pending = self._pending[-hold:]
-                break
-
-            chunks.append(self._pending)
-            self._pending = ""
-        return chunks
-
-    def _sanitize_candidate(self, candidate: str) -> str:
-        layer = _candidate_url_layer(candidate)
-        host = _normalized_host(layer) if layer is not None else None
-        fact: SafeHostPath | None = None
-        if (
-            layer is not None
-            and host is not None
-            and not _host_contains_secret(host, self._secrets)
-        ):
-            if host not in self._hostnames:
-                self._hostnames.append(host)
-            fact = _safe_host_path(layer, host, self._secrets)
-            if fact not in self._host_paths:
-                self._host_paths.append(fact)
-            if self._url_identity is not None:
-                digest_input = _canonical_url_identity(candidate)
-                if digest_input is not None:
-                    self._fingerprints.append(
-                        self._url_identity.fingerprint(digest_input)
-                    )
-        if fact is None or self._url_formatter is None:
-            return REDACTED
-        # An alternate render of one already-validated safe host/path fact.
-        # This is a low-level rendering hook only; the projector still owns
-        # every safety decision and never receives facade output policy.
-        return self._url_formatter(fact)
-
 
 def sanitize_diagnostic_text(
     text: str, secrets: Sequence[str] = ()

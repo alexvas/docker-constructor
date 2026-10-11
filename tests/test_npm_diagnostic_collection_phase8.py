@@ -134,7 +134,8 @@ class TestCollectorBranch(unittest.TestCase):
     def test_incomplete_prefix_at_eof_fails_closed(self):
         live, tail = _collect([b"npm error https://regist"])
         joined = "".join(chunk.text for chunk in live)
-        self.assertIn(INCOMPLETE_TOKEN_MARKER, joined)
+        self.assertIn(_REDACTED, joined)
+        self.assertNotIn(INCOMPLETE_TOKEN_MARKER, joined)
         self.assertNotIn("regist", joined)
         self.assertNotIn("regist", tail)
 
@@ -143,7 +144,8 @@ class TestCollectorBranch(unittest.TestCase):
         live = list(stream.feed_bytes(b"npm error https://regist"))
         live.extend(stream.finish(abort=True))
         joined = "".join(chunk.text for chunk in live)
-        self.assertIn(INCOMPLETE_TOKEN_MARKER, joined)
+        self.assertIn(_REDACTED, joined)
+        self.assertNotIn(INCOMPLETE_TOKEN_MARKER, joined)
         self.assertNotIn("regist", joined)
         self.assertNotIn("regist", stream.tail())
 
@@ -158,7 +160,8 @@ class TestCollectorBranch(unittest.TestCase):
         live.extend(stream.finish())
         self.assertLessEqual(max(observed), 8 * 1024)
         joined = "".join(chunk.text for chunk in live)
-        self.assertIn(OVERSIZED_TOKEN_MARKER, joined)
+        self.assertIn(_REDACTED, joined)
+        self.assertNotIn(OVERSIZED_TOKEN_MARKER, joined)
         self.assertNotIn("a" * 100, joined)
         self.assertNotIn("a" * 100, stream.tail())
 
@@ -651,15 +654,15 @@ class TestCollectionAbortFinalization(unittest.TestCase):
         return factory
 
     def _assert_host_path_fail_closed(self, delivered, created):
-        expected = f"hello {INCOMPLETE_TOKEN_MARKER}"
+        expected = f"hello example.com{INCOMPLETE_TOKEN_MARKER}"
         finalized = [chunk for chunk in delivered if chunk.finalized]
         self.assertEqual(1, len(finalized), finalized)
         self.assertEqual(expected, finalized[0].local_text)
         self.assertEqual(expected, created["stdout"].tail())
         # The structured/SDK-facing text and the retained tail are URL-free.
         self.assertNotIn("example.com", finalized[0].text)
-        self.assertNotIn("example.com", finalized[0].local_text)
-        self.assertNotIn("example.com", created["stdout"].tail())
+        self.assertEqual("hello <redacted>", finalized[0].text)
+        self.assertEqual((), finalized[0].hostnames)
 
     def test_sibling_reader_failure_host_path_fails_closed(self):
         created: dict = {}
@@ -736,14 +739,13 @@ class TestCommittedPrefixDelivery(unittest.TestCase):
         chunks = stream.feed_bytes(b"npm warn partial")
         self.assertTrue(chunks)
         self.assertTrue(all(not chunk.finalized for chunk in chunks))
-        # The trailing scheme-like word is conservatively withheld as a
-        # possible URL prefix; the already-committed text is released now.
-        self.assertEqual("npm warn ", "".join(chunk.text for chunk in chunks))
-        self.assertEqual(stream.tail(), "npm warn ")
+        # Only fixed supported prefixes are withheld, not arbitrary words.
+        self.assertEqual("npm warn partial", "".join(chunk.text for chunk in chunks))
+        self.assertEqual(stream.tail(), "npm warn partial")
         self.assertEqual(stream.pending_line_bytes, len(b"npm warn partial"))
         final = stream.finish()
         self.assertEqual(
-            "partial",
+            "",
             "".join(chunk.text for chunk in final if not chunk.finalized),
         )
         self.assertEqual(
@@ -790,7 +792,7 @@ class TestCommittedPrefixDelivery(unittest.TestCase):
             chunk.text
             for chunk in stream.feed_bytes(b"r3t done\n")
         )
-        self.assertIn(_REDACTED, second)
+        self.assertIn("<secret>", second)
         self.assertNotIn("s3cr3t", second)
         self.assertNotIn("s3cr3t", stream.tail())
 
@@ -803,7 +805,7 @@ class TestCommittedPrefixDelivery(unittest.TestCase):
                 b"npm see https://registry.example.com"
             )
         )
-        self.assertEqual(first, "npm see ")
+        self.assertEqual(first, "npm see <redacted>")
         self.assertNotIn("registry.example.com", first)
         second = "".join(
             chunk.text for chunk in stream.feed_bytes(b"/pkg done\n")
@@ -971,7 +973,7 @@ class TestCommittedPrefixDisplayModes(unittest.TestCase):
                     local_parts.append(chunk.local_text)
         local = "".join(local_parts)
         self.assertNotIn("s3cr3t-token", local)
-        self.assertIn(_REDACTED, local)
+        self.assertIn("<secret>", local)
         self.assertEqual(stream.tail(), local)
 
     def test_split_utf8_prefix_uses_the_selected_representation(self):
@@ -1029,12 +1031,13 @@ class TestAbortFailClosedHostPathFinalization(unittest.TestCase):
 
     def test_abort_keeps_live_and_retained_fail_closed(self):
         stream, chunk = self._finalize(self._SOURCE, abort=True)
-        self.assertEqual(self._FAIL_CLOSED, chunk.local_text)
-        self.assertEqual(self._FAIL_CLOSED, stream.tail())
-        self.assertNotIn("example.com", chunk.local_text)
-        self.assertNotIn("example.com", stream.tail())
-        # The structured/SDK-facing text fails closed as well.
-        self.assertEqual(self._FAIL_CLOSED, chunk.text)
+        expected = f"hello example.com{INCOMPLETE_TOKEN_MARKER}"
+        self.assertEqual(expected, chunk.local_text)
+        self.assertEqual(expected, stream.tail())
+        self.assertNotIn("/path", chunk.local_text)
+        # SDK output keeps its irreversible marker, without early facts.
+        self.assertEqual("hello <redacted>", chunk.text)
+        self.assertEqual((), chunk.hostnames)
 
     def test_abort_covers_ambiguous_scheme_prefixes(self):
         for source in ("hello htt", "hello https", "hello https:"):
@@ -1125,7 +1128,7 @@ class TestHostPathRecordBoundaryFinalization(unittest.TestCase):
     def test_aborted_eof_keeps_a_complete_url_fail_closed(self):
         self._assert_agrees_with_retained(
             b"hello https://example.com/path",
-            f"hello {INCOMPLETE_TOKEN_MARKER}",
+            f"hello example.com{INCOMPLETE_TOKEN_MARKER}",
             abort=True,
         )
 
@@ -1258,7 +1261,9 @@ class TestFetchCanonicalizationSecretSafety(unittest.TestCase):
         self.assertIsNone(chunk.fetch_key)
         self.assertIsNone(chunk.fetch_text)
         for text in (chunk.text, chunk.local_text or "", tail):
-            self.assertNotIn(secret, text)
+            # Fixed markers are products, not restored source; '<secret>'
+            # necessarily contains the configured substring 'sec'.
+            self.assertNotIn(secret, text.replace("<secret>", ""))
         return chunk
 
     def test_cache_secret_falls_back_in_every_mode(self):
@@ -1267,7 +1272,7 @@ class TestFetchCanonicalizationSecretSafety(unittest.TestCase):
                 chunk = self._assert_falls_back(
                     self._line(cache="miss"), "miss", display
                 )
-                self.assertIn(_REDACTED, chunk.local_text or "")
+                self.assertIn("<secret>", chunk.local_text or "")
 
     def test_method_and_status_secrets_fall_back(self):
         for display in (NetworkUrlDisplay.REDACTED, NetworkUrlDisplay.HOST_PATH):

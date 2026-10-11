@@ -847,18 +847,19 @@ class TestPresentationIsolation(unittest.TestCase):
                 ),
                 network_url_display=NetworkUrlDisplay.HOST_PATH,
             )
-        expected = f"hello {INCOMPLETE_TOKEN_MARKER}"
+        expected = f"hello example.com{INCOMPLETE_TOKEN_MARKER}"
         self.assertEqual(1, len(internal.envelopes))
         self.assertEqual(expected, internal.envelopes[0].text)
-        self.assertNotIn("example.com", internal.envelopes[0].text)
+        self.assertNotIn("/path", internal.envelopes[0].text)
         structured = [
             event
             for event in sdk_events
             if isinstance(event, HostStructuredDiagnostic)
         ]
         self.assertEqual(1, len(structured))
-        self.assertEqual(expected, structured[0].text)
+        self.assertEqual("hello <redacted>", structured[0].text)
         self.assertNotIn("example.com", structured[0].text)
+        self.assertEqual((), structured[0].hostnames)
         retained = getattr(ctx.exception, RETAINED_CAPTURE_ATTR)
         self.assertEqual(expected, retained.stdout_tail)
 
@@ -1333,7 +1334,7 @@ class TestFetchCanonicalizationSecretSafety(unittest.TestCase):
                     )
                     self.assertNotIn(self._SECRET, rendered)
                     # The sanitized ordinary diagnostic is still visible.
-                    self.assertIn(REDACTED, rendered)
+                    self.assertIn("<secret>", rendered)
                     self.assertIn("npm http fetch GET 200", rendered)
 
 

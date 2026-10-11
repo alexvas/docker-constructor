@@ -241,7 +241,7 @@ class TestConfidentialityPreserved(unittest.TestCase):
         safe, hostnames = sanitize_diagnostic_text(
             "token=topsecret", secrets=("topsecret",)
         )
-        self.assertEqual("token=<redacted>", safe)
+        self.assertEqual("token=<secret>", safe)
         self.assertEqual((), hostnames)
         self.assertEqual((), _facts("token=topsecret", secrets=("topsecret",)))
 
@@ -372,8 +372,8 @@ class TestHostPathBoundaries(unittest.TestCase):
 
     def test_incomplete_url_token_yields_no_host_path_fact(self):
         projector = DiagnosticProjector()
-        list(projector.feed_text("see https://example.com/a%2"))
-        self.assertIn(INCOMPLETE_TOKEN_MARKER, projector.finish())
+        self.assertEqual("see <redacted>", "".join(projector.feed_text("see https://example.com/a%2")))
+        self.assertEqual((), projector.finish())
         self.assertEqual((), projector.host_paths)
 
     def test_oversized_url_token_yields_no_host_path_fact(self):
@@ -383,7 +383,8 @@ class TestHostPathBoundaries(unittest.TestCase):
                 "https://example.com/" + "a" * (PENDING_LIMIT_BYTES + 32)
             )
         )
-        self.assertIn(OVERSIZED_TOKEN_MARKER, produced)
+        self.assertEqual(["<redacted>"], produced)
+        self.assertNotIn(OVERSIZED_TOKEN_MARKER, produced)
         projector.finish()
         self.assertEqual((), projector.host_paths)
 

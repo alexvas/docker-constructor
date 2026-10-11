@@ -93,9 +93,9 @@ class _DrainEntryProbe(DiagnosticProjector):
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
         self.drain_entry_bytes: list[int] = []
 
-    def _drain(self) -> list[str]:
-        self.drain_entry_bytes.append(len(self._pending.encode("utf-8")))
-        return super()._drain()
+    def _drain_coordinated(self, **kwargs) -> list[str]:
+        self.drain_entry_bytes.append(self.pending_size)
+        return super()._drain_coordinated(**kwargs)
 
 
 class TestLogicalResourceContext(unittest.TestCase):
@@ -234,7 +234,7 @@ class TestStructuredHostProjection(unittest.TestCase):
         safe, hostnames = sanitize_diagnostic_text(
             "token=topsecret", secrets=("topsecret",)
         )
-        self.assertEqual("token=<redacted>", safe)
+        self.assertEqual("token=<secret>", safe)
         self.assertEqual((), hostnames)
 
     def test_projection_is_deterministic_and_has_no_output_policy_input(self):
@@ -299,7 +299,8 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
         ):
             with self.subTest(text=text):
                 safe, hostnames = sanitize_diagnostic_text(text)
-                self.assertEqual(f"see {INCOMPLETE_TOKEN_MARKER}", safe)
+                marker = REDACTED if "://" in text else INCOMPLETE_TOKEN_MARKER
+                self.assertEqual(f"see {marker}", safe)
                 self.assertEqual((), hostnames)
 
     def test_incomplete_secret_prefix_finalizes_fail_closed(self):
@@ -346,10 +347,14 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
                     out.extend(projector.feed_text(text[index:]))
                     out.extend(projector.finish())
                     joined = "".join(out)
-                    self.assertEqual("GET <redacted> done", joined)
-                    self.assertEqual((host,), projector.hostnames)
-                    for token in forbidden:
-                        self.assertNotIn(token, joined)
+                    if url.startswith("git://"):
+                        self.assertEqual("GET <redacted> done", joined)
+                        self.assertEqual((host,), projector.hostnames)
+                        for token in forbidden:
+                            self.assertNotIn(token, joined)
+                    else:
+                        self.assertEqual(text, joined)
+                        self.assertEqual((), projector.hostnames)
 
     def test_non_listed_scheme_split_across_single_bytes(self):
         text = "GET custom+transport://user:password@secret.example/path done"
@@ -360,8 +365,8 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
             out.extend(projector.feed_bytes(data[index : index + 1]))
             self.assertLessEqual(projector.pending_size, PENDING_LIMIT_BYTES)
         out.extend(projector.finish())
-        self.assertEqual("GET <redacted> done", "".join(out))
-        self.assertEqual(("secret.example",), projector.hostnames)
+        self.assertEqual(text, "".join(out))
+        self.assertEqual((), projector.hostnames)
 
     def test_scheme_fragment_does_not_leak_across_a_chunk_boundary(self):
         projector = DiagnosticProjector()
@@ -379,8 +384,8 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
         safe, hostnames = sanitize_diagnostic_text(
             "a git://x.example/p b custom+transport://y.example/q c"
         )
-        self.assertEqual("a <redacted> b <redacted> c", safe)
-        self.assertEqual(("x.example", "y.example"), hostnames)
+        self.assertEqual("a <redacted> b custom+transport://y.example/q c", safe)
+        self.assertEqual(("x.example",), hostnames)
 
     def test_scheme_like_words_are_emitted_unchanged(self):
         for text in ("git", "custom", "status", "custom+transport"):
@@ -426,7 +431,9 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
         ):
             with self.subTest(unresolved=text):
                 safe, hostnames = sanitize_diagnostic_text(text)
-                self.assertEqual(f"see {INCOMPLETE_TOKEN_MARKER}", safe)
+                expected = ("see <redacted>" if "://" in text else
+                            text if text == "see git/" else f"see {INCOMPLETE_TOKEN_MARKER}")
+                self.assertEqual(expected, safe)
                 self.assertEqual((), hostnames)
 
     def test_clean_eof_preserves_bare_scheme_like_words(self):
@@ -446,8 +453,11 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
                     out.extend(projector.feed_text(character))
                 out.extend(projector.finish(abort=True))
                 joined = "".join(out)
-                self.assertEqual(INCOMPLETE_TOKEN_MARKER, joined)
-                self.assertNotIn(text, joined)
+                if text == "custom+transport":
+                    self.assertEqual(text, joined)
+                else:
+                    self.assertEqual(INCOMPLETE_TOKEN_MARKER, joined)
+                    self.assertNotIn(text, joined)
                 self.assertEqual((), projector.hostnames)
 
     def test_abort_fails_closed_for_ambiguous_encoded_prefixes(self):
@@ -696,8 +706,8 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
     def test_candidate_cannot_be_retained_past_the_byte_limit(self):
         candidate = "https://example.com/" + "a" * (PENDING_LIMIT_BYTES + 512)
         safe, hostnames = sanitize_diagnostic_text(f"pre {candidate} post")
-        self.assertIn(OVERSIZED_TOKEN_MARKER, safe)
-        self.assertNotIn(REDACTED, safe)
+        self.assertNotIn(OVERSIZED_TOKEN_MARKER, safe)
+        self.assertEqual(1, safe.count(REDACTED))
         self.assertNotIn("example.com", safe)
         self.assertEqual((), hostnames)
         self.assertTrue(safe.endswith("post"), safe)
@@ -711,7 +721,7 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
             self.assertLessEqual(projector.pending_size, PENDING_LIMIT_BYTES)
         out.extend(projector.finish())
         joined = "".join(out)
-        self.assertIn(OVERSIZED_TOKEN_MARKER, joined)
+        self.assertEqual(REDACTED, joined)
         self.assertNotIn("🎉" * 16, joined)
 
     def test_multibyte_append_never_exceeds_the_limit_at_drain_entry(self):
@@ -722,7 +732,7 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
         self.assertLessEqual(max(projector.drain_entry_bytes), PENDING_LIMIT_BYTES)
         out.extend(projector.finish())
         joined = "".join(out)
-        self.assertIn(OVERSIZED_TOKEN_MARKER, joined)
+        self.assertEqual(REDACTED, joined)
         self.assertNotIn("🎉" * 16, joined)
 
     def test_secret_ordering_does_not_change_projection(self):
@@ -780,7 +790,7 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
             self.assertLessEqual(projector.pending_size, PENDING_LIMIT_BYTES)
         out.extend(projector.finish())
         joined = "".join(out)
-        self.assertIn(OVERSIZED_TOKEN_MARKER, joined)
+        self.assertEqual(REDACTED, joined)
         self.assertNotIn("a" * 16, joined)
         self.assertEqual((), projector.hostnames)
 
@@ -789,8 +799,8 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
         safe, hostnames = sanitize_diagnostic_text(
             f"pre {huge} post https://good.example/x end"
         )
-        self.assertIn("pre ", safe)
-        self.assertIn(OVERSIZED_TOKEN_MARKER, safe)
+        self.assertIn("pre <redacted>", safe)
+        self.assertNotIn(OVERSIZED_TOKEN_MARKER, safe)
         self.assertNotIn("a" * 64, safe)
         self.assertTrue(safe.endswith("post <redacted> end"), safe)
         self.assertEqual(("good.example",), hostnames)
@@ -805,7 +815,7 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
         )
         out.extend(projector.finish())
         joined = "".join(out)
-        self.assertIn(OVERSIZED_TOKEN_MARKER, joined)
+        self.assertEqual(REDACTED, joined)
         self.assertNotIn(INCOMPLETE_TOKEN_MARKER, joined)
         self.assertEqual((), projector.hostnames)
 
@@ -876,7 +886,8 @@ class TestCompleteUrlAtCleanEof(unittest.TestCase):
             with self.subTest(text=text):
                 safe, hostnames = sanitize_diagnostic_text(text)
                 prefix = "see " if text.startswith("see ") else ""
-                self.assertEqual(f"{prefix}{INCOMPLETE_TOKEN_MARKER}", safe)
+                marker = REDACTED if "://" in text else INCOMPLETE_TOKEN_MARKER
+                self.assertEqual(f"{prefix}{marker}", safe)
                 self.assertEqual((), hostnames)
 
     def test_aborted_pending_url_is_fail_closed_without_a_hostname(self):
@@ -892,7 +903,7 @@ class TestCompleteUrlAtCleanEof(unittest.TestCase):
                     out.extend(projector.feed_text(character))
                 out.extend(projector.finish(abort=True))
                 joined = "".join(out)
-                self.assertEqual(INCOMPLETE_TOKEN_MARKER, joined)
+                self.assertEqual(REDACTED, joined)
                 self.assertEqual((), projector.hostnames)
                 for token in ("example.com", "s3cr3t", "8443", "path"):
                     self.assertNotIn(token, joined)
