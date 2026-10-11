@@ -1,0 +1,127 @@
+$ .venv/bin/python -m unittest discover -s tests -p 'test_*.py'
+.....................................s...sssssss...................................................................................................................................................................s...........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................s...........s........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................s.........................................................................................................................................usage: docker/docker-constructor.py [-h] [--project-directory DIR]
+                                    [--output {text,json}] [--verbose]
+                                    [--color {auto,always,never}]
+                                    {validate,build,run,doctor,verify,show,check-updates} ...
+docker/docker-constructor.py: error: argument command: invalid choice: '/tmp/custom.toml' (choose from 'validate', 'build', 'run', 'doctor', 'verify', 'show', 'check-updates')
+..........................[OPERATIONAL] Runtime verification: FAIL
+  ✗ projection.identity: hash mismatch: container=… host=37750ac4599c…
+  ✗ projection.readonly: empty /proc/mounts line for projection
+  ✗ workspaces.present: WORKSPACE_PATH_1: expected '/tmp/tmpcsyti_38/primary-workspace', got ''
+  ✗ workspaces.present: unexpected WORKSPACE_PATH_2=''
+  ✗ working.directory: working directory: expected '/tmp/tmpcsyti_38/primary-workspace', got ''
+  ✗ ownership.dev: /home/dev/.pi owned by '', expected dev:dev
+  ✗ ownership.dev: WORKSPACE_PATH_1 (/tmp/tmpcsyti_38/primary-workspace) owned by '', expected dev:dev
+  ✓ pi-home.setup: /home/dev/.pi exists and is writable
+  ✓ host-access.address: HOST_ACCESS_ADDRESS is not set (disabled)
+  ✓ host-access.proxy-port: HOST_PROXY_PORT is not set (disabled)
+  ✓ corporate-trust.mount: corporate trust disabled; no system CA bundle mount
+  ✓ proxy.environment: HTTP_PROXY is not set (disabled)
+  ✓ proxy.environment: http_proxy is not set (disabled)
+  ✓ proxy.environment: HTTPS_PROXY is not set (disabled)
+  ✓ proxy.environment: https_proxy is not set (disabled)
+  ✓ proxy.environment: ALL_PROXY is not set (disabled)
+  ✓ proxy.environment: all_proxy is not set (disabled)
+  ✓ proxy.environment: NO_PROXY is not set (disabled)
+  ✓ proxy.environment: no_proxy is not set (disabled)
+  ✗ forbidden.paths: forbidden path present: /run/pi-cli/docker-constructor.toml
+  ✗ forbidden.paths: forbidden path present: /run/pi-cli/docker-constructor.build.effective.toml
+..[OPERATIONAL] Runtime verification: FAIL
+  ✗ projection.identity: hash mismatch: container=… host=64d2d381a8b8…
+  ✗ projection.readonly: empty /proc/mounts line for projection
+  ✗ extensions.results: pi-proxy: expected v1.0.0, got v
+  ✗ extensions.results: @arcanemachine/pi-read: expected v0.2.1, got v
+  ✗ extensions.results: @narumitw/pi-usage: expected v0.60.7, got v
+  ✗ workspaces.present: WORKSPACE_PATH_1: expected '/tmp/tmpgqqw3r5l/primary-workspace', got ''
+  ✗ workspaces.present: unexpected WORKSPACE_PATH_2=''
+  ✗ working.directory: working directory: expected '/tmp/tmpgqqw3r5l/primary-workspace', got ''
+  ✗ ownership.dev: /home/dev/.pi owned by '', expected dev:dev
+  ✗ ownership.dev: WORKSPACE_PATH_1 (/tmp/tmpgqqw3r5l/primary-workspace) owned by '', expected dev:dev
+  ✓ pi-home.setup: /home/dev/.pi exists and is writable
+  ✓ host-access.address: HOST_ACCESS_ADDRESS is not set (disabled)
+  ✓ host-access.proxy-port: HOST_PROXY_PORT is not set (disabled)
+  ✓ corporate-trust.mount: corporate trust disabled; no system CA bundle mount
+  ✓ proxy.environment: HTTP_PROXY is not set (disabled)
+  ✓ proxy.environment: http_proxy is not set (disabled)
+  ✓ proxy.environment: HTTPS_PROXY is not set (disabled)
+  ✓ proxy.environment: https_proxy is not set (disabled)
+  ✓ proxy.environment: ALL_PROXY is not set (disabled)
+  ✓ proxy.environment: all_proxy is not set (disabled)
+  ✓ proxy.environment: NO_PROXY is not set (disabled)
+  ✓ proxy.environment: no_proxy is not set (disabled)
+  ✗ forbidden.paths: forbidden path present: /run/pi-cli/docker-constructor.toml
+  ✗ forbidden.paths: forbidden path present: /run/pi-cli/docker-constructor.build.effective.toml
+..............................................................usage: docker/docker-constructor.py [-h] [--project-directory DIR]
+                                    [--output {text,json}] [--verbose]
+                                    [--color {auto,always,never}]
+                                    {validate,build,run,doctor,verify,show,check-updates} ...
+docker/docker-constructor.py: error: unrecognized arguments: --cache-dir /tmp/pi-cache
+.usage: docker/docker-constructor.py [-h] [--project-directory DIR]
+                                    [--output {text,json}] [--verbose]
+                                    [--color {auto,always,never}]
+                                    {validate,build,run,doctor,verify,show,check-updates} ...
+docker/docker-constructor.py: error: unrecognized arguments: --cache-ttl 300
+...................................................................................................................................................................................................................................................................................................................................FAILED: [test-pkg@1.0.0] cannot open artifact at /tmp/tmp_64hqf0b/runtime-artifacts/sha256/IW_ZyrxQ6QqGwl2a60IED0yJLAUc9GYbKwTGgNWLKE4=.tgz: [Errno 2] No such file or directory: '/tmp/tmp_64hqf0b/runtime-artifacts/sha256/IW_ZyrxQ6QqGwl2a60IED0yJLAUc9GYbKwTGgNWLKE4=.tgz'
+.FAILED: [test-pkg@1.0.0] post-install metadata mismatch for test-pkg: expected name='test-pkg' version='1.0.0', got name='wrong-pkg' version='1.0.0'
+..FAILED: [test-pkg@1.0.0] post-install metadata mismatch for test-pkg: expected name='test-pkg' version='1.0.0', got name='test-pkg' version='9.9.9'
+.....................FAILED: [test-pkg@1.0.0] integrity check failed for artifact at /tmp/tmpvt0p60wr/runtime-artifacts/sha256/9y-qGgakKnSoT4BzQx46CcthzxywC4hUzjCpM_qZXlc=.tgz
+.ERROR: failed to parse projection TOML: Expected '=' after a key in a key/value pair (at line 1, column 6)
+.FAILED: [test-pkg@1.0.0] cannot open artifact at /tmp/tmp8nf57qr7/runtime-artifacts/sha256/mTi-h9NfKnorgCN-jccYBrIJquqCUvEsGxKUn2HUBHY=.tgz: [Errno 2] No such file or directory: '/tmp/tmp8nf57qr7/runtime-artifacts/sha256/mTi-h9NfKnorgCN-jccYBrIJquqCUvEsGxKUn2HUBHY=.tgz'
+.ERROR: projection file not found: '/tmp/tmpfl4qtb6g/projection.toml'
+........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................s....................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................[31m[CONFIG][0m cannot load build configuration: local companion configuration /tmp/tmpy1nd5eyk/docker-constructor.local.toml: schema_error (schema_error) (field local.output.host_heartbeat)
+[CONFIG] cannot load build configuration: local companion configuration /tmp/tmpjqymlv0p/docker-constructor.local.toml: schema_error (schema_error) (field local.output.host_heartbeat)
+[31m[CONFIG][0m cannot load build configuration: local companion configuration /tmp/tmp4hbuue97/docker-constructor.local.toml: schema_error (schema_error) (field local.output.host_heartbeat)
+......................................................................................................................................................................................................................................................................................................................................................................................................................................................................................{
+  "command": "build",
+  "status": "success"
+}
+[SUCCESS]
+[SUCCESS]
+[SUCCESS]
+[SUCCESS] {'ok': True}
+[SUCCESS] Build verification: PASS
+[SUCCESS] Build verification: PASS
+[SUCCESS] image build completed
+[SUCCESS] Build verification: PASS
+Runtime verification: PASS
+{
+  "command": "build",
+  "message": "cannot load build configuration: local companion configuration /tmp/tmpv6glp0ga/docker-constructor.local.toml: schema_error (schema_error) (field local.output.host_heartbeat)",
+  "status": "config"
+}
+[SUCCESS]
+{
+  "command": "build",
+  "status": "success"
+}
+[SUCCESS]
+[SUCCESS]
+[SUCCESS] Build verification: PASS
+Runtime verification: PASS
+............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................usage: docker/docker-constructor.py [-h] [--project-directory DIR]
+                                    [--output {text,json}] [--verbose]
+                                    [--color {auto,always,never}]
+                                    {validate,build,run,doctor,verify,show,check-updates} ...
+docker/docker-constructor.py: error: unrecognized arguments: --main-project
+usage: docker/docker-constructor.py [-h] [--project-directory DIR]
+                                    [--output {text,json}] [--verbose]
+                                    [--color {auto,always,never}]
+                                    {validate,build,run,doctor,verify,show,check-updates} ...
+docker/docker-constructor.py: error: unrecognized arguments: -m
+usage: docker/docker-constructor.py [-h] [--project-directory DIR]
+                                    [--output {text,json}] [--verbose]
+                                    [--color {auto,always,never}]
+                                    {validate,build,run,doctor,verify,show,check-updates} ...
+docker/docker-constructor.py: error: unrecognized arguments: --project
+usage: docker/docker-constructor.py [-h] [--project-directory DIR]
+                                    [--output {text,json}] [--verbose]
+                                    [--color {auto,always,never}]
+                                    {validate,build,run,doctor,verify,show,check-updates} ...
+docker/docker-constructor.py: error: unrecognized arguments: --base-project-dir
+..............................................................................................................................
+----------------------------------------------------------------------
+Ran 6308 tests in 148.266s
+
+OK (skipped=13)
+
+unittest exit status: 0

@@ -1,0 +1,538 @@
+{
+  "changeName": "linearize-diagnostic-url-detection",
+  "changeDir": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection",
+  "schemaName": "spec-driven",
+  "contextFiles": {
+    "proposal": [
+      "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/proposal.md"
+    ],
+    "specs": [
+      "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/specs/docker-build-output/spec.md",
+      "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/specs/locked-npm-environment-assembly/spec.md"
+    ],
+    "design": [
+      "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/design.md"
+    ],
+    "tasks": [
+      "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md"
+    ]
+  },
+  "progress": {
+    "total": 72,
+    "complete": 72,
+    "remaining": 0
+  },
+  "tasks": [
+    {
+      "id": "1",
+      "description": "1.1 Reconcile the caller inventory for normal/EOF/structured projection, secret registration, collector/fetch facts and grouping; deliver ownership of every changed detection, marker and metadata dependency.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 20
+    },
+    {
+      "id": "2",
+      "description": "1.2 Capture the one-off baseline experiment outside tests/CI; verify evidence records 1/2/4/8/16 KiB medians, capture profiles, oversized-tail timings, environment, commands, full logs and statuses without fixture changes.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 21
+    },
+    {
+      "id": "3",
+      "description": "1.3 Revise contract tests for supported-only detection, raw inclusive starts/exclusive ends, end=None, ambiguous prefixes, embedded starts and unknown text; record which previous obligations are intentionally superseded.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 22
+    },
+    {
+      "id": "4",
+      "description": "1.4 Record revised P1 RED results and unchanged passing obligations; verify failures map to the agreed contract rather than infrastructure.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 23
+    },
+    {
+      "id": "5",
+      "description": "1.5 Revise immutable internal outcomes/models for supported URLs and source secret coverage; verify tests do not make detection prove validity or introduce a public/persisted DTO.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 27
+    },
+    {
+      "id": "6",
+      "description": "1.6 Define the exact case-insensitive scheme set and detection-versus-interpretation depth; verify all listed schemes and unknown variants without changing transport/lock acceptance.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 28
+    },
+    {
+      "id": "7",
+      "description": "1.7 Document raw coordinates, outcome validity, supported consumption boundaries and marker/fact separation; verify API documentation agrees with the revised tests.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 32
+    },
+    {
+      "id": "8",
+      "description": "1.8 Review the revised P1 diff and historical evidence applicability; deliver resolved findings or a blocking gate without reusing obsolete UNKNOWN-hiding results.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 33
+    },
+    {
+      "id": "9",
+      "description": "1.9 Run P1 and affected existing tests with successful statuses; deliver the revised P1 gate linking full logs and each deliverable.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 37
+    },
+    {
+      "id": "10",
+      "description": "1A.1 Define core contract tests for empty pattern sets, registered non-empty patterns, duplicates, prefix/suffix patterns, overlapping and simultaneous matches, Unicode Python-character coordinates and independent streams sharing one compiled trie; verify expected source spans without introducing a public SDK API.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 46
+    },
+    {
+      "id": "11",
+      "description": "1A.2 Add one-feed/every-split/single-character continuation tests plus deterministic transition/failure/output-link counters and state ownership checks; verify chunk boundaries require neither overlap text nor retained payload.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 47
+    },
+    {
+      "id": "12",
+      "description": "1A.3 Add a bounded differential corpus against a simple literal-match oracle and adversarial suffix-heavy patterns; verify every match exactly once, shared compilation stability, output-sensitive work and live cursor state independent of stream length without timing assertions.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 48
+    },
+    {
+      "id": "13",
+      "description": "1A.4 Record P1A RED with full logs and actual statuses; map failures to missing core behavior and record already-passing obligations honestly.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 49
+    },
+    {
+      "id": "14",
+      "description": "1A.5 Implement the internal trie builder and breadth-first failure/output-link construction without a new runtime dependency; verify registration tests and storage bounded by configured patterns, avoiding copied transitive output lists that multiply registration storage.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 53
+    },
+    {
+      "id": "15",
+      "description": "1A.6 Implement a per-symbol streaming cursor over immutable compiled state, reporting pattern identities and exclusive match ends in Python-character coordinates; verify overlapping outputs, independent cursors and no retained source string, chunk replay or input-sized history.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 54
+    },
+    {
+      "id": "16",
+      "description": "1A.7 Implement cumulative counters for input transitions, failure traversals and emitted-match/output-link work, with explicit cursor reset semantics that preserve lifetime totals; verify search work is O(N + matches) and reset cannot hide work.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 55
+    },
+    {
+      "id": "17",
+      "description": "1A.8 Document registration versus live-state ownership, Unicode/coordinate semantics, cursor continuation/reset, output ordering and O(N + matches) search bounds; verify examples and deterministic tests match the API without claiming this core resolves URL/secret coordination.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 59
+    },
+    {
+      "id": "18",
+      "description": "1A.9 Audit construction/search allocations, output-link handling and failure paths; deliver resolved findings for immutable shared registration, payload-free cursors, pattern-dependent storage and cumulative work, with no production regex/library fallback.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 60
+    },
+    {
+      "id": "19",
+      "description": "1A.10 Run P1/P1A and applicable configured checks in the project environment with required eight-worker Python verification; preserve full logs/statuses and deliver a successful P1A gate before P2 integration. Historical recognition evidence does not substitute for this new gate.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 64
+    },
+    {
+      "id": "20",
+      "description": "2.1 Add raw scheme tests for literal separators, negative single-slash/npm forms, unknown text, embedded starts, earliest supported selection and raw terminators; verify exact outcomes/coordinates.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 73
+    },
+    {
+      "id": "21",
+      "description": "2.2 Add mixed/nested depth-zero-through-four separator tests, malformed/incomplete escapes and encoded scheme validity checks; verify no fourth interpretation or secret-decoding pass.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 74
+    },
+    {
+      "id": "22",
+      "description": "2.3 Revise the bounded differential corpus for intentional supported-only changes; add literal secret selection, scheme-prefix suffix overlap and secrets crossing raw terminators with explicit expected coverage.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 75
+    },
+    {
+      "id": "23",
+      "description": "2.4 Add deterministic state/work and raw-provenance assertions for scheme/secret automata; verify fixed registration-dependent bounds without input-sized search maps, variant tables or timing.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 76
+    },
+    {
+      "id": "24",
+      "description": "2.5 Record revised P2 RED with each failure mapped to scheme, decoder, secret selection, decoded scope or overlap obligations and honestly record already-passing cases.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 77
+    },
+    {
+      "id": "25",
+      "description": "2.6 Implement/reuse bounded percent transducers and provenance for supported recognition; verify raw and encoded tests without decoded search payload copies.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 81
+    },
+    {
+      "id": "26",
+      "description": "2.7 Integrate the validated P1A core with fixed-scheme prefix/separator transitions and registered literal secret matching, retaining overlapping starts; implement selection/coverage outside the generic core and verify embedded schemes, leftmost/longest selection and no secret rejection for crossings/suffixes.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 82
+    },
+    {
+      "id": "27",
+      "description": "2.8 Implement secret matching inside recognized URL views through three decoding passes and preserve continuation states across covered secret ranges; verify literal-only ordinary text and no suffix replay or duplicate coverage.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 83
+    },
+    {
+      "id": "28",
+      "description": "2.9 Document transition/state bounds at fixed depth, scheme set and registered secrets, including output-sensitive work and raw provenance; verify registration storage is distinguished from stream history.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 87
+    },
+    {
+      "id": "29",
+      "description": "2.10 Audit P2 allocation, speculation, fallback and decoding scope; deliver findings proving no duplicate raw tail, decoded search buffer, input-sized search map, variant enumeration or regex fallback.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 88
+    },
+    {
+      "id": "30",
+      "description": "2.11 Run revised P1/P1A/P2 and affected existing detection/secret tests; deliver successful logs and P2 corpus/work/state evidence before P3 integration.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 92
+    },
+    {
+      "id": "31",
+      "description": "3.1 Add partial supported-scheme/percent/separator and secret-overlap retention tests; verify exact earliest required source suffix and prompt independent prefix delivery.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 101
+    },
+    {
+      "id": "32",
+      "description": "3.2 Add detected-but-unterminated and source-order tests, including TOKENht/https overlap, multiple completed candidates and commits immediately before/after raw terminators; verify no lost/duplicate outputs or facts.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 102
+    },
+    {
+      "id": "33",
+      "description": "3.3 Add one-feed/every-split/single-byte partition tests for literals, encoded prefixes, secrets and crossings at both Text/URL boundaries; verify final text and ordered facts under existing limits.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 103
+    },
+    {
+      "id": "34",
+      "description": "3.4 Add feed-by-feed early redacted URL and host-path authority/path commitment tests followed by clean EOF, abort, token overflow and line overflow, plus unchanged partial-separator rules, immediate secret commits and cross-boundary coverage; verify irreversible output, exact markers and no leaked suffix, including mandatory marker withholding until the earlier crossing secret prefix resolves, with secret Xhttps://host, first feed Xhttps://ho and matching st done, mismatching r done and clean EOF without continuation (X<redacted>, no secret or incomplete-token marker) outcomes, while retaining mandatory immediate URL delivery in other cases.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 104
+    },
+    {
+      "id": "35",
+      "description": "3.5 Add lifetime work/state/ownership regressions across repeated supported commits and resets; count all recognizer instances/speculation and assert linear input-doubling growth, not merely feed work within one instance.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 105
+    },
+    {
+      "id": "36",
+      "description": "3.6 Record revised P3 RED for replay, ownership, commitment and recovery defects; distinguish historical successful feed-only checks from the currently missing cumulative guarantees.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 106
+    },
+    {
+      "id": "37",
+      "description": "3.7 Integrate persistent URL/secret coverage and continuation states into projector draining; remove recognizer `_tail` and consumption replay and projector retained-suffix resets; verify current prefix delivery and every existing projector commit remain supported without replay.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 110
+    },
+    {
+      "id": "38",
+      "description": "3.8 Preserve incremental retained-buffer/byte accounting and add stream-lifetime recognition counters that survive resets; verify one raw owner and bounded storage/copying/encoding work.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 111
+    },
+    {
+      "id": "39",
+      "description": "3.9 Integrate literal secret precedence, overlapping decoded URL coverage and absolute-to-buffer coordinate conversion; verify TOKENht continuations and cross-terminator secrets without delayed commitment or reconstructed payload.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 112
+    },
+    {
+      "id": "40",
+      "description": "3.10 Implement clean EOF/abort and irreversible early rendering for coordinated outcomes; verify one early redacted marker subject only to mandatory source-order-preserving delay until an earlier unresolved separator-crossing secret prefix resolves, exactly one irreversible marker upon prefix resolution, clean-EOF crossing-secret non-match output without an incomplete marker while abort/overflow rules remain unchanged, settled host/path components, incomplete markers only on unresolved uncommitted display remainders, unchanged partial-separator rules and single percent-state finalization.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 113
+    },
+    {
+      "id": "41",
+      "description": "3.11 Implement bounded overflow recovery preserving secret coverage and committed output without replay; verify no duplicate marker for covered redacted URLs, one marker only for an uncovered remainder, unchanged line-overflow behavior and no leaked suffix.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 114
+    },
+    {
+      "id": "42",
+      "description": "3.12 Document recognition, rendering and metadata frontiers, ownership, the narrowly scoped crossing-secret prefix delivery exception and early-output EOF/abort/overflow exceptions; verify component/secret settlement and that 8 KiB remains a whole-pending byte limit, not a read-size assumption.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 118
+    },
+    {
+      "id": "43",
+      "description": "3.13 Correct the P3 audit against actual cumulative results; resolve suffix replay, duplicate payload and obsolete unrestricted batch-equivalence claims before closing the gate.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 119
+    },
+    {
+      "id": "44",
+      "description": "3.14 Run revised P1–P3 including P1A, affected projection/lifecycle tests, the mandated full suite and configured checks; preserve full logs/statuses and close P3 only when ownership, delivery and cumulative-work guarantees agree.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 123
+    },
+    {
+      "id": "45",
+      "description": "4.1 Add unknown-text tests for delimiter/EOF/structured routes plus TOKENhttps secret-prefix cases; verify unknown text stays text and no facts arise by deleting/replacing secrets and reparsing.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 132
+    },
+    {
+      "id": "46",
+      "description": "4.2 Add policy tests for credential secrets, secret-bearing hosts/paths, malformed supported URLs and encoded secrets; verify early irreversible redacted hiding, separate settled host/path delivery, `<redacted-host>`, `/<redacted-path>`, delayed validated facts and unchanged exact source.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 133
+    },
+    {
+      "id": "47",
+      "description": "4.3 Add three-pass decoded-secret scope and fact assertions: credential-only permits otherwise safe facts, host secret suppresses hostname/fingerprint, path secret suppresses fingerprint but permits a safe hostname.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 134
+    },
+    {
+      "id": "48",
+      "description": "4.4 Record P4 RED for marker, route and metadata obligations, distinguishing agreed compatibility changes from accidental recognition failures.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 135
+    },
+    {
+      "id": "49",
+      "description": "4.5 Implement normal projection markers and distinct masked display products; verify markers are not normalized-host facts and standalone literal secrets render `<secret>`.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 139
+    },
+    {
+      "id": "50",
+      "description": "4.6 Apply supported/secret coverage gates to normal, EOF and structured metadata; verify no transformed-source or unknown-fact bypass.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 140
+    },
+    {
+      "id": "51",
+      "description": "4.7 Preserve eligible known URL canonicalization, explicit ports, fingerprint order/multiplicity and session isolation; verify no fingerprints from secret-bearing host/path or attached secret prefixes.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 141
+    },
+    {
+      "id": "52",
+      "description": "4.8 Document policy rendering versus validated metadata, decoded-secret scope and the unchanged exact exception; verify examples match executable assertions.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 145
+    },
+    {
+      "id": "53",
+      "description": "4.9 Reconcile every inventoried metadata/fetch route; verify unknown RFC-valid successful-fetch URLs still match fetch grammar without URL-derived facts/grouping fields and shared validation is unchanged.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 146
+    },
+    {
+      "id": "54",
+      "description": "4.10 Run revised P1–P4 and affected identity/metadata tests; deliver successful full logs and a compatibility record for the agreed policy changes.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 150
+    },
+    {
+      "id": "55",
+      "description": "5.1 Add all-mode collector/tail tests with/without SDK delivery; verify exact source/secrets, supported URL hiding, unknown text, secret host/path markers and exactly one selected retained representation.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 159
+    },
+    {
+      "id": "56",
+      "description": "5.2 Add ordinary/fetch grouping tests for unknown rendered text, eligible fingerprints and suppressed secret-bearing host/path identities; verify line/interactive rules explicitly.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 160
+    },
+    {
+      "id": "57",
+      "description": "5.3 Add fetch side-path regressions for supported, unknown and secret-bearing URLs; verify unchanged parser grammar and consistent permitted facts/rendered group keys.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 161
+    },
+    {
+      "id": "58",
+      "description": "5.4 Record P5 RED and honestly record already-passing channel isolation; map missing behavior to the revised policy rather than old UNKNOWN omission assumptions.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 162
+    },
+    {
+      "id": "59",
+      "description": "5.5 Integrate coordinated projection into collector channels without another retained tail; verify early redacted SDK output independent of selected local mode, unchanged exact local delivery, the unknown-text exception and no retraction in selected tails.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 166
+    },
+    {
+      "id": "60",
+      "description": "5.6 Align grouping and fetch display paths with masked rendering/fact gates; verify no hidden-host identity leak and unchanged eligible known identity distinctions.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 167
+    },
+    {
+      "id": "61",
+      "description": "5.7 Update user-facing scheme, secret-marker, host/path-marker and SDK policy documentation; verify examples and local exact behavior against tests.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 171
+    },
+    {
+      "id": "62",
+      "description": "5.8 Review channel isolation and scope; deliver findings confirming unchanged configuration options, persistence, assembly identity, argv, deadlines and shutdown budgets.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 172
+    },
+    {
+      "id": "63",
+      "description": "5.9 Run revised P1–P5 and affected collector/presentation acceptance tests; deliver successful full logs and evidence linking channel/grouping/docs obligations.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 176
+    },
+    {
+      "id": "64",
+      "description": "6.1 Map every revised requirement/scenario and phase deliverable to actual tests/evidence; record outstanding obligations without manufacturing failures or claiming old gates prove changed behavior.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 185
+    },
+    {
+      "id": "65",
+      "description": "6.2 Discover applicable configured lint/type checks; record exact commands or justified absence without inventing checks or deferring earlier coverage.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 186
+    },
+    {
+      "id": "66",
+      "description": "6.3 Perform one-off before/after recognition/capture experiments outside CI; deliver baseline-compatible single-feed/chunked medians, profiles and allocation/work evidence with unchanged stress fixtures.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 190
+    },
+    {
+      "id": "67",
+      "description": "6.4 Run the complete mandated eight-worker loadfile pytest command; preserve full stdout/stderr, warnings, summary and actual zero runner status without exclusions.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 191
+    },
+    {
+      "id": "68",
+      "description": "6.5 Run applicable configured checks; preserve full outputs and successful statuses, or retain the verified absence in 6.2.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 192
+    },
+    {
+      "id": "69",
+      "description": "6.6 Review final implementation scope; verify unchanged stress inputs, scheduler, AGENTS.md, shutdown budgets and unrelated execution semantics, with apply-time spec edits limited to completion boxes.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 196
+    },
+    {
+      "id": "70",
+      "description": "6.7 Reconcile final acceptance evidence, cumulative work and raw ownership against the matrix; verify all findings resolved without claiming whole-pipeline linearity.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 197
+    },
+    {
+      "id": "71",
+      "description": "6.8 Revalidate affected checks after final fixes; verify full-suite and applicable check logs reflect the final code state and successful statuses.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 201
+    },
+    {
+      "id": "72",
+      "description": "6.9 Deliver final acceptance only after revised P1–P6 and added P1A gates pass; otherwise report blocked acceptance and outstanding obligations, keeping P3 reopened if its guarantees remain unverified.",
+      "done": true,
+      "sourcePath": "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/tasks.md",
+      "line": 202
+    }
+  ],
+  "taskTrackingConfigured": true,
+  "state": "all_done",
+  "instruction": "All tracked tasks are complete.\nReview or verify the change as appropriate before archiving.",
+  "root": {
+    "path": "/home/aavasiljev/work/home/docker-constructor.git",
+    "source": "nearest"
+  }
+}

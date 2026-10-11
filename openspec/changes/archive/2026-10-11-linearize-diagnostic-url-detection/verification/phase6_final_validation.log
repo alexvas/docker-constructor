@@ -1,0 +1,23 @@
+$ Verify final Python source/test/configuration hashes
+Final state unchanged: 349 source/test/configuration hashes; HEAD 3630266d856cbc783239195b3018372a55ef7e30
+state verification exit status: 0
+
+$ git diff --check
+diff-check exit status: 0
+
+$ openspec validate linearize-diagnostic-url-detection --strict
+Change 'linearize-diagnostic-url-detection' is valid
+OpenSpec validation exit status: 0
+
+$ .venv/bin/python openspec/changes/linearize-diagnostic-url-detection/verification/phase6_matrix.py
+Validated test references and indexed all headings: {'Requirement': 12, 'Scenario': 107}
+matrix validation exit status: 0
+
+$ openspec validate linearize-diagnostic-url-detection --strict  # after final boxes
+Change 'linearize-diagnostic-url-detection' is valid
+final OpenSpec exit status: 0
+
+$ openspec instructions apply --change linearize-diagnostic-url-detection --json
+final apply inspection exit status: 0
+Final CLI state: all_done; 72/72 complete; 0 remaining
+final diff-check exit status: 0

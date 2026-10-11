@@ -1,0 +1,671 @@
+{
+  "label": "after",
+  "root": "/home/aavasiljev/work/home/docker-constructor.git",
+  "command": [
+    "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py",
+    "/home/aavasiljev/work/home/docker-constructor.git",
+    "after",
+    "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_after.json",
+    "5"
+  ],
+  "environment": {
+    "python": "3.14.7",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.41",
+    "executable": "/home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python",
+    "cpu_count": 32,
+    "pending_limit": 8192,
+    "repeats": 5
+  },
+  "detection": {
+    "1024:uninterrupted:chunk=1024": {
+      "input_chars": 1024,
+      "median_seconds": 0.008142626960761845,
+      "samples_seconds": [
+        0.008199047006200999,
+        0.008142626960761845,
+        0.008193966990802437,
+        0.008134675968904048,
+        0.008124267042148858
+      ]
+    },
+    "1024:uninterrupted:chunk=1": {
+      "input_chars": 1024,
+      "median_seconds": 0.008441129000857472,
+      "samples_seconds": [
+        0.008430929970927536,
+        0.008458229014649987,
+        0.008423978986684233,
+        0.008477520023006946,
+        0.008441129000857472
+      ]
+    },
+    "1024:separated:chunk=1016": {
+      "input_chars": 1016,
+      "median_seconds": 0.00807204598095268,
+      "samples_seconds": [
+        0.008054676000028849,
+        0.008046046015806496,
+        0.008139765996020287,
+        0.00807204598095268,
+        0.008120717015117407
+      ]
+    },
+    "1024:separated:chunk=1024": {
+      "input_chars": 1016,
+      "median_seconds": 0.008054297009948641,
+      "samples_seconds": [
+        0.008053636993281543,
+        0.008107456960715353,
+        0.008040517044719309,
+        0.008054297009948641,
+        0.008062336011789739
+      ]
+    },
+    "1024:separated:chunk=1": {
+      "input_chars": 1016,
+      "median_seconds": 0.008425009029451758,
+      "samples_seconds": [
+        0.00850284897023812,
+        0.008423528983257711,
+        0.008425009029451758,
+        0.008421918959356844,
+        0.008481819008011371
+      ]
+    },
+    "2048:uninterrupted:chunk=2048": {
+      "input_chars": 2048,
+      "median_seconds": 0.016214954026509076,
+      "samples_seconds": [
+        0.016255484020803124,
+        0.016157723031938076,
+        0.016214954026509076,
+        0.016228064021561295,
+        0.01620952400844544
+      ]
+    },
+    "2048:uninterrupted:chunk=1024": {
+      "input_chars": 2048,
+      "median_seconds": 0.0162149440147914,
+      "samples_seconds": [
+        0.016198173980228603,
+        0.016237653966527432,
+        0.016200424055568874,
+        0.016263113997410983,
+        0.0162149440147914
+      ]
+    },
+    "2048:uninterrupted:chunk=1": {
+      "input_chars": 2048,
+      "median_seconds": 0.01689957798225805,
+      "samples_seconds": [
+        0.01689957798225805,
+        0.016956439008936286,
+        0.01696033898042515,
+        0.01685775798978284,
+        0.016808666987344623
+      ]
+    },
+    "2048:separated:chunk=2042": {
+      "input_chars": 2042,
+      "median_seconds": 0.01628317404538393,
+      "samples_seconds": [
+        0.01626560400472954,
+        0.016352753969840705,
+        0.01628317404538393,
+        0.01630780502455309,
+        0.016210984031204134
+      ]
+    },
+    "2048:separated:chunk=1024": {
+      "input_chars": 2042,
+      "median_seconds": 0.016245653037913144,
+      "samples_seconds": [
+        0.016239192977081984,
+        0.016288504004478455,
+        0.01630303298588842,
+        0.016245653037913144,
+        0.01623738300986588
+      ]
+    },
+    "2048:separated:chunk=1": {
+      "input_chars": 2042,
+      "median_seconds": 0.01700720895314589,
+      "samples_seconds": [
+        0.017106469022110105,
+        0.016986589005682617,
+        0.01700720895314589,
+        0.017012348980642855,
+        0.016987808980047703
+      ]
+    },
+    "4096:uninterrupted:chunk=4096": {
+      "input_chars": 4096,
+      "median_seconds": 0.032871650997549295,
+      "samples_seconds": [
+        0.03294342994922772,
+        0.032871650997549295,
+        0.03284861001884565,
+        0.03277345997048542,
+        0.03302385099232197
+      ]
+    },
+    "4096:uninterrupted:chunk=1024": {
+      "input_chars": 4096,
+      "median_seconds": 0.03271748899715021,
+      "samples_seconds": [
+        0.0325654880143702,
+        0.03273349901428446,
+        0.03271748899715021,
+        0.033012510975822806,
+        0.03264359902823344
+      ]
+    },
+    "4096:uninterrupted:chunk=1": {
+      "input_chars": 4096,
+      "median_seconds": 0.03411694796523079,
+      "samples_seconds": [
+        0.034018067992292345,
+        0.03413289901800454,
+        0.03439995995722711,
+        0.03411694796523079,
+        0.034110178996343166
+      ]
+    },
+    "4096:separated:chunk=4094": {
+      "input_chars": 4094,
+      "median_seconds": 0.0328571000136435,
+      "samples_seconds": [
+        0.03278781898552552,
+        0.03313440200872719,
+        0.03277401003288105,
+        0.03286175098037347,
+        0.0328571000136435
+      ]
+    },
+    "4096:separated:chunk=1024": {
+      "input_chars": 4094,
+      "median_seconds": 0.03292858996428549,
+      "samples_seconds": [
+        0.03306538099423051,
+        0.032905261032283306,
+        0.03292858996428549,
+        0.032732660009060055,
+        0.03303192101884633
+      ]
+    },
+    "4096:separated:chunk=1": {
+      "input_chars": 4094,
+      "median_seconds": 0.034249269985593855,
+      "samples_seconds": [
+        0.03424311999697238,
+        0.03428835002705455,
+        0.034195090003777295,
+        0.034347500011790544,
+        0.034249269985593855
+      ]
+    },
+    "8192:uninterrupted:chunk=8192": {
+      "input_chars": 8192,
+      "median_seconds": 0.06557260901900008,
+      "samples_seconds": [
+        0.06609571300214157,
+        0.06557260901900008,
+        0.06544232799205929,
+        0.06582051003351808,
+        0.06551950902212411
+      ]
+    },
+    "8192:uninterrupted:chunk=1024": {
+      "input_chars": 8192,
+      "median_seconds": 0.06535737798549235,
+      "samples_seconds": [
+        0.06561886897543445,
+        0.06535737798549235,
+        0.06501396495150402,
+        0.06571120995795354,
+        0.06528227700619027
+      ]
+    },
+    "8192:uninterrupted:chunk=1": {
+      "input_chars": 8192,
+      "median_seconds": 0.06810993701219559,
+      "samples_seconds": [
+        0.06811947701498866,
+        0.06810993701219559,
+        0.06807434599613771,
+        0.06824776699068025,
+        0.0680677070049569
+      ]
+    },
+    "8192:separated:chunk=8189": {
+      "input_chars": 8189,
+      "median_seconds": 0.06552951800404117,
+      "samples_seconds": [
+        0.06537576799746603,
+        0.06604914198396727,
+        0.06552951800404117,
+        0.06598919199313968,
+        0.06548363802721724
+      ]
+    },
+    "8192:separated:chunk=1024": {
+      "input_chars": 8189,
+      "median_seconds": 0.06569761002901942,
+      "samples_seconds": [
+        0.06569761002901942,
+        0.06543876801151782,
+        0.06548951799049973,
+        0.06570395902963355,
+        0.06636529398383573
+      ]
+    },
+    "8192:separated:chunk=1": {
+      "input_chars": 8189,
+      "median_seconds": 0.06834588799392805,
+      "samples_seconds": [
+        0.06807053601369262,
+        0.06897774297976866,
+        0.06834588799392805,
+        0.06843227799981833,
+        0.06834351801080629
+      ]
+    },
+    "16384:uninterrupted:chunk=16384": {
+      "input_chars": 16384,
+      "median_seconds": 0.13041710195830092,
+      "samples_seconds": [
+        0.13041710195830092,
+        0.13060244399821386,
+        0.13039401202695444,
+        0.13083957496564835,
+        0.1302874319953844
+      ]
+    },
+    "16384:uninterrupted:chunk=1024": {
+      "input_chars": 16384,
+      "median_seconds": 0.13043964299140498,
+      "samples_seconds": [
+        0.13043964299140498,
+        0.12965495698153973,
+        0.131002176029142,
+        0.1297926380066201,
+        0.13117369695100933
+      ]
+    },
+    "16384:uninterrupted:chunk=1": {
+      "input_chars": 16384,
+      "median_seconds": 0.13614775199675933,
+      "samples_seconds": [
+        0.13599991099908948,
+        0.13687164796283469,
+        0.13606408197665587,
+        0.136684236000292,
+        0.13614775199675933
+      ]
+    },
+    "16384:separated:chunk=16379": {
+      "input_chars": 16379,
+      "median_seconds": 0.13110764703014866,
+      "samples_seconds": [
+        0.1319267429644242,
+        0.131099037011154,
+        0.13105686602648348,
+        0.13110764703014866,
+        0.13226357602979988
+      ]
+    },
+    "16384:separated:chunk=1024": {
+      "input_chars": 16379,
+      "median_seconds": 0.1310788569971919,
+      "samples_seconds": [
+        0.13075562502490357,
+        0.13115994702093303,
+        0.1310788569971919,
+        0.132183485024143,
+        0.13090143498266116
+      ]
+    },
+    "16384:separated:chunk=1": {
+      "input_chars": 16379,
+      "median_seconds": 0.13720814901171252,
+      "samples_seconds": [
+        0.13720814901171252,
+        0.13690396799938753,
+        0.1379028350347653,
+        0.13737879099790007,
+        0.13693991804029793
+      ]
+    }
+  },
+  "projection": {
+    "1024:chunk=1028": {
+      "rendered_length": 1028,
+      "peak_pending_bytes": 0,
+      "work": {
+        "recognition_instances": 1,
+        "encoded_bytes": 1028,
+        "buffer_appends": 1028,
+        "buffer_pops": 1028,
+        "materialized_chars": 1028,
+        "provenance_visits": 0
+      },
+      "median_seconds": 0.014444041007664055,
+      "samples_seconds": [
+        0.014579141978174448,
+        0.014444041007664055,
+        0.01447669102344662,
+        0.014126528985798359,
+        0.014129929943010211
+      ]
+    },
+    "1024:chunk=1024": {
+      "rendered_length": 1028,
+      "peak_pending_bytes": 0,
+      "work": {
+        "recognition_instances": 1,
+        "encoded_bytes": 1028,
+        "buffer_appends": 1028,
+        "buffer_pops": 1028,
+        "materialized_chars": 1028,
+        "provenance_visits": 0
+      },
+      "median_seconds": 0.014093139034230262,
+      "samples_seconds": [
+        0.014093139034230262,
+        0.014130708994343877,
+        0.014113918994553387,
+        0.014042217982932925,
+        0.014024197997059673
+      ]
+    },
+    "2048:chunk=2052": {
+      "rendered_length": 2052,
+      "peak_pending_bytes": 0,
+      "work": {
+        "recognition_instances": 1,
+        "encoded_bytes": 2052,
+        "buffer_appends": 2052,
+        "buffer_pops": 2052,
+        "materialized_chars": 2052,
+        "provenance_visits": 0
+      },
+      "median_seconds": 0.027504561992827803,
+      "samples_seconds": [
+        0.027638633968308568,
+        0.02737378200981766,
+        0.027376671961974353,
+        0.027528083010111004,
+        0.027504561992827803
+      ]
+    },
+    "2048:chunk=1024": {
+      "rendered_length": 2052,
+      "peak_pending_bytes": 0,
+      "work": {
+        "recognition_instances": 1,
+        "encoded_bytes": 2052,
+        "buffer_appends": 2052,
+        "buffer_pops": 2052,
+        "materialized_chars": 2052,
+        "provenance_visits": 0
+      },
+      "median_seconds": 0.02742522198241204,
+      "samples_seconds": [
+        0.027402381994761527,
+        0.02774474397301674,
+        0.027244921016972512,
+        0.02742522198241204,
+        0.02815382700646296
+      ]
+    },
+    "4096:chunk=4100": {
+      "rendered_length": 4100,
+      "peak_pending_bytes": 0,
+      "work": {
+        "recognition_instances": 1,
+        "encoded_bytes": 4100,
+        "buffer_appends": 4100,
+        "buffer_pops": 4100,
+        "materialized_chars": 4100,
+        "provenance_visits": 0
+      },
+      "median_seconds": 0.05476007395191118,
+      "samples_seconds": [
+        0.05558732902863994,
+        0.05547862802632153,
+        0.05467842298094183,
+        0.05447344097774476,
+        0.05476007395191118
+      ]
+    },
+    "4096:chunk=1024": {
+      "rendered_length": 4100,
+      "peak_pending_bytes": 0,
+      "work": {
+        "recognition_instances": 1,
+        "encoded_bytes": 4100,
+        "buffer_appends": 4100,
+        "buffer_pops": 4100,
+        "materialized_chars": 4100,
+        "provenance_visits": 0
+      },
+      "median_seconds": 0.055814551014918834,
+      "samples_seconds": [
+        0.055814551014918834,
+        0.05602331203408539,
+        0.05639773403527215,
+        0.05541253800038248,
+        0.055258317035622895
+      ]
+    },
+    "8192:chunk=8196": {
+      "rendered_length": 8196,
+      "peak_pending_bytes": 0,
+      "work": {
+        "recognition_instances": 1,
+        "encoded_bytes": 8196,
+        "buffer_appends": 8196,
+        "buffer_pops": 8196,
+        "materialized_chars": 8196,
+        "provenance_visits": 0
+      },
+      "median_seconds": 0.10902178299147636,
+      "samples_seconds": [
+        0.1093343350221403,
+        0.10755219199927524,
+        0.10897091298829764,
+        0.10902178299147636,
+        0.1115083799813874
+      ]
+    },
+    "8192:chunk=1024": {
+      "rendered_length": 8196,
+      "peak_pending_bytes": 0,
+      "work": {
+        "recognition_instances": 1,
+        "encoded_bytes": 8196,
+        "buffer_appends": 8196,
+        "buffer_pops": 8196,
+        "materialized_chars": 8196,
+        "provenance_visits": 0
+      },
+      "median_seconds": 0.1089028810383752,
+      "samples_seconds": [
+        0.10982043796684593,
+        0.10820680699544027,
+        0.10874009097460657,
+        0.1089028810383752,
+        0.10891460202401504
+      ]
+    },
+    "16384:chunk=16388": {
+      "rendered_length": 16388,
+      "peak_pending_bytes": 0,
+      "work": {
+        "recognition_instances": 1,
+        "encoded_bytes": 16388,
+        "buffer_appends": 16388,
+        "buffer_pops": 16388,
+        "materialized_chars": 16388,
+        "provenance_visits": 0
+      },
+      "median_seconds": 0.21308342996053398,
+      "samples_seconds": [
+        0.2174506009905599,
+        0.21576971904141828,
+        0.21273964695865288,
+        0.21200691297417507,
+        0.21308342996053398
+      ]
+    },
+    "16384:chunk=1024": {
+      "rendered_length": 16388,
+      "peak_pending_bytes": 0,
+      "work": {
+        "recognition_instances": 1,
+        "encoded_bytes": 16388,
+        "buffer_appends": 16388,
+        "buffer_pops": 16388,
+        "materialized_chars": 16388,
+        "provenance_visits": 0
+      },
+      "median_seconds": 0.21516653400612995,
+      "samples_seconds": [
+        0.21529042499605566,
+        0.21516653400612995,
+        0.21372580499155447,
+        0.21462759101996198,
+        0.21662728500086814
+      ]
+    }
+  },
+  "profiles": {
+    "redacted": {
+      "rendered": "GET <redacted> 15ms done token=<secret> custom+transport://user:password@internal.example/private?token=value ",
+      "repeats": 200,
+      "median": {
+        "median_seconds": 0.0035771550028584898,
+        "samples_seconds": [
+          0.0036018550163134933,
+          0.0035972039913758636,
+          0.0035381349734961987,
+          0.0035771550028584898,
+          0.0035558349918574095
+        ]
+      },
+      "profile": "         8963068 function calls (8630868 primitive calls) in 3.037 seconds\n\n   Ordered by: cumulative time\n   List reduced from 196 to 25 due to restriction <25>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      200    0.000    0.000    3.073    0.015 /home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:112(<lambda>)\n      200    0.001    0.000    3.072    0.015 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/npm_diagnostic_stream.py:118(project_tail)\n      200    0.001    0.000    3.008    0.015 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_projection.py:1180(sanitize_diagnostic_text)\n      200    0.000    0.000    2.979    0.015 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_projection.py:1080(feed_text)\n      400    0.061    0.000    2.978    0.007 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_coordinator.py:154(_feed)\n    30200    0.022    0.000    2.327    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:1371(feed)\n    30200    0.048    0.000    2.299    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:971(feed)\n120800/30200    0.137    0.000    1.994    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:938(_consume)\n90600/30200    0.041    0.000    1.508    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:379(feed)\n90600/30200    0.048    0.000    1.491    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:389(_flush_ready)\n90600/30200    0.030    0.000    1.470    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:369(_emit)\n90600/30200    0.027    0.000    1.460    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:928(sink)\n   120800    0.055    0.000    1.172    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:479(feed)\n   120800    0.067    0.000    1.103    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:483(_emit_ready)\n   120800    0.366    0.000    1.020    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:504(_atom)\n    30400    0.086    0.000    0.566    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_coordinator.py:357(_drain_coordinated)\n   120800    0.185    0.000    0.480    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:776(feed)\n   241600    0.150    0.000    0.416    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/aho_corasick.py:373(advance)\n    30400    0.042    0.000    0.231    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:992(_prune_decoded_secrets)\n   241600    0.136    0.000    0.221    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/aho_corasick.py:381(_step)\n   120800    0.119    0.000    0.184    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:562(_feed_prefix)\n    30400    0.034    0.000    0.169    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:984(_active_url_start)\n  1575202    0.150    0.000    0.150    0.000 {built-in method builtins.len}\n   152000    0.035    0.000    0.132    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:987(<genexpr>)\n    17400    0.026    0.000    0.127    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_coordinator.py:143(_commit)\n\n\n"
+    },
+    "host-path": {
+      "rendered": "GET registry.example.com/pkg/-/pkg-1.0.0.tgz 15ms done token=<secret> custom+transport://user:password@internal.example/private?token=value ",
+      "repeats": 200,
+      "median": {
+        "median_seconds": 0.003586815029848367,
+        "samples_seconds": [
+          0.003604295023251325,
+          0.003578724979888648,
+          0.003586815029848367,
+          0.003552494978066534,
+          0.0036045649903826416
+        ]
+      },
+      "profile": "         9064228 function calls (8732028 primitive calls) in 3.094 seconds\n\n   Ordered by: cumulative time\n   List reduced from 194 to 25 due to restriction <25>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      200    0.000    0.000    3.128    0.016 /home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:112(<lambda>)\n      200    0.001    0.000    3.128    0.016 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/npm_diagnostic_stream.py:118(project_tail)\n      200    0.000    0.000    3.031    0.015 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_projection.py:1080(feed_text)\n      400    0.062    0.000    3.031    0.008 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_coordinator.py:154(_feed)\n    30200    0.022    0.000    2.340    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:1371(feed)\n    30200    0.049    0.000    2.312    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:971(feed)\n120800/30200    0.140    0.000    2.004    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:938(_consume)\n90600/30200    0.041    0.000    1.519    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:379(feed)\n90600/30200    0.049    0.000    1.502    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:389(_flush_ready)\n90600/30200    0.030    0.000    1.481    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:369(_emit)\n90600/30200    0.027    0.000    1.471    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:928(sink)\n   120800    0.055    0.000    1.176    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:479(feed)\n   120800    0.067    0.000    1.106    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:483(_emit_ready)\n   120800    0.366    0.000    1.023    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:504(_atom)\n    30400    0.088    0.000    0.604    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_coordinator.py:357(_drain_coordinated)\n   120800    0.185    0.000    0.483    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:776(feed)\n   241600    0.153    0.000    0.420    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/aho_corasick.py:373(advance)\n    30400    0.042    0.000    0.233    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:992(_prune_decoded_secrets)\n   241600    0.137    0.000    0.222    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/aho_corasick.py:381(_step)\n   120800    0.121    0.000    0.187    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:562(_feed_prefix)\n    30400    0.034    0.000    0.171    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:984(_active_url_start)\n  1582201    0.151    0.000    0.151    0.000 {built-in method builtins.len}\n   152000    0.036    0.000    0.134    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:987(<genexpr>)\n    17400    0.027    0.000    0.128    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_coordinator.py:143(_commit)\n    25200    0.025    0.000    0.109    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:1033(prefix_state)\n\n\n"
+    },
+    "exact": {
+      "rendered": "GET https://registry.example.com/pkg/-/pkg-1.0.0.tgz 15ms done token=supersecret custom+transport://user:password@internal.example/private?token=value ",
+      "repeats": 200,
+      "median": {
+        "median_seconds": 8.123996667563915e-05,
+        "samples_seconds": [
+          8.507102029398084e-05,
+          8.954096119850874e-05,
+          8.123996667563915e-05,
+          8.03009606897831e-05,
+          8.024100679904222e-05
+        ]
+      },
+      "profile": "         308601 function calls in 0.062 seconds\n\n   Ordered by: cumulative time\n   List reduced from 27 to 25 due to restriction <25>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      200    0.000    0.000    0.062    0.000 /home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:112(<lambda>)\n      200    0.001    0.000    0.062    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/npm_diagnostic_stream.py:118(project_tail)\n      200    0.003    0.000    0.043    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:550(feed_text)\n      400    0.005    0.000    0.029    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:583(_feed)\n      400    0.010    0.000    0.021    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:365(_feed)\n      200    0.000    0.000    0.021    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:282(feed_characters)\n      200    0.010    0.000    0.017    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/versioning/npm_diagnostic_stream.py:102(_bounded_tail)\n    30400    0.007    0.000    0.012    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:556(<genexpr>)\n    30200    0.007    0.000    0.009    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:474(_handle_normal)\n    90800    0.007    0.000    0.007    0.000 {method 'append' of 'list' objects}\n    60400    0.005    0.000    0.005    0.000 {method 'encode' of 'str' objects}\n    60400    0.004    0.000    0.004    0.000 {built-in method builtins.len}\n    30200    0.002    0.000    0.002    0.000 {built-in method builtins.ord}\n      200    0.000    0.000    0.001    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:561(finish)\n      800    0.000    0.000    0.000    0.000 {method 'join' of 'str' objects}\n      200    0.000    0.000    0.000    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:290(finish)\n      400    0.000    0.000    0.000    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:369(flush_plain)\n      200    0.000    0.000    0.000    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:526(__init__)\n      400    0.000    0.000    0.000    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:264(__init__)\n      200    0.000    0.000    0.000    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:616(_reset_line)\n      400    0.000    0.000    0.000    0.000 {method 'extend' of 'list' objects}\n      600    0.000    0.000    0.000    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:150(__init__)\n      400    0.000    0.000    0.000    0.000 /home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:220(finish)\n      200    0.000    0.000    0.000    0.000 {method 'clear' of 'list' objects}\n      200    0.000    0.000    0.000    0.000 {method 'reverse' of 'list' objects}\n\n\n"
+    }
+  },
+  "allocations": {
+    "redacted": {
+      "remaining_bytes": 62469,
+      "peak_bytes": 68340,
+      "remaining_top_lines": [
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:611: size=9664 B, count=151, average=64 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:780: size=7488 B, count=52, average=144 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:516: size=4416 B, count=4, average=1104 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:515: size=4416 B, count=4, average=1104 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:557: size=3328 B, count=52, average=64 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:773: size=3040 B, count=8, average=380 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:766: size=3040 B, count=8, average=380 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:468: size=3040 B, count=8, average=380 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:464: size=3040 B, count=8, average=380 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_coordinator.py:172: size=2368 B, count=37, average=64 B"
+      ]
+    },
+    "host-path": {
+      "remaining_bytes": 62653,
+      "peak_bytes": 68726,
+      "remaining_top_lines": [
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:611: size=9664 B, count=151, average=64 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:780: size=7488 B, count=52, average=144 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:516: size=4416 B, count=4, average=1104 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:515: size=4416 B, count=4, average=1104 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:557: size=3328 B, count=52, average=64 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:773: size=3040 B, count=8, average=380 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:766: size=3040 B, count=8, average=380 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:468: size=3040 B, count=8, average=380 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:464: size=3040 B, count=8, average=380 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_coordinator.py:172: size=2368 B, count=37, average=64 B"
+      ]
+    },
+    "exact": {
+      "remaining_bytes": 19952,
+      "peak_bytes": 25475,
+      "remaining_top_lines": [
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:611: size=9664 B, count=151, average=64 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:557: size=9600 B, count=150, average=64 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:82: size=128 B, count=3, average=43 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:367: size=112 B, count=2, average=56 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:366: size=112 B, count=2, average=56 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:379: size=96 B, count=2, average=48 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:374: size=72 B, count=1, average=72 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:369: size=64 B, count=1, average=64 B",
+        "/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/tracemalloc.py:551: size=56 B, count=1, average=56 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/npm_environment/streaming.py:614: size=56 B, count=1, average=56 B"
+      ]
+    },
+    "projection:8192": {
+      "remaining_bytes": 27213,
+      "peak_bytes": 54274,
+      "remaining_top_lines": [
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:516: size=4416 B, count=4, average=1104 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:515: size=4416 B, count=4, average=1104 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:468: size=3040 B, count=8, average=380 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:464: size=3040 B, count=8, average=380 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:514: size=1792 B, count=56, average=32 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:928: size=1461 B, count=12, average=122 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:906: size=912 B, count=7, average=130 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:978: size=864 B, count=27, average=32 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:463: size=864 B, count=4, average=216 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:914: size=440 B, count=10, average=44 B"
+      ]
+    },
+    "projection:16384": {
+      "remaining_bytes": 25877,
+      "peak_bytes": 77132,
+      "remaining_top_lines": [
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:516: size=4416 B, count=4, average=1104 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:515: size=4416 B, count=4, average=1104 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:468: size=3040 B, count=8, average=380 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:464: size=3040 B, count=8, average=380 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:514: size=1792 B, count=56, average=32 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:928: size=1461 B, count=12, average=122 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:906: size=912 B, count=7, average=130 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:978: size=864 B, count=27, average=32 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:463: size=864 B, count=4, average=216 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/docker/versioning/diagnostic_recognizer.py:914: size=440 B, count=10, average=44 B"
+      ]
+    }
+  }
+}

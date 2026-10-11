@@ -1,0 +1,9 @@
+$ .venv/bin/ty check docker --python-version 3.14 --output-format concise
+/bin/bash: line 10: .venv/bin/ty: No such file or directory
+
+configured_types exit status: 127
+
+$ ty check docker --python-version 3.14 --output-format concise
+All checks passed!
+
+configured types exit status: 0

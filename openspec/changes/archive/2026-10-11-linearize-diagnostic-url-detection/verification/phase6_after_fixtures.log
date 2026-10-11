@@ -1,0 +1,386 @@
+$ .venv/bin/python /home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase1_oversized_fixture_baseline.py 5
+=== phase1 oversized-tail fixture baseline ===
+command: /home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase1_oversized_fixture_baseline.py 5
+environment: {
+  "python_version": "3.14.7",
+  "python_implementation": "CPython",
+  "executable": "/home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python",
+  "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.41",
+  "machine": "x86_64",
+  "processor": "",
+  "cpu_count": 32,
+  "pending_limit_bytes": 8192,
+  "diagnostic_line_limit_bytes": 65536,
+  "repeats": 5
+}
+
+--- projector: candidate past byte limit ---
+test: tests/test_host_diagnostic_projection.py::TestBoundarySafeUrlSanitization::test_candidate_cannot_be_retained_past_the_byte_limit
+observable: {
+  "oversized_marker": false,
+  "hostnames": [],
+  "ends_with_post": true,
+  "safe_length": 19
+}
+
+--- projector: multibyte unterminated, 512-char feeds ---
+test: tests/test_host_diagnostic_projection.py::TestBoundarySafeUrlSanitization::test_multibyte_unterminated_candidate_stays_within_the_limit
+observable: {
+  "oversized_marker": false,
+  "peak_pending_size": 8132,
+  "pending_limit_bytes": 8192,
+  "retained_emoji_run": false
+}
+
+--- projector: multibyte whole feed, drain-entry peak ---
+test: tests/test_host_diagnostic_projection.py::TestBoundarySafeUrlSanitization::test_multibyte_append_never_exceeds_the_limit_at_drain_entry
+observable: {
+  "oversized_marker": false,
+  "peak_drain_entry_bytes": 0,
+  "pending_limit_bytes": 8192
+}
+
+--- projector: 7-byte feeds of 4x-limit token ---
+test: tests/test_host_diagnostic_projection.py::TestBoundarySafeUrlSanitization::test_pending_state_remains_bounded_for_an_unterminated_token
+observable: {
+  "oversized_marker": false,
+  "peak_pending_size": 8190,
+  "pending_limit_bytes": 8192,
+  "hostnames": []
+}
+
+--- projector: oversized token then recovery URL ---
+test: tests/test_host_diagnostic_projection.py::TestBoundarySafeUrlSanitization::test_oversized_token_discards_until_boundary_then_recovers
+observable: {
+  "oversized_marker": false,
+  "hostnames": [
+    "good.example"
+  ],
+  "ends_with_recovered": true,
+  "contains_original_host": false
+}
+
+--- projector: oversized token finalized at EOF ---
+test: tests/test_host_diagnostic_projection.py::TestBoundarySafeUrlSanitization::test_oversized_token_without_boundary_finalizes_without_incomplete_marker
+observable: {
+  "oversized_marker": false,
+  "incomplete_marker": false,
+  "hostnames": []
+}
+
+--- host-path: oversized URL token, no fact ---
+test: tests/test_host_path_projection.py::TestHostPathBoundaries::test_oversized_url_token_yields_no_host_path_fact
+observable: {
+  "oversized_marker": false,
+  "host_paths": []
+}
+
+--- collector: 16 KiB URL, 256-byte feeds ---
+test: tests/test_npm_diagnostic_collection_phase8.py::TestCollectorBranch::test_oversized_unterminated_url_stays_within_pending_limit
+observable: {
+  "peak_pending_sanitizer_bytes": 8192,
+  "pending_limit_bytes": 8192,
+  "oversized_marker": false,
+  "tail_leaks_run": false
+}
+
+--- collector: newline-free line past 64 KiB ---
+test: tests/test_npm_diagnostic_collection_phase8.py::TestCollectorBranch::test_oversized_newline_free_diagnostic_stays_within_line_limit
+observable: {
+  "peak_pending_line_bytes": 65536,
+  "line_limit_bytes": 65536,
+  "oversized_diagnostic_marker": true,
+  "prefix_delivered": true,
+  "discarded_leaks": false
+}
+
+--- collector: recovery after safe boundary ---
+test: tests/test_npm_diagnostic_collection_phase8.py::TestCollectorBranch::test_recovery_after_safe_boundary
+observable: {
+  "oversized_diagnostic_marker": true,
+  "recovered_in_live": true,
+  "recovered_in_tail": true
+}
+
+--- collector: input keeps draining after overflow ---
+test: tests/test_npm_diagnostic_collection_phase8.py::TestCollectorBranch::test_input_keeps_draining_after_overflow
+observable: {
+  "chunks_produced": 68,
+  "peak_pending_line_bytes": 0,
+  "pending_limit_bytes": 65536,
+  "pending_sanitizer_bytes": 0,
+  "sanitizer_limit_bytes": 8192
+}
+
+--- collector: oversized URL-heavy line, metadata + recovery ---
+test: tests/test_npm_diagnostic_collection_phase8.py::TestConsumablePerLineFacts::test_oversized_url_heavy_line_discards_metadata_and_recovers
+observable: {
+  "peak_pending_sanitizer_bytes": 0,
+  "peak_pending_line_bytes": 65536,
+  "oversized_diagnostic_chunks": 1,
+  "marker_hostnames": [],
+  "recovered_chunks": 1,
+  "recovered_hostnames": [
+    "b.example"
+  ],
+  "tail_leaks_a_example": false
+}
+
+--- retained-tail: bounded + mode-selected text (x-run past 2x TAIL_BYTES) ---
+test: tests/test_retained_tail_phase6.py::TestFailureContextChannels::test_truncated_tail_is_bounded_and_mode_selected
+observable: {
+  "redacted": {
+    "payload_x_run_bytes": 131072,
+    "captured_tail_bytes": 65536,
+    "tail_bytes_limit": 65536,
+    "retained_diagnostics_section_count": 1
+  },
+  "host-path": {
+    "payload_x_run_bytes": 131072,
+    "captured_tail_bytes": 65536,
+    "tail_bytes_limit": 65536,
+    "retained_diagnostics_section_count": 1
+  },
+  "exact": {
+    "payload_x_run_bytes": 131072,
+    "captured_tail_bytes": 65536,
+    "tail_bytes_limit": 65536,
+    "retained_diagnostics_section_count": 1
+  }
+}
+
+--- retained-tail: bounded text + JSON (x-run past 2x TAIL_BYTES) ---
+test: tests/test_retained_tail_phase6.py::TestFailureChannelMatrix::test_truncated_tail_is_bounded_in_text_and_json
+observable: {
+  "redacted": {
+    "payload_x_run_bytes": 131072,
+    "captured_tail_bytes": 65536,
+    "context_tail_bytes": 65535,
+    "json_tail_bytes": 65535,
+    "tail_bytes_limit": 65536,
+    "retained_diagnostics_section_count": 1,
+    "json_tail_equals_context": true
+  },
+  "host-path": {
+    "payload_x_run_bytes": 131072,
+    "captured_tail_bytes": 65536,
+    "context_tail_bytes": 65535,
+    "json_tail_bytes": 65535,
+    "tail_bytes_limit": 65536,
+    "retained_diagnostics_section_count": 1,
+    "json_tail_equals_context": true
+  },
+  "exact": {
+    "payload_x_run_bytes": 131072,
+    "captured_tail_bytes": 65536,
+    "context_tail_bytes": 65535,
+    "json_tail_bytes": 65535,
+    "tail_bytes_limit": 65536,
+    "retained_diagnostics_section_count": 1,
+    "json_tail_equals_context": true
+  }
+}
+
+--- medians ---
+[
+  {
+    "test_id": "tests/test_host_diagnostic_projection.py::TestBoundarySafeUrlSanitization::test_candidate_cannot_be_retained_past_the_byte_limit",
+    "label": "projector: candidate past byte limit",
+    "median_seconds": 0.08814011595677584,
+    "min_seconds": 0.08761472202604637,
+    "max_seconds": 0.08826933696400374,
+    "samples_seconds": [
+      0.08826933696400374,
+      0.08761472202604637,
+      0.08804150501964614,
+      0.08814011595677584,
+      0.0882619459880516
+    ]
+  },
+  {
+    "test_id": "tests/test_host_diagnostic_projection.py::TestBoundarySafeUrlSanitization::test_multibyte_unterminated_candidate_stays_within_the_limit",
+    "label": "projector: multibyte unterminated, 512-char feeds",
+    "median_seconds": 0.15001758799189702,
+    "min_seconds": 0.14985690696630627,
+    "max_seconds": 0.15039695100858808,
+    "samples_seconds": [
+      0.14985690696630627,
+      0.15039695100858808,
+      0.15001758799189702,
+      0.15038383100181818,
+      0.14995498803909868
+    ]
+  },
+  {
+    "test_id": "tests/test_host_diagnostic_projection.py::TestBoundarySafeUrlSanitization::test_multibyte_append_never_exceeds_the_limit_at_drain_entry",
+    "label": "projector: multibyte whole feed, drain-entry peak",
+    "median_seconds": 0.1497236560098827,
+    "min_seconds": 0.1489286000141874,
+    "max_seconds": 0.14995051798177883,
+    "samples_seconds": [
+      0.1498424059827812,
+      0.1497236560098827,
+      0.14995051798177883,
+      0.14898665098007768,
+      0.1489286000141874
+    ]
+  },
+  {
+    "test_id": "tests/test_host_diagnostic_projection.py::TestBoundarySafeUrlSanitization::test_pending_state_remains_bounded_for_an_unterminated_token",
+    "label": "projector: 7-byte feeds of 4x-limit token",
+    "median_seconds": 0.30355758097721264,
+    "min_seconds": 0.30110146303195506,
+    "max_seconds": 0.3054801039979793,
+    "samples_seconds": [
+      0.3052289620391093,
+      0.3054801039979793,
+      0.30110146303195506,
+      0.3032640980090946,
+      0.30355758097721264
+    ]
+  },
+  {
+    "test_id": "tests/test_host_diagnostic_projection.py::TestBoundarySafeUrlSanitization::test_oversized_token_discards_until_boundary_then_recovers",
+    "label": "projector: oversized token then recovery URL",
+    "median_seconds": 0.15505530399968848,
+    "min_seconds": 0.15368538402253762,
+    "max_seconds": 0.15538701496552676,
+    "samples_seconds": [
+      0.15538701496552676,
+      0.15368538402253762,
+      0.15505530399968848,
+      0.15488602098776028,
+      0.15521344396984205
+    ]
+  },
+  {
+    "test_id": "tests/test_host_diagnostic_projection.py::TestBoundarySafeUrlSanitization::test_oversized_token_without_boundary_finalizes_without_incomplete_marker",
+    "label": "projector: oversized token finalized at EOF",
+    "median_seconds": 0.1546510200132616,
+    "min_seconds": 0.15312950900988653,
+    "max_seconds": 0.15500192297622561,
+    "samples_seconds": [
+      0.1546510200132616,
+      0.15487125201616436,
+      0.15312950900988653,
+      0.15429426700575277,
+      0.15500192297622561
+    ]
+  },
+  {
+    "test_id": "tests/test_host_path_projection.py::TestHostPathBoundaries::test_oversized_url_token_yields_no_host_path_fact",
+    "label": "host-path: oversized URL token, no fact",
+    "median_seconds": 0.08354897401295602,
+    "min_seconds": 0.08329426200361922,
+    "max_seconds": 0.08444673899793997,
+    "samples_seconds": [
+      0.08329426200361922,
+      0.08333064202452078,
+      0.08354897401295602,
+      0.08362108399160206,
+      0.08444673899793997
+    ]
+  },
+  {
+    "test_id": "tests/test_npm_diagnostic_collection_phase8.py::TestCollectorBranch::test_oversized_unterminated_url_stays_within_pending_limit",
+    "label": "collector: 16 KiB URL, 256-byte feeds",
+    "median_seconds": 0.16234939399873838,
+    "min_seconds": 0.1621266120346263,
+    "max_seconds": 0.16367429302772507,
+    "samples_seconds": [
+      0.16219389298930764,
+      0.16264901601243764,
+      0.1621266120346263,
+      0.16234939399873838,
+      0.16367429302772507
+    ]
+  },
+  {
+    "test_id": "tests/test_npm_diagnostic_collection_phase8.py::TestCollectorBranch::test_oversized_newline_free_diagnostic_stays_within_line_limit",
+    "label": "collector: newline-free line past 64 KiB",
+    "median_seconds": 1.0413563399924897,
+    "min_seconds": 1.0309875259990804,
+    "max_seconds": 1.0511843970161863,
+    "samples_seconds": [
+      1.0413563399924897,
+      1.0410955880070105,
+      1.0451497960020788,
+      1.0309875259990804,
+      1.0511843970161863
+    ]
+  },
+  {
+    "test_id": "tests/test_npm_diagnostic_collection_phase8.py::TestCollectorBranch::test_recovery_after_safe_boundary",
+    "label": "collector: recovery after safe boundary",
+    "median_seconds": 1.0327030540211126,
+    "min_seconds": 1.0113338469527662,
+    "max_seconds": 1.0415991370100528,
+    "samples_seconds": [
+      1.0113338469527662,
+      1.0244405189878307,
+      1.0415991370100528,
+      1.0365237920195796,
+      1.0327030540211126
+    ]
+  },
+  {
+    "test_id": "tests/test_npm_diagnostic_collection_phase8.py::TestCollectorBranch::test_input_keeps_draining_after_overflow",
+    "label": "collector: input keeps draining after overflow",
+    "median_seconds": 0.9391250890330411,
+    "min_seconds": 0.915859007043764,
+    "max_seconds": 0.9475436689681374,
+    "samples_seconds": [
+      0.9475436689681374,
+      0.915859007043764,
+      0.9394087109831162,
+      0.9391250890330411,
+      0.9331917670206167
+    ]
+  },
+  {
+    "test_id": "tests/test_npm_diagnostic_collection_phase8.py::TestConsumablePerLineFacts::test_oversized_url_heavy_line_discards_metadata_and_recovers",
+    "label": "collector: oversized URL-heavy line, metadata + recovery",
+    "median_seconds": 0.925087118986994,
+    "min_seconds": 0.9197050119983032,
+    "max_seconds": 0.9365503680310212,
+    "samples_seconds": [
+      0.925087118986994,
+      0.9197050119983032,
+      0.9334652870311402,
+      0.9204435460269451,
+      0.9365503680310212
+    ]
+  },
+  {
+    "test_id": "tests/test_retained_tail_phase6.py::TestFailureContextChannels::test_truncated_tail_is_bounded_and_mode_selected",
+    "label": "retained-tail: bounded + mode-selected text (x-run past 2x TAIL_BYTES)",
+    "median_seconds": 2.5985968410386704,
+    "min_seconds": 2.5655560279847123,
+    "max_seconds": 2.6479738680063747,
+    "samples_seconds": [
+      2.6287093149730936,
+      2.5854311599978246,
+      2.5655560279847123,
+      2.6479738680063747,
+      2.5985968410386704
+    ]
+  },
+  {
+    "test_id": "tests/test_retained_tail_phase6.py::TestFailureChannelMatrix::test_truncated_tail_is_bounded_in_text_and_json",
+    "label": "retained-tail: bounded text + JSON (x-run past 2x TAIL_BYTES)",
+    "median_seconds": 2.6260632800403982,
+    "min_seconds": 2.603769728972111,
+    "max_seconds": 2.6509764040238224,
+    "samples_seconds": [
+      2.6328507919679396,
+      2.6509764040238224,
+      2.614232817024458,
+      2.603769728972111,
+      2.6260632800403982
+    ]
+  }
+]
+
+=== oversized-tail fixture baseline complete ===
+
+fixture experiment exit status: 0

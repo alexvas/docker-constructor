@@ -182,24 +182,24 @@ Store phase-labelled command outputs, full logs, actual exit statuses, reviews a
 
 ### RED
 
-- [ ] 6.1 Map every revised requirement/scenario and phase deliverable to actual tests/evidence; record outstanding obligations without manufacturing failures or claiming old gates prove changed behavior.
-- [ ] 6.2 Discover applicable configured lint/type checks; record exact commands or justified absence without inventing checks or deferring earlier coverage.
+- [x] 6.1 Map every revised requirement/scenario and phase deliverable to actual tests/evidence; record outstanding obligations without manufacturing failures or claiming old gates prove changed behavior.
+- [x] 6.2 Discover applicable configured lint/type checks; record exact commands or justified absence without inventing checks or deferring earlier coverage.
 
 ### GREEN
 
-- [ ] 6.3 Perform one-off before/after recognition/capture experiments outside CI; deliver baseline-compatible single-feed/chunked medians, profiles and allocation/work evidence with unchanged stress fixtures.
-- [ ] 6.4 Run the complete mandated eight-worker loadfile pytest command; preserve full stdout/stderr, warnings, summary and actual zero runner status without exclusions.
-- [ ] 6.5 Run applicable configured checks; preserve full outputs and successful statuses, or retain the verified absence in 6.2.
+- [x] 6.3 Perform one-off before/after recognition/capture experiments outside CI; deliver baseline-compatible single-feed/chunked medians, profiles and allocation/work evidence with unchanged stress fixtures.
+- [x] 6.4 Run the complete mandated eight-worker loadfile pytest command; preserve full stdout/stderr, warnings, summary and actual zero runner status without exclusions.
+- [x] 6.5 Run applicable configured checks; preserve full outputs and successful statuses, or retain the verified absence in 6.2.
 
 ### INTROSPECT
 
-- [ ] 6.6 Review final implementation scope; verify unchanged stress inputs, scheduler, AGENTS.md, shutdown budgets and unrelated execution semantics, with apply-time spec edits limited to completion boxes.
-- [ ] 6.7 Reconcile final acceptance evidence, cumulative work and raw ownership against the matrix; verify all findings resolved without claiming whole-pipeline linearity.
+- [x] 6.6 Review final implementation scope; verify unchanged stress inputs, scheduler, AGENTS.md, shutdown budgets and unrelated execution semantics, with apply-time spec edits limited to completion boxes.
+- [x] 6.7 Reconcile final acceptance evidence, cumulative work and raw ownership against the matrix; verify all findings resolved without claiming whole-pipeline linearity.
 
 ### VALIDATE
 
-- [ ] 6.8 Revalidate affected checks after final fixes; verify full-suite and applicable check logs reflect the final code state and successful statuses.
-- [ ] 6.9 Deliver final acceptance only after revised P1–P6 and added P1A gates pass; otherwise report blocked acceptance and outstanding obligations, keeping P3 reopened if its guarantees remain unverified.
+- [x] 6.8 Revalidate affected checks after final fixes; verify full-suite and applicable check logs reflect the final code state and successful statuses.
+- [x] 6.9 Deliver final acceptance only after revised P1–P6 and added P1A gates pass; otherwise report blocked acceptance and outstanding obligations, keeping P3 reopened if its guarantees remain unverified.
 
 ## Workflow follow-up
 

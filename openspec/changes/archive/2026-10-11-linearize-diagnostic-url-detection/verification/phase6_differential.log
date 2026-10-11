@@ -1,0 +1,4 @@
+$ PYTHONPATH="$PWD" .venv/bin/python openspec/changes/linearize-diagnostic-url-detection/verification/phase3_projector_differential.py
+P3 PARTITION CORPUS PASS: 33558 comparisons, text and ordered facts
+
+audit exit status: 0

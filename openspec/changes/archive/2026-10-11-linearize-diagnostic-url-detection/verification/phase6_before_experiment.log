@@ -1,0 +1,416 @@
+$ .venv/bin/python /home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py /tmp/diagnostic-url-phase6-before.nboXGN before /home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_before.json 5
+detection 1024:uninterrupted:chunk=1024
+detection 1024:separated:chunk=1016
+projection 1024:chunk=1028
+projection 1024:chunk=1024
+detection 2048:uninterrupted:chunk=2048
+detection 2048:separated:chunk=2042
+projection 2048:chunk=2052
+projection 2048:chunk=1024
+detection 4096:uninterrupted:chunk=4096
+detection 4096:separated:chunk=4094
+projection 4096:chunk=4100
+projection 4096:chunk=1024
+detection 8192:uninterrupted:chunk=8192
+detection 8192:separated:chunk=8189
+projection 8192:chunk=8196
+projection 8192:chunk=1024
+detection 16384:uninterrupted:chunk=16384
+detection 16384:separated:chunk=16379
+projection 16384:chunk=16388
+projection 16384:chunk=1024
+{
+  "label": "before",
+  "root": "/tmp/diagnostic-url-phase6-before.nboXGN",
+  "command": [
+    "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py",
+    "/tmp/diagnostic-url-phase6-before.nboXGN",
+    "before",
+    "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_before.json",
+    "5"
+  ],
+  "environment": {
+    "python": "3.14.7",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.41",
+    "executable": "/home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python",
+    "cpu_count": 32,
+    "pending_limit": 8192,
+    "repeats": 5
+  },
+  "detection": {
+    "1024:uninterrupted:chunk=1024": {
+      "input_chars": 1024,
+      "median_seconds": 0.013233354955445975,
+      "samples_seconds": [
+        0.013195645995438099,
+        0.014760976016987115,
+        0.013233354955445975,
+        0.013302587030921131,
+        0.013213786005508155
+      ]
+    },
+    "1024:separated:chunk=1016": {
+      "input_chars": 1016,
+      "median_seconds": 0.00013952102744951844,
+      "samples_seconds": [
+        0.0001383910421282053,
+        0.00016386096831411123,
+        0.00013952102744951844,
+        0.00014765001833438873,
+        0.00013493001461029053
+      ]
+    },
+    "2048:uninterrupted:chunk=2048": {
+      "input_chars": 2048,
+      "median_seconds": 0.05293720401823521,
+      "samples_seconds": [
+        0.05296330398414284,
+        0.05289051297586411,
+        0.05300254496978596,
+        0.05293720401823521,
+        0.0527595030143857
+      ]
+    },
+    "2048:separated:chunk=2042": {
+      "input_chars": 2042,
+      "median_seconds": 0.0002708720276132226,
+      "samples_seconds": [
+        0.000270602002274245,
+        0.0002820210065692663,
+        0.0002708720276132226,
+        0.00027479202253744006,
+        0.00026980199618265033
+      ]
+    },
+    "4096:uninterrupted:chunk=4096": {
+      "input_chars": 4096,
+      "median_seconds": 0.21175081602996215,
+      "samples_seconds": [
+        0.21169759600888938,
+        0.21175081602996215,
+        0.21522838796954602,
+        0.21554061101051047,
+        0.21140817401465029
+      ]
+    },
+    "4096:separated:chunk=4094": {
+      "input_chars": 4094,
+      "median_seconds": 0.0005501729901880026,
+      "samples_seconds": [
+        0.0005690940306521952,
+        0.0005491329939104617,
+        0.0005522629944607615,
+        0.0005436739884316921,
+        0.0005501729901880026
+      ]
+    },
+    "8192:uninterrupted:chunk=8192": {
+      "input_chars": 8192,
+      "median_seconds": 0.8575889760395512,
+      "samples_seconds": [
+        0.8575889760395512,
+        0.8634660140378401,
+        0.8545763770234771,
+        0.8522271109977737,
+        0.8601447630207986
+      ]
+    },
+    "8192:separated:chunk=8189": {
+      "input_chars": 8189,
+      "median_seconds": 0.0011067870073020458,
+      "samples_seconds": [
+        0.0010917780455201864,
+        0.0011024480336345732,
+        0.0011159469722770154,
+        0.0011067870073020458,
+        0.001107166986912489
+      ]
+    },
+    "16384:uninterrupted:chunk=16384": {
+      "input_chars": 16384,
+      "median_seconds": 3.4307744249817915,
+      "samples_seconds": [
+        3.4790820350172,
+        3.4307744249817915,
+        3.4330293019884266,
+        3.425215183990076,
+        3.4192354879924096
+      ]
+    },
+    "16384:separated:chunk=16379": {
+      "input_chars": 16379,
+      "median_seconds": 0.0022027440136298537,
+      "samples_seconds": [
+        0.0022027440136298537,
+        0.002176453999709338,
+        0.002207044046372175,
+        0.002192154002841562,
+        0.00222611497156322
+      ]
+    }
+  },
+  "projection": {
+    "1024:chunk=1028": {
+      "rendered_length": 1028,
+      "peak_pending_bytes": 3,
+      "work": null,
+      "median_seconds": 0.013427037047222257,
+      "samples_seconds": [
+        0.013427037047222257,
+        0.013422367977909744,
+        0.013290925999172032,
+        0.01345432800007984,
+        0.013478406996000558
+      ]
+    },
+    "1024:chunk=1024": {
+      "rendered_length": 1028,
+      "peak_pending_bytes": 1024,
+      "work": null,
+      "median_seconds": 0.026818473997991532,
+      "samples_seconds": [
+        0.026769364019855857,
+        0.026906215003691614,
+        0.026818473997991532,
+        0.026964816031977534,
+        0.026807504997123033
+      ]
+    },
+    "2048:chunk=2052": {
+      "rendered_length": 2052,
+      "peak_pending_bytes": 3,
+      "work": null,
+      "median_seconds": 0.05320963601116091,
+      "samples_seconds": [
+        0.05359238799428567,
+        0.05320963601116091,
+        0.052703652007039636,
+        0.053020915016531944,
+        0.05324985599145293
+      ]
+    },
+    "2048:chunk=1024": {
+      "rendered_length": 2052,
+      "peak_pending_bytes": 2048,
+      "work": null,
+      "median_seconds": 0.12012774095637724,
+      "samples_seconds": [
+        0.12041418300941586,
+        0.11992487998213619,
+        0.12012774095637724,
+        0.12029774201801047,
+        0.11963938700500876
+      ]
+    },
+    "4096:chunk=4100": {
+      "rendered_length": 4100,
+      "peak_pending_bytes": 3,
+      "work": null,
+      "median_seconds": 0.41305617499165237,
+      "samples_seconds": [
+        0.42375446402002126,
+        0.42453994997777045,
+        0.41226566897239536,
+        0.4128472530283034,
+        0.41305617499165237
+      ]
+    },
+    "4096:chunk=1024": {
+      "rendered_length": 4100,
+      "peak_pending_bytes": 4096,
+      "work": null,
+      "median_seconds": 0.6148295369930565,
+      "samples_seconds": [
+        0.5943659829790704,
+        0.6104767190408893,
+        0.6148295369930565,
+        0.6183339099516161,
+        0.6186108319670893
+      ]
+    },
+    "8192:chunk=8196": {
+      "rendered_length": 31,
+      "peak_pending_bytes": 3,
+      "work": null,
+      "median_seconds": 1.0689791920012794,
+      "samples_seconds": [
+        1.0689791920012794,
+        1.06896299199434,
+        1.0685358989867382,
+        1.069572116015479,
+        1.069261654978618
+      ]
+    },
+    "8192:chunk=1024": {
+      "rendered_length": 31,
+      "peak_pending_bytes": 8192,
+      "work": null,
+      "median_seconds": 2.737301198998466,
+      "samples_seconds": [
+        2.7795980619848706,
+        2.737301198998466,
+        2.7148674950003624,
+        2.7557768530095927,
+        2.7066898660268635
+      ]
+    },
+    "16384:chunk=16388": {
+      "rendered_length": 31,
+      "peak_pending_bytes": 3,
+      "work": null,
+      "median_seconds": 1.0640226109535433,
+      "samples_seconds": [
+        1.062111908046063,
+        1.06258894194616,
+        1.067377083003521,
+        1.0827688329736702,
+        1.0640226109535433
+      ]
+    },
+    "16384:chunk=1024": {
+      "rendered_length": 31,
+      "peak_pending_bytes": 8192,
+      "work": null,
+      "median_seconds": 2.7208116220426746,
+      "samples_seconds": [
+        2.7211327999830246,
+        2.7219832370174117,
+        2.7208116220426746,
+        2.7149687859928235,
+        2.702872547961306
+      ]
+    }
+  },
+  "profiles": {
+    "redacted": {
+      "rendered": "GET <redacted> 15ms done token=<redacted> <redacted> ",
+      "repeats": 200,
+      "median": {
+        "median_seconds": 0.00016898103058338165,
+        "samples_seconds": [
+          0.00018704100511968136,
+          0.000169751001521945,
+          0.00016898103058338165,
+          0.00016344100004062057,
+          0.00016643101116642356
+        ]
+      },
+      "profile": "         520497 function calls in 0.119 seconds\n\n   Ordered by: cumulative time\n   List reduced from 102 to 25 due to restriction <25>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      200    0.000    0.000    0.119    0.001 /home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:112(<lambda>)\n      200    0.001    0.000    0.119    0.001 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/npm_diagnostic_stream.py:122(project_tail)\n      200    0.000    0.000    0.064    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1293(sanitize_diagnostic_text)\n      200    0.000    0.000    0.062    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1063(feed_text)\n      400    0.001    0.000    0.062    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1177(_feed)\n      200    0.002    0.000    0.050    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1213(_drain)\n      200    0.003    0.000    0.045    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:550(feed_text)\n      400    0.005    0.000    0.030    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:583(_feed)\n      400    0.010    0.000    0.022    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:365(_feed)\n      200    0.000    0.000    0.022    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:282(feed_characters)\n      400    0.001    0.000    0.019    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1265(_sanitize_candidate)\n     1400    0.008    0.000    0.013    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:217(_leftmost_secret_match)\n    30400    0.008    0.000    0.013    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:556(<genexpr>)\n      400    0.003    0.000    0.012    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:203(_find_terminator)\n      200    0.007    0.000    0.011    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:458(_take_utf8_prefix)\n      400    0.000    0.000    0.010    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:768(_safe_host_path)\n    30200    0.007    0.000    0.010    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:474(_handle_normal)\n    24000    0.006    0.000    0.009    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:195(_is_terminator)\n      400    0.001    0.000    0.007    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:737(_canonical_safe_path)\n    79200    0.007    0.000    0.007    0.000 {method 'append' of 'list' objects}\n      200    0.004    0.000    0.007    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/npm_diagnostic_stream.py:106(_bounded_tail)\n     1600    0.001    0.000    0.007    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:446(_normalized_host)\n    71200    0.006    0.000    0.006    0.000 {method 'encode' of 'str' objects}\n    82600    0.005    0.000    0.005    0.000 {built-in method builtins.ord}\n    64400    0.005    0.000    0.005    0.000 {method 'startswith' of 'str' objects}\n\n\n"
+    },
+    "host-path": {
+      "rendered": "GET registry.example.com/pkg/-/pkg-1.0.0.tgz 15ms done token=<redacted> internal.example/private ",
+      "repeats": 200,
+      "median": {
+        "median_seconds": 0.00017284101340919733,
+        "samples_seconds": [
+          0.00018111098324880004,
+          0.00017284101340919733,
+          0.00017197098350152373,
+          0.00016999099170789123,
+          0.00017569097690284252
+        ]
+      },
+      "profile": "         547401 function calls in 0.124 seconds\n\n   Ordered by: cumulative time\n   List reduced from 91 to 25 due to restriction <25>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      200    0.000    0.000    0.124    0.001 /home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:112(<lambda>)\n      200    0.001    0.000    0.123    0.001 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/npm_diagnostic_stream.py:122(project_tail)\n      200    0.000    0.000    0.062    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1063(feed_text)\n      400    0.001    0.000    0.062    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1177(_feed)\n      200    0.002    0.000    0.050    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1213(_drain)\n      200    0.003    0.000    0.045    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:550(feed_text)\n      400    0.005    0.000    0.030    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:583(_feed)\n      400    0.010    0.000    0.022    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:365(_feed)\n      200    0.000    0.000    0.022    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:282(feed_characters)\n      400    0.001    0.000    0.019    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1265(_sanitize_candidate)\n     1400    0.008    0.000    0.013    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:217(_leftmost_secret_match)\n    30400    0.008    0.000    0.012    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:556(<genexpr>)\n      400    0.003    0.000    0.012    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:203(_find_terminator)\n      200    0.007    0.000    0.012    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/npm_diagnostic_stream.py:106(_bounded_tail)\n      200    0.007    0.000    0.011    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:458(_take_utf8_prefix)\n      400    0.000    0.000    0.010    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:768(_safe_host_path)\n    30200    0.007    0.000    0.010    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:474(_handle_normal)\n    24000    0.006    0.000    0.009    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:195(_is_terminator)\n    88000    0.008    0.000    0.008    0.000 {method 'append' of 'list' objects}\n      400    0.001    0.000    0.007    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:737(_canonical_safe_path)\n    80000    0.007    0.000    0.007    0.000 {method 'encode' of 'str' objects}\n     1600    0.001    0.000    0.007    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:446(_normalized_host)\n    85200    0.006    0.000    0.006    0.000 {built-in method builtins.len}\n    82600    0.005    0.000    0.005    0.000 {built-in method builtins.ord}\n    64400    0.005    0.000    0.005    0.000 {method 'startswith' of 'str' objects}\n\n\n"
+    },
+    "exact": {
+      "rendered": "GET https://registry.example.com/pkg/-/pkg-1.0.0.tgz 15ms done token=supersecret custom+transport://user:password@internal.example/private?token=value ",
+      "repeats": 200,
+      "median": {
+        "median_seconds": 7.643102435395122e-05,
+        "samples_seconds": [
+          7.80309783294797e-05,
+          7.721094880253077e-05,
+          7.643102435395122e-05,
+          7.591996109113097e-05,
+          7.524999091401696e-05
+        ]
+      },
+      "profile": "         308601 function calls in 0.063 seconds\n\n   Ordered by: cumulative time\n   List reduced from 27 to 25 due to restriction <25>\n\n   ncalls  tottime  percall  cumtime  percall filename:lineno(function)\n      200    0.000    0.000    0.063    0.000 /home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:112(<lambda>)\n      200    0.001    0.000    0.063    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/npm_diagnostic_stream.py:122(project_tail)\n      200    0.003    0.000    0.044    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:550(feed_text)\n      400    0.005    0.000    0.029    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:583(_feed)\n      400    0.010    0.000    0.022    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:365(_feed)\n      200    0.000    0.000    0.021    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:282(feed_characters)\n      200    0.010    0.000    0.017    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/npm_diagnostic_stream.py:106(_bounded_tail)\n    30400    0.008    0.000    0.012    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:556(<genexpr>)\n    30200    0.007    0.000    0.009    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:474(_handle_normal)\n    90800    0.007    0.000    0.007    0.000 {method 'append' of 'list' objects}\n    60400    0.005    0.000    0.005    0.000 {method 'encode' of 'str' objects}\n    60400    0.004    0.000    0.004    0.000 {built-in method builtins.len}\n    30200    0.002    0.000    0.002    0.000 {built-in method builtins.ord}\n      200    0.000    0.000    0.001    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:561(finish)\n      800    0.000    0.000    0.000    0.000 {method 'join' of 'str' objects}\n      200    0.000    0.000    0.000    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:290(finish)\n      400    0.000    0.000    0.000    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:369(flush_plain)\n      200    0.000    0.000    0.000    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:526(__init__)\n      200    0.000    0.000    0.000    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:616(_reset_line)\n      400    0.000    0.000    0.000    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:264(__init__)\n      400    0.000    0.000    0.000    0.000 {method 'extend' of 'list' objects}\n      600    0.000    0.000    0.000    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:150(__init__)\n      400    0.000    0.000    0.000    0.000 /tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:220(finish)\n      200    0.000    0.000    0.000    0.000 {method 'clear' of 'list' objects}\n      200    0.000    0.000    0.000    0.000 {method 'reverse' of 'list' objects}\n\n\n"
+    }
+  },
+  "allocations": {
+    "redacted": {
+      "remaining_bytes": 20400,
+      "peak_bytes": 25475,
+      "remaining_top_lines": [
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:611: size=9664 B, count=151, average=64 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:557: size=9536 B, count=149, average=64 B",
+        "/home/dev/.local/share/uv/python/cpython-3.14.7-linux-x86_64-gnu/lib/python3.14/tracemalloc.py:551: size=184 B, count=2, average=92 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:82: size=176 B, count=4, average=44 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1205: size=104 B, count=1, average=104 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:353: size=88 B, count=2, average=44 B",
+        "<string>:4: size=72 B, count=1, average=72 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1304: size=64 B, count=1, average=64 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:369: size=64 B, count=1, average=64 B",
+        "<frozen codecs>:327: size=56 B, count=1, average=56 B"
+      ]
+    },
+    "host-path": {
+      "remaining_bytes": 20584,
+      "peak_bytes": 25475,
+      "remaining_top_lines": [
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:611: size=9664 B, count=151, average=64 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:557: size=9536 B, count=149, average=64 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/npm_diagnostic_stream.py:149: size=240 B, count=3, average=80 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:82: size=128 B, count=3, average=43 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1205: size=104 B, count=1, average=104 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:353: size=88 B, count=2, average=44 B",
+        "<string>:4: size=72 B, count=1, average=72 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:226: size=64 B, count=1, average=64 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:369: size=64 B, count=1, average=64 B",
+        "<frozen codecs>:327: size=56 B, count=1, average=56 B"
+      ]
+    },
+    "exact": {
+      "remaining_bytes": 19952,
+      "peak_bytes": 25475,
+      "remaining_top_lines": [
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:611: size=9664 B, count=151, average=64 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:557: size=9600 B, count=150, average=64 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:82: size=128 B, count=3, average=43 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:367: size=112 B, count=2, average=56 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:366: size=112 B, count=2, average=56 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:379: size=96 B, count=2, average=48 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:374: size=72 B, count=1, average=72 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:369: size=64 B, count=1, average=64 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:614: size=56 B, count=1, average=56 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/npm_environment/streaming.py:295: size=56 B, count=1, average=56 B"
+      ]
+    },
+    "projection:8192": {
+      "remaining_bytes": 2008,
+      "peak_bytes": 1146381,
+      "remaining_top_lines": [
+        "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:74: size=184 B, count=2, average=92 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:353: size=128 B, count=3, average=43 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:82: size=128 B, count=3, average=43 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1207: size=128 B, count=1, average=128 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1166: size=128 B, count=1, average=128 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:916: size=128 B, count=1, average=128 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:399: size=128 B, count=1, average=128 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:126: size=128 B, count=1, average=128 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:66: size=128 B, count=1, average=128 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:252: size=112 B, count=2, average=56 B"
+      ]
+    },
+    "projection:16384": {
+      "remaining_bytes": 1240,
+      "peak_bytes": 1154189,
+      "remaining_top_lines": [
+        "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:74: size=184 B, count=2, average=92 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:353: size=128 B, count=3, average=43 B",
+        "/home/aavasiljev/work/home/docker-constructor.git/openspec/changes/linearize-diagnostic-url-detection/verification/phase6_experiment.py:82: size=128 B, count=3, average=43 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:252: size=112 B, count=2, average=56 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1191: size=64 B, count=2, average=32 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:204: size=64 B, count=2, average=32 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1214: size=56 B, count=1, average=56 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1112: size=56 B, count=1, average=56 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1087: size=56 B, count=1, average=56 B",
+        "/tmp/diagnostic-url-phase6-before.nboXGN/docker/versioning/diagnostic_projection.py:1050: size=56 B, count=1, average=56 B"
+      ]
+    }
+  }
+}
+experiment complete; no elapsed-time assertions
+
+experiment exit status: 0

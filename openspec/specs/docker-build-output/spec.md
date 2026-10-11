@@ -126,6 +126,8 @@ All presentation completion waits and joins SHALL share one five-second monotoni
 
 During a live session the actor SHALL be the sole host terminal writer, including the facade-prepared final host failure report. The normal CLI result printer SHALL NOT write that report a second time or retry it after presentation failure. Structured result data SHALL remain available independently of rendering. Without a live session, ordinary text/JSON result formatting SHALL remain responsible for the report; JSON SHALL create no presentation inbox or worker.
 
+External hostname and URL-fingerprint facts SHALL follow supported-scheme and secret-coverage rules in `locked-npm-environment-assembly`. Secret-bearing hosts SHALL supply neither normalized-host facts nor fingerprints; secret-bearing paths SHALL supply no fingerprints while independently safe hosts may supply hostname facts. `<redacted-host>` is display text, not a normalized hostname. Unknown schemes SHALL remain ordinary text without URL-derived facts, so their rendered text may distinguish groups. Across host diagnostic contracts, URL-free SDK guarantees mean supported-scheme URL hiding; unknown-scheme text is explicitly outside that guarantee.
+
 #### Scenario: Text output is noninteractive
 - **WHEN** text output is redirected or otherwise runs without interactive presentation
 - **AND** `lines` was not explicitly configured
@@ -159,7 +161,7 @@ During a live session the actor SHALL be the sole host terminal writer, includin
 - **AND** concurrent activity SHALL NOT interleave terminal fragments, duplicate the durable diagnostic, or lose the latest admitted-occurrence count
 
 #### Scenario: Hidden URL identity is presentation-safe
-- **WHEN** two ordinary diagnostics outside a recognized successful-fetch group render the same URL-free safe text but their ordered hidden URL identities differ
+- **WHEN** two ordinary diagnostics outside a recognized successful-fetch group render the same URL-free safe text but their ordered hidden known-scheme URL identities differ
 - **THEN** exact-repeat and interactive numeric-update presentation SHALL treat them as different groups
 - **AND** recognized successful-fetch grouping SHALL instead use the selected `redacted` or `host-path` group key
 - **AND** normalized hostnames SHALL remain available only for facade hostname-display policy rather than as an additional post-render coalescing-key field
@@ -287,7 +289,9 @@ Output policy SHALL remain host-side presentation state. Neither setting SHALL b
 - **AND** only live diagnostic presentation and retained failure content MAY differ
 
 ### Requirement: Apply one safe network diagnostic presentation policy
-Host-pipeline live and failure diagnostics SHALL identify reviewed resources by safe logical asset names and MAY identify named assembler containers by the fixed `npm-assembler-<digest-prefix>` form. The closed `network_url_display` policy SHALL control additional network detail. `redacted` SHALL omit source URL detail. `host-path` MAY expose only a normalized hostname and safe path and SHALL omit scheme, port, user information, query, fragment, proxy details, credentials, and exception messages. `exact` MAY preserve terminal-safe source diagnostic content only where such third-party content was captured under the contracts of `locked-npm-environment-assembly`; it SHALL NOT synthesize unavailable source content or expose arbitrary transport exception messages. Nested transport failures MAY report at most four unique exception type names traversed through reason, cause, or context relationships, with cycles terminated. Terminal-control neutralization and output bounds SHALL apply in every mode.
+Host-pipeline live and failure diagnostics SHALL identify reviewed resources by safe logical asset names and MAY identify named assembler containers by the fixed `npm-assembler-<digest-prefix>` form. The closed `network_url_display` policy SHALL control additional network detail. `redacted` SHALL omit source URL detail. `host-path` MAY expose only an independently safe hostname and path or their rendering markers, and SHALL omit scheme, port, user information, query, fragment, proxy details, credentials, and exception messages. For captured supported URLs a secret-bearing host SHALL become `<redacted-host>`, and an unsafe or secret-bearing path SHALL become `/<redacted-path>`. `exact` MAY preserve terminal-safe source diagnostic content only where such third-party content was captured under the contracts of `locked-npm-environment-assembly`; it SHALL NOT synthesize unavailable source content or expose arbitrary transport exception messages. Nested transport failures MAY report at most four unique exception type names traversed through reason, cause, or context relationships, with cycles terminated. Terminal-control neutralization and output bounds SHALL apply in every mode.
+
+Supported-scheme recognition and literal/decoded secret coverage SHALL follow `locked-npm-environment-assembly`. `redacted` SHALL immediately emit one irreversible `<redacted>` upon full supported scheme/separator detection, irrespective of secrets, except when a registered secret includes the URL separator and an earlier unresolved literal prefix of that secret crosses the recognized separator. In that case marker delivery SHALL wait for prefix resolution to preserve source order, after which exactly one irreversible URL marker SHALL be emitted; otherwise immediate delivery SHALL remain mandatory. This exception, including its clean-EOF non-match outcome, SHALL follow `locked-npm-environment-assembly` without changing bounds, replay-free continuation or metadata eligibility. Literal secrets in ordinary safe text SHALL become `<secret>`. Host-path SHALL commit settled validated authority/path components as their boundaries resolve. EOF, abort or token overflow SHALL preserve committed output, adding markers only for an unresolved uncommitted display remainder, never for an already-covered redacted URL. Partial separators retain existing finalization rules, and early output SHALL NOT authorize metadata. Unknown schemes without a supported embedded start SHALL remain text without URL facts. SDK events SHALL use redacted projection independently of local mode, with the explicit unknown-scheme exception to universal URL-free/source-content guarantees. Captured local `exact` SHALL retain source, including secrets. Masked components SHALL NOT be treated as validated hostname or fingerprint facts.
 
 #### Scenario: Hostname display is disabled
 - **WHEN** a reviewed asset download fails under the default `redacted` output policy
@@ -308,6 +312,59 @@ Host-pipeline live and failure diagnostics SHALL identify reviewed resources by 
 #### Scenario: Nested exception graph is deep or cyclic
 - **WHEN** a transport exception exposes more than four unique related types or a relationship cycle
 - **THEN** presentation SHALL terminate deterministically after at most four unique type names
+
+#### Scenario: Unknown schemes remain captured text
+- **WHEN** captured diagnostics contain an unknown-scheme URL-shaped string with no supported embedded start under redacted or host-path
+- **THEN** live output, SDK text and text/JSON retained failure context SHALL treat it as ordinary text subject to literal secrets, terminal safety and bounds
+- **AND** no hostname, host/path or URL fingerprint SHALL derive from it
+
+#### Scenario: Unknown text participates in normal grouping
+- **WHEN** ordinary diagnostics differ in unknown-scheme source content
+- **THEN** grouping SHALL compare resulting rendered text and normal event identity without adding URL facts for that content
+- **AND** validated eligible supported-URL fingerprints SHALL continue to distinguish groups
+
+#### Scenario: Exact unknown text and SDK projection are separate
+- **WHEN** exact local diagnostics contain unknown-scheme text and configured literal secrets with an external SDK sink attached
+- **THEN** local text and the selected failure tail SHALL retain terminal-safe source within bounds
+- **AND** SDK text SHALL redact literal secrets as `<secret>` but SHALL NOT hide unknown-scheme text solely because it is URL-shaped
+- **AND** no URL facts SHALL derive from that unknown text
+
+#### Scenario: Secret-bearing host is display-only masked text
+- **WHEN** secret `TOKEN` occurs in captured `https://TOKEN.example/public` under host-path
+- **THEN** live and text/JSON retained rendering SHALL be `<redacted-host>/public`
+- **AND** SDK text SHALL hide the whole supported URL as `<redacted>`
+- **AND** neither the original host nor the marker SHALL enter normalized-host facts or URL fingerprints
+
+#### Scenario: Secret-bearing path preserves safe hostname only
+- **WHEN** secret `TOKEN` occurs in captured `https://host/TOKEN/private` under host-path
+- **THEN** rendering SHALL be `host/<redacted-path>` and SDK text SHALL hide the whole URL
+- **AND** validated hostname `host` may remain a fact but no URL fingerprint SHALL derive from that URL
+
+#### Scenario: Credential secret does not erase permitted host facts
+- **WHEN** secret `TOKEN` occurs in captured `https://user:TOKEN@host/public`
+- **THEN** host-path rendering SHALL be `host/public` and redacted/SDK rendering SHALL be `<redacted>`
+- **AND** otherwise eligible validated host/path and fingerprint facts SHALL remain permitted
+
+#### Scenario: Early URL projection is retained without replacement
+- **WHEN** redacted local or SDK projection receives `https://ho` followed later by abort, EOF or token overflow
+- **THEN** it SHALL emit `<redacted>` in the first feed and SHALL NOT replace or duplicate that URL marker later
+- **AND** the selected retained tail SHALL preserve the committed representation without retraction
+- **AND** host-path output already committed before failure SHALL likewise remain, with fail-closed markers only for an unresolved display remainder
+- **AND** normalized-host and fingerprint facts SHALL still require eligible validation rather than early rendering
+
+#### Scenario: Crossing-secret prefix preserves local and SDK source order
+- **GIVEN** configured secret `Xhttps://host`
+- **WHEN** redacted local or SDK projection receives first chunk `Xhttps://ho`
+- **THEN** marker delivery SHALL wait until the earlier unresolved crossing secret prefix resolves
+- **AND** continuation `st done` SHALL yield `<secret><redacted> done`, while continuation `r done` SHALL yield `X<redacted> done`
+- **AND** clean EOF without continuation SHALL resolve the secret as not matched and yield `X<redacted>`, without a secret or incomplete-token marker; abort and overflow rules SHALL remain unchanged
+- **AND** each result SHALL preserve source order and exactly one irreversible URL marker, without another raw owner, changed limits or early metadata authorization
+- **AND** other supported URL starts SHALL retain mandatory immediate separator-triggered delivery
+
+#### Scenario: Exact remains revealing locally with safe SDK projection
+- **WHEN** exact local source contains `https://TOKEN.example/TOKEN/private` and secret `TOKEN`
+- **THEN** local live text and the sole selected failure tail SHALL preserve source including secrets within bounds and terminal safety
+- **AND** SDK text SHALL hide the supported URL and emit neither its secret-bearing hostname nor a URL fingerprint
 
 #### Scenario: Exact mode has no captured third-party diagnostic
 - **WHEN** a structured host transport failure provides no captured terminal-safe source diagnostic
