@@ -17,24 +17,24 @@ Store phase-labelled command outputs, full logs, actual exit statuses, reviews a
 
 ### RED
 
-- [ ] 1.1 Reconcile the caller inventory for normal/EOF/structured projection, secret registration, collector/fetch facts and grouping; deliver ownership of every changed detection, marker and metadata dependency.
+- [x] 1.1 Reconcile the caller inventory for normal/EOF/structured projection, secret registration, collector/fetch facts and grouping; deliver ownership of every changed detection, marker and metadata dependency.
 - [x] 1.2 Capture the one-off baseline experiment outside tests/CI; verify evidence records 1/2/4/8/16 KiB medians, capture profiles, oversized-tail timings, environment, commands, full logs and statuses without fixture changes.
-- [ ] 1.3 Revise contract tests for supported-only detection, raw inclusive starts/exclusive ends, end=None, ambiguous prefixes, embedded starts and unknown text; record which previous obligations are intentionally superseded.
-- [ ] 1.4 Record revised P1 RED results and unchanged passing obligations; verify failures map to the agreed contract rather than infrastructure.
+- [x] 1.3 Revise contract tests for supported-only detection, raw inclusive starts/exclusive ends, end=None, ambiguous prefixes, embedded starts and unknown text; record which previous obligations are intentionally superseded.
+- [x] 1.4 Record revised P1 RED results and unchanged passing obligations; verify failures map to the agreed contract rather than infrastructure.
 
 ### GREEN
 
-- [ ] 1.5 Revise immutable internal outcomes/models for supported URLs and source secret coverage; verify tests do not make detection prove validity or introduce a public/persisted DTO.
-- [ ] 1.6 Define the exact case-insensitive scheme set and detection-versus-interpretation depth; verify all listed schemes and unknown variants without changing transport/lock acceptance.
+- [x] 1.5 Revise immutable internal outcomes/models for supported URLs and source secret coverage; verify tests do not make detection prove validity or introduce a public/persisted DTO.
+- [x] 1.6 Define the exact case-insensitive scheme set and detection-versus-interpretation depth; verify all listed schemes and unknown variants without changing transport/lock acceptance.
 
 ### INTROSPECT
 
-- [ ] 1.7 Document raw coordinates, outcome validity, supported consumption boundaries and marker/fact separation; verify API documentation agrees with the revised tests.
-- [ ] 1.8 Review the revised P1 diff and historical evidence applicability; deliver resolved findings or a blocking gate without reusing obsolete UNKNOWN-hiding results.
+- [x] 1.7 Document raw coordinates, outcome validity, supported consumption boundaries and marker/fact separation; verify API documentation agrees with the revised tests.
+- [x] 1.8 Review the revised P1 diff and historical evidence applicability; deliver resolved findings or a blocking gate without reusing obsolete UNKNOWN-hiding results.
 
 ### VALIDATE
 
-- [ ] 1.9 Run P1 and affected existing tests with successful statuses; deliver the revised P1 gate linking full logs and each deliverable.
+- [x] 1.9 Run P1 and affected existing tests with successful statuses; deliver the revised P1 gate linking full logs and each deliverable.
 
 ## 1A. P1A — Standalone Aho–Corasick streaming core
 

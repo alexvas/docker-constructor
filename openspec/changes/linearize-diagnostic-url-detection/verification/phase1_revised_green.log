@@ -1,0 +1,10 @@
+Command: .venv/bin/python -m pytest tests/test_diagnostic_recognition_contract.py -n 8 --dist loadfile --tb=short -q
+
+bringing up nodes...
+bringing up nodes...
+
+uuuuuuuuuuuuuuu.uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu [  5%]
+uuuuuuuuuuuuuuuuuuuuuuuuuuuuu.....uuuuuuuuuuuuuuu..........uu........... [ 67%]
+.............                                                            [100%]
+40 passed, 117 subtests passed in 0.58s
+green exit status: 0

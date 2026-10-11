@@ -1,0 +1,890 @@
+Command: .venv/bin/python -m pytest tests/test_diagnostic_recognition_contract.py -n 8 --dist loadfile --tb=short -q
+Precondition: docker/versioning/diagnostic_recognition.py reset to HEAD (pre-revision contract) to reproduce the revised P1 RED state
+
+bringing up nodes...
+bringing up nodes...
+
+uuuuuuuuuuuuuuu.uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu [  5%]
+uuuuuuuuuuuuuuuuuuuuuuuuuuuuu.FFFFuuuuuuuuuuuuuuu.FFFFFFFFFuu....FFFFFFF [ 67%]
+F.....F...FFF                                                            [100%]
+=================================== FAILURES ===================================
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'file'", variant="'file'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'file'", variant="'FILE'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'file'", variant="'File'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'file'", variant="'File'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'file'", variant="'fIlE'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ftp'", variant="'ftp'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ftp'", variant="'FTP'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ftp'", variant="'Ftp'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ftp'", variant="'Ftp'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ftp'", variant="'fTp'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ftps'", variant="'ftps'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ftps'", variant="'FTPS'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ftps'", variant="'Ftps'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ftps'", variant="'Ftps'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ftps'", variant="'fTpS'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git'", variant="'git'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git'", variant="'GIT'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git'", variant="'Git'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git'", variant="'Git'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git'", variant="'gIt'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git+http'", variant="'git+http'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git+http'", variant="'GIT+HTTP'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git+http'", variant="'Git+http'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git+http'", variant="'Git+Http'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git+http'", variant="'gIt+hTtP'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git+https'", variant="'git+https'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git+https'", variant="'GIT+HTTPS'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git+https'", variant="'Git+https'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git+https'", variant="'Git+Https'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git+https'", variant="'gIt+hTtPs'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git+ssh'", variant="'git+ssh'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git+ssh'", variant="'GIT+SSH'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git+ssh'", variant="'Git+ssh'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git+ssh'", variant="'Git+Ssh'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'git+ssh'", variant="'gIt+sSh'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'http'", variant="'http'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'http'", variant="'HTTP'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'http'", variant="'Http'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'http'", variant="'Http'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'http'", variant="'hTtP'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'https'", variant="'https'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'https'", variant="'HTTPS'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'https'", variant="'Https'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'https'", variant="'Https'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'https'", variant="'hTtPs'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks'", variant="'socks'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks'", variant="'SOCKS'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks'", variant="'Socks'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks'", variant="'Socks'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks'", variant="'sOcKs'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks4'", variant="'socks4'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks4'", variant="'SOCKS4'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks4'", variant="'Socks4'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks4'", variant="'Socks4'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks4'", variant="'sOcKs4'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks4a'", variant="'socks4a'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks4a'", variant="'SOCKS4A'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks4a'", variant="'Socks4a'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks4a'", variant="'Socks4A'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks4a'", variant="'sOcKs4a'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks5'", variant="'socks5'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks5'", variant="'SOCKS5'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks5'", variant="'Socks5'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks5'", variant="'Socks5'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks5'", variant="'sOcKs5'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks5h'", variant="'socks5h'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks5h'", variant="'SOCKS5H'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks5h'", variant="'Socks5h'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks5h'", variant="'Socks5H'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'socks5h'", variant="'sOcKs5h'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ssh'", variant="'ssh'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ssh'", variant="'SSH'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ssh'", variant="'Ssh'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ssh'", variant="'Ssh'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ssh'", variant="'sSh'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ws'", variant="'ws'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ws'", variant="'WS'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ws'", variant="'Ws'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ws'", variant="'Ws'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'ws'", variant="'wS'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'wss'", variant="'wss'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'wss'", variant="'WSS'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'wss'", variant="'Wss'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'wss'", variant="'Wss'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_every_supported_scheme_is_supported_case_insensitively (scheme="'wss'", variant="'wSs'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:143: in test_every_supported_scheme_is_supported_case_insensitively
+    self.assertTrue(module.is_supported_scheme(variant))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_legacy_known_schemes_name_is_the_same_supported_set _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:126: in test_legacy_known_schemes_name_is_the_same_supported_set
+    set(module.SUPPORTED_SCHEMES), set(module.KNOWN_SCHEMES)
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'SUPPORTED_SCHEMES'
+_____ SupportedSchemeSetTests.test_npm_is_not_a_supported_separator_scheme _____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:160: in test_npm_is_not_a_supported_separator_scheme
+    self.assertNotIn("npm", module.SUPPORTED_SCHEMES)
+                            ^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'SUPPORTED_SCHEMES'
+____ SupportedSchemeSetTests.test_supported_check_rejects_non_string_input _____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:154: in test_supported_check_rejects_non_string_input
+    module.is_supported_scheme(None)  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_supported_scheme_set_matches_the_delta_requirement_exactly _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:119: in test_supported_scheme_set_matches_the_delta_requirement_exactly
+    EXPECTED_SUPPORTED_SCHEMES, set(module.SUPPORTED_SCHEMES)
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'SUPPORTED_SCHEMES'
+_ SupportedSchemeSetTests.test_unsupported_schemes_are_not_supported (scheme="''") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:149: in test_unsupported_schemes_are_not_supported
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_unsupported_schemes_are_not_supported (scheme="'httpx'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:149: in test_unsupported_schemes_are_not_supported
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_unsupported_schemes_are_not_supported (scheme="'https+'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:149: in test_unsupported_schemes_are_not_supported
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_unsupported_schemes_are_not_supported (scheme="'ssh2'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:149: in test_unsupported_schemes_are_not_supported
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_unsupported_schemes_are_not_supported (scheme="'git+file'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:149: in test_unsupported_schemes_are_not_supported
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_unsupported_schemes_are_not_supported (scheme="'git+'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:149: in test_unsupported_schemes_are_not_supported
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_unsupported_schemes_are_not_supported (scheme="'npm'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:149: in test_unsupported_schemes_are_not_supported
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_unsupported_schemes_are_not_supported (scheme="'custom+transport'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:149: in test_unsupported_schemes_are_not_supported
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_unsupported_schemes_are_not_supported (scheme="'gopher'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:149: in test_unsupported_schemes_are_not_supported
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_unsupported_schemes_are_not_supported (scheme="'mailto'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:149: in test_unsupported_schemes_are_not_supported
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_unsupported_schemes_are_not_supported (scheme="'data'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:149: in test_unsupported_schemes_are_not_supported
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_unsupported_schemes_are_not_supported (scheme="'socks6'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:149: in test_unsupported_schemes_are_not_supported
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_unsupported_schemes_are_not_supported (scheme="'wss2'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:149: in test_unsupported_schemes_are_not_supported
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_unsupported_schemes_are_not_supported (scheme="'HTTPX'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:149: in test_unsupported_schemes_are_not_supported
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedSchemeSetTests.test_unsupported_schemes_are_not_supported (scheme="'Custom+Transport'") _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:149: in test_unsupported_schemes_are_not_supported
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ SupportedOnlyDetectionContractTests.test_candidate_defaults_to_the_supported_classification _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:185: in test_candidate_defaults_to_the_supported_classification
+    candidate = module.DiagnosticCandidate(start=0, end=5)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DiagnosticCandidate.__init__() missing 1 required positional argument: 'kind'
+_ SupportedOnlyDetectionContractTests.test_candidate_model_has_no_unsupported_detection_constructor _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:210: in test_candidate_model_has_no_unsupported_detection_constructor
+    candidate = module.DiagnosticCandidate(start=0, end=4)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DiagnosticCandidate.__init__() missing 1 required positional argument: 'kind'
+_ SupportedOnlyDetectionContractTests.test_supported_scheme_embedded_in_longer_text_is_a_candidate _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:192: in test_supported_scheme_embedded_in_longer_text_is_a_candidate
+    candidate = module.DiagnosticCandidate(start=start, end=len(raw))
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DiagnosticCandidate.__init__() missing 1 required positional argument: 'kind'
+_ SupportedOnlyDetectionContractTests.test_unknown_text_has_no_supported_scheme_start _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:201: in test_unknown_text_has_no_supported_scheme_start
+    self.assertFalse(module.is_supported_scheme(scheme))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'is_supported_scheme'
+_ DiagnosticCandidateContractTests.test_candidate_carries_raw_inclusive_start_and_exclusive_end _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:220: in test_candidate_carries_raw_inclusive_start_and_exclusive_end
+    candidate = module.DiagnosticCandidate(start=4, end=16)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DiagnosticCandidate.__init__() missing 1 required positional argument: 'kind'
+_ DiagnosticCandidateContractTests.test_candidate_end_is_exclusive_of_the_raw_terminator _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:230: in test_candidate_end_is_exclusive_of_the_raw_terminator
+    candidate = module.DiagnosticCandidate(start=start, end=end)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DiagnosticCandidate.__init__() missing 1 required positional argument: 'kind'
+_ DiagnosticCandidateContractTests.test_candidate_end_none_marks_an_unterminated_candidate _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:235: in test_candidate_end_none_marks_an_unterminated_candidate
+    candidate = module.DiagnosticCandidate(start=0, end=None)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DiagnosticCandidate.__init__() missing 1 required positional argument: 'kind'
+_________ DiagnosticCandidateContractTests.test_candidate_is_immutable _________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:247: in test_candidate_is_immutable
+    candidate = module.DiagnosticCandidate(start=0, end=5)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DiagnosticCandidate.__init__() missing 1 required positional argument: 'kind'
+_ DiagnosticCandidateContractTests.test_candidate_offsets_are_raw_character_indices _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:241: in test_candidate_offsets_are_raw_character_indices
+    candidate = module.DiagnosticCandidate(start=1, end=len(raw))
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DiagnosticCandidate.__init__() missing 1 required positional argument: 'kind'
+_ SecretCoverageContractTests.test_coverage_carries_inclusive_start_and_exclusive_end _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:281: in test_coverage_carries_inclusive_start_and_exclusive_end
+    coverage = module.SecretCoverage(start=3, end=8)
+               ^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'SecretCoverage'
+____________ SecretCoverageContractTests.test_coverage_is_immutable ____________
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:300: in test_coverage_is_immutable
+    coverage = module.SecretCoverage(start=0, end=5)
+               ^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'SecretCoverage'
+_ SecretCoverageContractTests.test_coverage_offsets_are_raw_character_indices __
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:295: in test_coverage_offsets_are_raw_character_indices
+    coverage = module.SecretCoverage(start=1, end=6)
+               ^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'SecretCoverage'
+______ SecretCoverageContractTests.test_coverage_rejects_invalid_offsets _______
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:307: in test_coverage_rejects_invalid_offsets
+    module.SecretCoverage(start=-1, end=5)
+    ^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'SecretCoverage'
+_____ SecretCoverageContractTests.test_coverage_selects_the_covered_source _____
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:289: in test_coverage_selects_the_covered_source
+    coverage = module.SecretCoverage(start=start, end=start + 5)
+               ^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'SecretCoverage'
+_ RecognitionOutcomeContractTests.test_match_and_need_more_are_distinct_from_no_match _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:363: in test_match_and_need_more_are_distinct_from_no_match
+    candidate = module.DiagnosticCandidate(start=0, end=5)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DiagnosticCandidate.__init__() missing 1 required positional argument: 'kind'
+_ RecognitionOutcomeContractTests.test_match_carries_a_candidate_and_no_retention_point _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:341: in test_match_carries_a_candidate_and_no_retention_point
+    candidate = module.DiagnosticCandidate(start=2, end=9)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DiagnosticCandidate.__init__() missing 1 required positional argument: 'kind'
+_ RecognitionOutcomeContractTests.test_match_may_carry_an_unterminated_candidate _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:349: in test_match_may_carry_an_unterminated_candidate
+    candidate = module.DiagnosticCandidate(start=0, end=None)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DiagnosticCandidate.__init__() missing 1 required positional argument: 'kind'
+_ RecognitionOutcomeContractTests.test_outcome_rejects_inconsistent_field_combinations _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:391: in test_outcome_rejects_inconsistent_field_combinations
+    candidate = module.DiagnosticCandidate(start=0, end=5)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   TypeError: DiagnosticCandidate.__init__() missing 1 required positional argument: 'kind'
+_ StreamCoordinateContractTests.test_offsets_count_python_characters_not_utf8_bytes _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:481: in test_offsets_count_python_characters_not_utf8_bytes
+    self._stream_fixture()
+tests/test_diagnostic_recognition_contract.py:450: in _stream_fixture
+    candidate = module.DiagnosticCandidate(
+E   TypeError: DiagnosticCandidate.__init__() missing 1 required positional argument: 'kind'
+_ StreamCoordinateContractTests.test_secret_coverage_uses_the_same_stream_coordinates _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:509: in test_secret_coverage_uses_the_same_stream_coordinates
+    coverage = module.SecretCoverage(
+               ^^^^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'docker.versioning.diagnostic_recognition' has no attribute 'SecretCoverage'
+_ StreamCoordinateContractTests.test_stream_offsets_convert_to_a_retained_buffer_index _
+[gw0] linux -- Python 3.14.7 /home/aavasiljev/work/home/docker-constructor.git/.venv/bin/python
+tests/test_diagnostic_recognition_contract.py:458: in test_stream_offsets_convert_to_a_retained_buffer_index
+    self._stream_fixture()
+tests/test_diagnostic_recognition_contract.py:450: in _stream_fixture
+    candidate = module.DiagnosticCandidate(
+E   TypeError: DiagnosticCandidate.__init__() missing 1 required positional argument: 'kind'
+=========================== short test summary info ============================
+SUBFAILED(scheme="'file'", variant="'file'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'file'", variant="'FILE'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'file'", variant="'File'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'file'", variant="'File'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'file'", variant="'fIlE'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ftp'", variant="'ftp'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ftp'", variant="'FTP'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ftp'", variant="'Ftp'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ftp'", variant="'Ftp'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ftp'", variant="'fTp'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ftps'", variant="'ftps'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ftps'", variant="'FTPS'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ftps'", variant="'Ftps'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ftps'", variant="'Ftps'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ftps'", variant="'fTpS'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git'", variant="'git'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git'", variant="'GIT'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git'", variant="'Git'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git'", variant="'Git'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git'", variant="'gIt'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git+http'", variant="'git+http'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git+http'", variant="'GIT+HTTP'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git+http'", variant="'Git+http'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git+http'", variant="'Git+Http'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git+http'", variant="'gIt+hTtP'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git+https'", variant="'git+https'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git+https'", variant="'GIT+HTTPS'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git+https'", variant="'Git+https'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git+https'", variant="'Git+Https'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git+https'", variant="'gIt+hTtPs'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git+ssh'", variant="'git+ssh'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git+ssh'", variant="'GIT+SSH'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git+ssh'", variant="'Git+ssh'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git+ssh'", variant="'Git+Ssh'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'git+ssh'", variant="'gIt+sSh'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'http'", variant="'http'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'http'", variant="'HTTP'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'http'", variant="'Http'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'http'", variant="'Http'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'http'", variant="'hTtP'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'https'", variant="'https'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'https'", variant="'HTTPS'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'https'", variant="'Https'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'https'", variant="'Https'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'https'", variant="'hTtPs'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks'", variant="'socks'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks'", variant="'SOCKS'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks'", variant="'Socks'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks'", variant="'Socks'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks'", variant="'sOcKs'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks4'", variant="'socks4'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks4'", variant="'SOCKS4'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks4'", variant="'Socks4'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks4'", variant="'Socks4'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks4'", variant="'sOcKs4'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks4a'", variant="'socks4a'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks4a'", variant="'SOCKS4A'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks4a'", variant="'Socks4a'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks4a'", variant="'Socks4A'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks4a'", variant="'sOcKs4a'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks5'", variant="'socks5'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks5'", variant="'SOCKS5'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks5'", variant="'Socks5'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks5'", variant="'Socks5'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks5'", variant="'sOcKs5'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks5h'", variant="'socks5h'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks5h'", variant="'SOCKS5H'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks5h'", variant="'Socks5h'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks5h'", variant="'Socks5H'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'socks5h'", variant="'sOcKs5h'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ssh'", variant="'ssh'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ssh'", variant="'SSH'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ssh'", variant="'Ssh'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ssh'", variant="'Ssh'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ssh'", variant="'sSh'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ws'", variant="'ws'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ws'", variant="'WS'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ws'", variant="'Ws'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ws'", variant="'Ws'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'ws'", variant="'wS'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'wss'", variant="'wss'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'wss'", variant="'WSS'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'wss'", variant="'Wss'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'wss'", variant="'Wss'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+SUBFAILED(scheme="'wss'", variant="'wSs'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_every_supported_scheme_is_supported_case_insensitively
+FAILED tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_legacy_known_schemes_name_is_the_same_supported_set
+FAILED tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_npm_is_not_a_supported_separator_scheme
+FAILED tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_supported_check_rejects_non_string_input
+FAILED tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_supported_scheme_set_matches_the_delta_requirement_exactly
+SUBFAILED(scheme="''") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_unsupported_schemes_are_not_supported
+SUBFAILED(scheme="'httpx'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_unsupported_schemes_are_not_supported
+SUBFAILED(scheme="'https+'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_unsupported_schemes_are_not_supported
+SUBFAILED(scheme="'ssh2'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_unsupported_schemes_are_not_supported
+SUBFAILED(scheme="'git+file'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_unsupported_schemes_are_not_supported
+SUBFAILED(scheme="'git+'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_unsupported_schemes_are_not_supported
+SUBFAILED(scheme="'npm'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_unsupported_schemes_are_not_supported
+SUBFAILED(scheme="'custom+transport'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_unsupported_schemes_are_not_supported
+SUBFAILED(scheme="'gopher'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_unsupported_schemes_are_not_supported
+SUBFAILED(scheme="'mailto'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_unsupported_schemes_are_not_supported
+SUBFAILED(scheme="'data'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_unsupported_schemes_are_not_supported
+SUBFAILED(scheme="'socks6'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_unsupported_schemes_are_not_supported
+SUBFAILED(scheme="'wss2'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_unsupported_schemes_are_not_supported
+SUBFAILED(scheme="'HTTPX'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_unsupported_schemes_are_not_supported
+SUBFAILED(scheme="'Custom+Transport'") tests/test_diagnostic_recognition_contract.py::SupportedSchemeSetTests::test_unsupported_schemes_are_not_supported
+FAILED tests/test_diagnostic_recognition_contract.py::SupportedOnlyDetectionContractTests::test_candidate_defaults_to_the_supported_classification
+FAILED tests/test_diagnostic_recognition_contract.py::SupportedOnlyDetectionContractTests::test_candidate_model_has_no_unsupported_detection_constructor
+FAILED tests/test_diagnostic_recognition_contract.py::SupportedOnlyDetectionContractTests::test_supported_scheme_embedded_in_longer_text_is_a_candidate
+FAILED tests/test_diagnostic_recognition_contract.py::SupportedOnlyDetectionContractTests::test_unknown_text_has_no_supported_scheme_start
+FAILED tests/test_diagnostic_recognition_contract.py::DiagnosticCandidateContractTests::test_candidate_carries_raw_inclusive_start_and_exclusive_end
+FAILED tests/test_diagnostic_recognition_contract.py::DiagnosticCandidateContractTests::test_candidate_end_is_exclusive_of_the_raw_terminator
+FAILED tests/test_diagnostic_recognition_contract.py::DiagnosticCandidateContractTests::test_candidate_end_none_marks_an_unterminated_candidate
+FAILED tests/test_diagnostic_recognition_contract.py::DiagnosticCandidateContractTests::test_candidate_is_immutable
+FAILED tests/test_diagnostic_recognition_contract.py::DiagnosticCandidateContractTests::test_candidate_offsets_are_raw_character_indices
+FAILED tests/test_diagnostic_recognition_contract.py::SecretCoverageContractTests::test_coverage_carries_inclusive_start_and_exclusive_end
+FAILED tests/test_diagnostic_recognition_contract.py::SecretCoverageContractTests::test_coverage_is_immutable
+FAILED tests/test_diagnostic_recognition_contract.py::SecretCoverageContractTests::test_coverage_offsets_are_raw_character_indices
+FAILED tests/test_diagnostic_recognition_contract.py::SecretCoverageContractTests::test_coverage_rejects_invalid_offsets
+FAILED tests/test_diagnostic_recognition_contract.py::SecretCoverageContractTests::test_coverage_selects_the_covered_source
+FAILED tests/test_diagnostic_recognition_contract.py::RecognitionOutcomeContractTests::test_match_and_need_more_are_distinct_from_no_match
+FAILED tests/test_diagnostic_recognition_contract.py::RecognitionOutcomeContractTests::test_match_carries_a_candidate_and_no_retention_point
+FAILED tests/test_diagnostic_recognition_contract.py::RecognitionOutcomeContractTests::test_match_may_carry_an_unterminated_candidate
+FAILED tests/test_diagnostic_recognition_contract.py::RecognitionOutcomeContractTests::test_outcome_rejects_inconsistent_field_combinations
+FAILED tests/test_diagnostic_recognition_contract.py::StreamCoordinateContractTests::test_offsets_count_python_characters_not_utf8_bytes
+FAILED tests/test_diagnostic_recognition_contract.py::StreamCoordinateContractTests::test_secret_coverage_uses_the_same_stream_coordinates
+FAILED tests/test_diagnostic_recognition_contract.py::StreamCoordinateContractTests::test_stream_offsets_convert_to_a_retained_buffer_index
+125 failed, 15 passed, 17 subtests passed in 1.21s
+red exit status: 1

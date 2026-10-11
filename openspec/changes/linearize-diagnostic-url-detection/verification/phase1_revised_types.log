@@ -1,0 +1,4 @@
+Command: ./scripts/check-types
+
+All checks passed!
+types exit status: 0

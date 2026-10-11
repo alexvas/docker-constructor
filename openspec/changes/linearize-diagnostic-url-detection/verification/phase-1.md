@@ -1,299 +1,225 @@
-# Phase 1 Verification Evidence — Recognition Result Contract
+# Phase 1 Verification Evidence — Revised Recognition and Projection Contract
 
 Change: `linearize-diagnostic-url-detection`
 Schema: `spec-driven`
-Phase: **P1 — Recognition result contract** (tasks 1.1–1.9)
+Phase: **P1 — Revised recognition and projection contract** (tasks 1.1–1.9)
 Depends on: none
 Repository: `/home/aavasiljev/work/home/docker-constructor.git`
-Pre-implementation revision: `50f9ebc Plan linear incremental diagnostic URL detection`
+Planning revision: `365b2de Revise the diagnostic URL and secret recognition plan`
 
-> **Location note.** This evidence set was relocated from
-> `docs/verification/linearize-diagnostic-url-detection/` into this change's
-> `verification/` directory at the project owner's request so it is archived
-> together with the change. Internal references and the baseline script's
-> repo-root resolution were updated, and the baseline log was regenerated from
-> the new location.
+> **Revision note.** The pre-revision P1 record is historical. It defined an
+> immutable candidate with a closed `KNOWN`/`UNKNOWN` classification and made
+> "arbitrary UNKNOWN scheme hiding" a recognition obligation. The user-approved
+> revision supersedes that: detection is **supported-only**, unknown schemes
+> remain ordinary text without URL facts, and secret matching is modeled as
+> source coverage to be coordinated in later phases. `CandidateKind` and
+> `classify_scheme` are retained only as compatibility helpers that must not
+> make an unsupported scheme a detected URL. The pre-revision logs
+> (`phase1_red.log`, `phase1_green.log`, `phase1_validation.log`,
+> `phase1_types.log`) remain on disk as historical evidence and are not
+> reused as the revised gate.
 
-Phase 1 introduces the internal recognition result contract only. It does not
-rewire the projector, the incremental recognizer, the metadata gate, or any
-collector/transport/lock path — those are P2–P5 per the phase DAG.
+Phase 1 introduces/revises the internal recognition result contract only. It
+does not rewire the projector, the incremental recognizer, the metadata gate,
+or any collector/transport/lock path — those are P2–P5 per the phase DAG.
 
 ## Deliverables and evidence map
 
 | Deliverable | Location |
 |---|---|
-| Affected-path / caller inventory | `openspec/changes/linearize-diagnostic-url-detection/verification/phase1_caller_inventory.md` |
-| Baseline experiment (one-off, outside tests/CI) | `openspec/changes/linearize-diagnostic-url-detection/verification/phase1_baseline.py` |
-| Baseline full stdout log + environment/commands/medians/status | `openspec/changes/linearize-diagnostic-url-detection/verification/phase1_baseline.log` |
-| Oversized-tail fixture baseline (one-off, outside tests/CI) | `openspec/changes/linearize-diagnostic-url-detection/verification/phase1_oversized_fixture_baseline.py` |
-| Oversized-tail fixture medians/log/status | `openspec/changes/linearize-diagnostic-url-detection/verification/phase1_oversized_fixture_baseline.log` (exit 0) |
-| Actual oversized-tail tests run with `--durations=0` | `openspec/changes/linearize-diagnostic-url-detection/verification/phase1_oversized_tests.log` (12 passed, exit 0) |
-| Original retained-tail bottleneck scenario medians/log/status | `openspec/changes/linearize-diagnostic-url-detection/verification/phase1_oversized_fixture_baseline.log` incl. §1.2.3 (exit 0) |
-| Original retained-tail scenario tests run with `--durations=0` | `openspec/changes/linearize-diagnostic-url-detection/verification/phase1_retained_tail_tests.log` (2 passed, 6 subtests, exit 0) |
-| Whole `tests/test_retained_tail_phase6.py` file run on one `loadfile` worker | `openspec/changes/linearize-diagnostic-url-detection/verification/phase1_retained_tail_file.log` (46 passed, 97 subtests, exit 0) |
-| P1 contract tests | `tests/test_diagnostic_recognition_contract.py` |
-| Pre-implementation RED run (full log + runner exit status) | `openspec/changes/linearize-diagnostic-url-detection/verification/phase1_red.log` (exit 1) |
-| Immutable candidate + closed outcome model | `docker/versioning/diagnostic_recognition.py` (`DiagnosticCandidate`, `RecognitionResult`, `CandidateKind`, `RecognitionKind`) |
-| Fixed case-insensitive scheme whitelist | `docker/versioning/diagnostic_recognition.py` (`KNOWN_SCHEMES`, `classify_scheme`) |
+| Revised caller inventory (supported-only, secret coverage, markers/facts) | `verification/phase1_caller_inventory.md` |
+| One-off baseline experiment (task 1.2, unchanged; outside tests/CI) | `verification/phase1_baseline.py` + `phase1_baseline.log` (exit 0) |
+| Oversized-tail fixture baseline (task 1.2, unchanged) | `verification/phase1_oversized_fixture_baseline.py` + `phase1_oversized_fixture_baseline.log` (exit 0) |
+| Oversized-tail and retained-tail test runs (task 1.2, unchanged) | `verification/phase1_oversized_tests.log`, `phase1_retained_tail_tests.log`, `phase1_retained_tail_file.log` (exit 0) |
+| Revised P1 contract tests | `tests/test_diagnostic_recognition_contract.py` |
+| Revised P1 RED run (full log + runner exit status) | `verification/phase1_revised_red.log` (exit 1) |
+| Immutable supported-only candidate + coverage/outcome model | `docker/versioning/diagnostic_recognition.py` (`DiagnosticCandidate`, `SecretCoverage`, `RecognitionResult`, `RecognitionKind`) |
+| Fixed case-insensitive supported-scheme set + detection depth docs | `docker/versioning/diagnostic_recognition.py` (`SUPPORTED_SCHEMES`, `is_supported_scheme`), `docker/versioning/diagnostic_recognizer.py` (§Detection versus interpretation depth, historical) |
 | Internal-API documentation | module/class/function docstrings in `docker/versioning/diagnostic_recognition.py` (§1.7 below) |
-| P1 GREEN run | `openspec/changes/linearize-diagnostic-url-detection/verification/phase1_green.log` (exit 0) |
-| P1 + affected pre-existing validation run | `openspec/changes/linearize-diagnostic-url-detection/verification/phase1_validation.log` (exit 0) |
-| Applicable type check | `openspec/changes/linearize-diagnostic-url-detection/verification/phase1_types.log` (exit 0) |
-| Scope/contract review record | §Review record (task 1.8) below |
+| P1 GREEN run | `verification/phase1_revised_green.log` (exit 0) |
+| P1 + affected existing validation run | `verification/phase1_revised_validation.log` (exit 0) |
+| Applicable type check | `verification/phase1_revised_types.log` (exit 0) |
+| Scope/contract review record (task 1.8) | §Review record below |
 
 ---
 
 ## RED
 
-### 1.1 Caller inventory
+### 1.1 Revised caller inventory
 
-`phase1_caller_inventory.md` covers detection (`_find_url_start`), unresolved
-holding (`_ambiguous_hold` / integer `_URL_PREFIX_*` state), EOF
-(`DiagnosticProjector.finish`), structured projection
-(`sanitize_diagnostic_text`, `sanitize_host_paths`,
-`project_structured_diagnostic`, `project_host_acquisition_failure`),
-metadata (`_sanitize_candidate`), collector
-(`npm_diagnostic_stream.py`, `host_presentation.py`, `host_progress.py`) and
-fetch (`npm_fetch.py`) routes.
+`verification/phase1_caller_inventory.md` reconciles every caller and route
+for the revised contract:
 
-Each old **integer-contract dependency** (D1–D3, H1–H4, E1–E3, S1–S4) and each
-**possible `UNKNOWN` fact bypass** (M1–M3, C1–C4, F1–F3) has a single
-identified owning phase in the owner summary.
+- **Detection (D1–D3):** typed `MATCH`/`NEED_MORE`/`NO_MATCH` for supported
+  schemes only; unknown-scheme text is `NO_MATCH`.  Owner P2/P3.
+- **Holding (H1–H4):** ambiguous *supported* prefix state and persistent
+  continuation without restarting recognition over retained text.  Owner
+  P2/P3.
+- **EOF (E1–E3):** typed finalization plus the early irreversible
+  commitment exception.  Owner P3/P4.
+- **Structured projection (S1–S4):** support- and secret-gated facts.  Owner
+  P4.
+- **Metadata/facts (M1–M3):** validated, supported, secret-free facts; masked
+  markers are not facts.  Owner P4.
+- **Secret registration/coverage (K1–K6):** compiled immutable pattern set,
+  literal matching across Text/URL boundaries, decoded matching inside
+  recognized URLs only, `<secret>` replacement.  Owners P1A/P2/P3/P4.
+- **Collector (C1–C7):** exactly one retained representation; permitted facts
+  only.  Owner P5.
+- **Fetch (F1–F4 and §8.1):** grammar preserved; unsupported RFC-valid
+  schemes supply no URL facts or grouping fields.  Owner P4/P5.
 
-**Fetch correction (P1 rework).** The fetch route is *not* whitelist-gated:
-`npm_fetch.py` validates the URL against the RFC 3986 scheme grammar
-`_SCHEME_RE = [A-Za-z][A-Za-z0-9+.\-]*` plus `normalized_url_host`, so it
-accepts any structurally valid scheme — `http`/`https` *and* non-whitelist
-schemes such as `custom+transport://…`. Diagnostic whitelist membership
-(`KNOWN_SCHEMES`/`classify_scheme`) is a separate policy that the fetch route
-does not apply today. F1–F3 therefore record an UNKNOWN scheme as reachable,
-and `phase1_caller_inventory.md` §7.1 assigns explicit P4/P5 obligations to
-verify that an UNKNOWN successful-fetch URL contributes no host/path or
-fingerprint fact and does not influence `host-path` grouping, **without**
-restricting the fetch grammar or the shared hostname/transport helpers.
+The pre-revision fetch correction is retained: `npm_fetch.py` accepts any RFC
+3986 scheme and the diagnostic supported set is a separate projection policy.
+No route depends on a public SDK or persistence contract.
 
-### 1.2 Baseline experiment
+### 1.2 Baseline experiment (unchanged)
 
-Two one-off experiments (neither a test nor wired into CI) capture the
-demonstrated quadratic `_find_url_start` growth and the *actual existing*
-oversized-tail scenarios. No fixture was modified in either.
-
-#### 1.2.1 Synthetic detector probe (`phase1_baseline.py`)
-
+Task 1.2 was completed before the revision and is unchanged.  The one-off
 `phase1_baseline.py` records the environment (CPython 3.14.7, Linux x86_64,
-32 CPUs, `PENDING_LIMIT_BYTES = 8192`), the command, full stdout, and exit
-status (0). Medians over 5 repeats:
+32 CPUs, `PENDING_LIMIT_BYTES = 8192`), commands, full stdout and exit status
+(0), with `_find_url_start` medians of 0.0135 s → 0.0533 s → 0.2127 s →
+0.8611 s → 3.4705 s for 1/2/4/8/16 KiB uninterrupted runs (≈4× per doubling,
+quadratic) versus ≈2× per doubling for separated runs.  Per-mode capture
+profiles and the synthetic oversized-tail probe are recorded in
+`phase1_baseline.log`.  The actual existing oversized-tail fixture timings are
+recorded in `phase1_oversized_fixture_baseline.log` (exit 0) with the pytest
+`--durations=0` run in `phase1_oversized_tests.log` (12 passed, exit 0); the
+two original retained-tail bottleneck scenarios (~7.88 s and ~7.89 s across
+modes) and the whole-file run (46 passed, 97 subtests, exit 0) are recorded in
+`phase1_retained_tail_tests.log` and `phase1_retained_tail_file.log`.  No
+fixture was modified.
 
-`_find_url_start` — **uninterrupted** (single scheme-character run, no `://`):
+### 1.3 Revised outcome/model contract tests
 
-| Size | Median (s) |
-|---|---|
-| 1 KiB | 0.013527 |
-| 2 KiB | 0.053285 |
-| 4 KiB | 0.212704 |
-| 8 KiB | 0.861089 |
-| 16 KiB | 3.470452 |
+`tests/test_diagnostic_recognition_contract.py` now expresses, as separate
+tests:
 
-`_find_url_start` — **separated** (8-char tokens, single-space separated):
+- **supported-only detection policy:** the exact 17-scheme
+  `SUPPORTED_SCHEMES` set; `KNOWN_SCHEMES` is the same set;
+  `is_supported_scheme` is case-insensitive over every supported spelling and
+  returns `False` for the reviewed unsupported variants (`""`, `httpx`,
+  `https+`, `ssh2`, `git+file`, `git+`, `npm`, `custom+transport`, `gopher`,
+  `mailto`, `data`, `socks6`, `wss2`, `HTTPX`, `Custom+Transport`) and rejects
+  non-string input;
+- **supported-only model:** a `DiagnosticCandidate` defaults to the supported
+  classification, a supported scheme embedded in longer text
+  (`TOKENhttps://host/public`) is a candidate at the supported position, and
+  unknown text has no supported start and no URL-validity constructor;
+- **raw coordinates:** inclusive `start`, exclusive `end`, `end=None` for a
+  detected-but-unterminated candidate, raw Python-character indices after a
+  multibyte prefix, frozen immutability, and rejection of negative /
+  non-integer / non-exclusive offsets;
+- **source secret coverage:** `SecretCoverage` carries inclusive `start` /
+  exclusive `end`, is immutable, selects the covered source (including after a
+  multibyte prefix), rejects invalid offsets, and shares the candidate
+  coordinate space;
+- **outcomes:** closed `RecognitionKind` = {`NO_MATCH`, `MATCH`, `NEED_MORE`}
+  with strict payload validation, including that unknown text is
+  `NO_MATCH` rather than a compatibility `UNKNOWN` match; and
+- **stream-coordinate conversion:** the documented
+  `buffer_index = stream_offset - retained_buffer_start` formula for
+  candidates, retention points, and coverage spans.
 
-| Size | Median (s) |
-|---|---|
-| 1 KiB | 0.000139 |
-| 2 KiB | 0.000279 |
-| 4 KiB | 0.000563 |
-| 8 KiB | 0.001103 |
-| 16 KiB | 0.002255 |
+**Superseded obligations recorded.** The pre-revision tests required arbitrary
+schemes to be a recognised candidate class carrying `CandidateKind.UNKNOWN`.
+That is intentionally superseded and is no longer asserted.  The single
+compatibility test now only checks that the retained helper still classifies
+unsupported schemes as `UNKNOWN`; it explicitly states that `UNKNOWN` is not a
+detected URL and must not authorise hostname/host-path/fingerprint facts.
 
-The uninterrupted series grows ~4× per size doubling (quadratic); the
-separated series is ~2× per doubling (linear). This reproduces the
-demonstrated hotspot.
+### 1.4 Revised P1 RED
 
-**Synthetic supplementary oversized-tail probe** (`"a"*N + " end"` through
-`DiagnosticProjector`), medians over 5 repeats: 8 KiB → 1.08049 s,
-16 KiB → 1.07614 s, both producing exactly `[sanitized oversized token] end`
-(length 31). This `"a"*N + " end"` input is **not** an existing test fixture;
-it is retained only as supplementary evidence and does **not** stand in for
-the real fixture timings in §1.2.2.
-
-Per-mode capture profiles (`project_tail` × 200 over a diagnostic containing a
-known literal URL, a secret, and an unknown-scheme URL) are recorded in the
-full log for `redacted`, `host-path`, and `exact`, including top cumulative
-`cProfile` frames. Rendered outputs were respectively `GET <redacted> ...`,
-`GET registry.example.com/pkg/-/pkg-1.0.0.tgz ... token=<redacted>
-internal.example/private`, and the terminal-safe source line.
-
-**Command** (from the log):
-`.venv/bin/python openspec/changes/linearize-diagnostic-url-detection/verification/phase1_baseline.py 5`
-→ exit status 0.
-
-#### 1.2.2 Actual existing oversized-tail fixture timings
-
-`phase1_oversized_fixture_baseline.py` reproduces the exact input
-constructions of twelve existing oversized-tail tests — without modifying those
-test files — and times each over 5 repeats (`phase1_oversized_fixture_baseline.log`,
-exit 0). `phase1_oversized_tests.log` records the same twelve node ids run
-through pytest with `--durations=0`: `12 passed`, exit status 0. Environment
-matches §1.2.1 (`PENDING_LIMIT_BYTES = 8192`,
-`DIAGNOSTIC_LINE_LIMIT_BYTES = 65536`). The same script and log also cover the
-two original retained-tail bottleneck scenarios in §1.2.3.
-
-| Existing test (identifier below) | What it exercises | Median (s) |
-|---|---|---|
-| `TestBoundarySafeUrlSanitization::test_candidate_cannot_be_retained_past_the_byte_limit` | projector: candidate past 8 KiB byte limit | 0.002996 |
-| `…::test_multibyte_unterminated_candidate_stays_within_the_limit` | projector: multibyte unterminated, 512-char feeds | 0.004589 |
-| `…::test_multibyte_append_never_exceeds_the_limit_at_drain_entry` | projector: multibyte whole feed, drain-entry peak | 0.004048 |
-| `…::test_pending_state_remains_bounded_for_an_unterminated_token` | projector: 7-byte feeds of a 4×-limit token | 0.503475 |
-| `…::test_oversized_token_discards_until_boundary_then_recovers` | projector: oversized token then recovery URL | 0.004249 |
-| `…::test_oversized_token_without_boundary_finalizes_without_incomplete_marker` | projector: oversized token finalized at EOF | 0.003194 |
-| `TestHostPathBoundaries::test_oversized_url_token_yields_no_host_path_fact` | host-path: oversized URL token, no fact | 0.001937 |
-| `TestCollectorBranch::test_oversized_unterminated_url_stays_within_pending_limit` | collector: 16 KiB URL, 256-byte feeds | 0.021737 |
-| `…::test_oversized_newline_free_diagnostic_stays_within_line_limit` | collector: newline-free line past 64 KiB | 0.042866 |
-| `…::test_recovery_after_safe_boundary` | collector: recovery after safe boundary | 0.055630 |
-| `…::test_input_keeps_draining_after_overflow` | collector: input keeps draining after overflow | 0.044929 |
-| `TestConsumablePerLineFacts::test_oversized_url_heavy_line_discards_metadata_and_recovers` | collector: oversized URL-heavy line, metadata + recovery | 0.039659 |
-
-The projector rows are in `tests/test_host_diagnostic_projection.py`, the
-host-path row in `tests/test_host_path_projection.py`, and the collector rows
-in `tests/test_npm_diagnostic_collection_phase8.py`. Recorded observables
-confirm each fixture still hits its real branch: peak pending sizes of
-8132/8190 bytes and a drain-entry peak of exactly 8192, the line-limit peak of
-exactly 65536 bytes, the oversized markers present, no discarded content in
-live text or tail, and recovery hostnames (`good.example`, `b.example`) only
-where the fixture expects them. The 7-byte-feed fixture dominates the actual
-oversized-tail cost (~0.50 s) and is the only projector fixture near a second.
-
-**Command** (from the log):
-`.venv/bin/python openspec/changes/linearize-diagnostic-url-detection/verification/phase1_oversized_fixture_baseline.py 5`
-→ exit status 0. The pytest node-id run and its complete `--durations=0`
-output are in `phase1_oversized_tests.log` (exit status 0).
-
-#### 1.2.3 Original retained-tail bottleneck scenarios
-
-The two scenarios cited in `proposal.md` as consuming approximately 16 seconds
-and making `tests/test_retained_tail_phase6.py` cost approximately 24.7 seconds
-on one `loadfile` worker are now part of the same one-off fixture baseline.
-`phase1_oversized_fixture_baseline.py` reproduces their input constructions
-verbatim — the `TAIL_BYTES * 2` uninterrupted `x` run (131072 bytes) is
-preserved and each scenario runs the collector, failure context, text report
-and (for the second) the JSON facade across all three `NetworkUrlDisplay` modes
-— without modifying the test file. Medians over 5 repeats:
-
-| Existing test | Payload (uninterrupted `x` run) | Modes | Median (s) |
-|---|---|---|---|
-| `tests/test_retained_tail_phase6.py::TestFailureContextChannels::test_truncated_tail_is_bounded_and_mode_selected` | `"npm warn " + "x"*(TAIL_BYTES*2) + " https://registry.npmjs.org/pkg.tgz http://proxy.internal/x\n"` | redacted / host-path / exact | 7.877 |
-| `tests/test_retained_tail_phase6.py::TestFailureChannelMatrix::test_truncated_tail_is_bounded_in_text_and_json` | `"npm warn " + "x"*(TAIL_BYTES*2) + " https://registry.npmjs.org/pkg.tgz\n"` | redacted / host-path / exact | 7.893 |
-
-The two medians sum to approximately 15.8 s, reproducing the ~16 s hotspot in
-`proposal.md`. Per-mode observables confirm the existing bounded behavior:
-`exact` retains exactly `TAIL_BYTES` (captured tail 65536 bytes; text context
-and JSON tail 65535), `redacted` and `host-path` capture 59 bytes and render
-58, every mode emits exactly one retained-diagnostics section, and the JSON
-tail equals the text context tail in every mode.
-
-Two independent pytest runs preserve full stdout and exit status:
-
-- `phase1_retained_tail_tests.log` — the two node ids through
-  `.venv/bin/python -m pytest … -n 8 --dist loadfile --durations=0 --tb=short -q`:
-  `2 passed, 6 subtests passed in 16.56s`, exit status 0, with `7.93s` per call
-  — consistent with the two medians above.
-- `phase1_retained_tail_file.log` — the whole `tests/test_retained_tail_phase6.py`
-  file through the same command: `46 passed, 97 subtests passed in 25.11s`,
-  exit status 0, confirming the proposal's ~24.7 s single-worker file figure.
-
-Both runs used the environment in §1.2.1/§1.2.2. The regenerated baseline
-script log ends with `fixture baseline exit status: 0`;
-`phase1_oversized_fixture_baseline.py` also records the same two scenarios'
-medians in its final `--- medians ---` block.
-
-### 1.3 Outcome/model contract tests
-
-`tests/test_diagnostic_recognition_contract.py` expresses, as separate tests:
-
-- closed `CandidateKind` = {`KNOWN`, `UNKNOWN`};
-- `DiagnosticCandidate` raw inclusive `start`, exclusive `end`, `end=None` for
-  an unterminated candidate, raw character (not byte) coordinates, frozen
-  immutability, and rejection of negative/non-integer start, non-exclusive
-  end, and a non-member `kind`;
-- closed `RecognitionKind` = {`NO_MATCH`, `MATCH`, `NEED_MORE`} **separate**
-  from `CandidateKind`, with `NO_MATCH` carrying nothing, `MATCH` carrying a
-  candidate (possibly `end=None`) and no retention point, and `NEED_MORE`
-  carrying a non-negative `retain_from` and no candidate; plus rejection of
-  every inconsistent field combination and a non-member kind;
-- the whitelist equals the 17 delta-requirement schemes exactly, every entry
-  classifies `KNOWN` in upper/capitalized/title/alternating case, and
-  non-whitelist variants (including `npm`, `custom+transport`) classify
-  `UNKNOWN`;
-- stream-coordinate semantics: `start`/`end`/`retain_from` are absolute
-offsets within one recognizer stream (not per-feed), the documented
-retained-buffer conversion `buffer_index = stream_offset -
-retained_buffer_start` selects the candidate text after a nonzero consumed
-prefix containing a multibyte character, and a UTF-8 byte offset is shown to
-differ from the character offset.
-
-Because the contract module is greenfield, the test case fails with an
-explicit `self.fail(...)` message when the module is absent, so the
-pre-implementation run is a set of attributable assertion failures rather than
-a collection error.
-
-### 1.4 Pre-implementation P1 run
-
-`phase1_red.log` records
-`.venv/bin/python -m pytest tests/test_diagnostic_recognition_contract.py -n 8 --dist loadfile --tb=short -q`
-(run with the contract module temporarily absent to reproduce the
-pre-implementation state):
+`phase1_revised_red.log` records the revised contract tests run against the
+pre-revision module (reset to `HEAD` to reproduce the unmet state):
 
 ```
-30 failed in 0.74s
+.venv/bin/python -m pytest tests/test_diagnostic_recognition_contract.py \
+  -n 8 --dist loadfile --tb=short -q
+125 failed, 15 passed, 17 subtests passed in 1.21s
 red exit status: 1
 ```
 
-Every failure is
-`AssertionError: docker.versioning.diagnostic_recognition must define the P1
-recognition result contract` at `tests/.../contract` — attributable to the
-missing contract behavior. There were **no collection errors, import errors,
-or environmental failures**, and no pre-existing obligation was deliberately
-broken or disabled. No originally-passing new obligation exists to record: all
-30 tests are new and all failed for the same single reason (absent module).
+Every failure is attributable to the missing revised contract, not to
+infrastructure: the pre-revision module has no `SUPPORTED_SCHEMES` /
+`is_supported_scheme` / `SecretCoverage`, and its `DiagnosticCandidate`
+requires an explicit `kind`, so the supported-only and coverage tests fail at
+module lookup or constructor signature.  There were **no collection errors,
+import errors or environmental failures**, and no pre-existing obligation was
+deliberately broken.
+
+The fifteen node-level tests that remain satisfied by the pre-revision module
+are the unchanged outcome/JSON-free model obligations:
+`test_candidate_rejects_negative_start`,
+`test_candidate_rejects_end_not_strictly_after_start`,
+`test_candidate_rejects_non_integer_offsets`,
+`test_candidate_requires_a_closed_kind`,
+`test_no_match_carries_no_candidate_and_no_retention_point`,
+`test_need_more_carries_a_retention_start_and_no_candidate`,
+`test_need_more_rejects_a_negative_retention_start`,
+`test_outcome_kind_is_closed_no_match_match_need_more`,
+`test_outcome_is_immutable`, `test_outcome_requires_a_closed_kind`,
+`test_unknown_text_is_not_a_matched_candidate`,
+`test_need_more_retain_from_is_an_absolute_stream_offset`,
+`test_compatibility_classifier_still_marks_unsupported_schemes_unknown`, and
+the subtest-level checks inside `test_every_supported_scheme_is_supported_case_insensitively`
+and `test_unsupported_schemes_are_not_supported` that depend only on the
+compatibility classifier.  The xdist summary counts subtest failures
+individually, which is why the aggregate differs from the node-level count.
 
 ---
 
 ## GREEN
 
-### 1.5 Immutable candidate and closed outcome model
+### 1.5 Immutable supported-only models and source secret coverage
 
-`docker/versioning/diagnostic_recognition.py` adds:
+`docker/versioning/diagnostic_recognition.py` now defines:
 
-- `CandidateKind(Enum)` — `KNOWN`, `UNKNOWN`.
-- `RecognitionKind(Enum)` — `NO_MATCH`, `MATCH`, `NEED_MORE`.
-- `DiagnosticCandidate` — frozen, slotted dataclass with `start: int`,
-  `end: int | None`, `kind: CandidateKind`; `__post_init__` rejects negative /
-  non-integer `start`, `end <= start`, non-integer `end`, and a non-member
-  `kind`.
-- `RecognitionResult` — frozen, slotted dataclass with the closed `kind` plus
-  the single matching payload (`candidate` for `MATCH`, `retain_from` for
-  `NEED_MORE`), strict `__post_init__` validation, and the supported
-  `no_match()` / `matched(candidate)` / `need_more(retain_from)` constructors.
+- `SUPPORTED_SCHEMES` — the fixed 17-scheme case-insensitive set (the
+  authoritative copy of the delta requirement) with `KNOWN_SCHEMES` as a
+  compatibility alias;
+- `is_supported_scheme(scheme)` — the supported-only policy query, rejecting
+  non-strings;
+- `CandidateKind` / `classify_scheme` — retained **compatibility helpers**
+  only, documented as superseded for detection and never an authorisation to
+  publish an unsupported scheme;
+- `DiagnosticCandidate(start, end, kind=CandidateKind.KNOWN)` — frozen and
+  slotted with a supported default, so supported-only callers construct a
+  candidate without a classification while pre-revision callers keep working;
+- `SecretCoverage(start, end)` — frozen slotted source-coverage span with
+  inclusive `start`, exclusive `end` and strict offset validation;
+- `RecognitionKind` / `RecognitionResult` — the closed
+  `NO_MATCH`/`MATCH`/`NEED_MORE` outcome model with strict payload validation
+  and the `no_match()` / `matched(candidate)` / `need_more(retain_from)`
+  constructors.
 
-No public SDK, DTO, persistence, or serialization surface was added. The
-module is internal (`docker.versioning`), is not referenced by any
-pre-existing module, and introduces no import cycle (stdlib only).
+No public SDK, DTO, persistence, or serialization surface was added.  The
+module is internal (`docker.versioning`), imports only the standard library,
+and introduces no import cycle.  Detection is explicitly not proof of validity:
+the docstrings separate detection from interpretation and state that markers
+are not validated hostname/fingerprint facts.
 
-### 1.6 Fixed case-insensitive scheme whitelist
-
-`KNOWN_SCHEMES` is a `frozenset` of the 17 schemes from the delta requirement.
-`classify_scheme(scheme)` lowercases and tests membership, returning
-`CandidateKind.KNOWN` / `UNKNOWN`; non-string input raises `TypeError`. Shared
-transport and lock validation were not touched: the module imports nothing
-from `npm_fetch.py`, `diagnostics`, transports, or dependency-lock modules,
-and no existing file was modified in P1 (all P1 changes are new files).
-
-**GREEN run** — `phase1_green.log` records
-`.venv/bin/python -m pytest tests/test_diagnostic_recognition_contract.py -n 8 --dist loadfile --tb=short -q`:
+**GREEN run** — `phase1_revised_green.log`:
 
 ```
-30 passed, 102 subtests passed in 0.58s
+.venv/bin/python -m pytest tests/test_diagnostic_recognition_contract.py \
+  -n 8 --dist loadfile --tb=short -q
+40 passed, 117 subtests passed in 0.58s
 green exit status: 0
 ```
+
+### 1.6 Exact scheme set and detection-versus-interpretation depth
+
+`SUPPORTED_SCHEMES` is exactly the delta list: `http`, `https`, `ftp`, `ftps`,
+`ssh`, `git`, `git+ssh`, `git+http`, `git+https`, `file`, `ws`, `wss`,
+`socks`, `socks4`, `socks4a`, `socks5`, `socks5h`.  Membership is
+case-insensitive and `npm:`, `:/` and every unsupported variant are excluded.
+Detection depth remains the existing bounded language (three decoding passes
+plus encoded-separator matching, effective depth four); the revised contract
+adds no fourth whole-URL interpretation pass and no decoded-secret depth.  The
+transport, lock and hostname validation contracts are untouched: the module
+imports nothing from `npm_fetch.py`, transports or dependency-lock modules and
+no existing behavior file was rewritten in P1.
 
 ---
 
@@ -301,76 +227,75 @@ green exit status: 0
 
 ### 1.7 Internal-API documentation
 
-The `diagnostic_recognition` module docstring and the
-`DiagnosticCandidate` / `RecognitionResult` / `classify_scheme` docstrings
-document:
+The `diagnostic_recognition` module and type docstrings document:
 
-- **Candidate validity** — a candidate is not proof of a valid URL;
-  `KNOWN` is still subject to existing safe-URL validation; whitelist
-  membership never makes a URL safe; `UNKNOWN` is hidden without metadata.
-- **Offset conversion** — `start`, `end` and `retain_from` are absolute raw
-  character offsets within one recognizer stream, `start` inclusive and `end`
-  exclusive (`stream[start:end]`); they are not per-feed indices, not UTF-8
-  byte offsets, and not decoded-layer coordinates. Incremental callers convert
-  at the retention boundary with the documented formula
-  `buffer_index = stream_offset - retained_buffer_start`.
-- **Outcome ownership** — `MATCH` is processed once in source order,
-  `NEED_MORE` owns retention from `retain_from`, `NO_MATCH` commits only
-  independently safe text.
-- **Classification semantics** — case-insensitive membership;
-  `classify_scheme` receives an already-decoded scheme; encoded-scheme
-  recognition is a P2 recognizer concern.
-- **Incomplete separator vs incomplete URL** — stated explicitly and
-  separately: an incomplete separator is `NEED_MORE` with no candidate; an
-  incomplete URL is `MATCH` with `candidate.end is None`.
+- **supported-only detection** — only `SUPPORTED_SCHEMES` are candidates;
+  unknown schemes are ordinary `NO_MATCH` text with terminal safety, literal
+  secret handling and bounds but no URL facts, including at clean EOF and on
+  fetch routes;
+- **raw coordinates** — `start`/`end`/`retain_from`/`SecretCoverage.start`
+  and `.end` are absolute raw Python-character offsets within one recognizer
+  stream, inclusive start / exclusive end, not per-feed, not UTF-8 bytes, not
+  decoded-layer, with the retention conversion
+  `buffer_index = stream_offset - retained_buffer_start`;
+- **outcome validity and ownership** — `MATCH` is processed once in source
+  order and is not proof of validity; `NEED_MORE` owns retention from
+  `retain_from`; `NO_MATCH` commits only independently safe text; an
+  incomplete separator is `NEED_MORE`, an incomplete URL is `MATCH` with
+  `end is None`;
+- **supported consumption boundaries** — detection finds an extent; it never
+  parses an authority/path, and a supported candidate is still subject to
+  existing safe-URL validation before metadata;
+- **marker/fact separation** — rendering markers are not validated hostname
+  or fingerprint facts, and rendering has its own irreversible commit frontier
+  defined in the delta specs; and
+- **source secret coverage** — coverage is an independent immutable span, not
+  carried on a candidate, because URL and secret recognition overlap.
 
-The documentation was checked against the P1 tests and matches them: the
-distinction above is asserted by
-`test_no_match_carries_no_candidate_and_no_retention_point`,
-`test_match_may_carry_an_unterminated_candidate`, and
-`test_need_more_carries_a_retention_start_and_no_candidate`. No P1 test or
-docstring conflates the two.
+The documentation was checked against the revised tests: the supported-only
+policy, candidate default classification, embedded-start selection, unknown
+text, coverage coordinates and outcome closure all match executable
+assertions.  No P1 test or docstring conflates incomplete separator with
+incomplete URL or treats a compatibility `UNKNOWN` as a detected URL.
 
-**Finding (resolved):** the first draft of the module docstring referred to
-"unfinished candidates" loosely; it was rewritten in P1 to separate the two
-outcomes before the GREEN gate.
+### 1.8 Review record — revised P1 diff and historical evidence
 
-### 1.8 Review record — P1 diff scope and contract consistency
-
-Diff reviewed in P1: three new files only
-(`docker/versioning/diagnostic_recognition.py`,
-`tests/test_diagnostic_recognition_contract.py`, and the
-`openspec/changes/linearize-diagnostic-url-detection/verification/` evidence
-set). No pre-existing **code** file was edited. The later P1 rework (§1.10)
-also edited the planning artifacts `tasks.md` (task checkboxes plus the P4/P5
-fetch obligations) and `design.md` (stream-coordinate wording); those are
-planning text, not executable behavior.
+Diff reviewed in the revised P1: `docker/versioning/diagnostic_recognition.py`
+and `tests/test_diagnostic_recognition_contract.py`, plus the
+`verification/` evidence set.  No projector, recognizer, metadata, collector,
+transport, lock or fetch path was edited; P2–P5 callers still import the
+retained compatibility surface and are unaffected by the P1 diff.  The staged
+P2/P3 work in the working tree predates this revision and remains a
+reopened-phase concern, not P1 acceptance.
 
 | Review question | Finding |
 |---|---|
-| Does P1 change the projector, recognizer, metadata gate, collector, or fetch paths? | No executable path changed. Only new module/test files plus planning-artifact text (`tasks.md`, `design.md`) differ; no `docker/` or `tests/` behavior file was edited. |
-| Does the model match design decision #1 (immutable candidate; closed outcome separate from candidate kind)? | Yes. `DiagnosticCandidate` is frozen/slotted; `CandidateKind` and `RecognitionKind` are separate closed enums. |
-| Are illegal outcome states unrepresentable? | Yes via `RecognitionResult.__post_init__`, which rejects every non-matching payload/no-payload combination. (Chosen representation is a tagged dataclass with strict validation rather than a union alias; behaviorally equivalent and directly testable.) |
-| Is the whitelist exactly the delta list, case-insensitive, with `npm` excluded? | Yes; `test_whitelist_matches_the_delta_requirement_exactly` binds it. |
-| Does P1 touch shared transport or lock validation? | No; the new module has no transport/lock imports and no existing file changed. |
-| Is any public SDK/persistence contract introduced? | No; `__all__` names only internal types/functions; nothing is serialized. |
-| Is scope beyond P1 absorbed silently? | No. Wiring, retiming, metadata gating, and collector channels are explicitly deferred to P2–P5 by the inventory owner summary. |
+| Does the revised P1 change any executable path outside the contract module/tests? | No.  Only the internal contract module and its tests differ; compatibility names (`KNOWN_SCHEMES`, `CandidateKind`, `classify_scheme`, `DiagnosticCandidate.kind`) are preserved for pre-revision callers. |
+| Is detection now supported-only at the contract level? | Yes.  `SUPPORTED_SCHEMES` / `is_supported_scheme` are authoritative; the module documents unknown schemes as `NO_MATCH` ordinary text. |
+| Are illegal model states still unrepresentable? | Yes — `DiagnosticCandidate`, `SecretCoverage` and `RecognitionResult` validate offsets/payload combinations in `__post_init__`. |
+| Is source secret coverage modeled without coupling it to URL detection? | Yes — `SecretCoverage` is an independent immutable raw span; coverage is not a candidate field and carries no validity claim. |
+| Are the old UNKNOWN-hiding results reused? | No.  The historical logs are labeled historical; the revised gate uses the new RED/GREEN/validation/type logs. |
+| Does P1 touch shared transport or lock validation? | No.  The module has no transport/lock imports and no behavior file changed. |
+| Is any public SDK/persistence contract introduced? | No.  `__all__` names internal types/functions only; nothing is serialized. |
+| Is later-phase scope absorbed silently? | No.  Wiring, secret matching, early commitment, fact gates and collector channels are explicitly deferred to P1A–P5 by the owner summary. |
 
-No unresolved blocking findings. The only intentional design choice is the
-tagged-dataclass outcome (documented above); it satisfies the design
-decision's closed-state requirement.
+No unresolved blocking findings.  The retained compatibility helpers are the
+only deliberate carry-over and are documented as non-authoritative for
+detection and metadata.
 
 ---
 
 ## VALIDATE
 
-### 1.9 P1 validation record
+### 1.9 Revised P1 validation record
 
-**Command** (`phase1_validation.log`):
+**Contract + affected pre-existing suites** (`phase1_revised_validation.log`):
 
 ```
 .venv/bin/python -m pytest \
   tests/test_diagnostic_recognition_contract.py \
+  tests/test_diagnostic_recognizer_phase2.py \
+  tests/test_diagnostic_recognizer_phase3.py \
   tests/test_host_diagnostic_projection.py \
   tests/test_host_path_projection.py \
   tests/test_host_diagnostic_grouping_phase7.py \
@@ -385,80 +310,44 @@ decision's closed-state requirement.
 Result:
 
 ```
-578 passed, 7142 subtests passed in 25.50s
-exit status: 0
+718 passed, 12587 subtests passed in 12.78s
+validation exit status: 0
 ```
 
-The set includes the new P1 contract tests and every pre-existing suite that
-imports `DiagnosticProjector`, `sanitize_diagnostic_text`,
-`sanitize_host_paths`, `project_structured_diagnostic`, the npm diagnostic
-collector, the npm fetch recognizer, or the retained tail. Zero exit status
-confirms no regression on the affected routes.
+The set includes the revised P1 contract tests and every suite that imports
+`DiagnosticProjector`, `sanitize_diagnostic_text`, `sanitize_host_paths`,
+`project_structured_diagnostic`, the npm diagnostic collector, the npm fetch
+recognizer, the recognizer contract, or the retained tail.  Zero exit status
+confirms no regression on the affected routes and that the retained
+compatibility helpers did not break the reopened P2/P3 suites.
 
-**Applicable configured type check** (`phase1_types.log`):
+**Applicable configured type check** (`phase1_revised_types.log`):
 
 ```
-./scripts/check-types    # ty check --output-format concise docker tests/typing
+./scripts/check-types
 All checks passed!
-exit status: 0
+types exit status: 0
 ```
 
 The full mandated eight-worker loadfile suite, lint/type discovery, and final
 performance before/after evidence are P6 deliverables (tasks 6.2–6.5) and are
 not claimed here.
 
-### 1.10 P1 rework — fetch inventory, fixture baseline, coordinates
-
-Three corrections were folded into P1 after review; none changes executable
-behavior beyond the new contract module and tests.
-
-1. **Fetch caller inventory.** `phase1_caller_inventory.md` §7 no longer claims
-   that only `http`/`https` can enter the fetch route or that no UNKNOWN scheme
-   can reach it. It records that `npm_fetch.py` accepts any RFC 3986 scheme and
-   that the diagnostic whitelist is a separate policy, and §7.1 adds explicit
-   P4/P5 obligations for UNKNOWN successful-fetch facts and grouping without
-   restricting the fetch grammar or shared hostname helpers. `tasks.md` 4.9 and
-   5.3 reference those obligations.
-2. **Oversized-tail baseline.** §1.2.2 records one-off medians for the twelve
-   actual existing oversized-tail fixtures
-   (`phase1_oversized_fixture_baseline.py`/`.log`) and the pytest
-   `--durations=0` run (`phase1_oversized_tests.log`, exit 0). The synthetic
-   `"a"*N + " end"` projector probe is retained only as supplementary
-   evidence.
-3. **Stream coordinates.** `diagnostic_recognition.py` now defines `start`,
-   `end` and `retain_from` as absolute raw character offsets within one
-   recognizer stream, counts Python characters (not UTF-8 bytes or decoded
-   characters), and documents the retention-boundary conversion
-   `buffer_index = stream_offset - retained_buffer_start`. Three contract tests
-   bind the conversion after a nonzero consumed prefix with a multibyte
-   character; `design.md` decision #1 and §1.7 were aligned. Executable
-   chunk-continuation behavior remains a P3 concern.
-
-Rerun evidence: RED `phase1_red.log` (30 failed, exit 1), GREEN
-`phase1_green.log` (30 passed, 102 subtests, exit 0), validation
-`phase1_validation.log` (578 passed, 7142 subtests, exit 0), types
-`phase1_types.log` (all checks passed, exit 0).
-
-### P1 deliverable check
+## Revised P1 deliverable check
 
 | Task | Deliverable | Evidence | Status |
 |---|---|---|---|
-| 1.1 | Caller inventory, owners for every integer dependency / UNKNOWN bypass | `phase1_caller_inventory.md` incl. §7.1 fetch obligations | done |
-| 1.2 | One-off baseline with medians/profiles/environment/log/status; actual oversized-tail fixture timings; original retained-tail bottleneck scenario timings | `phase1_baseline.py`+log; `phase1_oversized_fixture_baseline.py`+log; `phase1_oversized_tests.log`; `phase1_retained_tail_tests.log`; `phase1_retained_tail_file.log`; §1.2.3 | done |
-| 1.3 | Outcome/model contract tests | `tests/test_diagnostic_recognition_contract.py` | done |
-| 1.4 | Pre-implementation P1 run | `phase1_red.log` (30 failed, exit 1) | done |
-| 1.5 | Immutable candidate + closed outcome model | `diagnostic_recognition.py`; `phase1_green.log` | done |
-| 1.6 | Case-insensitive scheme whitelist | `diagnostic_recognition.py`; `phase1_green.log` | done |
-| 1.7 | Internal-API documentation | module docstrings; §1.7 | done |
-| 1.8 | Scope/contract review record | §1.8 | done, no blocking findings |
-| 1.9 | P1 + affected pre-existing validation | `phase1_validation.log` (exit 0); `phase1_types.log` (exit 0) | done |
+| 1.1 | Revised caller inventory (supported-only, secret coverage, markers/facts, collector/fetch/grouping) | `verification/phase1_caller_inventory.md` | done |
+| 1.2 | One-off baseline with medians/profiles/environment/log/status; oversized-tail and retained-tail timings (unchanged) | `phase1_baseline.py`+log; `phase1_oversized_fixture_baseline.py`+log; `phase1_oversized_tests.log`; `phase1_retained_tail_tests.log`; `phase1_retained_tail_file.log` | done |
+| 1.3 | Revised contract tests for supported-only detection, coordinates, `end=None`, ambiguous prefixes, embedded starts, unknown text, coverage, and recorded superseded obligations | `tests/test_diagnostic_recognition_contract.py` | done |
+| 1.4 | Revised P1 RED with attributable failures and honestly recorded already-passing obligations | `verification/phase1_revised_red.log` (exit 1) | done |
+| 1.5 | Immutable supported-only models + source secret coverage; no public/persisted DTO; detection not proof of validity | `diagnostic_recognition.py`; `phase1_revised_green.log` | done |
+| 1.6 | Exact case-insensitive scheme set and detection-versus-interpretation depth without changing transport/lock acceptance | `diagnostic_recognition.py`; §1.6 | done |
+| 1.7 | Raw-coordinate, validity, consumption-boundary and marker/fact documentation agreeing with the revised tests | module/type docstrings; §1.7 | done |
+| 1.8 | Revised P1 diff/historical-evidence review with resolved findings | §1.8 | done, no blocking findings |
+| 1.9 | P1 + affected existing validation | `phase1_revised_validation.log` (exit 0); `phase1_revised_types.log` (exit 0) | done |
 
-Phase 1 gate: **satisfied**. The baseline was reopened because the
-oversized-tail fixture set of §1.2.2 omitted the two original bottleneck
-scenarios; §1.2.3 now records their `TAIL_BYTES * 2` medians across all three
-modes (7.877 s and 7.893 s, ~15.8 s combined), the two node-id and whole-file
-`--durations=0` runs (exit status 0), and the regenerated script log (exit
-status 0). All named deliverables exist, every run's full stdout/stderr and
-exit status are preserved, RED failures are attributable to the missing
-contract, and no failing or excluded test was suppressed. Task 1.2 was
-unchecked while this evidence was outstanding and is re-checked only now.
+Phase 1 gate: **satisfied**.  All named deliverables exist, every run's full
+stdout/stderr and exit status are preserved, revised RED failures are
+attributable to the missing supported-only/coverage contract, and no failing
+or excluded test was suppressed.
