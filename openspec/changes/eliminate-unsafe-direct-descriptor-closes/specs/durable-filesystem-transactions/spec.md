@@ -120,6 +120,66 @@ A reusable process lifecycle SHALL own launch, captured output streams, internal
 - **AND** Docker removal, domain errors, staging, cache, publication, and redaction SHALL remain consumer responsibilities
 - **AND** the supported scope SHALL be one direct child and captured stdout/stderr, not process groups/trees, stdin, PTY, or arbitrary externally supplied reader threads
 
+### Requirement: Configure stop policy without delegating ownership
+The process lifecycle SHALL accept a narrow stop policy selected and prepared at launch. All shutdown triggers SHALL use that policy through one coordinator. Local waiting/reaping, reader barriers, stream release and outcome publication SHALL remain coordinator responsibilities. The default local policy SHALL retain its supported behavior; domain commands and identities SHALL remain outside the generic mechanism.
+
+#### Scenario: Policy preparation fails before acquisition
+- **WHEN** policy validation or preparation fails
+- **THEN** the main child SHALL NOT be launched and no main pipe SHALL be acquired
+- **AND** any prepared idle workers SHALL undergo independent cleanup with shared precedence
+
+#### Scenario: Every shutdown trigger selects the same policy
+- **WHEN** explicit cancellation, deadline, context exit, reader failure or post-launch setup failure initiates shutdown
+- **THEN** the launch-configured policy SHALL participate in the same coordination and retained outcomes
+- **AND** it SHALL NOT replace shutdown, obtain raw process or pipe authority, or independently wait/reap the child
+- **AND** natural completion SHALL be distinguished from cancellation so unnecessary external stop requests are not issued for normally completed helper clients
+
+#### Scenario: Managed stop request stalls or fails
+- **WHEN** a supported managed stop operation stalls, fails or exceeds its allocated stage time
+- **THEN** observing that operation SHALL NOT block generic local fallback, independently safe release or bounded outcome delivery
+- **AND** its locally acquired resources SHALL retain explicit owners and bounded cleanup observation
+- **AND** the protocol SHALL use nonblocking initiation/observation rather than arbitrary blocking whole-shutdown callbacks
+
+### Requirement: Bound configured stop-policy stages and local cleanup
+The process lifecycle SHALL bound policy-defined stages and reserve local-cleanup time within one monotonic total deadline. A stage cap SHALL include managed-action execution and configured child waiting. The policy SHALL define its stage selection/order without prescribing Docker commands or a fixed soft/hard sequence. Default local shutdown, safe reader-stop barriers and at-most-once release SHALL remain supported.
+
+#### Scenario: Policy selects a bounded final drain
+- **WHEN** a configured policy selects draining while natural child completion is awaited
+- **THEN** supported internal readers SHALL continue bounded draining until completion or the allocated expiry
+- **AND** reader cancellation SHALL follow that configured drain boundary, not merely the stop request
+- **AND** tails/spooling SHALL remain bounded without requiring consumer callback progress
+- **AND** failed readers SHALL NOT block remaining actions or sibling cleanup
+
+#### Scenario: Configured stage fails or expires
+- **WHEN** a managed action or its configured child wait fails or reaches the stage limit
+- **THEN** the coordinator SHALL follow the selected policy's next-stage or local-fallback transition
+- **AND** action execution and subsequent waiting SHALL share that stage cap under the remaining total deadline
+- **AND** explicit failure SHALL NOT require sleeping out the unused allowance
+- **AND** a new stage, helper or concurrent shutdown SHALL NOT reset the total deadline or enlarge configured caps
+
+#### Scenario: Local cleanup uses its retained allowance
+- **WHEN** the selected policy permits local fallback or finalization
+- **THEN** coordinator-owned terminate/kill/reap, managed-resource cleanup and reader finalization SHALL use the reserved remaining allowance
+- **AND** incomplete local cleanup SHALL retain the same owners and observable outcomes
+- **AND** policies without external stages SHALL retain the default local shutdown behavior
+
+#### Scenario: Stage configuration cannot fit the total budget
+- **WHEN** configured stage caps or the local-cleanup reserve are nonpositive/nonfinite, or their sum exceeds the supported total budget
+- **THEN** policy validation SHALL fail before main acquisition
+- **AND** valid waits SHALL be bounded by their configured stage cap and the remaining total deadline
+- **AND** no particular number or domain-specific naming of external stages SHALL be required
+
+#### Scenario: Managed auxiliary children retain explicit ownership
+- **WHEN** a configured managed action acquires an auxiliary child
+- **THEN** that child SHALL use its own prepared process lifecycle with the default local stop policy and one stream owner per pipe
+- **AND** helper execution and cleanup SHALL be capped by the parent's remaining budget
+- **AND** pending or failed helper cleanup SHALL remain owned and observable without a raw-close fallback
+
+#### Scenario: Late control outcomes remain observation only
+- **WHEN** an already-started control operation finishes after result delivery
+- **THEN** its outcome SHALL be retained without mutating delivered results/errors or beginning user-facing callbacks/output
+- **AND** observation SHALL NOT restart budgets, repeat requests or initiate a new external policy action after delivery
+
 ### Requirement: Preserve precedence throughout process cleanup
 All process setup and independent cleanup failures SHALL participate in shared cleanup precedence with explicit ordinary-error policies. Join, release, and reaping failures SHALL NOT skip independent actions. Existing process-control interruptions SHALL retain identity over later defects or interruptions; a later interruption SHALL outrank an ordinary setup failure. Repeated or concurrent cleanup SHALL share one retained outcome without retries or duplicate diagnostics.
 
@@ -133,6 +193,22 @@ All process setup and independent cleanup failures SHALL participate in shared c
 - **WHEN** the active operation is interrupted and join, stream release, or reaping subsequently fails
 - **THEN** the original interruption SHALL remain authoritative with its exact identity preserved
 - **AND** all independent cleanup actions SHALL still be attempted and their failures retained once
+
+#### Scenario: Active operation exceptions are not cleanup defects
+- **WHEN** an active operation or domain Exception is supplied to shutdown
+- **THEN** it SHALL be retained as the original operation primary through shared cleanup precedence, not classified as an unexpected cleanup action
+- **AND** a subsequent unexpected cleanup defect SHALL outrank that ordinary operation primary while retaining its exact identity secondarily
+
+#### Scenario: Concurrent operation interruptions are merged
+- **WHEN** a later caller supplies an interruption before the existing shutdown outcome is delivered
+- **THEN** the first recorded interruption SHALL retain exact authoritative identity
+- **AND** the later interruption SHALL be retained secondarily once without restarting policy actions or cleanup
+
+#### Scenario: Primary arrives between outcome publication and notification
+- **WHEN** deadline or policy cleanup publishes an outcome before phase notification or first delivery
+- **AND** an active operation primary is merged during that interval
+- **THEN** the undelivered snapshot SHALL reflect the current ledger under the coordination lock immediately before delivery
+- **AND** completion state and first-interruption precedence SHALL be preserved without changing previously delivered snapshots
 
 #### Scenario: Join is interrupted during setup cleanup
 - **WHEN** joining a started reader raises an interruption or unexpected defect
@@ -159,7 +235,7 @@ Process shutdown SHALL bound caller waiting and distinguish completed cleanup fr
 - **WHEN** a retained reader actually stops after incomplete shutdown was reported
 - **THEN** its designated owner SHALL receive exactly one release attempt
 - **AND** the retained cleanup result SHALL expose completion and any late failure without duplicate diagnostics
-- **AND** no late domain output or callback SHALL begin
+- **AND** no late domain output or user-facing callback SHALL begin
 
 #### Scenario: Cleanup observation times out
 - **WHEN** bounded waiting for cleanup expires and a reader still has not stopped
@@ -193,6 +269,8 @@ New descriptor-owning code SHALL select a filesystem lifecycle wrapper and verif
 - **AND** every transfer SHALL explicitly identify the receiving ownership responsibility
 - **AND** subprocess consumers SHALL use the prepared unified process lifecycle rather than compose independent launch/adoption/reader/shutdown machinery
 - **AND** the process lifecycle SHALL still use one filesystem stream owner per acquired pipe, without broadening direct-close permissions
+- **AND** external cooperative stop policy SHALL be configured at launch without creating a second local shutdown owner
+- **AND** local resource completion SHALL NOT be treated as evidence that externally controlled work stopped
 
 #### Scenario: Verify a new ownership path
 - **WHEN** a new acquisition, transfer, wrapper, or cleanup branch is introduced

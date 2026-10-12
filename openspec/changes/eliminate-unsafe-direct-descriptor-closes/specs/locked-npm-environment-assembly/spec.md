@@ -100,13 +100,13 @@ Assembler streaming execution and captured cleanup clients SHALL use one unified
 - **AND** retained process ownership SHALL safely continue cleanup independently of the caller retaining a generic handle
 - **AND** the diagnostic SHALL be bounded and sanitized without raw exception notes leaking URL or secret content
 - **AND** Docker removal and staging cleanup SHALL still follow the established domain policy
-- **AND** late cleanup outcomes SHALL be available internally without changing a delivered primary result, invoking domain callbacks, or emitting late public diagnostics
+- **AND** late cleanup outcomes SHALL be available internally without changing a delivered primary result, invoking user-facing domain callbacks, or emitting late public diagnostics
 
 #### Scenario: Preserve domain removal ordering
-- **WHEN** assembly timeout, interruption, reader failure, or executor failure requires named-container removal
-- **THEN** the adapter SHALL preserve the characterized terminate/remove/reap ordering and existing shutdown bounds
-- **AND** Docker removal failure SHALL NOT skip coordinated child or pipe cleanup
-- **AND** the generic process lifecycle SHALL NOT derive container identities or execute Docker-specific removal policy
+- **WHEN** assembly timeout, interruption, reader failure or executor failure requires named-container cleanup
+- **THEN** the adapter SHALL preserve the characterized terminate-CLI/remove/reap ordering and existing shutdown bounds
+- **AND** removal failure SHALL NOT skip coordinated child or pipe cleanup
+- **AND** the generic lifecycle SHALL NOT derive container identities or contain Docker command policy
 
 #### Scenario: Audit subprocess stream origins
 - **WHEN** a subprocess factory, `PIPE`, stream attribute, or stream-close callable is reached through an alias
