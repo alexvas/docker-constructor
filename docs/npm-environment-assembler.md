@@ -5,6 +5,10 @@ deterministic-input, host-evidenced boundary for materializing exact npm
 dependency closures from reviewed roots and standard `package-lock.json` v3
 files. It is implemented under `docker/npm_environment/`.
 
+The generic launch-centered process API is documented in
+[process-lifecycle.md](process-lifecycle.md). Its existence does not imply that
+these assembler adapters have completed their separately planned migration.
+
 ## Supported lock subset
 
 The assembler accepts only exact root package versions and a matching

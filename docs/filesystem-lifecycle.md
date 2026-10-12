@@ -77,6 +77,10 @@ Every other consumer-owned explicit or implicit release (including
 `os.fdopen(..., closefd=True)` and an unadopted `tempfile.mkstemp()` fd) must
 delegate to a shared owner or a protected cleanup accumulator.
 
+For prepared generic subprocess coordination, see
+[process-lifecycle.md](process-lifecycle.md). That mechanism is separate from
+filesystem stream ownership; its consumer adapters are a later migration.
+
 ## Stream transfer contract
 
 `OwnedStream(stream, label=...)` validates the non-empty string label and

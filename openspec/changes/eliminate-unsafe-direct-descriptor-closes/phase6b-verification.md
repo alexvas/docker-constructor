@@ -1,5 +1,95 @@
 # Phase 6B verification — subprocess stream ownership and developer rules
 
+## Revised 6B-B evidence
+
+Scope: generic process ownership only; consumer adapters, integrated 6B-D and
+Phase 7 remain pending. No historical subprocess acceptance is relabeled.
+
+6BB.1–6BB.5 RED: new generic launch/fault/retention/real-pipe contracts ran
+before production changes. Command:
+`.venv/bin/python -m pytest tests/test_process_lifecycle.py -n 8 --dist loadfile --tb=short -q`.
+Complete stdout/stderr `/tmp/docker-constructor-6bb-red.HBP659.log`; exit 1:
+64 errors in 1.05s, all because `docker.process` did not yet exist. Existing
+consumer characterization remains in historical evidence below; these new
+real-pipe cases are unmet generic contracts, not claimed passing baseline.
+
+6BB.6–6BB.10 GREEN: private preallocated stream slots and no-allocation escrow
+binding share OwnedStream's release state. A prestarted per-process continuation
+owns shutdown and remains responsible after incomplete return. Internal
+nonblocking descriptor readers have explicit stop barriers. Independent joins,
+reaping and safe releases feed shared precedence; observation retains outcomes
+without re-adoption, retry or mutation of delivered diagnostics.
+Initial test run `/tmp/docker-constructor-6bb-green.WQ0pqI.log` exited 1
+(63 passed, one failed): the second coordinator lock preparation seam was
+missing. Added the operation coordination lock before launch, then the combined
+owner/foundation gate passed: `/tmp/docker-constructor-6bb-check.yHskTs.log`,
+exit 0, 314 passed and 1765 subtests passed in 4.01s.
+The accompanying initial typecheck failed on classmethod-initialized attribute
+inference; explicit attribute types corrected that failure (no suppression).
+
+Expanded fault verification, same generic pytest command:
+`/tmp/docker-constructor-6bb-faults.n19PXS.log`, exit 0:
+80 passed in 1.42s. Includes genuine underlying stream-lock faults, start-then-
+raise tracking, absent streams, both ordinary close failures, blocked winning
+close, descriptor-less close-to-unblock, operation defects, no late callbacks,
+retained real-descriptor-like reader barriers, eventual/controlled worker stop,
+failed-launch/context observation and concurrent/reentrant cleanup.
+
+6BB.11–6BB.12 documentation/introspection: `docs/process-lifecycle.md` exposes
+only launch, context, bounded capture/byte streaming, shutdown and observation;
+filesystem/assembler guides cross-link without claiming adapter migration.
+Three examples execute in isolated subprocesses. Structural tests prove the
+prepared pair, nonallocating binding, acquired/transferred distinction, stop
+barrier, terminal attempts, reaped-child completion and retained continuation.
+Counterexamples cover lost escrow, lost acquisition tracking, constructor
+replacement, false completion, removed reader barriers/continuation, aliases
+and counterfeit owner names/imports. Isolated import loads only process and
+filesystem cleanup/streams, no domain or reverse dependencies.
+An initial introspection run failed (9 failed, 336 passed, 1765 subtests;
+`/tmp/docker-constructor-6bb-introspect.staiQF.log`, exit 1) because AST argument
+nodes have no line number. The proof now restricts line inspection to call
+nodes; no ownership assertion was removed. API/evasion/example gate:
+`/tmp/docker-constructor-6bb-api.nnA22r.log`, exit 0, 18 passed in 1.09s.
+
+Final review additionally preserves explicit action classifications when
+merging/snapshotting the ledger (join OSError is a defect, not ordinary release
+failure), treats terminate-grace expiry as the normal transition to kill,
+installs an active interruption during a concurrent undelivered shutdown,
+retains first late reap-observation defects, and uses the remaining observation
+budget to join the continuation. Supervision cannot start before transfer/setup;
+a factory returning the same stream twice gets one owner/release and a controlled
+setup defect. All have regression coverage; no adapter was changed.
+
+6BB.13 final acceptance (all commands preserve complete stdout/stderr):
+
+| Check | Complete log | Runner status / result |
+| --- | --- | --- |
+| Generic process/fault/real-pipe/API/examples plus 6B-A gate | `/tmp/docker-constructor-6bb-focused.dUWvDt.log` | 0; 354 passed, 1765 subtests, 4.05s |
+| `ty check docker --python-version 3.14 --output-format concise` | `/tmp/docker-constructor-6bb-typecheck.Vk6QcO.log` | 0; All checks passed |
+| `.venv/bin/python -m pytest tests -n 8 --dist loadfile --tb=short -q` | `/tmp/docker-constructor-pytest.Ee3ayP.log` | 0; 6608 passed, 13 skipped, 11 warnings, 17775 subtests, 32.41s |
+| `.venv/bin/python -m unittest discover -s tests -p 'test_*.py'` (configured project check) | `/tmp/docker-constructor-6bb-unittest.ViMQZP.log` | 0; 6405 tests, 13 skipped, 148.970s; OK |
+| `git diff --check` | no output | 0; clean |
+
+Focused command:
+`.venv/bin/python -m pytest tests/test_process_lifecycle.py tests/test_process_contract.py tests/test_filesystem*.py tests/test_descriptor_close_convergence.py -n 8 --dist loadfile --tb=short -q`.
+The final typecheck first failed with 3 missing `_duplicate_pipe` attribute
+annotations (`/tmp/docker-constructor-6bb-typecheck.YAT2qY.log`, exit 1);
+explicitly declaring that classmethod-prepared field fixed the issue.
+A preliminary unittest attempt exceeded the harness's 120-second limit:
+`/tmp/docker-constructor-6bb-unittest.Mo72GY.log`. It is unsuccessful/incomplete;
+no runner exit status was captured after harness interruption. Rerunning with a
+300-second allowance completed successfully (including the final run above).
+Intermediate passing regression logs remain `/tmp/docker-constructor-pytest.5APfqH.log`
+and `/tmp/docker-constructor-pytest.VuvVo8.log`; final acceptance is the later
+log in the table. Fork-deprecation warnings are retained, not suppressed.
+
+Generic incomplete-state tests control and release every stalled worker. A
+never-stopping reader remains retained, not falsely complete; arbitrary injected
+blocking reads/closes have no forced completion guarantee. Delivered snapshots
+and authoritative exceptions are unchanged by late close/reader/reap outcomes.
+This closes 6B-B only. Consumer signatures/output/removal order are untouched;
+6B-C delegation and 6B-D integrated convergence remain pending.
+
 ## Revised 6B-A evidence
 
 6BA.2 RED (before production edits):

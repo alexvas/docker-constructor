@@ -100,4 +100,28 @@ class OwnedStream:
         self.close()
 
 
+def _prepare_stream(*, label: str) -> OwnedStream:
+    """Prepare a private empty slot before a resource factory is invoked."""
+    if not isinstance(label, str) or not label:
+        raise ValueError("stream label must be a non-empty string")
+    lock = threading.Lock()
+    owner = object.__new__(OwnedStream)
+    owner._lock = lock
+    owner._label = label
+    owner._state = _RELEASED
+    owner._stream = None
+    return owner
+
+
+def _bind_prepared(owner: OwnedStream, stream: Any) -> None:
+    """Account for a factory result using its already-prepared authority.
+
+    Private escrow binding precedes fallible interface/setup validation. This
+    is not public rejected adoption: the launching coordinator already owns
+    every factory result, including a result whose later setup fails.
+    """
+    owner._stream = stream
+    owner._state = _LIVE
+
+
 __all__ = ["OwnedStream"]
