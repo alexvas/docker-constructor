@@ -11,11 +11,12 @@ Existing npm clients are not yet migrated by the generic-owner phase.
 ## Public API
 
 Import `OwnedProcess`, `ProcessResult`, `CleanupResult`, and `CleanupIncomplete`
-from `docker.process`.
+from `docker.process`. The additive policy surface is `StopPolicy`, `StopStage`,
+`StopContext`, `ManagedAction` (a protocol), and immutable `ActionResult`.
 
 - `OwnedProcess.launch(argv, *, grace_seconds=1.0, deadline_seconds=None,
   capture_limit=65536, factory=subprocess.Popen, popen_kwargs=None,
-  on_launched=None)` validates configuration and prepares ownership and
+  on_launched=None, stop_policy=None)` validates configuration and prepares ownership and
   continuation capacity **before** calling the factory. `argv` is a nonempty
   string sequence; grace and optional deadline are finite positive seconds.
   `capture_limit` bounds each retained byte tail. Launch options may set cwd,
@@ -45,7 +46,11 @@ from `docker.process`.
   errors or controlled incomplete cleanup instead of reporting false success.
 
 `CleanupResult.complete` means reaped child, confirmed stopped readers, terminal
-pipe release attempts, and published winning outcomes. It does **not** promise
+pipe release attempts, settled managed actions and their owned local resources,
+and published winning outcomes. `actions` retains immutable `ActionResult`
+snapshots in configured stage order; stages with no acquired action resources
+are settled. This is local-resource/request settlement, not proof that any
+externally controlled work stopped. It does **not** promise
 successful closes; inspect `error` and `failures`. `shutdown_incomplete` is the
 opposite state. A delivered snapshot never changes, even if later observation
 returns a completed snapshot containing late failures.
@@ -72,7 +77,8 @@ are not silently classified ordinary. A later transfer interruption outranks
 an earlier ordinary transfer failure by exact identity.
 
 The grace budget bounds coordinated shutdown waiting; the ready continuation
-also supervises the optional deadline. Descendant-held write ends are drained
+also supervises the optional deadline. Omitting `stop_policy` retains the default
+local reader-cancel/terminate/kill/reap behavior and its existing total bound. Descendant-held write ends are drained
 for a bounded grace after direct-child exit; the mechanism does not kill those
 descendants. Descriptor-less injected streams may need close to unblock read;
 this compatibility seam is not proof of real-descriptor safety.
@@ -91,6 +97,70 @@ mutate delivered results/errors, attach late notes, or invoke domain callbacks.
 Generic internal exceptions are not sanitized; consumer adapters must bound and
 sanitize public diagnostics. Docker removal, npm errors, redaction, staging,
 cache and publication remain outside this module.
+
+## Launch-selected stop policies
+
+`StopPolicy(stages, local_cleanup_seconds, drain=False)` uses a tuple of
+`StopStage(seconds, action=None, wait_child=False, run_on_normal=False,
+local_stop_before=False)`. There is no prescribed stage count or domain-specific
+soft/hard role. Every cap and the local-cleanup reserve must be finite, positive,
+and together fit `grace_seconds`; invalid plans fail before the main factory.
+The one absolute monotonic shutdown deadline begins on the first request.
+Repeated callers do not restart it. A phase clock begins **before** initiation;
+action execution/observation and optional natural child waiting share its cap.
+Failure advances immediately; expiry advances to the next stage or local
+fallback. Early completion never enlarges another stage's cap. The local reserve
+is unavailable to stages and remains available for coordinator-owned reader
+cancellation, joins, terminate/kill/reap and safe release. `local_stop_before`
+permits the existing local-stop → managed cleanup → local wait/reap ordering,
+without handing signal or wait authority to the action.
+
+A managed action implements four **nonblocking** methods:
+
+- `prepare()` establishes readiness before acquisition, returns `None`, or raises.
+  A partially prepared action is already accounted for and receives cleanup.
+- `start(context)` initiates the stage at most once. The frozen `StopContext`
+  contains only `reason`, a returncode observation and the absolute `deadline`;
+  no raw main process, pipe, signal, wait/reap or release authority.
+- `observe()` returns `ActionResult(done, cleanup_complete, error=None)`. Request
+  settlement and owned-resource settlement are distinct. Errors retain exact
+  identity under shared precedence; observations are cumulative (do not generate
+  fresh errors on each poll). Each action retains its own winning error across
+  `start`, `cancel` and observation, independently of an aggregate operation
+  primary. Successful settlement cannot clear a prior action failure. Observer
+  diagnostics are bounded per precedence class, allowing later escalation.
+- `cancel(deadline)` requests settlement of locally owned action resources once,
+  including prepared-but-unstarted actions. It must not wait. It is not permission
+  to initiate a new domain control request or release main pipes.
+
+Explicit shutdown, deadline, context exit, setup and reader failure all select
+this same launch-time plan. Normal capture/context finalization skips stop-only
+stages; `run_on_normal=True` selects required finalization even after child exit.
+Only the generic coordinator signals/waits/reaps the main child. Do not subclass
+`OwnedProcess` to replace shutdown or build a second coordinator.
+
+An auxiliary child must use its **own default-policy OwnedProcess**, with one
+internal stream owner per pipe. Its execution deadline plus local grace must
+fit the remaining parent/stage allowance, computed from `context.deadline`;
+no fresh budget or recursive external policy. Retain its observation handle if
+setup/cleanup remains incomplete. Domain commands and outcome interpretation
+remain outside the generic mechanism.
+
+With `drain=True`, operation cancellation suppresses user callbacks promptly
+but readers keep draining bounded tails until the configured stage/wait boundary.
+They bypass the bounded callback spool after the stop request, so a full queue
+or slow consumer cannot stall draining. Reader cancellation follows that boundary;
+failed readers do not prevent sibling cleanup. The actual reader-stop barrier
+still controls descriptor release. Without draining, readers cancel promptly.
+
+All protocol boundaries must return promptly. Arbitrary blocking Python policy
+callbacks, factories and injected I/O cannot be forcibly stopped; they are not a
+supported bounded-action implementation. The protocol deliberately does not
+accept an arbitrary whole-shutdown callback. After delivery the continuation
+only observes already-started actions and finishes safe local release: it starts
+no new policy stage, domain request or user-facing callback, resets no budget and
+never retries cancellation or close. Late errors appear only in new observation
+snapshots; delivered outcomes and exception diagnostics remain unchanged.
 
 ## Executable examples
 
@@ -141,6 +211,77 @@ incomplete snapshot; it is not permission to close a borrowed pipe yourself.
 Fault tests in `tests/test_process_lifecycle.py` use deterministic stalled
 reader barriers, release those barriers in `finally`, and verify late outcomes
 without claiming that permanent reader retention is completed cleanup.
+
+A separately owned auxiliary operation with a bounded main-child drain:
+
+```python
+import sys
+import time
+from docker.process import OwnedProcess, StopPolicy, StopStage, ActionResult
+
+class Auxiliary:
+    def prepare(self):
+        self.child = None
+    def start(self, context):
+        remaining = context.deadline - time.monotonic()
+        if remaining <= 0:
+            raise OSError("action allowance expired")
+        # Both helper execution and cleanup fit the parent's stage allowance.
+        self.child = OwnedProcess.launch(
+            [sys.executable, "-c", "pass"],
+            grace_seconds=remaining / 4, deadline_seconds=remaining / 4,
+        )  # default local policy, never the parent's external policy
+    def observe(self):
+        if self.child is None:
+            return ActionResult(True, True)
+        status = self.child.cleanup_status
+        return ActionResult(status.complete, status.complete, status.error)
+    def cancel(self, deadline):
+        # Nonblocking: the already-configured helper deadline drives cleanup.
+        pass
+
+action = Auxiliary()
+policy = StopPolicy((StopStage(.3, action, wait_child=True),), .2, drain=True)
+child = OwnedProcess.launch(
+    [sys.executable, "-c", "import time;time.sleep(.08);print('tail',flush=True)"],
+    grace_seconds=.6, stop_policy=policy,
+)
+status = child.shutdown()
+assert child.wait_cleanup(1).complete
+assert status.actions[0].cleanup_complete
+assert action.child.wait_cleanup(1).complete
+```
+
+Reject invalid budgets and attempts to obtain raw ownership before acquisition:
+
+```python
+from dataclasses import FrozenInstanceError
+from docker.process import OwnedProcess, StopPolicy, StopStage, StopContext
+
+called = []
+def forbidden(*args, **kwargs):
+    called.append(True)
+    raise AssertionError("must not launch")
+
+for policy in (StopPolicy((StopStage(.9),), .2),
+               StopPolicy((StopStage(.1, object()),), .2)):
+    try:
+        OwnedProcess.launch(["unused"], grace_seconds=1, stop_policy=policy,
+                            factory=forbidden)
+    except (ValueError, TypeError):
+        pass
+    else:
+        raise AssertionError("invalid policy accepted")
+assert not called
+context = StopContext("cancel", None, 1.0)
+assert not hasattr(context, "process") and not hasattr(context, "terminate")
+try:
+    context.deadline = 999.0
+except FrozenInstanceError:
+    pass
+else:
+    raise AssertionError("policy can restart its deadline")
+```
 
 ## Exclusions
 

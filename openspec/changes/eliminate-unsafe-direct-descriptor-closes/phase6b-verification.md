@@ -374,3 +374,46 @@ now:
 - `openspec validate eliminate-unsafe-direct-descriptor-closes --strict`
   reports only the pre-existing long-requirement warnings in unchanged spec
   files. The Phase 6B change does not modify those specs.
+
+## Revised 6BB stop-policy extension acceptance
+
+The preceding original 6B.14–6B.17 results remain historical. In particular,
+rejected-adoption self-release is not the revised 6BA contract. The following
+is new evidence for generic 6BB.14–6BB.24, not Docker-wrapper acceptance or
+consumer migration.
+
+- Complete RED replay: `/tmp/6bb-policy-complete-red.vEkxw0.log`, exit 1,
+  59 new contract failures, 120 passing baseline lifecycle tests.
+- Focused extension/baseline/6BA gate: `/tmp/6bb-policy-gate.ujudo5.log`, exit 0,
+  360 passed, 509 subtests passed, 4.10 seconds.
+- Typecheck: `/tmp/6bb-policy-typecheck.lhWoGK.log`, exit 0.
+- Launch-selected stages, phase action/wait caps and local reserve fit one
+  original monotonic total budget; a fake clock pins three-stage boundaries.
+- Separate stop/reader cancellation preserves bounded simultaneous final tails
+  despite full callback spools; actual stopped-reader barriers gate release.
+- Partially prepared/main/control resources retain one owner; pending action
+  settlement or resources prevent false completion. Default-owned auxiliary
+  children and late immutable action observations preserve independent cleanup.
+- Baseline active-primary/first-interruption/publication-gap regressions pass;
+  policy-stage matrices replay those guarantees without changing consumers.
+- No consumer/domain module, filesystem API, Docker policy, runtime image or
+  persistent representation changed. Default generic mode and existing
+  terminate-CLI/remove/reap consumer behavior remain untouched.
+
+Detailed implementation, mutation-proof and executable-example evidence:
+[stop-policy-verification.md](stop-policy-verification.md).
+
+### 6BB.25 full extension gate
+
+| Check | Result / complete log |
+| --- | --- |
+| Full eight-worker pytest | exit 0; 6738 passed, 13 skipped, 11 warnings, 17775 subtests passed; 31.36s; `/tmp/docker-constructor-pytest.EqtRdn.log` |
+| Typecheck | exit 0; All checks passed; `/tmp/6bb-policy-final-typecheck.FtzOnA.log` |
+| Configured unittest discovery | exit 0; 6426 tests, 13 skipped; OK; 140.740s; `/tmp/6bb-policy-unittest.qx5ZDA.log` |
+| Whitespace | exit 0; clean; `/tmp/6bb-policy-whitespace.SFHgs2.log` |
+
+The optional green-loop launcher was unavailable (missing local runner package,
+exit 1, `/tmp/6bb-policy-green-loop.2oWLI5.log`); its configured typecheck and
+unittest commands passed when executed directly in the project environment.
+No warnings were suppressed. All 6BB extension gates passed; 6BC/6BD/7 remain
+pending and this does not accept any Docker-wrapper behavior.

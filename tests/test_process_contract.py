@@ -96,7 +96,112 @@ def process_proof(source, foundation):
             errors.append("raw/duplicate release")
         if target in ("os.close", "OwnedDescriptor") or "is_alive" in target:
             errors.append("raw-fileno owner/unsafe liveness inference")
+    errors.extend(policy_proof(source))
     return errors
+
+
+def policy_proof(source):
+    """Bind the extension's actual coordination/dataflow and reject mutations."""
+    errors = []
+    m = methods(source)
+    launch = ast.unparse(m["launch"])
+    ordering = [launch.find(t) for t in (
+        "_validate_policy(stop_policy, float(grace_seconds))",
+        "self._continuation.start()", "stage.action.prepare()", "self._proc = factory(")]
+    if -1 in ordering or ordering != sorted(ordering):
+        errors.append("policy validation/readiness follows acquisition")
+    shutdown = ast.unparse(m["_shutdown"])
+    for token in ("if not self._requested:", "self._cleanup_end = time.monotonic() + self._grace",
+                  "self._stop.set()", "not self._policy.drain", "if not self._delivered:",
+                  "_outcome(self._ledger, self._status.complete, tuple(self._action_results))"):
+        if token not in shutdown:
+            errors.append("shared request/deadline/delivery contract")
+    run = ast.unparse(m["_run_policy"])
+    ordering = [run.find(t) for t in ("stage_end = min(", "context = StopContext(", "action.start(context)")]
+    if -1 in ordering or ordering != sorted(ordering):
+        errors.append("action initiated before phase clock")
+    for token in ("end - policy.local_cleanup_seconds", "self._delivered",
+                  "self._reason == 'natural'", "stage.run_on_normal", "stage.local_stop_before",
+                  "while time.monotonic() < stage_end:", "stage.wait_child",
+                  "observation.error is not None", "self._cancel_action(index, end)",
+                  "def start_action(action: ManagedAction=stage.action) -> None:",
+                  "failures.run(start_action, ordinary=(OSError,))",
+                  "self._action(observe_child, ordinary=(OSError,))",
+                  "if child_done is None or child_done:"):
+        if token not in run:
+            errors.append("stage reserve/transition/eligibility contract")
+    for call in (n for n in ast.walk(m["_run_policy"]) if isinstance(n, ast.Call)):
+        if isinstance(call.func, ast.Attribute) and call.func.attr in ("start", "prepare", "observe", "cancel"):
+            if ast.unparse(call.func.value) in ("stage.action", "action") and [ast.unparse(a) for a in call.args] != ["context"]:
+                errors.append("policy obtains raw main-child authority")
+    cancel = ast.unparse(m["_cancel_action"])
+    if cancel.find("self._action_cancelled[index] = True") > cancel.find("action.cancel(end)") or "not self._action_cancelled[index]" not in cancel:
+        errors.append("action cleanup is retryable")
+    complete = ast.unparse(m["_complete"])
+    if "result.done and result.cleanup_complete" not in complete:
+        errors.append("pending action resources falsely complete")
+    continuation = ast.unparse(m["_continue_cleanup"])
+    if "self._observe_actions()" not in continuation or continuation.find("self._run_policy(end)") > continuation.find("self._cancel.set()"):
+        errors.append("lost action retention or drain barrier")
+    reader = ast.unparse(m["_read"])
+    if "while not self._cancel.is_set():" not in reader or "if self._stop.is_set():" not in reader:
+        errors.append("drain depends on consumer progress")
+    triggers = {"_reader": "reason='reader'", "_continue_cleanup": "reason='deadline'",
+                "launch": "reason='setup'", "shutdown": "reason='cancel'", "__exit__": "self._shutdown(",
+                "_collect": "reason='natural'"}
+    for method, token in triggers.items():
+        if token not in ast.unparse(m[method]):
+            errors.append("shutdown trigger bypasses launch policy")
+    tree = ast.parse(source)
+    contexts = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and ast.unparse(n.func) == "StopContext"]
+    if len(contexts) != 1 or [ast.unparse(a) for a in contexts[0].args] != ["self._reason", "self._proc.poll()", "stage_end"]:
+        errors.append("context grants ownership or fresh budgets")
+    control_locations = {n.lineno for name in ("_wait_child", "_reap", "_terminate_if_live")
+                         for n in ast.walk(m[name]) if isinstance(n, ast.Attribute)
+                         and ast.unparse(n.value) == "self._proc" and n.attr in ("wait", "kill", "terminate")}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef) and any(ast.unparse(base).endswith("OwnedProcess") for base in node.bases):
+            errors.append("policy replaces ownership through inheritance")
+        if isinstance(node, ast.FunctionDef) and node.name == "shutdown" and node.lineno != m["shutdown"].lineno:
+            errors.append("second shutdown coordinator")
+        if isinstance(node, ast.Attribute) and node.attr in ("terminate", "kill", "wait"):
+            # Resolve the release/control attribute even when assigned to an
+            # arbitrarily named callable rather than directly invoked.
+            receiver = ast.unparse(node.value)
+            events = {"self._ready", "self._request", "self._finished", "self._phase_done", "self._stopped[index]"}
+            if not ((receiver == "self._proc" and node.lineno in control_locations) or (node.attr == "wait" and receiver in events)):
+                errors.append("independent raw-child control")
+    return errors
+
+
+@pytest.mark.parametrize("old,new", [
+    ("_validate_policy(stop_policy, float(grace_seconds))", "pass"),
+    ("stage.action.prepare()", "None"),
+    ("end - policy.local_cleanup_seconds", "end + self._grace"),
+    ("StopContext(self._reason, self._proc.poll(), stage_end)", "StopContext(self._reason, self._proc, time.monotonic() + self._grace)"),
+    ("action.start(context)", "action.start(self._proc)"),
+    ("action: ManagedAction = stage.action", "action: ManagedAction = self._proc"),
+    ("stage.wait_child", "False"),
+    ("if self._delivered:", "if False:"),
+    ("result.done and result.cleanup_complete", "True"),
+    ("not self._action_cancelled[index]", "True"),
+    ("if self._stop.is_set():", "if False:"),
+    ("reason=\"reader\"", "reason=\"unused\""),
+    ("reason=\"deadline\"", "reason=\"unused\""),
+])
+def test_stop_policy_ownership_and_budget_evasions_are_rejected(old, new):
+    source = (ROOT / "docker/process.py").read_text()
+    assert old in source
+    assert process_proof(source.replace(old, new), (ROOT / "docker/filesystem/streams.py").read_text())
+
+
+def test_inheritance_and_second_coordinator_are_rejected():
+    source = (ROOT / "docker/process.py").read_text()
+    for addition in ("class Policy(OwnedProcess):\n    def shutdown(self): pass\n",
+                     "def shutdown(child):\n    child.kill()\n    child.wait()\n",
+                     "def added(child):\n    renamed = child.terminate\n    renamed()\n",
+                     "def added(self):\n    renamed = self._proc.wait\n    renamed()\n"):
+        assert process_proof(source + "\n" + addition, (ROOT / "docker/filesystem/streams.py").read_text())
 
 
 def test_prepared_transfer_and_safe_retention_proof():
@@ -163,14 +268,22 @@ def test_exact_public_api_and_no_existing_process_constructor():
     assert {n for n in vars(OwnedProcess) if not n.startswith("_")} == {
         "launch", "capture", "stream", "shutdown", "cleanup_status", "wait_cleanup", "returncode"}
     assert list(inspect.signature(OwnedProcess.launch).parameters) == [
-        "argv", "grace_seconds", "deadline_seconds", "capture_limit", "factory", "popen_kwargs", "on_launched"]
+        "argv", "grace_seconds", "deadline_seconds", "capture_limit", "factory", "popen_kwargs", "on_launched", "stop_policy"]
     assert list(inspect.signature(OwnedProcess.shutdown).parameters) == ["self", "primary"]
     assert list(inspect.signature(OwnedProcess.wait_cleanup).parameters) == ["self", "timeout"]
     with pytest.raises(TypeError, match="launch"):
         OwnedProcess()
-    assert set(CleanupResult.__dataclass_fields__) == {"complete", "error", "failures"}
+    assert set(CleanupResult.__dataclass_fields__) == {"complete", "error", "failures", "actions"}
     assert set(ProcessResult.__dataclass_fields__) == {"stdout", "stderr", "returncode", "timed_out", "cleanup", "callback_errors"}
     assert issubclass(CleanupIncomplete, OSError)
+    import docker.process as api
+    assert set(api.__all__) == {"OwnedProcess", "ProcessResult", "CleanupResult", "CleanupIncomplete",
+                               "StopPolicy", "StopStage", "StopContext", "ManagedAction", "ActionResult"}
+    assert set(api.StopContext.__dataclass_fields__) == {"reason", "returncode", "deadline"}
+    assert set(api.ActionResult.__dataclass_fields__) == {"done", "cleanup_complete", "error"}
+    assert set(api.StopPolicy.__dataclass_fields__) == {"stages", "local_cleanup_seconds", "drain"}
+    assert set(api.StopStage.__dataclass_fields__) == {"seconds", "action", "wait_child", "run_on_normal", "local_stop_before"}
+    assert {n for n in vars(api.ManagedAction) if not n.startswith("_")} == {"prepare", "start", "observe", "cancel"}
 
 
 def test_isolated_process_import_has_no_domain_or_reverse_dependency():
@@ -201,7 +314,7 @@ def test_executable_process_guide_and_links():
             collecting = False
         elif collecting:
             current.append(line)
-    assert len(blocks) == 3
+    assert len(blocks) == 5
     for block in blocks:
         subprocess.run([sys.executable, "-c", textwrap.dedent(block)], cwd=ROOT, check=True, timeout=10)
     for name in ("filesystem-lifecycle.md", "npm-environment-assembler.md"):
