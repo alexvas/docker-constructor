@@ -1,7 +1,0 @@
-{
-  "timeoutMs": 300000,
-  "checks": [
-    { "name": "typecheck", "kind": "typecheck", "command": "ty check docker --python-version 3.14 --output-format concise" },
-    { "name": "test",      "kind": "test",      "command": "python -m unittest discover -s tests -p 'test_*.py'" }
-  ]
-}
