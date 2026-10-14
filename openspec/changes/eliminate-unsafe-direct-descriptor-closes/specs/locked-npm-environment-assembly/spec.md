@@ -51,6 +51,18 @@ Assembler streaming execution and captured cleanup clients SHALL use one unified
 - **AND** `LifecycleOutcome` SHALL retain its `return_code`, `errors`, `stdout`, and `stderr` fields
 - **AND** a returned owner SHALL NOT imply successful acquisition or execution, nor expose raw pipes for compatibility
 
+#### Scenario: Preserve captured fields when generic collection fails
+- **WHEN** the generic capture operation raises an exception carrying `process_result`
+- **THEN** `run_captured` SHALL project its bounded stdout/stderr bytes and known returncode into the existing `LifecycleOutcome` fields while reporting the failure through the existing error channel
+- **AND** the adapter SHALL use the supported exception snapshot rather than private owner output buffers or a repeated capture operation
+- **AND** decoding, redaction, controlled diagnostics and Docker exit/absence interpretation SHALL remain domain responsibilities
+- **AND** a launch failure without that snapshot SHALL retain the existing no-result failure mapping and available owner observation access
+
+#### Scenario: Streaming failure retains domain-safe output
+- **WHEN** streaming collection fails with a generic bounded raw `process_result` snapshot
+- **THEN** the adapter SHALL preserve existing incremental redaction, per-stream finalization and abort-safe retained diagnostic tails
+- **AND** it SHALL NOT replay raw snapshot tails into the sink, expose unsanitized generic bytes or initiate late public callbacks
+
 #### Scenario: Captured cleanup continues after outcome delivery
 - **WHEN** captured local cleanup is incomplete at delivery
 - **THEN** the existing outcome error channel SHALL report bounded sanitized incomplete cleanup

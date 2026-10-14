@@ -257,6 +257,25 @@ Process shutdown SHALL bound caller waiting and distinguish completed cleanup fr
 - **AND** with an active failure it SHALL preserve shared precedence and attach incomplete-cleanup observation to the authoritative failure
 - **AND** incomplete-shutdown timeout SHALL be ordinary and SHALL NOT mask an existing interruption
 
+#### Scenario: Capture or stream delivers an authoritative failure
+- **WHEN** `OwnedProcess.capture()` or `OwnedProcess.stream(callback)` delivers an operation, reader, wait or cleanup failure, interruption or controlled incomplete-cleanup error after collection begins
+- **THEN** the exact authoritative exception SHALL carry `process_result`, an immutable snapshot of the existing generic `ProcessResult`
+- **AND** that snapshot SHALL retain bounded raw stdout/stderr bytes, returncode, timed_out, the delivered cleanup snapshot and bounded callback_errors
+- **AND** successful return signatures, exception type and identity SHALL remain unchanged without an exception wrapper, new result type, owner output property or lifecycle method
+- **AND** snapshot publication SHALL synchronize bounded tail copying with the operation delivery boundary and current undelivered cleanup outcome without closing a pipe beneath a live reader
+
+#### Scenario: Failed collection snapshot remains unchanged
+- **WHEN** capture or stream delivers an exception carrying `process_result` while cleanup remains incomplete
+- **THEN** its cleanup snapshot SHALL report incomplete cleanup and its copied output SHALL NOT share mutable reader buffers
+- **AND** later output, cleanup failures or completion SHALL NOT mutate or replace the delivered snapshot, reattach a newer snapshot to the delivered exception or mutate its delivered diagnostics
+- **AND** eventual cleanup SHALL remain observable through the same owner's cleanup status and bounded waiting
+- **AND** raw streaming tails SHALL NOT be replayed into callbacks or treated as a transcript of delivered chunks
+
+#### Scenario: Launch fails before collection begins
+- **WHEN** validation or launch fails before capture or stream collection begins
+- **THEN** the exception SHALL NOT be required to carry `process_result`
+- **AND** existing retained `.cleanup` observation access and shared exception precedence SHALL remain unchanged
+
 #### Scenario: Late release fails after result delivery
 - **WHEN** deferred stream release fails after the operation result or exception has already been delivered
 - **THEN** the late failure SHALL remain observable in the retained cleanup result
