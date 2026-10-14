@@ -260,8 +260,8 @@ Process shutdown SHALL bound caller waiting and distinguish completed cleanup fr
 #### Scenario: Capture or stream delivers an authoritative failure
 - **WHEN** `OwnedProcess.capture()` or `OwnedProcess.stream(callback)` delivers an operation, reader, wait or cleanup failure, interruption or controlled incomplete-cleanup error after collection begins
 - **THEN** the exact authoritative exception SHALL carry `process_result`, an immutable snapshot of the existing generic `ProcessResult`
-- **AND** that snapshot SHALL retain bounded raw stdout/stderr bytes, returncode, timed_out, the delivered cleanup snapshot, bounded callback_errors and immutable stream_outcomes
-- **AND** successful result types, the capture signature, exception type and identity SHALL remain unchanged, with only the separately specified typed streaming callback extension without an exception wrapper, new result type, owner output property or lifecycle method
+- **AND** that snapshot SHALL retain bounded raw stdout/stderr bytes, returncode, timed_out, the delivered cleanup snapshot and immutable stream_outcomes, without a callback_errors field
+- **AND** successful result types, the capture signature, exception type and identity SHALL remain unchanged, except for the explicitly authorized removal of callback_errors and the separately specified typed streaming callback and launch reporter extensions, without an exception wrapper, new result type, owner output property or lifecycle method
 - **AND** snapshot publication SHALL synchronize bounded tail copying with the operation delivery boundary and current undelivered cleanup outcome without closing a pipe beneath a live reader
 
 #### Scenario: Failed collection snapshot remains unchanged
@@ -312,12 +312,14 @@ The generic process lifecycle SHALL retain typed per-stream terminal outcomes an
 - **THEN** it SHALL notify the newly supplied callback of retained terminal outcomes once per stream
 - **AND** it SHALL NOT reread pipes, replay delivered chunks or raw tails, restart cleanup or mutate earlier results or exceptions
 - **AND** concurrent invocations SHALL use existing operation serialization with per-invocation notification accounting, not duplicate readers or coordinators
-- **AND** no automatic callbacks belonging to a completed invocation SHALL begin after that invocation's delivery
+- **AND** no automatic callbacks or reporter calls belonging to a completed invocation SHALL begin after that invocation's delivery
+- **AND** without a new control-flow interruption the later invocation SHALL return a fresh existing ProcessResult with retained cleanup/output/outcome observations rather than automatically rethrow an already delivered operation failure
+- **AND** retained bytes in the result SHALL remain snapshot data and SHALL NOT be replayed to chunk callbacks
 
 #### Scenario: Completion callback fails or collection is interrupted
 - **WHEN** an ordinary chunk or end callback exception occurs
-- **THEN** it SHALL be isolated in bounded callback_errors without retrying the callback or erasing the retained stream outcome
-- **AND** control-flow interruptions SHALL instead participate in existing shared precedence
+- **THEN** it SHALL trigger one diagnostic reporting attempt without retrying the callback, retaining callback_errors in results, erasing the stream outcome or being classified as a read/cleanup failure
+- **AND** control-flow interruptions SHALL remain coordinator responsibilities: existing shared precedence applies before first operation delivery, while new interruptions of a later explicit invocation SHALL use that invocation's precedence without redelivery or mutation of an earlier exception
 - **WHEN** collection is forcibly discontinued before an acquired stream has a terminal outcome
 - **THEN** its outcome SHALL become ABORTED before operation delivery, without waiting indefinitely for its reader
 - **AND** remaining terminal notification attempts SHALL precede return or authoritative exception delivery
@@ -330,6 +332,36 @@ The generic process lifecycle SHALL retain typed per-stream terminal outcomes an
 - **AND** outcome copying SHALL be synchronized with collection delivery and retained callback accounting
 - **AND** later cleanup or explicit subscriptions SHALL NOT mutate that snapshot or replace an already delivered exception snapshot
 - **AND** PENDING SHALL describe only an outcome not yet established, not reader execution or resource release
+
+### Requirement: Report callback failures through injected diagnostic policy
+The generic process lifecycle SHALL accept an optional prompt-returning diagnostic reporter at launch, validated before acquisition, for ordinary chunk/end callback errors in all invocations. Reporter policy SHALL remain separate from resource ownership and control-flow propagation. ProcessResult and error.process_result SHALL NOT contain callback_errors or a replacement callback-error retention property/API.
+
+#### Scenario: Select diagnostic policy without importing domain policy
+- **WHEN** an ordinary callback exception is reported
+- **THEN** an injected reporter SHALL receive the exception object and bounded callback-kind/stream context outside state locks on the invocation's coordinating thread
+- **AND** the generic mechanism SHALL NOT eagerly render exception text, traceback, raw notes or output bytes into public logs
+- **AND** the injected policy MAY deliberately log raw exceptions or mask secrets/URLs; domain masking knowledge SHALL remain outside docker.process
+- **AND** without an injected reporter only a fixed safe callback-failure message SHALL be emitted
+- **AND** reporting SHALL NOT retry callbacks, alter terminal outcomes, grant pipe/process authority or change operation failure precedence
+
+#### Scenario: Reporter or fallback fails ordinarily
+- **WHEN** an ordinary Exception escapes the reporter
+- **THEN** an independent nonrecursive fallback SHALL attempt one fixed safe diagnostic without original/reporter exception text, repr, traceback, notes or output
+- **AND** the failing reporter SHALL NOT be called to report itself
+- **AND** ordinary fallback failure SHALL be best-effort and SHALL NOT recursively report, mask operation authority or prevent independent safe cleanup/notification attempts
+- **AND** reporter/fallback implementations SHALL return promptly without a promise to forcibly bound arbitrary blocking logging handlers
+
+#### Scenario: Reporting or callback raises control flow
+- **WHEN** a callback, reporter or fallback raises KeyboardInterrupt, SystemExit, GeneratorExit or another control-flow BaseException
+- **THEN** the coordinator SHALL preserve its identity and apply interruption precedence rather than swallow it or delegate propagation policy to the reporter
+- **AND** independently safe cleanup and remaining terminal notification attempts SHALL precede delivery without callback retries
+
+#### Scenario: New interruption belongs to a later explicit invocation
+- **WHEN** an explicit outcome-only stream invocation after previous delivery encounters a new control-flow exception from callback, reporter or fallback
+- **THEN** that new invocation SHALL be interrupted by its first new authoritative interruption with exact identity and its own immutable process_result snapshot
+- **AND** earlier delivered errors, including earlier interruptions, SHALL NOT automatically replace the new invocation's interruption or receive a replacement snapshot or diagnostics
+- **AND** the new snapshot SHALL retain existing cleanup as a read-only observation rather than rewriting its error to the new invocation exception
+- **AND** the later invocation SHALL NOT rewrite retained cleanup ownership/ledger or restart shutdown, readers, pipe release, reap, budgets or domain requests; an existing continuation MAY finish the original independent safe cleanup and publish observation-only outcomes
 
 ### Requirement: Regulate new descriptor-owning code through documented filesystem wrappers
 New descriptor-owning code SHALL select a filesystem lifecycle wrapper and verify its ownership paths. The project SHALL publish that contract in `docs/filesystem-lifecycle.md`, reference it from root `AGENTS.md`, OpenSpec project context, and README links, and enforce it through complete-production-tree convergence checks.

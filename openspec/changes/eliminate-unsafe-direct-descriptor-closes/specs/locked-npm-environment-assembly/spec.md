@@ -77,6 +77,14 @@ Assembler streaming execution and captured cleanup clients SHALL use one unified
 - **AND** immutable stream_outcomes in ProcessResult/error.process_result SHALL provide supported observations without private reader/output access or new reader coordination
 - **AND** late cleanup SHALL NOT initiate new domain sink callbacks or diagnostics
 
+#### Scenario: Adapter supplies sanitized callback diagnostics
+- **WHEN** the streaming adapter delegates chunk/end callbacks to OwnedProcess
+- **THEN** ordinary callback errors SHALL be routed through a launch-injected prompt-returning reporter using the existing bounded domain-local secret/URL sanitization policy
+- **AND** generic callback_errors SHALL NOT be projected into domain results or replaced with a new domain callback-error field
+- **AND** ordinary reporter failure SHALL use an independent fixed-safe-message fallback without raw exception text/traceback or recursive reporting
+- **AND** control-flow propagation SHALL remain with the generic coordinator, not the diagnostic reporter
+- **AND** a new interruption in a later explicit outcome-only invocation SHALL interrupt that invocation without changing earlier delivery, replaying bytes into a completed domain collector or restarting cleanup
+
 #### Scenario: Captured cleanup continues after outcome delivery
 - **WHEN** captured local cleanup is incomplete at delivery
 - **THEN** the existing outcome error channel SHALL report bounded sanitized incomplete cleanup
