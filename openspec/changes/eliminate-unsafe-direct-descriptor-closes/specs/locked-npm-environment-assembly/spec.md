@@ -63,6 +63,20 @@ Assembler streaming execution and captured cleanup clients SHALL use one unified
 - **THEN** the adapter SHALL preserve existing incremental redaction, per-stream finalization and abort-safe retained diagnostic tails
 - **AND** it SHALL NOT replay raw snapshot tails into the sink, expose unsanitized generic bytes or initiate late public callbacks
 
+#### Scenario: Finalize each diagnostic stream from its retained outcome
+- **WHEN** the streaming adapter receives typed ProcessStream chunks and terminal StreamOutcome notifications from the generic owner
+- **THEN** it SHALL map STDOUT/STDERR to existing domain stream tags without changing public diagnostic identities
+- **AND** it SHALL finalize each DiagnosticStream independently with abort=False only for EOF, and abort=True for READ_FAILED or ABORTED
+- **AND** stdout reaching clean EOF before a later stderr read failure SHALL retain its clean finalization and already selected tail rather than be retroactively aborted
+- **AND** prompt clean EOF finalization SHALL NOT await sibling completion
+- **AND** callback failures SHALL remain distinct from generic read failures
+
+#### Scenario: Domain finalization does not replay a completed collector
+- **WHEN** a later explicit generic stream invocation observes retained terminal outcomes
+- **THEN** outcome notification SHALL NOT cause the adapter to replay raw tails or delivered chunks into a completed domain collector or sink
+- **AND** immutable stream_outcomes in ProcessResult/error.process_result SHALL provide supported observations without private reader/output access or new reader coordination
+- **AND** late cleanup SHALL NOT initiate new domain sink callbacks or diagnostics
+
 #### Scenario: Captured cleanup continues after outcome delivery
 - **WHEN** captured local cleanup is incomplete at delivery
 - **THEN** the existing outcome error channel SHALL report bounded sanitized incomplete cleanup

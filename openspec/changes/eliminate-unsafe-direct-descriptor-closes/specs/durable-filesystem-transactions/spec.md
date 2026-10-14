@@ -260,8 +260,8 @@ Process shutdown SHALL bound caller waiting and distinguish completed cleanup fr
 #### Scenario: Capture or stream delivers an authoritative failure
 - **WHEN** `OwnedProcess.capture()` or `OwnedProcess.stream(callback)` delivers an operation, reader, wait or cleanup failure, interruption or controlled incomplete-cleanup error after collection begins
 - **THEN** the exact authoritative exception SHALL carry `process_result`, an immutable snapshot of the existing generic `ProcessResult`
-- **AND** that snapshot SHALL retain bounded raw stdout/stderr bytes, returncode, timed_out, the delivered cleanup snapshot and bounded callback_errors
-- **AND** successful return signatures, exception type and identity SHALL remain unchanged without an exception wrapper, new result type, owner output property or lifecycle method
+- **AND** that snapshot SHALL retain bounded raw stdout/stderr bytes, returncode, timed_out, the delivered cleanup snapshot, bounded callback_errors and immutable stream_outcomes
+- **AND** successful result types, the capture signature, exception type and identity SHALL remain unchanged, with only the separately specified typed streaming callback extension without an exception wrapper, new result type, owner output property or lifecycle method
 - **AND** snapshot publication SHALL synchronize bounded tail copying with the operation delivery boundary and current undelivered cleanup outcome without closing a pipe beneath a live reader
 
 #### Scenario: Failed collection snapshot remains unchanged
@@ -280,6 +280,56 @@ Process shutdown SHALL bound caller waiting and distinguish completed cleanup fr
 - **WHEN** deferred stream release fails after the operation result or exception has already been delivered
 - **THEN** the late failure SHALL remain observable in the retained cleanup result
 - **AND** it SHALL NOT retroactively replace or mutate the delivered result or authoritative exception
+
+### Requirement: Retain typed per-stream outcomes across streaming subscriptions
+The generic process lifecycle SHALL retain typed per-stream terminal outcomes and deliver them race-safely through `stream(callback, *, on_stream_end=None)`, including completion before registration. ProcessResult SHALL carry immutable stream_outcomes. Notifications SHALL NOT add resource authority, output replay or a separate subscription API.
+
+#### Scenario: Distinguish stream collection from resource cleanup
+- **WHEN** a captured stream reaches clean EOF, fails during reading or has collection forcibly discontinued
+- **THEN** its outcome SHALL transition once from StreamOutcome.PENDING to EOF, READ_FAILED or ABORTED respectively, and SHALL NOT later be revised
+- **AND** a sibling failure SHALL NOT replace an already established EOF
+- **AND** a callback failure SHALL NOT be classified as READ_FAILED
+- **AND** ABORTED SHALL NOT imply child exit, reader-stop confirmation or safe pipe release
+- **AND** retained readers SHALL continue to use the existing safety barriers and owners
+
+#### Scenario: Deliver typed chunks and prompt independent completion
+- **WHEN** a caller invokes stream with a chunk callback and optional on_stream_end callback
+- **THEN** ProcessStream SHALL provide exactly STDOUT and STDERR, and StreamOutcome SHALL provide exactly PENDING, EOF, READ_FAILED and ABORTED
+- **AND** the chunk callback SHALL receive `(ProcessStream, bytes)` rather than string stream names
+- **AND** on_stream_end SHALL receive `(ProcessStream, StreamOutcome)` with terminal outcomes only, never PENDING
+- **AND** each end notification SHALL follow that invocation's last assigned chunk for its stream
+- **AND** clean EOF notification SHALL NOT wait for the sibling stream to finish
+- **AND** callbacks SHALL run on that invocation's coordinating thread outside state locks and SHALL receive no pipe or release authority
+
+#### Scenario: Completion precedes or races with registration
+- **WHEN** stream is invoked with on_stream_end after a stream has completed or concurrently with its completion
+- **THEN** registration and retained-outcome delivery SHALL be synchronized to make exactly one terminal notification attempt per stream for that invocation before it returns or raises
+- **AND** previously established EOF, READ_FAILED or ABORTED outcomes SHALL remain available to the new callback
+- **AND** no separate subscription method or parallel string callback channel SHALL be required
+
+#### Scenario: Explicit later subscription observes retained completion
+- **WHEN** a new stream invocation supplies on_stream_end after an earlier operation delivered its result or exception
+- **THEN** it SHALL notify the newly supplied callback of retained terminal outcomes once per stream
+- **AND** it SHALL NOT reread pipes, replay delivered chunks or raw tails, restart cleanup or mutate earlier results or exceptions
+- **AND** concurrent invocations SHALL use existing operation serialization with per-invocation notification accounting, not duplicate readers or coordinators
+- **AND** no automatic callbacks belonging to a completed invocation SHALL begin after that invocation's delivery
+
+#### Scenario: Completion callback fails or collection is interrupted
+- **WHEN** an ordinary chunk or end callback exception occurs
+- **THEN** it SHALL be isolated in bounded callback_errors without retrying the callback or erasing the retained stream outcome
+- **AND** control-flow interruptions SHALL instead participate in existing shared precedence
+- **WHEN** collection is forcibly discontinued before an acquired stream has a terminal outcome
+- **THEN** its outcome SHALL become ABORTED before operation delivery, without waiting indefinitely for its reader
+- **AND** remaining terminal notification attempts SHALL precede return or authoritative exception delivery
+- **AND** late reader completion SHALL NOT revise ABORTED or initiate an automatic callback
+
+#### Scenario: Process result snapshots retain per-stream outcomes
+- **WHEN** capture or stream delivers a result or error.process_result snapshot
+- **THEN** existing ProcessResult SHALL contain `stream_outcomes: tuple[tuple[ProcessStream, StreamOutcome], ...]`, with each stream once in STDOUT/STDERR order
+- **AND** acquired streams SHALL have terminal outcomes in the delivered snapshot
+- **AND** outcome copying SHALL be synchronized with collection delivery and retained callback accounting
+- **AND** later cleanup or explicit subscriptions SHALL NOT mutate that snapshot or replace an already delivered exception snapshot
+- **AND** PENDING SHALL describe only an outcome not yet established, not reader execution or resource release
 
 ### Requirement: Regulate new descriptor-owning code through documented filesystem wrappers
 New descriptor-owning code SHALL select a filesystem lifecycle wrapper and verify its ownership paths. The project SHALL publish that contract in `docs/filesystem-lifecycle.md`, reference it from root `AGENTS.md`, OpenSpec project context, and README links, and enforce it through complete-production-tree convergence checks.
