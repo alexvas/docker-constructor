@@ -1,7 +1,15 @@
 ## ADDED Requirements
 
 ### Requirement: Converge descriptor-owning cleanup on explicit lifecycle guarantees
-A descriptor-owning consumer SHALL represent each adopted descriptor through the shared lightweight descriptor lifecycle, SHALL mark ownership terminal before each release attempt, and SHALL issue at most one close attempt for each owned descriptor. It SHALL preserve an active operation failure over an ordinary close failure while retaining that close failure as secondary diagnostic context. When several descriptors are independently owned, one aggregate cleanup accumulator SHALL attempt every release even when an earlier release fails. A direct descriptor-close call SHALL remain limited to low-level POSIX adapters, the internal release operation of `OwnedDescriptor` or an equivalent shared owner after ownership is terminal, and ownership-handoff operations whose releasing parent is already terminal and whose opened child is already tracked for failure cleanup.
+Descriptor-owning consumers SHALL use the shared lightweight lifecycle, mark ownership terminal before release and attempt each close at most once. Cleanup SHALL preserve active failures over ordinary close failures and attempt every independent release through one accumulator. Direct closes SHALL be restricted to primitives, terminal shared-owner internals or verified handoffs.
+
+#### Scenario: Enforce shared ownership and direct-close categories
+- **WHEN** a consumer adopts a descriptor
+- **THEN** it SHALL represent that descriptor through the shared lightweight lifecycle and mark ownership terminal before its sole release attempt
+- **AND** one aggregate cleanup accumulator SHALL attempt all independent releases even if an earlier release fails
+- **AND** ordinary close failures SHALL remain secondary diagnostic context to an active operation failure
+- **WHEN** production code invokes a direct descriptor close
+- **THEN** it SHALL be a low-level POSIX adapter primitive, an internal release of `OwnedDescriptor` or an equivalent shared owner after ownership is terminal, or a handoff with a terminal parent and a child already tracked for failure cleanup
 
 #### Scenario: Release fails while an operation failure is active
 - **WHEN** an owned descriptor must be released while an operation or domain failure is already active

@@ -1,7 +1,14 @@
 ## ADDED Requirements
 
 ### Requirement: Preserve build-state descriptor ownership and release precedence
-Build-context confinement, artifact-cache traversal, build-cache preparation, snapshot operations, artifact materialization, effective-inventory rendering, persistent cache writing, and external project-state lifecycles SHALL explicitly own every adopted descriptor until transfer or one terminal release attempt. Raw descriptors returned by `tempfile.mkstemp()` or wrapped by `os.fdopen()` SHALL NOT transfer release authority implicitly to a file object. An active build, validation, publication, containment, or integrity failure SHALL remain authoritative over an ordinary close failure. Independent descriptors SHALL each receive one release attempt, and parent-to-child handoff SHALL neither retry an ambiguously failed parent close nor leak an already-open child. Existing project namespaces, cache identities, modes, lock scopes, publication order, retention, durability, and domain error contracts SHALL remain unchanged.
+Build-state descriptor lifecycles SHALL use explicit ownership until transfer or one terminal release attempt. Cleanup SHALL preserve active failures over ordinary close failures, release independent resources once, and prevent handoff leaks or retries. File objects SHALL NOT implicitly own raw descriptors. Existing build-state domain contracts SHALL remain unchanged.
+
+#### Scenario: Apply ownership across build-state consumers
+- **WHEN** build-context confinement, artifact-cache traversal, build-cache preparation, snapshot operations, artifact materialization, effective-inventory rendering, persistent cache writing or external project-state work acquires a descriptor
+- **THEN** each adopted descriptor SHALL remain explicitly owned until transfer or one terminal release attempt
+- **AND** existing project namespaces, cache identities, modes, lock scopes, publication order, retention, durability and domain error contracts SHALL remain unchanged
+- **AND** active build, validation, publication, containment or integrity failures SHALL remain authoritative over ordinary close failures
+- **AND** raw descriptors returned by `tempfile.mkstemp()` or wrapped by `os.fdopen()` SHALL NOT implicitly transfer release authority to file objects
 
 #### Scenario: Private build-context write and close both fail
 - **WHEN** writing or validating a private build-context file fails

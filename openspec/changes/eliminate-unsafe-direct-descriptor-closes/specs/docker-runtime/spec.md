@@ -1,7 +1,13 @@
 ## ADDED Requirements
 
 ### Requirement: Preserve runtime artifact failures across descriptor release
-Protected runtime artifact installation SHALL own the single opened mounted-artifact descriptor through an explicit at-most-once lifecycle. The runtime image SHALL package the lightweight `docker.filesystem` modules required by that lifecycle under `/usr/local/lib/pi-cli/docker/filesystem/`, so importing the installed runtime code does not depend on the source repository. An ordinary close failure SHALL NOT replace an active stat, safety-validation, read, integrity, identity, or installation failure, and the descriptor SHALL receive one release attempt on every terminal path. Artifact selection, no-follow opening, read-only mount assumptions, integrity verification, and existing runtime error types and messages SHALL remain unchanged.
+Protected runtime artifact installation SHALL explicitly own its mounted-artifact descriptor and attempt release once on every terminal path. Ordinary close failures SHALL NOT replace active operation failures. The image SHALL package required filesystem lifecycle modules independently of the source repository. Existing artifact policy and runtime diagnostics SHALL remain unchanged.
+
+#### Scenario: Preserve runtime artifact policy during ownership migration
+- **WHEN** mounted-artifact descriptor ownership is migrated
+- **THEN** artifact selection, no-follow opening, read-only mount assumptions, integrity verification and existing runtime error types and messages SHALL remain unchanged except for the specified sole-close mapping
+- **AND** ordinary release failure SHALL NOT replace an active stat, safety-validation, read, integrity, identity or installation failure
+- **AND** the single opened descriptor SHALL receive one release attempt on every terminal path
 
 #### Scenario: Installed runtime resolves filesystem lifecycle modules
 - **WHEN** the runtime installer is imported from the image's `/usr/local/lib/pi-cli` Python layout

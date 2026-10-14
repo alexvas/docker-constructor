@@ -39,8 +39,24 @@ Assembler streaming execution and captured cleanup clients SHALL use one unified
 
 #### Scenario: Preserve subprocess compatibility
 - **WHEN** subprocess stream ownership is migrated
-- **THEN** existing consumer signatures, process-result shapes, output tails, decoding, npm identities, controlled public errors, redaction, and configured shutdown bounds SHALL remain unchanged
+- **THEN** existing consumer input parameters, domain result fields, output tails, decoding, npm identities, controlled public errors, redaction, and configured shutdown bounds SHALL remain unchanged
+- **AND** the sole authorized return-type change SHALL be `run_captured(...) -> tuple[OwnedProcess | None, LifecycleOutcome]`, replacing its returned raw `Popen | None` with the generic owner
 - **AND** terminal at-most-once release and shared cleanup precedence SHALL be required corrections rather than baseline defects to preserve
+
+#### Scenario: Captured client returns its owner and outcome snapshot
+- **WHEN** `run_captured(argv, *, policy)` finishes execution or reports a capture/cleanup failure
+- **THEN** it SHALL return the same `OwnedProcess` alongside the existing `LifecycleOutcome` snapshot when an owner is available
+- **AND** a launch/setup failure carrying generic cleanup observation access SHALL return that same owner rather than reconstruct ownership
+- **AND** the first element SHALL be `None` when no owner/cleanup observation handle is available
+- **AND** `LifecycleOutcome` SHALL retain its `return_code`, `errors`, `stdout`, and `stderr` fields
+- **AND** a returned owner SHALL NOT imply successful acquisition or execution, nor expose raw pipes for compatibility
+
+#### Scenario: Captured cleanup continues after outcome delivery
+- **WHEN** captured local cleanup is incomplete at delivery
+- **THEN** the existing outcome error channel SHALL report bounded sanitized incomplete cleanup
+- **AND** the returned owner SHALL provide status and bounded eventual cleanup observation
+- **AND** later cleanup failures SHALL NOT mutate the delivered `LifecycleOutcome` or begin public callbacks/diagnostics
+- **AND** the Docker removal caller SHALL retain its existing exit-code, container-absence and error-list interpretation
 
 #### Scenario: A reader failure triggers multiple cleanup hooks
 - **WHEN** a stream reader fails and reader-failure cleanup is followed by exception-path or final cleanup
@@ -75,6 +91,13 @@ Assembler streaming execution and captured cleanup clients SHALL use one unified
 - **WHEN** stream-owner synchronization or process cleanup preparation fails before execution
 - **THEN** no Docker client subprocess SHALL be launched
 - **AND** the failure SHALL remain controlled by the existing assembler boundary
+
+#### Scenario: Captured factory omits a required stream
+- **WHEN** an injected captured-client factory returns missing stdout, stderr or both despite requested `PIPE` capture
+- **THEN** the adapter SHALL report a controlled setup failure through `LifecycleOutcome.errors` rather than successful execution with empty output
+- **AND** every present pipe SHALL receive one release attempt when safe and the child SHALL undergo bounded cleanup
+- **AND** normal factory doubles SHALL provide both streams as standard successful `Popen(..., stdout=PIPE, stderr=PIPE)` does
+- **AND** generic missing-stream rejection SHALL remain unchanged without fabricated replacement streams or an expanded generic API
 
 #### Scenario: Later adoption interruption takes precedence
 - **WHEN** the first pipe transfer fails ordinarily and the second raises a process-control interruption
