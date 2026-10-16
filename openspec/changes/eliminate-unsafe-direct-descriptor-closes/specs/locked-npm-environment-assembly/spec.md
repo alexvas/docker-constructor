@@ -43,6 +43,19 @@ Assembler streaming execution and captured cleanup clients SHALL use one unified
 - **AND** the sole authorized return-type change SHALL be `run_captured(...) -> tuple[OwnedProcess | None, LifecycleOutcome]`, replacing its returned raw `Popen | None` with the generic owner
 - **AND** terminal at-most-once release and shared cleanup precedence SHALL be required corrections rather than baseline defects to preserve
 
+#### Scenario: Derive deterministic secondary process-cleanup note prefixes
+- **WHEN** the npm process adapter projects an already-reportable secondary process-cleanup FailureInfo into public exception notes
+- **THEN** it SHALL use exactly `{subject} {operation} failed` as the prefix, replacing legacy labels and the previously approved single `stream cleanup failed` prefix
+- **AND** stream STDOUT, STDERR and None SHALL map respectively to subject `stdout`, `stderr` and `process`
+- **AND** phase SETUP, READ, JOIN, RELEASE, WAIT, ACTION, CALLBACK, REPORTER and COORDINATION SHALL map respectively to operation `setup`, `read`, `join`, `release`, `wait`, `action`, `callback`, `reporter` and `coordination`
+- **AND** kind, timeout state and exception identity/type/text SHALL NOT affect the prefix; the declared mapping SHALL NOT depend on enum representation
+- **AND** helper failures rebased to ACTION/None SHALL use `process action failed`, never a main-reader or guessed helper-stream label
+- **AND** error details SHALL be formatted separately through existing bounded secret/URL sanitization; prefix selection SHALL NOT add diagnostics, retain ordinary callback errors or format control flow into ordinary notes
+- **AND** this wording-only exception SHALL NOT change shared precedence, authoritative primary types/messages, generic exception identity, domain result fields, retained failures, output/tails or cleanup order/bounds/safety
+- **AND** notes SHALL remain bounded, secret/URL-sanitized and once-only, without mutation of earlier delivered diagnostics or new late public callbacks
+- **AND** no additional generic cleanup-provenance API or inference from timeout, exception type/text, traceback or private owner state SHALL be used to reconstruct legacy source labels
+- **AND** authoritative reader projection through FailureInfo with phase=READ and stream, non-process file-operation diagnostics, callback reporter/fallback messages and incomplete-cleanup observation SHALL retain their separate contracts
+
 #### Scenario: Captured client returns its owner and outcome snapshot
 - **WHEN** `run_captured(argv, *, policy)` finishes execution or reports a capture/cleanup failure
 - **THEN** it SHALL return the same `OwnedProcess` alongside the existing `LifecycleOutcome` snapshot when an owner is available
@@ -51,17 +64,46 @@ Assembler streaming execution and captured cleanup clients SHALL use one unified
 - **AND** `LifecycleOutcome` SHALL retain its `return_code`, `errors`, `stdout`, and `stderr` fields
 - **AND** a returned owner SHALL NOT imply successful acquisition or execution, nor expose raw pipes for compatibility
 
-#### Scenario: Preserve captured fields when generic collection fails
-- **WHEN** the generic capture operation raises an exception carrying `process_result`
-- **THEN** `run_captured` SHALL project its bounded stdout/stderr bytes and known returncode into the existing `LifecycleOutcome` fields while reporting the failure through the existing error channel
-- **AND** the adapter SHALL use the supported exception snapshot rather than private owner output buffers or a repeated capture operation
-- **AND** decoding, redaction, controlled diagnostics and Docker exit/absence interpretation SHALL remain domain responsibilities
-- **AND** a launch failure without that snapshot SHALL retain the existing no-result failure mapping and available owner observation access
+#### Scenario: Project returned generic value failures into captured fields
+- **WHEN** the sole generic capture returns ProcessResult containing ordinary or unexpected failures
+- **THEN** run_captured SHALL project its bounded bytes/known returncode into existing LifecycleOutcome fields and lifecycle.failures entries' error objects into the existing error channel
+- **AND** it SHALL use the returned value, not error.process_result, private owner output or repeated collection
+- **AND** decoding, masking and Docker exit/absence interpretation SHALL remain domain responsibilities
+- **AND** ordinary validation/preparation failure before a usable owner SHALL retain no-result mapping; ordinary launch/setup failure after that boundary SHALL return the same failed owner and its sole collection result
+- **AND** control flow SHALL propagate with exact identity after cleanup rather than be swallowed into ordinary outcome errors
 
 #### Scenario: Streaming failure retains domain-safe output
-- **WHEN** streaming collection fails with a generic bounded raw `process_result` snapshot
+- **WHEN** streaming collection returns bounded raw ProcessResult data with lifecycle failures
 - **THEN** the adapter SHALL preserve existing incremental redaction, per-stream finalization and abort-safe retained diagnostic tails
 - **AND** it SHALL NOT replay raw snapshot tails into the sink, expose unsanitized generic bytes or initiate late public callbacks
+
+#### Scenario: Project the authoritative reader error without disguising cleanup defects
+- **WHEN** generic collection returns a selected ProcessResult.lifecycle.failures[0] identifying a local READ authority and its stream
+- **THEN** the adapter SHALL preserve the existing StreamReaderFailure domain projection for a non-control-flow reader exception under the existing reader mapping, with that stream identity and bounded sanitized diagnostic detail
+- **AND** JOIN or RELEASE with that stream, parent ACTION, or READ_FAILED alone SHALL NOT be treated as a local reader authority
+- **AND** classification SHALL come from FailureInfo.kind and the error from FailureInfo.error, not exception type/text, traceback, private ledger state or removed parallel fields
+- **AND** control-flow propagation and generic exception identity SHALL retain their existing contracts
+
+#### Scenario: Preserve selected authority while projecting a domain timeout
+- **WHEN** a timed-out generic invocation selects an ORDINARY cleanup failure such as pipe-close OSError
+- **THEN** AssemblyTimeoutError SHALL remain the domain primary and the ordinary cleanup error SHALL appear once as a bounded sanitized secondary note
+- **WHEN** the selected failure is UNEXPECTED, including reader join OSError, or INTERRUPTION
+- **THEN** timed_out SHALL NOT replace its selected authority with AssemblyTimeoutError; the existing local-reader domain mapping SHALL still apply only where phase=READ and the authority is not control flow
+- **AND** an unexpected join defect and a control-flow interruption SHALL retain exact generic identity, including an interruption arriving after deadline cleanup began
+- **AND** generic precedence, primary error types/messages, result fields, output, redaction and shutdown bounds SHALL NOT be weakened to pass the release/join paired regression
+
+#### Scenario: Transfer helper classification without changing stream ownership context
+- **WHEN** captured helper failure participates in main cleanup
+- **THEN** the adapter SHALL transfer returned FailureInfo entries into parent ActionResult.failures preserving error identity/kind and setting phase=ACTION/stream=None, without bare-error or legacy inference
+- **AND** helper-local phase/stream SHALL remain available in the helper's immutable snapshot without being interpreted as main-reader context
+- **AND** both capture and prepared-owner launch/setup failures SHALL use returned generic values, not error.process_result, later mutable status, repeated collection or Python-type reclassification
+- **AND** public LifecycleOutcome fields and the captured return/input contracts SHALL remain unchanged, with bounded private handoff data permitted
+
+#### Scenario: Preserve domain interruption diagnostics without a generic snapshot
+- **WHEN** control flow interrupts assembly launch or the sole collection
+- **THEN** the exact interruption SHALL propagate after protected cleanup without requiring generic error.process_result or an owner.result property
+- **AND** the domain collector SHALL preserve its existing bounded sanitized retained_capture for CLI interruption reports
+- **AND** cleanup diagnostics SHALL remain reportable through retained lifecycle/cleanup context without exposing raw generic notes or losing independent removal/staging cleanup
 
 #### Scenario: Finalize each diagnostic stream from its retained outcome
 - **WHEN** the streaming adapter receives typed ProcessStream chunks and terminal StreamOutcome notifications from the generic owner
@@ -71,10 +113,11 @@ Assembler streaming execution and captured cleanup clients SHALL use one unified
 - **AND** prompt clean EOF finalization SHALL NOT await sibling completion
 - **AND** callback failures SHALL remain distinct from generic read failures
 
-#### Scenario: Domain finalization does not replay a completed collector
-- **WHEN** a later explicit generic stream invocation observes retained terminal outcomes
-- **THEN** outcome notification SHALL NOT cause the adapter to replay raw tails or delivered chunks into a completed domain collector or sink
-- **AND** immutable stream_outcomes in ProcessResult/error.process_result SHALL provide supported observations without private reader/output access or new reader coordination
+#### Scenario: Domain adapter collects once and observes late cleanup separately
+- **WHEN** an adapter obtains an OwnedProcess
+- **THEN** it SHALL make at most one capture or stream attempt, without replaying raw tails into a completed collector
+- **AND** a second/mixed/racing collection SHALL be rejected before callback registration, reporting or lifecycle work
+- **AND** immutable stream_outcomes in the returned ProcessResult and late LifecycleResult observations through cleanup_status/wait_cleanup SHALL provide supported observations without private reader/output access
 - **AND** late cleanup SHALL NOT initiate new domain sink callbacks or diagnostics
 
 #### Scenario: Adapter supplies sanitized callback diagnostics
@@ -83,7 +126,7 @@ Assembler streaming execution and captured cleanup clients SHALL use one unified
 - **AND** generic callback_errors SHALL NOT be projected into domain results or replaced with a new domain callback-error field
 - **AND** ordinary reporter failure SHALL use an independent fixed-safe-message fallback without raw exception text/traceback or recursive reporting
 - **AND** control-flow propagation SHALL remain with the generic coordinator, not the diagnostic reporter
-- **AND** a new interruption in a later explicit outcome-only invocation SHALL interrupt that invocation without changing earlier delivery, replaying bytes into a completed domain collector or restarting cleanup
+- **AND** interrupted collection SHALL not be retried; no later outcome-only subscription or generic interruption snapshot SHALL be required
 
 #### Scenario: Captured cleanup continues after outcome delivery
 - **WHEN** captured local cleanup is incomplete at delivery

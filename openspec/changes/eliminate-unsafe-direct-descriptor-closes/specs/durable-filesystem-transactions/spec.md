@@ -207,6 +207,14 @@ All process setup and independent cleanup failures SHALL participate in shared c
 - **THEN** it SHALL be retained as the original operation primary through shared cleanup precedence, not classified as an unexpected cleanup action
 - **AND** a subsequent unexpected cleanup defect SHALL outrank that ordinary operation primary while retaining its exact identity secondarily
 
+#### Scenario: Reader join OSError is an unexpected cleanup defect
+- **WHEN** a reader join raises OSError while an ordinary operation failure such as ValueError is active
+- **THEN** the join SHALL retain `ordinary=()` classification and its OSError SHALL be an unexpected cleanup defect, not an ordinary release failure
+- **AND** absent an interruption or an earlier unexpected defect, that exact join exception SHALL outrank the ordinary operation failure, retaining the displaced failure and other cleanup failures once
+- **AND** if KeyboardInterrupt was already active, that exact interruption SHALL remain authoritative with the join failure retained secondarily
+- **AND** sibling joins, independently safe releases and bounded child reaping SHALL still be attempted; the failed join SHALL NOT authorize release beneath a live reader
+- **AND** repeated cleanup SHALL NOT retry pipe release or duplicate retained diagnostics
+
 #### Scenario: Concurrent operation interruptions are merged
 - **WHEN** a later caller supplies an interruption before the existing shutdown outcome is delivered
 - **THEN** the first recorded interruption SHALL retain exact authoritative identity
@@ -257,32 +265,97 @@ Process shutdown SHALL bound caller waiting and distinguish completed cleanup fr
 - **AND** with an active failure it SHALL preserve shared precedence and attach incomplete-cleanup observation to the authoritative failure
 - **AND** incomplete-shutdown timeout SHALL be ordinary and SHALL NOT mask an existing interruption
 
-#### Scenario: Capture or stream delivers an authoritative failure
-- **WHEN** `OwnedProcess.capture()` or `OwnedProcess.stream(callback)` delivers an operation, reader, wait or cleanup failure, interruption or controlled incomplete-cleanup error after collection begins
-- **THEN** the exact authoritative exception SHALL carry `process_result`, an immutable snapshot of the existing generic `ProcessResult`
-- **AND** that snapshot SHALL retain bounded raw stdout/stderr bytes, returncode, timed_out, the delivered cleanup snapshot and immutable stream_outcomes, without a callback_errors field
-- **AND** successful result types, the capture signature, exception type and identity SHALL remain unchanged, except for the explicitly authorized removal of callback_errors and the separately specified typed streaming callback and launch reporter extensions, without an exception wrapper, new result type, owner output property or lifecycle method
-- **AND** snapshot publication SHALL synchronize bounded tail copying with the operation delivery boundary and current undelivered cleanup outcome without closing a pipe beneath a live reader
+#### Scenario: Collection returns operation and cleanup failures as values
+- **WHEN** the sole capture or stream attempt encounters ordinary failures or unexpected defects
+- **THEN** it SHALL return an immutable ProcessResult containing bounded stdout/stderr bytes, known returncode, timed_out, lifecycle: LifecycleResult and ordered immutable stream_outcomes
+- **AND** lifecycle.failures SHALL contain typed FailureInfo entries with selected authority first and exact exception identity, rather than raising that ordinary/defect authority
+- **AND** publication SHALL synchronize copied bytes, selected failures and outcomes without releasing a pipe beneath a live reader
+- **AND** neither collection nor handoff SHALL attach error.process_result, add a generic interruption snapshot or require a new owner.result accessor
+
+#### Scenario: Snapshot identifies an authoritative reader through unified metadata
+- **WHEN** capture or stream selects its authoritative exception under shared cleanup precedence
+- **THEN** ProcessResult.lifecycle.failures[0], when present, SHALL describe that exact winning occurrence, with phase=READ and its stream only for a local reader authority
+- **AND** a winning join/release/wait/action defect or coordinator interruption SHALL retain its own phase rather than READ even when stream_outcomes contains READ_FAILED
+- **AND** concurrent reader failures SHALL identify the selected reader rather than infer it from stream ordering; exception-object reuse by a non-reader action SHALL NOT mislabel its winning defect
+- **AND** generic exception identity/type and previously delivered snapshots SHALL remain unchanged, without a wrapper, unbounded event/ownership log, traceback/text heuristics or late metadata replacement
 
 #### Scenario: Failed collection snapshot remains unchanged
-- **WHEN** capture or stream delivers an exception carrying `process_result` while cleanup remains incomplete
-- **THEN** its cleanup snapshot SHALL report incomplete cleanup and its copied output SHALL NOT share mutable reader buffers
-- **AND** later output, cleanup failures or completion SHALL NOT mutate or replace the delivered snapshot, reattach a newer snapshot to the delivered exception or mutate its delivered diagnostics
+- **WHEN** capture or stream returns a ProcessResult while cleanup remains incomplete
+- **THEN** lifecycle.complete SHALL be False and copied output SHALL NOT share mutable reader buffers
+- **AND** later output, cleanup failures or completion SHALL NOT mutate the delivered value, attach snapshots to exceptions or emit late diagnostics
 - **AND** eventual cleanup SHALL remain observable through the same owner's cleanup status and bounded waiting
 - **AND** raw streaming tails SHALL NOT be replayed into callbacks or treated as a transcript of delivered chunks
 
 #### Scenario: Launch fails before collection begins
-- **WHEN** validation or launch fails before capture or stream collection begins
-- **THEN** the exception SHALL NOT be required to carry `process_result`
-- **AND** existing retained `.cleanup` observation access and shared exception precedence SHALL remain unchanged
+- **WHEN** validation or preparation fails before a usable prepared owner and failure ledger exist
+- **THEN** the exception SHALL NOT be required to carry process_result and no owner SHALL be fabricated
+- **WHEN** ordinary launch/setup failure occurs after that usable prepared-owner boundary exists
+- **THEN** launch SHALL perform bounded independent cleanup and return that same failed owner; its sole collection SHALL return available bytes, known returncode and typed SETUP failures, without a fabricated child or streams
+- **WHEN** control flow interrupts launch or collection
+- **THEN** the exact first interruption SHALL propagate after bounded independent cleanup without error.process_result or a promised generic output snapshot; a returned owner SHALL NOT be promised for interrupted launch
 
 #### Scenario: Late release fails after result delivery
 - **WHEN** deferred stream release fails after the operation result or exception has already been delivered
 - **THEN** the late failure SHALL remain observable in the retained cleanup result
 - **AND** it SHALL NOT retroactively replace or mutate the delivered result or authoritative exception
 
-### Requirement: Retain typed per-stream outcomes across streaming subscriptions
-The generic process lifecycle SHALL retain typed per-stream terminal outcomes and deliver them race-safely through `stream(callback, *, on_stream_end=None)`, including completion before registration. ProcessResult SHALL carry immutable stream_outcomes. Notifications SHALL NOT add resource authority, output replay or a separate subscription API.
+### Requirement: Describe selected process failure authority with immutable metadata
+Process coordination SHALL return one immutable aggregate sequence of typed failures in LifecycleResult, with selected authority first. Each FailureInfo SHALL contain the exact error, classification and owner-relative context. ActionResult SHALL be observation transport rather than a nested duplicate failure store. No result or failure record SHALL grant resource ownership.
+
+#### Scenario: Declare the unified metadata surface
+- **WHEN** the process failure contract is exposed
+- **THEN** FailureKind SHALL have exactly ORDINARY, UNEXPECTED and INTERRUPTION, and FailurePhase SHALL have exactly SETUP, READ, JOIN, RELEASE, WAIT, ACTION, CALLBACK, REPORTER and COORDINATION
+- **AND** frozen FailureInfo SHALL have exactly error: BaseException, kind: FailureKind, phase: FailurePhase and stream: ProcessStream | None = None
+- **AND** frozen ActionResult SHALL have exactly done: bool, cleanup_complete: bool and failures: tuple[FailureInfo, ...] = ()
+- **AND** frozen LifecycleResult SHALL have exactly complete: bool and failures: tuple[FailureInfo, ...] = (), replacing generic CleanupResult
+- **AND** frozen ProcessResult SHALL have stdout: bytes, stderr: bytes, returncode: int | None, timed_out: bool, lifecycle: LifecycleResult and stream_outcomes: tuple[tuple[ProcessStream, StreamOutcome], ...] = ()
+- **AND** redundant .error/.failure_info/error_kind/reader_failure_stream/callback_errors fields, ProcessResult.cleanup and nested action results SHALL be removed without aliases or legacy conversion modes
+- **AND** FailureInfo SHALL NOT copy exception text/traceback/output or retain an owner, timestamp, event log or raw resource; domain LifecycleOutcome fields and capture input signature SHALL remain unchanged
+
+#### Scenario: Publish metadata of the winning occurrence
+- **WHEN** shared cleanup precedence selects authority
+- **THEN** its FailureInfo SHALL be published atomically with that exact exception and immutable result snapshot
+- **AND** ORDINARY SHALL describe an ordinary operation or cleanup failure while their distinct ranks remain in the existing ledger; UNEXPECTED SHALL describe an unexpected defect and INTERRUPTION a control-flow interruption
+- **AND** pipe release OSError SHALL remain ORDINARY, reader join OSError SHALL remain UNEXPECTED under ordinary=(), and the first interruption SHALL retain authority and identity
+- **AND** metadata SHALL follow the selected occurrence even when one exception object is reused across different actions; equal-rank competing readers SHALL retain the selected reader's context
+- **AND** no adapter SHALL reconstruct kind or phase from exception type alone, text, traceback, READ_FAILED or private owner state
+
+#### Scenario: Validate phase and stream context
+- **WHEN** failure metadata is constructed or consumed
+- **THEN** its kind, phase and optional stream SHALL have the declared enum types
+- **AND** READ, CALLBACK and REPORTER SHALL require a stream; SETUP, JOIN and RELEASE SHALL permit a known stream or None; WAIT, ACTION and COORDINATION SHALL require None
+- **AND** phase SHALL identify the recorded owner-relative boundary, not an inferred inner traceback location
+- **AND** invalid metadata SHALL be rejected without granting authority, retrying release or skipping independent cleanup
+
+#### Scenario: Separate completion from success and late observation
+- **WHEN** LifecycleResult is observed through shutdown, cleanup_status, wait_cleanup or a returned ProcessResult
+- **THEN** complete SHALL describe settlement of owned local resources independently of failure presence; empty failures SHALL mean no selected failure
+- **AND** failures SHALL contain selected authority first and deterministic secondary order, retaining each exception identity once with its selected occurrence context
+- **AND** incomplete collection reporting SHALL retain existing authority and ordinary COORDINATION context when a controlled incomplete error is needed; observation timeout alone SHALL NOT imply a new failure
+- **AND** late observations SHALL be fresh immutable LifecycleResult values without mutating delivered records, generic exception diagnostics, restarting budgets or redoing collection
+
+#### Scenario: Preserve helper classification at the parent action boundary
+- **WHEN** a separately owned helper delivers a failure to a managed action
+- **THEN** the helper's returned ProcessResult.lifecycle.failures SHALL retain original phase/stream and kind, including prepared-owner launch/setup failure
+- **AND** parent ActionResult.failures SHALL transfer those exact error objects and selected kinds with phase=ACTION and stream=None, without type-based reclassification or attaching results to exceptions
+- **AND** an unexpected helper join OSError SHALL remain UNEXPECTED and an ordinary helper operation failure SHALL remain ordinary parent cleanup, not become the parent's original operation primary
+- **AND** helper READ/STDOUT SHALL NOT masquerade as a main READ/STDOUT failure
+- **AND** retained secondaries, first-interruption identity, independent cleanup and bounded late observation SHALL remain intact without new public domain result fields
+
+#### Scenario: Require strict typed action transport without compatibility inference
+- **WHEN** ManagedAction.observe returns ActionResult
+- **THEN** done SHALL mean request settlement and cleanup_complete SHALL independently mean owned action-resource settlement; neither flag SHALL imply absence of failures
+- **AND** failures SHALL be a tuple of explicit valid FailureInfo entries with BaseException error, phase=ACTION and stream=None; bare errors, old fields and missing classification SHALL be protocol violations, not instructions for inference
+- **AND** the coordinator SHALL consume failures into the single LifecycleResult sequence while retaining progress internally, not nest duplicate action/error lists in the final result
+- **AND** an Exception SHALL NOT be labelled INTERRUPTION and a control-flow BaseException SHALL NOT be labelled ORDINARY or UNEXPECTED
+- **AND** all production producers, helper handoffs, fixtures, examples and API assertions SHALL migrate to this strict contract without legacy mode, normalization fallback, compatibility alias or shim
+- **AND** exceptions raised directly by action methods SHALL retain classification at the coordinator's known operation boundary under its declared ordinary-error policy; that rule SHALL NOT be used to infer metadata for returned error data
+- **AND** malformed observations SHALL become unexpected ACTION validation defects through shared cleanup rather than bypassing independent actions
+- **AND** an actual control-flow BaseException already supplied by the observation SHALL first be retained with exact identity as INTERRUPTION/ACTION/None, so invalid metadata cannot discard or demote it; other supplied exceptions SHALL remain secondary without fabricated interruption authority
+- **AND** repeated/cumulative action observations SHALL NOT duplicate retained failures or erase accumulated authority when the action later reports success
+
+### Requirement: Retain typed per-stream outcomes for one collection
+The generic process lifecycle SHALL permit exactly one collection attempt, capture or stream, and retain typed terminal outcomes. The sole stream call SHALL observe completion safely even before registration. ProcessResult SHALL carry immutable stream_outcomes. Repeated or racing collections SHALL fail as usage errors without output replay or lifecycle work.
 
 #### Scenario: Distinguish stream collection from resource cleanup
 - **WHEN** a captured stream reaches clean EOF, fails during reading or has collection forcibly discontinued
@@ -307,34 +380,31 @@ The generic process lifecycle SHALL retain typed per-stream terminal outcomes an
 - **AND** previously established EOF, READ_FAILED or ABORTED outcomes SHALL remain available to the new callback
 - **AND** no separate subscription method or parallel string callback channel SHALL be required
 
-#### Scenario: Explicit later subscription observes retained completion
-- **WHEN** a new stream invocation supplies on_stream_end after an earlier operation delivered its result or exception
-- **THEN** it SHALL notify the newly supplied callback of retained terminal outcomes once per stream
-- **AND** it SHALL NOT reread pipes, replay delivered chunks or raw tails, restart cleanup or mutate earlier results or exceptions
-- **AND** concurrent invocations SHALL use existing operation serialization with per-invocation notification accounting, not duplicate readers or coordinators
-- **AND** no automatic callbacks or reporter calls belonging to a completed invocation SHALL begin after that invocation's delivery
-- **AND** without a new control-flow interruption the later invocation SHALL return a fresh existing ProcessResult with retained cleanup/output/outcome observations rather than automatically rethrow an already delivered operation failure
-- **AND** retained bytes in the result SHALL remain snapshot data and SHALL NOT be replayed to chunk callbacks
+#### Scenario: Reject repeated and racing collection attempts
+- **WHEN** any validated capture or stream attempt has claimed the owner, including one that failed or was interrupted
+- **THEN** every second capture/stream call, mixed-method call or racing loser SHALL raise RuntimeError before callbacks, reporting, replay, reader creation or cleanup initiation
+- **AND** callback argument validation SHALL precede the atomic claim; invalid callback configuration SHALL NOT consume the sole attempt
+- **AND** no outcome-only subscription compatibility path SHALL remain; late cleanup SHALL be observed only through cleanup_status/wait_cleanup without callback registration
 
 #### Scenario: Completion callback fails or collection is interrupted
 - **WHEN** an ordinary chunk or end callback exception occurs
 - **THEN** it SHALL trigger one diagnostic reporting attempt without retrying the callback, retaining callback_errors in results, erasing the stream outcome or being classified as a read/cleanup failure
-- **AND** control-flow interruptions SHALL remain coordinator responsibilities: existing shared precedence applies before first operation delivery, while new interruptions of a later explicit invocation SHALL use that invocation's precedence without redelivery or mutation of an earlier exception
+- **AND** control-flow interruptions SHALL remain coordinator responsibilities: existing first-interruption precedence SHALL apply to the sole collection, with exact propagation after independent cleanup and no generic interruption output snapshot
 - **WHEN** collection is forcibly discontinued before an acquired stream has a terminal outcome
 - **THEN** its outcome SHALL become ABORTED before operation delivery, without waiting indefinitely for its reader
 - **AND** remaining terminal notification attempts SHALL precede return or authoritative exception delivery
 - **AND** late reader completion SHALL NOT revise ABORTED or initiate an automatic callback
 
 #### Scenario: Process result snapshots retain per-stream outcomes
-- **WHEN** capture or stream delivers a result or error.process_result snapshot
+- **WHEN** capture or stream returns its sole ProcessResult
 - **THEN** existing ProcessResult SHALL contain `stream_outcomes: tuple[tuple[ProcessStream, StreamOutcome], ...]`, with each stream once in STDOUT/STDERR order
 - **AND** acquired streams SHALL have terminal outcomes in the delivered snapshot
 - **AND** outcome copying SHALL be synchronized with collection delivery and retained callback accounting
-- **AND** later cleanup or explicit subscriptions SHALL NOT mutate that snapshot or replace an already delivered exception snapshot
+- **AND** late cleanup SHALL NOT mutate that value or attach a result to any exception; repeated subscriptions SHALL be rejected
 - **AND** PENDING SHALL describe only an outcome not yet established, not reader execution or resource release
 
 ### Requirement: Report callback failures through injected diagnostic policy
-The generic process lifecycle SHALL accept an optional prompt-returning diagnostic reporter at launch, validated before acquisition, for ordinary chunk/end callback errors in all invocations. Reporter policy SHALL remain separate from resource ownership and control-flow propagation. ProcessResult and error.process_result SHALL NOT contain callback_errors or a replacement callback-error retention property/API.
+The generic process lifecycle SHALL accept an optional prompt-returning diagnostic reporter at launch, validated before acquisition, for ordinary chunk/end callback errors in the sole stream invocation. Reporter policy SHALL remain separate from resource ownership and control-flow propagation. ProcessResult SHALL NOT contain callback_errors or replacement callback-error stores; error.process_result and generic interruption snapshots SHALL NOT be created.
 
 #### Scenario: Select diagnostic policy without importing domain policy
 - **WHEN** an ordinary callback exception is reported
@@ -356,12 +426,12 @@ The generic process lifecycle SHALL accept an optional prompt-returning diagnost
 - **THEN** the coordinator SHALL preserve its identity and apply interruption precedence rather than swallow it or delegate propagation policy to the reporter
 - **AND** independently safe cleanup and remaining terminal notification attempts SHALL precede delivery without callback retries
 
-#### Scenario: New interruption belongs to a later explicit invocation
-- **WHEN** an explicit outcome-only stream invocation after previous delivery encounters a new control-flow exception from callback, reporter or fallback
-- **THEN** that new invocation SHALL be interrupted by its first new authoritative interruption with exact identity and its own immutable process_result snapshot
-- **AND** earlier delivered errors, including earlier interruptions, SHALL NOT automatically replace the new invocation's interruption or receive a replacement snapshot or diagnostics
-- **AND** the new snapshot SHALL retain existing cleanup as a read-only observation rather than rewriting its error to the new invocation exception
-- **AND** the later invocation SHALL NOT rewrite retained cleanup ownership/ledger or restart shutdown, readers, pipe release, reap, budgets or domain requests; an existing continuation MAY finish the original independent safe cleanup and publish observation-only outcomes
+#### Scenario: Propagate interruption without a generic output snapshot
+- **WHEN** launch or the sole collection encounters control-flow BaseException, including from callback/reporter/fallback
+- **THEN** the first interruption SHALL propagate with exact identity after bounded independent cleanup attempts
+- **AND** no generic output snapshot, error.process_result or new owner.result accessor SHALL be promised; cleanup observation SHALL remain available if the caller already received the owner
+- **AND** InterruptedError SHALL remain an OSError subject to the operation's declared ordinary-error policy, not automatically control flow
+- **AND** ordinary callback/reporting isolation SHALL NOT swallow control flow, and context exit SHALL NOT rethrow ordinary/defect failures already delivered as collection result data
 
 ### Requirement: Regulate new descriptor-owning code through documented filesystem wrappers
 New descriptor-owning code SHALL select a filesystem lifecycle wrapper and verify its ownership paths. The project SHALL publish that contract in `docs/filesystem-lifecycle.md`, reference it from root `AGENTS.md`, OpenSpec project context, and README links, and enforce it through complete-production-tree convergence checks.
