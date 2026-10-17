@@ -82,6 +82,7 @@ _NPM_PACKAGE_IMPORT_BASELINE = frozenset(
         "docker.filesystem.descriptors",
         "docker.filesystem.operations",
         "docker.filesystem.streams",
+        "docker.process",  # Authorized aggregate execution/lifecycle dependency.
         "docker.npm_environment",
         "docker.npm_environment.assembler",
         "docker.npm_environment.errors",

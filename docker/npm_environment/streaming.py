@@ -1233,6 +1233,45 @@ def _redacted_exception_detail(
     )
 
 
+class _DiagnosticCollector:
+    """Domain-only incremental collector; owns no process, pipes or readers."""
+
+    def __init__(self, *, secrets=(), sink=None, stream_factory=None):
+        self.streams = {
+            tag: stream_factory(tag) if stream_factory is not None else RedactingStream(secrets)
+            for tag in (STREAM_STDOUT, STREAM_STDERR)
+        }
+        self.ended: set[str] = set()
+        self.split = sink if isinstance(sink, SplitDiagnosticSink) else None
+        self.direct = (self.split.direct if self.split is not None else
+                       sink if isinstance(sink, _InternalDirectEnqueueSink) else None)
+        target = (self.split.dispatched if self.split is not None else
+                  None if self.direct is not None else sink)
+        self.dispatcher = SinkDispatcher(target) if target is not None else None
+
+    def _submit(self, tag, chunks):
+        for chunk in chunks:
+            item = chunk if isinstance(chunk, StreamChunk) else StreamChunk(tag, chunk)
+            if self.direct is not None:
+                self.direct(item)
+            if self.dispatcher is not None and (self.split is None or self.split.should_dispatch(item)):
+                self.dispatcher.submit(item)
+
+    def feed(self, tag, data):
+        self._submit(tag, self.streams[tag].feed_bytes(data))
+
+    def end(self, tag, *, abort):
+        if tag not in self.ended:
+            # Claim before invoking domain finalization, including failure.
+            self.ended.add(tag)
+            self._submit(tag, self.streams[tag].finish(abort=abort))
+
+    def finish(self):
+        notice = self.dispatcher.finish() if self.dispatcher is not None else None
+        return StreamingCapture(self.streams[STREAM_STDOUT].tail(),
+                                self.streams[STREAM_STDERR].tail(), notice)
+
+
 def collect_streams(
     *,
     stdout_read: Callable[[int], bytes],

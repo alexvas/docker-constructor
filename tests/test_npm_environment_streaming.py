@@ -2347,16 +2347,22 @@ class _FakeStreamingProc:
         self.stderr = _BlockedPipe(stderr_data)
         self.returncode: int | None = None
         self.reaped = False
+        self._exited = threading.Event()
 
     def terminate(self) -> None:
+        self.returncode = -15
+        self._exited.set()
         self.stderr.unblock()
 
     def kill(self) -> None:
+        self.returncode = -9
+        self._exited.set()
         self.stderr.unblock()
 
     def wait(self, timeout: float | None = None) -> int:
+        if not self._exited.wait(timeout):
+            raise subprocess.TimeoutExpired("fixture", timeout)
         self.reaped = True
-        self.returncode = -15
         return self.returncode
 
 
@@ -2400,18 +2406,28 @@ class _CloseTrackingProc:
     def __init__(self, stdout_pipe, stderr_pipe) -> None:
         self.stdout = stdout_pipe
         self.stderr = stderr_pipe
-        self.returncode: int | None = None
+        normal_eof = not any((stdout_pipe._fail_read, stdout_pipe._block,
+                              stderr_pipe._fail_read, stderr_pipe._block))
+        self.returncode: int | None = 0 if normal_eof else None
         self.reaped = False
+        self._exited = threading.Event()
+        if normal_eof:
+            self._exited.set()
 
     def terminate(self) -> None:
+        self.returncode = -15
+        self._exited.set()
         self.stderr.unblock()
 
     def kill(self) -> None:
+        self.returncode = -9
+        self._exited.set()
         self.stderr.unblock()
 
     def wait(self, timeout: float | None = None) -> int:
+        if not self._exited.wait(timeout):
+            raise subprocess.TimeoutExpired("fixture", timeout)
         self.reaped = True
-        self.returncode = -15
         return self.returncode
 
 
@@ -2572,19 +2588,19 @@ class TestReaderFailure(unittest.TestCase):
         _assert_no_workers(self)
 
     def test_terminate_and_reap_reaps_real_process(self):
-        import docker.npm_environment.execution as execution_module
+        from docker.process import OwnedProcess
+        from tests.test_npm_environment_phase4_lifecycle import _observed_children
 
-        proc = subprocess.Popen(
-            (sys.executable, "-c", "import time; time.sleep(30)")
-        )
+        with _observed_children() as children:
+            owner = OwnedProcess.launch((sys.executable, "-c", "import time; time.sleep(30)"), grace_seconds=5)
         try:
-            execution_module._terminate_and_reap(proc, grace_seconds=5.0)
+            self.assertTrue(owner.shutdown().complete)
+            self.assertIsNotNone(owner.returncode)
             with self.assertRaises(ProcessLookupError):
-                os.kill(proc.pid, 0)
+                os.kill(children[0].pid, 0)
         finally:
-            if proc.poll() is None:
-                proc.kill()
-                proc.wait()
+            owner.shutdown()
+            self.assertTrue(owner.wait_cleanup(1).complete)
 
     def test_collect_streams_callback_failure_is_secondary_context(self):
         unblock = threading.Event()
@@ -2779,8 +2795,7 @@ class TestReaderFailure(unittest.TestCase):
         self.assertIn("reader failure", exc.detail)
         self.assertNotIn("close failed", exc.detail)
         notes = "\n".join(getattr(exc, "__notes__", ()))
-        self.assertIn("on_reader_failure cleanup failed", notes)
-        self.assertIn("OSError", notes)
+        self.assertEqual(notes.count("stderr release failed:"), 1)
         self.assertIn("close failed", notes)
         self.assertNotIn("SUPERSECRET", notes)
         self.assertIn("<redacted>", notes)
@@ -2878,7 +2893,7 @@ class TestReaderFailure(unittest.TestCase):
         rendered = "\n".join(
             [str(exc), exc.detail, *getattr(exc, "__notes__", ())]
         )
-        self.assertIn("on_reader_failure cleanup failed", rendered)
+        self.assertEqual(rendered.count("stdout release failed:"), 1)
         self.assertIn(REDACTED, rendered)
         for fragment in (
             url,

@@ -44,7 +44,13 @@ def _executable_examples() -> list[str]:
 class ExecutableExampleTests(unittest.TestCase):
     def test_guide_has_executable_examples(self) -> None:
         examples = _executable_examples()
-        self.assertGreaterEqual(len(examples), 5)
+        self.assertEqual(len(examples), 3)
+        # Fewer examples still cover each ownership choice and borrowed fd I/O.
+        source = "\n".join(examples)
+        for token in ("OwnedDescriptor(", "closefd=False", "OwnedStream(",
+                      "DirectoryDescriptor.open_secure_path(", "open_or_create_directory("):
+            with self.subTest(api=token):
+                self.assertIn(token, source)
 
     def test_every_positive_example_executes(self) -> None:
         for index, source in enumerate(_executable_examples()):

@@ -417,3 +417,108 @@ exit 1, `/tmp/6bb-policy-green-loop.2oWLI5.log`); its configured typecheck and
 unittest commands passed when executed directly in the project environment.
 No warnings were suppressed. All 6BB extension gates passed; 6BC/6BD/7 remain
 pending and this does not accept any Docker-wrapper behavior.
+
+## Phase 6BC — orthogonal results and compatibility adapters (current)
+
+The preceding 6B/6BB acceptance is historical for this migration. These checks
+exercise the current orthogonal value contract; they do not accept 6BD/7.
+
+### 6BC.15–16 captured/helper gate
+
+- `/tmp/docker-constructor-6bc-captured-action-final.YNmxon.log`: runner exit 0;
+  **324 passed, 20 subtests passed**, 33.05s, eight workers/loadfile.
+- Captured projection preserves inputs, exact owner-return annotation, existing
+  domain fields, replacement decoding, prepared-owner failure identity and
+  default local policy. Missing streams fail with independent sole release.
+- `_bounded_docker_rm` ignores the owner tuple element without changing
+  zero/nonzero/absent-container or existing error-list handling.
+- Managed removal consumes the private captured operation's typed failures,
+  preserving kind/error and rebasing context to ACTION/None, including setup
+  and retained incomplete cleanup. Controlled fixtures verify terminate →
+  removal → reap ordering, one request, shared six-grace budget and independent
+  cleanup without raw main control or a cooperative Docker policy.
+- Modules: phase6bc captured/streaming, orthogonal projection, phase4 lifecycle,
+  phase3 deadlines, phase6b streams and complete adapter process-contract tests.
+
+### 6BC.17–18 streaming and obsolete-coordinator removal
+
+- `/tmp/docker-constructor-6bc-focused-final.FTcDDH.log`: runner exit 0;
+  **2471 passed, 1 skipped, 2300 subtests passed**, 37.07s, eight workers/loadfile.
+- Scope: every `test_process*.py` and `test_npm_environment*.py`, retained-tail
+  phase6, host suites, descriptor/filesystem convergence, filesystem guide and
+  process/assembler guide-link checks. The skip is reported, not excluded.
+- Typed authority wins before timeout translation. Only local READ maps to
+  StreamReaderFailure; join OSError remains unexpected, release OSError stays
+  ordinary, and helper context remains ACTION/None. The phase/stream matrix
+  binds prefixes independently of kind, error type and timeout, with the same
+  diagnostic counts and separately bounded secret/URL-sanitized details.
+- Per-stream EOF/abort finalization, no raw replay, sanitized callback reporting,
+  domain retained_capture and actual CLI interruption capture pass together.
+- Captured/streaming adapters launch and collect once through OwnedProcess;
+  obsolete private adoption/readers/supervisor/reap/close coordinators are gone.
+  Public standalone `collect_streams` stays exported with its exact signature.
+- Real pipes and controlled barriers preserve reader-stop-before-release,
+  fd-reuse safety, same-owner late observation, first interruption identity,
+  independent removal/staging cleanup, bounded helper ordering and no supported
+  workers after completed cleanup. No runtime-installer/filesystem policy or
+  Docker control behavior was changed by this completion session.
+
+### 6BC.19–22 executable guides and API/producer audit
+
+- `/tmp/docker-constructor-6bc-api-audit-final.DfAyuO.log`: runner exit 0;
+  **650 passed, 451 subtests passed**, 25.38s, eight workers/loadfile.
+- Process guide: five executable real subprocess usage blocks, six direct
+  contract-test links. Assembler guide: two usage blocks and six direct links.
+  All execute; test links resolve by AST to their exact named definitions and
+  source lines, with negative broken/stale/misdirected-link fixtures.
+- Exact frozen record fields, enums, signatures and invalid legacy transport
+  fixtures pass. Prepared transfer and actual reader barriers, single atomic
+  collection, immutable late observation, strict observe transport and explicit
+  helper kind/context handoff are verified rather than inferred from names.
+- Added mutation fixtures for raw note retention, missing secret sanitization,
+  guessed legacy cleanup labels, exception result attachments and demotion of
+  reader join OSError to ordinary. Existing ownership/import/API assertions
+  remain in place; no exclusions or assertion weakening.
+- Generated direct/qualified/dynamic process-reference and ActionResult producer
+  inventory: `/tmp/docker-constructor-6bc-cross-tree-audit.f4dq2V.log`, exit 0.
+  Production process consumers are execution.py and lifecycle.py; the process
+  module retains internal action progress, not nested public failure stores.
+  Dynamic `api` fixtures in lifecycle/stop-policy tests and qualified producers
+  are included. Intentional malformed records remain negative tests only.
+- Dependency/import gates preserve consumer → process → explicit filesystem
+  submodules, join ordinary=(), reporter isolation and runtime-installer
+  exclusion. Old `process_result`/parallel fields occur only in explicit
+  negative assertions or historical prose, not accepted executable contracts.
+
+### 6BC.23 integrated RED-to-GREEN/no-drift gate
+
+The focused gate above and the post-audit complete suite below execute the new
+orthogonal tests together with generic baseline/configured-policy, fault/race,
+real-pipe, captured/streaming/deadline/redaction/tail/host and CLI tests. Exact
+selected/secondary identities and contexts, first interruption without generic
+snapshots, CLI domain capture, prompt independent EOF, no replay and reader
+barriers pass. Consumer input/domain fields, removal/staging policy, default
+helper policy, terminate/remove/reap order, shared total budgets and diagnostic
+counts remain pinned. Authorized differences are the orthogonal generic API,
+one-use collection, owner-return captured contract and phase/stream prefixes;
+there is no new Docker wrapper or cooperative policy.
+
+### 6BC.24 current full-suite and typecheck results
+
+- `.venv/bin/python -m pytest tests -n 8 --dist loadfile --tb=short -q`:
+  **7708 passed, 13 skipped, 11 warnings, 17753 subtests passed**, 49.59s;
+  runner exit **0**, full stdout/stderr and status retained at
+  `/tmp/docker-constructor-pytest.09wQCf.log`.
+- `ty check docker --python-version 3.14 --output-format concise`:
+  **All checks passed**, exit **0**;
+  `/tmp/docker-constructor-6bc-typecheck-final.Qa9Eot.log`.
+- The warnings are unsuppressed Python multiprocessing/fork deprecations; no
+  tests were silently excluded. Earlier failed or timed-out runs remain
+  historical unsuccessful attempts, not substituted acceptance evidence.
+- `git diff --check` and
+  `openspec validate eliminate-unsafe-direct-descriptor-closes --strict`:
+  both exit **0**, full output and individual statuses retained at
+  `/tmp/docker-constructor-6bc-validation-final.Da6D4k.log`.
+
+All 6BC.1–24 obligations are accepted for this phase. Phase 6BD/7 remain pending
+and outside this acceptance; no archive or index/staging changes were made.

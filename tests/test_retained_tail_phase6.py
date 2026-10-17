@@ -930,43 +930,60 @@ class TestConcurrentTimeoutReaderFailure(unittest.TestCase):
 
     def test_fired_timeout_reuses_reader_failure_capture(self):
         import docker.npm_environment.execution as execution_module
+        from docker.process import OwnedProcess
 
         for mode, expected in EXPECTED.items():
             with self.subTest(mode=mode):
-                reader_failure = _reader_failure_error(mode)
                 proc = _DeadlineProc()
+                second_read, terminated = threading.Event(), threading.Event()
+                read_error = OSError("reader exploded")
+                owners = []
+                first = True
+                original_terminate = proc.terminate
+                original_supervisor = OwnedProcess._start_supervisor
 
-                def concurrent_collect(**_kwargs):
-                    time.sleep(0.5)
-                    raise reader_failure
+                def read(count):
+                    nonlocal first
+                    if first:
+                        first = False
+                        return RESEARCH_BYTES
+                    second_read.set()
+                    self.assertTrue(terminated.wait(5))
+                    raise read_error
 
-                with mock.patch.object(
-                    execution_module,
-                    "collect_streams",
-                    side_effect=concurrent_collect,
-                ), mock.patch.object(
-                    execution_module.subprocess,
-                    "Popen",
-                    return_value=proc,
-                ):
-                    with self.assertRaises(
-                        AssemblyTimeoutError
-                    ) as timed_out:
-                        DockerRunExecutor().run_streaming(
-                            ("docker", "run", "--rm", "alpine", "true"),
-                            deadline_seconds=0.2,
-                            grace_seconds=0.5,
-                        )
-                timeout = timed_out.exception
-                self.assertEqual("assembly_timeout", timeout.reason)
-                self.assertEqual(expected.strip(), timeout.diagnostic_tail)
-                notes = "\n".join(getattr(timeout, "__notes__", ()))
-                self.assertIn(
-                    "also interrupted by StreamReaderFailure", notes
-                )
-                self.assertTrue(proc.terminated)
-                self.assertTrue(proc.reaped)
-                _assert_no_workers(self)
+                def terminate():
+                    original_terminate()
+                    terminated.set()
+
+                def supervise(owner):
+                    owners.append(owner)
+                    self.assertTrue(second_read.wait(1))
+                    return original_supervisor(owner)
+
+                proc.stdout.read = read
+                proc.terminate = terminate
+                try:
+                    with mock.patch.object(OwnedProcess, "_start_supervisor", supervise), \
+                         mock.patch.object(execution_module.subprocess, "Popen", return_value=proc):
+                        with self.assertRaises(AssemblyTimeoutError) as timed_out:
+                            DockerRunExecutor().run_streaming(
+                                ("docker", "run", "--rm", "alpine", "true"),
+                                deadline_seconds=.2, grace_seconds=.5,
+                                network_url_display=mode, **_stream_kwargs(mode))
+                    timeout = timed_out.exception
+                    self.assertEqual("assembly_timeout", timeout.reason)
+                    self.assertEqual(expected.strip(), timeout.diagnostic_tail)
+                    notes = "\n".join(getattr(timeout, "__notes__", ()))
+                    self.assertEqual(notes.count("stdout read failed:"), 1)
+                    self.assertIn("reader exploded", notes)
+                    self.assertFalse(hasattr(read_error, "process_result"))
+                    self.assertTrue(proc.terminated and proc.reaped)
+                    _assert_no_workers(self)
+                finally:
+                    terminated.set()
+                    for owner in owners:
+                        owner.shutdown()
+                        self.assertTrue(owner.wait_cleanup(1).complete)
 
 
 class _RecordingActivity:

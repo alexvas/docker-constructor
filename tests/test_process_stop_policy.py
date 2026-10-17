@@ -42,7 +42,13 @@ class Action:
 
     def observe(self):
         settled = not self.pending or self.release.is_set()
-        return self.api.ActionResult(settled, settled, self.error)
+        failures = ()
+        if self.error is not None:
+            # This fixture synthesizes a failure at its own action boundary.
+            kind = (self.api.FailureKind.INTERRUPTION if not isinstance(self.error, Exception) else
+                    self.api.FailureKind.ORDINARY if isinstance(self.error, OSError) else self.api.FailureKind.UNEXPECTED)
+            failures = (self.api.FailureInfo(self.error, kind, self.api.FailurePhase.ACTION),)
+        return self.api.ActionResult(settled, settled, failures)
 
     def cancel(self, deadline):
         self.calls.append("cancel")
@@ -107,10 +113,10 @@ def test_prepare_failure_cleans_each_prepared_slot_and_idle_worker(api, position
 def test_factory_failure_cleans_policy_preparation(api):
     action = Action(api)
     error = OSError("factory")
-    with pytest.raises(OSError) as caught:
-        api.OwnedProcess.launch(["child"], grace_seconds=.08,
-            stop_policy=plan(api, action), factory=mock.Mock(side_effect=error))
-    assert caught.value is error
+    owner = api.OwnedProcess.launch(["child"], grace_seconds=.08,
+        stop_policy=plan(api, action), factory=mock.Mock(side_effect=error))
+    result = owner.capture()
+    assert result.lifecycle.complete and result.lifecycle.failures[0].error is error
     assert action.calls == ["prepare", "cancel"]
     assert not workers()
 
@@ -128,9 +134,9 @@ def test_all_triggers_use_prepared_policy_without_main_authority(api, trigger):
     patches = mock.patch.object(api.OwnedProcess, "_read_chunk", side_effect=error) if trigger == "reader" else mock.patch.object(time, "perf_counter", wraps=time.perf_counter)
     with patches:
         if trigger == "setup":
-            with pytest.raises(OSError) as caught:
-                launch(api, plan(api, action), child, **options)
-            assert caught.value is error
+            owner = launch(api, plan(api, action), child, **options)
+            assert owner.capture().lifecycle.failures[0].error is error
+            assert owner.wait_cleanup(1).complete
         else:
             owner = launch(api, plan(api, action), child, **options)
             if trigger in ("deadline", "reader"):
@@ -156,7 +162,7 @@ def test_natural_completion_skips_stop_but_runs_required_finalization(api):
     child = Child()
     child.returncode = 0
     result = launch(api, policy, child).capture()
-    assert result.cleanup.complete
+    assert result.lifecycle.complete
     assert "start" not in actions[0].calls
     assert actions[1].contexts[0].reason == "natural"
     assert all(a.calls.count("cancel") == 1 for a in actions)
@@ -207,7 +213,7 @@ def test_failure_advances_immediately_and_local_order_is_coordinator_owned(api):
     owner = launch(api, policy, child)
     result = owner.shutdown()
     assert time.monotonic() - begin < .08
-    assert result.error is first.error and result.complete
+    assert result.failures[0].error is first.error and result.complete
     assert second.calls.count("start") == 1
 
 
@@ -228,11 +234,11 @@ def test_action_fault_precedence_independent_cleanup_and_repeat(api, primary_typ
         owner = launch(api, policy, child)
         result = owner.shutdown(primary=primary)
     expected = primary if primary and (primary_type is KeyboardInterrupt or action_type is OSError) else error
-    assert result.error is expected and result.complete
+    assert result.failures[0].error is expected and result.complete
     assert child.stdout.attempts == child.stderr.attempts == 1
     assert all(a.calls.count("start") == a.calls.count("cancel") == 1 for a in actions)
-    assert owner.shutdown() is result
-    assert len(result.failures) == len({id(e) for e in result.failures})
+    assert owner.shutdown() == result
+    assert len(result.failures) == len({id(f.error) for f in result.failures})
 
 
 def test_pending_action_retains_owner_and_late_error_is_observation_only(api):
@@ -240,13 +246,13 @@ def test_pending_action_retains_owner_and_late_error_is_observation_only(api):
     owner = launch(api, plan(api, action))
     try:
         result = owner.shutdown()
-        assert result.shutdown_incomplete
+        assert not result.complete
         assert not owner.wait_cleanup(.01).complete
         action.error = RuntimeError("late")
         action.release.set()
         observed = owner.wait_cleanup(1)
-        assert observed.complete and observed.error is action.error
-        assert result.error is None and result.shutdown_incomplete
+        assert observed.complete and observed.failures[0].error is action.error
+        assert not result.failures and not result.complete
         assert action.calls == ["prepare", "start", "cancel"]
     finally:
         action.release.set()
@@ -277,8 +283,9 @@ def test_primary_merge_in_policy_publication_gap(api):
         caller.join(1)
         merger.join(1)
         assert len(results) == 2
-        assert all(r.error is first for r in results)
-        assert later in secondary(first)
+        assert all(r.failures[0].error is first for r in results)
+        assert all(any(f.error is later for f in r.failures) for r in results)
+        assert secondary(first) == []
         assert action.calls.count("start") == 1
     finally:
         resume.set()
@@ -301,7 +308,9 @@ class Helper(Action):
         if self.owner is None:
             return self.api.ActionResult(True, True)
         result = self.owner.cleanup_status
-        return self.api.ActionResult(result.complete, result.complete, result.error)
+        failures = tuple(self.api.FailureInfo(f.error, f.kind, self.api.FailurePhase.ACTION)
+                         for f in result.failures)
+        return self.api.ActionResult(result.complete, result.complete, failures)
     def cancel(self, deadline):
         super().cancel(deadline)
         # Nonblocking: the helper's own configured deadline drives cleanup.
@@ -356,10 +365,10 @@ def test_real_pipe_faults_keep_reader_barrier_and_independent_action(api, fault)
         return original(self, index)
     with mock.patch.object(api.OwnedProcess, seam, fail):
         if fault == "startup":
-            with pytest.raises(OSError) as caught:
-                api.OwnedProcess.launch([sys.executable, "-c", "import time;time.sleep(10)"],
-                    stop_policy=plan(api, action), grace_seconds=.08)
-            assert caught.value is error
+            owner = api.OwnedProcess.launch([sys.executable, "-c", "import time;time.sleep(10)"],
+                stop_policy=plan(api, action), grace_seconds=.08)
+            assert owner.capture().lifecycle.failures[0].error is error
+            assert owner.wait_cleanup(1).complete
         else:
             owner = api.OwnedProcess.launch([sys.executable, "-c", "import time;time.sleep(10)"],
                 stop_policy=plan(api, action), grace_seconds=.08)

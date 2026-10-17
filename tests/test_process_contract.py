@@ -11,7 +11,7 @@ import textwrap
 
 import pytest
 
-from docker.process import CleanupIncomplete, CleanupResult, OwnedProcess, ProcessResult
+from docker.process import CleanupIncomplete, LifecycleResult, OwnedProcess, ProcessResult
 from tests.test_descriptor_close_convergence import (
     _close_violations_with_owners, _inline_ledger, _module_aliases,
 )
@@ -59,7 +59,7 @@ def process_proof(source, foundation):
         errors.append("preparation/acquisition/escrow/use ordering")
     if "self._acquired[index] = True" not in text:
         errors.append("missing acquired-pipe ledger")
-    if "self._ledger = setup" not in text or "setup.run(" not in text:
+    if "self._ledger.record(exc, phase=FailurePhase.SETUP, stream=tuple(ProcessStream)[index])" not in text:
         errors.append("transfer attempts do not share failure precedence")
     calls = [n for n in ast.walk(launch) if isinstance(n, ast.Call)]
     if sum(isinstance(n.func, ast.Name) and n.func.id == "factory" for n in calls) != 1:
@@ -71,7 +71,7 @@ def process_proof(source, foundation):
     owner_assignments = [ast.unparse(n.value) for n in ast.walk(m["_release_safe"]) if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "owner" for t in n.targets)]
     if owner_assignments != ["self._owners[index]"]:
         errors.append("slot owner overwritten or reconstructed")
-    if "owner = self._owners[index]" not in release or "self._safe(index) or not callable(getattr(owner.stream, 'fileno', None))" not in release:
+    if "owner = self._owners[index]" not in release or "self._safe(index) or self._descriptorless[index] or (not callable(getattr(owner.stream, 'fileno', None)))" not in release:
         errors.append("release lacks prepared-owner/reader barrier")
     complete = ast.unparse(m["_complete"])
     for token in ("self._reaped", "self._safe(i)", "self._owners[i].released"):
@@ -112,10 +112,22 @@ def policy_proof(source):
         errors.append("policy validation/readiness follows acquisition")
     shutdown = ast.unparse(m["_shutdown"])
     for token in ("if not self._requested:", "self._cleanup_end = time.monotonic() + self._grace",
-                  "self._stop.set()", "not self._policy.drain", "if not self._delivered:",
-                  "_outcome(self._ledger, self._status.complete, tuple(self._action_results))"):
+                  "self._stop.set()", "not self._policy.drain",
+                  "_outcome(self._ledger, self._status.complete)"):
         if token not in shutdown:
             errors.append("shared request/deadline/delivery contract")
+    if not any(
+        isinstance(block, ast.With)
+        and any(ast.unparse(node) ==
+                "self._status = _outcome(self._ledger, self._status.complete)"
+                for node in block.body)
+        and any(ast.unparse(node) == "result = self._status" for node in block.body)
+        for block in m["_shutdown"].body
+    ):
+        errors.append("shutdown observation skips unconditional ledger refresh")
+    cleanup = ast.unparse(m["_continue_cleanup"])
+    if "ordinary=(), phase=FailurePhase.JOIN, stream=tuple(ProcessStream)[index]" not in cleanup:
+        errors.append("reader join no longer uses unexpected-defect classification")
     run = ast.unparse(m["_run_policy"])
     ordering = [run.find(t) for t in ("stage_end = min(", "context = StopContext(", "action.start(context)")]
     if -1 in ordering or ordering != sorted(ordering):
@@ -123,10 +135,13 @@ def policy_proof(source):
     for token in ("end - policy.local_cleanup_seconds", "self._delivered",
                   "self._reason == 'natural'", "stage.run_on_normal", "stage.local_stop_before",
                   "while time.monotonic() < stage_end:", "stage.wait_child",
-                  "observation.error is not None", "self._cancel_action(index, end)",
+                  "observation.failures", "self._cancel_action(index, end)",
                   "def start_action(action: ManagedAction=stage.action) -> None:",
                   "failures.run(start_action, ordinary=(OSError,))",
-                  "self._action(observe_child, ordinary=(OSError,))",
+                  "returncode: int | None = None",
+                  "returncode = self._poll_child()",
+                  "self._action(observe_returncode, ordinary=(OSError,), phase=FailurePhase.WAIT)",
+                  "self._action(observe_child, ordinary=(OSError,), phase=FailurePhase.WAIT)",
                   "if child_done is None or child_done:"):
         if token not in run:
             errors.append("stage reserve/transition/eligibility contract")
@@ -141,10 +156,10 @@ def policy_proof(source):
     if "result.done and result.cleanup_complete" not in complete:
         errors.append("pending action resources falsely complete")
     continuation = ast.unparse(m["_continue_cleanup"])
-    if "self._observe_actions()" not in continuation or continuation.find("self._run_policy(end)") > continuation.find("self._cancel.set()"):
+    if "self._observe_actions()" not in continuation or continuation.find("self._run_policy(end)") > continuation.find("self._cancel_readers_locked()"):
         errors.append("lost action retention or drain barrier")
     reader = ast.unparse(m["_read"])
-    if "while not self._cancel.is_set():" not in reader or "if self._stop.is_set():" not in reader:
+    if "while not self._cancel.is_set() or (first and (not self._delivered)):" not in reader or "if self._stop.is_set():" not in reader:
         errors.append("drain depends on consumer progress")
     triggers = {"_reader": "reason='reader'", "_continue_cleanup": "reason='deadline'",
                 "launch": "reason='setup'", "shutdown": "reason='cancel'", "__exit__": "self._shutdown(",
@@ -153,10 +168,20 @@ def policy_proof(source):
         if token not in ast.unparse(m[method]):
             errors.append("shutdown trigger bypasses launch policy")
     tree = ast.parse(source)
+    claim = ast.unparse(m["_claim_collection"])
+    if "self._collection_claim.acquire(blocking=False)" not in claim or "raise RuntimeError" not in claim:
+        errors.append("collection claim queues or permits a second subscriber")
+    stream = ast.unparse(m["stream"])
+    if stream.find("if not callable(callback)") > stream.find("self._claim_collection()"):
+        errors.append("invalid callbacks consume the collection claim")
+    if "if self._collection_delivered:" not in ast.unparse(m["__exit__"]):
+        errors.append("context suppresses undelivered active operation authority")
     contexts = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and ast.unparse(n.func) == "StopContext"]
-    if len(contexts) != 1 or [ast.unparse(a) for a in contexts[0].args] != ["self._reason", "self._proc.poll()", "stage_end"]:
+    if len(contexts) != 1 or [ast.unparse(a) for a in contexts[0].args] != ["self._reason", "returncode", "stage_end"]:
         errors.append("context grants ownership or fresh budgets")
-    control_locations = {n.lineno for name in ("_wait_child", "_reap", "_terminate_if_live")
+    if "self._proc.wait(timeout=0)" not in ast.unparse(m["_poll_child"]):
+        errors.append("wait-only observation can block or bypass the coordinator")
+    control_locations = {n.lineno for name in ("_wait_child", "_reap", "_terminate_if_live", "_poll_child")
                          for n in ast.walk(m[name]) if isinstance(n, ast.Attribute)
                          and ast.unparse(n.value) == "self._proc" and n.attr in ("wait", "kill", "terminate")}
     for node in ast.walk(tree):
@@ -168,7 +193,7 @@ def policy_proof(source):
             # Resolve the release/control attribute even when assigned to an
             # arbitrarily named callable rather than directly invoked.
             receiver = ast.unparse(node.value)
-            events = {"self._ready", "self._request", "self._finished", "self._phase_done", "self._stopped[index]"}
+            events = {"self._ready", "self._request", "self._finished", "self._phase_done", "self._stopped[index]", "self._cancel", "self._setup_done"}
             if not ((receiver == "self._proc" and node.lineno in control_locations) or (node.attr == "wait" and receiver in events)):
                 errors.append("independent raw-child control")
     return errors
@@ -178,7 +203,10 @@ def policy_proof(source):
     ("_validate_policy(stop_policy, float(grace_seconds))", "pass"),
     ("stage.action.prepare()", "None"),
     ("end - policy.local_cleanup_seconds", "end + self._grace"),
-    ("StopContext(self._reason, self._proc.poll(), stage_end)", "StopContext(self._reason, self._proc, time.monotonic() + self._grace)"),
+    ("StopContext(self._reason, returncode, stage_end)", "StopContext(self._reason, self._proc, time.monotonic() + self._grace)"),
+    ("self._action(observe_returncode, ordinary=(OSError,), phase=FailurePhase.WAIT)", "observe_returncode()"),
+    ("returncode: int | None = None", "returncode = self._proc"),
+    ("returncode = self._poll_child()", "returncode = self._proc"),
     ("action.start(context)", "action.start(self._proc)"),
     ("action: ManagedAction = stage.action", "action: ManagedAction = self._proc"),
     ("stage.wait_child", "False"),
@@ -188,6 +216,11 @@ def policy_proof(source):
     ("if self._stop.is_set():", "if False:"),
     ("reason=\"reader\"", "reason=\"unused\""),
     ("reason=\"deadline\"", "reason=\"unused\""),
+    ("self._proc.wait(timeout=0)", "self._proc.wait()"),
+    ("self._collection_claim.acquire(blocking=False)", "self._collection_claim.acquire()"),
+    ("if self._collection_delivered:", "if self._collected:"),
+    ("ordinary=(), phase=FailurePhase.JOIN, stream=tuple(ProcessStream)[index]",
+     "ordinary=(OSError,), phase=FailurePhase.JOIN, stream=tuple(ProcessStream)[index]"),
 ])
 def test_stop_policy_ownership_and_budget_evasions_are_rejected(old, new):
     source = (ROOT / "docker/process.py").read_text()
@@ -213,10 +246,12 @@ def test_prepared_transfer_and_safe_retention_proof():
     ("_bind_prepared(self._owners[index], pipe)", "pass"),
     ("self._acquired[index] = True", "pass"),
     ("self._stopped[index].is_set()", "True"),
-    ("self._safe(index) or not callable", "True or not callable"),
+    ("self._safe(index) or self._descriptorless[index] or not callable", "True or not callable"),
     ("self._publish(self._complete())", "self._publish(True)"),
     ("while not self._finished.is_set():", "while False:"),
-    ("self._ledger = setup", "pass"),
+    ("            self._status = _outcome(self._ledger, self._status.complete)\n            if deliver:",
+     "            if not self._delivered:\n                self._status = _outcome(self._ledger, self._status.complete)\n            if deliver:"),
+    ("self._ledger.record(exc, phase=FailurePhase.SETUP, stream=tuple(ProcessStream)[index])", "pass"),
 ])
 def test_new_module_evasions_fail_proof(old, new):
     source = (ROOT / "docker/process.py").read_text()
@@ -268,19 +303,22 @@ def test_exact_public_api_and_no_existing_process_constructor():
     assert {n for n in vars(OwnedProcess) if not n.startswith("_")} == {
         "launch", "capture", "stream", "shutdown", "cleanup_status", "wait_cleanup", "returncode"}
     assert list(inspect.signature(OwnedProcess.launch).parameters) == [
-        "argv", "grace_seconds", "deadline_seconds", "capture_limit", "factory", "popen_kwargs", "on_launched", "stop_policy"]
+        "argv", "grace_seconds", "deadline_seconds", "capture_limit", "factory", "popen_kwargs", "on_launched", "stop_policy", "reporter"]
     assert list(inspect.signature(OwnedProcess.shutdown).parameters) == ["self", "primary"]
     assert list(inspect.signature(OwnedProcess.wait_cleanup).parameters) == ["self", "timeout"]
     with pytest.raises(TypeError, match="launch"):
         OwnedProcess()
-    assert set(CleanupResult.__dataclass_fields__) == {"complete", "error", "failures", "actions"}
-    assert set(ProcessResult.__dataclass_fields__) == {"stdout", "stderr", "returncode", "timed_out", "cleanup", "callback_errors"}
+    assert set(LifecycleResult.__dataclass_fields__) == {"complete", "failures"}
+    assert set(ProcessResult.__dataclass_fields__) == {"stdout", "stderr", "returncode", "timed_out", "lifecycle", "stream_outcomes"}
+    assert LifecycleResult.__dataclass_fields__["failures"].default == ()
     assert issubclass(CleanupIncomplete, OSError)
     import docker.process as api
-    assert set(api.__all__) == {"OwnedProcess", "ProcessResult", "CleanupResult", "CleanupIncomplete",
+    assert set(api.__all__) == {"OwnedProcess", "ProcessResult", "LifecycleResult", "CleanupIncomplete",
+                               "ProcessStream", "StreamOutcome", "FailureInfo", "FailureKind", "FailurePhase",
                                "StopPolicy", "StopStage", "StopContext", "ManagedAction", "ActionResult"}
+    assert not hasattr(api, "CleanupResult")
     assert set(api.StopContext.__dataclass_fields__) == {"reason", "returncode", "deadline"}
-    assert set(api.ActionResult.__dataclass_fields__) == {"done", "cleanup_complete", "error"}
+    assert set(api.ActionResult.__dataclass_fields__) == {"done", "cleanup_complete", "failures"}
     assert set(api.StopPolicy.__dataclass_fields__) == {"stages", "local_cleanup_seconds", "drain"}
     assert set(api.StopStage.__dataclass_fields__) == {"seconds", "action", "wait_child", "run_on_normal", "local_stop_before"}
     assert {n for n in vars(api.ManagedAction) if not n.startswith("_")} == {"prepare", "start", "observe", "cancel"}
@@ -319,5 +357,5 @@ def test_executable_process_guide_and_links():
         subprocess.run([sys.executable, "-c", textwrap.dedent(block)], cwd=ROOT, check=True, timeout=10)
     for name in ("filesystem-lifecycle.md", "npm-environment-assembler.md"):
         assert "process-lifecycle.md" in (ROOT / "docs" / name).read_text()
-    for token in ("shutdown incomplete", "never stops", "not cleaned", "Late failures", "Exclusions", "no pipes"):
+    for token in ("An incomplete result", "never stops", "live reader", "Late failures", "Exclusions", "no pipes"):
         assert token in text

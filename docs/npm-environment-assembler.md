@@ -6,8 +6,9 @@ dependency closures from reviewed roots and standard `package-lock.json` v3
 files. It is implemented under `docker/npm_environment/`.
 
 The generic launch-centered process API is documented in
-[process-lifecycle.md](process-lifecycle.md). Its existence does not imply that
-these assembler adapters have completed their separately planned migration.
+[process-lifecycle.md](process-lifecycle.md). Streaming execution and captured
+cleanup clients delegate their process lifecycle to that owner; Docker,
+redaction, error translation and staging policy remain in assembler adapters.
 
 ## Supported lock subset
 
@@ -115,37 +116,127 @@ Removing the npm download cache affects performance only.
 
 ## Subprocess stream ownership and shutdown
 
-The assembler runs the local `docker` client with
-`subprocess.Popen(..., stdout=PIPE, stderr=PIPE)`. Each returned file object
-is adopted into one `docker.filesystem.streams.OwnedStream` immediately after
-launch and that same owner pair is reused by every cleanup path — the reader
-failure hook, the deadline supervisor, interruption handling, bounded reaping,
-and finalization. A new owner is never reconstructed per cleanup, and the
-streams' raw `fileno()` descriptors are never adopted or closed separately, so
-there is no second release authority.
+`DockerRunExecutor.run_streaming` launches one `OwnedProcess` and collects once
+through typed stream callbacks. Generic ownership prepares one filesystem
+`OwnedStream` per pipe before acquisition and owns readers, deadline, local
+signals/reap, safe release and retained continuation. Adapters do not adopt raw
+pipes, reconstruct owners or run independent reader/supervisor/reap loops.
+The public standalone `collect_streams` arbitrary-byte API remains supported;
+it is not the subprocess adapter's lifecycle path.
 
-Release order is deliberate. On a reader failure or deadline the client is
-terminated first, the named container is force-removed, and the client is
-reaped within the configured `grace_seconds` (with a bounded SIGKILL fallback)
-before the owners release their streams. Interruptions follow the same bounded
-cleanup; when the deadline supervisor already owns cleanup the interrupting
-caller waits for that one bounded cleanup instead of starting a concurrent
-terminate/remove sequence. The supported total deadline and every grace bound
-are unchanged.
+The domain compatibility action preserves local terminate → named-container
+removal → local wait/reap. Its helper has a separate default-policy owner and
+fits the remaining stage allocation. Three grace intervals are allocated to
+removal and three to local cleanup within the same six-grace total; concurrent
+calls do not restart clocks or requests. This is not a Docker wrapper or a new
+cooperative container-stop policy. Container absence/exit interpretation,
+identity and staging/publication remain domain responsibilities.
 
-Descriptor readers drain stdout/stderr concurrently without waiting for
-newlines. Real pipes are read with cancellation-aware `select`/`os.read` so a
-descendant that retains a pipe write end cannot block shutdown past the grace
-bound: once the client has exited, at most `grace_seconds` of no-data time
-elapses before the reader reports EOF. A shared abort signal is set before any
-forced termination so a reader that reaches a forced EOF finalizes with
-`abort=True` and fails an ambiguous URL/secret prefix closed rather than
-flushing it as ordinary text. Readers are stopped and joined before the final
-owner release; a raw descriptor number is never closed under a live reader.
+`run_captured(argv: Sequence[str], *, policy: LifecyclePolicy)` retains its input
+parameters and returns `tuple[OwnedProcess | None, LifecycleOutcome]`, never a raw
+Popen or pipes. LifecycleOutcome still has return_code/errors/stdout/stderr.
+Ordinary/unexpected failures come from the sole returned generic value; bytes
+are decoded with replacement and exact selected failures are retained. Prepared
+factory/setup failure returns the same failed owner; earlier preparation may
+have no owner. Missing streams are controlled setup failures, not empty success.
+Late cleanup never changes delivered domain output/errors. The configured client
+label for an ordinary final-reap timeout remains domain diagnostic policy, not a
+new generic provenance field or reclassification of helper failures.
 
-Every ordinary reader, wait, or domain failure stays primary over an ordinary
-stream-close failure. Independent stdout/stderr owners are each released once
-even when one close fails, process termination/removal/reaping is never
-skipped, and all public cleanup diagnostics remain bounded and sanitized
-through the assembler's URL-aware tail projector. Subprocess stream ownership
-is documented in full in [docs/filesystem-lifecycle.md](filesystem-lifecycle.md).
+For a short captured command, consume the decoded outcome. The returned owner
+is for cleanup observation, not for reading pipes or collecting a second time.
+This example uses Python so it can run without Docker:
+
+```python
+import sys
+
+from docker.npm_environment.lifecycle import LifecyclePolicy, run_captured
+
+owner, outcome = run_captured(
+    (sys.executable, "-c", "print('ready')"),
+    policy=LifecyclePolicy(grace_seconds=5),
+)
+assert outcome.errors == []
+assert outcome.return_code == 0
+assert outcome.stdout == "ready\n"
+assert owner is not None and owner.cleanup_status.complete
+```
+
+Authority is selected before domain projection. Ordinary deadline cleanup errors
+remain secondary to AssemblyTimeoutError. Unexpected join defects keep authority
+even after timeout; actual control flow always propagates with exact first
+identity after independent cleanup. Local non-control-flow READ may use the
+established StreamReaderFailure mapping; JOIN/RELEASE/ACTION and READ_FAILED alone
+are not reader authority. Helper kinds are explicit and parent context is
+ACTION/None, never a main-reader stream.
+
+Secondary process-cleanup note prefixes are exactly `{subject} {operation} failed`.
+stream STDOUT/STDERR/None maps to stdout/stderr/process. Phase maps as follows:
+
+| phase | operation |
+| --- | --- |
+| SETUP | setup |
+| READ | read |
+| JOIN | join |
+| RELEASE | release |
+| WAIT | wait |
+| ACTION | action |
+| CALLBACK | callback |
+| REPORTER | reporter |
+| COORDINATION | coordination |
+
+Kind, timeout and exception type/text do not affect prefix selection. A rebased
+helper uses `process action failed`. Details are separately bounded and
+secret/URL-sanitized; no guessed supervisor/deadline labels, additional
+reportable failures or duplicate diagnostics are introduced. Callback reporter
+messages and incomplete-cleanup observation keep their separate contracts.
+
+Each DiagnosticStream finalizes independently: EOF uses abort=False;
+READ_FAILED/ABORTED uses abort=True. A clean stdout EOF is not revised by sibling
+failure. Buffered chunks precede terminal notification, and generic raw snapshot
+tails are never replayed into a sink. ABORTED does not prove reader stop or allow
+closing a descriptor beneath a live reader. Known descriptor-less test streams
+may need sole-owner close to wake their reader, with its actual stop confirmed
+inside the remaining budget. Incomplete cleanup retains the same owner and is
+observed through cleanup_status/wait_cleanup, not another collection.
+
+Interruption has no generic output snapshot. The domain collector independently
+attaches bounded sanitized retained_capture for CLI/host reporting, along with
+cleanup diagnostics. Facade error translation preserves that selected capture
+and bounded notes without a raw cause chain. Removal and staging cleanup still
+run. Late failures are new lifecycle observations, not mutation or new output.
+
+## Executable streaming example
+
+The streaming adapter applies domain redaction while collecting output. Supply
+known secrets explicitly; callers do not need to construct internal collectors
+or pipe owners. Like the captured example, this runs without Docker:
+
+```python
+import sys
+
+from docker.npm_environment.execution import DockerRunExecutor
+
+result = DockerRunExecutor().run_streaming(
+    (sys.executable, "-c", "print('token=example-secret')"),
+    secrets=("example-secret",),
+    deadline_seconds=5,
+)
+assert result.return_code == 0
+assert "token=" in result.stdout
+assert "example-secret" not in result.stdout
+```
+
+## Executable contract scenarios
+
+Keep fault injection in tests rather than in usage examples. Concrete scenarios:
+
+- [Captured same-owner projection](../tests/test_npm_environment_orthogonal_projection.py#L148 "test_captured_projects_returned_errors_and_same_owner"): consume returned errors without recapture.
+- [Timeout versus join authority](../tests/test_npm_environment_phase6bc_streaming.py#L72 "test_timeout_projection_preserves_unexpected_join_authority_but_not_ordinary_release"): ordinary release stays secondary; unexpected join stays authoritative.
+- [Abort-safe tails and cleanup notes](../tests/test_npm_environment_phase6bc_streaming.py#L231 "test_incomplete_streaming_keeps_abort_safe_tails_and_sanitized_delivered_notes"): retain sanitized diagnostics during incomplete cleanup.
+- [Independent EOF and no raw replay](../tests/test_npm_environment_phase6bc_streaming.py#L155 "test_clean_stdout_eof_then_stderr_failure_finalizes_independently_without_raw_replay"): sibling failure does not revise clean stdout.
+- [Interruption and staging cleanup](../tests/test_npm_environment_phase6bc_streaming.py#L424 "test_assembly_preserves_every_control_flow_family_and_cleans_staging"): preserve control-flow identity and cleanup diagnostics.
+- [CLI interruption capture](../tests/test_retained_tail_phase6.py#L1441 "TestInterruptionEndToEnd.test_text_interruption_reports_selected_tail_once"): report the domain-selected retained tail once.
+
+See [filesystem-lifecycle.md](filesystem-lifecycle.md) for descriptor release and
+[process-lifecycle.md](process-lifecycle.md) for executable generic API contracts.

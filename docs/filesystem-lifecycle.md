@@ -78,8 +78,8 @@ Every other consumer-owned explicit or implicit release (including
 delegate to a shared owner or a protected cleanup accumulator.
 
 For prepared generic subprocess coordination, see
-[process-lifecycle.md](process-lifecycle.md). That mechanism is separate from
-filesystem stream ownership; its consumer adapters are a later migration.
+[process-lifecycle.md](process-lifecycle.md). Process coordination builds on
+filesystem stream ownership; it does not introduce another release authority.
 
 ## Stream transfer contract
 
@@ -94,28 +94,35 @@ terminal synchronized claim and outside-lock release.
 ## Subprocess stream ownership
 
 `subprocess.Popen(..., stdout=PIPE, stderr=PIPE)` creates fd-owning streams.
-Adopt each returned file object into one `OwnedStream` right after launch,
-before callbacks, reader startup, or supervisor startup. Retain the same owner
-pair for the entire process lifecycle and reuse it from every cleanup branch;
-reconstructing an owner per cleanup resets terminal state and is forbidden.
+For supported subprocess execution, use `docker.process.OwnedProcess`: it
+prepares one `OwnedStream` per pipe and retains those same owners through
+setup, collection and cleanup. Consumers must not adopt the pipes again.
 
 - Release is synchronized: exactly one caller invokes the underlying close,
   even when it fails or is interrupted.
-- Reader coordination stays in the subprocess layer (`execution.py`,
-  `lifecycle.py`, and only the necessary `streaming.py` seams). Use
-  cancellation-aware reads and a coordinated stop/join before the final owner
-  release; never close a raw fd under a live reader.
-- Keep process terminate/remove/reap ordering, deadline/grace bounds, output
-  tails, decoding, and bounded URL/secret redaction in the domain layer.
-  Foundation diagnostics do not sanitize domain notes.
+- `OwnedProcess` coordinates cancellation-aware readers, local signals/reap,
+  deadline/grace budgets and stop/join before final stream release. Never close
+  a raw fd under a live reader.
+- Domain adapters select cleanup actions and their ordering, decode output,
+  retain diagnostic tails and sanitize URL/secret-bearing notes. Filesystem
+  ownership itself supplies no Docker policy or domain sanitization.
 - Missing streams and descriptor-less injected test streams follow the same
   owner lifecycle; a descriptor-less double is not evidence that production
   fd reuse is safe.
 
 ## Executable examples
 
-The following examples execute against the supported API. They are extracted
-and run by `tests/test_filesystem_lifecycle_docs.py`.
+These three examples cover the ownership choice: raw descriptor, existing
+stream, or directory capability. They execute against the supported API through
+`tests/test_filesystem_lifecycle_docs.py`.
+
+### Write through a Python wrapper without transferring the fd
+
+Prepare constructor inputs before `os.open`, then adopt its result immediately.
+The inner file object provides buffering, not descriptor-release authority:
+`closefd=False` leaves that authority with the outer OwnedDescriptor. Nesting
+ensures buffering is flushed before the descriptor is released, including when
+an operation raises. Temporary-directory cleanup happens last.
 
 ```python
 import os
@@ -124,66 +131,58 @@ import tempfile
 from docker.filesystem.descriptors import OwnedDescriptor
 from docker.filesystem.operations import PosixDescriptorOps
 
-path = tempfile.mktemp()
-fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_EXCL, 0o600)
-owner = OwnedDescriptor(PosixDescriptorOps(), fd, label="temporary file")
-try:
-    os.write(owner.fd, b"payload")
-finally:
-    owner.close()
-os.unlink(path)
+ops = PosixDescriptorOps()
+label = "payload file"
+flags = os.O_CREAT | os.O_WRONLY | os.O_EXCL
+with tempfile.TemporaryDirectory() as directory:
+    path = os.path.join(directory, "payload")
+    fd = os.open(path, flags, 0o600)
+    with OwnedDescriptor(ops, fd, label=label) as owner:
+        with os.fdopen(owner.fd, "wb", closefd=False) as handle:
+            handle.write(b"payload")
+            handle.flush()
+        # Closing the Python wrapper did not close the descriptor.
+        assert os.fstat(owner.fd).st_size == len(b"payload")
 ```
 
-```python
-import os
-import tempfile
+For unbuffered operations, use `os.read`/`os.write` with `owner.fd` inside the
+same owner scope; a second acquisition example is unnecessary. Do not use
+`tempfile.mktemp()` to reserve a filename: it reserves nothing.
 
-from docker.filesystem.descriptors import OwnedDescriptor
-from docker.filesystem.operations import PosixDescriptorOps
+### Adopt an existing stream once
 
-path = tempfile.mktemp()
-fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_EXCL, 0o600)
-owner = OwnedDescriptor(PosixDescriptorOps(), fd, label="temporary file")
-with os.fdopen(owner.fd, "wb", closefd=False) as handle:
-    handle.write(b"payload")
-    handle.flush()
-owner.close()
-os.unlink(path)
-```
+A stream already owns its descriptor, so wrap the stream itself, not fileno().
+This in-memory example uses the same ownership interface without requiring a
+subprocess or an external file. Read through the borrowed `owner.stream` view;
+only the owner releases it when the scope ends.
 
 ```python
 import io
 
 from docker.filesystem.streams import OwnedStream
 
-captured_stdout = io.BytesIO(b"npm output")
-owner = OwnedStream(captured_stdout, label="stdout")
-assert owner.stream.read() == b"npm output"
-owner.close()
+source = io.BytesIO(b"captured output")
+with OwnedStream(source, label="captured output") as owner:
+    assert owner.stream.read() == b"captured output"
+
+assert source.closed
 assert owner.released
+# A repeat cleanup does not invoke the underlying close again.
 owner.close()
-assert captured_stdout.closed
 ```
 
-```python
-import io
+Rejected adoption is different from release: invalid labels/interfaces or
+synchronization-preparation failure leave the stream with its original caller.
+That caller must retain it for valid adoption or its existing cleanup path.
+Successful adoption transfers release authority; keeping a reference to the
+original stream does not permit calling its close directly.
 
-from docker.filesystem.streams import OwnedStream
+### Work relative to a directory capability
 
-candidate = io.BytesIO(b"caller owned")
-try:
-    OwnedStream(candidate, label="")
-except ValueError:
-    pass
-else:
-    raise AssertionError("invalid label accepted")
-assert not candidate.closed
-assert candidate.getvalue() == b"caller owned"
-# The caller still owns the rejected candidate and can adopt it correctly.
-with OwnedStream(candidate, label="validated") as owner:
-    assert owner.stream.read() == b"caller owned"
-assert candidate.closed
-```
+Open a validated root once, then use child methods instead of constructing new
+ambient paths. A child capability has its own scope and is released before its
+parent. The temporary directory owns the example's storage lifetime; descriptor
+release does not delete directory entries.
 
 ```python
 import tempfile
@@ -191,38 +190,25 @@ import tempfile
 from docker.filesystem.descriptors import DirectoryDescriptor
 from docker.filesystem.operations import PosixDescriptorOps
 
+ops = PosixDescriptorOps()
 with tempfile.TemporaryDirectory() as directory:
     with DirectoryDescriptor.open_secure_path(
-        PosixDescriptorOps(), directory, label="workspace"
+        ops, directory, label="workspace"
     ) as root:
-        assert root.list_names() == ()
+        with root.open_or_create_directory("output", mode=0o700) as output:
+            assert output.list_names() == ()
+        # Releasing a capability closes its fd, not the directory itself.
+        assert root.list_names() == ("output",)
 ```
 
-```python
-from docker.filesystem.cleanup import CleanupFailures
-from docker.filesystem.streams import OwnedStream
-
-
-class _Stream:
-    def __init__(self, fail: bool) -> None:
-        self.fail = fail
-        self.closed = False
-
-    def close(self) -> None:
-        self.closed = True
-        if self.fail:
-            raise OSError("injected close failure")
-
-
-stdout = _Stream(False)
-stderr = _Stream(True)
-cleanup = CleanupFailures(None)
-cleanup.run(OwnedStream(stdout, label="stdout").close, ordinary=(OSError,))
-cleanup.run(OwnedStream(stderr, label="stderr").close, ordinary=(OSError,))
-failure = cleanup.complete()
-assert isinstance(failure, OSError)
-assert stdout.closed and stderr.closed
-```
+For several independent owners, collect their release attempts with
+`CleanupFailures(primary)` rather than sequential unprotected close calls.
+Call `cleanup.run(owner.close, ordinary=(OSError,))` for each owner, then
+`cleanup.complete()` to select the authoritative failure. Every independent
+release is attempted even if an earlier one fails. Preserve an active operation
+failure over ordinary close errors; do not retry a failed close. Interruption,
+rejected transfer and operation-plus-close fault matrices belong in the
+filesystem lifecycle tests, not in usage examples.
 
 ## Anti-patterns (forbidden)
 

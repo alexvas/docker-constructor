@@ -1228,14 +1228,6 @@ _DESCRIPTOR_TYPE_HINTS = (
     "DirectoryDescriptor",
 )
 
-#: Domain-neutral stream-owner factory helpers whose return value is an owner.
-_OWNERISH_FACTORY_QUALNAMES = frozenset(
-    {
-        "_adopt_stream_owners",
-        "docker.npm_environment.execution._adopt_stream_owners",
-    }
-)
-
 #: Fully-qualified implicit-ownership and descriptor-creation primitives.
 _FDOPEN_QUALNAMES = frozenset({"os.fdopen"})
 _MKSTEMP_QUALNAMES = frozenset({"tempfile.mkstemp"})
@@ -1328,26 +1320,15 @@ _PHASE6_METHODS: dict[str, tuple[tuple[str, str], ...]] = {
 #: stdout/stderr origins are the file objects returned by ``Popen(..., PIPE)``
 #: and their only release authority is one shared ``OwnedStream`` per stream.
 _PHASE6B_STREAM_FUNCTIONS: dict[str, tuple[str, ...]] = {
-    "docker/npm_environment/execution.py": (
-        "_close_stream_owners",
-        "_close_blocking_stream_owners",
-        "_adopt_stream_owners",
-        "_finalize_setup_failure",
-        "_make_streaming_reader",
-        "_reap_if_live",
-    ),
-    "docker/npm_environment/lifecycle.py": (
-        "_finish_captured_setup_failure",
-        "close_descriptors",
-        "reap_process",
-        "terminate_and_reap",
-        "run_captured",
-    ),
+    "docker/npm_environment/execution.py": ("_bounded_docker_rm",),
+    "docker/npm_environment/lifecycle.py": ("_run_captured", "run_captured"),
 }
 
 _PHASE6B_STREAM_METHODS: dict[str, tuple[tuple[str, str], ...]] = {
     "docker/npm_environment/execution.py": (
         ("DockerRunExecutor", "run_streaming"),
+        ("_ContainerRemovalAction", "_work"),
+        ("_ContainerRemovalAction", "observe"),
     ),
     "docker/filesystem/streams.py": (("OwnedStream", "close"),),
 }
@@ -1375,8 +1356,6 @@ def _is_ownerish_call(value: ast.expr | None, aliases: dict[str, str]) -> bool:
     if not isinstance(value, ast.Call):
         return False
     loc = _qualname(value.func, aliases)
-    if loc in _OWNERISH_FACTORY_QUALNAMES:
-        return True
     if loc in _OWNER_QUALNAMES:
         return True
     if any(token in loc for token in _OWNERISH_QUALNAME_TOKENS):
@@ -2192,6 +2171,17 @@ class SubprocessStreamOwnershipTests(unittest.TestCase):
         self.assertNotEqual(
             _close_violations_with_owners(function, owners, aliases), []
         )
+
+    def test_removed_adoption_factory_name_grants_no_release_authority(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            """
+            from docker.npm_environment.execution import _adopt_stream_owners
+            def f(proc):
+                owner = _adopt_stream_owners(proc, grace_seconds=1)
+                owner.close()
+            """
+        )
+        self.assertNotEqual(_close_violations_with_owners(function, owners, aliases), [])
 
     def test_borrowed_stream_close_after_adoption_is_rejected(self) -> None:
         function, owners, aliases = _inline_ledger(

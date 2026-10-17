@@ -28,7 +28,7 @@ _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
 import docker.npm_environment.execution as execution_module
-from docker.npm_environment.lifecycle import DeadlineSupervisor
+from docker.process import OwnedProcess
 from docker.npm_environment import (
     AssemblyTimeoutError,
     DockerRunExecutor,
@@ -113,8 +113,22 @@ def _assert_no_workers(testcase: unittest.TestCase) -> None:
         "npm-stderr-reader",
         "npm-sink-dispatcher",
         "npm-deadline-supervisor",
+        "npm-removal-action",
     ):
         testcase.assertNotIn(name, live)
+    testcase.assertFalse(any(name.startswith("owned-process-") for name in live))
+
+
+def _release_owned_clients(testcase, result, *processes):
+    # Unreapable fakes deliberately produce incomplete results. Repair their
+    # test-only barrier, then observe the same retained owners; never retry
+    # pipe release or suppress worker checks for an incomplete fixture.
+    for proc in processes:
+        proc._never_exit = False
+    error = result.get("error")
+    owner = getattr(error, "cleanup", None)
+    testcase.assertIsInstance(owner, OwnedProcess)
+    testcase.assertTrue(owner.wait_cleanup(2).complete)
 
 
 class _DeadlinePipe:
@@ -363,6 +377,8 @@ class DeadlineTestCase(unittest.TestCase):
         stream_factory=None,
     ):
         result: dict = {}
+        if proc._never_exit:
+            self.addCleanup(_release_owned_clients, self, result, proc)
 
         def run() -> None:
             try:
@@ -517,7 +533,7 @@ class TestSupervisorFailure(DeadlineTestCase):
         self.assertTrue(proc.reaped)
         # Cleanup failures (container removal) are preserved as redacted notes.
         notes = "\n".join(getattr(exc, "__notes__", ()))
-        self.assertIn("supervisor cleanup failed", notes)
+        self.assertIn("process action failed", notes)
         self.assertNotIn("SUPERSECRET", notes)
         _assert_no_workers(self)
 
@@ -557,7 +573,7 @@ class TestUrlFreeFailureNotes(DeadlineTestCase):
         self.assertIsInstance(exc, AssemblyTimeoutError)
         self.assertEqual("assembly_timeout", exc.reason)
         rendered = "\n".join([str(exc), *getattr(exc, "__notes__", ())])
-        self.assertIn("deadline cleanup failed", rendered)
+        self.assertIn("process coordination failed", rendered)
         self.assertIn(REDACTED, rendered)
         self._assert_url_free(rendered)
         _assert_no_workers(self)
@@ -581,7 +597,8 @@ class TestUrlFreeFailureNotes(DeadlineTestCase):
         self.assertIsInstance(exc, AssemblyTimeoutError)
         self.assertEqual("assembly_timeout", exc.reason)
         rendered = "\n".join([str(exc), *getattr(exc, "__notes__", ())])
-        self.assertIn("pipe close failed", rendered)
+        self.assertEqual(rendered.count("stdout release failed:"), 1)
+        self.assertEqual(rendered.count("stderr release failed:"), 1)
         self.assertIn(REDACTED, rendered)
         self._assert_url_free(rendered)
         _assert_no_workers(self)
@@ -664,14 +681,16 @@ class TestForcedCleanup(DeadlineTestCase):
         self.assertTrue(proc.killed)
         self.assertFalse(proc.reaped)
         notes = "\n".join(getattr(exc, "__notes__", ()))
-        self.assertIn("deadline cleanup failed", notes)
+        self.assertIn("process wait failed", notes)
         self.assertIn("did not exit after SIGKILL", notes)
+        _release_owned_clients(self, result, proc)
         _assert_no_workers(self)
 
     def test_timeout_rm_client_unreapable_is_bounded_and_secondary(self):
         proc = _DeadlineProc()
         rm_proc = _RmProc(never_exit=True)
         result: dict = {}
+        self.addCleanup(_release_owned_clients, self, result, proc, rm_proc)
 
         def fake_popen(argv, **kwargs):
             return rm_proc if argv[1] == "rm" else proc
@@ -703,6 +722,7 @@ class TestForcedCleanup(DeadlineTestCase):
         self.assertGreaterEqual(rm_proc.stderr.close_attempts, 1)
         notes = "\n".join(getattr(exc, "__notes__", ()))
         self.assertIn("docker rm -f client did not exit after SIGKILL", notes)
+        _release_owned_clients(self, result, proc, rm_proc)
         _assert_no_workers(self)
 
     def test_deadline_reaps_before_closing_blocked_pipes(self):
@@ -793,8 +813,9 @@ class TestForcedCleanup(DeadlineTestCase):
         self.assertFalse(proc.reaped)
         # The failed reap is retained as bounded redacted secondary context.
         notes = "\n".join(getattr(exc, "__notes__", ()))
-        self.assertIn("on_reader_failure cleanup failed", notes)
+        self.assertIn("process wait failed", notes)
         self.assertIn("did not exit after SIGKILL", notes)
+        _release_owned_clients(self, result, proc)
         _assert_no_workers(self)
 
     def test_reader_failure_closes_both_pipes_when_client_survives_kill(self):
@@ -824,8 +845,9 @@ class TestForcedCleanup(DeadlineTestCase):
         self.assertEqual(proc.stdout.close_attempts, 1)
         self.assertEqual(proc.stderr.close_attempts, 1)
         notes = "\n".join(getattr(exc, "__notes__", ()))
-        self.assertIn("on_reader_failure cleanup failed", notes)
+        self.assertIn("process wait failed", notes)
         self.assertIn("did not exit after SIGKILL", notes)
+        _release_owned_clients(self, result, proc)
         _assert_no_workers(self)
 
 
@@ -995,67 +1017,55 @@ class TestInterruption(DeadlineTestCase):
         _assert_no_workers(self)
 
     def test_interrupt_primary_preserves_poll_failure_as_secondary_note(self):
+        from contextlib import ExitStack
+
         poll_error = OSError("SUPERSECRET poll failed")
-        reached_publication = threading.Event()
-        interruption_claimed = threading.Event()
-        release_publication = threading.Event()
-        proc = _DeadlineProc(wait_failure=poll_error)
+        primary = KeyboardInterrupt("caller")
+        recorded = threading.Event()
+        proc = _DeadlineProc(stdout_data=b"working\n", wait_failure=poll_error)
+        original_shutdown = OwnedProcess._shutdown
+        original_supervisor = OwnedProcess._start_supervisor
+        owners = []
+        interrupted = False
 
-        class _GateLock:
-            def __init__(self) -> None:
-                self.lock = threading.Lock()
+        with ExitStack() as patches:
+            def request(owner, *args, **kwargs):
+                if kwargs.get("reason") == "reader":
+                    recorded.set()  # Poll error is already in the shared ledger.
+                return original_shutdown(owner, *args, **kwargs)
 
-            def __enter__(self):
-                if threading.current_thread().name == "npm-deadline-supervisor":
-                    reached_publication.set()
-                    release_publication.wait(5.0)
-                self.lock.acquire()
-                if threading.current_thread().name != "npm-deadline-supervisor":
-                    interruption_claimed.set()
-                return self
+            def supervise(owner):
+                owners.append(owner)
+                wait = owner._phase_done.wait
 
-            def __exit__(self, exc_type, exc_value, traceback) -> None:
-                self.lock.release()
+                def interrupt_wait(timeout=None):
+                    nonlocal interrupted
+                    if threading.current_thread() is threading.main_thread() and not interrupted:
+                        self.assertTrue(recorded.wait(5))
+                        interrupted = True
+                        raise primary
+                    return wait(timeout)
 
-        class _GatedSupervisor(DeadlineSupervisor):
-            def __init__(self, **kwargs) -> None:
-                super().__init__(**kwargs)
-                self._lock = _GateLock()  # type: ignore[assignment]
+                patches.enter_context(mock.patch.object(owner._phase_done, "wait", interrupt_wait))
+                return original_supervisor(owner)
 
-        def interrupt(on_interruption) -> None:
-            self.assertTrue(reached_publication.wait(5.0))
-
-            def release() -> None:
-                self.assertTrue(interruption_claimed.wait(5.0))
-                release_publication.set()
-
-            timer = threading.Thread(target=release, daemon=True)
-            timer.start()
-            on_interruption()
-            timer.join(5.0)
-            raise KeyboardInterrupt
-
-        with mock.patch.object(
-            execution_module.subprocess, "Popen", return_value=proc
-        ), mock.patch.object(
-            execution_module, "DeadlineSupervisor", _GatedSupervisor
-        ), mock.patch.object(
-            execution_module, "collect_streams",
-            side_effect=lambda **kwargs: interrupt(kwargs["on_interruption"]),
-        ):
-            with self.assertRaises(KeyboardInterrupt) as ctx:
-                DockerRunExecutor().run_streaming(
-                    ("docker", "run", "--rm", "alpine", "true"),
-                    secrets=("SUPERSECRET",),
-                    deadline_seconds=1.0,
-                    grace_seconds=0.1,
-                )
-
-        notes = "\n".join(getattr(ctx.exception, "__notes__", ()))
-        self.assertIn("supervisor wait failed (OSError): <redacted> poll failed", notes)
-        self.assertNotIn("SUPERSECRET", notes)
-        self.assertTrue(proc.terminated)
-        self.assertTrue(proc.reaped)
+            patches.enter_context(mock.patch.object(execution_module.subprocess, "Popen", return_value=proc))
+            patches.enter_context(mock.patch.object(OwnedProcess, "_start_supervisor", supervise))
+            patches.enter_context(mock.patch.object(OwnedProcess, "_shutdown", request))
+            try:
+                with self.assertRaises(KeyboardInterrupt) as ctx:
+                    DockerRunExecutor().run_streaming(
+                        ("docker", "run", "--rm", "alpine", "true"), secrets=("SUPERSECRET",),
+                        deadline_seconds=1, grace_seconds=.1)
+                self.assertIs(ctx.exception, primary)
+                notes = "\n".join(getattr(primary, "__notes__", ()))
+                self.assertIn("process wait failed: <redacted> poll failed", notes)
+                self.assertNotIn("SUPERSECRET", notes)
+                self.assertTrue(proc.terminated and proc.reaped)
+            finally:
+                for owner in owners:
+                    owner.shutdown()
+                    self.assertTrue(owner.wait_cleanup(1).complete)
         _assert_no_workers(self)
 
     @unittest.skipUnless(
@@ -1094,7 +1104,7 @@ class TestInterruption(DeadlineTestCase):
         with mock.patch.object(
             execution_module.subprocess, "Popen", side_effect=fake_popen
         ):
-            with self.assertRaises(AssemblyTimeoutError) as ctx:
+            with self.assertRaises(KeyboardInterrupt) as ctx:
                 DockerRunExecutor().run_streaming(
                     ("docker", "run", "--rm", "alpine", "true"),
                     deadline_seconds=0.1,
@@ -1103,14 +1113,13 @@ class TestInterruption(DeadlineTestCase):
                 )
         timer.join(5.0)
 
-        # The supervisor observed expiry and claimed cleanup first, so the
-        # timeout remains primary even though SIGINT arrived during cleanup.
-        # The cleanup outlives one grace interval (rm + graceful reap), so
-        # joining with the complete cleanup budget is required before this
-        # result can propagate without a live supervisor.
-        self.assertEqual(ctx.exception.reason, "assembly_timeout")
-        notes = "\n".join(getattr(ctx.exception, "__notes__", ()))
-        self.assertIn("also interrupted by KeyboardInterrupt", notes)
+        # Expiry starts the one cleanup request, but cannot replace a later
+        # control-flow authority. Preserve SIGINT and finish the same owned
+        # cleanup rather than starting another terminate/remove/reap sequence.
+        self.assertFalse(hasattr(ctx.exception, "reason"))
+        self.assertFalse(hasattr(ctx.exception, "process_result"))
+        self.assertTrue(ctx.exception.cleanup.wait_cleanup(2).complete)
+        self.assertTrue(ctx.exception.cleanup._timed_out)
         self.assertEqual(len(rm_calls), 1)
         self.assertTrue(proc.terminated)
         self.assertTrue(proc.killed)
@@ -1252,6 +1261,8 @@ class TestInterruption(DeadlineTestCase):
             never_exit=True,
         )
         rm_calls: list[tuple[str, ...]] = []
+        result: dict = {}
+        self.addCleanup(_release_owned_clients, self, result, proc)
 
         def fake_popen(argv, **kwargs):
             if argv[1] == "rm":
@@ -1278,12 +1289,13 @@ class TestInterruption(DeadlineTestCase):
             execution_module.subprocess, "run", side_effect=fake_run
         ):
             with self.assertRaises(KeyboardInterrupt) as ctx:
-                assemble(
-                    validated=_validated(),
-                    assembler=_assembler(),
-                    cache_root=cache_root,
-                    executor=DockerRunExecutor(),
-                )
+                try:
+                    assemble(
+                        validated=_validated(), assembler=_assembler(), cache_root=cache_root,
+                        executor=DockerRunExecutor())
+                except BaseException as exc:
+                    result["error"] = exc
+                    raise
         elapsed = time.monotonic() - started
         timer.join(5.0)
 
@@ -1301,7 +1313,7 @@ class TestInterruption(DeadlineTestCase):
         self.assertGreaterEqual(proc.stdout.close_attempts, 1)
         self.assertGreaterEqual(proc.stderr.close_attempts, 1)
         notes = "\n".join(getattr(ctx.exception, "__notes__", ()))
-        self.assertIn("interruption cleanup failed", notes)
+        self.assertIn("process wait failed", notes)
         self.assertIn("did not exit after SIGKILL", notes)
         # Container force-removed and staging removed before propagation.
         self.assertTrue(
@@ -1312,6 +1324,7 @@ class TestInterruption(DeadlineTestCase):
         self.assertEqual(
             [p for p in namespace.staging.iterdir() if p.is_dir()], []
         )
+        _release_owned_clients(self, result, proc)
         _assert_no_workers(self)
 
 
