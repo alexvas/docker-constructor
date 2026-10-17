@@ -10,7 +10,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-_REPO = Path(__file__).resolve().parents[1]
+_REPO = Path(__file__).resolve().parents[2]
 _GUIDE = _REPO / "docs" / "filesystem-lifecycle.md"
 
 
@@ -89,8 +89,7 @@ class GuideContractTests(unittest.TestCase):
                 self.assertIn(token, self.guide)
 
     def test_names_the_convergence_enforcement(self) -> None:
-        self.assertIn("test_descriptor_close_convergence.py", self.guide)
-        self.assertIn("test_filesystem_convergence.py", self.guide)
+        self.assertIn("tests/enforcement/", self.guide)
 
     def test_explicit_submodule_import_rule(self) -> None:
         self.assertIn("never import the aggregate", self.guide)

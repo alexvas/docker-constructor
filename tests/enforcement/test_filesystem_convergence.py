@@ -16,7 +16,7 @@ import textwrap
 import unittest
 from pathlib import Path
 
-_REPO = Path(__file__).resolve().parents[1]
+_REPO = Path(__file__).resolve().parents[2]
 _DOCKER = _REPO / "docker"
 
 _PUBLIC_DEFINITIONS = {

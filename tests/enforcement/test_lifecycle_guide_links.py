@@ -8,8 +8,9 @@ from urllib.parse import unquote, urlsplit
 
 import pytest
 
-ROOT = Path(__file__).resolve().parents[1]
-GUIDES = ("process-lifecycle.md", "npm-environment-assembler.md")
+ROOT = Path(__file__).resolve().parents[2]
+GUIDES = {"process-lifecycle.md": 6, "npm-environment-assembler.md": 6,
+          "filesystem-lifecycle.md": 1}
 LINK = re.compile(r'\[([^\]]+)\]\(([^\s)]+)(?:\s+"([^"]+)")?\)')
 
 
@@ -36,6 +37,10 @@ def _check_local_link(guide: Path, url: str, symbol: str | None) -> None:
     assert not parsed.scheme and not parsed.netloc, f"not a local link: {url}"
     target = (guide.parent / unquote(parsed.path)).resolve()
     assert target.is_relative_to(ROOT), f"link escapes repository: {url}"
+    if target.is_dir():
+        assert (target / "README.md").is_file(), f"directory link needs a README: {url}"
+        assert not parsed.fragment and symbol is None, f"directory cannot name a test: {url}"
+        return
     assert target.is_file(), f"missing link target: {url}"
     if target.is_relative_to(ROOT / "tests"):
         assert target.name.startswith("test_") and target.suffix == ".py", url
@@ -61,7 +66,7 @@ def test_lifecycle_guide_links_resolve_to_documents_and_named_tests(name):
         _check_local_link(guide, url, symbol or None)
         if symbol:
             test_links += 1
-    assert test_links == 6, f"missing contract scenarios in {guide}"
+    assert test_links == GUIDES[name], f"missing contract scenarios in {guide}"
 
 
 @pytest.mark.parametrize("url,symbol", [
@@ -73,10 +78,16 @@ def test_lifecycle_guide_links_resolve_to_documents_and_named_tests(name):
     ("../tests/test_process_single_collection.py#L63", "test_renamed"),
     ("../tests/test_process_single_collection.py#L63", None),
     ("process-lifecycle.md#missing-heading", None),
+    ("../tests/enforcement/#L1", "test_missing"),
+    ("../tests/enforcement/", "test_missing"),
 ])
 def test_broken_or_misdirected_guide_links_are_rejected(url, symbol):
     with pytest.raises(AssertionError):
         _check_local_link(ROOT / "docs/process-lifecycle.md", url, symbol)
+
+
+def test_enforcement_directory_link_resolves():
+    _check_local_link(ROOT / "docs/filesystem-lifecycle.md", "../tests/enforcement/", None)
 
 
 def test_test_definition_lookup_handles_class_methods_but_not_nested_helpers():

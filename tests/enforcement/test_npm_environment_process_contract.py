@@ -12,7 +12,7 @@ from docker.process import OwnedProcess
 from docker.npm_environment import execution, lifecycle, streaming
 from docker.npm_environment.execution import DockerRunExecutor
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 EXECUTION = ROOT / "docker/npm_environment/execution.py"
 LIFECYCLE = ROOT / "docker/npm_environment/lifecycle.py"
 

@@ -29,7 +29,7 @@ import textwrap
 import unittest
 from pathlib import Path
 
-_REPO = Path(__file__).resolve().parents[1]
+_REPO = Path(__file__).resolve().parents[2]
 _NPM = _REPO / "docker" / "npm_environment"
 
 #: module path -> migrated function that must own its descriptor.
@@ -734,15 +734,28 @@ def _synchronized_release_proof(
     so a concurrent/repeated caller issues no second close.  This is the
     bounded stream-owner internal release, not a consumer close.
     """
-    source = ast.unparse(function)
-    return (
-        "self._lock" in source
-        and "self._state" in source
-        and any(
-            isinstance(node, ast.Attribute) and node.attr == "_state"
-            for node in ast.walk(function)
-        )
-    )
+    if not (isinstance(close_node.func, ast.Attribute)
+            and isinstance(close_node.func.value, ast.Name)):
+        return False
+    receiver = close_node.func.value.id
+    for claim in function.body:
+        if not isinstance(claim, ast.With) or not any(
+            ast.unparse(item.context_expr) == "self._lock" for item in claim.items
+        ):
+            continue
+        # The repeated-release guard, terminal transition and captured stream
+        # must be consecutive operations in the same synchronized claim. The
+        # actual close must follow that claim, outside its lock.
+        statements = [ast.unparse(node) for node in claim.body]
+        if statements != ["if self._state is not _LIVE:\n    return",
+                          "self._state = _RELEASED",
+                          f"{receiver} = self._stream"]:
+            continue
+        if (close_node.lineno > claim.end_lineno
+                and any(isinstance(node, ast.Expr) and node.value is close_node
+                        for node in function.body)):
+            return True
+    return False
 
 
 def _shared_owner_release_proof(

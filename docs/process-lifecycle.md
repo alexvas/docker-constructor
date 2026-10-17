@@ -6,7 +6,7 @@ readers, deadlines and bounded cleanup. Consumers import explicit modules;
 filesystem ownership never imports process or domain policy.
 
 The examples below execute against the supported API through
-`tests/test_process_contract.py`. They use Python subprocesses and require no
+`tests/enforcement/`. They use Python subprocesses and require no
 Docker installation.
 
 ## Capture a command

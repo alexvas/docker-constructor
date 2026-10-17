@@ -4,10 +4,8 @@ This guide is the developer contract for acquiring, transferring, and
 releasing operating-system descriptors in `docker/`. It exists so a new
 descriptor-owning code path selects an existing lifecycle wrapper instead of
 inventing another close/retry state machine. The rules are enforced by the
-production-tree convergence gates in
-`tests/test_descriptor_close_convergence.py`,
-`tests/test_filesystem_convergence.py`, and
-`tests/test_filesystem_lifecycle_docs.py`.
+production-tree convergence and executable-documentation checks in
+[tests/enforcement/](../tests/enforcement/).
 
 The foundation lives in `docker/filesystem/`. Import the explicit submodule
 you use (`docker.filesystem.descriptors`,
@@ -27,9 +25,11 @@ Before writing a descriptor-owning branch, answer every question below.
      `tempfile.mkstemp`, or a factory returning an fd) → adopt it
      **immediately** into `OwnedDescriptor` with constructor inputs prepared
      before the acquisition.
-   - An already fd-owning stream (`subprocess.Popen(..., PIPE)` stdout/stderr,
-     an opened file object) → adopt it into `OwnedStream`. Do **not** also
-     adopt its `fileno()`.
+   - Subprocess coordination → use `docker.process.OwnedProcess.launch`.
+     It prepares one internal `OwnedStream` per captured pipe before launch;
+     never compose unprotected launch/adoption/readers in a consumer.
+   - Another already fd-owning stream (an opened file object) → adopt it into
+     `OwnedStream`. Do **not** also adopt its `fileno()`.
    - A directory capability → use `DirectoryDescriptor.open_secure_path` /
      `.adopt` / the child methods, which validate owner, type, and no-follow
      before any mutation.
@@ -109,12 +109,28 @@ setup, collection and cleanup. Consumers must not adopt the pipes again.
 - Missing streams and descriptor-less injected test streams follow the same
   owner lifecycle; a descriptor-less double is not evidence that production
   fd reuse is safe.
+- Select a configured `StopPolicy` at launch; do not subclass the owner to
+  replace shutdown. Stage execution and configured child waiting share one
+  total shutdown budget with a reserved local-cleanup allowance. No stage,
+  helper or repeated caller gets fresh grace or independent wait/reap authority.
+- Incomplete cleanup retains the same local/action owners and prepared
+  continuation. Use `cleanup_status` / `wait_cleanup(timeout)` for bounded
+  observation, not recapture, re-adoption, retries or new budgets.
+- Managed action `done` and `cleanup_complete` are separate observations:
+  local child exit proves neither external-work success nor settled helper
+  resources. Their typed failures join the single lifecycle result; there is
+  no second public action-status API. Only the coordinator signals/waits/reaps
+  its child and confirms reader-stop/release barriers.
+
+The [process guide](process-lifecycle.md) explains policies, results and
+observations; the [assembler guide](npm-environment-assembler.md) keeps Docker
+removal, redaction and staging policy at the domain boundary.
 
 ## Executable examples
 
 These three examples cover the ownership choice: raw descriptor, existing
 stream, or directory capability. They execute against the supported API through
-`tests/test_filesystem_lifecycle_docs.py`.
+`tests/enforcement/test_filesystem_lifecycle_docs.py`.
 
 ### Write through a Python wrapper without transferring the fd
 
@@ -223,11 +239,31 @@ to make the prohibition concrete.
   release authorities. Adopt the stream itself into `OwnedStream`.
 - **Repeated owner reconstruction.** Calling
   `OwnedStream(proc.stdout, label="stdout").close()` from each cleanup hook
-  resets the terminal claim and can close twice. Create one owner after launch
-  and reuse it.
+  resets the terminal claim and can close twice. Use the process owner's
+  preallocated pipe owners throughout cleanup.
 - **Borrowed release.** `owner.stream.close()` (or closing a stream borrowed
   from an owner) bypasses the owner's synchronized terminal claim. Only the
   owner may release.
+
+The integrated gate also rejects these process-coordination mistakes:
+
+- **Unprotected launch.** Caller-composed Popen/adoption leaves a setup gap;
+  acquire through `OwnedProcess.launch` instead.
+- **Rejected-adoption close.** Catching adoption rejection and closing the
+  candidate steals caller ownership; rejection must leave it untouched.
+- **Close beneath a live reader.** A timed join or child exit is not a reader
+  barrier and cannot authorize descriptor release.
+- **Whole-shutdown override.** Configure narrow stages, not another local
+  coordinator or raw-child control path.
+- **Fresh grace per stage.** Action work and child waiting consume their cap
+  inside the original total deadline, including the local reserve.
+- **Local exit as external completion.** Retain pending action/helper resources;
+  local child exit says nothing about external work or helper cleanup.
+
+[Executable rejected examples](../tests/enforcement/test_process_guidance.py#L41 "test_forbidden_process_examples_are_rejected")
+exercise all eight forbidden process patterns against the complete-tree gate
+in `tests/enforcement/`. They analyze unsafe source
+as data, without executing unsafe acquisitions or releases.
 
 ## Failure precedence summary
 

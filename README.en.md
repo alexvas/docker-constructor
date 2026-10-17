@@ -221,6 +221,8 @@ Ordinary builds, validation, launch, and extension setup never perform update di
 
 Before adding code that owns a descriptor or stream, read the contract and executable examples in [docs/filesystem-lifecycle.md](docs/filesystem-lifecycle.md). Every new ownership path must name one shared `docker.filesystem` owner and add lifecycle tests; the mandatory rule is also recorded in the root [AGENTS.md](AGENTS.md).
 
+For subprocess coordination, use `OwnedProcess` and the launch-configured policies in [docs/process-lifecycle.md](docs/process-lifecycle.md), rather than independent pipe or wait/reap cleanup. The guide distinguishes bounded shutdown from incomplete cleanup and local child exit from managed-action settlement.
+
 ### Validate Dockerfile changes
 
 Run the dependency-free static contracts and the containerized linter independently:

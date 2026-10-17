@@ -12,11 +12,11 @@ import textwrap
 import pytest
 
 from docker.process import CleanupIncomplete, LifecycleResult, OwnedProcess, ProcessResult
-from tests.test_descriptor_close_convergence import (
+from tests.enforcement.test_descriptor_close_convergence import (
     _close_violations_with_owners, _inline_ledger, _module_aliases,
 )
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def methods(source):
@@ -25,13 +25,30 @@ def methods(source):
     return {n.name: n for n in cls.body if isinstance(n, ast.FunctionDef)}
 
 
+def _body_matches(method, expected):
+    """Compare executed statement structure, ignoring formatting and locations."""
+    actual = ast.Module(body=method.body, type_ignores=[])
+    return ast.dump(actual, include_attributes=False) == ast.dump(
+        ast.parse(textwrap.dedent(expected)), include_attributes=False)
+
+
+def _complete_predicate_matches(method):
+    return _body_matches(method, """\
+        return self._reaped and all(self._safe(i) for i in range(2)) and all(
+            not self._acquired[i] or self._owners[i].released for i in range(2)) and all(
+            not prepared or (result.done and result.cleanup_complete)
+            for prepared, result in zip(self._action_prepared, self._action_results))
+    """)
+
+
 def process_proof(source, foundation):
     """Prove actual transfer/release structure, not a class-name exemption.
 
     The bounded generic implementation uses one fixed escrow pair, one actual
     foundation state machine, and one explicit reader-stop predicate. Renamed
     fake owners/imports cannot satisfy the required dataflow/statement shapes.
-    Integrated adapter/origin proofs remain the later 6B-D obligation.
+    Integrated adapter/origin proofs compose this gate in
+    tests/enforcement/process_convergence.py; no spelling grants release authority.
     """
     errors = []
     fs = ast.parse(foundation)
@@ -64,19 +81,28 @@ def process_proof(source, foundation):
     calls = [n for n in ast.walk(launch) if isinstance(n, ast.Call)]
     if sum(isinstance(n.func, ast.Name) and n.func.id == "factory" for n in calls) != 1:
         errors.append("acquisition bypass/retry")
-    safe = ast.unparse(m["_safe"])
-    if "self._stopped[index].is_set()" not in safe or "not self._started[index]" not in safe:
+    # Prove the actual sole return, including polarity, operator and index.
+    # Tokens in an inverted predicate or an unreachable decoy grant no authority.
+    if not _body_matches(m["_safe"],
+                         "return not self._started[index] or self._stopped[index].is_set()"):
         errors.append("no tracked reader-stop authority")
-    release = ast.unparse(m["_release_safe"])
     owner_assignments = [ast.unparse(n.value) for n in ast.walk(m["_release_safe"]) if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "owner" for t in n.targets)]
     if owner_assignments != ["self._owners[index]"]:
         errors.append("slot owner overwritten or reconstructed")
-    if "owner = self._owners[index]" not in release or "self._safe(index) or self._descriptorless[index] or (not callable(getattr(owner.stream, 'fileno', None)))" not in release:
+    # Bind the actual close to its positive barrier, acquired/live owner guard,
+    # captured slot/index and protected action. A decoy condition is not proof.
+    if not _body_matches(m["_release_safe"], """\
+        for index in range(2):
+            owner = self._owners[index]
+            if self._acquired[index] and not owner.released:
+                def release(index: int = index, owner: OwnedStream = owner) -> None:
+                    if self._safe(index) or self._descriptorless[index] or not callable(getattr(owner.stream, "fileno", None)):
+                        owner.close()
+                self._action(release, ordinary=(OSError,), phase=FailurePhase.RELEASE, stream=tuple(ProcessStream)[index])
+    """):
         errors.append("release lacks prepared-owner/reader barrier")
-    complete = ast.unparse(m["_complete"])
-    for token in ("self._reaped", "self._safe(i)", "self._owners[i].released"):
-        if token not in complete:
-            errors.append("false completed cleanup")
+    if not _complete_predicate_matches(m["_complete"]):
+        errors.append("false completed cleanup")
     continuation = ast.unparse(m["_continue_cleanup"])
     for token in ("self._reap(end)", "self._release_safe()", "self._publish(self._complete())", "while not self._finished.is_set()"):
         if token not in continuation:
@@ -100,6 +126,62 @@ def process_proof(source, foundation):
     return errors
 
 
+def _request_deadline_matches(method):
+    block = method.body[0]
+    if not isinstance(block, ast.With) or len(block.items) != 1 or ast.unparse(block.items[0].context_expr) != "self._lock":
+        return False
+    if not _body_matches(block, """\
+        previously_delivered = self._delivered
+        if primary is not None:
+            self._ledger.primary(primary)
+        if not self._requested:
+            self._requested = True
+            self._reason = reason
+            self._cleanup_end = time.monotonic() + self._grace
+            self._shutdown_end = self._cleanup_end + .05
+            self._stop.set()
+            if self._policy is None or not self._policy.drain:
+                self._cancel_readers_locked()
+            self._request.set()
+    """):
+        return False
+    # There must be no second deadline write or request reset anywhere in the
+    # method, including after the guarded block or in a nested helper.
+    managed = {"self._requested", "self._cleanup_end", "self._shutdown_end"}
+    writes = {node for node in ast.walk(method) if isinstance(node, ast.Attribute)
+              and isinstance(node.ctx, ast.Store) and ast.unparse(node) in managed}
+    guarded = {node for node in ast.walk(block.body[-1]) if isinstance(node, ast.Attribute)
+               and isinstance(node.ctx, ast.Store) and ast.unparse(node) in managed}
+    return len(writes) == 3 and writes == guarded
+
+
+def _policy_wait_matches(method):
+    stages = [node for node in method.body if isinstance(node, ast.For)]
+    if len(stages) != 1:
+        return False
+    waits = [node for node in stages[0].body if isinstance(node, ast.While)]
+    if len(waits) != 1 or waits[0].orelse or ast.unparse(waits[0].test) != "time.monotonic() < stage_end":
+        return False
+    # Only a done observation without configured child waiting may bypass the
+    # protected child observation; a decoy positive condition is insufficient.
+    return _body_matches(waits[0], """\
+        observation = self._observe_action(index) if stage.action else ActionResult(True, True)
+        if observation.failures:
+            break
+        if observation.done:
+            if not stage.wait_child:
+                break
+            child_done: bool | None = None
+            def observe_child() -> None:
+                nonlocal child_done
+                child_done = self._poll_child() is not None
+            self._action(observe_child, ordinary=(OSError,), phase=FailurePhase.WAIT)
+            if child_done is None or child_done:
+                break
+        _policy_pause(min(.005, max(0, stage_end - time.monotonic())))
+    """)
+
+
 def policy_proof(source):
     """Bind the extension's actual coordination/dataflow and reject mutations."""
     errors = []
@@ -110,6 +192,10 @@ def policy_proof(source):
         "self._continuation.start()", "stage.action.prepare()", "self._proc = factory(")]
     if -1 in ordering or ordering != sorted(ordering):
         errors.append("policy validation/readiness follows acquisition")
+    if not _request_deadline_matches(m["_shutdown"]):
+        errors.append("one-time request/deadline guard")
+    if not _policy_wait_matches(m["_run_policy"]):
+        errors.append("configured child-wait control flow")
     shutdown = ast.unparse(m["_shutdown"])
     for token in ("if not self._requested:", "self._cleanup_end = time.monotonic() + self._grace",
                   "self._stop.set()", "not self._policy.drain",
@@ -152,8 +238,7 @@ def policy_proof(source):
     cancel = ast.unparse(m["_cancel_action"])
     if cancel.find("self._action_cancelled[index] = True") > cancel.find("action.cancel(end)") or "not self._action_cancelled[index]" not in cancel:
         errors.append("action cleanup is retryable")
-    complete = ast.unparse(m["_complete"])
-    if "result.done and result.cleanup_complete" not in complete:
+    if not _complete_predicate_matches(m["_complete"]):
         errors.append("pending action resources falsely complete")
     continuation = ast.unparse(m["_continue_cleanup"])
     if "self._observe_actions()" not in continuation or continuation.find("self._run_policy(end)") > continuation.find("self._cancel_readers_locked()"):
@@ -197,6 +282,28 @@ def policy_proof(source):
             if not ((receiver == "self._proc" and node.lineno in control_locations) or (node.attr == "wait" and receiver in events)):
                 errors.append("independent raw-child control")
     return errors
+
+
+@pytest.mark.parametrize("old,new,error", [
+    ("if not stage.wait_child:", "if stage.wait_child:", "configured child-wait control flow"),
+    ("if not stage.wait_child:\n                        break",
+     "if not stage.wait_child:\n                        pass\n                    break", "configured child-wait control flow"),
+    ("                self._request.set()\n        if threading.current_thread()",
+     "                self._request.set()\n        self._cleanup_end = time.monotonic() + self._grace\n        if threading.current_thread()",
+     "one-time request/deadline guard"),
+    ("                self._request.set()\n        if threading.current_thread()",
+     "                self._request.set()\n        self._shutdown_end = time.monotonic() + self._grace\n        if threading.current_thread()",
+     "one-time request/deadline guard"),
+    ("                self._requested = True", "                self._requested = False",
+     "one-time request/deadline guard"),
+    ("                self._request.set()\n        if threading.current_thread()",
+     "                self._request.set()\n        self._requested = False\n        if threading.current_thread()",
+     "one-time request/deadline guard"),
+])
+def test_policy_wait_and_one_time_deadline_ast_semantics(old, new, error):
+    source = (ROOT / "docker/process.py").read_text()
+    assert source.count(old) == 1
+    assert error in policy_proof(source.replace(old, new))
 
 
 @pytest.mark.parametrize("old,new", [
@@ -257,6 +364,55 @@ def test_new_module_evasions_fail_proof(old, new):
     source = (ROOT / "docker/process.py").read_text()
     assert old in source
     assert process_proof(source.replace(old, new), (ROOT / "docker/filesystem/streams.py").read_text())
+
+
+@pytest.mark.parametrize("replacement", [
+    "return not self._started[index] or not self._stopped[index].is_set()",
+    "return not self._started[index] and self._stopped[index].is_set()",
+    "return not self._started[index] or self._stopped[0].is_set()",
+    "return True\n        return not self._started[index] or self._stopped[index].is_set()",
+    "not self._started[index] or self._stopped[index].is_set()\n        return True",
+])
+def test_reader_barrier_predicate_ast_semantics(replacement):
+    source = (ROOT / "docker/process.py").read_text()
+    original = "return not self._started[index] or self._stopped[index].is_set()"
+    assert source.count(original) == 1
+    errors = process_proof(source.replace(original, replacement),
+                           (ROOT / "docker/filesystem/streams.py").read_text())
+    assert "no tracked reader-stop authority" in errors
+
+
+@pytest.mark.parametrize("old,new,error", [
+    ('if self._safe(index) or self._descriptorless[index] or not callable(getattr(owner.stream, "fileno", None)):',
+     'if not (self._safe(index) or self._descriptorless[index] or not callable(getattr(owner.stream, "fileno", None))):',
+     "release lacks prepared-owner/reader barrier"),
+    ('if self._safe(index) or self._descriptorless[index] or not callable(getattr(owner.stream, "fileno", None)):\n                        owner.close()',
+     'if self._safe(index) or self._descriptorless[index] or not callable(getattr(owner.stream, "fileno", None)):\n                        pass\n                    owner.close()',
+     "release lacks prepared-owner/reader barrier"),
+    ('if self._safe(index) or self._descriptorless[index] or not callable(getattr(owner.stream, "fileno", None)):\n                        owner.close()',
+     'if self._safe(index) or self._descriptorless[index] or not callable(getattr(owner.stream, "fileno", None)):\n                        pass\n                    else:\n                        owner.close()',
+     "release lacks prepared-owner/reader barrier"),
+    ("if self._acquired[index] and not owner.released:",
+     "if self._acquired[index] or not owner.released:", "release lacks prepared-owner/reader barrier"),
+    ("return self._reaped and all(self._safe(i)",
+     "return self._reaped or all(self._safe(i)", "false completed cleanup"),
+    ("return self._reaped and all(self._safe(i) for i in range(2)) and all(",
+     "return self._reaped and all(self._safe(i) for i in range(2)) or all(", "false completed cleanup"),
+    ("not self._acquired[i] or self._owners[i].released for i in range(2)) and all(",
+     "not self._acquired[i] or self._owners[i].released for i in range(2)) or all(", "false completed cleanup"),
+    ("not prepared or (result.done and result.cleanup_complete)",
+     "not prepared or (result.done or result.cleanup_complete)", "false completed cleanup"),
+    ("not self._acquired[i] or self._owners[i].released for i in range(2)",
+     "not self._acquired[i] or self._owners[i].released for i in range(0)", "false completed cleanup"),
+    ("return self._reaped and all(self._safe(i)",
+     "return True\n        return self._reaped and all(self._safe(i)", "false completed cleanup"),
+])
+def test_release_and_completion_ast_semantics(old, new, error):
+    source = (ROOT / "docker/process.py").read_text()
+    assert source.count(old) == 1
+    errors = process_proof(source.replace(old, new),
+                           (ROOT / "docker/filesystem/streams.py").read_text())
+    assert error in errors, errors
 
 
 def test_binding_replacement_constructor_is_rejected():

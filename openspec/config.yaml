@@ -6,13 +6,25 @@ context: |
   Descriptor and stream lifecycle: any new code that acquires an operating-system
   descriptor or an already fd-owning stream must select a docker.filesystem
   wrapper (OwnedDescriptor, DirectoryDescriptor, or OwnedStream), adopt the
-  resource immediately, release it through that single shared owner, and add
+  resource immediately, release it through that single shared owner, and use
+  os.fdopen(owner.fd, ..., closefd=False) for raw-fd file wrappers. Add
   operation-plus-close, sole-close, interruption, repeat-cleanup, and
   independent-cleanup tests (plus handoff/concurrency where applicable). Never
   retry a close, never give one fd two owners, and never rely on garbage
   collection or on a borrowed stream for release. Import explicit
   docker.filesystem submodules, never the aggregate package. See
   docs/filesystem-lifecycle.md and the root AGENTS.md.
+
+  Subprocess coordination must use docker.process.OwnedProcess.launch, with
+  one internal OwnedStream per captured pipe. Select StopPolicy at launch;
+  never replace shutdown or independently signal, wait/reap or close borrowed
+  child resources. Stage execution and child waiting share one total shutdown
+  budget and local-cleanup reserve. Incomplete cleanup retains the same owners
+  for cleanup_status/wait_cleanup observation, without retries or new budgets.
+  Managed action done and cleanup_complete are separate observations; local
+  child exit proves neither external-work success nor settled helper resources.
+  Keep process/domain policy outside filesystem. See docs/process-lifecycle.md.
+  Enforcement checks live in tests/enforcement/.
 
 # Per-artifact rules (optional)
 rules:
@@ -22,3 +34,7 @@ rules:
     - Require lifecycle tests (operation-plus-close, sole-close, interruption,
       repeat cleanup, independent cleanup, and handoff/concurrency where
       applicable) for each new ownership path.
+    - Select OwnedProcess for subprocess coordination and launch-configured
+      StopPolicy stages inside one shared shutdown budget; retain incomplete
+      local/action cleanup observations without independent wait/reap authority.
+      Follow docs/process-lifecycle.md.
