@@ -78,6 +78,7 @@ def build_transports(
     TransportConfig
         Ready-to-use transports and auth tokens.
     """
+    from docker.filesystem.streams import OwnedStream
     from .providers.base import HttpTransport, GitRefTransport
 
     class _ProductionHttp(HttpTransport):
@@ -96,13 +97,14 @@ def build_transports(
                         "body": body,
                     })()
             except urllib.error.HTTPError as e:
-                body = e.read() if hasattr(e, "read") else b""
-                return type("HttpResponse", (), {
-                    "status": e.code,
-                    "headers": dict(e.headers)
-                    if hasattr(e, "headers") else {},
-                    "body": body,
-                })()
+                with OwnedStream(e, label="metadata HTTP error response"):
+                    body = e.read() if hasattr(e, "read") else b""
+                    return type("HttpResponse", (), {
+                        "status": e.code,
+                        "headers": dict(e.headers)
+                        if hasattr(e, "headers") else {},
+                        "body": body,
+                    })()
             except OSError as e:
                 return type("HttpResponse", (), {
                     "status": 503,

@@ -13,12 +13,14 @@ import base64
 import dataclasses
 import os
 import stat as stat_module
+import urllib.error
 import urllib.request
 from typing import IO, Iterator, Protocol, cast
 
 from docker.versioning.digest_identity import DigestIdentity, DigestIdentityError
 from docker.filesystem.descriptors import OwnedDescriptor
 from docker.filesystem.operations import DescriptorOps, PosixDescriptorOps
+from docker.filesystem.streams import OwnedStream
 from docker.transactions.capabilities import CapabilityError, DirectoryCapability
 from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
@@ -686,13 +688,28 @@ def _materialize_one(
         h = hashlib.new(algorithm)
         filesystem.create_temp(tmp_blob)
         try:
-            for chunk in transport.fetch_chunks(artifact.url):
-                if not isinstance(chunk, bytes):
-                    raise TypeError(
-                        f"transport yielded {type(chunk).__name__}, not bytes"
-                    )
-                h.update(chunk)
-                filesystem.append_temp(tmp_blob, chunk)
+            chunks = transport.fetch_chunks(artifact.url)
+            # A for-loop does not finalize a retained generator on body failure.
+            close = getattr(chunks, "close", None)
+            primary: BaseException | None = None
+            try:
+                for chunk in chunks:
+                    if not isinstance(chunk, bytes):
+                        raise TypeError(
+                            f"transport yielded {type(chunk).__name__}, not bytes"
+                        )
+                    h.update(chunk)
+                    filesystem.append_temp(tmp_blob, chunk)
+            except BaseException as exc:
+                primary = exc
+                raise
+            finally:
+                if callable(close):
+                    failures = CleanupFailures(primary)
+                    failures.run(close, ordinary=(OSError,))
+                    result = failures.complete()
+                    if result is not None:
+                        raise result
         except ArtifactMaterializationError:
             raise
         except Exception as exc:
@@ -854,12 +871,16 @@ class HttpStreamingTransport:
 
     def fetch_chunks(self, url: str) -> Iterator[bytes]:
         request = urllib.request.Request(url, headers={"User-Agent": "pi-cli/1"})
-        with urllib.request.urlopen(request, timeout=self._timeout) as response:
-            while True:
-                chunk = response.read(self._chunk_size)
-                if not chunk:
-                    return
-                yield chunk
+        try:
+            with urllib.request.urlopen(request, timeout=self._timeout) as response:
+                while True:
+                    chunk = response.read(self._chunk_size)
+                    if not chunk:
+                        return
+                    yield chunk
+        except urllib.error.HTTPError as error:
+            with OwnedStream(error, label="artifact HTTP error response"):
+                raise
 
 
 def _ensure_dir_private(path: str) -> None:

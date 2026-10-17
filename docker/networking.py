@@ -27,6 +27,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Optional
 
+from docker.filesystem.cleanup import CleanupFailures
+from docker.filesystem.streams import OwnedStream
+
 # ---------------------------------------------------------------------------
 # Default filesystem locations
 # ---------------------------------------------------------------------------
@@ -313,6 +316,17 @@ class ProcessRunner:
 # ---------------------------------------------------------------------------
 
 
+class _ProbeListener:
+    """Translate server_close for the sole filesystem stream owner."""
+
+    def __init__(self) -> None:
+        self.server: Optional[http.server.ThreadingHTTPServer] = None
+
+    def close(self) -> None:
+        if self.server is not None:
+            self.server.server_close()
+
+
 class HostProbeServer:
     """Ephemeral HTTP server on ``0.0.0.0:RAND`` returning a fixed token.
 
@@ -327,8 +341,12 @@ class HostProbeServer:
         self.port = 0
         self._httpd: Optional[http.server.ThreadingHTTPServer] = None
         self._thread: Optional[threading.Thread] = None
+        self._thread_started = False
+        self._listener_owner: Optional[OwnedStream] = None
 
     def start(self) -> int:
+        if self._listener_owner is not None:
+            raise RuntimeError("host probe server is already started")
         token = self.token
 
         class _Handler(http.server.BaseHTTPRequestHandler):
@@ -341,20 +359,42 @@ class HostProbeServer:
             def log_message(self, format: str, *args: object) -> None:
                 pass  # suppress access-log noise
 
-        self._httpd = http.server.ThreadingHTTPServer(("0.0.0.0", 0), _Handler)
-        self.port = int(self._httpd.server_address[1])
-        self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
-        self._thread.start()
-        return self.port
+        listener = _ProbeListener()
+        self._listener_owner = OwnedStream(listener, label="host probe listener")
+        try:
+            listener.server = http.server.ThreadingHTTPServer(("0.0.0.0", 0), _Handler)
+            self._httpd = listener.server
+            self.port = int(self._httpd.server_address[1])
+            self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
+            self._thread.start()
+            self._thread_started = True
+            return self.port
+        except BaseException as primary:
+            failures = CleanupFailures(primary)
+            failures.run(self.stop, ordinary=(OSError,))
+            result = failures.complete()
+            if result is not None:
+                raise result
+            raise
 
     def stop(self) -> None:
-        if self._httpd is not None:
-            self._httpd.shutdown()
-            self._httpd.server_close()
-            self._httpd = None
-        if self._thread is not None:
-            self._thread.join(timeout=5)
-            self._thread = None
+        server, thread, started = self._httpd, self._thread, self._thread_started
+        owner = self._listener_owner
+        # Detach before any fallible action: repeated cleanup cannot retry close.
+        self._httpd = None
+        self._thread = None
+        self._thread_started = False
+        self._listener_owner = None
+        failures = CleanupFailures(None)
+        if server is not None and started:
+            failures.run(server.shutdown, ordinary=(OSError,))
+        if owner is not None:
+            failures.run(owner.close, ordinary=(OSError,))
+        if thread is not None and started:
+            failures.run(lambda: thread.join(timeout=5), ordinary=())
+        result = failures.complete()
+        if result is not None:
+            raise result
 
 
 # ---------------------------------------------------------------------------

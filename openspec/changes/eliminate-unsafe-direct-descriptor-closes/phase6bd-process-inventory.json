@@ -131,6 +131,14 @@
       "docker.versioning.rendering"
     ],
     [
+      "docker.networking",
+      "docker.filesystem.cleanup"
+    ],
+    [
+      "docker.networking",
+      "docker.filesystem.streams"
+    ],
+    [
       "docker.npm_environment",
       "docker.npm_environment.assembler"
     ],
@@ -677,6 +685,10 @@
     [
       "docker.versioning.artifact_cache",
       "docker.filesystem.operations"
+    ],
+    [
+      "docker.versioning.artifact_cache",
+      "docker.filesystem.streams"
     ],
     [
       "docker.versioning.artifact_cache",
@@ -1640,6 +1652,10 @@
     ],
     [
       "docker.versioning.transports",
+      "docker.filesystem.streams"
+    ],
+    [
+      "docker.versioning.transports",
       "docker.versioning.cache"
     ],
     [
@@ -1847,7 +1863,7 @@
     },
     {
       "kind": "stdlib-run",
-      "line": 300,
+      "line": 303,
       "owner": "subprocess.run context; no escaping pipe authority",
       "path": "docker/networking.py",
       "scope": "ProcessRunner.run"
@@ -1969,7 +1985,7 @@
     },
     {
       "kind": "stdlib-run",
-      "line": 117,
+      "line": 119,
       "owner": "subprocess.run context; no escaping pipe authority",
       "path": "docker/versioning/transports.py",
       "scope": "build_transports._ProductionGit.resolve_ref"
@@ -2123,7 +2139,7 @@
     "docker/filesystem/operations.py": "1ad8a5673198b6a3ec919205529ebcb648c88a5769ea7a383bd789056ed9f0f8",
     "docker/filesystem/streams.py": "ec5f49b9aed5f959328e571a4ee0dedd4b249d8cea618ebd9ba91488341eb6ca",
     "docker/launcher.py": "080351a5a2fd4b26f381766a6aa618e93bdd2bb75dddc025236190c8a80fa9d3",
-    "docker/networking.py": "daeb1aba8c29a4edd6c38910aeeba35ec9b030fdfc2bc9f4168a8cab4e7b9f0c",
+    "docker/networking.py": "07f9e2472f12364febec90e1d1a11328069b36d95df73d120dd33abe625684ba",
     "docker/npm_environment/__init__.py": "f95953473f44f70f8e01f94d74bcfe5343ca16a2dd5b28ed9900f2dfe797c6a6",
     "docker/npm_environment/assembler.py": "bd0d0e8149f1acc234e54eb31f7d6ae3a5d6b0857927425ec6a546146ad7ee76",
     "docker/npm_environment/errors.py": "174cecea22bd79196feb7b71fbb2fb8ce75694c0f29c77aaec899ee89f39a1f0",
@@ -2159,7 +2175,7 @@
     "docker/versioning/__init__.py": "f059cd853c84f6ae0f1b8bbb034c47c65e4b1dbb1ab48bdcec8dc020bd6d11d6",
     "docker/versioning/activity_monitor.py": "2a377f63a0e2f060fab8cc31df71167b6fe3eb4edeb359a9197ed48e01a01488",
     "docker/versioning/aho_corasick.py": "9f210023ffd2c4e757607d2f52655cfd84a8390ca76f57cd4d4c31ad2df47306",
-    "docker/versioning/artifact_cache.py": "92a5bb48b425c56253c5c76996febd19dea15059ef43eae0b73255b67b2fcaaa",
+    "docker/versioning/artifact_cache.py": "9a34cdf280944ec1cdcc804b6959bff33a93206b2e19d54c6a241e607eb67cae",
     "docker/versioning/assembly_activity.py": "a95e879ef32480a3f6993ba111f2ced9cba7d4b05ac9a0047a46a8e4b590848a",
     "docker/versioning/build_cache.py": "8e6a5556a03cbdc647d3acd4d4217048c61aa989fb934bfb99b94b89ab499c9e",
     "docker/versioning/build_cleanup.py": "cc53d31419e8ab6a04d905c761c354dd17077e780687fddf1e0c5e8673f3c385",
@@ -2216,7 +2232,7 @@
     "docker/versioning/rendering.py": "6fa1f74cfe515653628a10072a3c31c5420ec6237808b639e5a50fda6501d415",
     "docker/versioning/runtime_verification.py": "cdeaec8692b63052d014d4c260a8e2e481139e0d79a4cf1195a084c6ddbd5f92",
     "docker/versioning/semver.py": "f8ef6495223226315022248c93765acba10e52cd3d63705a9e5a492afe6e25c8",
-    "docker/versioning/transports.py": "2ad392cb2c08676120fb52cd324775cde068cf25224ba70bfa6c3dacef309ceb",
+    "docker/versioning/transports.py": "2364cc42735f33f33bb73d48990df20baacd9831cf037a79727ad88901d28105",
     "docker/versioning/updates.py": "20cb0af2702e7c17827e31d410a28a4f1aff0a5d5851ac79e2ceba63296c5892",
     "docker/versioning/verification.py": "a91f7b10e338ef27f576ec000d74c9f8cfeff00589eff48d8e7dae8abf84f833",
     "docker/versions.py": "b98c0781da972289e02cfa02cdf4b3e262b14e16e58d58c1cd83fb5f1974e26c"
