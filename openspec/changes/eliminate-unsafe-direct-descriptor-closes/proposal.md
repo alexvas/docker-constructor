@@ -4,9 +4,15 @@ Several descriptor-owning paths still use bare `finally: os.close(fd)`, multi-de
 
 The generic process owner now exists; this change also establishes its domain-neutral launch-configured stop-policy API so later execution wrappers can request staged stopping without overriding resource coordination.
 
+## Approved Phase 7 Delivery Boundary
+
+The user delegated native local-file factory stream ownership, including the five identified readers and replacement of the staged `_FileRelease` proxy, to [own-local-file-stream-lifecycles](../own-local-file-stream-lifecycles/proposal.md). This is independent of the earlier [HTTP/probe lifecycle delegation](../own-http-response-and-probe-server-lifecycles/proposal.md). Neither delegated family's resolution is a prerequisite for this change's Phase 7 acceptance.
+
+Phase 7 still scans the complete production tree, reports delegated origins separately and proves all remaining in-scope raw-fd/directory/`mkstemp`/`fdopen`/subprocess lifecycles. No whole module or runtime ownership rule is exempted. Delegation does not classify the staged proxy as a valid owner, approve a new stream API here, or complete tasks 7.1–7.10; their current convergence, ledger and `verification.md` obligations remain. The lifecycle guarantees below remain required, with delivery for the explicitly delegated families owned by their separate changes.
+
 ## What Changes
 
-- Inventory every direct and implicit descriptor lifecycle across the production tree—including `os.fdopen(..., closefd=True)` adoption and raw descriptors returned by `tempfile.mkstemp()`—migrate every consumer-owned release to an owned lifecycle or protected cleanup, and bind every retained direct close to exactly one permitted classification: low-level POSIX primitive, shared-owner internal release, or verified ownership handoff.
+- Inventory every direct and implicit descriptor lifecycle across the production tree—including `os.fdopen(..., closefd=True)` adoption and raw descriptors returned by `tempfile.mkstemp()`—migrate every in-scope consumer-owned release to an owned lifecycle or protected cleanup, recording explicitly delegated families separately, and bind every retained direct close to exactly one permitted classification: low-level POSIX primitive, shared-owner internal release, or verified ownership handoff.
 - Replace single-descriptor consumer lifecycles in npm lockfile writing/tree hashing, runtime artifact verification, private build-context writing, snapshot destination copy, artifact-cache temporary creation, and validated project state with `OwnedDescriptor`; active-primary cleanup additionally uses shared cleanup precedence while success-path release remains terminal and at-most-once through the owner.
 - Package `docker/filesystem/` into `/usr/local/lib/pi-cli/docker/filesystem/` in the image so the migrated runtime installer can resolve its lightweight lifecycle imports without relying on the source repository.
 - Refactor build-cache multi-descriptor release so every descriptor has an `OwnedDescriptor` lifecycle and one aggregate `CleanupFailures` attempts every independent release even when another close fails.

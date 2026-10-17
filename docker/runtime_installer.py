@@ -25,6 +25,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
+from docker._owned_file import owned_file
 from docker.filesystem.descriptors import OwnedDescriptor
 from docker.filesystem.operations import PosixDescriptorOps
 
@@ -681,7 +682,7 @@ class InstallContext:
                 pkg_dir = os.path.join(npm_root, package)
                 meta_path = os.path.join(pkg_dir, metadata_file)
                 try:
-                    with open(meta_path, "rb") as fh:
+                    with owned_file(lambda: open(meta_path, "rb"), label="installed package metadata") as fh:
                         raw = json.loads(fh.read())
                 except FileNotFoundError:
                     raise MetadataNotFoundError(
@@ -859,7 +860,7 @@ def read_projection(path: str) -> list[ProjectionEntry]:
 
     raw: dict[str, object]
     try:
-        with open(path, "rb") as fh:
+        with owned_file(lambda: open(path, "rb"), label="runtime projection") as fh:
             raw = tomllib.load(fh)
     except FileNotFoundError:
         raise ProjectionError(f"projection file not found: {path!r}") from None

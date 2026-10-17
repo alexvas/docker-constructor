@@ -7,6 +7,10 @@
   },
   "dependency_edges": [
     [
+      "docker._owned_file",
+      "docker.filesystem.streams"
+    ],
+    [
       "docker.constructor_cli",
       "docker.launcher"
     ],
@@ -560,6 +564,10 @@
     ],
     [
       "docker.runtime_installer",
+      "docker._owned_file"
+    ],
+    [
+      "docker.runtime_installer",
       "docker.filesystem.descriptors"
     ],
     [
@@ -872,6 +880,10 @@
     ],
     [
       "docker.versioning.build_materialization",
+      "docker._owned_file"
+    ],
+    [
+      "docker.versioning.build_materialization",
       "docker.filesystem.descriptors"
     ],
     [
@@ -1041,6 +1053,10 @@
     [
       "docker.versioning.build_snapshot",
       "docker.versioning.project_state"
+    ],
+    [
+      "docker.versioning.cache",
+      "docker._owned_file"
     ],
     [
       "docker.versioning.cache",
@@ -1721,6 +1737,10 @@
     [
       "docker.versioning.updates",
       "docker.versioning.providers.uv_python"
+    ],
+    [
+      "docker.versioning.verification",
+      "docker._owned_file"
     ]
   ],
   "domain_fields": {
@@ -1740,6 +1760,7 @@
   },
   "errors": [],
   "files_scanned": [
+    "docker/_owned_file.py",
     "docker/constructor_cli.py",
     "docker/docker-constructor.py",
     "docker/filesystem/__init__.py",
@@ -1943,7 +1964,7 @@
     },
     {
       "kind": "stdlib-run",
-      "line": 602,
+      "line": 603,
       "owner": "subprocess.run context; no escaping pipe authority",
       "path": "docker/runtime_installer.py",
       "scope": "InstallContext.real_mount_check._RealMountCheck.is_mount"
@@ -2131,6 +2152,7 @@
     }
   },
   "source_sha256": {
+    "docker/_owned_file.py": "8c7edaed057db6b1e09079c4df94966c76ef91f63f2417b5640190dd7d966588",
     "docker/constructor_cli.py": "d8d8872681f9a99b96adee4859b471686c9f6bdbe5ae195034a0f9c55b9eb9e2",
     "docker/docker-constructor.py": "d501d4192b536addd0f3eb50883b4f96c013127f6253c521497a06067c3fd105",
     "docker/filesystem/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -2162,7 +2184,7 @@
     "docker/npm_environment/tree.py": "1ca92aeef2096c5b2d10547d8ea16b96d9e53c394c5525d3f7af1df9a4766a2d",
     "docker/npm_environment/validation.py": "617979ac1139f15d29d844bc27b797f911feed5c26601d7484d1e9168a695de1",
     "docker/process.py": "648ab999dd883c2542cf4a1c321eb6d4675a08dd1c501e334cb0bee7c00dd860",
-    "docker/runtime_installer.py": "aaeeecf974cf132f0bea684e5115e0defd93e105ce7a823f2c6e069db3a0944c",
+    "docker/runtime_installer.py": "3800675d5c044a81545e67980045a505965fcd22fee50aedb258f7df5b7166af",
     "docker/transactions/__init__.py": "ad95d48093383680024ab96f894cc0a2c917722b932b12bbdcf94c1fb021c44d",
     "docker/transactions/capabilities.py": "389dc7a5f3c6f964259b61816e8b93e156a34760c3d7015feedc6e95d96bea16",
     "docker/transactions/cleanup.py": "7cdd605ed52b87d8fb91bef99da9f8585f2298864d9e68122c78a02a050909ba",
@@ -2181,11 +2203,11 @@
     "docker/versioning/build_cleanup.py": "cc53d31419e8ab6a04d905c761c354dd17077e780687fddf1e0c5e8673f3c385",
     "docker/versioning/build_context_confinement.py": "d9c0f811127bcfe7c594f64820d9e065675d2e920b71bcbe9784fa3736314b78",
     "docker/versioning/build_generations.py": "91b5049237c958054b39747b49a14ac3ef40af2b5ace929a40d1351bb2ab9477",
-    "docker/versioning/build_materialization.py": "8207b76e26e0ad66bccfc73dd4fb323a2ced9acb0f2171d53ec506d683b3264a",
+    "docker/versioning/build_materialization.py": "2c33389daee06b2acfde44329b1f52bf7a78fb52d94859cdf37f7ee79cf9c26b",
     "docker/versioning/build_orchestration.py": "3568b8815c0314d9d81028282d94ccc0ed9c021a82e30bcf2be3418ccd29aa6a",
     "docker/versioning/build_output.py": "5e3ef54250b6ed55cf057eabb4163cf3e76b57c168a03ae127ce6e68175c73ed",
     "docker/versioning/build_snapshot.py": "fb291dd3cc807d9d492494d04fe409d19aafb602d2abbf923fa79fed46671d89",
-    "docker/versioning/cache.py": "f69294784e2b699dbed160883f472b95c16c8b4c1bb1d4d1087dc1d429390393",
+    "docker/versioning/cache.py": "c9b9aa3e0f52441a9c65ab26917017f5ac1e3016953dbd2a2d5cc314a4f2713c",
     "docker/versioning/cache_storage.py": "03d5ca37e80b58ecad0ec1870eeb9faff68342e5a807f7a7cbf85217dfd88c81",
     "docker/versioning/configuration_document_validation.py": "5e806cc1c7e6c70db7cf12d0de0c6c5093d371981391cec2af9209a5451a349f",
     "docker/versioning/constraints.py": "65ee8f33874c39a817ac9a7280f70bb2bb8ec0e5a125883eb8d0c9f0a8665e96",
@@ -2234,7 +2256,7 @@
     "docker/versioning/semver.py": "f8ef6495223226315022248c93765acba10e52cd3d63705a9e5a492afe6e25c8",
     "docker/versioning/transports.py": "2364cc42735f33f33bb73d48990df20baacd9831cf037a79727ad88901d28105",
     "docker/versioning/updates.py": "20cb0af2702e7c17827e31d410a28a4f1aff0a5d5851ac79e2ceba63296c5892",
-    "docker/versioning/verification.py": "a91f7b10e338ef27f576ec000d74c9f8cfeff00589eff48d8e7dae8abf84f833",
+    "docker/versioning/verification.py": "a0be3035afc7b1f9ffabdb20233b9ebb48295e002dd4e0f6cf1d14d764f4ad4e",
     "docker/versions.py": "b98c0781da972289e02cfa02cdf4b3e262b14e16e58d58c1cd83fb5f1974e26c"
   }
 }

@@ -21,6 +21,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Mapping, TextIO, cast
 
+from docker._owned_file import owned_file
 from docker.filesystem.cleanup import CleanupFailures
 from docker.filesystem.descriptors import OwnedDescriptor
 from docker.filesystem.operations import DescriptorOps, PosixDescriptorOps
@@ -123,7 +124,7 @@ class DiskCache:
         """Return a cached ``HttpResponse``-compatible object or ``None``."""
         path = self._path_for(method, url, scope, representation)
         try:
-            with open(path, encoding="utf-8") as fh:
+            with owned_file(lambda: open(path, encoding="utf-8"), label="cached response") as fh:
                 data = json.load(fh)
         except (FileNotFoundError, json.JSONDecodeError, OSError):
             return None

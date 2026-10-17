@@ -292,6 +292,7 @@ RUN ln -sf /opt/openspec/bin/openspec /usr/local/bin/openspec
 COPY docker/versioning/ /usr/local/lib/pi-cli/docker/versioning/
 COPY docker/filesystem/ /usr/local/lib/pi-cli/docker/filesystem/
 COPY docker/runtime_installer.py /usr/local/lib/pi-cli/docker/runtime_installer.py
+COPY docker/_owned_file.py /usr/local/lib/pi-cli/docker/_owned_file.py
 RUN chown -R root:root /usr/local/lib/pi-cli \
     && chmod -R a+rX /usr/local/lib/pi-cli
 

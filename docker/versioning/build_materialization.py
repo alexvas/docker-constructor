@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Callable, Iterable, Protocol, Sequence, cast
 
+from docker._owned_file import owned_file
 from docker.filesystem.descriptors import OwnedDescriptor
 from docker.filesystem.operations import DescriptorOps, PosixDescriptorOps
 from docker.transactions.cleanup import CleanupFailures
@@ -113,7 +114,7 @@ def _verify_hit(path: Path, identity: DigestIdentity) -> bool:
         if not stat.S_ISREG(st.st_mode) or stat.S_IMODE(st.st_mode) != 0o444:
             return False
         digest = hashlib.new(identity.algorithm)
-        with path.open("rb") as source:
+        with owned_file(lambda: path.open("rb"), label="cached artifact verification") as source:
             while chunk := source.read(1024 * 1024):
                 digest.update(chunk)
         return digest.digest() == identity.digest_bytes

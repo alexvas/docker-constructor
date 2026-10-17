@@ -113,6 +113,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, Sequence
 
+from docker._owned_file import owned_file
+
 
 # ── Process boundary (identical contract to docker/launcher.py) ──────
 
@@ -398,7 +400,7 @@ def _load_build_projection(path: Path) -> dict:
     Raises ``OSError`` when the file is missing or unreadable.
     """
     import tomllib
-    with path.open("rb") as fh:
+    with owned_file(lambda: path.open("rb"), label="build projection") as fh:
         return tomllib.load(fh)
 
 
