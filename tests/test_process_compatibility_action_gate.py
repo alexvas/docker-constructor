@@ -10,7 +10,8 @@ from unittest import mock
 import pytest
 
 from tests.test_process_lifecycle import Child, secondary, workers
-from tests.test_process_stop_policy import Action, api, launch
+from tests.test_process_stop_policy import Action, launch  # pytest fixture re-export
+from tests.test_process_stop_policy import api as api
 
 
 def test_required_compatibility_action_is_independent_of_local_poll_failure(api):

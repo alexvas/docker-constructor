@@ -186,7 +186,7 @@ class DirectoryCapability:
             failures.run(owner.close, ordinary=(OSError,))
             result = failures.complete()
             if result is not None:
-                raise result
+                raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
             raise
 
     @classmethod
@@ -423,7 +423,7 @@ class DirectoryCapability:
             failures.run(owner.close, ordinary=(OSError,))
             result = failures.complete()
             if result is not None:
-                raise result
+                raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
             raise
         return FileCapability(
             self._ops, owner.detach(), self, info, base, authority=_AUTHORITY

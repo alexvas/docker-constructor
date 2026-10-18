@@ -11,7 +11,7 @@ import builtins
 import re
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Mapping, Optional, Union
+from typing import Any, Mapping, Optional
 
 from .configuration_document_validation import (
     DocumentIdentity,
@@ -24,7 +24,6 @@ from .configuration_document_validation import (
     validate_configuration_documents,
 )
 from .constraints import (
-    NumericVersion,
     parse_constraint,
     parse_numeric_version,
     validate_constraint_consistency,
@@ -52,7 +51,6 @@ from .model import (
     GitRefUpdate,
     GitSource,
     HostAccessPolicy,
-    InvalidArtifactKey,
     Inventory,
     LocalConfig,
     NodeEntry,
@@ -72,7 +70,6 @@ from .model import (
     PyPiUpdate,
     PythonEntry,
     RtkPrebuiltStage,
-    RuntimeInventory,
     RuntimeStage,
     RuntimeValidation,
     RustChannelSource,
@@ -86,6 +83,9 @@ from .model import (
     UvEntry,
     UvPythonSource,
     UvPythonUpdate,
+)
+from .model import (
+    RuntimeInventory as RuntimeInventory,
 )
 from .npm_tarball import validate as _validate_npm_tarball_url_model
 from .semver import SemverError
@@ -460,7 +460,7 @@ def _load_extension_validation(
     """Load [runtime.pi-extensions.<name>.validation]."""
     path_dot = ".".join(ext_path)
     try:
-        validation_raw = r.tbl(ext_path + ("validation",))
+        r.tbl(ext_path + ("validation",))
     except InventoryError as e:
         if "missing" in str(e).lower():
             raise InventoryError(
@@ -758,11 +758,11 @@ def _parse_override_policy(
     constraint_str = require_string(override_data, ("constraint",))
     try:
         constraint = parse_constraint(constraint_str)
-    except ConstraintSyntaxError:
+    except ConstraintSyntaxError as exc:
         raise InventoryError(
             f"{path_prefix}.constraint: invalid constraint",
             field=f"{path_prefix}.constraint",
-        )
+        ) from exc
 
     allow_prerelease = require_bool(override_data, ("allow_prerelease",))
     scheme = require_string(override_data, ("scheme",))
@@ -781,11 +781,11 @@ def _parse_override_policy(
 
     try:
         validate_constraint_consistency(constraint)
-    except ConstraintSyntaxError:
+    except ConstraintSyntaxError as exc:
         raise InventoryError(
             f"{path_prefix}.constraint: contradictory constraint",
             field=f"{path_prefix}.constraint",
-        )
+        ) from exc
 
     return OverridePolicy(
         constraint=constraint,
@@ -801,7 +801,7 @@ def _parse_override_policy(
 
 def _load_source(r: _PathReader, path: tuple[str, ...]) -> Any:
     """Parse a [*.source] table and return the typed source dataclass."""
-    source_data = r.tbl(path + ("source",))
+    r.tbl(path + ("source",))
     stype = require_string(r.root, path + ("source", "type"))
     dot = _dot(path)
 
@@ -1783,11 +1783,11 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
     py_version = r.str(("build", "stages", "toolchain", "python", "version"))
     try:
         parse_numeric_version(py_version)
-    except VersionSyntaxError:
+    except VersionSyntaxError as exc:
         raise InventoryError(
             "build.stages.toolchain.python.version: invalid numeric version",
             field="build.stages.toolchain.python.version",
-        )
+        ) from exc
     py_source = _load_source(r, ("build", "stages", "toolchain", "python"))
     py_update = _load_update(r, ("build", "stages", "toolchain", "python"))
     _check_compat(py_source.type, py_update.provider, "build.stages.toolchain.python")
@@ -1874,11 +1874,11 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
     ty_version = r.str(("build", "stages", "toolchain", "ty", "version"))
     try:
         parse_numeric_version(ty_version)
-    except VersionSyntaxError:
+    except VersionSyntaxError as exc:
         raise InventoryError(
             "build.stages.toolchain.ty.version: invalid numeric version",
             field="build.stages.toolchain.ty.version",
-        )
+        ) from exc
     ty_source = _load_source(r, ("build", "stages", "toolchain", "ty"))
     ty_update = _load_update(r, ("build", "stages", "toolchain", "ty"))
     _check_compat(ty_source.type, ty_update.provider, "build.stages.toolchain.ty")
@@ -2205,11 +2205,11 @@ def validate_inventory(raw: Mapping[str, object]) -> Inventory:
         numeric_ver = ext_version.split("-", 1)[0].split("+", 1)[0]
         try:
             ver = parse_numeric_version(numeric_ver)
-        except VersionSyntaxError:
+        except VersionSyntaxError as exc:
             raise InventoryError(
                 f"runtime.pi-extensions.{name}.version: invalid numeric version",
                 field=f"runtime.pi-extensions.{name}.version",
-            )
+            ) from exc
         if not ext_override.constraint.matches(ver):
             raise InventoryError(
                 f"runtime.pi-extensions.{name}: version does not satisfy override constraint",

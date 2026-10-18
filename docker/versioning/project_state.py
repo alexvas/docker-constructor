@@ -497,7 +497,7 @@ def validate_project_state(state: ProjectState) -> ValidatedProjectState:
             f"the expected {expected_namespace!r}"
         )
 
-    for name, attr in zip(_CHILD_NAMES, _CHILD_ATTRS):
+    for name, attr in zip(_CHILD_NAMES, _CHILD_ATTRS, strict=False):
         expected_child = state.namespace / name
         actual_child = getattr(state, attr)
         if actual_child != expected_child:

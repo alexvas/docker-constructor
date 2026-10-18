@@ -11,7 +11,6 @@ from __future__ import annotations
 import os as _os
 from dataclasses import dataclass, field
 from pathlib import Path
-from types import MappingProxyType
 from typing import TYPE_CHECKING, Mapping
 
 from .immutable import deep_freeze
@@ -142,8 +141,8 @@ def build_transports(
                     raise RuntimeError(result.stderr.strip())
                 line = result.stdout.strip().split("\n")[0]
                 return line.split()[0]
-            except FileNotFoundError:
-                raise RuntimeError("git executable not found")
+            except FileNotFoundError as exc:
+                raise RuntimeError("git executable not found") from exc
 
     from .cache import CachingHttpTransport, DiskCache
     from .cache_storage import (

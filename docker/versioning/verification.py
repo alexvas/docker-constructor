@@ -110,6 +110,7 @@ volume-bound, or ``docker cp``'d into the container.
 
 from __future__ import annotations
 
+import re as _re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, Sequence
@@ -329,8 +330,6 @@ def _applicable_contracts(
 
 
 # ── Normalization ────────────────────────────────────────────────────
-
-import re as _re
 
 _VERSION_TOKEN = _re.compile(r"\d+\.\d+\.\d+")
 _RUSTUP_TOOLCHAIN_PATH = _re.compile(

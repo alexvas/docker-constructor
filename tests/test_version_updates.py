@@ -14,8 +14,6 @@ from docker.versioning.inventory import load_inventory, load_inventory_raw
 from docker.versioning.model import (
     ArtifactEntry,
     BaseStage,
-    CandidateArtifact,
-    Constraint,
     DockerRegistrySource,
     DockerRegistryUpdate,
     FdPrebuiltStage,
@@ -55,7 +53,6 @@ from docker.versioning.model import (
     UpdateKind,
     UpdateResult,
     UpdateStatus,
-    UpdateTarget,
     UvEntry,
     UvPythonSource,
     UvPythonUpdate,
@@ -63,7 +60,6 @@ from docker.versioning.model import (
 from docker.versioning.providers.base import (
     ProviderContext,
     ProviderResult,
-    UpdateProvider,
 )
 from docker.versioning.providers.npm import NpmProvider
 from docker.versioning.updates import (

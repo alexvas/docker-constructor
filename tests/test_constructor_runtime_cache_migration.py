@@ -118,7 +118,7 @@ class TestLegacyRuntimeArtifactCacheMigration(unittest.TestCase):
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            base, checkout, xdg = (
+            _base, checkout, xdg = (
                 Path(directory),
                 Path(directory) / "checkout",
                 Path(directory) / "xdg",

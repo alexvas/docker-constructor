@@ -32,8 +32,10 @@ def _env(vector: tuple[str, ...]) -> dict[str, str]:
 
 
 def _render(
-    host_access: RunHostAccess = RunHostAccess.disabled(), **kwargs: object
+    host_access: RunHostAccess | None = None, **kwargs: object
 ) -> tuple[str, ...]:
+    if host_access is None:
+        host_access = RunHostAccess.disabled()
     values = dict(
         image="pi-cli-pi:latest",
         container_name="pi-1",

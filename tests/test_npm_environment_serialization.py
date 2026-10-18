@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 import sys
 import tempfile
 import unittest
@@ -19,7 +18,8 @@ from pathlib import Path
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-from docker.npm_environment import (
+# Repository/test path setup must run before these imports.
+from docker.npm_environment import (  # noqa: E402
     LockedNpmError,
     RootSpec,
     assembler_script_digest,

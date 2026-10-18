@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import unittest
 
-from docker.versioning.model import _validate_utc_rfc3339
+from docker.versioning.constraints import NumericVersion as ConstraintNumericVersion
+from docker.versioning.model import NumericVersion, _validate_utc_rfc3339
 
 
 class TestValidateUtcRfc3339(unittest.TestCase):
@@ -107,3 +108,10 @@ class TestValidateUtcRfc3339(unittest.TestCase):
     def test_fraction_digits_over_six_rejected(self) -> None:
         """>6 fractional digits exceed datetime resolution — rejected."""
         self.assertIsNone(_validate_utc_rfc3339("2025-01-01T00:00:00.1234567Z"))
+
+
+class TestCompatibilityExports(unittest.TestCase):
+    """Public compatibility aliases remain importable and identical."""
+
+    def test_numeric_version_is_reexported_from_model(self) -> None:
+        self.assertIs(NumericVersion, ConstraintNumericVersion)

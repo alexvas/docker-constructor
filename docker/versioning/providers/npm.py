@@ -20,7 +20,7 @@ from ..model import (
     UpdateTarget,
 )
 from ..semver import SemanticVersion, parse
-from .base import HttpTransport, ProviderContext, ProviderResult, UpdateProvider
+from .base import ProviderContext, ProviderResult
 
 
 def _encode_package(pkg: str) -> str:

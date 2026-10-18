@@ -538,7 +538,6 @@ def orchestrate_run(request: RunRequest) -> RunResult:
        propagate error.
     """
     import shlex
-    from pathlib import Path
 
     from docker.versioning.effective import (
         create_runtime_projection,

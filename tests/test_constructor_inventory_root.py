@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-import tomllib
 import unittest
 from dataclasses import FrozenInstanceError
 from pathlib import Path
@@ -13,9 +12,10 @@ _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 sys.path.insert(0, str(_THIS_DIR))
 
-from versioning.support.inventory_builder import write_toml
+# Repository/test path setup must run before these imports.
+from versioning.support.inventory_builder import write_toml  # noqa: E402
 
-from docker.versions import InventoryError, load_inventory
+from docker.versions import InventoryError, load_inventory  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helper — canonical TOML with build/runtime envelope
@@ -707,7 +707,6 @@ class TestDirectConstructionImmutability(unittest.TestCase):
     def test_inventory_normalises_runtime_pi_extensions(self):
         """Direct Inventory construction normalises runtime_pi_extensions."""
         from docker.versions import (
-            Constraint,
             Inventory,
             NpmArtifact,
             NpmSource,

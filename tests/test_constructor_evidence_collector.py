@@ -195,7 +195,7 @@ class TestEvidenceCommandModel(unittest.TestCase):
             stdout_sha256="a",
             stderr_sha256="b",
         )
-        with self.assertRaises(Exception):
+        with self.assertRaises(AttributeError):
             cmd.argv = ("other",)  # type: ignore[misc]
 
 
@@ -551,7 +551,7 @@ class TestImageInspection(unittest.TestCase):
     def test_docker_inspect_invoked(self) -> None:
         runner = _RecordingRunner(responses=[(0, '{"Id":"sha256:abc"}', "")])
         clk = _clock(0.1, 0.2)
-        bundle = collect_evidence(
+        collect_evidence(
             output_dir=Path(_tmp_dir()),
             runner=runner,
             clock=clk,

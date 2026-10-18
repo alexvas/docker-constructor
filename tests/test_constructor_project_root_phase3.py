@@ -290,7 +290,7 @@ class ExternalProjectStatePhase3Tests(unittest.TestCase):
         }
         build_identities, run_identities = [], []
         import docker.launcher as launcher
-        from docker.versioning import build_orchestration, project_state
+        from docker.versioning import build_orchestration
 
         real_build_resolve = build_orchestration.resolve_project_state
         real_run_resolve = launcher.resolve_project_state

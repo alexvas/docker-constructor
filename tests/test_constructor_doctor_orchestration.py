@@ -15,8 +15,6 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
-from typing import Optional
-from unittest import mock
 
 # ---------------------------------------------------------------------------
 # Helper — create a docker-gateway-enabled inventory for tests that
@@ -40,22 +38,22 @@ def _docker_gateway_inventory() -> str:
     return _inv
 
 
-from docker.networking import (
+# These imports intentionally follow module-level test setup.
+from docker.networking import (  # noqa: E402
     DockerMode,
     GatewayDiagnosis,
     OverrideFailure,
     OverrideState,
     ProbeResult,
     ProcessResult,
-    ProcessRunner,
     RootlessOverridePlan,
 )
-from docker.versioning.build_orchestration import (
+from docker.versioning.build_orchestration import (  # noqa: E402
     DoctorRequest,
     DoctorResult,
     orchestrate_doctor,
 )
-from docker.versioning.dispatch_types import ExitKind
+from docker.versioning.dispatch_types import ExitKind  # noqa: E402
 
 # ═══════════════════════════════════════════════════════════════════════
 # Fakes — injectable, return real networking contract types
@@ -331,10 +329,10 @@ class TestDoctorRequestDto(unittest.TestCase):
 
     def test_dtos_are_frozen(self):
         req = DoctorRequest(inventory_path=_docker_gateway_inventory())
-        with self.assertRaises(Exception):
+        with self.assertRaises(AttributeError):
             req.apply_override = True  # type: ignore[misc]
         result = DoctorResult(exit_kind=ExitKind.SUCCESS)
-        with self.assertRaises(Exception):
+        with self.assertRaises(AttributeError):
             result.repair_applied = True  # type: ignore[misc]
 
 
@@ -730,7 +728,7 @@ class TestRepairFailure(unittest.TestCase):
 
     def test_initial_gateway_diagnosed_before_repair_failure(self):
         """A failed repair must not discard the diagnosed gateway."""
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory():
             gw_inv = _docker_gateway_inventory()
             result = orchestrate_doctor(
                 DoctorRequest(

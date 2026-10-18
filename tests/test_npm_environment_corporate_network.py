@@ -31,7 +31,8 @@ from pathlib import Path
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-from docker.npm_environment import (
+# Repository/test path setup must run before these imports.
+from docker.npm_environment import (  # noqa: E402
     NPM_CONFIG_CAFILE,
     PROXY_BYPASS_ENV_NAMES,
     PROXY_URL_ENV_NAMES,

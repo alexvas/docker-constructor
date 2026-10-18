@@ -19,10 +19,8 @@ import json
 import os
 import tempfile
 import unittest
-from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Optional
 from unittest.mock import patch
 
 from docker.networking import (
@@ -53,7 +51,6 @@ from docker.versioning.build_materialization import (
 from docker.versioning.build_orchestration import (
     BuildRequest,
     BuildResult,
-    DoctorRequest,
     DoctorResult,
     ProcessResult,
     PublishError,
@@ -71,7 +68,6 @@ from docker.versioning.host_progress import (
     HostStep,
     attach_host_failure,
 )
-from docker.versioning.pi_assembly import PiAssemblyError
 from docker.versioning.pi_consumer import PiConsumerError
 from tests.build_test_support import (
     DIGEST_VALID_ARTIFACT_BYTES,
@@ -325,10 +321,10 @@ class TestBuildRequestDto(unittest.TestCase):
             inventory_path=str(INVENTORY_PATH),
             project_root=Path(str(INVENTORY_PATH)).resolve().parent,
         )
-        with self.assertRaises(Exception):
+        with self.assertRaises(AttributeError):
             req.platform = "linux-arm64"  # type: ignore[misc]
         result = BuildResult(exit_kind=ExitKind.SUCCESS)
-        with self.assertRaises(Exception):
+        with self.assertRaises(AttributeError):
             result.message = "nope"  # type: ignore[misc]
 
     def test_overrides_normalized_to_immutable(self):
@@ -353,7 +349,7 @@ class TestBuildRequestDto(unittest.TestCase):
             "caller mutation must not alter frozen request",
         )
         # Setting overrides on frozen instance must still fail
-        with self.assertRaises(Exception):
+        with self.assertRaises(AttributeError):
             req.overrides = MappingProxyType({"X": "Y"})  # type: ignore[misc]
 
     def test_overrides_default_is_empty_immutable(self):
@@ -1682,8 +1678,12 @@ class TestMaterializationBoundary(unittest.TestCase):
             seen["sdk_event_sink"] = sdk_event_sink
             return fake_pi_materialization()
 
-        presentation = lambda event: None
-        sdk = lambda event: None
+        def presentation(event):
+            return None
+
+        def sdk(event):
+            return None
+
         request = BuildRequest(
             inventory_path=str(self.inventory),
             repo_root=str(self.repo),
@@ -2582,7 +2582,7 @@ class TestMaterializationBoundary(unittest.TestCase):
         other_identity = DigestIdentity.from_hex(
             "sha256", hashlib.sha256(other_data).hexdigest()
         )
-        other_path = publish_verified_blob(
+        publish_verified_blob(
             other_identity,
             other_data,
             constructor_project_root=other,
@@ -2795,7 +2795,9 @@ class TestMaterializationBoundary(unittest.TestCase):
                 project_state=project_state,
             )
 
-        sink = lambda event: None
+        def sink(event):
+            return None
+
         request = self._keyword_request(materialize)
         object.__setattr__(request, "event_sink", sink)
         result = orchestrate_build(request)
@@ -2849,7 +2851,9 @@ class TestMaterializationBoundary(unittest.TestCase):
                 project_state=project_state,
             )
 
-        sink = lambda event: None
+        def sink(event):
+            return None
+
         request = self._keyword_request(materialize)
         object.__setattr__(request, "event_sink", sink)
         result = orchestrate_build(request)
@@ -2877,7 +2881,9 @@ class TestMaterializationBoundary(unittest.TestCase):
                 project_state=project_state,
             )
 
-        sink = lambda event: None
+        def sink(event):
+            return None
+
         request = self._keyword_request(materialize)
         object.__setattr__(request, "event_sink", sink)
         result = orchestrate_build(request)

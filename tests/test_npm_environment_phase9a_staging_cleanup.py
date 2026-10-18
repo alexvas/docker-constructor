@@ -21,7 +21,8 @@ from unittest import mock
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-from docker.npm_environment import (
+# Repository/test path setup must run before these imports.
+from docker.npm_environment import (  # noqa: E402
     RootSpec,
     assembler_script_digest,
     compute_assembler_identity,
@@ -31,8 +32,8 @@ from docker.npm_environment import (
     publication,
     publish_environment,
 )
-from docker.npm_environment.tree import build_tree_manifest
-from docker.transactions.cleanup import CleanupFailures
+from docker.npm_environment.tree import build_tree_manifest  # noqa: E402
+from docker.transactions.cleanup import CleanupFailures  # noqa: E402
 
 _IMAGE = "sha256:" + "a" * 64
 _NODE = "24.18.0"

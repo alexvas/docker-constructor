@@ -8,7 +8,13 @@ produces a human-readable index.
 
 from __future__ import annotations
 
+import hashlib
+import json as _json
+import os
+import subprocess
+import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol, Sequence
 
@@ -115,13 +121,6 @@ class EvidenceBundle:
 
 
 # ── Implementation ───────────────────────────────────────────────────
-
-import hashlib
-import json as _json
-import os
-import subprocess
-import time
-from datetime import datetime, timezone
 
 # Public so callers can reference the default without hard-coding 1 MiB.
 MAX_OUTPUT_BYTES: int = 1_048_576

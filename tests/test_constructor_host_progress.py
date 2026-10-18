@@ -78,7 +78,7 @@ class TestHostEventFacade(unittest.TestCase):
                         exit_kind=constructor_cli.ExitKind.SUCCESS
                     ),
                     stdout_isatty=lambda: False,
-                    stderr_isatty=lambda: tty,
+                    stderr_isatty=lambda tty=tty: tty,
                 )
                 self.assertEqual(expected, renderer.call_count)
 

@@ -1720,7 +1720,7 @@ def _live_owner_fd(
                 if isinstance(value, list) and len(value) == len(target.elts)
                 else [None] * len(target.elts)
             )
-            for member, item in zip(target.elts, values):
+            for member, item in zip(target.elts, values, strict=False):
                 bind(member, item)
 
     def evaluate(node):

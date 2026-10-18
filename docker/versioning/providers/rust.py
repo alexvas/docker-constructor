@@ -17,7 +17,7 @@ from ..model import (
     UpdateKind,
     UpdateTarget,
 )
-from .base import ProviderContext, ProviderResult, UpdateProvider
+from .base import ProviderContext, ProviderResult
 
 _RUST_VERSION_RE = re.compile(
     r"^((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))(?:\s+\([^)]*\))?$"

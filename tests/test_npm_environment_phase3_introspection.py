@@ -17,9 +17,10 @@ from pathlib import Path
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-import docker.npm_environment.assembler as assembler_module
-import docker.npm_environment.run_vector as run_vector_module
-from docker.npm_environment import (
+# Repository/test path setup must run before these imports.
+import docker.npm_environment.assembler as assembler_module  # noqa: E402
+import docker.npm_environment.run_vector as run_vector_module  # noqa: E402
+from docker.npm_environment import (  # noqa: E402
     RootSpec,
     assembler_script_bytes,
     assembler_script_digest,

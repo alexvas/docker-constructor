@@ -28,7 +28,6 @@ from docker.networking import (
     GatewayDiagnosis,
     OverrideFailure,
     OverrideState,
-    PersistenceResult,
     ProbeResult,
     ProcessResult,
     ProcessRunner,
@@ -44,10 +43,6 @@ from docker.networking import (
     plan_rootless_override,
     probe_gateway,
 )
-
-# Re-use the in-memory fake from the GREEN‑phase suite so RED tests never
-# touch real disk or systemd.
-from tests.test_networking import FakeFilesystem, FakeHostProbeServer
 
 # ---------------------------------------------------------------------------
 # Deterministic fakes (requirement 7)
@@ -595,19 +590,19 @@ class TestTokenSafety(unittest.TestCase):
     def test_generated_token_style_accepted(self):
         """Tokens matching ``OK_<timestamp>`` must pass validation."""
         rec = _FakeProcessRunner([])
-        result = probe_gateway(*self.SAFE_ARGS, "OK_1734567890", _runner=rec)
+        probe_gateway(*self.SAFE_ARGS, "OK_1734567890", _runner=rec)
         # Reaches runner (which returns default error → not-ok), but not
         # rejected at the validation layer.
         self.assertGreater(len(rec.calls), 0, "safe token must reach the ProcessRunner")
 
     def test_alphanumeric_hyphen_token_accepted(self):
         rec = _FakeProcessRunner([])
-        result = probe_gateway(*self.SAFE_ARGS, "my-token-v1.0", _runner=rec)
+        probe_gateway(*self.SAFE_ARGS, "my-token-v1.0", _runner=rec)
         self.assertGreater(len(rec.calls), 0)
 
     def test_underscore_only_token_accepted(self):
         rec = _FakeProcessRunner([])
-        result = probe_gateway(*self.SAFE_ARGS, "___", _runner=rec)
+        probe_gateway(*self.SAFE_ARGS, "___", _runner=rec)
         self.assertGreater(len(rec.calls), 0)
 
 

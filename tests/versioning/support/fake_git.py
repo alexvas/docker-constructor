@@ -7,7 +7,6 @@ Records all calls for assertion.  Fails on unexpected calls.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass

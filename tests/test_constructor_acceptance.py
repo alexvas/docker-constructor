@@ -13,10 +13,8 @@ from __future__ import annotations
 import hashlib
 import io
 import json
-import os
 import re
 import shutil
-import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -210,7 +208,9 @@ def _assert_evidence_bundle_complete(
     )
 
     # ── parse command entries ───────────────────────────────────
-    cmd_lines = [l for l in index_text.split("\n") if _re.match(r"\s+\[\d+\]", l)]
+    cmd_lines = [
+        line for line in index_text.split("\n") if _re.match(r"\s+\[\d+\]", line)
+    ]
     test_case.assertGreaterEqual(
         len(cmd_lines),
         min_commands,
@@ -240,7 +240,7 @@ def _assert_evidence_bundle_complete(
         )
 
     # ── checksums ──────────────────────────────────────────────
-    sha_lines = [l for l in index_text.split("\n") if "sha256=" in l]
+    sha_lines = [line for line in index_text.split("\n") if "sha256=" in line]
     # Checksums appear only when output is non-empty.
     for line in sha_lines:
         m = _re.search(r"sha256=([0-9a-f]{64})", line)
@@ -403,7 +403,7 @@ def _build_happy_runtime_runner(
     # ── ownership ──
     # Match stat commands by the last argument (the path).
     r.when("stat -c %U:%G /home/dev/.pi", rc=0, stdout="dev:dev")
-    for i, pp in enumerate(workspace_paths, start=1):
+    for pp in workspace_paths:
         r.when(f"stat -c %U:%G {pp}", rc=0, stdout="dev:dev")
     # ── pi-home ──
     r.when("test -d /home/dev/.pi", rc=0)
@@ -634,7 +634,6 @@ class TestBuildFailureDiagnostics(unittest.TestCase):
         so callers can diagnose without re-execution."""
         from docker.versioning.build_orchestration import (
             BuildRequest,
-            ExitKind,
             orchestrate_build,
         )
 
@@ -1913,7 +1912,7 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
         ev_meta = data["data"]["verification"]["collect_evidence"]
         self.assertIn("output_dir", ev_meta)
         self.assertGreaterEqual(ev_meta["command_count"], 10)
-        evidence = self._assert_evidence_written(
+        self._assert_evidence_written(
             min_commands=10,
             expect_command_substrs=[
                 "docker inspect",

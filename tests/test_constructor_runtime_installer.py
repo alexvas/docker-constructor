@@ -27,16 +27,14 @@ import json
 import os
 import shutil
 import stat
+import subprocess
 import tempfile
 import unittest
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 from unittest import mock
 
 import docker
 from docker.runtime_installer import (
-    _MOUNTED_ARTIFACT_ROOT,
     ExtensionResult,
     InstallContext,
     InstallError,
@@ -54,7 +52,6 @@ from docker.runtime_installer import (
     ProjectionError,
     RuntimeArtifactReader,
     _mounted_artifact_path,
-    _MountInspection,
     _StatvfsMountInspection,
     exit_code_for,
     install_extensions,
@@ -269,7 +266,7 @@ class TestProjectionEntryDto(unittest.TestCase):
             artifact_integrity=_VALID_SHA256,
             metadata_file="package.json",
         )
-        with self.assertRaises(Exception):
+        with self.assertRaises(AttributeError):
             e.package = "q"  # type: ignore[misc]
 
     def test_integrity_always_present(self) -> None:
@@ -323,7 +320,7 @@ class TestExtensionResultDto(unittest.TestCase):
 
     def test_frozen(self) -> None:
         r = ExtensionResult(package="p", version="1", status=InstallStatus.OK)
-        with self.assertRaises(Exception):
+        with self.assertRaises(AttributeError):
             r.status = InstallStatus.FAILED  # type: ignore[misc]
 
 
@@ -454,15 +451,12 @@ metadata_file = "package.json"
     def _tmp(content: str) -> str:
         import tempfile
 
-        tmp = tempfile.NamedTemporaryFile(
+        with tempfile.NamedTemporaryFile(
             mode="w",
             suffix=".toml",
             delete=False,
-        )
-        try:
+        ) as tmp:
             tmp.write(content)
-        finally:
-            tmp.close()
         return tmp.name
 
 
@@ -1847,7 +1841,7 @@ class TestMultipleExtensions(unittest.TestCase):
                 metadata_file="package.json",
             )
         ]
-        result = install_extensions(
+        install_extensions(
             self.ctx,
             entries=entries,
             pi_home="/mnt/pi",
@@ -2731,7 +2725,7 @@ class TestDryRunContract(unittest.TestCase):
             package="p",
             version="1.0.0",
         )
-        result = install_extensions(
+        install_extensions(
             self.ctx,
             entries=[self.p],
             pi_home="/mnt/pi",
@@ -3157,8 +3151,8 @@ class _FakeArtifactFilesystem(_CallRecorder):
         self._call_log.append("file.lstat_mode")
         try:
             return self._stat_map[path][0]
-        except KeyError:
-            raise FileNotFoundError(f"fake: no entry for {path!r}")
+        except KeyError as exc:
+            raise FileNotFoundError(f"fake: no entry for {path!r}") from exc
 
     def realpath(self, path: str) -> str:
         self._call_log.append("file.realpath")
@@ -3174,7 +3168,6 @@ class _FakeArtifactFilesystem(_CallRecorder):
         realpath: str | None = None,
     ) -> None:
         """Register a regular file entry at *path*."""
-        import stat
 
         self._stat_map[path] = (
             stat.S_IFREG | 0o644,
@@ -3183,7 +3176,6 @@ class _FakeArtifactFilesystem(_CallRecorder):
 
     def _register_symlink(self, path: str, *, real_target: str) -> None:
         """Register a symlink entry at *path*."""
-        import stat
 
         self._stat_map[path] = (
             stat.S_IFLNK | 0o777,
@@ -3417,15 +3409,12 @@ def _make_fake_context() -> _FakeInstallContext:
 def _tmp_toml(content: str) -> str:
     import tempfile
 
-    tmp = tempfile.NamedTemporaryFile(
+    with tempfile.NamedTemporaryFile(
         mode="w",
         suffix=".toml",
         delete=False,
-    )
-    try:
+    ) as tmp:
         tmp.write(content)
-    finally:
-        tmp.close()
     return tmp.name
 
 
@@ -3801,7 +3790,6 @@ def _make_mounted_context() -> _MountedInstallContext:
 def _derived_artifact_id(integrity: str) -> str:
     """Derive the canonical ``<algo>/<digest>.tgz`` path from a
     ``shaNNN-<base64>`` integrity string."""
-    import base64
 
     algo, b64 = integrity.split("-", 1)
     safe = b64.replace("+", "-").replace("/", "_")
@@ -5147,7 +5135,7 @@ class TestEntrypointExecution(unittest.TestCase):
         - ``exec gosu dev:dev``
 
         And the trace must end with a non-zero ``exit_code``."""
-        lines = [l.strip() for l in trace.splitlines()]
+        lines = [line.strip() for line in trace.splitlines()]
 
         # ── locate key events ──────────────────────────────────
         def _idx_containing(sub: str) -> int:
@@ -5183,13 +5171,13 @@ class TestEntrypointExecution(unittest.TestCase):
         self.assertEqual(chmod_idx, -1, "Pi home must not be permission-repaired")
 
         # ── installer exits non-zero ───────────────────────────
-        exit_lines = [l for l in lines if "exit_code" in l]
+        exit_lines = [line for line in lines if "exit_code" in line]
         self.assertTrue(
             exit_lines,
             "trace must contain exit_code",
         )
         self.assertTrue(
-            any("exit_code 1" in l for l in exit_lines),
+            any("exit_code 1" in line for line in exit_lines),
             "installer failure must produce exit_code 1;"
             " got: " + " | ".join(exit_lines),
         )

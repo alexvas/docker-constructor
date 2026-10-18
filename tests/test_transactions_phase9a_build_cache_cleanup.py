@@ -214,9 +214,9 @@ class PublicationCleanupTests(_BuildCacheCase):
 
     def test_close_interruption_still_unlinks_temporary_entry(self) -> None:
         interruption = KeyboardInterrupt()
-        policy = lambda fd, path, attempt: (
-            interruption if path and path.startswith(".publish-") else None
-        )
+
+        def policy(fd, path, attempt):
+            return interruption if path and path.startswith(".publish-") else None
 
         with self._publication_instruments(close_policy=policy) as (
             faults,
@@ -244,9 +244,9 @@ class PublicationCleanupTests(_BuildCacheCase):
 
     def test_unexpected_close_defect_still_unlinks_and_continues(self) -> None:
         defect = ValueError("injected close defect")
-        policy = lambda fd, path, attempt: (
-            defect if path and path.startswith(".publish-") else None
-        )
+
+        def policy(fd, path, attempt):
+            return defect if path and path.startswith(".publish-") else None
 
         with self._publication_instruments(close_policy=policy) as (
             faults,

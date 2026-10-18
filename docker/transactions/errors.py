@@ -15,9 +15,13 @@ are re-exported here unchanged for existing transaction callers.
 from __future__ import annotations
 
 from docker.filesystem.cleanup import (
-    _MAX_SECONDARY_NOTES,
-    attach_secondary,
-    carry_secondary_diagnostics,
+    _MAX_SECONDARY_NOTES as _MAX_SECONDARY_NOTES,
+)
+from docker.filesystem.cleanup import (
+    attach_secondary as attach_secondary,
+)
+from docker.filesystem.cleanup import (
+    carry_secondary_diagnostics as carry_secondary_diagnostics,
 )
 
 STAGE_ALLOCATE = "allocate-temporary"

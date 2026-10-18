@@ -307,9 +307,8 @@ class SafePathTests(_RuntimeProjectionCase):
             self.assertEqual(stream.read(), b"real")
 
     def test_path_outside_runtime_root_is_rejected(self) -> None:
-        outside = tempfile.NamedTemporaryFile(suffix=".toml", delete=False)
-        outside.close()
-        self.addCleanup(os.unlink, outside.name)
+        with tempfile.NamedTemporaryFile(suffix=".toml", delete=False) as outside:
+            self.addCleanup(os.unlink, outside.name)
         with self.assertRaises(EffectiveConfigError) as ctx:
             create_runtime_projection(
                 self.projection,

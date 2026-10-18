@@ -225,13 +225,13 @@ class _CleanupTestCase(unittest.TestCase):
         return {args[0] for args in self.ops.arg_pairs("fsync")}
 
     def fail_unlink_for(self, name: str, error: BaseException) -> None:
-        def hook(dir_fd, target) -> None:  # noqa: ANN001
+        def hook(dir_fd, target) -> None:
             if target == name:
                 raise error
 
         existing = self.ops.hooks.get("unlinkat")
 
-        def combined(dir_fd, target) -> None:  # noqa: ANN001
+        def combined(dir_fd, target) -> None:
             if existing is not None:
                 existing(dir_fd, target)
             hook(dir_fd, target)
@@ -431,7 +431,6 @@ class MarkerReconciliationTests(_CleanupTestCase):
         self.add_marker(blob)
         self.ops.reset()
         recover_generations(self.ops, self.storage, lock=self.lock)
-        order = self.ops.order
         generation_sync = next(
             index
             for index, (name, args) in enumerate(self.ops.calls)
@@ -647,7 +646,6 @@ class SupersededCleanupTests(_CleanupTestCase):
         predecessor = format_generation_name(1)
         self.ops.reset()
         cleanup_superseded(self.ops, self.storage, inventory, lock=self.lock)
-        order = self.ops.order
         predecessor_unlink = None
         for index, (name, args) in enumerate(self.ops.calls):
             if name == "unlinkat" and args[1] == predecessor:
@@ -1191,7 +1189,7 @@ class RecoveryTests(_CleanupTestCase):
             if fd == self.generations.fd
             else None
         )
-        with self.assertRaises(Exception):
+        with self.assertRaises(BuildGenerationError):
             recover_generations(self.ops, self.storage, lock=self.lock)
         # No reconciliation happened before the generation directory synced.
         self.assertTrue(self.marker_path(current).exists())

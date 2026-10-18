@@ -22,7 +22,6 @@ from __future__ import annotations
 import errno
 import hashlib
 import os
-import stat
 import tempfile
 import unittest
 from pathlib import Path

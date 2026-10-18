@@ -1,0 +1,13 @@
+rows: 614
+unique_ids: 614
+columns: [9]
+classes: {'intentional construct': 152, 'simplification': 462}
+P5-D rows: 0
+all rows PASS: True
+original_findings: 667
+original_rule_counts: {'F401': 247, 'E731': 10, 'RUF100': 21, 'F811': 26, 'B904': 44, 'F841': 42, 'B023': 79, 'B905': 20, 'B010': 2, 'B007': 7, 'B008': 2, 'B018': 6, 'E402': 122, 'E741': 7, 'B017': 16, 'F821': 12, 'SIM115': 4}
+target_evidence_commands: 162
+target_refs_missing: []
+A001_defined: True
+S054_class: intentional construct
+N052_action: Moved `Enum` into the existing top-level `from enum import Enum, StrEnum` statem

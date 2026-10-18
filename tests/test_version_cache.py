@@ -269,8 +269,6 @@ class TestCachingHttpTransport(unittest.TestCase):
 # DiskCache unit tests
 # ---------------------------------------------------------------------------
 
-import tempfile
-
 
 class TestDiskCache(unittest.TestCase):
     def setUp(self):
@@ -337,7 +335,6 @@ class TestDiskCachePersistence(unittest.TestCase):
     instances sharing a disk cache directory."""
 
     def setUp(self):
-        from tests.versioning.support.fake_http import FakeHttpTransport
 
         self._dir = Path(tempfile.mkdtemp())
         self.delegate = _CountingTransport()
@@ -505,7 +502,7 @@ class TestAuthIsolation(unittest.TestCase):
                     )
 
                     # No auth → must miss cache
-                    resp2 = cache.request("GET", "https://example.com/private")
+                    cache.request("GET", "https://example.com/private")
                     self.assertEqual(
                         delegate.call_counts.get(
                             ("GET", "https://example.com/private")

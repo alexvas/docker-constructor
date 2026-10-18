@@ -6,11 +6,13 @@ No Docker, no network, no subprocess.
 from __future__ import annotations
 
 import dataclasses
-import json
+import hashlib
+import os
+import tempfile
 import tomllib
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any, Callable, Mapping, Optional
+from typing import Any, Callable, Mapping
 
 from docker.transactions.capabilities import (
     CapabilityError,
@@ -50,7 +52,6 @@ from .model import (
     EffectiveRust,
     EffectiveTool,
     Inventory,
-    NpmArtifact,
     PiExtensionEntry,
     PythonEntry,
     RuntimeInventory,
@@ -582,10 +583,6 @@ def _validate_runtime_override(
 # ---------------------------------------------------------------------------
 # Runtime projection lifecycle (Stage 5)
 # ---------------------------------------------------------------------------
-
-import hashlib
-import os
-import tempfile
 
 # ── filesystem boundary ──────────────────────────────────────────────
 

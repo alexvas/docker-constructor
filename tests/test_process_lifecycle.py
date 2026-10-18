@@ -544,7 +544,7 @@ def test_real_partial_startup_and_reader_failure_do_not_corrupt_unrelated_fd(api
         original = getattr(api.OwnedProcess, seam)
         calls = 0
 
-        def fail(self, *a, **k):
+        def fail(self, *a, original=original, **k):
             nonlocal calls
             calls += 1
             if calls == 2:

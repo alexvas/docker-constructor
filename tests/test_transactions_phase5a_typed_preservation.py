@@ -29,9 +29,7 @@ from docker.transactions.errors import (
     STAGE_LOCK_ACQUIRE,
     STAGE_LOCK_MODE,
     STAGE_LOCK_STAT,
-    STAGE_LOCK_VALIDATE,
     STAGE_VALIDATE,
-    CloseStageFailure,
     LockError,
     TransactionError,
 )
@@ -129,14 +127,14 @@ def _cause_access_sites() -> set[tuple[str, str]]:
 
             visit_AsyncFunctionDef = visit_FunctionDef
 
-            def visit_Attribute(self, node: ast.Attribute) -> None:
+            def visit_Attribute(self, node: ast.Attribute, relative=relative) -> None:
                 if node.attr in ("cause", "__cause__") and isinstance(
                     node.ctx, ast.Load
                 ):
                     sites.add((relative, ".".join(self.stack)))
                 self.generic_visit(node)
 
-            def visit_Call(self, node: ast.Call) -> None:
+            def visit_Call(self, node: ast.Call, relative=relative) -> None:
                 if (
                     isinstance(node.func, ast.Name)
                     and node.func.id == "getattr"

@@ -81,7 +81,6 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from docker.npm_environment.streaming import (
-    REDACTED,
     dedupe_secrets,
     longest_secret_length,
 )
@@ -548,7 +547,7 @@ def normalized_url_host(url: str) -> str | None:
         return None
     try:
         parsed = urllib.parse.urlsplit(layer)
-        parsed.port
+        _ = parsed.port
     except ValueError:
         return None
     if not parsed.netloc:
@@ -590,7 +589,7 @@ def normalized_authority_host(scheme: str, hostinfo: str) -> str | None:
     # layered decoding is attempted.
     try:
         parts = urllib.parse.urlsplit(candidate)
-        parts.port
+        _ = parts.port
     except ValueError:
         return None
     if not parts.netloc:
@@ -617,7 +616,7 @@ def literal_authority_host(scheme: str, hostinfo: str) -> str | None:
     candidate = f"{scheme}://{hostinfo}"
     try:
         parsed = urllib.parse.urlsplit(candidate)
-        parsed.port
+        _ = parsed.port
     except ValueError:
         return None
     if not parsed.netloc:
@@ -838,7 +837,7 @@ def _canonical_url_identity_literal(text: str) -> str | None:
     authority = parsed.netloc.rpartition("@")[2]
     explicit_port = _explicit_authority_port(authority)
     try:
-        parsed.port
+        _ = parsed.port
     except ValueError:
         return None
     return json.dumps(
@@ -910,7 +909,7 @@ def _is_complete_url_literal(text: str) -> bool:
     if _AUTHORITY_RE.fullmatch(parsed.netloc.rpartition("@")[2]) is None:
         return False
     try:
-        parsed.port
+        _ = parsed.port
     except ValueError:
         return False
     host = _normalize_hostname_text(parsed.hostname or "")

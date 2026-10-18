@@ -38,7 +38,6 @@ from docker.versioning.verification import (
     _CONTRACTS,
     BuildObservation,
     BuildVerificationResult,
-    ObservationContract,
     VerifyBuildRequest,
     _applicable_contracts,
     _extract_expected_value,

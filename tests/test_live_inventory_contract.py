@@ -203,7 +203,7 @@ class TestLiveInventoryContract(_LiveContractMixin, unittest.TestCase):
         self.assert_effective_environment_propagation(inventory)
 
     def test_declared_owner_visual_headers(self):
-        inventory = load_inventory(REAL_INVENTORY)
+        load_inventory(REAL_INVENTORY)
         # Independent parsed view for the header check.
         raw = tomllib.loads(REAL_INVENTORY.read_text())
         validate_inventory(raw)

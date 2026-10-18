@@ -443,7 +443,9 @@ class TestIntegratedSilentNpmAcceptance(unittest.TestCase):
         elapsed = [event.elapsed_seconds for event in heartbeats]
         self.assertEqual(3, elapsed[0])
         self.assertEqual(list(range(3, 122)), elapsed)
-        self.assertTrue(all(b - a == 1 for a, b in zip(elapsed, elapsed[1:])))
+        self.assertTrue(
+            all(b - a == 1 for a, b in zip(elapsed, elapsed[1:], strict=False))
+        )
         silence = [
             event
             for event in heartbeats

@@ -21,7 +21,8 @@ from pathlib import Path
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-from docker.npm_environment import (
+# Repository/test path setup must run before these imports.
+from docker.npm_environment import (  # noqa: E402
     LockfileV3,
     RootSpec,
     ValidatedAssemblyInput,
@@ -77,7 +78,7 @@ class TestPublishedPiInstallLock(unittest.TestCase):
         self.assertEqual(len(roots), 1)
         self.assertEqual(roots[0].name, "@earendil-works/pi-coding-agent")
         self.assertEqual(roots[0].version, "0.84.4")
-        for name, version in top_deps.items():
+        for _name, version in top_deps.items():
             self.assertFalse(any(c in version for c in "^~|<>*"))
 
     def test_fixture_exercises_required_metadata_forms(self):

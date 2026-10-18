@@ -144,7 +144,7 @@ def _handle_show(
         )
 
     # ── effective mode: phase-specific projections ──────────────────
-    overrides_map: Mapping[str, str] = MappingProxyType(overrides_parsed)
+    MappingProxyType(overrides_parsed)
 
     # Partition overrides by phase — each resolver rejects paths
     # it does not own, so we must not pass the combined map to both.

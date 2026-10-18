@@ -236,7 +236,7 @@ class TestRetainedTailsRemainUngrouped(unittest.TestCase):
             _diagnostic("line")
         )
         self.assertIsInstance(decision, AdmissionDecision)
-        with self.assertRaises(Exception):
+        with self.assertRaises(AttributeError):
             decision.slot_text = "changed"  # type: ignore[misc]
 
 

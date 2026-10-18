@@ -7,7 +7,6 @@ Task 2.2 — Migration-Contract Tests
 from __future__ import annotations
 
 import sys
-import tomllib
 import unittest
 from pathlib import Path
 from types import MappingProxyType
@@ -20,9 +19,10 @@ _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 sys.path.insert(0, str(_THIS_DIR))
 
-from versioning.support.inventory_builder import write_toml
+# Repository/test path setup must run before these imports.
+from versioning.support.inventory_builder import write_toml  # noqa: E402
 
-from docker.versions import InventoryError, load_inventory
+from docker.versions import InventoryError, load_inventory  # noqa: E402
 
 # ── canonical build TOML generator ──────────────────────────────────
 

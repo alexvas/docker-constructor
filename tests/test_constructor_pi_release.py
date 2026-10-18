@@ -16,8 +16,9 @@ from pathlib import Path
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-from docker.versioning.model import PiReleaseSource
-from docker.versioning.pi_release import (
+# Repository/test path setup must run before these imports.
+from docker.versioning.model import PiReleaseSource  # noqa: E402
+from docker.versioning.pi_release import (  # noqa: E402
     INSTALL_PACKAGE_FILENAME,
     INSTALL_PACKAGE_LOCK_FILENAME,
     SHA256SUMS_FILENAME,

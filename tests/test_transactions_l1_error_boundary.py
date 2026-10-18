@@ -1200,9 +1200,12 @@ class PublicBoundaryClassificationTests(_CapabilityCase):
         self.assertIs(typed.__cause__, raw)
 
     def test_safety_rejection_exposes_raw_cause_without_cause_contract(self) -> None:
-        raw = OSError(errno.ELOOP, "symlink")
+        OSError(errno.ELOOP, "symlink")
         error = CapabilityError("unsafe")
-        raise_error = lambda: (_ for _ in ()).throw(error)
+
+        def raise_error():
+            raise error
+
         try:
             raise_error()
         except CapabilityError:

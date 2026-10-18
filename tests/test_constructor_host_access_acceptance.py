@@ -7,12 +7,10 @@ and fake Docker/network injectables.  No real Docker is touched.
 
 from __future__ import annotations
 
-import io
 import tempfile
 import unittest
-from contextlib import redirect_stdout
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 from unittest import mock
 
 from docker.launcher import RunRequest
@@ -23,7 +21,6 @@ from docker.versioning.build_orchestration import (
     orchestrate_build,
     orchestrate_doctor,
 )
-from docker.versioning.rendering import RunHostAccess
 
 # verify_runtime is covered by Phase 4 focused tests
 

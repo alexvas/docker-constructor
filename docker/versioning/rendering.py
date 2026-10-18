@@ -459,8 +459,8 @@ def _docker_platform(internal: str) -> str:
     """Translate an internal platform name to a Docker platform string."""
     try:
         return _PLATFORM_MAP[internal]
-    except KeyError:
-        raise EffectiveConfigError(f"unknown platform: {internal!r}")
+    except KeyError as exc:
+        raise EffectiveConfigError(f"unknown platform: {internal!r}") from exc
 
 
 # ── build-arg emission (ordered, no generic traversal) ──────────────
@@ -729,10 +729,10 @@ def _validate_run_inputs(inputs: RunRenderInputs) -> None:
             source: str
             try:
                 source = os.path.realpath(mount.host_path)
-            except OSError:
+            except OSError as exc:
                 raise ValueError(
                     "artifact mount source must be a regular non-symlink file"
-                )
+                ) from exc
             if source != mount.host_path:
                 raise ValueError("artifact mount source must be canonical and absolute")
         else:
@@ -1368,11 +1368,11 @@ def _validate_inventory_output(repo_root: Path, relative_path: str) -> Path:
     # Check parent is inside repo_root
     try:
         raw_parent.relative_to(repo_root)
-    except ValueError:
+    except ValueError as exc:
         raise EffectiveInventoryOutputError(
             f"Effective inventory output must be inside the repo root; "
             f"{relative_path!r} resolves to {str(raw_parent)!r}"
-        )
+        ) from exc
 
     # Walk intermediate components for symlink escapes
     for parent in raw_parent.parents:
@@ -1382,24 +1382,24 @@ def _validate_inventory_output(repo_root: Path, relative_path: str) -> Path:
             real_parent = parent.resolve()
             try:
                 real_parent.relative_to(repo_root)
-            except ValueError:
+            except ValueError as exc:
                 raise EffectiveInventoryOutputError(
                     f"Effective inventory output traverses a symlink "
                     f"pointing outside the repo root: {str(parent)!r} "
                     f"-> {str(real_parent)!r}"
-                )
+                ) from exc
 
     # Reject if the leaf exists and is a symlink outside
     if raw.is_symlink():
         real = raw.resolve()
         try:
             real.relative_to(repo_root)
-        except ValueError:
+        except ValueError as exc:
             raise EffectiveInventoryOutputError(
                 f"Effective inventory output is a symlink pointing "
                 f"outside the repo root: {relative_path!r} "
                 f"-> {str(real)!r}"
-            )
+            ) from exc
 
     resolved = raw.resolve()
 
@@ -1606,8 +1606,6 @@ def _toml_str(s: str) -> str:
 # Effective Build Projection serialization (Stage 4)
 # ---------------------------------------------------------------------------
 
-import dataclasses as _dc
-
 
 def serialize_effective_build(projection) -> dict[str, object]:
     """Serialize an EffectiveBuildProjection to a deterministic plain dict."""
@@ -1672,13 +1670,6 @@ def validate_effective_build(data: dict[str, object]):
 
     Raises ValueError or EffectiveConfigError on invalid data.
     """
-    from .model import (
-        EffectiveArtifact,
-        EffectiveBuildProjection,
-        EffectiveNode,
-        EffectiveRust,
-        EffectiveTool,
-    )
 
     if not isinstance(data, dict):
         raise ValueError("effective build projection must be a dict")
@@ -1890,7 +1881,6 @@ def write_effective_build(
     canonical *repo_root*; otherwise it is resolved from *repo_root*.
     """
     from docker.versioning.project_state import (
-        ProjectState,
         ProjectStateError,
         resolve_project_state,
         validate_project_state,

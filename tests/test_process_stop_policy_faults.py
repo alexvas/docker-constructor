@@ -13,7 +13,12 @@ import pytest
 from docker.filesystem.descriptors import OwnedDescriptor
 from docker.filesystem.operations import PosixDescriptorOps
 from tests.test_process_lifecycle import Child, secondary, workers
-from tests.test_process_stop_policy import Action, api, launch, plan
+from tests.test_process_stop_policy import (  # pytest fixture re-export
+    Action,
+    launch,
+    plan,
+)
+from tests.test_process_stop_policy import api as api
 
 
 def errors(result):

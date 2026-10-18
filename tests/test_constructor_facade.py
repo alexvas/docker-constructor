@@ -13,9 +13,7 @@ from __future__ import annotations
 import atexit
 import io
 import json
-import os
 import re
-import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
@@ -1170,9 +1168,9 @@ class TestDispatchRecording(unittest.TestCase):
             color="auto",
             command_args={"scope": "build"},
         )
-        with self.assertRaises(Exception):
+        with self.assertRaises(AttributeError):
             req.constructor_project = ConstructorProject(Path("/hacked"))  # type: ignore[misc]
-        with self.assertRaises(Exception):
+        with self.assertRaises(AttributeError):
             req.output = "json"  # type: ignore[misc]
         with self.assertRaises(TypeError):
             req.command_args["scope"] = "runtime"  # type: ignore[index]
@@ -1843,7 +1841,7 @@ class TestBuildConfirmation(unittest.TestCase):
     def test_denial_returns_success_cancellation(self) -> None:
         prompt = _make_prompt_never(self.m)
         # We need a recording dispatcher to prove it wasn't called
-        record = _make_recording_fake(self.m)
+        _make_recording_fake(self.m)
         # Call _real_dispatcher directly since prompt is injectable there
         from docker.constructor_cli import CommandRequest
 
@@ -1918,7 +1916,7 @@ class TestBuildConfirmation(unittest.TestCase):
             color="auto",
             command_args={"dry_run": False, "yes": True},
         )
-        result = self.m._real_dispatcher(
+        self.m._real_dispatcher(
             "build",
             req,
             _prompt_user=prompt,
@@ -1968,7 +1966,7 @@ class TestDoctorConfirmation(unittest.TestCase):
             color="auto",
             command_args={"apply_override": True, "yes": True},
         )
-        result = self.m._real_dispatcher(
+        self.m._real_dispatcher(
             "doctor",
             req,
             _prompt_user=prompt,
@@ -1987,7 +1985,7 @@ class TestDoctorConfirmation(unittest.TestCase):
             color="auto",
             command_args={"apply_override": True, "yes": False},
         )
-        result = self.m._real_dispatcher(
+        self.m._real_dispatcher(
             "doctor",
             req,
             _prompt_user=prompt,
@@ -2123,8 +2121,6 @@ class TestRunExecutionBoundaries(unittest.TestCase):
         called (pi-N allocation) and the executor is called (docker
         run).
         """
-        import tempfile
-        from contextlib import contextmanager
 
         fake_runner, runner_calls = self._make_fake_runner()
         factory, proj_calls = self._make_noop_projection_factory()
@@ -2209,7 +2205,6 @@ class TestRunExecutionBoundaries(unittest.TestCase):
         from docker.launcher import (
             DockerContainerInspector,
             DockerRunExecutor,
-            ProcessRunner,
         )
 
         # Only inject _process_runner — the facade should create

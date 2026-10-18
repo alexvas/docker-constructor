@@ -47,7 +47,6 @@ from docker.filesystem.descriptors import (
     OwnedDescriptor,
 )
 from docker.filesystem.operations import PosixDescriptorOps
-from docker.versioning.project_state import resolve_project_state
 
 
 def _secondary_of(exc: BaseException) -> list[BaseException]:

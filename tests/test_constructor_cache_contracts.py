@@ -304,7 +304,6 @@ class TestCacheSafety(unittest.TestCase):
         """RED — a path that does not exist is rejected with
         reason ``"missing"``."""
         import tempfile
-        from unittest import mock
 
         with tempfile.TemporaryDirectory() as root:
             nonexistent = os.path.join(root, "nonexistent.tgz")
@@ -316,7 +315,6 @@ class TestCacheSafety(unittest.TestCase):
         """RED — within the cache root, a symlink at the blob path
         is rejected with reason ``"symlink"``."""
         import tempfile
-        from unittest import mock
 
         with tempfile.TemporaryDirectory() as root:
             target = os.path.join(root, "target")
@@ -332,7 +330,6 @@ class TestCacheSafety(unittest.TestCase):
         """RED — within the cache root, a directory at the blob
         path is rejected with reason ``"not_regular_file"``."""
         import tempfile
-        from unittest import mock
 
         with tempfile.TemporaryDirectory() as root:
             subdir = os.path.join(root, "subdir")
@@ -343,7 +340,6 @@ class TestCacheSafety(unittest.TestCase):
         """RED — within the cache root, a named pipe (FIFO) is
         rejected with reason ``"not_regular_file"``."""
         import tempfile
-        from unittest import mock
 
         with tempfile.TemporaryDirectory() as root:
             fifo_path = os.path.join(root, "fifo")
@@ -358,7 +354,6 @@ class TestCacheSafety(unittest.TestCase):
         """RED — within the cache root, a blob with group/other
         write bits is rejected with reason ``"permissions"``."""
         import tempfile
-        from unittest import mock
 
         with tempfile.TemporaryDirectory() as root:
             fd, path = tempfile.mkstemp(dir=root)
@@ -375,7 +370,6 @@ class TestCacheSafety(unittest.TestCase):
         cache root with owner-only permissions is accepted without
         raising."""
         import tempfile
-        from unittest import mock
 
         with tempfile.TemporaryDirectory() as root:
             fd, path = tempfile.mkstemp(dir=root)
@@ -399,12 +393,12 @@ class TestNoURLPackageVersionInPath(unittest.TestCase):
     def test_url_does_not_affect_derived_path(self) -> None:
         from docker.versioning.artifact_cache import derive_cache_path
 
-        p1 = derive_cache_path(
+        derive_cache_path(
             "sha512",
             "f" * 128,
             root="https://example.com/pkg-1.0.tgz",
         )
-        p2 = derive_cache_path(
+        derive_cache_path(
             "sha512",
             "f" * 128,
             root="https://other.com/pkg-2.0.tgz",
@@ -572,7 +566,7 @@ class TestBoundaryProtocols(unittest.TestCase):
         )
 
         err = ArtifactMaterializationError(reason="t", detail="e" * 128)
-        with self.assertRaises(Exception):
+        with self.assertRaises(AttributeError):
             err.reason = "other"  # type: ignore[misc]
 
 

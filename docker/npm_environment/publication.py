@@ -58,7 +58,6 @@ from .evidence import (
     serialize_evidence,
 )
 from .execution import (
-    CleanupFailure,
     _attach_cleanup_notes,
     _remove_staging_safely,
     assemble,
@@ -248,13 +247,13 @@ def identity_coordination_lock(
             failures.run(directory.close, ordinary=(CloseStageFailure,))
         result = failures.complete()
         if result is not None:
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         mapped = _identity_lock_failure(exc)
         if mapped is exc:
             raise
         if isinstance(mapped, LockedNpmError):
             raise mapped from exc
-        raise mapped
+        raise mapped from exc
     try:
         yield
     except BaseException as exc:

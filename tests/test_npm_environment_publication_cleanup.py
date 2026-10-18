@@ -21,8 +21,9 @@ from unittest import mock
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-import docker.npm_environment.execution as execution_module
-from docker.npm_environment import (
+# Repository/test path setup must run before these imports.
+import docker.npm_environment.execution as execution_module  # noqa: E402
+from docker.npm_environment import (  # noqa: E402
     LockedNpmError,
     ProcessResult,
     RootSpec,
@@ -36,7 +37,7 @@ from docker.npm_environment import (
     publication,
     publish_environment,
 )
-from docker.versioning.npm_diagnostic_stream import project_tail
+from docker.versioning.npm_diagnostic_stream import project_tail  # noqa: E402
 
 _URL = "https://user:pass@registry.example.com/pkg?token=abc#frag"
 

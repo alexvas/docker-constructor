@@ -23,21 +23,22 @@ from pathlib import Path
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-from docker.npm_environment import (
+# Repository/test path setup must run before these imports.
+from docker.npm_environment import (  # noqa: E402
     RootSpec,
     npm_policy_flags,
     preflight,
 )
-from docker.npm_environment.evidence import (
+from docker.npm_environment.evidence import (  # noqa: E402
     AssemblerEvidence,
     AssemblerEvidenceBody,
     compute_assembled_output_identity,
     evidence_body_digest,
     serialize_evidence,
 )
-from docker.npm_environment.identity import AssemblerIdentity, AssemblerInputIdentity
-from docker.npm_environment.tree import build_tree_manifest
-from docker.versioning.pi_consumer import (
+from docker.npm_environment.identity import AssemblerIdentity, AssemblerInputIdentity  # noqa: E402
+from docker.npm_environment.tree import build_tree_manifest  # noqa: E402
+from docker.versioning.pi_consumer import (  # noqa: E402
     launcher_evidence,
     plan_launcher,
     select_pi_metadata,

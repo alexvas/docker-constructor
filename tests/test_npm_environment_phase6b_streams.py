@@ -683,7 +683,7 @@ class PreparedAdapterFaultTests(unittest.TestCase):
                     calls = []
                     proc = _Phase6bProc(pre_exited=True)
 
-                    def prepare(*, label):
+                    def prepare(*, label, calls=calls, error=error, position=position):
                         calls.append(label)
                         if len(calls) - 1 == position:
                             with mock.patch.object(
@@ -760,7 +760,13 @@ class PreparedAdapterFaultTests(unittest.TestCase):
                 proc = _Phase6bProc(pre_exited=True)
                 attempts = []
 
-                def transfer(owner, index):
+                def transfer(
+                    owner,
+                    index,
+                    attempts=attempts,
+                    ordinary=ordinary,
+                    interruption=interruption,
+                ):
                     attempts.append(index)
                     raise ordinary if index == 0 else interruption
 

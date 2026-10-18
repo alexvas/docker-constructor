@@ -12,16 +12,15 @@ from typing import ClassVar
 # ---------------------------------------------------------------------------
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from docker.versioning.configuration_document_validation import (  # noqa: E402
+from docker.versioning.configuration_document_validation import (
     ConfigurationDocumentError,
     DocumentRole,
 )
-from docker.versioning.constraints import parse_numeric_version  # noqa: E402
-from docker.versioning.integrity import is_valid_integrity  # noqa: E402
-from docker.versioning.inventory import InventoryError  # noqa: E402
-from docker.versioning.model import InvalidArtifactKey  # noqa: E402
-from docker.versions import load_inventory  # noqa: E402
-from tests.inventory_fixtures import (  # noqa: E402
+from docker.versioning.constraints import parse_numeric_version
+from docker.versioning.integrity import is_valid_integrity
+from docker.versioning.inventory import InventoryError
+from docker.versions import load_inventory
+from tests.inventory_fixtures import (
     stable_inventory_path,
     stable_inventory_text,
 )
@@ -439,7 +438,7 @@ metadata_file = "package.json"
             '[runtime.pi-extensions.pi-test.update]\nprovider = "npm"',
             '[runtime.pi-extensions.pi-test.update]\nprovider = "github-release"',
         )
-        with self.assertRaises(InventoryError) as ctx:
+        with self.assertRaises(InventoryError):
             load_inventory(self._write(toml))
 
     # ── artifact validation ─────────────────────────────────────────────
@@ -881,21 +880,21 @@ version = "1.0.0"
 type = "npm"
 package = "bad-ext"
 """
-        with self.assertRaises(InventoryError) as ctx:
+        with self.assertRaises(InventoryError):
             load_inventory(self._write(toml))
 
     def test_stages_under_runtime_rejected(self):
         """build-only 'stages' must not appear under runtime."""
         toml = _read_canonical()
         toml += '\n[runtime.stages.foo]\nversion = "1.0"\n'
-        with self.assertRaises(InventoryError) as ctx:
+        with self.assertRaises(InventoryError):
             load_inventory(self._write(toml))
 
     def test_build_tool_entry_under_runtime_rejected(self):
         """A build tool (e.g. pi, openspec) is not valid under runtime.pi-extensions."""
         toml = _read_canonical()
         toml += '\n[runtime.pi-tools.pi]\nversion = "1.0"\n'
-        with self.assertRaises(InventoryError) as ctx:
+        with self.assertRaises(InventoryError):
             load_inventory(self._write(toml))
 
     def test_runtime_extension_under_build_stages_rejected(self):
@@ -908,7 +907,7 @@ version = "1.0"
 type = "npm"
 package = "foo"
 """
-        with self.assertRaises(InventoryError) as ctx:
+        with self.assertRaises(InventoryError):
             load_inventory(self._write(toml))
 
 

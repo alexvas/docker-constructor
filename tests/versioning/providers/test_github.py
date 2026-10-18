@@ -9,7 +9,6 @@ from docker.versioning.model import (
     ArtifactEntry,
     GitHubReleaseSource,
     GitHubReleaseUpdate,
-    UpdateKind,
     UpdateTarget,
 )
 from docker.versioning.providers.base import ProviderContext
@@ -195,7 +194,7 @@ class TestGitHubProvider(unittest.TestCase):
                 },
             ],
         )
-        ctx = ProviderContext(
+        ProviderContext(
             http=self.http,
             git=self.git,
             include_prerelease=False,

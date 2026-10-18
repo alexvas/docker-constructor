@@ -14,7 +14,7 @@ from ..model import (
     UpdateKind,
     UpdateTarget,
 )
-from .base import ProviderContext, ProviderResult, UpdateProvider
+from .base import ProviderContext, ProviderResult
 
 _GIT_REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 

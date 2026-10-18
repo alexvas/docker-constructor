@@ -20,8 +20,9 @@ from pathlib import Path
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-from docker import npm_environment
-from docker.npm_environment import (
+# Repository/test path setup must run before these imports.
+from docker import npm_environment  # noqa: E402
+from docker.npm_environment import (  # noqa: E402
     LockedNpmError,
     RootSpec,
     compute_assembler_identity,
@@ -29,7 +30,7 @@ from docker.npm_environment import (
     parse_lockfile,
     preflight,
 )
-from docker.npm_environment import lockfile as lockfile_module
+from docker.npm_environment import lockfile as lockfile_module  # noqa: E402
 
 
 def _sri() -> str:

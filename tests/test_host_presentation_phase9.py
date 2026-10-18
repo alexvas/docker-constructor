@@ -22,10 +22,7 @@ from docker.npm_environment.streaming import OVERSIZED_DIAGNOSTIC_MARKER
 from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.host_presentation import (
     CONTROL_CAPACITY,
-    DIAGNOSTIC_SILENCE_SECONDS,
-    FIRST_HEARTBEAT_SECONDS,
     INTERACTIVE_REFRESH_SECONDS,
-    LINES_STATUS_INTERVAL_SECONDS,
     OMISSION_COUNTER_LIMIT,
     AdmittedEvent,
     HostEventEnqueueAdapter,

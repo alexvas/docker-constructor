@@ -19,8 +19,9 @@ from unittest import mock
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-import docker.npm_environment.execution as execution_module
-from docker.npm_environment import (
+# Repository/test path setup must run before these imports.
+import docker.npm_environment.execution as execution_module  # noqa: E402
+from docker.npm_environment import (  # noqa: E402
     DockerRunExecutor,
     ProcessResult,
     RootSpec,

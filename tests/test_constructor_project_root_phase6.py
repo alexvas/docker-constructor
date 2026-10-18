@@ -76,7 +76,7 @@ class TestReadmeContract(unittest.TestCase):
             "current working directory by default",
             "默认使用当前工作目录",
         )
-        for readme, phrase in zip(READMES, expected):
+        for readme, phrase in zip(READMES, expected, strict=False):
             with self.subTest(readme=readme.name):
                 self.assertIn(phrase, readme.read_text(encoding="utf-8"))
 
@@ -97,7 +97,7 @@ class TestReadmeContract(unittest.TestCase):
                 "不会在构造器项目或 workspace 中隐式创建 `.docker-generated` 目录",
             ),
         )
-        for readme, phrases in zip(READMES, expected):
+        for readme, phrases in zip(READMES, expected, strict=False):
             text = readme.read_text(encoding="utf-8")
             with self.subTest(readme=readme.name):
                 for phrase in phrases:
@@ -118,5 +118,5 @@ class TestReadmeContract(unittest.TestCase):
         texts = tuple(readme.read_text(encoding="utf-8") for readme in READMES)
         for workflow in workflows:
             with self.subTest(workflow=workflow[0]):
-                for text, token in zip(texts, workflow):
+                for text, token in zip(texts, workflow, strict=False):
                     self.assertIn(token, text)

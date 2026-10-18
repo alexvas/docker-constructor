@@ -13,7 +13,7 @@ import hashlib
 import re
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from typing import Callable, Iterable, Protocol, overload
+from typing import Callable, Protocol, overload
 
 from .build_materialization import StreamingTransport
 from .model import PiReleaseSource

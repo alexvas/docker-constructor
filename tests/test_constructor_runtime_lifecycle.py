@@ -14,9 +14,7 @@ from docker.versioning.constraints import parse_constraint
 from docker.versioning.effective import (
     EffectiveConfigError,
     Filesystem,
-    RuntimeProjectionHandle,
     _generate_projection_path,
-    _runtime_root,
     _validate_safe_path,
     cleanup_runtime_projection,
     create_runtime_projection,
@@ -1116,7 +1114,6 @@ class TestRuntimeLifecycle(unittest.TestCase):
     def test_fake_fs_create_and_read(self):
         """Create a projection entirely in-memory — no real
         filesystem access."""
-        from docker.versioning.effective import Filesystem
 
         _, proj = resolve_runtime(_runtime(), {})
         store: dict[str, bytes] = {}
@@ -1140,7 +1137,6 @@ class TestRuntimeLifecycle(unittest.TestCase):
     def test_fake_fs_destination_collision(self):
         """Pre-existing file in the fake store must cause
         EffectiveConfigError."""
-        from docker.versioning.effective import Filesystem
 
         _, proj = resolve_runtime(_runtime(), {})
         target = os.path.join(self._tmp, "collide.toml")
@@ -1154,7 +1150,6 @@ class TestRuntimeLifecycle(unittest.TestCase):
     def test_fake_fs_write_failure(self):
         """A failing L0 write must clean up the temp without touching
         the destination."""
-        from docker.versioning.effective import Filesystem
 
         _, proj = resolve_runtime(_runtime(), {})
         target = os.path.join(self._tmp, "writefail.toml")
@@ -1172,7 +1167,6 @@ class TestRuntimeLifecycle(unittest.TestCase):
 
     def test_fake_fs_link_failure(self):
         """Failing link must not leave a partial destination."""
-        from docker.versioning.effective import Filesystem
 
         _, proj = resolve_runtime(_runtime(), {})
         target = os.path.join(self._tmp, "linkfail.toml")
@@ -1191,7 +1185,6 @@ class TestRuntimeLifecycle(unittest.TestCase):
     def test_fake_fs_scoped_cleanup_keeps_only_own(self):
         """Two handles over the same fake store must only remove
         their own files."""
-        from docker.versioning.effective import Filesystem
 
         _, proj = resolve_runtime(_runtime(), {})
         t1 = os.path.join(self._tmp, "keep1.toml")
@@ -1258,7 +1251,6 @@ class TestRuntimeLifecycle(unittest.TestCase):
         """The published projection file must be readable by
         non-owner users — container-remapped UIDs cannot read files
         locked at owner-only 0600."""
-        import stat
 
         _, proj = resolve_runtime(_runtime(), {})
         target = os.path.join(self._tmp, "world-readable.toml")
@@ -1280,7 +1272,6 @@ class TestRuntimeLifecycle(unittest.TestCase):
         """mkstemp creates files at 0600 (owner read-write only).
         The projection must never be left at this restrictive mode
         — this test documents the baseline the code must override."""
-        import stat
 
         fd, tmp = tempfile.mkstemp(dir=self._tmp)
         try:

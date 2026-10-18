@@ -301,7 +301,8 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
                 with self.assertRaises(ConfigurationDocumentError) as raised:
                     inventory.load_inventory(path)
                 self.assertEqual(field, raised.exception.field)
-                self.assertNotIn(rejected, str(raised.exception))
+                message = str(raised.exception).replace(str(path), "<path>")
+                self.assertNotIn(rejected, message)
 
     def test_actual_owner_schema_errors_are_safe_and_typed(self) -> None:
         reviewed = self._write("docker-constructor.toml", "schema = 99\n")
@@ -518,12 +519,14 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
                 with (
                     patch(
                         "docker.versioning.build_orchestration.resolve_effective_root",
-                        side_effect=lambda *_args, **_kwargs: effects.append("cache"),
+                        side_effect=lambda *_args, effects=effects, **_kwargs: (
+                            effects.append("cache")
+                        ),
                     ),
                     patch(
                         "docker.versioning.build_orchestration.resolve_build_projection",
-                        side_effect=lambda *_args, **_kwargs: effects.append(
-                            "projection"
+                        side_effect=lambda *_args, effects=effects, **_kwargs: (
+                            effects.append("projection")
                         ),
                     ),
                 ):

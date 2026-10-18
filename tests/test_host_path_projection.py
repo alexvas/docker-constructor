@@ -26,7 +26,6 @@ import unittest
 from docker.npm_environment.streaming import StreamChunk
 from docker.versioning.diagnostic_identity import SessionUrlIdentity
 from docker.versioning.diagnostic_projection import (
-    INCOMPLETE_TOKEN_MARKER,
     OVERSIZED_TOKEN_MARKER,
     PENDING_LIMIT_BYTES,
     REDACTED_PATH_MARKER,

@@ -26,11 +26,11 @@ from typing import Mapping, Sequence
 from docker.versioning.constraints import Constraint, ConstraintClause, NumericVersion
 from docker.versioning.effective import (
     Filesystem,
+    RuntimeProjectionHandle,
     create_runtime_projection,
     resolve_runtime,
 )
 from docker.versioning.model import (
-    EffectivePiExtensionEntry,
     EffectiveRuntimeProjection,
     HostAccessPolicy,
     NpmArtifact,
@@ -317,7 +317,7 @@ def _passing_handlers(
         ),
     }
     # extensions.results — one cat per declared extension
-    for pkg, (ver, pkg_json) in sorted(extensions.items()):
+    for pkg, (_ver, pkg_json) in sorted(extensions.items()):
         path = f"/home/dev/.pi/agent/npm/node_modules/{pkg}/package.json"
         handlers[("cat", path)] = (0, pkg_json, "")
     for i, pp in enumerate(workspace_paths, start=1):
@@ -374,7 +374,7 @@ def _alternate_runtime_projection(
     return proj
 
 
-def _alternate_runtime_handle(suffix: str = ".toml") -> _RecordingProjectionFactory:
+def _alternate_runtime_handle(suffix: str = ".toml") -> RuntimeProjectionHandle:
     import uuid
 
     path = _TEST_RUNTIME_ROOT / f"test-alt-{uuid.uuid4().hex}{suffix}"

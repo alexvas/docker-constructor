@@ -220,8 +220,8 @@ This forward-only chain is the chosen DAG. A phase may depend only on an earlier
 
 ### RED
 
-- [ ] 5.1 Create the diagnostic disposition ledger; accept when each residual root cause has a unique ID, affected messages/locations, classification (defect/simplification/intentional construct) and a single-target verification plan.
-- [ ] 5.2 Instantiate RED work orders from the ledger; accept when every target has the applicable instance below or an evidence-backed zero-target result.
+- [x] 5.1 Create the diagnostic disposition ledger; accept when each residual root cause has a unique ID, affected messages/locations, classification (defect/simplification/intentional construct) and a single-target verification plan.
+- [x] 5.2 Instantiate RED work orders from the ledger; accept when every target has the applicable instance below or an evidence-backed zero-target result.
 
 **Binding RED instances, separately checkable:**
 
@@ -231,7 +231,7 @@ This forward-only chain is the chosen DAG. A phase may depend only on an earlier
 
 ### GREEN
 
-- [ ] 5.3 Instantiate GREEN work orders for the accepted RED targets; accept when each has one applicable action below and no target lacks a concrete work item.
+- [x] 5.3 Instantiate GREEN work orders for the accepted RED targets; accept when each has one applicable action below and no target lacks a concrete work item.
 
 **Binding GREEN instances, executed independently:**
 
@@ -239,25 +239,25 @@ This forward-only chain is the chosen DAG. A phase may depend only on an earlier
 - `P5-S<n>-GREEN`: simplify the one construct from the matching RED instance; accept when its behavior assertion passes and the targeted Ruff finding disappears.
 - `P5-N<n>-GREEN`: add one specific suppression with a substantive inline or adjacent rationale; accept when the necessary behavior is unchanged and Ruff accepts that code without an unused suppression. Do not suppress unrelated messages.
 
-- [ ] 5.4 Format the manual-fix delta; accept when it contains only the accepted work-order edits and their formatter output.
-- [ ] 5.5 Document recurring justified exceptions in the contributor guide; accept when each documented example links to an accepted necessity rationale, or explicitly record that no recurring exception exists.
+- [x] 5.4 Format the manual-fix delta; accept when it contains only the accepted work-order edits and their formatter output.
+- [x] 5.5 Document recurring justified exceptions in the contributor guide; accept when each documented example links to an accepted necessity rationale, or explicitly record that no recurring exception exists.
 
 ### INTROSPECT
 
-- [ ] 5.6 Review the resolution ledger; accept when every original finding maps to an accepted instance and no finding was removed by weakening configuration/tests.
-- [ ] 5.7 Review suppression explanations; accept when each names the necessary construct rather than merely stating that Ruff complained, with no blanket or obsolete suppression.
-- [ ] 5.8 Review manual-change scope; accept when lifecycle/domain guarantees and stress fixtures remain protected by their named tests.
+- [x] 5.6 Review the resolution ledger; accept when every original finding maps to an accepted instance and no finding was removed by weakening configuration/tests.
+- [x] 5.7 Review suppression explanations; accept when each names the necessary construct rather than merely stating that Ruff complained, with no blanket or obsolete suppression.
+- [x] 5.8 Review manual-change scope; accept when lifecycle/domain guarantees and stress fixtures remain protected by their named tests.
 
 ### VALIDATE
 
-- [ ] 5.9 Run all named work-order regression/equivalence checks; accept only successful results for every instance.
-- [ ] 5.10 Run full-inventory Ruff check; accept only exit 0 with no unresolved findings, including SIM115 and RUF100.
-- [ ] 5.11 Run full-inventory format check; accept only exit 0.
-- [ ] 5.12 Run full pytest for G; accept only exit 0 and its durable summary.
-- [ ] 5.13 Execute all manifest checks mandatory in P5: both existing required checks and every new adoption check are now active; accept only successful statuses with no unresolved ty diagnostics.
-- [ ] 5.14 Run shared compilation for G; accept only exit 0.
-- [ ] 5.15 Review phase-exit skips; accept only justified reasons.
-- [ ] 5.16 Publish the P5 exit report; accept when the resolution ledger and G identify the same final manual-fix state.
+- [x] 5.9 Run all named work-order regression/equivalence checks; accept only successful results for every instance.
+- [x] 5.10 Run full-inventory Ruff check; accept only exit 0 with no unresolved findings, including SIM115 and RUF100.
+- [x] 5.11 Run full-inventory format check; accept only exit 0.
+- [x] 5.12 Run full pytest for G; accept only exit 0 and its durable summary.
+- [x] 5.13 Execute all manifest checks mandatory in P5: both existing required checks and every new adoption check are now active; accept only successful statuses with no unresolved ty diagnostics.
+- [x] 5.14 Run shared compilation for G; accept only exit 0.
+- [x] 5.15 Review phase-exit skips; accept only justified reasons.
+- [x] 5.16 Publish the P5 exit report; accept when the resolution ledger and G identify the same final manual-fix state.
 
 ## 6. P6 — Permanent local and GitHub control
 

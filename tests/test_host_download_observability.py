@@ -1058,7 +1058,7 @@ class TestPiReleaseActivity(unittest.TestCase):
                 yield from inner.stream(url)
 
         records: list[object] = []
-        with self.assertRaises(Exception):
+        with self.assertRaises(PiAssemblyError):
             materialize_pi(
                 PiAssemblyRequest(
                     projection=_projection(),

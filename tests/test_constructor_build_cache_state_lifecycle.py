@@ -317,7 +317,7 @@ class BuildCacheStateCompatibilityTests(_BuildCacheStateCase):
         self.assertEqual(len(owners), 5)
         owner_fds = tuple(owner.fd for owner in owners)
         self.assertEqual(set(owner_fds), set(self.fds))
-        for name, owner in zip(_RELEASE_ORDER, owners):
+        for name, owner in zip(_RELEASE_ORDER, owners, strict=False):
             self.assertEqual(getattr(self.state, name), owner.fd)
 
     def test_private_owners_are_shared_owned_descriptors(self) -> None:

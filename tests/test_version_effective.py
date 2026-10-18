@@ -11,16 +11,12 @@ from pathlib import Path
 from types import MappingProxyType
 
 from docker.versioning.effective import (
-    EffectiveConfiguration,
     apply_overrides,
-    get_path,
     serialize_effective_inventory,
     to_plain_data,
 )
 from docker.versioning.errors import (
     OverrideValidationError,
-    UnknownPathError,
-    UnsupportedOverrideError,
 )
 from docker.versioning.inventory import load_inventory
 from docker.versioning.rendering import render_build_environment
@@ -133,7 +129,6 @@ class TestEffectiveImmutability(unittest.TestCase):
         )
 
     def test_overrides_is_mappingproxy(self):
-        from types import MappingProxyType
 
         self.assertIsInstance(self.effective.overrides, MappingProxyType)
 
@@ -142,7 +137,6 @@ class TestEffectiveImmutability(unittest.TestCase):
             self.effective.overrides["new"] = "value"  # type: ignore[index]
 
     def test_env_is_mappingproxy(self):
-        from types import MappingProxyType
 
         env = render_build_environment(self.effective)
         self.assertIsInstance(env, MappingProxyType)

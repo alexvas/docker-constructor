@@ -14,7 +14,6 @@ import io
 import json
 import os
 import re
-import sys
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from typing import Any, Sequence

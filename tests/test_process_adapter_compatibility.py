@@ -31,7 +31,7 @@ def test_coordination_wait_interruption_retains_lifecycle_and_independent_cleanu
 
     pipe.close = close
     owner = OwnedProcess.launch(
-        ["child"], factory=lambda *a, **k: child, grace_seconds=0.5
+        ["child"], factory=lambda *a, child=child, **k: child, grace_seconds=0.5
     )
     original_wait = owner._phase_done.wait
     interrupted = False
@@ -203,7 +203,7 @@ def test_wait_and_release_errors_expose_distinct_typed_diagnostic_context():
         original_wait = child.wait
         failed = False
 
-        def wait(timeout=None):
+        def wait(timeout=None, error=error, original_wait=original_wait, source=source):
             nonlocal failed
             if source == "wait" and not failed:
                 failed = True
@@ -211,9 +211,9 @@ def test_wait_and_release_errors_expose_distinct_typed_diagnostic_context():
             return original_wait(timeout)
 
         child.wait = wait
-        child.kill = lambda: None  # fixture child has already exited with 7
+        child.kill = lambda child=child: None  # fixture child has already exited with 7
         owner = OwnedProcess.launch(
-            ["child"], factory=lambda *a, **k: child, grace_seconds=0.1
+            ["child"], factory=lambda *a, child=child, **k: child, grace_seconds=0.1
         )
         try:
             snapshot = owner.capture()

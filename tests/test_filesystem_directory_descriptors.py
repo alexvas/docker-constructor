@@ -1085,7 +1085,7 @@ class FdLedgerTests(unittest.TestCase):
             with self.subTest(scenario=scenario):
                 ops = _FakeOps()
                 configure(ops)
-                with self.assertRaises(BaseException):
+                with self.assertRaises((DescriptorError, OSError)):
                     DirectoryDescriptor.open_secure_path(ops, "/a/b", label="target")
                 self._assert_balanced(ops)
                 self.assertEqual(ops.open_fds, set())
@@ -1109,7 +1109,9 @@ class FdLedgerTests(unittest.TestCase):
                     ops = _FakeOps()
                     parent = _adopt_parent(ops)
                     _raise_from_fchmod(ops, error)
-                    with self.assertRaises(BaseException):
+                    with self.assertRaises(
+                        (KeyboardInterrupt, RuntimeError, DescriptorError)
+                    ):
                         _invoke_directory_creation(parent, path, "child", 0o700)
                     self._assert_balanced(ops)
                     self.assertEqual(ops.open_fds, {parent.fd})

@@ -184,7 +184,7 @@ def _compare_prerelease(a: tuple[str, ...], b: tuple[str, ...]) -> int:
 
     Returns negative if a < b, 0 if equal, positive if a > b.
     """
-    for pa, pb in zip(a, b):
+    for pa, pb in zip(a, b, strict=False):
         result = _compare_prerelease_identifier(pa, pb)
         if result != 0:
             return result

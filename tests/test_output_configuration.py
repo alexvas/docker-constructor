@@ -442,7 +442,7 @@ class TestFacadeOutputPolicyDispatch(unittest.TestCase):
                             "--yes",
                             *extra,
                         ],
-                        stderr_isatty=lambda: isatty,
+                        stderr_isatty=lambda isatty=isatty: isatty,
                     )
                 self.assertEqual(0, exit_code)
                 renderer.assert_not_called()
@@ -487,7 +487,7 @@ class TestFacadeOutputPolicyDispatch(unittest.TestCase):
                             "--yes",
                             *extra,
                         ],
-                        stderr_isatty=lambda: isatty,
+                        stderr_isatty=lambda isatty=isatty: isatty,
                     )
                 self.assertEqual(3, exit_code)
                 renderer.assert_not_called()

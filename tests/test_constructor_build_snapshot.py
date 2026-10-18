@@ -711,7 +711,6 @@ class SnapshotCleanupRecoveryFaultTests(unittest.TestCase):
     def test_initial_non_permission_removal_failure_is_exposed_raw(self):
         tree, _ = self._readonly_tree()
         failure = OSError(errno.EIO, "initial removal io failure")
-        real_rmtree = shutil.rmtree
         calls: list[Path] = []
 
         def spy(path, *args, **kwargs):

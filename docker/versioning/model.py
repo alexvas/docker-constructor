@@ -15,11 +15,12 @@ from __future__ import annotations
 import base64
 import re
 from dataclasses import dataclass, field
-from enum import StrEnum
+from enum import Enum, StrEnum
 from types import MappingProxyType
-from typing import Any, Mapping, Optional, Protocol
+from typing import Mapping, Optional, Protocol
 
-from .constraints import Constraint, NumericVersion  # re-export for convenience
+from .constraints import Constraint  # re-export for convenience
+from .constraints import NumericVersion as NumericVersion  # compatibility re-export
 
 # ---------------------------------------------------------------------------
 # Shared semver validation (used by both model and inventory layers)
@@ -864,8 +865,6 @@ class Inventory:
 # Update discovery types (Stage 3)
 # ---------------------------------------------------------------------------
 
-from enum import Enum
-
 
 class UpdateStatus(str, Enum):
     CURRENT = "current"
@@ -905,8 +904,7 @@ def _validate_utc_rfc3339(value: str | None) -> str | None:
     Returns the validated timestamp, or ``None`` when *value* is
     absent, non-UTC, or unparseable.
     """
-    import re
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime
 
     if value is None or not isinstance(value, str) or not value.strip():
         return None
@@ -1011,7 +1009,6 @@ class UpdateResult:
 
     def to_dict(self) -> dict[str, object]:
         """Return a deterministic JSON-serializable dict."""
-        import json
 
         result: dict[str, object] = {
             "applicable": self.applicable,

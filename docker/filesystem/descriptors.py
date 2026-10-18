@@ -424,7 +424,7 @@ class DirectoryDescriptor(OwnedDescriptor):
                 )
                 _attempt_release(descriptor.close, failure)
                 raise failure from exc
-            except BaseException as exc:  # noqa: BLE001 - precedence is the point
+            except BaseException as exc:  # precedence is the point
                 # A process-control interruption (KeyboardInterrupt/SystemExit)
                 # or an unexpected defect while securing the child stays
                 # primary, but the adopted descriptor is still released exactly

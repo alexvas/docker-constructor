@@ -228,7 +228,7 @@ class CleanupFailures:
             raise TypeError("cleanup action must be callable")
         try:
             action()
-        except BaseException as exc:  # noqa: BLE001 - classification is the point
+        except BaseException as exc:  # classification is the point
             if not isinstance(exc, Exception):
                 self._interruptions.append(exc)
             elif isinstance(exc, policy):

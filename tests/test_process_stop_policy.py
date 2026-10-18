@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib
-import subprocess
 import sys
 import threading
 import time

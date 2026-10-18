@@ -611,7 +611,7 @@ def _try_cache_hit(
     if actual_raw != expected_raw:
         return None
 
-    safe_digest = identity.hex_digest()
+    identity.hex_digest()
     return VerifiedCacheBlob(
         algorithm=algorithm,
         digest=identity.runtime_safe_digest(),
@@ -652,7 +652,7 @@ def _materialize_one(
     algorithm = identity.algorithm
 
     # ── 0. harden private subtrees before any access ───────────
-    cache_root = os.path.dirname(os.path.dirname(path))
+    os.path.dirname(os.path.dirname(path))
     algorithm_dir = os.path.dirname(path)
     _ensure_dir_private(algorithm_dir)
 
@@ -765,10 +765,10 @@ def _materialize_one(
             # authoritative either way, and no cleanup action is skipped.
             result = failures.complete()
             if result is not None:
-                raise result
+                raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
             raise
 
-        safe_digest = identity.hex_digest()
+        identity.hex_digest()
         return VerifiedCacheBlob(
             algorithm=algorithm,
             digest=identity.runtime_safe_digest(),
@@ -1053,7 +1053,7 @@ def _open_directory_chain(path: str, *, create: bool) -> int:
         failures.run(current_owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         raise
 
 
@@ -1743,13 +1743,13 @@ class FileIdentityLock(IdentityLock):
                 failures.run(directory.close, ordinary=(CloseStageFailure,))
             result = failures.complete()
             if result is not None:
-                raise result
+                raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
             mapped = _identity_lock_failure(exc)
             if mapped is exc:
                 raise
             if isinstance(mapped, ArtifactMaterializationError):
                 raise mapped from exc
-            raise mapped
+            raise mapped from exc
         self._directory = directory
         self._capability = capability
         return True

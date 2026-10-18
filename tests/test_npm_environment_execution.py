@@ -23,7 +23,8 @@ from unittest import mock
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-from docker.npm_environment import (
+# Repository/test path setup must run before these imports.
+from docker.npm_environment import (  # noqa: E402
     AssemblyRun,
     LockedNpmError,
     RootSpec,
@@ -35,7 +36,7 @@ from docker.npm_environment import (
     npm_policy_flags,
     preflight,
 )
-from docker.npm_environment import execution as execution_module
+from docker.npm_environment import execution as execution_module  # noqa: E402
 
 _IMAGE = "sha256:" + "a" * 64
 _NODE = "24.18.0"

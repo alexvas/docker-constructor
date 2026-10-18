@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from dataclasses import replace as dataclass_replace
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Mapping, Optional, Protocol, Sequence, TypedDict, cast
+from typing import Any, Callable, Mapping, Protocol, TypedDict, cast
 
 from docker.networking import (
     BuildOutputPolicy,
@@ -56,7 +56,6 @@ from docker.versioning.build_cache import (
 )
 from docker.versioning.build_cleanup import BuildCleanupError
 from docker.versioning.build_context_confinement import (
-    BuildContextConfinement,
     ConfinementError,
     MaterializedConfinement,
     cleanup_build_context_confinement,

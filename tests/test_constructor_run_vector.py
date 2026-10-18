@@ -7,11 +7,17 @@ No Docker, no network, no subprocess, no filesystem.
 from __future__ import annotations
 
 import unittest
+from typing import TYPE_CHECKING
 
 from docker.versioning.rendering import (
     RunRenderInputs,
     render_run_vector,
 )
+
+if TYPE_CHECKING:
+    from docker.versioning.artifact_cache import VerifiedCacheBlob
+    from docker.versioning.model import RuntimeInventory
+    from docker.versioning.rendering import ArtifactMount
 
 # ---------------------------------------------------------------------------
 # Test helpers
@@ -1623,7 +1629,6 @@ class TestArtifactMountCollisions(unittest.TestCase):
 
     def test_rejects_fifo_as_mount_source(self):
         import os as _os
-        import tempfile
 
         fifo_path = _os.path.join(self._tmp.name, "fifo")
         _os.mkfifo(fifo_path)

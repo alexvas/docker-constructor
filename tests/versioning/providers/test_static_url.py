@@ -5,10 +5,8 @@ from __future__ import annotations
 import unittest
 
 from docker.versioning.errors import InventoryError
-from docker.versioning.inventory import load_inventory
 from docker.versioning.model import (
     ArtifactEntry,
-    CandidateArtifact,
     StaticUrlSource,
     StaticUrlUpdate,
     UpdateTarget,

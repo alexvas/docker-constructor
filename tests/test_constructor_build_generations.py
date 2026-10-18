@@ -24,7 +24,7 @@ import unittest
 from pathlib import Path
 
 from docker.transactions.capabilities import DirectoryCapability
-from docker.transactions.errors import CapabilityError, TransactionError
+from docker.transactions.errors import CapabilityError
 from docker.versioning.build_generations import (
     BUILD_LOCK_NAME,
     BUILD_LOCK_NAMESPACE,

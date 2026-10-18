@@ -27,8 +27,9 @@ from unittest import mock
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-import docker.npm_environment.execution as execution_module
-from docker.npm_environment import (
+# Repository/test path setup must run before these imports.
+import docker.npm_environment.execution as execution_module  # noqa: E402
+from docker.npm_environment import (  # noqa: E402
     REDACTED,
     STREAM_STDOUT,
     TRUNCATION_NOTICE,
@@ -49,9 +50,9 @@ from docker.npm_environment import (
     publication,
     publish_environment,
 )
-from docker.process import OwnedProcess
-from docker.versioning.diagnostic_projection import INCOMPLETE_TOKEN_MARKER
-from docker.versioning.npm_diagnostic_stream import make_stream_factory, project_tail
+from docker.process import OwnedProcess  # noqa: E402
+from docker.versioning.diagnostic_projection import INCOMPLETE_TOKEN_MARKER  # noqa: E402
+from docker.versioning.npm_diagnostic_stream import make_stream_factory, project_tail  # noqa: E402
 
 _IMAGE = "sha256:" + "a" * 64
 _NODE = "24.18.0"
@@ -1140,25 +1141,25 @@ class TestInterruption(DeadlineTestCase):
                 blocked = threading.Event()
                 unblock = threading.Event()
 
-                def stdout_read(n: int) -> bytes:
+                def stdout_read(n: int, blocked=blocked, unblock=unblock) -> bytes:
                     blocked.set()
                     unblock.wait(5.0)
                     return b""
 
-                def stderr_read(n: int) -> bytes:
+                def stderr_read(n: int, unblock=unblock) -> bytes:
                     unblock.wait(5.0)
                     return b""
 
                 def sink(chunk) -> None:
                     pass
 
-                def on_interruption() -> None:
+                def on_interruption(unblock=unblock, hook_exc=hook_exc) -> None:
                     # Unblock the readers so the coordinator can join them,
                     # then raise a control-flow exception of our own.
                     unblock.set()
                     raise hook_exc
 
-                def interrupt() -> None:
+                def interrupt(blocked=blocked) -> None:
                     self.assertTrue(blocked.wait(5.0))
                     time.sleep(0.1)
                     signal.pthread_kill(threading.main_thread().ident, signal.SIGINT)

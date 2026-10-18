@@ -13,7 +13,6 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import docker.versioning.build_cache as build_cache
 from docker.transactions.errors import TransactionError
 from docker.versioning.build_cache import (
     UNCOMMITTED_TTL_SECONDS,

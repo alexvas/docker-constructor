@@ -100,3 +100,33 @@ Once the migration reaches manual resolution, all three commands are
 mandatory: full-inventory lint has zero unresolved diagnostics, the format
 check exits 0, and compilation exits 0 for the complete inventory. From then
 on, a new nonzero status blocks the change like any other failed check.
+
+## Justified specific suppressions
+
+A suppression is acceptable only when the necessary construct cannot be
+expressed without changing an enforced contract. Use the narrowest code,
+place the rationale next to the directive, and record the accepted reason in
+the P5 resolution ledger. Blanket per-file suppressions and rule disabling are
+not accepted.
+
+The recurring reviewed exceptions are:
+
+- **`E402` in tests** where the test module must configure its import path or
+  optional fixture state before importing repository modules. The imports stay
+  in place because moving them would change import-time setup.
+- **`B904` and `B905` in lifecycle cleanup paths** where a re-raised cleanup
+  result already carries the authoritative cause and secondary diagnostics, or
+  where the audited coordinator's fixed-width `zip` shape is part of the
+  ownership contract. Explicit chaining or `strict=True` would change the
+  contract, not clarify it.
+- **`B023` in the audited process coordinator** where `start_action` must keep
+  its enforced signature while executing within the current loop iteration.
+- **`B010` for dynamic cleanup attachment** to `BaseException` instances; a
+  direct attribute assignment is rejected by the configured type checker.
+- **Re-export shims and compatibility modules** such as `docker/versions.py`
+  and `docker/transactions/errors.py`. Their imports are intentionally public
+  bindings, so they are preserved with explicit `__all__` entries or redundant
+  aliases rather than deleted.
+
+See the [P5 suppression rationales](../openspec/changes/adopt-ruff-green-checks/verification/p5-resolution-ledger.md#suppression-rationales)
+for the accepted per-target reasons and work-order IDs.

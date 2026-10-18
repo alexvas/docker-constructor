@@ -1,6 +1,5 @@
 """Stage 5.2 — Closed-DTO tests for EffectiveRuntimeProjection."""
 
-import io
 import unittest
 
 from docker.versioning.model import (

@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Mapping, Optional
 
-from docker.versioning.providers.base import HttpResponse, HttpTransport
+from docker.versioning.providers.base import HttpResponse
 
 
 @dataclass

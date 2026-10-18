@@ -17,7 +17,7 @@ from ..model import (
     UpdateTarget,
 )
 from ..semver import SemanticVersion, parse
-from .base import ProviderContext, ProviderResult, UpdateProvider
+from .base import ProviderContext, ProviderResult
 
 
 def _pypi_url(package: str) -> str:
@@ -27,7 +27,7 @@ def _pypi_url(package: str) -> str:
 def _latest_stable(releases: dict[str, object]) -> Optional[str]:
     best: Optional[SemanticVersion] = None
     best_raw: Optional[str] = None
-    for raw, files in releases.items():
+    for raw, _files in releases.items():
         try:
             sv = parse(raw)
         except ValueError:
@@ -43,7 +43,7 @@ def _latest_stable(releases: dict[str, object]) -> Optional[str]:
 def _latest_any(releases: dict[str, object]) -> Optional[str]:
     best: Optional[SemanticVersion] = None
     best_raw: Optional[str] = None
-    for raw, files in releases.items():
+    for raw, _files in releases.items():
         try:
             sv = parse(raw)
         except ValueError:
@@ -144,7 +144,7 @@ class PyPiProvider:
         # Validated UTC RFC 3339 via _validate_utc_rfc3339.
         # Compare parsed datetimes to avoid lexicographic misordering
         # when fractional precision differs (Z vs .9Z).
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         from ..model import _validate_utc_rfc3339
 

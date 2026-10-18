@@ -24,6 +24,7 @@ from __future__ import annotations
 import os
 import unittest
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 from docker.launcher import (
     ContainerInspectError,
@@ -34,8 +35,6 @@ from docker.launcher import (
     NoWorkspaceError,
     ProcessResult,
     ProcessRunner,
-    ProjectionFactory,
-    RunExecutor,
     RunRequest,
     RunResult,
     WorkspaceSelection,
@@ -43,6 +42,9 @@ from docker.launcher import (
 )
 from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.rendering import RunRenderInputs, render_run_vector
+
+if TYPE_CHECKING:
+    from docker.versioning.artifact_cache import SelectedArtifact, VerifiedCacheBlob
 
 # ═══════════════════════════════════════════════════════════════════
 # Shared test doubles
@@ -1146,7 +1148,6 @@ class TestRunTransaction(unittest.TestCase):
     # ── helpers ──────────────────────────────────────────────────
 
     def _request(self, **overrides: object) -> RunRequest:
-        from docker.launcher import orchestrate_run  # keep import alive
 
         kwargs: dict[str, object] = {
             "inventory_path": self._inventory_path,
@@ -1616,7 +1617,7 @@ class TestRunTransaction(unittest.TestCase):
             inspector=FakeContainerNameInspector(set()),
             _create_projection=factory,
         )
-        result = self._run(req)
+        self._run(req)
         self.assertEqual(len(factory.handles), 1)
         h = factory.handles[0]
         self.assertTrue(h.entered)
@@ -1637,7 +1638,7 @@ class TestRunTransaction(unittest.TestCase):
             inspector=FakeContainerNameInspector(set()),
             _create_projection=factory,
         )
-        result = self._run(req)
+        self._run(req)
         self.assertEqual(len(factory.handles), 1)
         h = factory.handles[0]
         self.assertTrue(h.entered)
@@ -2501,7 +2502,6 @@ class TestRunTransaction(unittest.TestCase):
         a wrapping spy — the file on disk is created by the
         production code, not by a test double."""
         import os
-        import stat
 
         # The real factory must publish beneath the resolved external runtime
         # directory supplied by orchestration.
@@ -2552,7 +2552,7 @@ class TestRunTransaction(unittest.TestCase):
                 _create_projection=_WrappingFactory(),
             )
 
-            result = self._run(req)
+            self._run(req)
             # Sanity: the wrapper was called and the executor ran.
             self.assertTrue(
                 len(recorded) >= 1,
@@ -3847,9 +3847,6 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
         patched so the test is hermetic — independent of
         repository state, prior runs, or developer-local
         artifact caches."""
-        from unittest import mock
-
-        import docker.versioning.artifact_cache as _artifact_cache
 
         malformed = self._make_single_extension_fixture(
             self._tmpdir.name,

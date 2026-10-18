@@ -158,7 +158,7 @@ def _open_validated_source(blob: Path, expected: str) -> int:
         failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         raise
 
 
@@ -222,7 +222,7 @@ def _copy_source_fd_to_destination(
         failures.run(remove_destination, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         raise
     # Success path: release the owned destination descriptor.  There is no
     # primary in flight here, so this close is the sole failure and propagates
@@ -587,7 +587,7 @@ def create_artifact_snapshot(
         )
         result = failures.complete()
         if result is not None:
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         raise domain_error from exc
     staging_owner = OwnedDescriptor(
         PosixDescriptorOps(), staging_fd, label=f"snapshot staging directory {staging}"
@@ -647,7 +647,7 @@ def create_artifact_snapshot(
                         failures.run(remove_hard_link, ordinary=(OSError,))
                         result = failures.complete()
                         if result is not None:
-                            raise result
+                            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
                         raise
                     hard_linked.add(Path(destination_name))
             except BaseException as exc:
@@ -708,7 +708,7 @@ def create_artifact_snapshot(
             raise
         if result is not None:
             snapshot_primary = result
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         raise
     finally:
         # The staging directory descriptor is released exactly once.  A close

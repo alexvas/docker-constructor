@@ -87,7 +87,7 @@ class SessionUrlIdentity:
             self._key, digest_input.encode("utf-8"), hashlib.sha256
         ).hexdigest()
 
-    def __repr__(self) -> str:  # noqa: D105 - deliberately key-free
+    def __repr__(self) -> str:  # deliberately key-free
         return "SessionUrlIdentity(<ephemeral key>)"
 
     __str__ = __repr__
@@ -259,7 +259,7 @@ def numeric_template_match(left: str, right: str) -> bool:
         return False
     if left_parts != right_parts:
         return False
-    changed = sum(1 for a, b in zip(left_tokens, right_tokens) if a != b)
+    changed = sum(1 for a, b in zip(left_tokens, right_tokens, strict=False) if a != b)
     return changed == 1
 
 

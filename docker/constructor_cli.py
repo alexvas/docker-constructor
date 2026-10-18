@@ -458,7 +458,6 @@ def _tui_workspace_selector(workspace_root: str | None = None) -> Any:
     the precedence: ``--workspace-root`` → ``.env WORKSPACE_ROOT``
     → ``Path.home()``.
     """
-    import os as _os
 
     from docker.tui import build_tree, run_tui
 
@@ -1228,8 +1227,6 @@ def _real_dispatcher(
 
     # ── verify ─────────────────────────────────────────────────────────
     if command == "verify":
-        import json as _json
-
         from docker.launcher import ProcessRunner
         from docker.versioning.runtime_verification import (
             VerifyRuntimeRequest,
@@ -1542,9 +1539,6 @@ def _real_dispatcher(
         if collect_evidence_flag:
             from datetime import datetime, timezone
 
-            from docker.versioning.evidence import (
-                MAX_OUTPUT_BYTES as _MAX_BYTES,
-            )
             from docker.versioning.evidence import (
                 EvidenceCommand as _EvidenceCommand,
             )
@@ -2941,16 +2935,21 @@ def main(
         and args.output == "text"
         and not bool(getattr(args, "dry_run", False))
     ):
-        host_presentation_factory = lambda policy: _make_presentation_session(
-            policy, text_output=True, stderr_is_tty=_stderr_tty
-        )
+
+        def _host_presentation_factory(policy):
+            return _make_presentation_session(
+                policy, text_output=True, stderr_is_tty=_stderr_tty
+            )
+
+        host_presentation_factory = _host_presentation_factory
     if args.command == "check-updates" and args.output == "text" and _stderr_tty:
         progress_renderer = _ProgressRenderer()
 
     if dispatcher is None:
         prompt = _stdin_prompt if _prompt_user is None else _prompt_user
-        disp: Callable[[str, CommandRequest], CommandResult] = lambda c, r: (
-            _real_dispatcher(
+
+        def _dispatch(c: str, r: CommandRequest) -> CommandResult:
+            return _real_dispatcher(
                 c,
                 r,
                 _prompt_user=prompt,
@@ -2962,7 +2961,8 @@ def main(
                 _progress_renderer=progress_renderer,
                 _host_presentation_factory=host_presentation_factory,
             )
-        )
+
+        disp: Callable[[str, CommandRequest], CommandResult] = _dispatch
     else:
         disp = dispatcher
 

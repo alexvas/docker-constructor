@@ -26,7 +26,6 @@ from docker.transactions.errors import (
     TransactionError,
     UnsafeFileError,
 )
-from docker.transactions.posix import PosixFileOps
 from docker.transactions.regular import RegularFileContracts
 from tests.transactions_test_support import InjectedOps
 

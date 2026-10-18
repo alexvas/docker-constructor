@@ -26,17 +26,18 @@ from unittest.mock import patch
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-import docker.versioning.build_snapshot as build_snapshot_module
-from docker.versioning.build_materialization import SelectedBuildArtifact
-from docker.versioning.build_snapshot import (
+# Repository/test path setup must run before these imports.
+import docker.versioning.build_snapshot as build_snapshot_module  # noqa: E402
+from docker.versioning.build_materialization import SelectedBuildArtifact  # noqa: E402
+from docker.versioning.build_snapshot import (  # noqa: E402
     DerivedEnvironmentSource,
     SnapshotError,
     cleanup_artifact_snapshot,
     create_artifact_snapshot,
 )
-from docker.versioning.digest_identity import DigestIdentity
-from docker.versioning.project_state import resolve_project_state
-from tests.pi_fixtures import PI_BIN_TARGET, build_pi_attestation
+from docker.versioning.digest_identity import DigestIdentity  # noqa: E402
+from docker.versioning.project_state import resolve_project_state  # noqa: E402
+from tests.pi_fixtures import PI_BIN_TARGET, build_pi_attestation  # noqa: E402
 
 _CLI_REL = "node_modules/@earendil-works/pi-coding-agent/" + PI_BIN_TARGET
 

@@ -68,14 +68,15 @@ from docker.npm_environment.streaming import (
 RETAINED_CAPTURE_ATTR = getattr(
     _streaming_module, "RETAINED_CAPTURE_ATTR", "retained_capture"
 )
-from docker.versioning.build_orchestration import (
+# These imports intentionally follow module-level test setup.
+from docker.versioning.build_orchestration import (  # noqa: E402
     BuildResult,
     _host_failure_context,
 )
-from docker.versioning.constructor_project import ConstructorProject
-from docker.versioning.diagnostic_projection import REDACTED_PATH_MARKER
-from docker.versioning.dispatch_types import ExitKind
-from docker.versioning.host_presentation import (
+from docker.versioning.constructor_project import ConstructorProject  # noqa: E402
+from docker.versioning.diagnostic_projection import REDACTED_PATH_MARKER  # noqa: E402
+from docker.versioning.dispatch_types import ExitKind  # noqa: E402
+from docker.versioning.host_presentation import (  # noqa: E402
     WORKER_JOIN_SECONDS,
     HostPresentationMode,
     HostPresentationSession,
@@ -83,20 +84,20 @@ from docker.versioning.host_presentation import (
     PresentationSelection,
     format_failure_report,
 )
-from docker.versioning.model import NetworkUrlDisplay
-from docker.versioning.npm_diagnostic_stream import (
+from docker.versioning.model import NetworkUrlDisplay  # noqa: E402
+from docker.versioning.npm_diagnostic_stream import (  # noqa: E402
     NpmDiagnosticStream,
     make_stream_factory,
     project_tail,
 )
-from tests.test_npm_environment_acceptance import (
+from tests.test_npm_environment_acceptance import (  # noqa: E402
     PopulatingExecutor,
     _assembler,
     _lock,
     _tree_spec,
     _validated,
 )
-from tests.test_npm_environment_phase3_deadline import (
+from tests.test_npm_environment_phase3_deadline import (  # noqa: E402
     _assert_no_workers,
     _DeadlineProc,
 )
@@ -909,7 +910,12 @@ class TestConcurrentTimeoutReaderFailure(unittest.TestCase):
                 original_terminate = proc.terminate
                 original_supervisor = OwnedProcess._start_supervisor
 
-                def read(count):
+                def read(
+                    count,
+                    read_error=read_error,
+                    second_read=second_read,
+                    terminated=terminated,
+                ):
                     nonlocal first
                     if first:
                         first = False
@@ -918,11 +924,18 @@ class TestConcurrentTimeoutReaderFailure(unittest.TestCase):
                     self.assertTrue(terminated.wait(5))
                     raise read_error
 
-                def terminate():
+                def terminate(
+                    original_terminate=original_terminate, terminated=terminated
+                ):
                     original_terminate()
                     terminated.set()
 
-                def supervise(owner):
+                def supervise(
+                    owner,
+                    original_supervisor=original_supervisor,
+                    owners=owners,
+                    second_read=second_read,
+                ):
                     owners.append(owner)
                     self.assertTrue(second_read.wait(1))
                     return original_supervisor(owner)

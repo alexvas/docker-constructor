@@ -134,11 +134,11 @@ def test_captured_adapter_rejects_missing_streams_and_releases_sibling(missing):
         # Prepared-owner rejection returns the same owner, never Popen.
         assert isinstance(owner, OwnedProcess)
         assert owner.wait_cleanup(0.1).complete
-        for name, pipe in zip(("stdout", "stderr"), pipes):
+        for name, pipe in zip(("stdout", "stderr"), pipes, strict=False):
             if getattr(child, name) is not None:
                 assert pipe.attempts == 1
     finally:
         # Omitted fixture objects were never transferred to production.
-        for name, pipe in zip(("stdout", "stderr"), pipes):
+        for name, pipe in zip(("stdout", "stderr"), pipes, strict=False):
             if getattr(child, name) is None:
                 pipe.close()

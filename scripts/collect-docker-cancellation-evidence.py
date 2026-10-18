@@ -283,7 +283,7 @@ class Evidence:
             identity = self.create(self.operation(f"race-{number}"))
             barrier = threading.Barrier(2)
 
-            def action(command: str, target: str) -> dict:
+            def action(command: str, target: str, barrier=barrier) -> dict:
                 barrier.wait(timeout=self.timeout)
                 return self.run(command, *(["-f"] if command == "rm" else []), target)
 

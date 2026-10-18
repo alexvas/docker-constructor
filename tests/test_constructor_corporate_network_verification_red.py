@@ -380,7 +380,7 @@ class TestEnabledClientCaRuntimeVerificationRed(unittest.TestCase):
                 "trailing carriage return",
             ),
         )
-        for (stdout, label), name in zip(variants, _CLIENT_CA_NAMES):
+        for (stdout, label), name in zip(variants, _CLIENT_CA_NAMES, strict=False):
             with self.subTest(variant=label, variable=name):
                 runner = _ClientCaRunner(
                     enabled=True,

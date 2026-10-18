@@ -595,7 +595,7 @@ class OwnedProcess:
                     )
                 result = failures.complete()
                 if result:
-                    raise result
+                    raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
             raise
         # Escrow both results before any fallible transfer validation. Binding
         # uses preallocated slots and cannot construct a replacement authority.
@@ -1020,7 +1020,7 @@ class OwnedProcess:
                 )
 
                 def start_action(action: ManagedAction = stage.action) -> None:
-                    context = StopContext(self._reason, returncode, stage_end)
+                    context = StopContext(self._reason, returncode, stage_end)  # noqa: B023 - action runs within this loop iteration; binding would change the enforced signature
                     if action.start(context) is not None:
                         raise TypeError("action start must return None")
 
@@ -1070,7 +1070,9 @@ class OwnedProcess:
             and all(not self._acquired[i] or self._owners[i].released for i in range(2))
             and all(
                 not prepared or (result.done and result.cleanup_complete)
-                for prepared, result in zip(self._action_prepared, self._action_results)
+                for prepared, result in zip(  # noqa: B905 - fixed two-slot contract
+                    self._action_prepared, self._action_results
+                )
             )
         )
 
@@ -1126,7 +1128,9 @@ class OwnedProcess:
         while (
             any(
                 prepared and not (result.done and result.cleanup_complete)
-                for prepared, result in zip(self._action_prepared, self._action_results)
+                for prepared, result in zip(  # noqa: B905 - fixed two-slot contract
+                    self._action_prepared, self._action_results
+                )
             )
             or any(
                 self._descriptorless[i]
@@ -1285,7 +1289,7 @@ class OwnedProcess:
             with self._lock:
                 self._delivered = True
             try:
-                setattr(error, "cleanup", self)
+                setattr(error, "cleanup", self)  # noqa: B010 - dynamic cleanup attachment; ty rejects direct BaseException attribute assignment
             except BaseException as observation_error:
                 # Observation only, never output. Preserve first interruption
                 # even for error classes refusing normal attribute assignment.
@@ -1313,7 +1317,7 @@ class OwnedProcess:
             if not isinstance(error, Exception):
                 self._raise_interruption(self.cleanup_status)
             if not result.complete:
-                setattr(error, "cleanup", self)
+                setattr(error, "cleanup", self)  # noqa: B010 - dynamic cleanup attachment; ty rejects direct BaseException attribute assignment
             raise error
 
     def _invoke_callback(
@@ -1357,7 +1361,7 @@ class OwnedProcess:
             self.returncode,
             self._timed_out,
             lifecycle,
-            tuple(zip(ProcessStream, self._outcomes)),
+            tuple(zip(ProcessStream, self._outcomes)),  # noqa: B905 - enum/outcome lengths are fixed by ProcessStream
         )
 
     def _collect(
@@ -1512,7 +1516,7 @@ class OwnedProcess:
                 self._shutdown(reason=reason)
             except BaseException:
                 if exc is not None and not isinstance(exc, Exception):
-                    raise exc
+                    raise exc  # noqa: B904 - re-raises the original non-Exception primary unchanged; chaining would rewrite its lifecycle context
                 raise
             return
         if exc is None:

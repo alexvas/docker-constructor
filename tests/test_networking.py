@@ -12,7 +12,6 @@ diagnosis tests (detection, candidates, probes, DTOs).
 from __future__ import annotations
 
 import dataclasses
-import subprocess
 import unittest
 from pathlib import Path
 from typing import Optional
@@ -21,19 +20,14 @@ from unittest import mock
 from docker.networking import (
     DockerMode,
     Filesystem,
-    GatewayDiagnosis,
     OverrideFailure,
     OverrideState,
-    PersistenceResult,
-    ProbeResult,
     ProcessResult,
     ProcessRunner,
     RootlessOverridePlan,
     ServiceController,
     SystemClock,
-    _choose_gateway,
     apply_rootless_override,
-    candidate_gateways,
     diagnose_gateway,
     plan_rootless_override,
     probe_gateway,

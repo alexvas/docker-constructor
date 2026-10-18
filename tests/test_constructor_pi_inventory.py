@@ -19,17 +19,18 @@ _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 sys.path.insert(0, str(_THIS_DIR))
 
-from versioning.support.inventory_builder import minimal_toml, write_toml
+# Repository/test path setup must run before these imports.
+from versioning.support.inventory_builder import minimal_toml, write_toml  # noqa: E402
 
-from docker.npm_environment import SMOKE_NODE_VERSION, SMOKE_NPM_VERSION
-from docker.versioning.effective import (
+from docker.npm_environment import SMOKE_NODE_VERSION, SMOKE_NPM_VERSION  # noqa: E402
+from docker.versioning.effective import (  # noqa: E402
     apply_overrides,
     resolve_build_projection,
 )
-from docker.versioning.errors import InventoryError
-from docker.versioning.inventory import load_inventory
-from docker.versioning.rendering import render_build_environment
-from tests.inventory_fixtures import (
+from docker.versioning.errors import InventoryError  # noqa: E402
+from docker.versioning.inventory import load_inventory  # noqa: E402
+from docker.versioning.rendering import render_build_environment  # noqa: E402
+from tests.inventory_fixtures import (  # noqa: E402
     stable_inventory_path,
     stable_inventory_text,
 )

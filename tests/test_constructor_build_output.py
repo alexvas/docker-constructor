@@ -6,7 +6,6 @@ import dataclasses
 import io
 import json
 import subprocess
-import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path

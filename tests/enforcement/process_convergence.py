@@ -240,12 +240,14 @@ def _bindings(tree, imported):
             assignments.extend(
                 (ast.Name(id=arg.arg), default)
                 for arg, default in zip(
-                    args[-len(node.args.defaults) :], node.args.defaults
+                    args[-len(node.args.defaults) :], node.args.defaults, strict=False
                 )
             )
             assignments.extend(
                 (ast.Name(id=arg.arg), default)
-                for arg, default in zip(node.args.kwonlyargs, node.args.kw_defaults)
+                for arg, default in zip(
+                    node.args.kwonlyargs, node.args.kw_defaults, strict=False
+                )
                 if default is not None
             )
     # Fixed point for transitive and assigned-callable aliases. Keep only

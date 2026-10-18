@@ -78,7 +78,7 @@ def adapter_proof(execution_source, lifecycle_source):
                 for alias in node.names:
                     aliases[alias.asname or alias.name] = f"{node.module}.{alias.name}"
 
-        def origin(node):
+        def origin(node, aliases=aliases):
             if isinstance(node, ast.Name):
                 return aliases.get(node.id, node.id)
             if isinstance(node, ast.Attribute):

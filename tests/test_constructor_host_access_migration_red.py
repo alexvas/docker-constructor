@@ -274,9 +274,9 @@ class TestNoUnconditionalRunMapping(unittest.TestCase):
                 if j in func_for_line:
                     break
                 # If we hit another module-level assignment or a def, stop
-                l = all_lines[j][1]
-                if l.startswith("def ") or (
-                    "=" in l and l.strip() == l and not l.startswith(" ")
+                line = all_lines[j][1]
+                if line.startswith("def ") or (
+                    "=" in line and line.strip() == line and not line.startswith(" ")
                 ):
                     break
             if in_diag_var:

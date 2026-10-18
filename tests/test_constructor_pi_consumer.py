@@ -21,8 +21,9 @@ from pathlib import Path
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-from docker.npm_environment import RootSpec, preflight
-from docker.versioning.pi_consumer import (
+# Repository/test path setup must run before these imports.
+from docker.npm_environment import RootSpec, preflight  # noqa: E402
+from docker.versioning.pi_consumer import (  # noqa: E402
     LAUNCHER_MODE,
     LAUNCHER_PATH,
     PiConsumerError,

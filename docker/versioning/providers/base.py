@@ -13,12 +13,10 @@ from typing import (
     Mapping,
     Optional,
     Protocol,
-    Sequence,
     runtime_checkable,
 )
 
 from ..model import (
-    CandidateArtifact,
     UpdateCandidate,
     UpdateTarget,
 )

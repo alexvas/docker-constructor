@@ -22,7 +22,7 @@ import hmac
 import os
 import stat
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
 from docker._owned_file import owned_file
@@ -583,8 +583,6 @@ class InstallContext:
 
     @staticmethod
     def real_mount_check() -> MountChecker:
-        import os
-        import stat as st
 
         class _RealMountCheck:
             @staticmethod
@@ -712,7 +710,6 @@ class InstallContext:
     def real_privilege() -> PrivilegeContext:
         import os
         import pwd
-        import stat as st
 
         class _RealPrivilegeContext:
             def verify_user(self, expected: str) -> None:
@@ -720,8 +717,10 @@ class InstallContext:
                 user does not match *expected*."""
                 try:
                     pw = pwd.getpwuid(os.getuid())
-                except KeyError:
-                    raise InstallError(f"current uid {os.getuid()} has no passwd entry")
+                except KeyError as exc:
+                    raise InstallError(
+                        f"current uid {os.getuid()} has no passwd entry"
+                    ) from exc
                 if pw.pw_name != expected:
                     raise InstallError(
                         f"running as {pw.pw_name!r}, must be {expected!r}"
@@ -1026,7 +1025,6 @@ def install_extensions(
     """
 
     results: list[ExtensionResult] = []
-    workspace_dir: str | None = None
 
     # ── 1. Mount check + user identity ───────────────────────
     if not ctx.mount_check.is_mount(pi_home):

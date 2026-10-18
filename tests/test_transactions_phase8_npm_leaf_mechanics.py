@@ -27,7 +27,6 @@ import unittest
 from pathlib import Path
 
 from docker.npm_environment import publication
-from docker.npm_environment.publication import identity_coordination_lock
 from docker.npm_environment.storage import prepare_assembler_namespace
 from tests.test_npm_environment_publication import _PublicationTestCase
 

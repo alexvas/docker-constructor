@@ -47,7 +47,7 @@ from docker.versioning.pi_release import (
 class _MessageBombError(Exception):
     """Exception whose message evaluation fails loudly if ever attempted."""
 
-    def __str__(self) -> str:  # noqa: D105 - deliberately unavailable
+    def __str__(self) -> str:  # deliberately unavailable
         raise AssertionError("exception message must never be evaluated")
 
 
@@ -66,7 +66,7 @@ class _HostileRelationshipError(Exception):
                 raise RuntimeError("hostile relationship access")
         return object.__getattribute__(self, name)
 
-    def __str__(self) -> str:  # noqa: D105 - deliberately unavailable
+    def __str__(self) -> str:  # deliberately unavailable
         raise AssertionError("exception message must never be evaluated")
 
 

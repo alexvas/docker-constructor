@@ -468,7 +468,9 @@ class TestHeartbeatCadence(_MonitorTestCase):
         harness = self.make()
         beats = harness.pump(5)
         self.assertEqual([3, 4, 5, 6, 7], [beat.elapsed_seconds for beat in beats])
-        for previous, current in zip(harness.scheduled, harness.scheduled[1:]):
+        for previous, current in zip(
+            harness.scheduled, harness.scheduled[1:], strict=False
+        ):
             interval = current - previous
             self.assertGreater(interval, 0.0)
             self.assertLessEqual(interval, HEARTBEAT_INTERVAL_SECONDS)
@@ -508,7 +510,9 @@ class TestHeartbeatCadence(_MonitorTestCase):
         # operation start in fixed one-second steps.
         self.assertEqual([3, 4, 5, 6, 7], [beat.elapsed_seconds for beat in beats])
         self.assertEqual([3.0, 4.0, 5.0, 6.0, 7.0], harness.scheduled)
-        for previous, current in zip(harness.scheduled, harness.scheduled[1:]):
+        for previous, current in zip(
+            harness.scheduled, harness.scheduled[1:], strict=False
+        ):
             self.assertAlmostEqual(HEARTBEAT_INTERVAL_SECONDS, current - previous)
 
     def test_next_deadline_advances_from_the_previous_scheduled_deadline(self):

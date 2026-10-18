@@ -32,7 +32,6 @@ import stat as stat_module
 import tempfile
 import threading
 import unittest
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterator
 from unittest import mock
@@ -55,7 +54,6 @@ from docker.versioning.artifact_cache import (
     _compute_digest,
     derive_cache_path_from_integrity,
     materialize_selected_artifacts,
-    validate_cache_blob,
 )
 
 # ═══════════════════════════════════════════════════════════════════════

@@ -6,7 +6,7 @@ from docker.versioning.model.  No Docker, no network, no filesystem.
 
 from __future__ import annotations
 
-import tempfile
+import dataclasses
 import unittest
 from pathlib import Path
 from typing import Mapping
@@ -14,15 +14,12 @@ from typing import Mapping
 from docker.versioning.effective import resolve_build_projection
 from docker.versioning.errors import (
     EffectiveConfigError,
-    InventoryError,
     OverrideValidationError,
     UnsupportedOverrideError,
 )
 from docker.versioning.inventory import load_inventory
 from docker.versioning.model import (
-    ArtifactEntry,
     BuildInventory,
-    EffectiveBuildProjection,
     Inventory,
 )
 
@@ -508,8 +505,6 @@ class TestMissingPlatformArtifact(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-import dataclasses
 
 
 def _projection_tuple(p) -> tuple:

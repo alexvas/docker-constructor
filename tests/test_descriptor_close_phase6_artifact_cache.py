@@ -134,7 +134,7 @@ class DirectoryChainOwnershipTests(_ArtifactCacheCase):
 class LocalFilesystemInspectionOwnershipTests(_ArtifactCacheCase):
     def test_stat_blob_releases_parent_owner(self):
         integrity, blob = self._write_blob()
-        identity = DigestIdentity.from_sri(integrity)
+        DigestIdentity.from_sri(integrity)
         with recording(artifact_cache) as rec:
             status = self.filesystem.stat_blob(str(blob))
         rec.assert_terminal_and_at_most_once(self)

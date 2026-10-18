@@ -283,7 +283,7 @@ def _is_complete_url(url: str) -> bool:
         return False
     try:
         parts = urlsplit(url)
-        parts.port
+        _ = parts.port
     except ValueError:
         return False
     if _SCHEME_RE.fullmatch(parts.scheme) is None:

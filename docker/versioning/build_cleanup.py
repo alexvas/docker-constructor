@@ -293,7 +293,7 @@ def _unlink_entry(
         accumulator.run(owner.close, ordinary=(OSError,))
         result = accumulator.complete()
         if result is not None:
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         raise
     finally:
         if not closed:
@@ -354,7 +354,7 @@ def _open_algorithm_directory(
         accumulator.run(owner.close, ordinary=(OSError,))
         result = accumulator.complete()
         if result is not None:
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         return None, _algorithm_failure(algorithm, exc)
     except BaseException as exc:
         # An unexpected exception or process-control interruption leaves the
@@ -364,7 +364,7 @@ def _open_algorithm_directory(
         accumulator.run(owner.close, ordinary=(OSError,))
         result = accumulator.complete()
         if result is not None:
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         raise
     try:
         mode = stat.S_IMODE(ops.fstat(capability.fd).st_mode)
@@ -380,7 +380,7 @@ def _open_algorithm_directory(
         accumulator.run(capability.close, ordinary=(CloseStageFailure,))
         result = accumulator.complete()
         if result is not None:
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         raise
     if mode != ALGORITHM_DIRECTORY_MODE:
         failure = _algorithm_failure(

@@ -15,8 +15,6 @@ from __future__ import annotations
 
 import enum
 import http.server
-import ipaddress
-import os
 import re
 import shutil
 import subprocess
@@ -25,7 +23,7 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Iterable, Optional
+from typing import Callable, Optional
 
 from docker.filesystem.cleanup import CleanupFailures
 from docker.filesystem.streams import OwnedStream
@@ -364,7 +362,7 @@ class HostProbeServer:
         token = self.token
 
         class _Handler(http.server.BaseHTTPRequestHandler):
-            def do_GET(self) -> None:  # noqa: N802
+            def do_GET(self) -> None:
                 self.send_response(200)
                 self.send_header("Content-Type", "text/plain; charset=utf-8")
                 self.end_headers()
@@ -390,7 +388,7 @@ class HostProbeServer:
             failures.run(self.stop, ordinary=(OSError,))
             result = failures.complete()
             if result is not None:
-                raise result
+                raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
             raise
 
     def stop(self) -> None:
@@ -430,8 +428,8 @@ def detect_docker_mode(
     runner = _runner if _runner is not None else ProcessRunner()
     try:
         proc = runner.run(["docker", "info"])
-    except FileNotFoundError:
-        raise DockerDetectionError("docker not found on PATH")
+    except FileNotFoundError as exc:
+        raise DockerDetectionError("docker not found on PATH") from exc
     if proc.return_code != 0:
         detail = (
             proc.stderr.strip() or proc.stdout.strip() or f"exit {proc.return_code}"
@@ -606,8 +604,6 @@ def apply_rootless_override(
             persistence_applied=False,  # mkdir may have succeeded but
             # no override content was written
         )
-
-    persistence_applied = True
 
     # --- daemon-reload ---
     try:

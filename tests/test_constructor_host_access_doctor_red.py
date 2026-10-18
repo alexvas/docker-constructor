@@ -345,7 +345,7 @@ class TestAtomicPersistenceRed(unittest.TestCase):
             companion = root_path / "docker-constructor.local.toml"
             original = '[cache]\ndir = "/home/user/.cache/pi-cache"\n'
             companion.write_text(original)
-            original_bytes = companion.read_bytes()
+            companion.read_bytes()
 
             result = _persist_host_access_address(
                 companion_path=companion,
@@ -479,7 +479,6 @@ class TestAtomicPersistenceRed(unittest.TestCase):
             original_bytes = companion.read_bytes()
 
             # Patch os.rename to simulate a failure after write
-            real_rename = os.rename
 
             def failing_rename(src: str, dst: str) -> None:
                 raise OSError("simulated rename failure")

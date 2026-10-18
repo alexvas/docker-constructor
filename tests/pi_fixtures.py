@@ -23,7 +23,6 @@ from types import SimpleNamespace
 from docker.versioning.pi_release import (
     INSTALL_PACKAGE_FILENAME,
     INSTALL_PACKAGE_LOCK_FILENAME,
-    SHA256SUMS_FILENAME,
     PiReleaseUrls,
 )
 
@@ -122,7 +121,7 @@ class NoNetworkTransport:
     live GitHub release endpoint.
     """
 
-    def __init__(self, policy: object = None) -> None:  # noqa: ARG002
+    def __init__(self, policy: object = None) -> None:
         pass
 
     def stream(self, url: str):

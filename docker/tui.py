@@ -184,7 +184,7 @@ def run_tui(
     has_tree = tree_roots is not None and len(tree_roots) > 0
 
     if has_ide:
-        for i, proj in enumerate(ide_workspaces):
+        for i, _proj in enumerate(ide_workspaces):
             source.append(FlatItem(kind="ide", label="", indent=0, ide_index=i))
     if has_ide and has_tree:
         source.append(FlatItem(kind="separator", label="Открыты в IDE", indent=0))

@@ -24,7 +24,8 @@ from pathlib import Path
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-from docker.npm_environment import (
+# Repository/test path setup must run before these imports.
+from docker.npm_environment import (  # noqa: E402
     ASSEMBLY_TOTAL_TIMEOUT_SECONDS,
     NPM_CI_FLAGS,
     NPM_REQUEST_TIMEOUT_MS,

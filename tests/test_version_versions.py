@@ -5,7 +5,6 @@ from __future__ import annotations
 import unittest
 
 from docker.versioning.semver import (
-    SemanticVersion,
     SemverError,
     parse,
 )

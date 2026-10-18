@@ -44,7 +44,6 @@ from docker.versioning.assembly_activity import HostAssemblyActivity
 from docker.versioning.host_progress import (
     HostHeartbeatEvent,
     HostLastActivityKind,
-    HostPhase,
     HostPhaseEvent,
     HostStep,
     HostStepEvent,
@@ -325,10 +324,10 @@ class TestOrderedStepSequence(_AssemblyCase):
 
     def test_failed_container_launch_never_starts_npm_execution(self):
         class LaunchFailingExecutor:
-            def run(self, argv):  # noqa: ANN001
+            def run(self, argv):
                 raise RuntimeError("cleanup rm failed")
 
-            def run_streaming(self, argv, *, secrets=(), sink=None, on_launched=None):  # noqa: ANN001
+            def run_streaming(self, argv, *, secrets=(), sink=None, on_launched=None):
                 raise RuntimeError("docker run failed to launch")
 
         events: list[object] = []
@@ -363,7 +362,7 @@ class TestOrderedStepSequence(_AssemblyCase):
 
     def test_failure_still_terminates_instrumented_steps(self):
         class FailingExecutor:
-            def run(self, argv):  # noqa: ANN001
+            def run(self, argv):
                 raise RuntimeError("boom")
 
         events: list[object] = []

@@ -272,7 +272,7 @@ def _open_namespace_fd(namespace: Path) -> int:
         failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         raise
 
 
@@ -651,7 +651,7 @@ def _open_validated_child(parent_fd: int, name: str, *, label: str) -> int:
         failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         raise
 
 
@@ -705,7 +705,7 @@ def open_build_cache_state(
         failures.run(namespace_owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         raise
 
     # Success: the verified children are handed to the returned state, so only
@@ -930,7 +930,7 @@ def publish_verified_blob(
         algorithm_owner = blobs_owner = tmp_owner = namespace_owner = None
         result = failures.complete()
         if result is not None:
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         raise
     finally:
         # On the success path every owner is still owned and released here; the
@@ -1092,7 +1092,7 @@ class _BuildStorageHandle:
             failures.run(owner.close, ordinary=(OSError,))
             result = failures.complete()
             if result is not None:
-                raise result
+                raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
             raise
         # ``from_fd`` adopted the descriptor; detach the caller-owned tracker so
         # it can never close a descriptor the capability now owns.
@@ -1115,7 +1115,7 @@ class _BuildStorageHandle:
                 failures.run(blobs.close, ordinary=(CloseStageFailure,))
             result = failures.complete()
             if result is not None:
-                raise result
+                raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
             raise
         return BuildStorage(self._generations, self._blobs, self._markers)
 
@@ -1443,7 +1443,7 @@ def acquire_constructor_project_build_lock(
         failures.run(parent_owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         raise
 
 
@@ -1710,7 +1710,7 @@ def _open_blob_algorithm(
         failures.run(owner.close, ordinary=(OSError,))
         result = failures.complete()
         if result is not None:
-            raise result
+            raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
         raise
     # ``from_fd`` adopted the descriptor; detach the tracker so it cannot close
     # a descriptor the returned capability now owns.

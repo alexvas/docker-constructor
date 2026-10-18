@@ -161,7 +161,7 @@ class TestHostAccessPlanningRed(unittest.TestCase):
                 effects: list[str] = []
                 req = self._request(inventory, dry_run=False, effects=effects)
 
-                def bomb_materialize(*_args, **_kwargs):
+                def bomb_materialize(*_args, effects=effects, **_kwargs):
                     effects.append("materialization")
                     raise AssertionError("artifact materialization must not run")
 

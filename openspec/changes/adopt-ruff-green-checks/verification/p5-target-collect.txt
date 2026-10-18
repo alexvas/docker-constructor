@@ -1,0 +1,9 @@
+Target-specific evidence command collection
+
+Source: openspec/changes/adopt-ruff-green-checks/verification/p5-resolution-ledger.md
+Target commands listed: 162
+Collection transformation: replace the trailing ` -q` with ` --collect-only -q`
+Result: 162/162 commands exited 0; 0 collection failures.
+Full execution: the same target test modules are included in the mandated full-suite run
+recorded in phase-5.md (7993 passed, 13 skipped, 18026 subtests passed).
+A001 focused assertion: `.venv/bin/python -m pytest tests/versioning/test_model.py::TestCompatibilityExports::test_numeric_version_is_reexported_from_model -q` exited 0 with 1 passed.

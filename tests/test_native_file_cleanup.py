@@ -202,7 +202,7 @@ class PreparedFileOwnershipTests(unittest.TestCase):
                     owners = []
                     stream = ReadStream(b"", cleanup=cleanup)
 
-                    def owner_factory(*args, **kwargs):
+                    def owner_factory(*args, owners=owners, **kwargs):
                         owner = OwnedStream(*args, **kwargs)
                         owners.append(owner)
                         return owner
@@ -220,7 +220,7 @@ class PreparedFileOwnershipTests(unittest.TestCase):
                     ):
                         try:
                             with _owned_file.owned_file(
-                                lambda: stream, label="file"
+                                lambda stream=stream: stream, label="file"
                             ) as borrowed:
                                 self.assertIs(borrowed, stream)
                                 if operation is not None:
@@ -275,7 +275,7 @@ class PreparedFileOwnershipTests(unittest.TestCase):
             with self.subTest(failure=type(failure).__name__):
                 owners = []
 
-                def owner_factory(*args, **kwargs):
+                def owner_factory(*args, owners=owners, **kwargs):
                     owner = OwnedStream(*args, **kwargs)
                     owners.append(owner)
                     return owner
@@ -304,14 +304,14 @@ class PreparedFileOwnershipTests(unittest.TestCase):
                 owners[0].close()
                 super().close()
 
-        def owner_factory(*args, **kwargs):
+        def owner_factory(*args, owners=owners, **kwargs):
             owner = OwnedStream(*args, **kwargs)
             owners.append(owner)
             return owner
 
         stream = ReentrantStream(b"")
         with patch.object(_owned_file, "OwnedStream", side_effect=owner_factory):
-            with _owned_file.owned_file(lambda: stream, label="file"):
+            with _owned_file.owned_file(lambda stream=stream: stream, label="file"):
                 pass
         self.assertEqual(stream.attempts, 1)
 
@@ -332,7 +332,7 @@ class PreparedFileOwnershipTests(unittest.TestCase):
                     raise AssertionError("test did not release close barrier")
                 super().close()
 
-        def owner_factory(*args, **kwargs):
+        def owner_factory(*args, owners=owners, **kwargs):
             owner = OwnedStream(*args, **kwargs)
             owners.append(owner)
             return owner
@@ -352,7 +352,9 @@ class PreparedFileOwnershipTests(unittest.TestCase):
         try:
             with patch.object(_owned_file, "OwnedStream", side_effect=owner_factory):
                 with self.assertRaises(OSError) as caught:
-                    with _owned_file.owned_file(lambda: stream, label="file"):
+                    with _owned_file.owned_file(
+                        lambda stream=stream: stream, label="file"
+                    ):
                         thread.start()
                 self.assertIs(caught.exception, failure)
         finally:

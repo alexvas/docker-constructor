@@ -301,7 +301,7 @@ def _resolve_asset_companion_checksum(
 
         # Companion files typically contain a single bare hex digest, or
         # a two-column line like ``<hex>  <filename>``.
-        lines = [l.strip() for l in text.splitlines() if l.strip()]
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
         if not lines:
             return None
 

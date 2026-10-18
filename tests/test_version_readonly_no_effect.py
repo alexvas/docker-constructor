@@ -25,7 +25,7 @@ def _stub_providers() -> dict[str, object]:
     """Provider registry where only ``pypi`` reports an applicable update."""
 
     class _Current:
-        def discover(self, target, context):  # noqa: ANN001
+        def discover(self, target, context):
             return ProviderResult(
                 candidate=UpdateCandidate(
                     value=target.current,
@@ -35,7 +35,7 @@ def _stub_providers() -> dict[str, object]:
             )
 
     class _TyOutdated:
-        def discover(self, target, context):  # noqa: ANN001
+        def discover(self, target, context):
             return ProviderResult(
                 candidate=UpdateCandidate(
                     value="0.0.62",

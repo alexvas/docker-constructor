@@ -24,7 +24,8 @@ from unittest.mock import patch
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-from docker.npm_environment import (
+# Repository/test path setup must run before these imports.
+from docker.npm_environment import (  # noqa: E402
     RootSpec,
     assembler_script_digest,
     build_tree_manifest,
@@ -34,24 +35,24 @@ from docker.npm_environment import (
     npm_policy_flags,
     preflight,
 )
-from docker.npm_environment import streaming as npm_streaming
-from docker.npm_environment.errors import LockedNpmError
-from docker.npm_environment.preflight import _parse_install_package
-from docker.npm_environment.streaming import (
+from docker.npm_environment import streaming as npm_streaming  # noqa: E402
+from docker.npm_environment.errors import LockedNpmError  # noqa: E402
+from docker.npm_environment.preflight import _parse_install_package  # noqa: E402
+from docker.npm_environment.streaming import (  # noqa: E402
     DIAGNOSTIC_LINE_LIMIT_BYTES,
     OVERSIZED_DIAGNOSTIC_MARKER,
     StreamChunk,
 )
-from docker.versioning import pi_assembly
-from docker.versioning.build_orchestration import BuildRequest, _host_failure_context
-from docker.versioning.effective import resolve_build_projection
-from docker.versioning.host_presentation import (
+from docker.versioning import pi_assembly  # noqa: E402
+from docker.versioning.build_orchestration import BuildRequest, _host_failure_context  # noqa: E402
+from docker.versioning.effective import resolve_build_projection  # noqa: E402
+from docker.versioning.host_presentation import (  # noqa: E402
     HostPresentationMode,
     HostPresentationSession,
     PresentationPlan,
     PresentationSelection,
 )
-from docker.versioning.host_progress import (
+from docker.versioning.host_progress import (  # noqa: E402
     GuardedHostEventSink,
     HostDiagnosticClassification,
     HostDiagnosticPrefix,
@@ -64,15 +65,15 @@ from docker.versioning.host_progress import (
     InternalDirectHostEventSink,
     lookup_host_failure,
 )
-from docker.versioning.inventory import load_inventory
-from docker.versioning.model import NetworkUrlDisplay
-from docker.versioning.pi_assembly import (
+from docker.versioning.inventory import load_inventory  # noqa: E402
+from docker.versioning.model import NetworkUrlDisplay  # noqa: E402
+from docker.versioning.pi_assembly import (  # noqa: E402
     PiAssemblyError,
     PiAssemblyRequest,
     materialize_pi,
 )
-from docker.versioning.pi_release import PiReleaseSource, derive_pi_release_urls
-from tests.pi_fixtures import (
+from docker.versioning.pi_release import PiReleaseSource, derive_pi_release_urls  # noqa: E402
+from tests.pi_fixtures import (  # noqa: E402
     PI_BIN_TARGET,
     PI_PACKAGE,
     FakePiReleaseTransport,
@@ -777,7 +778,7 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
         return [str(call[1]) for call in renderer.calls if call[0] == "slot"]
 
     def test_mode_selected_prefix_is_visible_before_the_record_boundary(self):
-        for display, (expected, forbidden) in self._mode_prefix_expectations().items():
+        for display, (expected, _forbidden) in self._mode_prefix_expectations().items():
             with self.subTest(display=display):
                 renderer = _RecordingPresentationRenderer()
                 session = self._session_for(display, renderer)
@@ -785,7 +786,14 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
                 sent = {"prefix": False, "newline": False}
                 snapshot: dict = {}
 
-                def stdout_read(_size):
+                def stdout_read(
+                    _size,
+                    *,
+                    expected=expected,
+                    renderer=renderer,
+                    sent=sent,
+                    snapshot=snapshot,
+                ):
                     if not sent["prefix"]:
                         sent["prefix"] = True
                         return self._PREFIX_LINE.encode()
@@ -815,8 +823,8 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
 
                 before = "\n".join(snapshot["slots"])
                 self.assertIn(expected, before)
-                if forbidden is not None:
-                    self.assertNotIn(forbidden, before)
+                if _forbidden is not None:
+                    self.assertNotIn(_forbidden, before)
                 # The line is not durably written before its record boundary.
                 self.assertNotIn(expected, snapshot["durable"])
                 # The complete line finalizes exactly once with the selected
@@ -828,7 +836,7 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
                 self.assertIn(expected, str(finalizes[0]))
 
     def test_combined_sinks_fan_out_mode_prefix_internally_and_no_sdk_prefix(self):
-        for display, (expected, forbidden) in self._mode_prefix_expectations().items():
+        for display, (expected, _forbidden) in self._mode_prefix_expectations().items():
             with self.subTest(display=display):
                 renderer = _RecordingPresentationRenderer()
                 session = self._session_for(display, renderer)
@@ -837,7 +845,15 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
                 sent = {"prefix": False, "newline": False}
                 snapshot: dict = {}
 
-                def stdout_read(_size):
+                def stdout_read(
+                    _size,
+                    *,
+                    delivered=delivered,
+                    expected=expected,
+                    renderer=renderer,
+                    sent=sent,
+                    snapshot=snapshot,
+                ):
                     if not sent["prefix"]:
                         sent["prefix"] = True
                         return self._PREFIX_LINE.encode()
@@ -924,7 +940,7 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
         # newline is released only after that record's prefix has been rendered,
         # which happens while the SDK callback is blocked on an earlier record.
         steps: list[tuple[bytes, str | None]] = []
-        for line, marker in zip(lines, markers):
+        for line, marker in zip(lines, markers, strict=False):
             steps.append((line.encode(), None))
             steps.append((b"\n", marker))
         state = {"index": 0}
@@ -1078,7 +1094,14 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
                 sent = {"oversized": False, "newline": False}
                 snapshot: dict = {}
 
-                def stdout_read(_size):
+                def stdout_read(
+                    _size,
+                    *,
+                    expected=expected,
+                    renderer=renderer,
+                    sent=sent,
+                    snapshot=snapshot,
+                ):
                     if not sent["oversized"]:
                         sent["oversized"] = True
                         return oversized
@@ -1134,7 +1157,7 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
                 captures: list = []
                 chunks = iter((self._PREFIX_LINE.encode() + b"\n", b""))
 
-                def stdout_read(_size):
+                def stdout_read(_size, chunks=chunks):
                     return next(chunks)
 
                 try:

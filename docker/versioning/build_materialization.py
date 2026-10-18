@@ -19,8 +19,6 @@ from docker.filesystem.operations import DescriptorOps, PosixDescriptorOps
 from docker.transactions.cleanup import CleanupFailures
 from docker.versioning.activity_monitor import HostActivityMonitor
 from docker.versioning.build_cache import (
-    BLOB_EXTENSION,
-    BuildCacheError,
     ConstructorProjectBuildLock,
     build_blob_path,
     mark_uncommitted_blob,
@@ -69,7 +67,9 @@ class StreamingTransport(Protocol):
 class UrllibStreamingTransport:
     """One host HTTP policy implementation; response bodies are never buffered."""
 
-    def __init__(self, policy: HostNetworkPolicy = HostNetworkPolicy()) -> None:
+    def __init__(self, policy: HostNetworkPolicy | None = None) -> None:
+        if policy is None:
+            policy = HostNetworkPolicy()
         handlers: list[urllib.request.BaseHandler] = []
         if policy.proxy_url is not None:
             handlers.append(
@@ -281,7 +281,7 @@ def materialize_artifact(
                 )
                 result = failures.complete()
                 if result is not None:
-                    raise result
+                    raise result  # noqa: B904 - cleanup result already carries the authoritative cause/secondary diagnostics
                 raise
         return destination
     except MaterializationError as exc:

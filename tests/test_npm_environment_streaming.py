@@ -28,13 +28,12 @@ from unittest import mock
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
-from docker.constructor_cli import CommandRequest, _real_dispatcher, _render
-from docker.npm_environment import (
-    DISPATCHER_DRAIN_BUDGET_SECONDS,
+# Repository/test path setup must run before these imports.
+from docker.constructor_cli import CommandRequest, _real_dispatcher, _render  # noqa: E402
+from docker.npm_environment import (  # noqa: E402
     READ_CHUNK_BYTES,
     READER_FAILURE_DETAIL_BYTES,
     REDACTED,
-    SINK_CALLBACK_BUDGET_SECONDS,
     SINK_QUEUE_CAPACITY,
     STREAM_STDERR,
     STREAM_STDOUT,
@@ -54,15 +53,13 @@ from docker.npm_environment import (
     assembler_script_digest,
     collect_streams,
     compute_assembler_identity,
-    dedupe_secrets,
     longest_secret_length,
     npm_policy_digest,
     preflight,
-    redact_tail,
     redact_text,
 )
-from docker.npm_environment.execution import _exit_failure
-from docker.npm_environment.streaming import (
+from docker.npm_environment.execution import _exit_failure  # noqa: E402
+from docker.npm_environment.streaming import (  # noqa: E402
     CONTROL_SEQUENCE_LIMIT_BYTES,
     INCOMPLETE_CONTROL_SEQUENCE,
     OVERSIZED_CONTROL_SEQUENCE,
@@ -72,25 +69,25 @@ from docker.npm_environment.streaming import (
     _Utf8ByteDecoder,
     _visible_control,
 )
-from docker.versioning.build_orchestration import (
+from docker.versioning.build_orchestration import (  # noqa: E402
     BuildResult,
     _host_failure_context,
 )
-from docker.versioning.constructor_project import ConstructorProject
-from docker.versioning.dispatch_types import ExitKind
-from docker.versioning.host_presentation import (
+from docker.versioning.constructor_project import ConstructorProject  # noqa: E402
+from docker.versioning.dispatch_types import ExitKind  # noqa: E402
+from docker.versioning.host_presentation import (  # noqa: E402
     HostPresentationMode,
     HostPresentationState,
     format_failure_report,
 )
-from docker.versioning.host_progress import (
+from docker.versioning.host_progress import (  # noqa: E402
     HostDiagnosticStream,
     HostPhase,
     HostStep,
     HostStructuredDiagnostic,
 )
-from docker.versioning.model import NetworkUrlDisplay
-from docker.versioning.npm_diagnostic_stream import (
+from docker.versioning.model import NetworkUrlDisplay  # noqa: E402
+from docker.versioning.npm_diagnostic_stream import (  # noqa: E402
     DIAGNOSTIC_LINE_LIMIT_BYTES,
     OVERSIZED_DIAGNOSTIC_MARKER,
     NpmDiagnosticStream,
@@ -1768,15 +1765,15 @@ class TestFacadeDirectEnqueuePath(unittest.TestCase):
             with self.subTest(attribute=attribute):
                 threads: list[str] = []
 
-                def sink(chunk: StreamChunk) -> None:
+                def sink(chunk: StreamChunk, threads=threads) -> None:
                     threads.append(threading.current_thread().name)
 
                 setattr(sink, attribute, True)
                 stdout = iter((b"output", b""))
                 stderr = iter((b"",))
                 capture = collect_streams(
-                    stdout_read=lambda size: next(stdout),
-                    stderr_read=lambda size: next(stderr),
+                    stdout_read=lambda size, stdout=stdout: next(stdout),
+                    stderr_read=lambda size, stderr=stderr: next(stderr),
                     sink=sink,
                 )
                 self.assertEqual("output", capture.stdout_tail)
@@ -1791,8 +1788,8 @@ class TestFacadeDirectEnqueuePath(unittest.TestCase):
         stdout = iter((b"safe output", b""))
         stderr = iter((b"",))
         capture = collect_streams(
-            stdout_read=lambda size: next(stdout),
-            stderr_read=lambda size: next(stderr),
+            stdout_read=lambda size, stdout=stdout: next(stdout),
+            stderr_read=lambda size, stderr=stderr: next(stderr),
             sink=sink,
         )
         self.assertEqual("safe output", capture.stdout_tail)
@@ -1843,8 +1840,8 @@ class TestFacadeDirectEnqueuePath(unittest.TestCase):
         stdout = iter((b"output", b""))
         stderr = iter((b"",))
         collect_streams(
-            stdout_read=lambda size: next(stdout),
-            stderr_read=lambda size: next(stderr),
+            stdout_read=lambda size, stdout=stdout: next(stdout),
+            stderr_read=lambda size, stderr=stderr: next(stderr),
             sink=lambda chunk: threads.append(threading.current_thread().name),
         )
         self.assertEqual(["npm-sink-dispatcher"], threads)
@@ -2040,7 +2037,13 @@ class TestSinkDispatcher(unittest.TestCase):
             finish_returned = threading.Event()
             callbacks_after_finish: list[str] = []
 
-            def sink(chunk: StreamChunk) -> None:
+            def sink(
+                chunk: StreamChunk,
+                *,
+                callbacks_after_finish=callbacks_after_finish,
+                delivered=delivered,
+                finish_returned=finish_returned,
+            ) -> None:
                 if finish_returned.is_set():
                     callbacks_after_finish.append(chunk.text)
                 delivered.append(chunk.text)
@@ -2048,12 +2051,19 @@ class TestSinkDispatcher(unittest.TestCase):
             dispatcher = SinkDispatcher(sink, queue_capacity=8)
             accepted = [False] * per_round
 
-            def submit_one(i: int) -> None:
+            def submit_one(
+                i: int,
+                accepted=accepted,
+                dispatcher=dispatcher,
+                round_index=round_index,
+            ) -> None:
                 accepted[i] = dispatcher.submit(
                     StreamChunk(STREAM_STDOUT, f"r{round_index}-c{i}")
                 )
 
-            def do_finish() -> None:
+            def do_finish(
+                dispatcher=dispatcher, finish_returned=finish_returned
+            ) -> None:
                 dispatcher.finish()
                 finish_returned.set()
 

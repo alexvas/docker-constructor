@@ -11,13 +11,12 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures" / "versions"
 
 def write_toml(content: str, *, dir: Optional[Path] = None) -> Path:
     """Write TOML content to a temp file, return its Path."""
-    f = tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False, dir=dir)
-    try:
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".toml", delete=False, dir=dir
+    ) as f:
         f.write(content)
         f.flush()
         return Path(f.name)
-    finally:
-        f.close()
 
 
 def minimal_toml(**overrides: str) -> str:
