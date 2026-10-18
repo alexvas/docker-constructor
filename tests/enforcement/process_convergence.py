@@ -244,6 +244,8 @@ def _audit_tree(path, tree, generic_valid):
         if len(candidates) == 1:
             allowed_factory = candidates[0]
     for origin in _dependencies(tree, imported, aliases):
+        if origin == "docker.filesystem":
+            errors.append(f"aggregate filesystem import: {path}: {origin}")
         if path.startswith("docker/filesystem/") and origin.startswith(("docker.process", "subprocess", "docker.npm_environment", "docker.versioning", "docker.transactions")):
             errors.append(f"reverse dependency: {path}: {origin}")
         if path == "docker/process.py" and origin.startswith("docker.") and not origin.startswith(("docker.filesystem.cleanup.", "docker.filesystem.streams.")):

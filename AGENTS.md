@@ -1,5 +1,20 @@
 # Repository agent rules
 
+## Verification evidence
+
+Store verification results and implementation evidence separately from
+specification files. Keep durable evidence concise and self-contained: checked
+revision or source-state fingerprint, exact commands, relevant environment,
+exit statuses, result counts, significant warnings, and limitations. Historical
+results describe only their checked source state; changes require fresh checks.
+
+Capture complete test stdout/stderr temporarily for failure diagnosis and
+summary preparation, preserving the runner's exit status. Full logs need not
+be retained permanently or committed; temporary local files or retention-limited
+CI artifacts are sufficient. Do not use container-local temporary paths as
+durable evidence links. Summarizing logs must not hide failures or warnings,
+replace required checks, or turn a nonzero runner status into a passing result.
+
 ## Descriptor and stream lifecycle (mandatory)
 
 Any new code that acquires an operating-system descriptor or an already

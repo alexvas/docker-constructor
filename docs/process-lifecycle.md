@@ -292,6 +292,24 @@ Keep fault injection in tests rather than in usage examples. Concrete scenarios:
 
 ## Exclusions and ownership rules
 
+### Fully encapsulated synchronous subprocess calls
+
+A synchronous `subprocess.run(...)`, including `capture_output=True`, does not
+require migration to `OwnedProcess` when process and pipe lifecycles stay entirely
+inside the standard library and the application receives only a completed result
+with output values, not a live child or fd-owning streams. This boundary also
+applies to the existing runtime-installer mount check; it adds no process-owner
+dependency to the installer.
+
+Complete-tree audits record these calls separately as library-owned lifecycles,
+outside the application's exposed-process/stream ownership proof. This is not a
+fourth permitted direct-close category or proof of `OwnedStream` adoption. It does
+not exempt caller-managed descriptors or streams passed to a subprocess call:
+they retain their own ownership obligations. Code that acquires and manages a
+live subprocess or its captured streams must still use `OwnedProcess.launch`.
+
+### Other exclusions
+
 No process-tree/group management, stdin, PTY, arbitrary external reader ownership,
 existing-process adoption, Docker/npm/redaction/staging/publication authority or
 runtime-installer dependency is introduced. Never subclass to replace shutdown,

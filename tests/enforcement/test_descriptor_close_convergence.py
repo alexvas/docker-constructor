@@ -97,6 +97,34 @@ def _module_aliases(tree: ast.AST) -> dict[str, str]:
                 if alias.name == "*":
                     continue
                 aliases[alias.asname or alias.name] = f"{node.module}.{alias.name}"
+    # Memory-buffer exemptions require stable import evidence, unlike the
+    # may-origin maps used to *detect* potentially dangerous operations. Reject
+    # conflicting imports and any source binding/mutation of these roots. This
+    # deliberately overrejects shadowing even in another lexical scope.
+    for name, origin in list(aliases.items()):
+        if origin not in {'io', 'io.StringIO', 'io.BytesIO'}:
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Name, ast.Attribute)) and isinstance(
+                node.ctx, (ast.Store, ast.Del),
+            ) and name in _base_names(node):
+                aliases[name] = '<unproven>'
+            elif isinstance(node, ast.arg) and node.arg == name:
+                aliases[name] = '<unproven>'
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name:
+                aliases[name] = '<unproven>'
+            elif isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)) and node.name == name:
+                aliases[name] = '<unproven>'
+            elif isinstance(node, ast.MatchMapping) and node.rest == name:
+                aliases[name] = '<unproven>'
+            elif isinstance(node, ast.Import):
+                if any((item.asname or item.name.split('.')[0]) == name
+                       and item.name != origin for item in node.names):
+                    aliases[name] = '<unproven>'
+            elif isinstance(node, ast.ImportFrom):
+                if any((item.asname or item.name) == name
+                       and (node.level or f'{node.module}.{item.name}' != origin) for item in node.names):
+                    aliases[name] = '<unproven>'
     return aliases
 
 
@@ -632,6 +660,40 @@ def _class_owner_names(
     return owners
 
 
+def _proven_memory_buffer_close(
+    function: ast.FunctionDef, receiver: ast.expr, aliases: dict[str, str],
+) -> bool:
+    """Recognize only fresh, empty stdlib memory buffers, never file streams.
+
+    Deliberately no variable/annotation/name-based receiver exemption: the
+    receiver must be the constructor call itself with an imported io origin.
+    Local shadowing or mutation of its import root makes that origin unproven.
+    """
+    if not isinstance(receiver, ast.Call) or receiver.args or receiver.keywords:
+        return False
+    if _qualname(receiver.func, aliases) not in {'io.StringIO', 'io.BytesIO'}:
+        return False
+    root = receiver.func
+    while isinstance(root, ast.Attribute):
+        root = root.value
+    if not isinstance(root, ast.Name) or root.id not in aliases:
+        return False
+    for node in ast.walk(function):
+        if isinstance(node, (ast.Name, ast.Attribute)) and isinstance(
+            node.ctx, (ast.Store, ast.Del),
+        ) and root.id in _base_names(node):
+            return False
+        if isinstance(node, ast.arg) and node.arg == root.id:
+            return False
+        if isinstance(node, ast.alias) and (node.asname or node.name.split('.')[0]) == root.id:
+            return False
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == root.id:
+            return False
+        if isinstance(node, ast.ExceptHandler) and node.name == root.id:
+            return False
+    return True
+
+
 def _close_violations_with_owners(
     function: ast.FunctionDef, owners: set[str], aliases: dict[str, str],
     *, shared_owner_release: bool = False,
@@ -667,6 +729,8 @@ def _close_violations_with_owners(
             if _base_names(func.value) & owners:
                 continue
             if shared_owner_release and _shared_owner_release_proof(function, node):
+                continue
+            if _proven_memory_buffer_close(function, func.value, aliases):
                 continue
             violations.append(ast.unparse(func))
         elif isinstance(func, ast.Name):
@@ -1347,6 +1411,42 @@ _PHASE6B_STREAM_METHODS: dict[str, tuple[tuple[str, str], ...]] = {
 }
 
 
+def _local_primitive_aliases(
+    function: ast.FunctionDef, aliases: dict[str, str],
+) -> dict[str, str]:
+    """Track assigned primitive origins within this function, not its siblings.
+
+    This is a conservative may-origin map: reassignment cannot erase evidence
+    that a callable may acquire a descriptor or implicitly release one.
+    """
+    result = dict(aliases)
+    assignments = [
+        node for node in ast.walk(function)
+        if isinstance(node, (ast.Assign, ast.AnnAssign))
+    ]
+    changed = True
+    while changed:
+        changed = False
+        for node in assignments:
+            value = node.value
+            if value is None:
+                continue
+            origin = _qualname(value, result)
+            if origin not in _FDOPEN_QUALNAMES | _MKSTEMP_QUALNAMES:
+                continue
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                if not isinstance(target, ast.Name):
+                    continue
+                previous = result.get(target.id)
+                if previous in _FDOPEN_QUALNAMES | _MKSTEMP_QUALNAMES and previous != origin:
+                    raise AssertionError(f"ambiguous descriptor primitive alias: {target.id}")
+                if previous != origin:
+                    result[target.id] = origin
+                    changed = True
+    return result
+
+
 def _call_origin(node: ast.Call, aliases: dict[str, str]) -> str:
     """Resolve a call's callee to a dotted origin (aliases included)."""
     func = node.func
@@ -1523,6 +1623,254 @@ def _ownerish_names(
     return owners
 
 
+def _live_owner_fd(
+    function: ast.FunctionDef, call: ast.Call, owners: set[str],
+    aliases: dict[str, str] | None = None,
+) -> bool:
+    """Prove the receiver's live identity at this call, not a name anywhere.
+
+    Interpret the enclosing function in evaluation order. Aliases and captured
+    close/detach methods refer to an identity, so rebinding one name cannot
+    revive it or invalidate a different owner. Branches merge conservatively:
+    possible release poisons an identity; differing bindings become unknown.
+    Nested function bodies are not executed merely because they are defined.
+    Loop backedges join bindings/invalidation to a bounded fixed point; a call
+    must be safe at every abstract visit, not only its first iteration.
+    """
+    argument = call.args[0] if call.args else None
+    if not (isinstance(argument, ast.Attribute) and argument.attr == "fd"
+            and isinstance(argument.value, (ast.Name, ast.Attribute))):
+        return False
+    aliases = aliases or {}
+    bindings = {}
+    invalid = set()
+    answer = None
+    loop_depth = 0
+    analysis_failed = False
+    construction_sites = {}
+    exception_collectors = []
+
+    def record_exception_state():
+        # Any expression/assignment prefix can precede an exceptional transfer.
+        # Keep aliases even if a later successful statement overwrites them.
+        for entries in exception_collectors:
+            if not entries or entries[-1] != bindings:
+                entries.append(dict(bindings))
+
+    def finished():
+        return answer is not None and loop_depth == 0
+
+    def fresh(site=None):
+        # Stable allocation-site identities make loop joins finite. Reusing an
+        # invalidated site is conservatively unproven, never a resurrection.
+        identity = (object() if site is None
+                    else construction_sites.setdefault(site, object()))
+        return ("owner", frozenset({identity}))
+
+    for parameter in (function.args.posonlyargs + function.args.args
+                      + function.args.kwonlyargs):
+        if _annotation_is_owner(parameter.annotation):
+            bindings[parameter.arg] = fresh()
+
+    def bind(target, value):
+        record_exception_state()
+        if isinstance(target, (ast.Name, ast.Attribute)):
+            bindings[ast.unparse(target)] = value
+        elif isinstance(target, (ast.Tuple, ast.List)):
+            values = (value if isinstance(value, list) and len(value) == len(target.elts)
+                      else [None] * len(target.elts))
+            for member, item in zip(target.elts, values):
+                bind(member, item)
+
+    def evaluate(node):
+        nonlocal answer
+        if finished() or node is None:
+            return None
+        record_exception_state()
+        if isinstance(node, ast.Name):
+            return bindings.get(node.id)
+        if isinstance(node, ast.Attribute):
+            base = evaluate(node.value)
+            if isinstance(base, tuple) and base[0] in {"owner", "uncertain"}:
+                if node.attr in {"close", "detach"}:
+                    return ("terminal", base[1])
+            key = ast.unparse(node)
+            # Class-owned fields are supplied by the enclosing class proof;
+            # local names are established only by parameters/ordered bindings.
+            if (key not in bindings and isinstance(node.value, ast.Name)
+                    and node.value.id == "self" and node.attr in owners):
+                bindings[key] = fresh()
+            return bindings.get(key)
+        if isinstance(node, (ast.Tuple, ast.List)):
+            return [evaluate(item) for item in node.elts]
+        if isinstance(node, ast.Call):
+            callee = evaluate(node.func)
+            for item in node.args:
+                evaluate(item)
+            for keyword in node.keywords:
+                evaluate(keyword.value)
+            record_exception_state()
+            if node is call:
+                receiver = evaluate(argument.value)
+                valid = (isinstance(receiver, tuple) and receiver[0] == "owner"
+                         and receiver[1].isdisjoint(invalid))
+                answer = answer is not False and valid
+            elif isinstance(callee, tuple) and callee[0] in {"terminal", "uncertain"}:
+                invalid.update(callee[1])
+            return fresh(node) if _is_ownerish_call(node, aliases) else None
+        if isinstance(node, ast.NamedExpr):
+            value = evaluate(node.value)
+            bind(node.target, value)
+            return value
+        if isinstance(node, ast.Lambda):
+            return None
+        for child in ast.iter_child_nodes(node):
+            evaluate(child)
+        return None
+
+    def alternatives(bodies):
+        before = dict(bindings)
+        outcomes = []
+        for body in bodies:
+            bindings.clear()
+            bindings.update(before)
+            statements(body)
+            if finished():
+                return
+            outcomes.append(dict(bindings))
+        merge_states(outcomes)
+
+    def merge_states(outcomes):
+        bindings.clear()
+        for name in set().union(*(state.keys() for state in outcomes)):
+            value = outcomes[0].get(name)
+            values = [state.get(name) for state in outcomes]
+            if all(item == value for item in values):
+                bindings[name] = value
+            else:
+                # Keep possible identities even when a binding is uncertain:
+                # invoking a possibly captured release still invalidates them.
+                known = [item for item in values if isinstance(item, tuple)]
+                identities = frozenset().union(*(item[1] for item in known))
+                kind = (known[0][0] if len(known) == len(values)
+                        and all(item[0] == known[0][0] for item in known)
+                        else "uncertain")
+                bindings[name] = (kind, identities) if known else None
+
+    def collect_entries(body, entries):
+        exception_collectors.append(entries)
+        try:
+            statements(body)
+            record_exception_state()
+        finally:
+            exception_collectors.pop()
+
+    def try_statement(node):
+        # Handlers can run after any prefix of the try body, not just from
+        # pre-try bindings or successful completion. Else is outside their
+        # protected region; finally also sees failures in else/handlers.
+        final_entries = [dict(bindings)]
+        if node.finalbody:
+            exception_collectors.append(final_entries)
+        try:
+            exceptional = [dict(bindings)]
+            collect_entries(node.body, exceptional)
+            if finished():
+                return
+            statements(node.orelse)
+            if finished():
+                return
+            outcomes = [dict(bindings)]
+            for handler in node.handlers:
+                merge_states(exceptional)
+                evaluate(handler.type)
+                if handler.name:
+                    bindings[handler.name] = None
+                if isinstance(node, ast.TryStar):
+                    # Multiple except* handlers may run, including after a
+                    # preceding handler itself fails partway through.
+                    collect_entries(handler.body, exceptional)
+                else:
+                    statements(handler.body)
+                if finished():
+                    return
+                if handler.name:
+                    # Python deletes an exception target at handler exit.
+                    bindings[handler.name] = None
+                outcomes.append(dict(bindings))
+            merge_states(outcomes)
+        finally:
+            if node.finalbody:
+                exception_collectors.pop()
+        if node.finalbody:
+            merge_states([dict(bindings)] + final_entries)
+            statements(node.finalbody)
+
+    def statements(body):
+        nonlocal loop_depth, analysis_failed
+        for node in body:
+            if finished():
+                return
+            record_exception_state()
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                # Definition rebinds its name, but does not run its body.
+                bindings[node.name] = None
+            elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+                value = evaluate(node.value)
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                for target in targets:
+                    bind(target, value)
+            elif isinstance(node, (ast.AugAssign, ast.Delete)):
+                evaluate(node)
+                targets = node.targets if isinstance(node, ast.Delete) else [node.target]
+                for target in targets:
+                    bind(target, None)
+            elif isinstance(node, ast.If):
+                evaluate(node.test)
+                alternatives([node.body, node.orelse])
+            elif isinstance(node, (ast.For, ast.AsyncFor, ast.While)):
+                loop_depth += 1
+                if isinstance(node, (ast.For, ast.AsyncFor)):
+                    evaluate(node.iter)
+                # Include the zero-iteration edge and keep traversing after a
+                # matching call to account for releases/rebindings on backedges.
+                # No loop bound, break/continue or termination proof is assumed.
+                for _ in range(2 * sum(1 for _ in ast.walk(node)) + 1):
+                    before, released = dict(bindings), set(invalid)
+                    if isinstance(node, ast.While):
+                        evaluate(node.test)
+                    else:
+                        bind(node.target, None)
+                    alternatives([node.body, []])
+                    if bindings == before and invalid == released:
+                        break
+                else:
+                    # Unsupported non-finite abstract state must not supply
+                    # wrapper-close authority through a partial analysis.
+                    analysis_failed = True
+                loop_depth -= 1
+                statements(node.orelse)
+            elif isinstance(node, (ast.Try, ast.TryStar)):
+                try_statement(node)
+            elif isinstance(node, (ast.With, ast.AsyncWith)):
+                contexts = []
+                for item in node.items:
+                    value = evaluate(item.context_expr)
+                    contexts.append(value)
+                    if item.optional_vars is not None:
+                        bind(item.optional_vars, value)
+                statements(node.body)
+                if not finished():
+                    for value in contexts:
+                        if isinstance(value, tuple) and value[0] in {"owner", "uncertain"}:
+                            invalid.update(value[1])
+            else:
+                evaluate(node)
+
+    statements(function.body)
+    return answer is True and not analysis_failed
+
+
 def _fdopen_violations(
     function: ast.FunctionDef, owners: set[str], aliases: dict[str, str],
 ) -> list[str]:
@@ -1532,6 +1880,7 @@ def _fdopen_violations(
     is accepted only when the descriptor argument is a proven shared-owner
     attribute (``owner.fd``).
     """
+    aliases = _local_primitive_aliases(function, aliases)
     violations: list[str] = []
     for node in ast.walk(function):
         if not isinstance(node, ast.Call):
@@ -1548,11 +1897,7 @@ def _fdopen_violations(
                 f"fdopen closefd={ast.unparse(closefd.value)} at line {node.lineno}"
             )
         else:
-            fd_arg = node.args[0] if node.args else None
-            if not (
-                isinstance(fd_arg, ast.Attribute)
-                and (_base_names(fd_arg) & owners)
-            ):
+            if not _live_owner_fd(function, node, owners, aliases):
                 violations.append(
                     f"fdopen closefd=False without proven owner at line {node.lineno}"
                 )
@@ -1569,6 +1914,7 @@ def _file_object_names(
     and the file object is a legitimate explicit-cleanup receiver, so its
     ``fh.close()`` is not an unresolved consumer close.
     """
+    aliases = _local_primitive_aliases(function, aliases)
     names: set[str] = set()
     for node in ast.walk(function):
         if isinstance(node, ast.Assign):
@@ -1586,10 +1932,7 @@ def _file_object_names(
         )
         if closefd is None or ast.unparse(closefd.value) != "False":
             continue
-        fd_arg = value.args[0] if value.args else None
-        if not (
-            isinstance(fd_arg, ast.Attribute) and (_base_names(fd_arg) & owners)
-        ):
+        if not _live_owner_fd(function, value, owners, aliases):
             continue
         for target in targets:
             if isinstance(target, ast.Name):
@@ -1759,6 +2102,7 @@ def _mkstemp_violations(
     neither leak the descriptor nor leave the temporary entry behind.  Finding
     an owner call *somewhere* in the function is not enough.
     """
+    aliases = _local_primitive_aliases(function, aliases)
     parents = _parent_map(function)
     order = _node_order(function)
     violations: list[str] = []
@@ -1926,6 +2270,263 @@ def _inline_ledger(source: str):
 
 class OwnershipLedgerEvasionTests(unittest.TestCase):
     """Task 6.37 — aliased/implicit primitives cannot evade the ledger."""
+
+    def test_origin_resolved_memory_buffer_close_is_accepted(self) -> None:
+        for imports, factory in (
+            ('import io as memory', 'memory.StringIO'),
+            ('from io import BytesIO as Buffer', 'Buffer'),
+        ):
+            with self.subTest(factory=factory):
+                function, owners, aliases = _inline_ledger(
+                    f'{imports}\ndef f():\n    {factory}().close()\n'
+                )
+                self.assertEqual(_close_violations_with_owners(function, owners, aliases), [])
+
+    def test_unproven_memory_buffer_close_is_rejected(self) -> None:
+        cases = (
+            'from unknown import StringIO\ndef f():\n    StringIO().close()',
+            'from unknown import Buffer\nfrom io import StringIO as Buffer\ndef f():\n    Buffer().close()',
+            'from io import StringIO as Buffer\nBuffer = unknown\ndef f():\n    Buffer().close()',
+            'import io as memory\nmemory.StringIO = unknown\ndef f():\n    memory.StringIO().close()',
+            'from .io import StringIO as Buffer\ndef f():\n    Buffer().close()',
+            'from io import StringIO as Buffer\nclass Buffer:\n    pass\ndef f():\n    Buffer().close()',
+            'from io import StringIO as Buffer\ndef f(value):\n    match value:\n        case Buffer:\n            Buffer().close()',
+            'from io import StringIO as Buffer\ndef f(Buffer):\n    Buffer().close()',
+            'from io import StringIO as Buffer\ndef f(other):\n    Buffer = other\n    Buffer().close()',
+            'import io as memory\ndef f(other):\n    memory.StringIO = other\n    memory.StringIO().close()',
+            'from io import StringIO as Buffer\ndef f(other, flag):\n    if flag:\n        Buffer = other\n    Buffer().close()',
+            'from io import StringIO as Buffer\ndef f(other):\n    value = Buffer()\n    value = other\n    value.close()',
+        )
+        for source in cases:
+            with self.subTest(source=source):
+                function, owners, aliases = _inline_ledger(source)
+                self.assertTrue(_close_violations_with_owners(function, owners, aliases))
+
+    def test_transitively_assigned_fdopen_aliases_are_rejected(self) -> None:
+        for expression in ('wrap(fd, "w")', 'wrap(fd, "w", closefd=True)',
+                           'wrap(fd, "w", closefd=False)'):
+            with self.subTest(expression=expression):
+                function, owners, aliases = _inline_ledger(
+                    'import os as operating\n'
+                    'def f(fd):\n'
+                    '    first = operating.fdopen\n'
+                    '    wrap = first\n'
+                    f'    {expression}\n'
+                )
+                self.assertNotEqual(_fdopen_violations(function, owners, aliases), [])
+
+    def test_transitively_assigned_mkstemp_alias_is_rejected(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            'from tempfile import mkstemp as create\n'
+            'def f():\n'
+            '    first = create\n'
+            '    acquire = first\n'
+            '    fd, path = acquire()\n'
+            '    return fd\n'
+        )
+        self.assertNotEqual(_mkstemp_violations(function, owners, aliases), [])
+
+    def test_fdopen_requires_a_live_descriptor_attribute(self) -> None:
+        for setup, argument in (
+            ('owner.close()\n', 'owner.fd'),
+            ('owner.detach()\n', 'owner.fd'),
+            ('', 'owner.label'),
+        ):
+            with self.subTest(setup=setup, argument=argument):
+                function, owners, aliases = _inline_ledger(
+                    'import os\n'
+                    'from docker.filesystem.descriptors import OwnedDescriptor\n'
+                    'def f(owner: OwnedDescriptor):\n'
+                    + ''.join('    ' + line + '\n' for line in setup.splitlines())
+                    + f'    stream = os.fdopen({argument}, "w", closefd=False)\n'
+                )
+                self.assertNotEqual(_fdopen_violations(function, owners, aliases), [])
+                self.assertEqual(_file_object_names(function, owners, aliases), set())
+
+    def test_fdopen_rejects_invalidated_or_reassigned_owner_bindings(self) -> None:
+        cases = (
+            'owner.close(); stream = os.fdopen(owner.fd, "w", closefd=False)',
+            'owner.detach(); stream = os.fdopen(owner.fd, "w", closefd=False)',
+            'alias = owner\nalias.close()\nstream = os.fdopen(owner.fd, "w", closefd=False)',
+            'alias = owner\nowner.detach()\nstream = os.fdopen(alias.fd, "w", closefd=False)',
+            'first = owner\nsecond = first\nsecond.close(); stream = os.fdopen(owner.fd, "w", closefd=False)',
+            'release = owner.close\nfinish = release\nfinish(); stream = os.fdopen(owner.fd, "w", closefd=False)',
+            'transfer = owner.detach\ntransfer()\nstream = os.fdopen(owner.fd, "w", closefd=False)',
+            'owner = other\nstream = os.fdopen(owner.fd, "w", closefd=False)',
+            'alias = owner\nalias = other\nstream = os.fdopen(alias.fd, "w", closefd=False)',
+            'release = owner.close\nalias = owner\nowner = other\nrelease()\nstream = os.fdopen(alias.fd, "w", closefd=False)',
+            'if condition:\n    owner.close()\nstream = os.fdopen(owner.fd, "w", closefd=False)',
+            'if condition:\n    owner = other\nstream = os.fdopen(owner.fd, "w", closefd=False)',
+            'alias = owner\nif condition:\n    alias = other\nalias.close()\nstream = os.fdopen(owner.fd, "w", closefd=False)',
+            'release = owner.close\nif condition:\n    release = other\nrelease()\nstream = os.fdopen(owner.fd, "w", closefd=False)',
+            'stream = os.fdopen((owner.close(), owner)[1].fd, "w", closefd=False)',
+            'release = owner.close\nstream = os.fdopen(owner.fd, (release(), "w")[1], closefd=False)',
+            'del owner\nstream = os.fdopen(owner.fd, "w", closefd=False)',
+            'stream = os.fdopen(local.fd, "w", closefd=False)\nlocal = OwnedDescriptor(ops, fd, label="late")',
+        )
+        for body in cases:
+            with self.subTest(body=body):
+                function, owners, aliases = _inline_ledger(
+                    'import os\n'
+                    'from docker.filesystem.descriptors import OwnedDescriptor\n'
+                    'def f(owner: OwnedDescriptor, other, condition):\n'
+                    + textwrap.indent(body, '    ')
+                )
+                with self.subTest(check='_fdopen_violations'):
+                    self.assertTrue(_fdopen_violations(function, owners, aliases))
+                with self.subTest(check='_file_object_names'):
+                    self.assertEqual(_file_object_names(function, owners, aliases), set())
+
+    def test_fdopen_rejects_exception_path_owner_invalidation(self) -> None:
+        cases = (
+            'try:\n    alias = owner\n    work()\nexcept Exception:\n    alias.close()',
+            'try:\n    alias = owner\n    work()\nexcept Exception:\n    alias.detach()',
+            'try:\n    release = owner.close\n    work()\nexcept Exception:\n    release()',
+            'try:\n    release = owner.detach\n    work()\nexcept Exception:\n    release()',
+            'try:\n    first = owner\n    second = first\n    work()\nexcept Exception:\n    second.close()',
+            'try:\n    alias = owner\n    work()\n    alias = other\nexcept Exception:\n    alias.close()',
+            'try:\n    release = owner.close\n    work()\n    release = other\nexcept Exception:\n    release()',
+            'try:\n    work(alias := owner)\nexcept Exception:\n    alias.close()',
+            'try:\n    if condition:\n        alias = owner\n    work()\nexcept Exception:\n    alias.close()',
+            'try:\n    try:\n        alias = owner\n        work()\n    finally:\n        pass\nexcept Exception:\n    alias.close()',
+            'try:\n    alias = owner\n    work()\nexcept* Exception:\n    alias.close()',
+            'try:\n    work()\nexcept Exception as owner:\n    pass',
+            'try:\n    alias = work(alias := owner)\nexcept Exception:\n    alias.close()',
+            'try:\n    work()\nexcept* ValueError:\n    alias = owner\n    work()\n    alias = other\nexcept* TypeError:\n    alias.close()',
+            'try:\n    alias = owner\n    work()\n    alias = other\nfinally:\n    alias.close()',
+            'try:\n    work()\nexcept Exception:\n    pass\nelse:\n    alias = owner\n    work()\n    alias = other\nfinally:\n    alias.close()',
+            'try:\n    work()\nexcept Exception:\n    alias = owner\n    work()\n    alias = other\nfinally:\n    alias.close()',
+        )
+        for body in cases:
+            with self.subTest(body=body):
+                function, owners, aliases = _inline_ledger(
+                    'import os\n'
+                    'from docker.filesystem.descriptors import OwnedDescriptor\n'
+                    'def f(owner: OwnedDescriptor, other, condition):\n'
+                    + textwrap.indent(body, '    ')
+                    + '\n    stream = os.fdopen(owner.fd, "w", closefd=False)\n'
+                )
+                with self.subTest(check='_fdopen_violations'):
+                    self.assertTrue(_fdopen_violations(function, owners, aliases))
+                with self.subTest(check='_file_object_names'):
+                    self.assertEqual(_file_object_names(function, owners, aliases), set())
+
+    def test_fdopen_accepts_exception_paths_preserving_the_owner(self) -> None:
+        cases = (
+            'try:\n    work()\nexcept Exception:\n    pass',
+            'try:\n    alias = other\n    work()\nexcept Exception:\n    alias.close()',
+            'try:\n    release = other.close\n    work()\nexcept Exception:\n    release()',
+            'alias = other\ntry:\n    work()\nexcept Exception:\n    alias.close()\nelse:\n    alias = owner',
+            'try:\n    work()\nexcept Exception:\n    stream = os.fdopen(owner.fd, "w", closefd=False)\n    owner.close()',
+            'release = owner.close\ntry:\n    work()\nexcept Exception as release:\n    pass',
+            'alias = owner\ntry:\n    work()\nexcept Exception:\n    pass\nstream = os.fdopen(alias.fd, "w", closefd=False)',
+            'try:\n    alias = other\n    work()\nfinally:\n    alias.close()',
+            'try:\n    stream = os.fdopen(owner.fd, "w", closefd=False)\nfinally:\n    owner.close()',
+        )
+        for body in cases:
+            with self.subTest(body=body):
+                function, owners, aliases = _inline_ledger(
+                    'import os\n'
+                    'from docker.filesystem.descriptors import OwnedDescriptor\n'
+                    'def f(owner: OwnedDescriptor, other: OwnedDescriptor):\n'
+                    + textwrap.indent(body, '    ')
+                    + ('\n    stream = os.fdopen(owner.fd, "w", closefd=False)\n'
+                       if 'os.fdopen' not in body else '\n')
+                )
+                with self.subTest(check='_fdopen_violations'):
+                    self.assertEqual(_fdopen_violations(function, owners, aliases), [])
+                with self.subTest(check='_file_object_names'):
+                    self.assertEqual(_file_object_names(function, owners, aliases), {'stream'})
+
+    def test_fdopen_rejects_loop_carried_owner_invalidation(self) -> None:
+        cases = (
+            'for i in range(2):\n    stream = os.fdopen(owner.fd, "w", closefd=False); owner.close()',
+            'while condition:\n    stream = os.fdopen(owner.fd, "w", closefd=False)\n    owner.detach()',
+            'alias = owner\nfor i in range(2):\n    stream = os.fdopen(owner.fd, "w", closefd=False)\n    alias.close()',
+            'release = owner.close\nfor i in range(2):\n    stream = os.fdopen(owner.fd, "w", closefd=False)\n    release()',
+            'for i in range(2):\n    stream = os.fdopen(owner.fd, "w", closefd=False)\n    owner = other',
+            'for i in range(2):\n    for j in range(2):\n        stream = os.fdopen(owner.fd, "w", closefd=False)\n    owner.close()',
+            'first = second = other\nfor i in range(4):\n    stream = os.fdopen(owner.fd, "w", closefd=False)\n    first.close()\n    first = second\n    second = owner',
+            'for i in range(2):\n    with owner:\n        stream = os.fdopen(owner.fd, "w", closefd=False)',
+            'for i in range(2):\n    try:\n        stream = os.fdopen(owner.fd, "w", closefd=False)\n    finally:\n        owner.close()',
+            'for i in range(2):\n    owner = OwnedDescriptor(ops, fd, label="site")\n    stream = os.fdopen(owner.fd, "w", closefd=False)\n    owner.close()',
+        )
+        for body in cases:
+            with self.subTest(body=body):
+                function, owners, aliases = _inline_ledger(
+                    'import os\n'
+                    'from docker.filesystem.descriptors import OwnedDescriptor\n'
+                    'def f(owner: OwnedDescriptor, other, condition):\n'
+                    + textwrap.indent(body, '    ')
+                )
+                with self.subTest(check='_fdopen_violations'):
+                    self.assertTrue(_fdopen_violations(function, owners, aliases))
+                with self.subTest(check='_file_object_names'):
+                    self.assertEqual(_file_object_names(function, owners, aliases), set())
+
+    def test_fdopen_accepts_loops_without_carried_owner_invalidation(self) -> None:
+        cases = (
+            'for i in range(2):\n    stream = os.fdopen(owner.fd, "w", closefd=False)',
+            'while condition:\n    stream = os.fdopen(owner.fd, "w", closefd=False)\nowner.close()',
+            'for i in range(2):\n    stream = os.fdopen(owner.fd, "w", closefd=False)\n    other.close()',
+            'for i in range(2):\n    for j in range(2):\n        stream = os.fdopen(owner.fd, "w", closefd=False)',
+            'for i in range(2):\n    alias = owner\n    stream = os.fdopen(alias.fd, "w", closefd=False)',
+            'for i in range(2):\n    local = OwnedDescriptor(ops, fd, label="site")\n    stream = os.fdopen(local.fd, "w", closefd=False)',
+        )
+        for body in cases:
+            with self.subTest(body=body):
+                function, owners, aliases = _inline_ledger(
+                    'import os\n'
+                    'from docker.filesystem.descriptors import OwnedDescriptor\n'
+                    'def f(owner: OwnedDescriptor, other: OwnedDescriptor, condition):\n'
+                    + textwrap.indent(body, '    ')
+                )
+                self.assertEqual(_fdopen_violations(function, owners, aliases), [])
+                self.assertEqual(_file_object_names(function, owners, aliases), {'stream'})
+
+    def test_fdopen_liveness_uses_the_binding_at_the_call(self) -> None:
+        cases = (
+            'alias = owner\nstream = os.fdopen(alias.fd, "w", closefd=False)',
+            'stream = os.fdopen(owner.fd, "w", closefd=False); owner.close()',
+            'alias = owner\nowner = other\nstream = os.fdopen(alias.fd, "w", closefd=False)',
+            'release = owner.close\nrelease = other\nstream = os.fdopen(owner.fd, "w", closefd=False)',
+            'def later():\n    owner.close()\nstream = os.fdopen(owner.fd, "w", closefd=False)',
+            'alias = owner\nowner = OwnedDescriptor(ops, fd, label="new")\nalias.close()\nstream = os.fdopen(owner.fd, "w", closefd=False)',
+            'release = owner.close\nowner = OwnedDescriptor(ops, fd, label="new")\nrelease()\nstream = os.fdopen(owner.fd, "w", closefd=False)',
+        )
+        for body in cases:
+            with self.subTest(body=body):
+                function, owners, aliases = _inline_ledger(
+                    'import os\n'
+                    'from docker.filesystem.descriptors import OwnedDescriptor\n'
+                    'def f(owner: OwnedDescriptor, other):\n'
+                    + textwrap.indent(body, '    ')
+                )
+                self.assertEqual(_fdopen_violations(function, owners, aliases), [])
+                self.assertEqual(_file_object_names(function, owners, aliases), {'stream'})
+
+    def test_transitive_fdopen_alias_with_live_owner_is_accepted(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            'import os\n'
+            'from docker.filesystem.descriptors import OwnedDescriptor\n'
+            'def f(owner: OwnedDescriptor):\n'
+            '    first = os.fdopen\n'
+            '    wrap = first\n'
+            '    stream = wrap(owner.fd, "w", closefd=False)\n'
+        )
+        self.assertEqual(_fdopen_violations(function, owners, aliases), [])
+        self.assertEqual(_file_object_names(function, owners, aliases), {'stream'})
+
+    def test_conflicting_primitive_aliases_fail_closed(self) -> None:
+        function, owners, aliases = _inline_ledger(
+            'import os, tempfile\n'
+            'def f(fd):\n'
+            '    operation = os.fdopen\n'
+            '    operation = tempfile.mkstemp\n'
+            '    operation(fd)\n'
+        )
+        with self.assertRaises(AssertionError):
+            _fdopen_violations(function, owners, aliases)
 
     def test_aliased_fdopen_without_closefd_is_rejected(self) -> None:
         function, owners, aliases = _inline_ledger(
@@ -2332,6 +2933,86 @@ class SubprocessStreamOwnershipTests(unittest.TestCase):
         self.assertNotEqual(
             _close_violations_with_owners(function, owners, aliases), []
         )
+
+
+class Phase7IntegratedEvasionTests(unittest.TestCase):
+    """Release and new-module fixtures share the process convergence proof."""
+
+    def test_unowned_success_finally_multiclose_and_handoff_are_rejected(self):
+        bodies = (
+            'os.close(fd)',
+            'try:\n    work()\nfinally:\n    os.close(fd)',
+            'for fd in descriptors:\n    backend.close(fd)',
+            'child = backend.open(parent, name)\nbackend.close(parent)\nreturn child',
+            'self._closed = True\nself._ops.close(fd)',
+        )
+        for body in bodies:
+            with self.subTest(body=body):
+                function, owners, aliases = _inline_ledger(
+                    'import os\ndef f(self, backend, fd, descriptors, parent, name):\n'
+                    + textwrap.indent(body, '    ')
+                )
+                self.assertTrue(_close_violations_with_owners(
+                    function, owners, aliases, shared_owner_release=True,
+                ))
+
+    def test_borrowed_file_wrapper_close_is_not_descriptor_release(self):
+        function, owners, aliases = _inline_ledger(
+            'import os\n'
+            'from docker.filesystem.descriptors import OwnedDescriptor\n'
+            'def f(owner: OwnedDescriptor):\n'
+            '    stream = os.fdopen(owner.fd, "w", closefd=False)\n'
+            '    stream.close()\n'
+            '    owner.close()\n'
+        )
+        self.assertEqual(_fdopen_violations(function, owners, aliases), [])
+        receivers = owners | _file_object_names(function, owners, aliases)
+        self.assertEqual(_close_violations_with_owners(function, receivers, aliases), [])
+
+    def test_new_modules_and_reverse_imports_do_not_gain_authority(self):
+        from tests.enforcement.process_convergence import convergence_report
+        from tests.enforcement.test_filesystem_convergence import _sources
+
+        sources = _sources()
+        additions = (
+            ('docker/phase7_new_consumer.py',
+             'import subprocess as sp\nfrom subprocess import PIPE as P\n'
+             'def f(argv):\n    spawn = sp.Popen\n'
+             '    child = spawn(argv, stdout=P, stderr=P)\n'
+             '    release = child.stderr.close\n    release()\n'),
+            ('docker/phase7_new_consumer.py',
+             'from docker import filesystem\n'),
+            ('docker/filesystem/phase7_reverse.py',
+             'import docker.process\n'),
+        )
+        for path, source in additions:
+            with self.subTest(path=path, source=source):
+                self.assertTrue(convergence_report({**sources, path: source})['errors'])
+
+    def test_prepared_policy_drain_budget_helper_and_deferred_evasions(self):
+        from tests.enforcement.process_convergence import convergence_report
+        from tests.enforcement.test_filesystem_convergence import _sources
+
+        sources = _sources()
+        mutations = (
+            ('docker/process.py', 'self._acquired[index] = True',
+             'self._acquired[index] = False'),
+            ('docker/process.py',
+             'return not self._started[index] or self._stopped[index].is_set()',
+             'return True'),
+            ('docker/process.py', 'if math.fsum(caps) > total:', 'if False:'),
+            ('docker/process.py', 'while not self._finished.is_set():', 'while False:'),
+            ('docker/process.py', 'result.done and result.cleanup_complete', 'result.done'),
+            ('docker/npm_environment/execution.py',
+             'min(self.grace, remaining / 3)', 'self.grace'),
+            ('docker/npm_environment/execution.py',
+             'self.owner = operation.owner', 'self.owner = None'),
+        )
+        for path, old, new in mutations:
+            with self.subTest(path=path, mutation=old):
+                self.assertIn(old, sources[path])
+                changed = {**sources, path: sources[path].replace(old, new)}
+                self.assertTrue(convergence_report(changed)['errors'])
 
 
 if __name__ == "__main__":

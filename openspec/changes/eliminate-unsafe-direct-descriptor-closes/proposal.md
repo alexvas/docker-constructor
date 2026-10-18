@@ -8,7 +8,11 @@ The generic process owner now exists; this change also establishes its domain-ne
 
 The user delegated native local-file factory stream ownership, including the five identified readers and replacement of the staged `_FileRelease` proxy, to [own-local-file-stream-lifecycles](../own-local-file-stream-lifecycles/proposal.md). This is independent of the earlier [HTTP/probe lifecycle delegation](../own-http-response-and-probe-server-lifecycles/proposal.md). Neither delegated family's resolution is a prerequisite for this change's Phase 7 acceptance.
 
-Phase 7 still scans the complete production tree, reports delegated origins separately and proves all remaining in-scope raw-fd/directory/`mkstemp`/`fdopen`/subprocess lifecycles. No whole module or runtime ownership rule is exempted. Delegation does not classify the staged proxy as a valid owner, approve a new stream API here, or complete tasks 7.1–7.10; their current convergence, ledger and `verification.md` obligations remain. The lifecycle guarantees below remain required, with delivery for the explicitly delegated families owned by their separate changes.
+Phase 7 still scans the complete production tree, reports delegated origins separately and proves all remaining in-scope raw-fd/directory/`mkstemp`/`fdopen`/subprocess lifecycles. No whole module or runtime ownership rule is exempted. Delegation does not classify the staged proxy as a valid owner, approve a new stream API here, or complete tasks 7.1–7.10; their remaining convergence and `verification.md` obligations remain, subject to the explicit task 7.2 cancellation below. The lifecycle guarantees below remain required, with delivery for the explicitly delegated families owned by their separate changes.
+
+## Phase 7 Journal Cancellation
+
+The user cancelled task 7.2: a repository-wide dynamic fd-ledger fixture across all migration families is no longer required for this change. It is cancelled, not implemented or proved by the partial abstract oracle. [introduce-ownership-language](../introduce-ownership-language/proposal.md) plans bounded ownership forms, encapsulated descriptor operations and explicit proof/review classification instead of a universal runtime journal. This change can complete independently of that work. Existing focused ledgers, origin-resolved static inventories, lifecycle fault/concurrency tests and tasks 7.1 and 7.3–7.10 are preserved; references to fd-ledger gates below do not reinstate cancelled task 7.2.
 
 ## What Changes
 
