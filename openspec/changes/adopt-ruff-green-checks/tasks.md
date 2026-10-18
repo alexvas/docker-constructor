@@ -126,36 +126,36 @@ This forward-only chain is the chosen DAG. A phase may depend only on an earlier
 
 ### RED
 
-- [ ] 2.1 Add source-selector contract tests; accept when fixtures cover nested `.py`/`.pyi`, extensionless Python, explicit non-shebang entries, shell exclusion, symlinks, unreadable candidates and spaces in filenames, with actual missing/failing behavior recorded.
-- [ ] 2.2 Add compilation contract tests; accept when fixtures specify valid extensionless Python, invalid syntax, source encoding and absence of application side effects/bytecode.
-- [ ] 2.3 Add Ruff inventory-parity tests; accept when fixtures expose a selected file silently omitted by an exclusion and a selected extensionless file omitted by default recursion.
-- [ ] 2.4 Add check-runner status tests; accept when deliberate lint/format/syntax failures have explicit expected nonzero outcomes and check mode must leave contents unchanged.
+- [x] 2.1 Add source-selector contract tests; accept when fixtures cover nested `.py`/`.pyi`, extensionless Python, explicit non-shebang entries, shell exclusion, symlinks, unreadable candidates and spaces in filenames, with actual missing/failing behavior recorded.
+- [x] 2.2 Add compilation contract tests; accept when fixtures specify valid extensionless Python, invalid syntax, source encoding and absence of application side effects/bytecode.
+- [x] 2.3 Add Ruff inventory-parity tests; accept when fixtures expose a selected file silently omitted by an exclusion and a selected extensionless file omitted by default recursion.
+- [x] 2.4 Add check-runner status tests; accept when deliberate lint/format/syntax failures have explicit expected nonzero outcomes and check mode must leave contents unchanged.
 
 ### GREEN
 
-- [ ] 2.5 Declare development Ruff 0.17.1; accept when clean-environment installation from the declared group reports 0.17.1 without changing the runtime inventory.
-- [ ] 2.6 Configure the fixed Ruff policy; accept when effective settings match the version, target and selected rules in section 0, without unsafe/preview activation.
-- [ ] 2.7 Implement shared source selection; accept when 2.1 tests pass and actual output reconciles with P1, including new repository-owned helpers/tests.
-- [ ] 2.8 Implement non-mutating lint checking; accept when lint cases in 2.3–2.4 pass using the shared inventory and repository configuration.
-- [ ] 2.9 Implement non-mutating format checking; accept when format cases in 2.3–2.4 pass without file modification.
-- [ ] 2.10 Implement shared syntax compilation; accept when 2.2 and syntax-status cases in 2.4 pass for every supported file type.
-- [ ] 2.11 Write the contributor-check guide; accept when it gives executable installation/check commands, exact source-selection rules and the temporary migration-backlog distinction.
-- [ ] 2.12 Record new entry-point commands in the manifest’s `new-adoption-checks` section; accept when each exact invocation matches its implementation and records activation as compilation P2, format check P3, lint P5. Preserve the `existing-required-checks` section without narrowing its commands or scope.
+- [x] 2.5 Declare development Ruff 0.17.1; accept when clean-environment installation from the declared group reports 0.17.1 without changing the runtime inventory.
+- [x] 2.6 Configure the fixed Ruff policy; accept when effective settings match the version, target and selected rules in section 0, without unsafe/preview activation.
+- [x] 2.7 Implement shared source selection; accept when 2.1 tests pass and actual output reconciles with P1, including new repository-owned helpers/tests.
+- [x] 2.8 Implement non-mutating lint checking; accept when lint cases in 2.3–2.4 pass using the shared inventory and repository configuration.
+- [x] 2.9 Implement non-mutating format checking; accept when format cases in 2.3–2.4 pass without file modification.
+- [x] 2.10 Implement shared syntax compilation; accept when 2.2 and syntax-status cases in 2.4 pass for every supported file type.
+- [x] 2.11 Write the contributor-check guide; accept when it gives executable installation/check commands, exact source-selection rules and the temporary migration-backlog distinction.
+- [x] 2.12 Record new entry-point commands in the manifest’s `new-adoption-checks` section; accept when each exact invocation matches its implementation and records activation as compilation P2, format check P3, lint P5. Preserve the `existing-required-checks` section without narrowing its commands or scope.
 
 ### INTROSPECT
 
-- [ ] 2.13 Review helper implementation against repository contracts; accept when the review records actual ownership paths and required tests, without prescribing shell versus Python merely to avoid those contracts.
-- [ ] 2.14 Capture initial full Ruff findings; accept when a complete rule/location inventory and actual status identify all current backlog, including SIM115, without calling it green.
-- [ ] 2.15 Review installed-version/configuration/source parity; accept when the documented commands cover the same inventory with no silent exclusion.
+- [x] 2.13 Review helper implementation against repository contracts; accept when the review records actual ownership paths and required tests, without prescribing shell versus Python merely to avoid those contracts.
+- [x] 2.14 Capture initial full Ruff findings; accept when a complete rule/location inventory and actual status identify all current backlog, including SIM115, without calling it green.
+- [x] 2.15 Review installed-version/configuration/source parity; accept when the documented commands cover the same inventory with no silent exclusion.
 
 ### VALIDATE
 
-- [ ] 2.16 Run focused tooling tests; accept only passing source, compilation, parity and status fixtures.
-- [ ] 2.17 Run full pytest for R; accept only exit 0 and its durable summary.
-- [ ] 2.18 Execute manifest checks mandatory in P2: all existing required checks and shared compilation; accept only successful statuses and no unresolved ty diagnostics. Record lint/format diagnostic failures as backlog, not passes; neither is required to pass yet.
-- [ ] 2.19 Run shared compilation for R; accept only exit 0 for the full inventory.
-- [ ] 2.20 Review phase-exit skips; accept only justified reasons under section 0.
-- [ ] 2.21 Publish the P2 exit report; accept when all P2 deliverables exist and R matches the exit fingerprint.
+- [x] 2.16 Run focused tooling tests; accept only passing source, compilation, parity and status fixtures.
+- [x] 2.17 Run full pytest for R; accept only exit 0 and its durable summary.
+- [x] 2.18 Execute manifest checks mandatory in P2: all existing required checks and shared compilation; accept only successful statuses and no unresolved ty diagnostics. Record lint/format diagnostic failures as backlog, not passes; neither is required to pass yet.
+- [x] 2.19 Run shared compilation for R; accept only exit 0 for the full inventory.
+- [x] 2.20 Review phase-exit skips; accept only justified reasons under section 0.
+- [x] 2.21 Publish the P2 exit report; accept when all P2 deliverables exist and R matches the exit fingerprint.
 
 ## 3. P3 — Formatting only
 

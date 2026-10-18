@@ -78,6 +78,13 @@ This checks maintained production modules under `docker/` using the Python 3.14
 semantics configured in `pyproject.toml`. Run it in the project image, which
 provides `ty` and the intended Python installation.
 
+### Python source checks
+
+The shared lint, format and syntax-compilation checks run over one inventory of
+repository-owned Python source. Installation, exact commands, source-selection
+rules and the temporary migration-backlog distinction are documented in
+[python-checks.md](python-checks.md).
+
 ## Docker image tests
 
 Changes that modify the Dockerfile must be checked on the host, from the

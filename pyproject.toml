@@ -3,6 +3,16 @@ name = "docker-constructor"
 version = "0.0.0"
 requires-python = ">=3.14"
 
+[dependency-groups]
+dev = ["ruff==0.17.1"]
+
+[tool.ruff]
+required-version = "==0.17.1"
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B", "SIM115", "RUF100"]
+
 [tool.ty.environment]
 python-version = "3.14"
 

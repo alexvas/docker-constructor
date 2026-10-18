@@ -1,0 +1,1304 @@
+docker/constructor_cli.py:29:1: I001 [*] Import block is un-sorted or un-formatted
+docker/constructor_cli.py:44:1: I001 [*] Import block is un-sorted or un-formatted
+docker/constructor_cli.py:304:5: I001 [*] Import block is un-sorted or un-formatted
+docker/constructor_cli.py:436:5: I001 [*] Import block is un-sorted or un-formatted
+docker/constructor_cli.py:436:18: F401 [*] `os` imported but unused
+docker/constructor_cli.py:1211:9: I001 [*] Import block is un-sorted or un-formatted
+docker/constructor_cli.py:1220:24: F401 [*] `json` imported but unused
+docker/constructor_cli.py:1241:9: I001 [*] Import block is un-sorted or un-formatted
+docker/constructor_cli.py:1498:13: I001 [*] Import block is un-sorted or un-formatted
+docker/constructor_cli.py:1503:37: F401 [*] `docker.versioning.evidence.MAX_OUTPUT_BYTES` imported but unused
+docker/constructor_cli.py:2845:9: E731 Do not assign a `lambda` expression, use a `def`
+docker/constructor_cli.py:2857:9: E731 Do not assign a `lambda` expression, use a `def`
+docker/filesystem/cleanup.py:228:39: RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+docker/filesystem/descriptors.py:426:43: RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+docker/launcher.py:20:1: I001 [*] Import block is un-sorted or un-formatted
+docker/launcher.py:27:21: F401 [*] `pathlib.Path` imported but unused
+docker/launcher.py:532:25: F811 [*] Redefinition of unused `Path` from line 27: `Path` redefined here
+docker/launcher.py:611:5: I001 [*] Import block is un-sorted or un-formatted
+docker/launcher.py:853:13: I001 [*] Import block is un-sorted or un-formatted
+docker/networking.py:14:1: I001 [*] Import block is un-sorted or un-formatted
+docker/networking.py:18:8: F401 [*] `ipaddress` imported but unused
+docker/networking.py:19:8: F401 [*] `os` imported but unused
+docker/networking.py:28:30: F401 [*] `typing.Iterable` imported but unused
+docker/networking.py:353:40: RUF100 [*] Unused `noqa` directive (non-enabled: `N802`)
+docker/networking.py:377:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/networking.py:418:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/networking.py:590:5: F841 Local variable `persistence_applied` is assigned to but never used
+docker/npm_environment/__init__.py:16:1: I001 [*] Import block is un-sorted or un-formatted
+docker/npm_environment/execution.py:18:1: I001 [*] Import block is un-sorted or un-formatted
+docker/npm_environment/lifecycle.py:6:1: I001 [*] Import block is un-sorted or un-formatted
+docker/npm_environment/lockfile.py:57:1: I001 [*] Import block is un-sorted or un-formatted
+docker/npm_environment/preflight.py:19:1: I001 [*] Import block is un-sorted or un-formatted
+docker/npm_environment/publication.py:61:5: F401 [*] `.execution.CleanupFailure` imported but unused
+docker/npm_environment/publication.py:255:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/npm_environment/publication.py:261:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/npm_environment/run_vector.py:11:1: I001 [*] Import block is un-sorted or un-formatted
+docker/npm_environment/semver_range.py:33:1: I001 [*] Import block is un-sorted or un-formatted
+docker/npm_environment/storage.py:22:1: I001 [*] Import block is un-sorted or un-formatted
+docker/process.py:479:21: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/process.py:827:57: B023 Function definition does not bind loop variable `returncode`
+docker/process.py:827:69: B023 Function definition does not bind loop variable `stage_end`
+docker/process.py:865:37: B905 `zip()` without an explicit `strict=` parameter
+docker/process.py:907:44: B905 `zip()` without an explicit `strict=` parameter
+docker/process.py:1034:17: B010 [*] Do not call `setattr` with a constant attribute value. It is not any safer than normal property access.
+docker/process.py:1062:17: B010 [*] Do not call `setattr` with a constant attribute value. It is not any safer than normal property access.
+docker/process.py:1096:36: B905 `zip()` without an explicit `strict=` parameter
+docker/process.py:1202:21: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/runtime_installer.py:16:1: I001 [*] Import block is un-sorted or un-formatted
+docker/runtime_installer.py:25:36: F401 [*] `dataclasses.field` imported but unused
+docker/runtime_installer.py:424:9: I001 [*] Import block is un-sorted or un-formatted
+docker/runtime_installer.py:590:16: F401 [*] `os` imported but unused
+docker/runtime_installer.py:591:24: F401 [*] `stat` imported but unused
+docker/runtime_installer.py:715:24: F401 [*] `stat` imported but unused
+docker/runtime_installer.py:724:21: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/runtime_installer.py:831:47: F811 Redefinition of unused `field` from line 25: `field` redefined here
+docker/runtime_installer.py:1030:5: F841 Local variable `workspace_dir` is assigned to but never used
+docker/transactions/capabilities.py:9:1: I001 [*] Import block is un-sorted or un-formatted
+docker/transactions/capabilities.py:180:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/transactions/capabilities.py:411:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/transactions/errors.py:17:5: F401 [*] `docker.filesystem.cleanup._MAX_SECONDARY_NOTES` imported but unused
+docker/transactions/errors.py:18:5: F401 [*] `docker.filesystem.cleanup.attach_secondary` imported but unused
+docker/transactions/errors.py:19:5: F401 [*] `docker.filesystem.cleanup.carry_secondary_diagnostics` imported but unused
+docker/transactions/locking.py:208:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/transactions/regular.py:41:1: I001 [*] Import block is un-sorted or un-formatted
+docker/tui.py:11:1: I001 [*] Import block is un-sorted or un-formatted
+docker/tui.py:190:16: B007 Loop control variable `proj` not used within loop body
+docker/versioning/artifact_cache.py:10:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/artifact_cache.py:608:5: F841 Local variable `safe_digest` is assigned to but never used
+docker/versioning/artifact_cache.py:647:5: F841 Local variable `cache_root` is assigned to but never used
+docker/versioning/artifact_cache.py:755:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/artifact_cache.py:758:9: F841 Local variable `safe_digest` is assigned to but never used
+docker/versioning/artifact_cache.py:1028:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/artifact_cache.py:1634:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/artifact_cache.py:1640:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:38:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/build_cache.py:245:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:580:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:631:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:832:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:980:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:1003:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:1249:5: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/build_cache.py:1291:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:1544:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cleanup.py:298:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cleanup.py:359:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cleanup.py:369:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cleanup.py:385:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_materialization.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/build_materialization.py:21:5: F401 [*] `docker.versioning.build_cache.BLOB_EXTENSION` imported but unused
+docker/versioning/build_materialization.py:21:21: F401 [*] `docker.versioning.build_cache.BuildCacheError` imported but unused
+docker/versioning/build_materialization.py:60:52: B008 Do not perform function call `HostNetworkPolicy` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+docker/versioning/build_materialization.py:243:21: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_orchestration.py:21:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/build_orchestration.py:28:44: F401 [*] `typing.Optional` imported but unused
+docker/versioning/build_orchestration.py:28:64: F401 [*] `typing.Sequence` imported but unused
+docker/versioning/build_orchestration.py:55:5: F401 [*] `docker.versioning.build_context_confinement.BuildContextConfinement` imported but unused
+docker/versioning/build_output.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/build_snapshot.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/build_snapshot.py:150:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_snapshot.py:205:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_snapshot.py:531:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_snapshot.py:580:29: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_snapshot.py:630:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/cache.py:13:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/cache_storage.py:28:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/configuration_document_validation.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/constraints.py:5:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/diagnostic_coordinator.py:17:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/diagnostic_coordinator.py:155:9: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/diagnostic_coordinator.py:213:9: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/diagnostic_coordinator.py:280:9: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/diagnostic_coordinator.py:311:9: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/diagnostic_coordinator.py:319:13: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/diagnostic_coordinator.py:358:9: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/diagnostic_coordinator.py:502:9: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/diagnostic_identity.py:89:33: RUF100 [*] Unused `noqa` directive (non-enabled: `D105`)
+docker/versioning/diagnostic_identity.py:259:33: B905 `zip()` without an explicit `strict=` parameter
+docker/versioning/diagnostic_projection.py:72:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/diagnostic_projection.py:86:5: F401 [*] `docker.npm_environment.streaming.REDACTED` imported but unused
+docker/versioning/diagnostic_projection.py:560:9: B018 Found useless expression. Either assign it to a variable or remove it.
+docker/versioning/diagnostic_projection.py:602:9: B018 Found useless expression. Either assign it to a variable or remove it.
+docker/versioning/diagnostic_projection.py:629:9: B018 Found useless expression. Either assign it to a variable or remove it.
+docker/versioning/diagnostic_projection.py:852:9: B018 Found useless expression. Either assign it to a variable or remove it.
+docker/versioning/diagnostic_projection.py:924:9: B018 Found useless expression. Either assign it to a variable or remove it.
+docker/versioning/effective.py:5:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/effective.py:8:8: F401 [*] `json` imported but unused
+docker/versioning/effective.py:12:44: F401 [*] `typing.Optional` imported but unused
+docker/versioning/effective.py:33:5: F401 [*] `.model.NpmArtifact` imported but unused
+docker/versioning/effective.py:604:1: E402 Module level import not at top of file
+docker/versioning/effective.py:605:1: E402 Module level import not at top of file
+docker/versioning/effective.py:606:1: E402 Module level import not at top of file
+docker/versioning/evidence.py:8:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/evidence.py:116:1: E402 Module level import not at top of file
+docker/versioning/evidence.py:117:1: E402 Module level import not at top of file
+docker/versioning/evidence.py:118:1: E402 Module level import not at top of file
+docker/versioning/evidence.py:119:1: E402 Module level import not at top of file
+docker/versioning/evidence.py:120:1: E402 Module level import not at top of file
+docker/versioning/evidence.py:121:1: E402 Module level import not at top of file
+docker/versioning/host_presentation.py:16:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/host_progress.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/inventory.py:6:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/inventory.py:13:44: F401 [*] `typing.Union` imported but unused
+docker/versioning/inventory.py:35:5: F401 [*] `.constraints.NumericVersion` imported but unused
+docker/versioning/inventory.py:50:5: F401 [*] `.model.InvalidArtifactKey` imported but unused
+docker/versioning/inventory.py:69:5: F401 [*] `.model.RuntimeInventory` imported but unused
+docker/versioning/inventory.py:449:9: F841 Local variable `validation_raw` is assigned to but never used
+docker/versioning/inventory.py:620:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/inventory.py:641:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/inventory.py:659:5: F841 Local variable `source_data` is assigned to but never used
+docker/versioning/inventory.py:1359:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/inventory.py:1390:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/inventory.py:1511:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/model.py:12:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/model.py:15:8: F401 [*] `re` imported but unused
+docker/versioning/model.py:19:20: F401 [*] `typing.Any` imported but unused
+docker/versioning/model.py:21:38: F401 [*] `.constraints.NumericVersion` imported but unused
+docker/versioning/model.py:828:1: E402 Module level import not at top of file
+docker/versioning/model.py:869:5: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/model.py:869:12: F811 [*] Redefinition of unused `re` from line 15: `re` redefined here
+docker/versioning/model.py:870:36: F401 [*] `datetime.timezone` imported but unused
+docker/versioning/model.py:870:46: F401 [*] `datetime.timedelta` imported but unused
+docker/versioning/model.py:975:16: F401 [*] `json` imported but unused
+docker/versioning/npm_diagnostic_stream.py:43:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/npm_fetch.py:279:9: B018 Found useless expression. Either assign it to a variable or remove it.
+docker/versioning/pi_assembly.py:19:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/pi_release.py:9:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/pi_release.py:15:30: F401 [*] `typing.Iterable` imported but unused
+docker/versioning/project_state.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/project_state.py:433:23: B905 `zip()` without an explicit `strict=` parameter
+docker/versioning/providers/base.py:7:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/providers/base.py:15:5: F401 [*] `typing.Sequence` imported but unused
+docker/versioning/providers/base.py:20:5: F401 [*] `..model.CandidateArtifact` imported but unused
+docker/versioning/providers/docker_registry.py:5:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/providers/git.py:5:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/providers/git.py:9:52: F401 [*] `.base.UpdateProvider` imported but unused
+docker/versioning/providers/github.py:6:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/providers/github.py:307:32: E741 Ambiguous variable name: `l`
+docker/versioning/providers/npm.py:5:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/providers/npm.py:11:19: F401 [*] `.base.HttpTransport` imported but unused
+docker/versioning/providers/npm.py:11:67: F401 [*] `.base.UpdateProvider` imported but unused
+docker/versioning/providers/pypi.py:5:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/providers/pypi.py:11:52: F401 [*] `.base.UpdateProvider` imported but unused
+docker/versioning/providers/pypi.py:29:14: B007 Loop control variable `files` not used within loop body
+docker/versioning/providers/pypi.py:45:14: B007 Loop control variable `files` not used within loop body
+docker/versioning/providers/pypi.py:146:9: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/providers/pypi.py:146:40: F401 [*] `datetime.timezone` imported but unused
+docker/versioning/providers/rust.py:6:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/providers/rust.py:11:52: F401 [*] `.base.UpdateProvider` imported but unused
+docker/versioning/providers/static_url.py:10:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/providers/uv_python.py:6:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/providers/uv_python.py:11:52: F401 [*] `.base.UpdateProvider` imported but unused
+docker/versioning/providers/uv_python.py:12:27: F401 [*] `..constraints.NumericVersion` imported but unused
+docker/versioning/readonly_service.py:10:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/readonly_service.py:153:5: F841 Local variable `overrides_map` is assigned to but never used
+docker/versioning/readonly_service.py:204:5: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/readonly_service.py:330:5: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/rendering.py:6:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/rendering.py:446:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/rendering.py:716:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/rendering.py:1316:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/rendering.py:1330:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/rendering.py:1342:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/rendering.py:1553:1: E402 Module level import not at top of file
+docker/versioning/rendering.py:1553:23: F401 [*] `dataclasses` imported but unused
+docker/versioning/rendering.py:1619:5: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/rendering.py:1619:24: F401 [*] `.model.EffectiveBuildProjection` imported but unused
+docker/versioning/rendering.py:1619:50: F401 [*] `.model.EffectiveNode` imported but unused
+docker/versioning/rendering.py:1619:65: F401 [*] `.model.EffectiveRust` imported but unused
+docker/versioning/rendering.py:1620:9: F401 [*] `.model.EffectiveTool` imported but unused
+docker/versioning/rendering.py:1620:24: F401 [*] `.model.EffectiveArtifact` imported but unused
+docker/versioning/rendering.py:1811:9: F401 [*] `docker.versioning.project_state.ProjectState` imported but unused
+docker/versioning/runtime_verification.py:85:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/runtime_verification.py:445:18: F541 [*] f-string without any placeholders
+docker/versioning/runtime_verification.py:459:18: F541 [*] f-string without any placeholders
+docker/versioning/semver.py:189:19: B905 `zip()` without an explicit `strict=` parameter
+docker/versioning/transports.py:9:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/transports.py:14:19: F401 [*] `types.MappingProxyType` imported but unused
+docker/versioning/transports.py:20:5: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/transports.py:81:5: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/transports.py:86:13: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/transports.py:128:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/updates.py:5:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/updates.py:16:5: F401 [*] `typing.Optional` imported but unused
+docker/versioning/updates.py:21:5: F401 [*] `.errors.VersionConfigError` imported but unused
+docker/versioning/updates.py:22:5: F401 [*] `.errors.ProviderUnavailableError` imported but unused
+docker/versioning/updates.py:26:5: F401 [*] `.model.CandidateArtifact` imported but unused
+docker/versioning/updates.py:27:5: F401 [*] `.model.DockerRegistrySource` imported but unused
+docker/versioning/updates.py:31:5: F401 [*] `.model.GitSource` imported but unused
+docker/versioning/updates.py:34:5: F401 [*] `.model.NodeEntry` imported but unused
+docker/versioning/updates.py:35:5: F401 [*] `.model.NpmSource` imported but unused
+docker/versioning/updates.py:37:5: F401 [*] `.model.OhMyZshEntry` imported but unused
+docker/versioning/updates.py:38:5: F401 [*] `.model.PiExtensionEntry` imported but unused
+docker/versioning/updates.py:39:5: F401 [*] `.model.PrebuiltToolEntry` imported but unused
+docker/versioning/updates.py:40:5: F401 [*] `.model.PythonEntry` imported but unused
+docker/versioning/updates.py:41:5: F401 [*] `.model.PyPiSource` imported but unused
+docker/versioning/updates.py:42:5: F401 [*] `.model.PyPiUpdate` imported but unused
+docker/versioning/updates.py:43:5: F401 [*] `.model.RustChannelSource` imported but unused
+docker/versioning/updates.py:44:5: F401 [*] `.model.RustChannelUpdate` imported but unused
+docker/versioning/updates.py:45:5: F401 [*] `.model.RustEntry` imported but unused
+docker/versioning/updates.py:47:5: F401 [*] `.model.TyEntry` imported but unused
+docker/versioning/updates.py:48:5: F401 [*] `.model.UvEntry` imported but unused
+docker/versioning/updates.py:50:5: F401 [*] `.model.UvPythonUpdate` imported but unused
+docker/versioning/updates.py:56:5: F401 [*] `.model.OverridePolicy` imported but unused
+docker/versioning/updates.py:60:5: F401 [*] `.providers.base.ProviderResult` imported but unused
+docker/versioning/verification.py:110:1: I001 [*] Import block is un-sorted or un-formatted
+docker/versioning/verification.py:320:1: E402 Module level import not at top of file
+docker/versions.py:11:5: I001 [*] Import block is un-sorted or un-formatted
+docker/versions.py:69:5: I001 [*] Import block is un-sorted or un-formatted
+docker/versions.py:69:38: F401 [*] `versioning.inventory.load_inventory` imported but unused
+docker/versions.py:69:54: F401 [*] `versioning.inventory.validate_inventory` imported but unused
+docker/versions.py:71:9: F401 [*] `versioning.errors.VersionConfigError` imported but unused
+docker/versions.py:72:9: F401 [*] `versioning.errors.InventoryError` imported but unused
+docker/versions.py:73:9: F401 [*] `versioning.errors.VersionSyntaxError` imported but unused
+docker/versions.py:74:9: F401 [*] `versioning.errors.ConstraintSyntaxError` imported but unused
+docker/versions.py:77:9: F401 [*] `versioning.constraints.NumericVersion` imported but unused
+docker/versions.py:78:9: F401 [*] `versioning.constraints.ConstraintClause` imported but unused
+docker/versions.py:79:9: F401 [*] `versioning.constraints.Constraint` imported but unused
+docker/versions.py:80:9: F401 [*] `versioning.constraints.parse_numeric_version` imported but unused
+docker/versions.py:81:9: F401 [*] `versioning.constraints.parse_constraint` imported but unused
+docker/versions.py:82:9: F401 [*] `versioning.constraints.validate_constraint_consistency` imported but unused
+docker/versions.py:85:9: F401 [*] `versioning.model.ArtifactEntry` imported but unused
+docker/versions.py:86:9: F401 [*] `versioning.model.BaseStage` imported but unused
+docker/versions.py:87:9: F401 [*] `versioning.model.BuildInventory` imported but unused
+docker/versions.py:88:9: F401 [*] `versioning.model.DockerRegistrySource` imported but unused
+docker/versions.py:89:9: F401 [*] `versioning.model.DockerRegistryUpdate` imported but unused
+docker/versions.py:90:9: F401 [*] `versioning.model.FdPrebuiltStage` imported but unused
+docker/versions.py:91:9: F401 [*] `versioning.model.GitHubReleaseSource` imported but unused
+docker/versions.py:92:9: F401 [*] `versioning.model.GitHubReleaseUpdate` imported but unused
+docker/versions.py:93:9: F401 [*] `versioning.model.GitRefUpdate` imported but unused
+docker/versions.py:94:9: F401 [*] `versioning.model.GitSource` imported but unused
+docker/versions.py:95:9: F401 [*] `versioning.model.Inventory` imported but unused
+docker/versions.py:96:9: F401 [*] `versioning.model.NodeEntry` imported but unused
+docker/versions.py:97:9: F401 [*] `versioning.model.NpmArtifact` imported but unused
+docker/versions.py:98:9: F401 [*] `versioning.model.NpmSource` imported but unused
+docker/versions.py:99:9: F401 [*] `versioning.model.NpmToolEntry` imported but unused
+docker/versions.py:100:9: F401 [*] `versioning.model.NpmUpdate` imported but unused
+docker/versions.py:101:9: F401 [*] `versioning.model.PiReleaseSource` imported but unused
+docker/versions.py:102:9: F401 [*] `versioning.model.PiToolEntry` imported but unused
+docker/versions.py:103:9: F401 [*] `versioning.model.OhMyZshEntry` imported but unused
+docker/versions.py:104:9: F401 [*] `versioning.model.OpenSpecToolsStage` imported but unused
+docker/versions.py:105:9: F401 [*] `versioning.model.OverridePolicy` imported but unused
+docker/versions.py:106:9: F401 [*] `versioning.model.PiExtensionEntry` imported but unused
+docker/versions.py:107:9: F401 [*] `versioning.model.PiToolsStage` imported but unused
+docker/versions.py:108:9: F401 [*] `versioning.model.PrebuiltToolEntry` imported but unused
+docker/versions.py:109:9: F401 [*] `versioning.model.PyPiSource` imported but unused
+docker/versions.py:110:9: F401 [*] `versioning.model.PyPiUpdate` imported but unused
+docker/versions.py:111:9: F401 [*] `versioning.model.PythonEntry` imported but unused
+docker/versions.py:112:9: F401 [*] `versioning.model.RtkPrebuiltStage` imported but unused
+docker/versions.py:113:9: F401 [*] `versioning.model.RuntimeInventory` imported but unused
+docker/versions.py:114:9: F401 [*] `versioning.model.RuntimeStage` imported but unused
+docker/versions.py:115:9: F401 [*] `versioning.model.RuntimeValidation` imported but unused
+docker/versions.py:116:9: F401 [*] `versioning.model.RustChannelSource` imported but unused
+docker/versions.py:117:9: F401 [*] `versioning.model.RustChannelUpdate` imported but unused
+docker/versions.py:118:9: F401 [*] `versioning.model.RustEntry` imported but unused
+docker/versions.py:119:9: F401 [*] `versioning.model.Stages` imported but unused
+docker/versions.py:120:9: F401 [*] `versioning.model.ToolchainStage` imported but unused
+docker/versions.py:121:9: F401 [*] `versioning.model.TyEntry` imported but unused
+docker/versions.py:122:9: F401 [*] `versioning.model.UvEntry` imported but unused
+docker/versions.py:123:9: F401 [*] `versioning.model.UvPythonSource` imported but unused
+docker/versions.py:124:9: F401 [*] `versioning.model.UvPythonUpdate` imported but unused
+scripts/collect-docker-cancellation-evidence.py:15:1: I001 [*] Import block is un-sorted or un-formatted
+scripts/collect-docker-cancellation-evidence.py:251:17: B023 Function definition does not bind loop variable `barrier`
+tests/build_test_support.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/enforcement/process_convergence.py:8:1: I001 [*] Import block is un-sorted or un-formatted
+tests/enforcement/process_convergence.py:154:52: B905 `zip()` without an explicit `strict=` parameter
+tests/enforcement/process_convergence.py:156:32: B905 `zip()` without an explicit `strict=` parameter
+tests/enforcement/test_descriptor_close_convergence.py:1682:33: B905 `zip()` without an explicit `strict=` parameter
+tests/enforcement/test_layout_independence.py:291:5: I001 [*] Import block is un-sorted or un-formatted
+tests/enforcement/test_lifecycle_guide_links.py:7:1: I001 [*] Import block is un-sorted or un-formatted
+tests/enforcement/test_npm_environment_process_contract.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/enforcement/test_npm_environment_process_contract.py:62:24: B023 Function definition does not bind loop variable `aliases`
+tests/enforcement/test_process_contract.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/enforcement/test_process_integrated_convergence.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/enforcement/test_process_integrated_convergence.py:188:5: I001 [*] Import block is un-sorted or un-formatted
+tests/npm_http_logging_research.py:66:23: E702 Multiple statements on one line (semicolon)
+tests/npm_http_logging_research.py:73:27: E702 Multiple statements on one line (semicolon)
+tests/npm_http_logging_research.py:103:26: E702 Multiple statements on one line (semicolon)
+tests/npm_http_logging_research.py:103:49: E702 Multiple statements on one line (semicolon)
+tests/npm_http_logging_research.py:103:74: E702 Multiple statements on one line (semicolon)
+tests/npm_http_logging_research.py:108:26: E701 Multiple statements on one line (colon)
+tests/npm_http_logging_research.py:117:27: E702 Multiple statements on one line (semicolon)
+tests/npm_http_logging_research.py:126:31: E702 Multiple statements on one line (semicolon)
+tests/npm_http_logging_research.py:130:39: E702 Multiple statements on one line (semicolon)
+tests/npm_http_logging_research.py:160:25: E702 Multiple statements on one line (semicolon)
+tests/npm_http_logging_research.py:161:32: E702 Multiple statements on one line (semicolon)
+tests/npm_http_logging_research.py:162:30: E702 Multiple statements on one line (semicolon)
+tests/phase6_acceptance_harness.py:135:36: E702 Multiple statements on one line (semicolon)
+tests/phase6_acceptance_harness.py:138:29: E702 Multiple statements on one line (semicolon)
+tests/phase6_acceptance_harness.py:208:37: E702 Multiple statements on one line (semicolon)
+tests/phase6_acceptance_harness.py:223:66: E702 Multiple statements on one line (semicolon)
+tests/phase6_acceptance_harness.py:225:79: E702 Multiple statements on one line (semicolon)
+tests/phase6_acceptance_harness.py:229:61: E702 Multiple statements on one line (semicolon)
+tests/phase6_acceptance_harness.py:229:83: E702 Multiple statements on one line (semicolon)
+tests/phase6_acceptance_harness.py:235:16: E701 Multiple statements on one line (colon)
+tests/phase6_acceptance_harness.py:236:29: E701 Multiple statements on one line (colon)
+tests/pi_fixtures.py:12:1: I001 [*] Import block is un-sorted or un-formatted
+tests/pi_fixtures.py:26:5: F401 [*] `docker.versioning.pi_release.SHA256SUMS_FILENAME` imported but unused
+tests/pi_fixtures.py:122:57: RUF100 [*] Unused `noqa` directive (non-enabled: `ARG002`)
+tests/pi_fixtures.py:154:5: I001 [*] Import block is un-sorted or un-formatted
+tests/test_bound_pi_assembly_execution_phase6_host.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_bound_pi_assembly_execution_phase6_registry.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_bound_pi_assembly_execution_phase6_registry.py:375:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_bound_pi_assembly_execution_phase6_registry.py:494:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_build_context_confinement.py:9:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_cache_root_ownership_phase3.py:293:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_ci_validation_contracts.py:3:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_configuration_document_validation_phase1.py:477:59: B023 Function definition does not bind loop variable `effects`
+tests/test_configuration_document_validation_phase1.py:480:59: B023 Function definition does not bind loop variable `effects`
+tests/test_constructor_acceptance.py:11:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_acceptance.py:16:8: F401 [*] `os` imported but unused
+tests/test_constructor_acceptance.py:19:8: F401 [*] `sys` imported but unused
+tests/test_constructor_acceptance.py:190:24: E741 Ambiguous variable name: `l`
+tests/test_constructor_acceptance.py:221:24: E741 Ambiguous variable name: `l`
+tests/test_constructor_acceptance.py:370:9: B007 Loop control variable `i` not used within loop body
+tests/test_constructor_acceptance.py:454:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_acceptance.py:498:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_acceptance.py:537:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_acceptance.py:567:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_acceptance.py:568:27: F401 [*] `docker.versioning.build_orchestration.ExitKind` imported but unused
+tests/test_constructor_acceptance.py:602:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_acceptance.py:1717:9: F841 Local variable `evidence` is assigned to but never used
+tests/test_constructor_build_cache_directory_handoff.py:49:45: F401 [*] `docker.versioning.project_state.resolve_project_state` imported but unused
+tests/test_constructor_build_cache_paths.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_cache_paths.py:18:47: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:19:38: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:19:74: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:20:37: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:43:36: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:45:48: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_paths.py:47:49: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:52:16: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_paths.py:53:27: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_paths.py:56:52: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_paths.py:59:43: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:68:39: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:68:61: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:68:92: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:77:42: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:79:54: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_paths.py:90:29: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:98:27: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:106:38: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:122:51: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:123:29: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:124:47: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_paths.py:125:43: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_cache_permissions.py:3:1: E401 [*] Multiple imports on one line
+tests/test_constructor_build_cache_permissions.py:18:18: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:21:12: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_permissions.py:22:23: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_permissions.py:51:16: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_permissions.py:52:37: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_permissions.py:58:47: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:59:38: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:59:68: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:60:41: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:60:79: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:61:58: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_permissions.py:75:70: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:77:47: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:78:43: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:84:48: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_permissions.py:85:48: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_permissions.py:89:37: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:90:36: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:90:70: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:90:85: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:91:48: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_permissions.py:92:22: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:92:53: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:94:52: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_permissions.py:97:38: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:98:36: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:99:26: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:103:30: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:103:45: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:106:52: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_permissions.py:111:35: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:111:51: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:111:77: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:112:32: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:113:48: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_permissions.py:119:40: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:122:64: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:124:66: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:129:52: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_cache_permissions.py:218:49: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:222:40: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:223:36: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:244:49: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:246:39: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:247:49: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:248:55: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:249:51: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:250:41: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_cache_permissions.py:282:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_cache_state_lifecycle.py:20:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_cache_state_lifecycle.py:309:28: B905 `zip()` without an explicit `strict=` parameter
+tests/test_constructor_build_cleanup.py:223:44: RUF100 [*] Unused `noqa` directive (non-enabled: `ANN001`)
+tests/test_constructor_build_cleanup.py:229:48: RUF100 [*] Unused `noqa` directive (non-enabled: `ANN001`)
+tests/test_constructor_build_cleanup.py:419:9: F841 Local variable `order` is assigned to but never used
+tests/test_constructor_build_cleanup.py:629:9: F841 Local variable `order` is assigned to but never used
+tests/test_constructor_build_cleanup.py:1171:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_build_generation_integration.py:17:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_generations.py:26:57: F401 [*] `docker.transactions.errors.TransactionError` imported but unused
+tests/test_constructor_build_materialization.py:1:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_materialization.py:140:39: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_materialization.py:151:43: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_materialization.py:162:39: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_materialization.py:177:41: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_materialization.py:178:39: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_materialization.py:178:64: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_materialization.py:196:41: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_materialization.py:197:39: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_materialization.py:200:13: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_materialization.py:218:41: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_materialization.py:219:39: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_materialization.py:221:13: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_materialization.py:233:41: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_materialization.py:234:39: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_materialization.py:234:64: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_materialization.py:236:13: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_materialization.py:270:37: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_materialization.py:271:39: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_orchestration.py:14:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_orchestration.py:22:25: F401 [*] `dataclasses.dataclass` imported but unused
+tests/test_constructor_build_orchestration.py:26:20: F401 [*] `typing.Optional` imported but unused
+tests/test_constructor_build_orchestration.py:55:43: F401 [*] `docker.versioning.pi_assembly.PiAssemblyError` imported but unused
+tests/test_constructor_build_orchestration.py:60:5: F401 [*] `docker.versioning.build_orchestration.DoctorRequest` imported but unused
+tests/test_constructor_build_orchestration.py:288:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_build_orchestration.py:291:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_build_orchestration.py:312:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_build_orchestration.py:1459:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_constructor_build_orchestration.py:1460:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_constructor_build_orchestration.py:2197:9: F841 Local variable `other_path` is assigned to but never used
+tests/test_constructor_build_orchestration.py:2205:40: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_orchestration.py:2206:49: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_orchestration.py:2336:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_constructor_build_orchestration.py:2375:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_constructor_build_orchestration.py:2397:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_constructor_build_output.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_output.py:8:8: F401 [*] `tempfile` imported but unused
+tests/test_constructor_build_output_acceptance.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_persistence.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_persistence.py:3:1: E401 [*] Multiple imports on one line
+tests/test_constructor_build_persistence.py:11:41: F401 [*] `docker.versioning.build_cache` imported but unused
+tests/test_constructor_build_persistence.py:32:47: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:33:52: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:33:71: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:33:111: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:40:31: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:43:38: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:56:33: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:64:51: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:68:43: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:69:26: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:88:25: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:88:61: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:89:34: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:106:25: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:110:16: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_persistence.py:111:27: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_persistence.py:119:25: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:120:48: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:125:22: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:201:57: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:210:57: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:219:59: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:254:58: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:259:36: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:272:57: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:277:37: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:288:57: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:289:42: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:290:50: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:293:37: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:311:60: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:312:50: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:312:62: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:320:50: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:320:62: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:327:50: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:391:46: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:397:58: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:410:46: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:414:56: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:414:74: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:416:79: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:423:63: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:426:46: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:426:85: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:442:46: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:445:48: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_persistence.py:454:67: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:457:39: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:462:67: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:464:48: E701 Multiple statements on one line (colon)
+tests/test_constructor_build_persistence.py:465:54: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:466:63: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:473:47: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:475:37: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:477:30: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:480:25: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:490:63: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:500:39: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:502:39: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:504:43: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:506:41: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:511:63: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:515:62: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:515:80: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:525:52: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:548:45: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:556:51: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:576:49: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:578:46: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:579:41: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:594:28: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:607:24: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:615:34: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:615:48: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_persistence.py:623:40: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_projection.py:7:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_projection.py:9:8: F401 [*] `tempfile` imported but unused
+tests/test_constructor_build_projection.py:16:5: F401 [*] `docker.versioning.model.ArtifactEntry` imported but unused
+tests/test_constructor_build_projection.py:18:5: F401 [*] `docker.versioning.model.EffectiveBuildProjection` imported but unused
+tests/test_constructor_build_projection.py:24:5: F401 [*] `docker.versioning.errors.InventoryError` imported but unused
+tests/test_constructor_build_projection.py:503:1: E402 Module level import not at top of file
+tests/test_constructor_build_projection.py:528:5: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_snapshot.py:1:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_snapshot.py:42:43: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:46:28: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:48:33: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:60:28: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:62:35: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:86:28: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:88:35: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:98:28: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:100:35: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:129:28: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:131:35: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:157:28: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:159:35: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:177:28: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:179:35: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:211:28: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:213:35: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:236:28: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:238:35: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:282:28: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:291:28: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:523:9: F841 Local variable `real_rmtree` is assigned to but never used
+tests/test_constructor_build_snapshot.py:737:33: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:738:43: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:739:49: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:740:45: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_snapshot.py:741:35: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_build_transactions.py:3:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_build_vector.py:7:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_cache_contracts.py:17:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_cache_contracts.py:33:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_cache_contracts.py:34:9: E401 [*] Multiple imports on one line
+tests/test_constructor_cache_contracts.py:53:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_cache_contracts.py:67:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_cache_contracts.py:117:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_cache_contracts.py:260:30: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_cache_contracts.py:272:30: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_cache_contracts.py:288:30: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_cache_contracts.py:299:30: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_cache_contracts.py:314:30: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_cache_contracts.py:331:30: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_cache_contracts.py:355:9: F841 Local variable `p1` is assigned to but never used
+tests/test_constructor_cache_contracts.py:359:9: F841 Local variable `p2` is assigned to but never used
+tests/test_constructor_cache_contracts.py:408:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_cache_contracts.py:514:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_cache_contracts.py:528:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_cache_contracts.py:538:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_cache_documentation.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_check_updates_acceptance.py:10:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_check_updates_acceptance.py:79:5: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_corporate_network_boundaries_red.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_corporate_network_red.py:18:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_corporate_network_red.py:489:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_corporate_network_red.py:580:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_corporate_network_red.py:625:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_corporate_network_red.py:739:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_corporate_network_red.py:965:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_corporate_network_red.py:1007:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_corporate_network_red.py:1048:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_corporate_network_run_red.py:24:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_corporate_network_run_red.py:836:43: F821 Undefined name `subprocess`
+tests/test_constructor_corporate_network_verification_red.py:28:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_corporate_network_verification_red.py:372:38: B905 `zip()` without an explicit `strict=` parameter
+tests/test_constructor_cross_consumer_cache.py:3:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_doctor_orchestration.py:13:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_doctor_orchestration.py:18:22: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_doctor_orchestration.py:19:20: F401 [*] `typing.Optional` imported but unused
+tests/test_constructor_doctor_orchestration.py:42:1: E402 Module level import not at top of file
+tests/test_constructor_doctor_orchestration.py:49:5: F401 [*] `docker.networking.ProcessRunner` imported but unused
+tests/test_constructor_doctor_orchestration.py:52:1: E402 Module level import not at top of file
+tests/test_constructor_doctor_orchestration.py:57:1: E402 Module level import not at top of file
+tests/test_constructor_doctor_orchestration.py:307:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_doctor_orchestration.py:310:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_doctor_orchestration.py:605:47: F841 Local variable `tmp` is assigned to but never used
+tests/test_constructor_evidence_collector.py:8:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_evidence_collector.py:185:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_evidence_collector.py:480:9: F841 Local variable `bundle` is assigned to but never used
+tests/test_constructor_facade.py:16:8: F401 [*] `os` imported but unused
+tests/test_constructor_facade.py:18:8: F401 [*] `sys` imported but unused
+tests/test_constructor_facade.py:295:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_facade.py:339:5: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_facade.py:1090:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_facade.py:1092:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_facade.py:1718:9: F841 Local variable `record` is assigned to but never used
+tests/test_constructor_facade.py:1783:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_facade.py:1827:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_facade.py:1843:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_facade.py:1972:16: F401 [*] `tempfile` imported but unused
+tests/test_constructor_facade.py:1973:32: F401 [*] `contextlib.contextmanager` imported but unused
+tests/test_constructor_facade.py:2059:13: F401 [*] `docker.launcher.ProcessRunner` imported but unused
+tests/test_constructor_host_access_acceptance.py:7:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_acceptance.py:9:8: F401 [*] `io` imported but unused
+tests/test_constructor_host_access_acceptance.py:12:24: F401 [*] `contextlib.redirect_stdout` imported but unused
+tests/test_constructor_host_access_acceptance.py:14:25: F401 [*] `typing.Mapping` imported but unused
+tests/test_constructor_host_access_acceptance.py:25:41: F401 [*] `docker.versioning.rendering.RunHostAccess` imported but unused
+tests/test_constructor_host_access_acceptance.py:157:13: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_acceptance.py:208:13: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_acceptance.py:405:13: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_acceptance.py:469:17: F541 [*] f-string without any placeholders
+tests/test_constructor_host_access_acceptance.py:470:17: F541 [*] f-string without any placeholders
+tests/test_constructor_host_access_acceptance.py:530:13: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_acceptance.py:740:13: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_acceptance.py:872:13: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_acceptance.py:932:13: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_doctor_red.py:242:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_doctor_red.py:346:13: F841 Local variable `original_bytes` is assigned to but never used
+tests/test_constructor_host_access_doctor_red.py:478:13: F841 Local variable `real_rename` is assigned to but never used
+tests/test_constructor_host_access_doctor_red.py:597:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_doctor_red.py:697:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_doctor_red.py:755:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_doctor_red.py:813:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_launch_red.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_launch_red.py:71:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_launch_red.py:125:21: B023 Function definition does not bind loop variable `effects`
+tests/test_constructor_host_access_migration_red.py:163:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_migration_red.py:183:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_migration_red.py:268:17: E741 Ambiguous variable name: `l`
+tests/test_constructor_host_access_red.py:7:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_red.py:185:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_red.py:220:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_red.py:248:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_red.py:268:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_red.py:283:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_red.py:302:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_access_verify_red.py:9:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_host_progress.py:77:43: B023 Function definition does not bind loop variable `tty`
+tests/test_constructor_inventory_build.py:6:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_inventory_build.py:9:8: F401 [*] `tomllib` imported but unused
+tests/test_constructor_inventory_build.py:20:1: E402 Module level import not at top of file
+tests/test_constructor_inventory_build.py:20:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_inventory_build.py:21:1: E402 Module level import not at top of file
+tests/test_constructor_inventory_root.py:6:8: F401 [*] `tomllib` imported but unused
+tests/test_constructor_inventory_root.py:16:1: E402 Module level import not at top of file
+tests/test_constructor_inventory_root.py:16:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_inventory_root.py:18:1: E402 Module level import not at top of file
+tests/test_constructor_inventory_root.py:467:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_inventory_root.py:576:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_inventory_root.py:604:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_inventory_root.py:640:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_inventory_root.py:642:29: F401 [*] `docker.versions.Constraint` imported but unused
+tests/test_constructor_inventory_runtime.py:15:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_inventory_runtime.py:15:66: RUF100 [*] Unused `noqa` directive (unused: `E402`)
+tests/test_constructor_inventory_runtime.py:16:57: RUF100 [*] Unused `noqa` directive (unused: `E402`)
+tests/test_constructor_inventory_runtime.py:17:61: RUF100 [*] Unused `noqa` directive (unused: `E402`)
+tests/test_constructor_inventory_runtime.py:18:68: RUF100 [*] Unused `noqa` directive (unused: `E402`)
+tests/test_constructor_inventory_runtime.py:22:37: F401 [*] `docker.versioning.model.InvalidArtifactKey` imported but unused
+tests/test_constructor_inventory_runtime.py:22:70: RUF100 [*] Unused `noqa` directive (unused: `E402`)
+tests/test_constructor_inventory_runtime.py:23:58: RUF100 [*] Unused `noqa` directive (unused: `E402`)
+tests/test_constructor_inventory_runtime.py:24:58: RUF100 [*] Unused `noqa` directive (unused: `E402`)
+tests/test_constructor_inventory_runtime.py:430:51: F841 Local variable `ctx` is assigned to but never used
+tests/test_constructor_inventory_runtime.py:856:51: F841 Local variable `ctx` is assigned to but never used
+tests/test_constructor_inventory_runtime.py:863:51: F841 Local variable `ctx` is assigned to but never used
+tests/test_constructor_inventory_runtime.py:870:51: F841 Local variable `ctx` is assigned to but never used
+tests/test_constructor_inventory_runtime.py:883:51: F841 Local variable `ctx` is assigned to but never used
+tests/test_constructor_launcher.py:22:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_launcher.py:39:5: F401 [*] `docker.launcher.ProjectionFactory` imported but unused
+tests/test_constructor_launcher.py:40:5: F401 [*] `docker.launcher.RunExecutor` imported but unused
+tests/test_constructor_launcher.py:1123:37: F401 [*] `docker.launcher.orchestrate_run` imported but unused
+tests/test_constructor_launcher.py:1407:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_launcher.py:1451:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_launcher.py:1452:9: E401 [*] Multiple imports on one line
+tests/test_constructor_launcher.py:1579:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_launcher.py:1600:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_launcher.py:1641:9: E401 [*] Multiple imports on one line
+tests/test_constructor_launcher.py:1641:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_launcher.py:1661:9: E401 [*] Multiple imports on one line
+tests/test_constructor_launcher.py:1661:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_launcher.py:1744:9: E401 [*] Multiple imports on one line
+tests/test_constructor_launcher.py:1744:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_launcher.py:1793:9: E401 [*] Multiple imports on one line
+tests/test_constructor_launcher.py:1793:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_launcher.py:1839:9: E401 [*] Multiple imports on one line
+tests/test_constructor_launcher.py:1839:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_launcher.py:1892:9: E401 [*] Multiple imports on one line
+tests/test_constructor_launcher.py:1892:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_launcher.py:1947:9: E401 [*] Multiple imports on one line
+tests/test_constructor_launcher.py:1947:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_launcher.py:2412:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_launcher.py:2413:16: F401 [*] `stat` imported but unused
+tests/test_constructor_launcher.py:2428:50: F821 Undefined name `Any`
+tests/test_constructor_launcher.py:2440:55: F821 Undefined name `Any`
+tests/test_constructor_launcher.py:2457:13: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_launcher.py:3641:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_launcher.py:3710:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_launcher.py:3710:52: F401 [*] `docker.versioning.artifact_cache` imported but unused
+tests/test_constructor_launcher.py:3711:30: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_launcher.py:3916:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_launcher.py:3982:24: F821 Undefined name `SelectedArtifact`
+tests/test_constructor_launcher.py:3984:20: F821 Undefined name `VerifiedCacheBlob`
+tests/test_constructor_launcher.py:4031:43: F821 Undefined name `SelectedArtifact`
+tests/test_constructor_launcher.py:4064:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_launcher.py:4120:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_maintenance_cache_scripts.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_materialization.py:25:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_materialization.py:35:25: F401 [*] `dataclasses.dataclass` imported but unused
+tests/test_constructor_materialization.py:35:36: F401 [*] `dataclasses.field` imported but unused
+tests/test_constructor_materialization.py:58:5: F401 [*] `docker.versioning.artifact_cache.validate_cache_blob` imported but unused
+tests/test_constructor_networking.py:15:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_networking.py:31:5: F401 [*] `docker.networking.PersistenceResult` imported but unused
+tests/test_constructor_networking.py:50:35: F401 [*] `tests.test_networking.FakeFilesystem` imported but unused
+tests/test_constructor_networking.py:160:7: F811 Redefinition of unused `FakeHostProbeServer` from line 50: `FakeHostProbeServer` redefined here
+tests/test_constructor_networking.py:219:9: E401 [*] Multiple imports on one line
+tests/test_constructor_networking.py:219:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_networking.py:231:9: E401 [*] Multiple imports on one line
+tests/test_constructor_networking.py:231:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_networking.py:561:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_networking.py:569:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_networking.py:574:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_phase4_named_context.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_phase4_named_context.py:39:45: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_phase4_named_context.py:40:43: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_phase4_named_context.py:44:49: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_phase4_named_context.py:44:73: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_phase4_named_context.py:45:95: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_phase4_named_context.py:56:30: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_phase4_named_context.py:57:48: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_phase4_named_context.py:63:31: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_phase4_named_context.py:178:27: F541 [*] f-string without any placeholders
+tests/test_constructor_pi_assembly.py:26:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:26:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_pi_assembly.py:27:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:28:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:29:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:30:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:31:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:34:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:35:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:36:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:42:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:48:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:49:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:53:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:54:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:55:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:65:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:739:28: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:740:25: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:742:28: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:748:33: B023 Function definition does not bind loop variable `expected`
+tests/test_constructor_pi_assembly.py:749:57: B023 Function definition does not bind loop variable `renderer`
+tests/test_constructor_pi_assembly.py:753:25: B023 Function definition does not bind loop variable `snapshot`
+tests/test_constructor_pi_assembly.py:753:57: B023 Function definition does not bind loop variable `renderer`
+tests/test_constructor_pi_assembly.py:754:25: B023 Function definition does not bind loop variable `snapshot`
+tests/test_constructor_pi_assembly.py:754:61: B023 Function definition does not bind loop variable `renderer`
+tests/test_constructor_pi_assembly.py:755:25: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:786:33: B007 Loop control variable `forbidden` not used within loop body
+tests/test_constructor_pi_assembly.py:798:28: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:799:25: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:801:28: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:805:33: B023 Function definition does not bind loop variable `expected`
+tests/test_constructor_pi_assembly.py:806:57: B023 Function definition does not bind loop variable `renderer`
+tests/test_constructor_pi_assembly.py:812:25: B023 Function definition does not bind loop variable `snapshot`
+tests/test_constructor_pi_assembly.py:812:48: B023 Function definition does not bind loop variable `delivered`
+tests/test_constructor_pi_assembly.py:813:25: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:889:29: B905 `zip()` without an explicit `strict=` parameter
+tests/test_constructor_pi_assembly.py:1058:28: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:1059:25: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:1061:28: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:1065:33: B023 Function definition does not bind loop variable `expected`
+tests/test_constructor_pi_assembly.py:1067:57: B023 Function definition does not bind loop variable `renderer`
+tests/test_constructor_pi_assembly.py:1071:25: B023 Function definition does not bind loop variable `snapshot`
+tests/test_constructor_pi_assembly.py:1071:57: B023 Function definition does not bind loop variable `renderer`
+tests/test_constructor_pi_assembly.py:1072:25: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:1119:33: B023 Function definition does not bind loop variable `chunks`
+tests/test_constructor_pi_consumer.py:23:1: E402 Module level import not at top of file
+tests/test_constructor_pi_consumer.py:24:1: E402 Module level import not at top of file
+tests/test_constructor_pi_inventory.py:21:1: E402 Module level import not at top of file
+tests/test_constructor_pi_inventory.py:21:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_pi_inventory.py:22:1: E402 Module level import not at top of file
+tests/test_constructor_pi_inventory.py:26:1: E402 Module level import not at top of file
+tests/test_constructor_pi_inventory.py:27:1: E402 Module level import not at top of file
+tests/test_constructor_pi_inventory.py:28:1: E402 Module level import not at top of file
+tests/test_constructor_pi_inventory.py:29:1: E402 Module level import not at top of file
+tests/test_constructor_pi_inventory.py:33:1: E402 Module level import not at top of file
+tests/test_constructor_pi_release.py:18:1: E402 Module level import not at top of file
+tests/test_constructor_pi_release.py:19:1: E402 Module level import not at top of file
+tests/test_constructor_pi_snapshot.py:28:1: E402 Module level import not at top of file
+tests/test_constructor_pi_snapshot.py:29:1: E402 Module level import not at top of file
+tests/test_constructor_pi_snapshot.py:30:1: E402 Module level import not at top of file
+tests/test_constructor_pi_snapshot.py:36:1: E402 Module level import not at top of file
+tests/test_constructor_pi_snapshot.py:37:1: E402 Module level import not at top of file
+tests/test_constructor_pi_snapshot.py:38:1: E402 Module level import not at top of file
+tests/test_constructor_pi_verify.py:25:1: E402 Module level import not at top of file
+tests/test_constructor_pi_verify.py:30:1: E402 Module level import not at top of file
+tests/test_constructor_pi_verify.py:37:1: E402 Module level import not at top of file
+tests/test_constructor_pi_verify.py:38:1: E402 Module level import not at top of file
+tests/test_constructor_pi_verify.py:39:1: E402 Module level import not at top of file
+tests/test_constructor_project_inputs.py:10:19: F401 [*] `types.SimpleNamespace` imported but unused
+tests/test_constructor_project_inputs.py:92:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_project_inputs.py:183:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_project_inputs.py:222:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_project_root_phase3.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_project_root_phase3.py:68:59: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_root_phase3.py:69:52: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_root_phase3.py:70:50: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_root_phase3.py:71:46: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_root_phase3.py:72:45: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_root_phase3.py:153:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_project_root_phase3.py:201:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_project_root_phase3.py:201:60: F401 [*] `docker.versioning.project_state` imported but unused
+tests/test_constructor_project_root_phase3.py:294:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_project_root_phase6.py:72:31: B905 `zip()` without an explicit `strict=` parameter
+tests/test_constructor_project_root_phase6.py:91:32: B905 `zip()` without an explicit `strict=` parameter
+tests/test_constructor_project_root_phase6.py:108:36: B905 `zip()` without an explicit `strict=` parameter
+tests/test_constructor_project_root_phase7.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_project_root_phase7.py:51:56: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_root_phase7.py:52:49: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_root_phase7.py:53:50: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_root_phase7.py:54:46: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_root_phase7.py:55:40: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_root_phase7.py:56:40: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_root_phase7.py:56:70: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_root_phase7.py:57:60: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_root_phase7.py:58:34: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_root_phase7.py:62:25: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_root_phase7.py:74:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_project_root_phase7.py:107:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_project_root_phase7.py:239:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_project_state_phase1.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_project_state_phase1.py:24:49: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:25:40: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:25:78: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:28:51: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:37:51: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:46:51: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:55:36: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:62:36: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:69:36: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:72:47: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:77:36: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:85:36: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:101:36: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:120:36: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:122:40: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:138:36: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:159:36: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:162:41: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:165:26: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:171:49: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:204:36: E702 Multiple statements on one line (semicolon)
+tests/test_constructor_project_state_phase1.py:217:26: E701 Multiple statements on one line (colon)
+tests/test_constructor_readonly.py:17:8: F401 [*] `sys` imported but unused
+tests/test_constructor_readonly.py:149:9: E401 [*] Multiple imports on one line
+tests/test_constructor_readonly.py:149:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_readonly.py:405:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_readonly.py:460:9: E401 [*] Multiple imports on one line
+tests/test_constructor_readonly.py:460:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_readonly.py:758:9: E401 [*] Multiple imports on one line
+tests/test_constructor_readonly.py:758:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_readonly.py:778:9: E401 [*] Multiple imports on one line
+tests/test_constructor_readonly.py:778:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_readonly.py:1367:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_readonly.py:2434:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_readonly.py:2449:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_readonly.py:2546:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_readonly.py:2568:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_readonly.py:2593:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_readonly.py:2630:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_run_vector.py:7:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_run_vector.py:831:38: F821 Undefined name `RuntimeInventory`
+tests/test_constructor_run_vector.py:839:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_run_vector.py:883:66: F821 Undefined name `VerifiedCacheBlob`
+tests/test_constructor_run_vector.py:1134:9: E401 [*] Multiple imports on one line
+tests/test_constructor_run_vector.py:1134:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_run_vector.py:1147:52: F821 Undefined name `ArtifactMount`
+tests/test_constructor_run_vector.py:1333:9: E401 [*] Multiple imports on one line
+tests/test_constructor_run_vector.py:1333:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_run_vector.py:1356:52: F821 Undefined name `ArtifactMount`
+tests/test_constructor_run_vector.py:1524:9: E401 [*] Multiple imports on one line
+tests/test_constructor_run_vector.py:1524:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_run_vector.py:1524:27: F401 [*] `tempfile` imported but unused
+tests/test_constructor_run_vector.py:1656:9: E401 [*] Multiple imports on one line
+tests/test_constructor_run_vector.py:1656:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_runtime_cache_migration.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_runtime_cache_migration.py:92:13: F841 Local variable `base` is assigned to but never used
+tests/test_constructor_runtime_dto.py:3:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_runtime_dto.py:3:8: F401 [*] `io` imported but unused
+tests/test_constructor_runtime_installer.py:20:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_runtime_installer.py:29:8: F401 [*] `stat` imported but unused
+tests/test_constructor_runtime_installer.py:32:25: F401 [*] `dataclasses.dataclass` imported but unused
+tests/test_constructor_runtime_installer.py:33:21: F401 [*] `pathlib.Path` imported but unused
+tests/test_constructor_runtime_installer.py:57:5: F401 [*] `docker.runtime_installer._MOUNTED_ARTIFACT_ROOT` imported but unused
+tests/test_constructor_runtime_installer.py:58:5: F401 [*] `docker.runtime_installer._MountInspection` imported but unused
+tests/test_constructor_runtime_installer.py:277:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_runtime_installer.py:327:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_runtime_installer.py:452:15: SIM115 Use a context manager for opening files
+tests/test_constructor_runtime_installer.py:1680:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_runtime_installer.py:2363:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_runtime_installer.py:2732:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+tests/test_constructor_runtime_installer.py:2745:16: F811 [*] Redefinition of unused `stat` from line 29: `stat` redefined here
+tests/test_constructor_runtime_installer.py:2753:16: F811 [*] Redefinition of unused `stat` from line 29: `stat` redefined here
+tests/test_constructor_runtime_installer.py:2973:11: SIM115 Use a context manager for opening files
+tests/test_constructor_runtime_installer.py:3312:12: F401 [*] `base64` imported but unused
+tests/test_constructor_runtime_installer.py:4365:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_runtime_installer.py:4499:11: F821 Undefined name `subprocess`
+tests/test_constructor_runtime_installer.py:4553:32: E741 Ambiguous variable name: `l`
+tests/test_constructor_runtime_installer.py:4589:29: E741 Ambiguous variable name: `l`
+tests/test_constructor_runtime_installer.py:4595:40: E741 Ambiguous variable name: `l`
+tests/test_constructor_runtime_lifecycle.py:5:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_runtime_lifecycle.py:17:5: F401 [*] `docker.versioning.effective.RuntimeProjectionHandle` imported but unused
+tests/test_constructor_runtime_lifecycle.py:19:5: F401 [*] `docker.versioning.effective._runtime_root` imported but unused
+tests/test_constructor_runtime_lifecycle.py:487:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_runtime_lifecycle.py:656:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_runtime_lifecycle.py:755:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_runtime_lifecycle.py:783:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_runtime_lifecycle.py:1114:49: F401 [*] `docker.versioning.effective.Filesystem` imported but unused
+tests/test_constructor_runtime_lifecycle.py:1137:49: F401 [*] `docker.versioning.effective.Filesystem` imported but unused
+tests/test_constructor_runtime_lifecycle.py:1151:49: F401 [*] `docker.versioning.effective.Filesystem` imported but unused
+tests/test_constructor_runtime_lifecycle.py:1169:49: F401 [*] `docker.versioning.effective.Filesystem` imported but unused
+tests/test_constructor_runtime_lifecycle.py:1188:49: F401 [*] `docker.versioning.effective.Filesystem` imported but unused
+tests/test_constructor_runtime_lifecycle.py:1250:16: F401 [*] `stat` imported but unused
+tests/test_constructor_runtime_lifecycle.py:1270:16: F401 [*] `stat` imported but unused
+tests/test_constructor_runtime_lifecycle.py:1489:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_runtime_lifecycle.py:1503:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_runtime_lifecycle.py:1515:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_runtime_projection.py:3:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_runtime_verification.py:16:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_runtime_verification.py:31:5: F401 [*] `docker.versioning.model.EffectivePiExtensionEntry` imported but unused
+tests/test_constructor_runtime_verification.py:300:15: B007 Loop control variable `ver` not used within loop body
+tests/test_constructor_runtime_verification.py:350:57: F821 Undefined name `_RecordingProjectionFactory`
+tests/test_constructor_verification.py:9:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_constructor_verification.py:39:5: F401 [*] `docker.versioning.verification.ObservationContract` imported but unused
+tests/test_container_workspace_contract.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_container_workspace_contract.py:27:42: B008 Do not perform function call `RunHostAccess.disabled` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+tests/test_corporate_trust_directory_bootstrap.py:7:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_descriptor_close_phase6_artifact_cache.py:134:9: F841 Local variable `identity` is assigned to but never used
+tests/test_descriptor_close_phase6_transactions.py:11:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_diagnostic_policy_phase4.py:15:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_diagnostic_recognizer_phase2.py:29:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_diagnostic_recognizer_phase3.py:6:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_diagnostic_recognizer_phase3.py:332:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_diagnostic_recognizer_phase3.py:494:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_docker_cancellation_evidence_script.py:3:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_filesystem_directory_descriptors.py:1068:22: B017 Do not assert blind exception: `BaseException`
+tests/test_filesystem_directory_descriptors.py:1092:26: B017 Do not assert blind exception: `BaseException`
+tests/test_filesystem_owned_streams.py:12:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_host_activity_monitor.py:476:34: B905 `zip()` without an explicit `strict=` parameter
+tests/test_host_activity_monitor.py:516:34: B905 `zip()` without an explicit `strict=` parameter
+tests/test_host_diagnostic_grouping_phase7.py:230:14: B017 Do not assert blind exception: `Exception`
+tests/test_host_diagnostic_projection.py:49:32: RUF100 [*] Unused `noqa` directive (non-enabled: `D105`)
+tests/test_host_diagnostic_projection.py:68:32: RUF100 [*] Unused `noqa` directive (non-enabled: `D105`)
+tests/test_host_download_observability.py:16:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_host_download_observability.py:993:14: B017 Do not assert blind exception: `Exception`
+tests/test_host_failure_output_regression.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_host_observability_acceptance_phase10.py:7:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_host_observability_acceptance_phase10.py:375:52: B905 `zip()` without an explicit `strict=` parameter
+tests/test_host_operational_events.py:9:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_host_path_projection.py:28:5: F401 [*] `docker.versioning.diagnostic_projection.INCOMPLETE_TOKEN_MARKER` imported but unused
+tests/test_host_presentation_phase5.py:14:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_host_presentation_phase9.py:11:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_host_presentation_phase9.py:22:5: F401 [*] `docker.versioning.host_presentation.DIAGNOSTIC_SILENCE_SECONDS` imported but unused
+tests/test_host_presentation_phase9.py:23:5: F401 [*] `docker.versioning.host_presentation.FIRST_HEARTBEAT_SECONDS` imported but unused
+tests/test_host_presentation_phase9.py:25:5: F401 [*] `docker.versioning.host_presentation.LINES_STATUS_INTERVAL_SECONDS` imported but unused
+tests/test_host_presentation_phase9.py:504:23: E702 Multiple statements on one line (semicolon)
+tests/test_host_presentation_phase9.py:507:25: E702 Multiple statements on one line (semicolon)
+tests/test_host_presentation_phase9.py:509:22: E702 Multiple statements on one line (semicolon)
+tests/test_host_presentation_phase9.py:509:40: E702 Multiple statements on one line (semicolon)
+tests/test_inventory_fixtures.py:9:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_inventory_independence.py:14:8: F401 [*] `os` imported but unused
+tests/test_inventory_independence.py:17:8: F401 [*] `tempfile` imported but unused
+tests/test_live_inventory_contract.py:15:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_live_inventory_contract.py:203:9: F841 Local variable `inventory` is assigned to but never used
+tests/test_local_project_configuration_phase2.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_locked_assembly_observability_phase8.py:19:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_locked_assembly_observability_phase8.py:46:5: F401 [*] `docker.versioning.host_progress.HostPhase` imported but unused
+tests/test_locked_assembly_observability_phase8.py:328:35: RUF100 [*] Unused `noqa` directive (non-enabled: `ANN001`)
+tests/test_locked_assembly_observability_phase8.py:333:17: RUF100 [*] Unused `noqa` directive (non-enabled: `ANN001`)
+tests/test_locked_assembly_observability_phase8.py:368:35: RUF100 [*] Unused `noqa` directive (non-enabled: `ANN001`)
+tests/test_locked_assembly_observability_phase8.py:395:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_native_file_cleanup.py:177:25: B023 Function definition does not bind loop variable `owners`
+tests/test_native_file_cleanup.py:190:65: B023 Function definition does not bind loop variable `stream`
+tests/test_native_file_cleanup.py:204:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_native_file_cleanup.py:219:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_native_file_cleanup.py:229:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_native_file_cleanup.py:239:21: B023 Function definition does not bind loop variable `owners`
+tests/test_native_file_cleanup.py:276:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_native_file_cleanup.py:325:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_network_resource_minimal_cleanup.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_network_resource_minimal_cleanup.py:85:5: I001 [*] Import block is un-sorted or un-formatted
+tests/test_networking.py:15:8: F401 [*] `subprocess` imported but unused
+tests/test_networking.py:24:5: F401 [*] `docker.networking.GatewayDiagnosis` imported but unused
+tests/test_networking.py:27:5: F401 [*] `docker.networking.PersistenceResult` imported but unused
+tests/test_networking.py:28:5: F401 [*] `docker.networking.ProbeResult` imported but unused
+tests/test_networking.py:34:5: F401 [*] `docker.networking._choose_gateway` imported but unused
+tests/test_networking.py:36:5: F401 [*] `docker.networking.candidate_gateways` imported but unused
+tests/test_npm_diagnostic_collection_phase8.py:23:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_acceptance.py:28:1: E402 Module level import not at top of file
+tests/test_npm_environment_acceptance.py:28:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_cancellation.py:19:1: E402 Module level import not at top of file
+tests/test_npm_environment_cleanup.py:21:1: E402 Module level import not at top of file
+tests/test_npm_environment_cleanup.py:22:1: E402 Module level import not at top of file
+tests/test_npm_environment_cleanup.py:32:1: E402 Module level import not at top of file
+tests/test_npm_environment_concurrency_cache.py:27:1: E402 Module level import not at top of file
+tests/test_npm_environment_concurrency_cache.py:27:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_corporate_network.py:34:1: E402 Module level import not at top of file
+tests/test_npm_environment_corporate_network.py:34:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_execution.py:26:1: E402 Module level import not at top of file
+tests/test_npm_environment_execution.py:26:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_execution.py:27:1: E402 Module level import not at top of file
+tests/test_npm_environment_identity.py:23:1: E402 Module level import not at top of file
+tests/test_npm_environment_identity.py:28:5: F401 [*] `docker.npm_environment.ReviewedRootMetadata` imported but unused
+tests/test_npm_environment_image_ref.py:23:1: E402 Module level import not at top of file
+tests/test_npm_environment_introspection.py:23:1: E402 Module level import not at top of file
+tests/test_npm_environment_introspection.py:24:1: E402 Module level import not at top of file
+tests/test_npm_environment_introspection.py:32:1: E402 Module level import not at top of file
+tests/test_npm_environment_lockfile.py:25:1: E402 Module level import not at top of file
+tests/test_npm_environment_manifest_policy.py:22:1: E402 Module level import not at top of file
+tests/test_npm_environment_orthogonal_projection.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_output_validation.py:16:8: F401 [*] `stat` imported but unused
+tests/test_npm_environment_output_validation.py:25:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase2_validate.py:9:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_phase3_deadline.py:30:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_deadline.py:30:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_phase3_deadline.py:31:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_deadline.py:32:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_deadline.py:53:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_deadline.py:54:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_deadline.py:1145:21: B023 Function definition does not bind loop variable `blocked`
+tests/test_npm_environment_phase3_deadline.py:1146:21: B023 Function definition does not bind loop variable `unblock`
+tests/test_npm_environment_phase3_deadline.py:1150:21: B023 Function definition does not bind loop variable `unblock`
+tests/test_npm_environment_phase3_deadline.py:1159:21: B023 Function definition does not bind loop variable `unblock`
+tests/test_npm_environment_phase3_deadline.py:1160:27: B023 Function definition does not bind loop variable `hook_exc`
+tests/test_npm_environment_phase3_deadline.py:1163:37: B023 Function definition does not bind loop variable `blocked`
+tests/test_npm_environment_phase3_introspection.py:20:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_introspection.py:21:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_introspection.py:22:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_validate.py:14:8: F401 [*] `shutil` imported but unused
+tests/test_npm_environment_phase3_validate.py:25:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_validate.py:25:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_phase4_lifecycle.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_phase5_validate.py:23:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase6b_streams.py:6:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_phase6b_streams.py:546:25: B023 Function definition does not bind loop variable `calls`
+tests/test_npm_environment_phase6b_streams.py:547:32: B023 Function definition does not bind loop variable `calls`
+tests/test_npm_environment_phase6b_streams.py:547:46: B023 Function definition does not bind loop variable `position`
+tests/test_npm_environment_phase6b_streams.py:548:98: B023 Function definition does not bind loop variable `error`
+tests/test_npm_environment_phase6b_streams.py:599:21: B023 Function definition does not bind loop variable `attempts`
+tests/test_npm_environment_phase6b_streams.py:600:27: B023 Function definition does not bind loop variable `ordinary`
+tests/test_npm_environment_phase6b_streams.py:600:55: B023 Function definition does not bind loop variable `interruption`
+tests/test_npm_environment_phase6bc_captured.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_phase6bc_streaming.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_phase6bc_streaming.py:73:5: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_phase9a_staging_cleanup.py:24:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase9a_staging_cleanup.py:34:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase9a_staging_cleanup.py:35:1: E402 Module level import not at top of file
+tests/test_npm_environment_pi_fixture.py:24:1: E402 Module level import not at top of file
+tests/test_npm_environment_pi_fixture.py:82:13: B007 Loop control variable `name` not used within loop body
+tests/test_npm_environment_policy.py:27:1: E402 Module level import not at top of file
+tests/test_npm_environment_policy.py:277:27: F541 [*] f-string without any placeholders
+tests/test_npm_environment_publication.py:24:1: E402 Module level import not at top of file
+tests/test_npm_environment_publication_cleanup.py:24:1: E402 Module level import not at top of file
+tests/test_npm_environment_publication_cleanup.py:25:1: E402 Module level import not at top of file
+tests/test_npm_environment_publication_cleanup.py:39:1: E402 Module level import not at top of file
+tests/test_npm_environment_rootless.py:22:1: E402 Module level import not at top of file
+tests/test_npm_environment_rootless.py:23:1: E402 Module level import not at top of file
+tests/test_npm_environment_run_vector.py:21:1: E402 Module level import not at top of file
+tests/test_npm_environment_semver_range.py:22:1: E402 Module level import not at top of file
+tests/test_npm_environment_semver_range.py:22:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_semver_range.py:23:1: E402 Module level import not at top of file
+tests/test_npm_environment_serialization.py:13:8: F401 [*] `os` imported but unused
+tests/test_npm_environment_serialization.py:22:1: E402 Module level import not at top of file
+tests/test_npm_environment_smoke.py:22:1: E402 Module level import not at top of file
+tests/test_npm_environment_storage.py:26:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_streaming.py:31:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:31:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_environment_streaming.py:32:5: F401 [*] `docker.npm_environment.DISPATCHER_DRAIN_BUDGET_SECONDS` imported but unused
+tests/test_npm_environment_streaming.py:38:5: F401 [*] `docker.npm_environment.SINK_CALLBACK_BUDGET_SECONDS` imported but unused
+tests/test_npm_environment_streaming.py:56:5: F401 [*] `docker.npm_environment.dedupe_secrets` imported but unused
+tests/test_npm_environment_streaming.py:60:5: F401 [*] `docker.npm_environment.redact_tail` imported but unused
+tests/test_npm_environment_streaming.py:63:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:71:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:77:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:82:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:83:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:84:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:85:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:89:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:90:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:91:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:1831:21: B023 Function definition does not bind loop variable `threads`
+tests/test_npm_environment_streaming.py:1837:51: B023 Function definition does not bind loop variable `stdout`
+tests/test_npm_environment_streaming.py:1838:51: B023 Function definition does not bind loop variable `stderr`
+tests/test_npm_environment_streaming.py:2117:20: B023 Function definition does not bind loop variable `finish_returned`
+tests/test_npm_environment_streaming.py:2118:21: B023 Function definition does not bind loop variable `callbacks_after_finish`
+tests/test_npm_environment_streaming.py:2119:17: B023 Function definition does not bind loop variable `delivered`
+tests/test_npm_environment_streaming.py:2125:17: B023 Function definition does not bind loop variable `accepted`
+tests/test_npm_environment_streaming.py:2125:31: B023 Function definition does not bind loop variable `dispatcher`
+tests/test_npm_environment_streaming.py:2126:52: B023 Function definition does not bind loop variable `round_index`
+tests/test_npm_environment_streaming.py:2130:17: B023 Function definition does not bind loop variable `dispatcher`
+tests/test_npm_environment_streaming.py:2131:17: B023 Function definition does not bind loop variable `finish_returned`
+tests/test_npm_fetch_phase4.py:19:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_npm_http_logging_research.py:91:47: E702 Multiple statements on one line (semicolon)
+tests/test_npm_logging_policy_phase8.py:10:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_output_configuration.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_output_configuration.py:246:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_output_configuration.py:373:47: B023 Function definition does not bind loop variable `isatty`
+tests/test_output_configuration.py:402:47: B023 Function definition does not bind loop variable `isatty`
+tests/test_output_configuration.py:418:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_output_configuration.py:524:5: I001 [*] Import block is un-sorted or un-formatted
+tests/test_output_configuration.py:553:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_output_configuration.py:686:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_output_configuration.py:742:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_output_configuration.py:969:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_presentation_wiring_phase7.py:13:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_process_adapter_compatibility.py:186:16: B023 Function definition does not bind loop variable `source`
+tests/test_process_adapter_compatibility.py:188:23: B023 Function definition does not bind loop variable `error`
+tests/test_process_adapter_compatibility.py:189:20: B023 Function definition does not bind loop variable `original_wait`
+tests/test_process_adapter_compatibility.py:193:72: B023 Function definition does not bind loop variable `child`
+tests/test_process_captured_action_faults.py:7:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_process_compatibility_action_gate.py:7:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_process_compatibility_action_gate.py:12:52: F401 [*] `tests.test_process_stop_policy.api` imported but unused
+tests/test_process_compatibility_action_gate.py:15:77: F811 Redefinition of unused `api` from line 12: `api` redefined here
+tests/test_process_compatibility_action_gate.py:42:5: F811 Redefinition of unused `api` from line 12: `api` redefined here
+tests/test_process_failure_delivery.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_process_failure_snapshot.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_process_failure_snapshot.py:123:27: B905 `zip()` without an explicit `strict=` parameter
+tests/test_process_failure_snapshot.py:128:27: B905 `zip()` without an explicit `strict=` parameter
+tests/test_process_lifecycle.py:492:20: B023 Function definition does not bind loop variable `original`
+tests/test_process_reader_failure_source.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_process_stop_policy.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_process_stop_policy.py:5:8: F401 [*] `subprocess` imported but unused
+tests/test_process_stop_policy_faults.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_process_stop_policy_faults.py:14:44: F401 [*] `tests.test_process_stop_policy.api` imported but unused
+tests/test_process_stop_policy_faults.py:28:73: F811 Redefinition of unused `api` from line 14: `api` redefined here
+tests/test_process_stop_policy_faults.py:64:66: F811 Redefinition of unused `api` from line 14: `api` redefined here
+tests/test_process_stop_policy_faults.py:110:65: F811 Redefinition of unused `api` from line 14: `api` redefined here
+tests/test_process_stop_policy_faults.py:131:53: F811 Redefinition of unused `api` from line 14: `api` redefined here
+tests/test_process_stop_policy_faults.py:162:68: F811 Redefinition of unused `api` from line 14: `api` redefined here
+tests/test_process_stop_policy_faults.py:179:77: F811 Redefinition of unused `api` from line 14: `api` redefined here
+tests/test_process_stop_policy_faults.py:238:75: F811 Redefinition of unused `api` from line 14: `api` redefined here
+tests/test_process_stop_policy_faults.py:281:63: F811 Redefinition of unused `api` from line 14: `api` redefined here
+tests/test_process_stop_policy_faults.py:306:62: F811 Redefinition of unused `api` from line 14: `api` redefined here
+tests/test_process_stop_policy_faults.py:334:62: F811 Redefinition of unused `api` from line 14: `api` redefined here
+tests/test_process_stop_policy_faults.py:353:59: F811 Redefinition of unused `api` from line 14: `api` redefined here
+tests/test_process_stop_policy_faults.py:364:59: F811 Redefinition of unused `api` from line 14: `api` redefined here
+tests/test_process_stop_policy_faults.py:398:64: F811 Redefinition of unused `api` from line 14: `api` redefined here
+tests/test_process_stop_policy_faults.py:419:77: F811 Redefinition of unused `api` from line 14: `api` redefined here
+tests/test_process_stop_policy_faults.py:443:70: F811 Redefinition of unused `api` from line 14: `api` redefined here
+tests/test_process_stream_outcomes.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_process_strict_actions_and_reporting.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_retained_tail_phase6.py:24:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_retained_tail_phase6.py:71:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:71:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_retained_tail_phase6.py:75:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:76:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:77:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:78:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:86:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:87:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:93:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:100:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:950:21: B023 Function definition does not bind loop variable `second_read`
+tests/test_retained_tail_phase6.py:951:37: B023 Function definition does not bind loop variable `terminated`
+tests/test_retained_tail_phase6.py:952:27: B023 Function definition does not bind loop variable `read_error`
+tests/test_retained_tail_phase6.py:955:21: B023 Function definition does not bind loop variable `original_terminate`
+tests/test_retained_tail_phase6.py:956:21: B023 Function definition does not bind loop variable `terminated`
+tests/test_retained_tail_phase6.py:959:21: B023 Function definition does not bind loop variable `owners`
+tests/test_retained_tail_phase6.py:960:37: B023 Function definition does not bind loop variable `second_read`
+tests/test_retained_tail_phase6.py:961:28: B023 Function definition does not bind loop variable `original_supervisor`
+tests/test_transactions_l1_capabilities.py:28:39: F401 [*] `docker.transactions.posix.PosixFileOps` imported but unused
+tests/test_transactions_l1_error_boundary.py:1184:9: F841 Local variable `raw` is assigned to but never used
+tests/test_transactions_l1_error_boundary.py:1186:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_transactions_phase10_rollout.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_transactions_phase5a_typed_preservation.py:31:5: F401 [*] `docker.transactions.errors.STAGE_LOCK_VALIDATE` imported but unused
+tests/test_transactions_phase5a_typed_preservation.py:33:5: F401 [*] `docker.transactions.errors.CloseStageFailure` imported but unused
+tests/test_transactions_phase5a_typed_preservation.py:135:32: B023 Function definition does not bind loop variable `relative`
+tests/test_transactions_phase5a_typed_preservation.py:149:36: B023 Function definition does not bind loop variable `relative`
+tests/test_transactions_phase6_effective_projection.py:14:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_transactions_phase7_runtime_facade.py:18:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_transactions_phase7_runtime_lock.py:410:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_transactions_phase7_runtime_projection.py:16:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_transactions_phase7_runtime_projection.py:283:19: SIM115 Use a context manager for opening files
+tests/test_transactions_phase8_npm_leaf_mechanics.py:29:48: F401 [*] `docker.npm_environment.publication.identity_coordination_lock` imported but unused
+tests/test_transactions_phase8_npm_lock.py:24:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_transactions_phase8_npm_specialization.py:10:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_transactions_phase9_boundaries.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_transactions_phase9a_ambient_primary.py:24:8: F401 [*] `stat` imported but unused
+tests/test_transactions_phase9a_audit.py:8:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_transactions_phase9a_audit.py:21:40: F401 [*] `docker.transactions.errors.STAGE_CLOSE` imported but unused
+tests/test_transactions_phase9a_build_cache_cleanup.py:198:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_transactions_phase9a_build_cache_cleanup.py:218:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_version_cache.py:241:1: E402 Module level import not at top of file
+tests/test_version_cache.py:241:8: F811 [*] Redefinition of unused `tempfile` from line 7: `tempfile` redefined here
+tests/test_version_cache.py:309:56: F401 [*] `tests.versioning.support.fake_http.FakeHttpTransport` imported but unused
+tests/test_version_cache.py:452:21: F841 Local variable `resp2` is assigned to but never used
+tests/test_version_effective.py:5:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_version_effective.py:10:19: F401 [*] `types.MappingProxyType` imported but unused
+tests/test_version_effective.py:13:5: F401 [*] `docker.versioning.effective.EffectiveConfiguration` imported but unused
+tests/test_version_effective.py:16:5: F401 [*] `docker.versioning.effective.get_path` imported but unused
+tests/test_version_effective.py:23:5: F401 [*] `docker.versioning.errors.UnknownPathError` imported but unused
+tests/test_version_effective.py:24:5: F401 [*] `docker.versioning.errors.UnsupportedOverrideError` imported but unused
+tests/test_version_effective.py:134:27: F811 [*] Redefinition of unused `MappingProxyType` from line 10: `MappingProxyType` redefined here
+tests/test_version_effective.py:142:27: F811 [*] Redefinition of unused `MappingProxyType` from line 10: `MappingProxyType` redefined here
+tests/test_version_effective.py:349:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_version_readonly_no_effect.py:8:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_version_readonly_no_effect.py:28:47: RUF100 [*] Unused `noqa` directive (non-enabled: `ANN001`)
+tests/test_version_readonly_no_effect.py:34:47: RUF100 [*] Unused `noqa` directive (non-enabled: `ANN001`)
+tests/test_version_replacement_blocks.py:8:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_version_replacement_fragments.py:9:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_version_updates.py:5:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_version_updates.py:12:5: F401 [*] `docker.versioning.model.Constraint` imported but unused
+tests/test_version_updates.py:15:5: F401 [*] `docker.versioning.model.CandidateArtifact` imported but unused
+tests/test_version_updates.py:49:5: F401 [*] `docker.versioning.model.UpdateTarget` imported but unused
+tests/test_version_updates.py:50:5: F811 [*] Redefinition of unused `OverridePolicy` from line 13: `OverridePolicy` redefined here
+tests/test_version_updates.py:66:5: F401 [*] `docker.versioning.providers.base.UpdateProvider` imported but unused
+tests/test_version_updates.py:367:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_version_versions.py:7:5: F401 [*] `docker.versioning.semver.SemanticVersion` imported but unused
+tests/test_version_visual_boundaries.py:14:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_workspace_host_interface.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/test_workspace_host_interface.py:4:8: F401 [*] `argparse` imported but unused
+tests/test_workspace_host_interface.py:146:9: I001 [*] Import block is un-sorted or un-formatted
+tests/test_workspace_host_interface.py:160:9: I001 [*] Import block is un-sorted or un-formatted
+tests/typing/pi_release_download_contract.py:11:1: I001 [*] Import block is un-sorted or un-formatted
+tests/versioning/providers/test_docker_registry.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/versioning/providers/test_git.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/versioning/providers/test_github.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/versioning/providers/test_github.py:12:5: F401 [*] `docker.versioning.model.UpdateKind` imported but unused
+tests/versioning/providers/test_github.py:120:9: F841 Local variable `ctx` is assigned to but never used
+tests/versioning/providers/test_npm.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/versioning/providers/test_npm.py:14:5: F401 [*] `docker.versioning.model.UpdateKind` imported but unused
+tests/versioning/providers/test_npm.py:18:67: F401 [*] `tests.versioning.support.fake_http.FailingHttpTransport` imported but unused
+tests/versioning/providers/test_pypi.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/versioning/providers/test_rust.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/versioning/providers/test_static_url.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/versioning/providers/test_static_url.py:7:41: F401 [*] `docker.versioning.inventory.load_inventory` imported but unused
+tests/versioning/providers/test_static_url.py:10:5: F401 [*] `docker.versioning.model.CandidateArtifact` imported but unused
+tests/versioning/providers/test_static_url.py:379:13: I001 [*] Import block is un-sorted or un-formatted
+tests/versioning/providers/test_uv_python.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/versioning/support/fake_git.py:9:20: F401 [*] `typing.Optional` imported but unused
+tests/versioning/support/fake_http.py:11:60: F401 [*] `docker.versioning.providers.base.HttpTransport` imported but unused
+tests/versioning/support/inventory_builder.py:2:1: I001 [*] Import block is un-sorted or un-formatted
+tests/versioning/support/inventory_builder.py:14:9: SIM115 Use a context manager for opening files

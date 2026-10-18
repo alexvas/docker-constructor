@@ -38,16 +38,41 @@ Notes:
 
 ## `new-adoption-checks`
 
-These entry points do not exist in P1 and are **pending P2 implementation**.
-P1 does not require, execute or claim them green.
+These entry points were added in P2 and are implemented by
+[`scripts/python_checks.py`](../../../../scripts/python_checks.py). The exact
+invocations below are the only supported check commands; the contributor guide
+is [`docs/python-checks.md`](../../../../docs/python-checks.md). All three run
+from the repository root, use the project virtual environment, and return the
+underlying check status (never a `tee`/`grep`/wrapper status).
 
-| New check | Invocation | Implemented in | Required to pass from |
+| New check | Exact invocation | Implemented in | Required to pass from |
 | --- | --- | --- | --- |
-| Shared compilation | pending P2 entry point (documented in P2 contributor guide) | P2 | P2 onward |
-| Full-inventory format check | pending P2 entry point | P2 | P3 onward |
-| Full-inventory Ruff lint | pending P2 entry point | P2 | P5 onward |
+| Shared compilation | `scripts/check-python-compile` | P2 (`scripts/python_checks.py compile`) | P2 onward |
+| Full-inventory format check | `scripts/check-python-format` | P2 (`scripts/python_checks.py format`) | P3 onward |
+| Full-inventory Ruff lint | `scripts/check-python-lint` | P2 (`scripts/python_checks.py lint`) | P5 onward |
 
-P1 uses the recorded one-off compilation command in
-[`phase-1.md`](phase-1.md#task-114--one-off-compilation) for syntax coverage of
-the 389-file inventory. Earlier lint/format diagnostics, when run in later
-phases, are migration backlog until their activation phase, never passes.
+Activation status at P2 exit (reconfirmed on the consolidated current source
+state recorded in [phase-2.md](phase-2.md)):
+
+- **Shared compilation** is active and exits **0** for the complete inventory.
+  P1 used the recorded one-off command in
+  [`phase-1.md`](phase-1.md#task-114--one-off-compilation); P2 onward uses this
+  entry point. Clean-copy subprocess regressions confirm both the wrapper and
+  direct CLI load repository support modules without creating source-tree
+  bytecode.
+- **Format check** is not yet required to pass. Its P2 diagnostic run exited
+  **1** (371 files would be reformatted, 25 already formatted) and is
+  recorded as P3 migration backlog, never as a pass.
+- **Lint** is not yet required to pass. Its P2 diagnostic run exited **1**
+  (1304 findings) and is recorded as P5 migration backlog, never as a pass.
+
+The tooling compares the shared inventory with default `ruff check --show-files`
+discovery before every Ruff run and fails on mismatches, so a configuration
+exclusion cannot silently drop an inventoried module. Extensionless Python
+scripts are passed explicitly because Ruff's default recursion only discovers
+`.py`/`.pyi`. Each mode also validates runtime coverage: lint runs
+`ruff check --show-files` over the explicit inventory, and format parses the
+processed-file report from `ruff format --check --verbose`. An omitted path,
+including one hidden by `force-exclude` or `[tool.ruff.format].exclude`, is
+named and fails the check. `--root <dir>` exists for the fixture-based tooling
+contract tests; the manifest invocations above use the repository root default.
