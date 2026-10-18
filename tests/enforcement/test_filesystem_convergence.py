@@ -237,16 +237,19 @@ def _static_violations(sources: dict[str, str]) -> list[str]:
             if names.get(public_name) != origin:
                 violations.append(f"compatibility import {path}:{public_name} != {origin}")
 
-    # There is exactly one generic secure-walk definition.  Domain recursion
-    # remains local, but consumers must not define another component walker.
-    walkers = []
-    for path, tree in trees.items():
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == "open_secure_path":
-                walkers.append(f"{path}:{node.lineno}")
-    expected_walker = ["docker/filesystem/descriptors.py:239"]
-    if walkers != expected_walker:
-        violations.append(f"secure walkers: {walkers} != {expected_walker}")
+    # There is exactly one generic secure-walk definition, in one module.
+    # Domain recursion remains local, but consumers must not define another
+    # component walker.  Bind the defining module, not a formatter line number.
+    walkers = [
+        path
+        for path, tree in trees.items()
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name == "open_secure_path"
+    ]
+    expected_walkers = ["docker/filesystem/descriptors.py"]
+    if walkers != expected_walkers:
+        violations.append(f"secure walkers: {walkers} != {expected_walkers}")
 
     # Migrated modules may raw-close regular files (tree._hash_file) or
     # pre-adoption raw descriptors (cache storage), but never an owned

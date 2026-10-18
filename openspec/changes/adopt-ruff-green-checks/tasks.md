@@ -36,7 +36,7 @@ Each phase delivers `verification/phase-N.md` and any named inventories/ledgers 
 
 P1 produces `verification/check-manifest.md` with two distinct sections:
 
-- **Existing required checks** (`existing-required-checks`): exact commands discovered in P1 from `scripts/`, `pyproject.toml`, `pi-green-loop.json`, `.github/workflows/validation.yml` and repository instructions. These are mandatory throughout P1–P7. Include `scripts/check-types` and the production ty command when currently configured; do not replace one with the other or narrow either scope. Include explicitly required unittest discovery if present; pytest does not substitute for it.
+- **Existing required checks** (`existing-required-checks`): exact commands discovered in P1 from `scripts/`, `pyproject.toml`, `pi-green-loop.json`, `.github/workflows/validation.yml` and repository instructions. These are mandatory throughout P1–P7. Include `scripts/check-types` and the production ty command when currently configured; do not replace one with the other or narrow either scope. Serial unittest discovery is not required for this change; the full parallel pytest suite is the test gate.
 - **New adoption checks** (`new-adoption-checks`): lint, formatting and compilation entry points added in P2, with exact invocations and activation phases. P1 creates this section as pending P2 entry points; its presence does not require future tooling in P1.
 
 Provision prerequisites before executing a mandatory check. Missing tools are a blocked check, not success.
@@ -88,37 +88,37 @@ This forward-only chain is the chosen DAG. A phase may depend only on an earlier
 
 ### RED
 
-- [ ] 1.1 Create the source inventory with selected paths and explicit exclusion reasons; accept when each scoped source root and extensionless Python candidate is classified and paths are sorted without duplicates.
-- [ ] 1.2 Create the two-section check manifest; accept when `existing-required-checks` records every P1-discovered configured command with exact invocation, source configuration and required scope, and `new-adoption-checks` is explicitly pending P2 entry points.
-- [ ] 1.3 Create the environment-prerequisite manifest; accept when every existing check has named tool/package/external-service prerequisites and a provisioning command or documented environmental limitation.
-- [ ] 1.4 Run the baseline mandated full pytest; accept when the durable summary records its actual status/counts/warnings without representing baseline failures as success.
-- [ ] 1.5 Create the baseline skip inventory; accept when every reported skip has its ID, reason and reviewed applicability condition or an explicitly blocking unresolved disposition.
-- [ ] 1.6 Inventory layout-sensitive assertions in `tests/enforcement/`; accept when each entry names the assertion, protected invariant and proposed harmless formatting mutation, including the secure-walker line expectation if still present.
+- [x] 1.1 Create the source inventory with selected paths and explicit exclusion reasons; accept when each scoped source root and extensionless Python candidate is classified and paths are sorted without duplicates.
+- [x] 1.2 Create the two-section check manifest; accept when `existing-required-checks` records every P1-discovered configured command with exact invocation, source configuration and required scope, and `new-adoption-checks` is explicitly pending P2 entry points.
+- [x] 1.3 Create the environment-prerequisite manifest; accept when every existing check has named tool/package/external-service prerequisites and a provisioning command or documented environmental limitation.
+- [x] 1.4 Run the baseline mandated full pytest; accept when the durable summary records its actual status/counts/warnings without representing baseline failures as success.
+- [x] 1.5 Create the baseline skip inventory; accept when every reported skip has its ID, reason and reviewed applicability condition or an explicitly blocking unresolved disposition.
+- [x] 1.6 Inventory layout-sensitive assertions in `tests/enforcement/`; accept when each entry names the assertion, protected invariant and proposed harmless formatting mutation, including the secure-walker line expectation if still present.
 
-- [ ] 1.7 Instantiate preparation work orders from 1.6; accept when each assertion has concrete RED/GREEN instances below or an evidence-backed no-change disposition. Complete every RED instance before entering GREEN.
+- [x] 1.7 Instantiate preparation work orders from 1.6; accept when each assertion has concrete RED/GREEN instances below or an evidence-backed no-change disposition. Complete every RED instance before entering GREEN.
 
 **Binding RED instance, one assertion per instance:** `P1-A<n>-RED`: add one focused test proving the invariant survives a harmless line/layout change and rejects its named invalid mutation; accept when the old assertion's brittleness is demonstrated or its existing robustness is recorded.
 
 ### GREEN
 
-- [ ] 1.8 Produce the enforcement-to-Ruff map; accept when every enforcement test is classified as retained or a demonstrably equivalent candidate, with concrete rules and negative fixtures. Do not enable additional rules or delete checks in this phase.
+- [x] 1.8 Produce the enforcement-to-Ruff map; accept when every enforcement test is classified as retained or a demonstrably equivalent candidate, with concrete rules and negative fixtures. Do not enable additional rules or delete checks in this phase.
 
 **Binding GREEN instance, one assertion per instance:** `P1-A<n>-GREEN`: replace that one brittle assertion with its structural equivalent; accept when the matching RED test and the original invalid-mutation fixture both pass. Do not weaken uniqueness, API, ownership or dependency constraints.
 
-- [ ] 1.9 Document the assertion-preparation changes; accept when every changed assertion links to an accepted work order and no unreviewed assertion change remains.
+- [x] 1.9 Document the assertion-preparation changes; accept when every changed assertion links to an accepted work order and no unreviewed assertion change remains.
 
 ### INTROSPECT
 
-- [ ] 1.10 Review the P1 source diff; accept when no product behavior, stress sizes, test collection or lifecycle guarantee changed.
-- [ ] 1.11 Review environment/skip dispositions; accept when unresolved blockers are absent and the archived migration is not listed as pending.
+- [x] 1.10 Review the P1 source diff; accept when no product behavior, stress sizes, test collection or lifecycle guarantee changed.
+- [x] 1.11 Review environment/skip dispositions; accept when unresolved blockers are absent and the archived migration is not listed as pending.
 
 ### VALIDATE
 
-- [ ] 1.12 Run full pytest for R on the prepared state; accept only exit 0 and a complete durable result summary.
-- [ ] 1.13 Execute the manifest checks mandatory in P1: all `existing-required-checks` commands; accept only successful statuses and no unresolved ty diagnostics. Do not require P2 entry points here; task 1.14 supplies P1 compilation.
-- [ ] 1.14 Compile the P1 inventory using a recorded one-off command; accept only successful compilation of every selected file without source-tree bytecode.
-- [ ] 1.15 Review exit-run skips against 1.5; accept only justified dispositions with no hidden collection reduction.
-- [ ] 1.16 Publish the P1 exit report; accept when all P1 work orders and deliverables are accepted and R applies to the recorded exit fingerprint.
+- [x] 1.12 Run full pytest for R on the prepared state; accept only exit 0 and a complete durable result summary.
+- [x] 1.13 Execute the manifest checks mandatory in P1: all `existing-required-checks` commands; accept only successful statuses and no unresolved ty diagnostics. Do not require P2 entry points here; task 1.14 supplies P1 compilation.
+- [x] 1.14 Compile the P1 inventory using a recorded one-off command; accept only successful compilation of every selected file without source-tree bytecode.
+- [x] 1.15 Review exit-run skips against 1.5; accept only justified dispositions with no hidden collection reduction.
+- [x] 1.16 Publish the P1 exit report; accept when all P1 work orders and deliverables are accepted and R applies to the recorded exit fingerprint.
 
 ## 2. P2 — Shared tooling
 

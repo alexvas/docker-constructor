@@ -12,11 +12,45 @@ import textwrap
 import pytest
 
 from docker.process import CleanupIncomplete, LifecycleResult, OwnedProcess, ProcessResult
+from tests.enforcement.source_layout import replace_snippet
 from tests.enforcement.test_descriptor_close_convergence import (
     _close_violations_with_owners, _inline_ledger, _module_aliases,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
+
+_DEADLINE_GUARD = (
+    "                self._request.set()\n"
+    "        if threading.current_thread() is self._continuation or "
+    "threading.current_thread() in self._readers:\n"
+    "            return self.cleanup_status"
+)
+_DEADLINE_UNGUARDED = (
+    "                self._request.set()\n"
+    "        {assignment}\n"
+    "        if threading.current_thread() is self._continuation or "
+    "threading.current_thread() in self._readers:\n"
+    "            return self.cleanup_status"
+)
+_COMPLETE_RETURN = (
+    "return self._reaped and all(self._safe(i) for i in range(2)) and all(\n"
+    "            not self._acquired[i] or self._owners[i].released for i in range(2)) and all(\n"
+    "            not prepared or (result.done and result.cleanup_complete)\n"
+    "            for prepared, result in zip(self._action_prepared, self._action_results))"
+)
+
+
+def _flip_nth(text: str, needle: str, replacement: str, occurrence: int) -> str:
+    index = -1
+    for _ in range(occurrence):
+        index = text.index(needle, index + 1)
+    return text[:index] + replacement + text[index + len(needle):]
+
+
+_COMPLETE_OR_FIRST = _flip_nth(_COMPLETE_RETURN, " and ", " or ", 1)
+_COMPLETE_OR_SECOND = _flip_nth(_COMPLETE_RETURN, " and ", " or ", 2)
+_COMPLETE_OR_THIRD = _flip_nth(_COMPLETE_RETURN, " and ", " or ", 3)
+_COMPLETE_DECOY = "return True\n        " + _COMPLETE_RETURN
 
 
 def methods(source):
@@ -288,22 +322,22 @@ def policy_proof(source):
     ("if not stage.wait_child:", "if stage.wait_child:", "configured child-wait control flow"),
     ("if not stage.wait_child:\n                        break",
      "if not stage.wait_child:\n                        pass\n                    break", "configured child-wait control flow"),
-    ("                self._request.set()\n        if threading.current_thread()",
-     "                self._request.set()\n        self._cleanup_end = time.monotonic() + self._grace\n        if threading.current_thread()",
+    (_DEADLINE_GUARD,
+     _DEADLINE_UNGUARDED.format(assignment="self._cleanup_end = time.monotonic() + self._grace"),
      "one-time request/deadline guard"),
-    ("                self._request.set()\n        if threading.current_thread()",
-     "                self._request.set()\n        self._shutdown_end = time.monotonic() + self._grace\n        if threading.current_thread()",
+    (_DEADLINE_GUARD,
+     _DEADLINE_UNGUARDED.format(assignment="self._shutdown_end = time.monotonic() + self._grace"),
      "one-time request/deadline guard"),
     ("                self._requested = True", "                self._requested = False",
      "one-time request/deadline guard"),
-    ("                self._request.set()\n        if threading.current_thread()",
-     "                self._request.set()\n        self._requested = False\n        if threading.current_thread()",
+    (_DEADLINE_GUARD,
+     _DEADLINE_UNGUARDED.format(assignment="self._requested = False"),
      "one-time request/deadline guard"),
 ])
 def test_policy_wait_and_one_time_deadline_ast_semantics(old, new, error):
     source = (ROOT / "docker/process.py").read_text()
-    assert source.count(old) == 1
-    assert error in policy_proof(source.replace(old, new))
+    mutated = replace_snippet(source, old, new, unique=True)
+    assert error in policy_proof(mutated)
 
 
 @pytest.mark.parametrize("old,new", [
@@ -315,7 +349,8 @@ def test_policy_wait_and_one_time_deadline_ast_semantics(old, new, error):
     ("returncode: int | None = None", "returncode = self._proc"),
     ("returncode = self._poll_child()", "returncode = self._proc"),
     ("action.start(context)", "action.start(self._proc)"),
-    ("action: ManagedAction = stage.action", "action: ManagedAction = self._proc"),
+    ("def start_action(action: ManagedAction = stage.action) -> None:\n                    context = StopContext(self._reason, returncode, stage_end)\n                    if action.start(context) is not None:\n                        raise TypeError(\"action start must return None\")",
+     "def start_action(action: ManagedAction = self._proc) -> None:\n                    context = StopContext(self._reason, returncode, stage_end)\n                    if action.start(context) is not None:\n                        raise TypeError(\"action start must return None\")"),
     ("stage.wait_child", "False"),
     ("if self._delivered:", "if False:"),
     ("result.done and result.cleanup_complete", "True"),
@@ -331,8 +366,8 @@ def test_policy_wait_and_one_time_deadline_ast_semantics(old, new, error):
 ])
 def test_stop_policy_ownership_and_budget_evasions_are_rejected(old, new):
     source = (ROOT / "docker/process.py").read_text()
-    assert old in source
-    assert process_proof(source.replace(old, new), (ROOT / "docker/filesystem/streams.py").read_text())
+    mutated = replace_snippet(source, old, new, unique=False)
+    assert process_proof(mutated, (ROOT / "docker/filesystem/streams.py").read_text())
 
 
 def test_inheritance_and_second_coordinator_are_rejected():
@@ -353,17 +388,18 @@ def test_prepared_transfer_and_safe_retention_proof():
     ("_bind_prepared(self._owners[index], pipe)", "pass"),
     ("self._acquired[index] = True", "pass"),
     ("self._stopped[index].is_set()", "True"),
-    ("self._safe(index) or self._descriptorless[index] or not callable", "True or not callable"),
+    ("self._safe(index) or self._descriptorless[index] or not callable(getattr(owner.stream, \"fileno\", None))",
+     "True or not callable(getattr(owner.stream, \"fileno\", None))"),
     ("self._publish(self._complete())", "self._publish(True)"),
     ("while not self._finished.is_set():", "while False:"),
-    ("            self._status = _outcome(self._ledger, self._status.complete)\n            if deliver:",
-     "            if not self._delivered:\n                self._status = _outcome(self._ledger, self._status.complete)\n            if deliver:"),
+    ("            self._status = _outcome(self._ledger, self._status.complete)\n            if deliver:\n                self._delivered = True",
+     "            if not self._delivered:\n                self._status = _outcome(self._ledger, self._status.complete)\n            if deliver:\n                self._delivered = True"),
     ("self._ledger.record(exc, phase=FailurePhase.SETUP, stream=tuple(ProcessStream)[index])", "pass"),
 ])
 def test_new_module_evasions_fail_proof(old, new):
     source = (ROOT / "docker/process.py").read_text()
-    assert old in source
-    assert process_proof(source.replace(old, new), (ROOT / "docker/filesystem/streams.py").read_text())
+    mutated = replace_snippet(source, old, new, unique=False)
+    assert process_proof(mutated, (ROOT / "docker/filesystem/streams.py").read_text())
 
 
 @pytest.mark.parametrize("replacement", [
@@ -376,8 +412,7 @@ def test_new_module_evasions_fail_proof(old, new):
 def test_reader_barrier_predicate_ast_semantics(replacement):
     source = (ROOT / "docker/process.py").read_text()
     original = "return not self._started[index] or self._stopped[index].is_set()"
-    assert source.count(original) == 1
-    errors = process_proof(source.replace(original, replacement),
+    errors = process_proof(replace_snippet(source, original, replacement, unique=True),
                            (ROOT / "docker/filesystem/streams.py").read_text())
     assert "no tracked reader-stop authority" in errors
 
@@ -394,23 +429,18 @@ def test_reader_barrier_predicate_ast_semantics(replacement):
      "release lacks prepared-owner/reader barrier"),
     ("if self._acquired[index] and not owner.released:",
      "if self._acquired[index] or not owner.released:", "release lacks prepared-owner/reader barrier"),
-    ("return self._reaped and all(self._safe(i)",
-     "return self._reaped or all(self._safe(i)", "false completed cleanup"),
-    ("return self._reaped and all(self._safe(i) for i in range(2)) and all(",
-     "return self._reaped and all(self._safe(i) for i in range(2)) or all(", "false completed cleanup"),
-    ("not self._acquired[i] or self._owners[i].released for i in range(2)) and all(",
-     "not self._acquired[i] or self._owners[i].released for i in range(2)) or all(", "false completed cleanup"),
+    ("(not self._acquired[i] or self._owners[i].released for i in range(2))",
+     "(not self._acquired[i] or self._owners[i].released for i in range(0))", "false completed cleanup"),
+    (_COMPLETE_RETURN, _COMPLETE_OR_FIRST, "false completed cleanup"),
+    (_COMPLETE_RETURN, _COMPLETE_OR_SECOND, "false completed cleanup"),
+    (_COMPLETE_RETURN, _COMPLETE_OR_THIRD, "false completed cleanup"),
     ("not prepared or (result.done and result.cleanup_complete)",
      "not prepared or (result.done or result.cleanup_complete)", "false completed cleanup"),
-    ("not self._acquired[i] or self._owners[i].released for i in range(2)",
-     "not self._acquired[i] or self._owners[i].released for i in range(0)", "false completed cleanup"),
-    ("return self._reaped and all(self._safe(i)",
-     "return True\n        return self._reaped and all(self._safe(i)", "false completed cleanup"),
+    (_COMPLETE_RETURN, _COMPLETE_DECOY, "false completed cleanup"),
 ])
 def test_release_and_completion_ast_semantics(old, new, error):
     source = (ROOT / "docker/process.py").read_text()
-    assert source.count(old) == 1
-    errors = process_proof(source.replace(old, new),
+    errors = process_proof(replace_snippet(source, old, new, unique=True),
                            (ROOT / "docker/filesystem/streams.py").read_text())
     assert error in errors, errors
 

@@ -74,3 +74,32 @@ Variant helpers used by the live-contract lane (all test-owned):
 
 `tests/build_test_support.py` exposes the same stable document as
 `INVENTORY_PATH` for shared build/orchestration consumers.
+
+## `process-architecture-inventory.json`
+
+The canonical, test-owned process architecture/pipe inventory. It is the
+authoritative copy used by the enforcement suite; there is no second copy
+under an OpenSpec change directory, so the tests keep working whether that
+change is active or archived.
+
+The document is the layout-independent
+`tests.enforcement.process_convergence.canonical_architecture_report` projection
+of the production sources: AST fingerprints plus the structural ledger,
+dependency edges, process surface and adapter signatures. It is compared
+exactly, so a formatter-only change keeps it valid while any semantic edit
+requires regenerating it. Regenerate by writing the current report to
+`tests/fixtures/process-architecture-inventory.json` after a reviewed
+production change:
+
+```python
+import json
+from pathlib import Path
+
+from tests.enforcement.process_convergence import canonical_architecture_report
+from tests.enforcement.test_filesystem_convergence import _sources
+
+Path("tests/fixtures/process-architecture-inventory.json").write_text(
+    json.dumps(canonical_architecture_report(_sources()), indent=2) + "\n",
+    encoding="utf-8",
+)
+```

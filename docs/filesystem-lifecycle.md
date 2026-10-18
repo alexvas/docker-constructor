@@ -260,7 +260,7 @@ The integrated gate also rejects these process-coordination mistakes:
 - **Local exit as external completion.** Retain pending action/helper resources;
   local child exit says nothing about external work or helper cleanup.
 
-[Executable rejected examples](../tests/enforcement/test_process_guidance.py#L41 "test_forbidden_process_examples_are_rejected")
+[Executable rejected examples](../tests/enforcement/test_process_guidance.py "test_forbidden_process_examples_are_rejected")
 exercise all eight forbidden process patterns against the complete-tree gate
 in `tests/enforcement/`. They analyze unsafe source
 as data, without executing unsafe acquisitions or releases.

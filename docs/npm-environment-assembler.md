@@ -231,12 +231,12 @@ assert "example-secret" not in result.stdout
 
 Keep fault injection in tests rather than in usage examples. Concrete scenarios:
 
-- [Captured same-owner projection](../tests/test_npm_environment_orthogonal_projection.py#L148 "test_captured_projects_returned_errors_and_same_owner"): consume returned errors without recapture.
-- [Timeout versus join authority](../tests/test_npm_environment_phase6bc_streaming.py#L72 "test_timeout_projection_preserves_unexpected_join_authority_but_not_ordinary_release"): ordinary release stays secondary; unexpected join stays authoritative.
-- [Abort-safe tails and cleanup notes](../tests/test_npm_environment_phase6bc_streaming.py#L231 "test_incomplete_streaming_keeps_abort_safe_tails_and_sanitized_delivered_notes"): retain sanitized diagnostics during incomplete cleanup.
-- [Independent EOF and no raw replay](../tests/test_npm_environment_phase6bc_streaming.py#L155 "test_clean_stdout_eof_then_stderr_failure_finalizes_independently_without_raw_replay"): sibling failure does not revise clean stdout.
-- [Interruption and staging cleanup](../tests/test_npm_environment_phase6bc_streaming.py#L424 "test_assembly_preserves_every_control_flow_family_and_cleans_staging"): preserve control-flow identity and cleanup diagnostics.
-- [CLI interruption capture](../tests/test_retained_tail_phase6.py#L1441 "TestInterruptionEndToEnd.test_text_interruption_reports_selected_tail_once"): report the domain-selected retained tail once.
+- [Captured same-owner projection](../tests/test_npm_environment_orthogonal_projection.py "test_captured_projects_returned_errors_and_same_owner"): consume returned errors without recapture.
+- [Timeout versus join authority](../tests/test_npm_environment_phase6bc_streaming.py "test_timeout_projection_preserves_unexpected_join_authority_but_not_ordinary_release"): ordinary release stays secondary; unexpected join stays authoritative.
+- [Abort-safe tails and cleanup notes](../tests/test_npm_environment_phase6bc_streaming.py "test_incomplete_streaming_keeps_abort_safe_tails_and_sanitized_delivered_notes"): retain sanitized diagnostics during incomplete cleanup.
+- [Independent EOF and no raw replay](../tests/test_npm_environment_phase6bc_streaming.py "test_clean_stdout_eof_then_stderr_failure_finalizes_independently_without_raw_replay"): sibling failure does not revise clean stdout.
+- [Interruption and staging cleanup](../tests/test_npm_environment_phase6bc_streaming.py "test_assembly_preserves_every_control_flow_family_and_cleans_staging"): preserve control-flow identity and cleanup diagnostics.
+- [CLI interruption capture](../tests/test_retained_tail_phase6.py "TestInterruptionEndToEnd.test_text_interruption_reports_selected_tail_once"): report the domain-selected retained tail once.
 
 See [filesystem-lifecycle.md](filesystem-lifecycle.md) for descriptor release and
 [process-lifecycle.md](process-lifecycle.md) for executable generic API contracts.

@@ -283,12 +283,12 @@ Docker/container status interpretation remains domain policy; see the
 
 Keep fault injection in tests rather than in usage examples. Concrete scenarios:
 
-- [Helper failure handoff](../tests/test_process_strict_actions_and_reporting.py#L122 "test_helper_snapshot_and_parent_context_are_orthogonal"): preserve identity/kind and rebase parent context.
-- [Rejected second collection](../tests/test_process_single_collection.py#L63 "test_reject_repeated_and_mixed_collection_without_work"): no callbacks, replay or repeated cleanup.
-- [Immutable late observation](../tests/test_process_single_collection.py#L147 "test_late_cleanup_is_a_new_observation_not_a_changed_collection_value"): retain the owner without changing the delivered value.
-- [Terminal notification race](../tests/test_process_strict_actions_and_reporting.py#L405 "test_completion_racing_dispatch_has_once_only_end_attempt"): chunks precede the once-only end attempt.
-- [Reporter/default/fallback](../tests/test_process_strict_actions_and_reporting.py#L304 "test_reporting_defaults_are_fixed_safe_and_nonrecursive"): fixed-safe, nonrecursive diagnostics.
-- [Rejected legacy transport](../tests/test_process_orthogonal_results.py#L141 "test_no_legacy_field_conversion"): no conversion of obsolete result fields.
+- [Helper failure handoff](../tests/test_process_strict_actions_and_reporting.py "test_helper_snapshot_and_parent_context_are_orthogonal"): preserve identity/kind and rebase parent context.
+- [Rejected second collection](../tests/test_process_single_collection.py "test_reject_repeated_and_mixed_collection_without_work"): no callbacks, replay or repeated cleanup.
+- [Immutable late observation](../tests/test_process_single_collection.py "test_late_cleanup_is_a_new_observation_not_a_changed_collection_value"): retain the owner without changing the delivered value.
+- [Terminal notification race](../tests/test_process_strict_actions_and_reporting.py "test_completion_racing_dispatch_has_once_only_end_attempt"): chunks precede the once-only end attempt.
+- [Reporter/default/fallback](../tests/test_process_strict_actions_and_reporting.py "test_reporting_defaults_are_fixed_safe_and_nonrecursive"): fixed-safe, nonrecursive diagnostics.
+- [Rejected legacy transport](../tests/test_process_orthogonal_results.py "test_no_legacy_field_conversion"): no conversion of obsolete result fields.
 
 ## Exclusions and ownership rules
 

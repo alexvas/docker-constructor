@@ -1,8 +1,17 @@
 """6BD complete-tree process origin, prepared ownership and policy gates."""
 import pytest
 
-from tests.enforcement.process_convergence import architecture_report, convergence_report
+from tests.enforcement.process_convergence import architecture_report, canonical_architecture_report, convergence_report
+from tests.enforcement.source_layout import insert_before, replace_snippet
 from tests.enforcement.test_filesystem_convergence import _sources
+from tests.enforcement.test_process_contract import (
+    _COMPLETE_OR_FIRST,
+    _COMPLETE_RETURN,
+    _DEADLINE_GUARD,
+    _DEADLINE_UNGUARDED,
+)
+
+_PREPEND_OWNERS = "self._owners = []"
 
 
 @pytest.fixture(scope="module")
@@ -86,18 +95,17 @@ def test_keyword_arguments_cannot_bypass_pipe_ownership(sources, call, error):
     ("docker/process.py", "return not self._started[index] or self._stopped[index].is_set()",
      "return not self._started[index] or not self._stopped[index].is_set()"),
     ("docker/process.py", "owner = self._owners[index]", "owner = OwnedStream(self._owners[index].stream, label='reset')"),
-    ("docker/process.py", "self._safe(index) or self._descriptorless[index] or not callable", "True or not callable"),
+    ("docker/process.py", "self._safe(index) or self._descriptorless[index] or not callable(getattr(owner.stream, \"fileno\", None))",
+     "True or not callable(getattr(owner.stream, \"fileno\", None))"),
     ("docker/process.py", 'if self._safe(index) or self._descriptorless[index] or not callable(getattr(owner.stream, "fileno", None)):',
      'if not (self._safe(index) or self._descriptorless[index] or not callable(getattr(owner.stream, "fileno", None))):'),
-    ("docker/process.py", "return self._reaped and all(self._safe(i)",
-     "return self._reaped or all(self._safe(i)"),
+    ("docker/process.py", _COMPLETE_RETURN, _COMPLETE_OR_FIRST),
     ("docker/process.py", "while not self._finished.is_set():", "while False:"),
-    ("docker/process.py", "while not self._finished.is_set():", "self._owners = []\n        while not self._finished.is_set():"),
     ("docker/process.py", "self._publish(self._complete())", "self._publish(True)"),
     ("docker/process.py", "if not stage.wait_child:", "if True:"),
     ("docker/process.py", "if not stage.wait_child:", "if stage.wait_child:"),
-    ("docker/process.py", "                self._request.set()\n        if threading.current_thread()",
-     "                self._request.set()\n        self._cleanup_end = time.monotonic() + self._grace\n        if threading.current_thread()"),
+    ("docker/process.py", _DEADLINE_GUARD,
+     _DEADLINE_UNGUARDED.format(assignment="self._cleanup_end = time.monotonic() + self._grace")),
     ("docker/process.py", "context = StopContext(self._reason, returncode, stage_end)",
      "context = StopContext(self._reason, returncode, time.monotonic() + self._grace)"),
     ("docker/process.py", "result.done and result.cleanup_complete", "result.done"),
@@ -110,9 +118,16 @@ def test_keyword_arguments_cannot_bypass_pipe_ownership(sources, call, error):
      "return _CapturedOperation(None, outcome, failures)"),
 ])
 def test_integrated_transfer_budget_and_retention_mutations(sources, path, old, new):
-    assert old in sources[path]
-    changed = {**sources, path: sources[path].replace(old, new)}
+    changed = {**sources, path: replace_snippet(sources[path], old, new, unique=False)}
     assert convergence_report(changed)["errors"]
+
+
+def test_integrated_owner_reset_before_completion_is_rejected(sources):
+    path = "docker/process.py"
+    text = insert_before(
+        sources[path], "while not self._finished.is_set():", _PREPEND_OWNERS, unique=True
+    )
+    assert convergence_report({**sources, path: text})["errors"]
 
 
 @pytest.mark.parametrize("path,addition", [
@@ -159,13 +174,14 @@ def test_permitted_dynamic_imports_are_resolved_and_inventoried(sources, call):
 
 @pytest.mark.parametrize("old,new", [
     ("self._state = _RELEASED\n            stream = self._stream", "stream = self._stream"),
-    ("with self._lock:\n            if self._state is not _LIVE:", "if True:\n            if self._state is not _LIVE:"),
+    ("        with self._lock:\n            if self._state is not _LIVE:\n                return\n            self._state = _RELEASED\n            stream = self._stream",
+     "        if True:\n            if self._state is not _LIVE:\n                return\n            self._state = _RELEASED\n            stream = self._stream"),
     ("owner._stream = stream", "owner._stream = OwnedStream(stream, label='replacement')"),
 ])
 def test_foundation_transfer_and_synchronized_release_remain_required(sources, old, new):
     path = "docker/filesystem/streams.py"
-    assert old in sources[path]
-    assert convergence_report({**sources, path: sources[path].replace(old, new)})["errors"]
+    changed = {**sources, path: replace_snippet(sources[path], old, new, unique=True)}
+    assert convergence_report(changed)["errors"]
 
 
 def test_generated_architecture_and_runtime_packaging_boundary(sources):
@@ -176,11 +192,16 @@ def test_generated_architecture_and_runtime_packaging_boundary(sources):
 
     import json
 
-    report = architecture_report(sources)
+    report = canonical_architecture_report(sources)
     assert report["errors"] == []
-    inventory = Path(__file__).resolve().parents[2] / "openspec/changes/eliminate-unsafe-direct-descriptor-closes/phase6bd-process-inventory.json"
-    assert json.loads(inventory.read_text()) == report, "regenerate the architecture/pipe inventory after production changes"
-    assert set(report["source_sha256"]) == set(sources)
+    root = Path(__file__).resolve().parents[2]
+    inventory = (
+        root
+        / "tests/fixtures"
+        / "process-architecture-inventory.json"
+    )
+    assert json.loads(inventory.read_text()) == report, "regenerate the canonical architecture/pipe inventory after production changes"
+    assert set(report["source_ast_sha256"]) == set(sources)
     edges = {tuple(edge) for edge in report["dependency_edges"]}
     assert edges >= {("docker.npm_environment.execution", "docker.process"),
                      ("docker.npm_environment.lifecycle", "docker.process"),
@@ -218,7 +239,11 @@ def test_policy_clock_precedes_action_start(sources):
     path = "docker/process.py"
     old = "stage_end = min(time.monotonic() + stage.seconds, end - policy.local_cleanup_seconds)"
     # Keep a decoy phase assignment after initiation; token presence is not proof.
-    text = sources[path].replace(old, "stage_end = end")
-    text = text.replace("if action.start(context) is not None:",
-                        "stage_end = min(time.monotonic() + stage.seconds, end - policy.local_cleanup_seconds)\n                    if action.start(context) is not None:")
+    text = replace_snippet(sources[path], old, "stage_end = end", unique=True)
+    text = insert_before(
+        text,
+        "if action.start(context) is not None:",
+        old,
+        unique=True,
+    )
     assert convergence_report({**sources, path: text})["errors"]

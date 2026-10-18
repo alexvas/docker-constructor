@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import inspect
 from functools import lru_cache
 
 from tests.enforcement.test_descriptor_close_convergence import (
@@ -380,3 +381,52 @@ def architecture_report(sources):
                 process_surface=surface, adapter_signatures=adapters,
                 domain_fields={"LifecycleOutcome": [f.name for f in dataclasses.fields(lifecycle.LifecycleOutcome)],
                                "ProcessResult": [f.name for f in dataclasses.fields(execution.ProcessResult)]})
+
+
+def _syntax_fingerprint(source):
+    """Hash parsed structure with docstring text preserved.
+
+    Docstring text is semantic, so it remains part of the fingerprint.  Only
+    the common indentation margin and surrounding blank lines are normalized:
+    the formatter may reindent a docstring's continuation lines, which must not
+    count as a production change.
+    """
+    import hashlib
+
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if not isinstance(
+            node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+        ):
+            continue
+        first = node.body[0] if node.body else None
+        if (
+            isinstance(first, ast.Expr)
+            and isinstance(first.value, ast.Constant)
+            and isinstance(first.value.value, str)
+        ):
+            first.value.value = inspect.cleandoc(first.value.value)
+    return hashlib.sha256(ast.dump(tree, include_attributes=False).encode()).hexdigest()
+
+
+def canonical_architecture_report(sources):
+    """Return layout-independent architecture facts for fixtures.
+
+    Raw source hashes and ledger line numbers move whenever the formatter
+    rewraps code, although the architecture and pipe ownership do not.  The
+    canonical projection hashes parsed syntax instead and keeps only the
+    structural ledger facts, so a formatter-only change is not a production
+    change while any semantic edit still alters a recorded fingerprint.
+    """
+    report = architecture_report(sources)
+    return {
+        **{key: value for key, value in report.items() if key != "source_sha256"},
+        "ledger": [
+            {key: value for key, value in row.items() if key != "line"}
+            for row in report["ledger"]
+        ],
+        "source_ast_sha256": {
+            path: _syntax_fingerprint(source)
+            for path, source in sorted(sources.items())
+        },
+    }

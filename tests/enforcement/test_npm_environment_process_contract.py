@@ -11,6 +11,7 @@ import pytest
 from docker.process import OwnedProcess
 from docker.npm_environment import execution, lifecycle, streaming
 from docker.npm_environment.execution import DockerRunExecutor
+from tests.enforcement.source_layout import replace_snippet
 
 ROOT = Path(__file__).resolve().parents[2]
 EXECUTION = ROOT / "docker/npm_environment/execution.py"
@@ -173,9 +174,8 @@ def test_new_alias_and_coordinator_additions_are_rejected(addition):
 ])
 def test_raw_notes_and_guessed_legacy_labels_are_rejected(old, new):
     source = EXECUTION.read_text()
-    assert old in source
     assert diagnostic_proof(ast.parse(source)) == []
-    assert diagnostic_proof(ast.parse(source.replace(old, new)))
+    assert diagnostic_proof(ast.parse(replace_snippet(source, old, new, unique=False)))
 
 
 def test_exact_captured_return_contract_and_standalone_collector_boundary():

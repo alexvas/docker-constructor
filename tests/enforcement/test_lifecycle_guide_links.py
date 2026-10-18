@@ -1,4 +1,9 @@
-"""Validate guide links, including line anchors to named executable tests."""
+"""Validate guide links, including links to named executable tests.
+
+Test links name the qualified test function in their Markdown title.  The
+checker resolves that name in the target module's AST instead of binding a
+line number, so harmless formatting or added test code cannot stale a guide.
+"""
 from __future__ import annotations
 
 import ast
@@ -14,8 +19,8 @@ GUIDES = {"process-lifecycle.md": 6, "npm-environment-assembler.md": 6,
 LINK = re.compile(r'\[([^\]]+)\]\(([^\s)]+)(?:\s+"([^"]+)")?\)')
 
 
-def _test_definitions(source: str) -> dict[int, str]:
-    definitions = {}
+def _test_definitions(source: str) -> dict[str, list[int]]:
+    definitions: dict[str, list[int]] = {}
 
     def visit(node, parents=()):
         for child in ast.iter_child_nodes(node):
@@ -23,13 +28,20 @@ def _test_definitions(source: str) -> dict[int, str]:
                 visit(child, (*parents, child.name))
             elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 if child.name.startswith("test_"):
-                    definitions[child.lineno] = ".".join((*parents, child.name))
+                    name = ".".join((*parents, child.name))
+                    definitions.setdefault(name, []).append(child.lineno)
                 # Nested helper functions are not independent executable tests.
             else:
                 visit(child, parents)
 
     visit(ast.parse(source))
     return definitions
+
+
+def _resolve_test(definitions: dict[str, list[int]], symbol: str, url: str) -> None:
+    lines = definitions.get(symbol)
+    assert lines, f"test not found: {url} (expected {symbol})"
+    assert len(lines) == 1, f"duplicate test name: {url} (expected {symbol})"
 
 
 def _check_local_link(guide: Path, url: str, symbol: str | None) -> None:
@@ -44,12 +56,10 @@ def _check_local_link(guide: Path, url: str, symbol: str | None) -> None:
     assert target.is_file(), f"missing link target: {url}"
     if target.is_relative_to(ROOT / "tests"):
         assert target.name.startswith("test_") and target.suffix == ".py", url
-        assert re.fullmatch(r"L[1-9][0-9]*", parsed.fragment), f"missing/invalid test line: {url}"
+        assert not parsed.fragment, f"test link uses a layout-bound line anchor: {url}"
         assert symbol, f"test link needs its qualified name in the Markdown title: {url}"
         definitions = _test_definitions(target.read_text(encoding="utf-8"))
-        assert definitions.get(int(parsed.fragment[1:])) == symbol, (
-            f"test moved or renamed: {url} (expected {symbol})"
-        )
+        _resolve_test(definitions, symbol, url)
     else:
         # These guides currently link whole local documents, not heading anchors.
         assert not parsed.fragment, f"unchecked document anchor: {url}"
@@ -69,16 +79,23 @@ def test_lifecycle_guide_links_resolve_to_documents_and_named_tests(name):
     assert test_links == GUIDES[name], f"missing contract scenarios in {guide}"
 
 
+def test_guide_names_a_test_without_a_line_anchor():
+    _check_local_link(
+        ROOT / "docs/process-lifecycle.md",
+        "../tests/test_process_single_collection.py",
+        "test_reject_repeated_and_mixed_collection_without_work",
+    )
+
+
 @pytest.mark.parametrize("url,symbol", [
-    ("../tests/test_missing_lifecycle_example.py#L1", "test_missing"),
-    ("../../outside-repository.py#L1", "test_missing"),
-    ("../tests/test_process_single_collection.py", "test_reject_repeated_and_mixed_collection_without_work"),
+    ("../tests/test_missing_lifecycle_example.py", "test_missing"),
+    ("../../outside-repository.py", "test_missing"),
+    ("../tests/test_process_single_collection.py", "test_renamed"),
+    ("../tests/test_process_single_collection.py", None),
+    ("../tests/test_process_single_collection.py#L63", "test_reject_repeated_and_mixed_collection_without_work"),
     ("../tests/test_process_single_collection.py#L0", "test_reject_repeated_and_mixed_collection_without_work"),
-    ("../tests/test_process_single_collection.py#L1", "test_reject_repeated_and_mixed_collection_without_work"),
-    ("../tests/test_process_single_collection.py#L63", "test_renamed"),
     ("../tests/test_process_single_collection.py#L63", None),
     ("process-lifecycle.md#missing-heading", None),
-    ("../tests/enforcement/#L1", "test_missing"),
     ("../tests/enforcement/", "test_missing"),
 ])
 def test_broken_or_misdirected_guide_links_are_rejected(url, symbol):
@@ -92,4 +109,10 @@ def test_enforcement_directory_link_resolves():
 
 def test_test_definition_lookup_handles_class_methods_but_not_nested_helpers():
     source = "class Examples:\n    def test_method(self):\n        def test_helper(): pass\n"
-    assert _test_definitions(source) == {2: "Examples.test_method"}
+    assert _test_definitions(source) == {"Examples.test_method": [2]}
+
+
+def test_duplicate_test_names_are_rejected():
+    definitions = {"test_same": [2, 3]}
+    with pytest.raises(AssertionError, match="duplicate test name"):
+        _resolve_test(definitions, "test_same", "test_module.py")
