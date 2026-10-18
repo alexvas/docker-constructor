@@ -5,6 +5,9 @@ layer. The user authorized independent action initiation after failed child
 observation; the original 6BB expectations are revised accordingly.
 """
 
+import functools
+import time
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -14,6 +17,35 @@ from tests.test_process_stop_policy import Action, launch  # pytest fixture re-e
 from tests.test_process_stop_policy import api as api
 
 
+def _policy_time(test):
+    """Authority tests use logical time; real-budget tests live elsewhere.
+
+    A scheduler pause must not select which injected errors these pure fake-
+    child cases exercise. The event wait is a test watchdog, not extra policy
+    time: all configured stage caps and reserves remain unchanged.
+    """
+
+    @functools.wraps(test)
+    def run(api, *args, **kwargs):
+        original_launch = launch
+        clock = SimpleNamespace(monotonic=lambda: 0.0, sleep=time.sleep)
+
+        def prepared_launch(*args, **kwargs):
+            owner = original_launch(*args, **kwargs)
+            wait = owner._phase_done.wait
+            owner._phase_done.wait = lambda timeout=None: wait(5)
+            return owner
+
+        with (
+            mock.patch.object(api, "time", clock),
+            mock.patch(__name__ + ".launch", prepared_launch),
+        ):
+            return test(api, *args, **kwargs)
+
+    return run
+
+
+@_policy_time
 def test_required_compatibility_action_is_independent_of_local_poll_failure(api):
     child = Child()
     primary = OSError("domain operation")
@@ -42,6 +74,7 @@ def test_required_compatibility_action_is_independent_of_local_poll_failure(api)
 @pytest.mark.parametrize("poll_kind", [OSError, RuntimeError, KeyboardInterrupt])
 @pytest.mark.parametrize("start_kind", [OSError, RuntimeError, KeyboardInterrupt])
 @pytest.mark.parametrize("primary_kind", [None, ValueError, KeyboardInterrupt])
+@_policy_time
 def test_poll_and_action_failure_preserve_authority_and_independent_cleanup(
     api,
     poll_kind,

@@ -22,6 +22,7 @@ from docker.process import (
     OwnedProcess,
     StopPolicy,
     StopStage,
+    StreamOutcome,
 )
 from tests.test_process_lifecycle import workers
 
@@ -338,13 +339,35 @@ class TestLifecyclePrimitives(unittest.TestCase):
             "child=subprocess.Popen([sys.executable,'-c','import time;time.sleep(1)']); "
             "print(child.pid,flush=True)"
         )
-        started = time.monotonic()
+        drain_started = []
         with _observed_children() as children:
-            owner, outcome = run_captured(
-                (sys.executable, "-c", program),
-                policy=LifecyclePolicy(0.1, captured_output_bytes=128),
-            )
-        elapsed = time.monotonic() - started
+            start_supervisor = OwnedProcess._start_supervisor
+
+            def after_parent_exit(owner):
+                # Establish the test's exited-parent/live-pipes precondition
+                # through the sole owner's observation, before it activates
+                # the short operation deadline. Interpreter startup is not
+                # the pipe-drain behavior under test. Five seconds is only a
+                # fixture-startup watchdog, not a changed shutdown allowance.
+                startup_end = time.monotonic() + 5
+                while owner._poll_child() is None:
+                    self.assertLess(time.monotonic(), startup_end)
+                    time.sleep(0.001)
+                self.assertEqual(owner.returncode, 0)
+                self.assertEqual(
+                    owner._outcomes, [StreamOutcome.PENDING, StreamOutcome.PENDING]
+                )
+                drain_started.append(time.monotonic())
+                start_supervisor(owner)
+
+            with mock.patch.object(
+                OwnedProcess, "_start_supervisor", after_parent_exit
+            ):
+                owner, outcome = run_captured(
+                    (sys.executable, "-c", program),
+                    policy=LifecyclePolicy(0.1, captured_output_bytes=128),
+                )
+        elapsed = time.monotonic() - drain_started[0]
         try:
             if outcome.stdout.strip():
                 os.kill(int(outcome.stdout.strip()), 15)

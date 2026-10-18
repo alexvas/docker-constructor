@@ -24,7 +24,8 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable, Iterable, Protocol, Sequence
+from enum import Enum, auto
+from typing import TYPE_CHECKING, Callable, Iterable, Protocol, Sequence, cast
 
 from docker.versioning.model import NetworkUrlDisplay
 
@@ -1004,6 +1005,152 @@ class StreamReaderFailure(Exception):
         )
 
 
+class _NativeThreadHandle(Protocol):
+    """CPython 3.14's native acquisition/completion handle, not Python ident."""
+
+    @property
+    def ident(self) -> int: ...
+
+    def is_done(self) -> bool: ...
+
+    def join(self, timeout: float = -1) -> None: ...
+
+
+class _CPythonThreadStartup(Protocol):
+    # Runtime capabilities omitted from Thread's public typeshed interface.
+    _os_thread_handle: _NativeThreadHandle
+    _started: threading.Event
+
+
+class _StartupState(Enum):
+    PREPARED = auto()
+    NO_NATIVE_WORKER = auto()
+    BOOTSTRAP_PENDING = auto()
+    STARTED = auto()
+    COMPLETED = auto()
+
+
+class _ThreadStartup:
+    """Retain native acquisition across an interrupted Thread.start wait.
+
+    Python's public ident/is_alive observations cannot distinguish an unstarted
+    thread from an acquired native worker awaiting bootstrap. Isolate the
+    CPython 3.14 bridge here: its handle is committed by native creation before
+    Python can deliver an interruption, whereas _started gates valid Thread.join.
+    Prepare both references before start; do not fall back to Python ident on
+    a runtime without this capability.
+    """
+
+    def __init__(self, thread: threading.Thread):
+        self._thread = thread
+        native_thread = cast(_CPythonThreadStartup, thread)
+        self._native = native_thread._os_thread_handle
+        self._started = native_thread._started
+        if self._native.ident or self._started.is_set():
+            raise ValueError("startup coordination requires an unstarted thread")
+        self._start_attempted = False
+        self._cleanup_requested = False
+        self._join_attempted = False
+        self._join_settled = False
+        self._join_deadline: float | None = None
+        self._completion_poll = threading.Event()
+        self._join_failures: tuple[BaseException, ...] = ()
+
+    @property
+    def failures(self) -> tuple[BaseException, ...]:
+        """Snapshot of failures from the retained cleanup observation."""
+        return self._join_failures
+
+    @property
+    def state(self) -> _StartupState:
+        if not self._native.ident:
+            return (
+                _StartupState.NO_NATIVE_WORKER
+                if self._start_attempted
+                else _StartupState.PREPARED
+            )
+        if self._native.is_done():
+            return _StartupState.COMPLETED
+        if not self._started.is_set():
+            return _StartupState.BOOTSTRAP_PENDING
+        return _StartupState.STARTED
+
+    def start(self) -> None:
+        if self._start_attempted or self._cleanup_requested:
+            raise RuntimeError("worker startup already attempted or settled")
+        self._start_attempted = True
+        self._thread.start()
+
+    def join(self, timeout: float | None = None) -> tuple[BaseException, ...]:
+        # An attempted (or interrupted) join is not evidence of completion.
+        # Keep this owner and one original allowance until settlement is seen.
+        if self._join_settled:
+            return self._join_failures
+        if not self._cleanup_requested:
+            self._cleanup_requested = True
+            self._join_deadline = (
+                None if timeout is None else time.monotonic() + timeout
+            )
+
+        def remaining() -> float | None:
+            if self._join_deadline is None:
+                return None
+            return max(0.0, self._join_deadline - time.monotonic())
+
+        failures = list(self._join_failures)
+        try:
+            if self.state in (_StartupState.PREPARED, _StartupState.NO_NATIVE_WORKER):
+                self._join_settled = True
+                return tuple(failures)
+            while not self._started.is_set() and not self._native.is_done():
+                allowance = remaining()
+                if allowance == 0:
+                    return tuple(failures)
+                try:
+                    self._started.wait(
+                        0.01 if allowance is None else min(0.01, allowance)
+                    )
+                except BaseException as exc:
+                    failures.append(exc)
+            if not self._join_attempted:
+                self._join_attempted = True
+                if self._started.is_set():
+                    try:
+                        self._thread.join(timeout=remaining())
+                    except BaseException as exc:
+                        failures.append(exc)
+                    else:
+                        self._join_settled = self._native.is_done()
+                # Otherwise the native worker completed without publishing
+                # Python startup. Never call the invalid Python Thread.join.
+
+            # Required reader/constructor cleanup observes actual native exit
+            # even after join raises. Normal dispatcher draining observes only
+            # the remainder of its original bounded allowance, never a new one.
+            while not self._join_settled and not self._native.is_done():
+                allowance = remaining()
+                if allowance == 0:
+                    break
+                try:
+                    self._completion_poll.wait(
+                        0.01 if allowance is None else min(0.01, allowance)
+                    )
+                except BaseException as exc:
+                    failures.append(exc)
+            if not self._join_settled and self._native.is_done():
+                try:
+                    # Complete the SAME native handle's once-serialized join,
+                    # nonblocking and only after exit. No Thread.join retry,
+                    # replacement owner, new worker or callback wait is needed.
+                    self._native.join(0)
+                except BaseException as exc:
+                    failures.append(exc)
+                self._join_settled = True
+        finally:
+            self._join_failures = tuple(failures)
+        return self._join_failures
+
+
 class SinkDispatcher:
     """Serializes sink invocations through a bounded queue on one thread.
 
@@ -1049,7 +1196,27 @@ class SinkDispatcher:
         self._thread = threading.Thread(
             target=self._run, name="npm-sink-dispatcher", daemon=True
         )
-        self._thread.start()
+        self._startup = _ThreadStartup(self._thread)
+        self._startup_failed = False
+        try:
+            self._startup.start()
+        except BaseException as exc:
+            self._startup_failed = True
+            # Construction may fail after acquiring a pending native worker. This dispatcher
+            # is already its sole owner, even though no caller received it.
+            try:
+                self.finish()
+            except BaseException as cleanup_error:
+                observed = (cleanup_error,) + tuple(
+                    error
+                    for error in self._startup.failures
+                    if error is not cleanup_error
+                )
+                for error in observed:
+                    exc.add_note(
+                        f"dispatcher startup cleanup failed ({type(error).__name__})"
+                    )
+            raise
 
     # -- reader side ----------------------------------------------------
 
@@ -1100,9 +1267,22 @@ class SinkDispatcher:
             self._queue.put(_SENTINEL, timeout=self._drain_budget)
         except queue.Full:
             self._fail()
-        self._thread.join(timeout=self._drain_budget + self._callback_budget)
-        if self._thread.is_alive():
+        # Failed construction cannot have admitted SDK chunks: settling its
+        # pending bootstrap and sentinel worker must precede propagation. Normal
+        # finalization retains the existing callback/drain allowance unchanged.
+        errors = self._startup.join(
+            timeout=None
+            if self._startup_failed
+            else self._drain_budget + self._callback_budget
+        )
+        if self.is_alive():
             self._fail()
+        if errors:
+            for extra in errors[1:]:
+                errors[0].add_note(
+                    f"also failed during worker cleanup ({type(extra).__name__})"
+                )
+            raise errors[0]
         return self._truncation_notice
 
     def truncation_notice(self) -> str | None:
@@ -1111,8 +1291,11 @@ class SinkDispatcher:
             return self._truncation_notice
 
     def is_alive(self) -> bool:
-        """Return whether the dispatcher thread is still running."""
-        return self._thread.is_alive()
+        """Include an acquired native worker whose bootstrap is still pending."""
+        return self._startup.state in (
+            _StartupState.BOOTSTRAP_PENDING,
+            _StartupState.STARTED,
+        )
 
     # -- dispatcher thread ----------------------------------------------
 
@@ -1368,9 +1551,7 @@ def collect_streams(
     # Only the dispatched channel is wrapped in the lossy queue.  A direct
     # (or paired direct) channel admits on the reader thread and is never
     # wrapped, so external backlog cannot delay, drop, or reorder it.
-    dispatcher = (
-        SinkDispatcher(dispatch_target) if dispatch_target is not None else None
-    )
+    dispatcher: SinkDispatcher | None = None
 
     failures: list[StreamReaderFailure] = []
     failures_lock = threading.Lock()
@@ -1456,9 +1637,7 @@ def collect_streams(
             daemon=True,
         ),
     )
-    for thread in threads:
-        thread.start()
-
+    startups = tuple(_ThreadStartup(thread) for thread in threads)
     # Report the first failure (or full completion) immediately rather than
     # waiting for the sibling reader to reach EOF; the callback unblocks a
     # sibling that would otherwise never finish.
@@ -1466,6 +1645,13 @@ def collect_streams(
     cleanup_failures: list[BaseException] = []
     interrupted: BaseException | None = None
     try:
+        if dispatch_target is not None:
+            dispatcher = SinkDispatcher(dispatch_target)
+        # Starting a reader can itself be interrupted, including after the
+        # native thread started but before Thread.start returned. Protect that
+        # acquisition with the same unblock/join/capture path as collection.
+        for startup in startups:
+            startup.start()
         terminal.wait()
         with failures_lock:
             first_failure = failures[0] if failures else None
@@ -1493,12 +1679,24 @@ def collect_streams(
             except BaseException as cb_exc:
                 cleanup_failures.append(cb_exc)
     finally:
-        # Guarantee worker cleanup even when a callback raised (e.g. pipe
-        # close or client termination failed): always join both readers and
-        # always finalize the dispatcher.
-        for thread in threads:
-            thread.join()
-        notice = dispatcher.finish() if dispatcher is not None else None
+        # A failed start can leave either an unacquired sibling or a native
+        # worker whose Python bootstrap is still pending. Settle each acquired
+        # startup before joining, independently of sibling/dispatcher failures.
+        for startup in startups:
+            try:
+                cleanup_failures.extend(startup.join())
+            except BaseException as exc:
+                cleanup_failures.append(exc)
+        notice = None
+        if dispatcher is not None:
+            try:
+                notice = dispatcher.finish()
+            except BaseException as exc:
+                cleanup_failures.append(exc)
+
+    # A sole cleanup failure is still a failure; never silently return success.
+    if interrupted is None and not failures and cleanup_failures:
+        interrupted = cleanup_failures.pop(0)
 
     # Capture the one selected retained tail per stream after the readers
     # have joined and the dispatcher has finalized.  Failure paths attach

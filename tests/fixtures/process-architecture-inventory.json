@@ -2159,7 +2159,7 @@
     "docker/npm_environment/semver_range.py": "9864baa7cef1675f5ae62b3b4bca81a208873dc09b750145a3430a56c45381a8",
     "docker/npm_environment/smoke.py": "9887d6b143c123c08ac85fcd6e39bc74cfbfc6059ead4ee449cf7f58cba6adf5",
     "docker/npm_environment/storage.py": "24459842ce49ea794650b820848c9a23f836d647a2b145bf0277bc710e41c49f",
-    "docker/npm_environment/streaming.py": "ca498d2fedf0f4564fe0136cf9ab74a77bbc3b985423205f808a2250fc032a7e",
+    "docker/npm_environment/streaming.py": "d37378d9d6bd20e88bdad5c958daef850683e33f58f67be4f674021146c7ac18",
     "docker/npm_environment/tree.py": "db363296c0bf84846b612d467eca17d5f1b01d5c2c8cd53964ec825e4cf3901b",
     "docker/npm_environment/validation.py": "676494d2c303c0dd1313c2322fde9fecad6efeec4b4d6a752b26fff47b725aca",
     "docker/process.py": "3d4da6f35f08d5216d3ca40896fcfcc81d09a90f19d008b6f798acd7f0af3fcc",
