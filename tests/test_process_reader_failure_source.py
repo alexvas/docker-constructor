@@ -1,8 +1,8 @@
 """Selected occurrence context replaces the obsolete parallel reader source."""
 
+import threading
 from dataclasses import FrozenInstanceError
 from unittest import mock
-import threading
 
 import pytest
 

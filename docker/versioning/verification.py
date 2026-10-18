@@ -116,7 +116,6 @@ from typing import Protocol, Sequence
 
 from docker._owned_file import owned_file
 
-
 # ── Process boundary (identical contract to docker/launcher.py) ──────
 
 

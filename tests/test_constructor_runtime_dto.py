@@ -9,7 +9,6 @@ from docker.versioning.model import (
     NpmArtifact,
 )
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # Task 4.1 — Replace downloadable URL with canonical mounted-artifact identity
 # ═══════════════════════════════════════════════════════════════════════

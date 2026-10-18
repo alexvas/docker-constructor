@@ -26,7 +26,6 @@ from docker.versioning.errors import InventoryError
 from docker.versioning.integrity import is_valid_integrity
 from docker.versioning.inventory import load_inventory, validate_inventory
 from docker.versioning.rendering import render_build_environment
-
 from tests.inventory_fixtures import (
     remove_extension,
     rewrite_artifact_integrities,

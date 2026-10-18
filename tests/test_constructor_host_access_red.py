@@ -13,7 +13,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from docker.versions import InventoryError, load_inventory
 from docker.versioning.configuration_document_validation import (
     ConfigurationDocumentError,
     DocumentRole,
@@ -24,7 +23,7 @@ from docker.versioning.effective import (
     to_plain_data,
 )
 from docker.versioning.rendering import serialize_effective_build
-
+from docker.versions import InventoryError, load_inventory
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _CANONICAL = (_REPO_ROOT / "docker-constructor.toml").read_text()

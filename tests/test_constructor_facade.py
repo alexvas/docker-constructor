@@ -312,9 +312,10 @@ class TestDefaultDispatcherReturnsUnavailable(unittest.TestCase):
         self.assertEqual("1.0.0", pi_proxy["version"])
 
     def test_check_updates_with_stub_providers(self) -> None:
-        import docker.versioning.updates
-        from unittest.mock import patch
         from types import MappingProxyType
+        from unittest.mock import patch
+
+        import docker.versioning.updates
         from docker.versioning.model import UpdateCandidate, UpdateKind
         from docker.versioning.providers.base import ProviderResult
 
@@ -367,6 +368,7 @@ def _make_stub_providers(discover=None):
     value as a candidate (status CURRENT, no network access).
     """
     from types import MappingProxyType
+
     from docker.versioning.model import UpdateCandidate, UpdateKind
     from docker.versioning.providers.base import ProviderResult
 

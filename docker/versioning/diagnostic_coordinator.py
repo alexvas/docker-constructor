@@ -17,10 +17,10 @@ never changes the original-source validation and secret-coverage gates for facts
 
 from __future__ import annotations
 
+import codecs
 from collections import deque
 from dataclasses import dataclass
 from itertools import islice
-import codecs
 from typing import TYPE_CHECKING
 
 from docker.versioning.diagnostic_identity import SessionUrlIdentity
@@ -236,16 +236,17 @@ class CoordinatedProjection:
     def _settle_components(
         self, *, final: bool = False, abort: bool = False
     ) -> list[str]:
+        import urllib.parse
+
         from docker.versioning.diagnostic_projection import (
             INCOMPLETE_TOKEN_MARKER,
             REDACTED_PATH_MARKER,
             SafeHostPath,
             _candidate_url_layer,
-            normalized_url_host,
             _host_contains_secret,
             _safe_host_path,
+            normalized_url_host,
         )
-        import urllib.parse
 
         url = self._url
         assert url is not None
@@ -326,7 +327,7 @@ class CoordinatedProjection:
         The temporary decoder units are bounded, and their visits are counted.
         """
         from docker.versioning.diagnostic_projection import _decode_percent
-        from docker.versioning.diagnostic_recognizer import _Transducer, _MutableStats
+        from docker.versioning.diagnostic_recognizer import _MutableStats, _Transducer
 
         view = source
         depth = 0
@@ -363,10 +364,10 @@ class CoordinatedProjection:
             REDACTED_PATH_MARKER,
             SafeHostPath,
             _candidate_url_layer,
-            normalized_url_host,
+            _canonical_url_identity,
             _host_contains_secret,
             _safe_host_path,
-            _canonical_url_identity,
+            normalized_url_host,
         )
 
         if not url.eligible:
@@ -374,8 +375,8 @@ class CoordinatedProjection:
         if self._eof and url.end == self._recognizer.consumed:
             from docker.versioning.diagnostic_projection import (
                 _decode_percent,
-                _is_escape_complete,
                 _is_complete_url_literal,
+                _is_escape_complete,
             )
 
             view = source
@@ -614,7 +615,7 @@ class CoordinatedProjection:
         units so boundaries remain absolute raw coordinates. The actual
         separator end comes from recognition, never the activation offset.
         """
-        from docker.versioning.diagnostic_recognizer import _Transducer, _MutableStats
+        from docker.versioning.diagnostic_recognizer import _MutableStats, _Transducer
 
         stats = _MutableStats()
 

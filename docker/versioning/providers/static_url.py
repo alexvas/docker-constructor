@@ -12,14 +12,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .base import (
-    ProviderResult,
-    UpdateCandidate,
-)
 from ..model import (
     CandidateArtifact,
     StaticUrlSource,
     UpdateKind,
+)
+from .base import (
+    ProviderResult,
+    UpdateCandidate,
 )
 
 if TYPE_CHECKING:

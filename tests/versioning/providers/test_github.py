@@ -9,13 +9,13 @@ from docker.versioning.model import (
     ArtifactEntry,
     GitHubReleaseSource,
     GitHubReleaseUpdate,
-    UpdateTarget,
     UpdateKind,
+    UpdateTarget,
 )
 from docker.versioning.providers.base import ProviderContext
 from docker.versioning.providers.github import GitHubReleaseProvider
-from tests.versioning.support.fake_http import FakeHttpTransport
 from tests.versioning.support.fake_git import FakeGitTransport
+from tests.versioning.support.fake_http import FakeHttpTransport
 
 
 class TestGitHubProvider(unittest.TestCase):

@@ -22,8 +22,8 @@ Design constraints:
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 from docker.launcher import (
     ContainerInspectError,
@@ -34,15 +34,15 @@ from docker.launcher import (
     NoWorkspaceError,
     ProcessResult,
     ProcessRunner,
-    WorkspaceSelection,
-    WorkspaceSelector,
     ProjectionFactory,
     RunExecutor,
     RunRequest,
     RunResult,
+    WorkspaceSelection,
+    WorkspaceSelector,
 )
-from docker.versioning.rendering import RunRenderInputs, render_run_vector
 from docker.versioning.dispatch_types import ExitKind
+from docker.versioning.rendering import RunRenderInputs, render_run_vector
 
 # ═══════════════════════════════════════════════════════════════════
 # Shared test doubles
@@ -1440,6 +1440,7 @@ class TestRunTransaction(unittest.TestCase):
         single-quote artifact mount options containing spaces or ``$``.
         Round-trip through ``shlex.split`` must recover the arg vector."""
         from unittest import mock
+
         from docker.versioning.rendering import ArtifactMount
 
         injected = (
@@ -1485,8 +1486,10 @@ class TestRunTransaction(unittest.TestCase):
         """The dry-run display and run_args must include artifact
         mounts for *selected* artifacts only — unselected catalog
         variants (e.g. an alternate version) MUST NOT appear."""
+        import base64
+        import hashlib
+
         from docker.versioning.model import _derive_artifact_id
-        import base64, hashlib
 
         # Compute the unselected 0.3.0 artifact_id directly.
         unselected_url = (
@@ -1675,7 +1678,9 @@ class TestRunTransaction(unittest.TestCase):
     def _ids_for_urls(urls: list[str]) -> list[str]:
         """Compute sorted artifact_ids for *urls* using the
         same deterministic derivation as the fixture."""
-        import base64, hashlib
+        import base64
+        import hashlib
+
         from docker.versioning.model import _derive_artifact_id
 
         return sorted(
@@ -1697,7 +1702,9 @@ class TestRunTransaction(unittest.TestCase):
     ) -> tuple[str, bytes]:
         """Write a valid blob for *url* under *cache_root* and
         return ``(artifact_id, test_bytes)``."""
-        import base64, hashlib
+        import base64
+        import hashlib
+
         from docker.versioning.model import _derive_artifact_id
 
         test_bytes = TestRunTransaction._artifact_bytes(url)
@@ -1790,7 +1797,9 @@ class TestRunTransaction(unittest.TestCase):
     def test_dry_run_reports_corrupt_blob_as_miss(self) -> None:
         """A cache blob with bytes that do NOT match its declared
         SRI integrity must be reported as a miss, not a hit."""
-        import base64, hashlib
+        import base64
+        import hashlib
+
         from docker.versioning.model import _derive_artifact_id
 
         url = "https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.2.1.tgz"
@@ -1840,7 +1849,9 @@ class TestRunTransaction(unittest.TestCase):
         """When the cache root itself is a symlink
         (``O_NOFOLLOW`` fails), no blob is reachable and every
         artifact is a miss."""
-        import base64, hashlib
+        import base64
+        import hashlib
+
         from docker.versioning.model import _derive_artifact_id
 
         url = "https://registry.npmjs.org/pi-proxy/-/pi-proxy-1.0.0.tgz"
@@ -1885,7 +1896,9 @@ class TestRunTransaction(unittest.TestCase):
         """When the algorithm subdirectory is a symlink pointing
         outside the cache root, the blob it points to is never
         opened — the entry is a miss."""
-        import base64, hashlib
+        import base64
+        import hashlib
+
         from docker.versioning.model import _derive_artifact_id
 
         url = "https://registry.npmjs.org/pi-proxy/-/pi-proxy-1.0.0.tgz"
@@ -1938,7 +1951,9 @@ class TestRunTransaction(unittest.TestCase):
         """When the algorithm subdirectory is a symlink pointing
         to another directory *inside* the cache root, O_NOFOLLOW
         still rejects it as a miss."""
-        import base64, hashlib
+        import base64
+        import hashlib
+
         from docker.versioning.model import _derive_artifact_id
 
         url = "https://registry.npmjs.org/pi-proxy/-/pi-proxy-1.0.0.tgz"
@@ -1993,7 +2008,9 @@ class TestRunTransaction(unittest.TestCase):
     def test_dry_run_symlinked_blob_is_miss(self) -> None:
         """A leaf blob that itself is a symlink is rejected
         by O_NOFOLLOW — zero bytes read, reported as a miss."""
-        import base64, hashlib
+        import base64
+        import hashlib
+
         from docker.versioning.model import _derive_artifact_id
 
         url = "https://registry.npmjs.org/pi-proxy/-/pi-proxy-1.0.0.tgz"
@@ -2486,11 +2503,11 @@ class TestRunTransaction(unittest.TestCase):
         import os
         import stat
 
-        from docker.versioning.effective import create_runtime_projection
-
         # The real factory must publish beneath the resolved external runtime
         # directory supplied by orchestration.
         import uuid
+
+        from docker.versioning.effective import create_runtime_projection
 
         try:
             recorded: list[tuple[str, str]] = []  # (path, content_hash)
@@ -3758,6 +3775,7 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
         deferred field that skips materialization when empty
         contradicts the authoritative launcher/runtime specs."""
         import dataclasses
+
         from docker.launcher import RunRequest
 
         fields = {f.name for f in dataclasses.fields(RunRequest)}
@@ -3829,8 +3847,9 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
         patched so the test is hermetic — independent of
         repository state, prior runs, or developer-local
         artifact caches."""
-        import docker.versioning.artifact_cache as _artifact_cache
         from unittest import mock
+
+        import docker.versioning.artifact_cache as _artifact_cache
 
         malformed = self._make_single_extension_fixture(
             self._tmpdir.name,
@@ -4048,6 +4067,7 @@ class TestOrchestrationOrdering(unittest.TestCase):
         import base64
         import hashlib
         import re
+
         from tests.inventory_fixtures import stable_inventory_text
 
         fixture = os.path.join(self._tmpdir.name, "fixture.toml")
@@ -4196,6 +4216,7 @@ class TestOrchestrationOrdering(unittest.TestCase):
 
     def test_empty_selection_skips_materialization_and_cache_mutation(self) -> None:
         from unittest import mock
+
         from docker.versioning.model import EffectiveRuntimeProjection
 
         executor = _LoggedExecutor(self._event_log, returncode=0)
@@ -4261,6 +4282,7 @@ class TestOrchestrationOrdering(unittest.TestCase):
         # — all reviewed fixture artifacts, not just the first.
         import base64
         import hashlib
+
         from docker.versioning.artifact_cache import SelectedArtifact
 
         _fixture_urls = [

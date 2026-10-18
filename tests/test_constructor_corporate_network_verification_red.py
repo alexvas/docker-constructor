@@ -32,9 +32,9 @@ import unittest
 from pathlib import Path
 
 from docker.launcher import (
-    WorkspaceSelection,
     RunRequest,
     RunResult,
+    WorkspaceSelection,
     orchestrate_run,
 )
 from docker.versioning.corporate_network import (
@@ -43,8 +43,8 @@ from docker.versioning.corporate_network import (
 )
 from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.runtime_verification import (
-    VerifyRuntimeRequest,
     _MOUNTS_PROBE,
+    VerifyRuntimeRequest,
     verify_runtime,
 )
 

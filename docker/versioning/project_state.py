@@ -10,9 +10,9 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from docker.transactions.capabilities import DirectoryCapability
 from docker.filesystem.descriptors import OwnedDescriptor
 from docker.filesystem.operations import PosixDescriptorOps
+from docker.transactions.capabilities import DirectoryCapability
 from docker.transactions.cleanup import CleanupFailures
 from docker.transactions.errors import (
     DestinationExists,

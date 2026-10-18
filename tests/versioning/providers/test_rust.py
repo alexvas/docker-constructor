@@ -11,8 +11,8 @@ from docker.versioning.model import (
 )
 from docker.versioning.providers.base import ProviderContext
 from docker.versioning.providers.rust import RustChannelProvider
-from tests.versioning.support.fake_http import FakeHttpTransport
 from tests.versioning.support.fake_git import FakeGitTransport
+from tests.versioning.support.fake_http import FakeHttpTransport
 
 
 class TestRustProvider(unittest.TestCase):

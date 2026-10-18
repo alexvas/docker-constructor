@@ -11,7 +11,6 @@ from docker.npm_environment.errors import AssemblyTimeoutError
 from docker.npm_environment.streaming import REDACTED, RETAINED_CAPTURE_ATTR
 from tests.test_process_single_collection import Child
 
-
 OPERATIONS = {
     "SETUP": "setup",
     "READ": "read",

@@ -9,12 +9,12 @@ from __future__ import annotations
 
 import base64
 import json
-from pathlib import Path
 import subprocess
 import tempfile
 import threading
 import time
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from docker.npm_environment import (

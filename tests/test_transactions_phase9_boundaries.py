@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 
 from docker import transactions
+from docker.npm_environment import publication
 from docker.transactions import capabilities, codec, regular
 from docker.versioning import (
     artifact_cache,
@@ -17,7 +18,6 @@ from docker.versioning import (
     project_state,
     rendering,
 )
-from docker.npm_environment import publication
 
 _REPO = Path(__file__).resolve().parents[1]
 _MATRIX = _REPO / "tests/data/filesystem_writer_matrix.json"

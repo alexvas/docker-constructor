@@ -2,16 +2,16 @@
 
 import ast
 import inspect
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 from typing import get_type_hints
 
 import pytest
 
-from docker.process import OwnedProcess
 from docker.npm_environment import execution, lifecycle, streaming
 from docker.npm_environment.execution import DockerRunExecutor
+from docker.process import OwnedProcess
 from tests.enforcement.source_layout import replace_snippet
 
 ROOT = Path(__file__).resolve().parents[2]

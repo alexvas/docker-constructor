@@ -32,16 +32,16 @@ _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
 from docker.npm_environment import (
+    NPM_CONFIG_CAFILE,
+    PROXY_BYPASS_ENV_NAMES,
+    PROXY_URL_ENV_NAMES,
+    SYSTEM_CA_BUNDLE,
     AssemblyRun,
     CorporateNetworkPolicy,
     LockedNpmError,
     RootSpec,
-    NPM_CONFIG_CAFILE,
-    SYSTEM_CA_BUNDLE,
-    PROXY_BYPASS_ENV_NAMES,
-    PROXY_URL_ENV_NAMES,
-    assembler_script_digest,
     assemble,
+    assembler_script_digest,
     build_tree_manifest,
     compute_assembler_identity,
     npm_policy_digest,

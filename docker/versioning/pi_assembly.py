@@ -19,10 +19,10 @@ injectable, so tests can drive the full pipeline without a Docker daemon.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from dataclasses import dataclass
 import functools
 import hashlib
+from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 
 from docker.npm_environment import (
@@ -56,26 +56,26 @@ from docker.versioning.host_progress import (
     HostDiagnosticPrefix,
     HostDiagnosticStream,
     HostEventSink,
-    InternalDirectHostEventSink,
     HostPhase,
     HostPhaseEvent,
     HostPhaseState,
     HostStep,
     HostStepState,
     HostStructuredDiagnostic,
+    InternalDirectHostEventSink,
     attach_host_failure,
     emit,
     guard_sink,
-)
-from docker.versioning.npm_diagnostic_stream import (
-    classify_npm_diagnostic,
-    make_stream_factory,
-    project_tail,
 )
 from docker.versioning.model import (
     EffectiveBuildProjection,
     NetworkUrlDisplay,
     PiReleaseSource,
+)
+from docker.versioning.npm_diagnostic_stream import (
+    classify_npm_diagnostic,
+    make_stream_factory,
+    project_tail,
 )
 from docker.versioning.pi_consumer import (
     LauncherEvidence,

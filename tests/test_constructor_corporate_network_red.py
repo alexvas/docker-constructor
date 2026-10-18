@@ -23,12 +23,16 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from docker.versions import InventoryError
 from docker.versioning.local_project_configuration import (
     load_local_project_configuration as load_local_config,
+)
+from docker.versioning.local_project_configuration import (
     load_optional_local_project_configuration as load_local_config_for_inventory,
+)
+from docker.versioning.local_project_configuration import (
     resolve_local_companion_path,
 )
+from docker.versions import InventoryError
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _CANONICAL = (_REPO_ROOT / "docker-constructor.toml").read_text()
@@ -494,7 +498,7 @@ class TestCorporateTrustBundleRed(_LocalTest):
     def test_build_and_run_resolve_bundle_from_same_constructor_project(self) -> None:
         from unittest import mock
 
-        from docker.launcher import WorkspaceSelection, RunRequest, orchestrate_run
+        from docker.launcher import RunRequest, WorkspaceSelection, orchestrate_run
         from docker.versioning.build_orchestration import (
             BuildRequest,
             orchestrate_build,
@@ -597,7 +601,7 @@ class TestCorporateTrustBundleRed(_LocalTest):
     def test_invalid_enabled_bundle_aborts_run_before_docker(self) -> None:
         from unittest import mock
 
-        from docker.launcher import WorkspaceSelection, RunRequest, orchestrate_run
+        from docker.launcher import RunRequest, WorkspaceSelection, orchestrate_run
         from docker.versioning.dispatch_types import ExitKind
 
         with tempfile.TemporaryDirectory() as root:
@@ -645,7 +649,7 @@ class TestCorporateTrustBundleRed(_LocalTest):
     def test_direct_caller_without_repo_root_fails_closed(self) -> None:
         from unittest import mock
 
-        from docker.launcher import WorkspaceSelection, RunRequest, orchestrate_run
+        from docker.launcher import RunRequest, WorkspaceSelection, orchestrate_run
         from docker.versioning.dispatch_types import ExitKind
 
         with tempfile.TemporaryDirectory() as root:
@@ -768,7 +772,7 @@ class TestLocalCompanionFailClosedCommandsRed(_LocalTest):
     def _run_message(self, root: Path, effects: list[str]) -> str:
         from unittest import mock
 
-        from docker.launcher import WorkspaceSelection, RunRequest, orchestrate_run
+        from docker.launcher import RunRequest, WorkspaceSelection, orchestrate_run
         from docker.versioning.dispatch_types import ExitKind
 
         inventory = root / "inventory.toml"
@@ -1013,7 +1017,7 @@ class TestCorporateNetworkRegressionRed(_LocalTest):
     ) -> None:
         from unittest import mock
 
-        from docker.launcher import WorkspaceSelection, RunRequest, orchestrate_run
+        from docker.launcher import RunRequest, WorkspaceSelection, orchestrate_run
         from docker.versioning.dispatch_types import ExitKind
 
         with tempfile.TemporaryDirectory() as root:
@@ -1058,7 +1062,7 @@ class TestCorporateNetworkRegressionRed(_LocalTest):
         # abort before Docker even when host access is disabled.
         from unittest import mock
 
-        from docker.launcher import WorkspaceSelection, RunRequest, orchestrate_run
+        from docker.launcher import RunRequest, WorkspaceSelection, orchestrate_run
         from docker.versioning.dispatch_types import ExitKind
 
         with tempfile.TemporaryDirectory() as root:
@@ -1104,7 +1108,7 @@ class TestCorporateNetworkRegressionRed(_LocalTest):
     ) -> None:
         from unittest import mock
 
-        from docker.launcher import WorkspaceSelection, RunRequest, orchestrate_run
+        from docker.launcher import RunRequest, WorkspaceSelection, orchestrate_run
         from docker.versioning.dispatch_types import ExitKind
 
         policy = (

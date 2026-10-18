@@ -28,10 +28,9 @@ from unittest import mock
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
+from docker.constructor_cli import CommandRequest, _real_dispatcher, _render
 from docker.npm_environment import (
     DISPATCHER_DRAIN_BUDGET_SECONDS,
-    DockerRunExecutor,
-    LockedNpmError,
     READ_CHUNK_BYTES,
     READER_FAILURE_DETAIL_BYTES,
     REDACTED,
@@ -41,6 +40,8 @@ from docker.npm_environment import (
     STREAM_STDOUT,
     TAIL_BYTES,
     TRUNCATION_NOTICE,
+    DockerRunExecutor,
+    LockedNpmError,
     ProcessResult,
     RedactingStream,
     RootSpec,
@@ -60,34 +61,7 @@ from docker.npm_environment import (
     redact_tail,
     redact_text,
 )
-from docker.versioning.npm_diagnostic_stream import (
-    DIAGNOSTIC_LINE_LIMIT_BYTES,
-    NpmDiagnosticStream,
-    OVERSIZED_DIAGNOSTIC_MARKER,
-    classify_npm_diagnostic,
-    make_stream_factory,
-    project_tail,
-)
-from docker.versioning.host_progress import (
-    HostDiagnosticStream,
-    HostPhase,
-    HostStep,
-    HostStructuredDiagnostic,
-)
-from docker.versioning.host_presentation import (
-    HostPresentationMode,
-    HostPresentationState,
-    format_failure_report,
-)
-from docker.versioning.model import NetworkUrlDisplay
-from docker.constructor_cli import CommandRequest, _real_dispatcher, _render
 from docker.npm_environment.execution import _exit_failure
-from docker.versioning.build_orchestration import (
-    BuildResult,
-    _host_failure_context,
-)
-from docker.versioning.constructor_project import ConstructorProject
-from docker.versioning.dispatch_types import ExitKind
 from docker.npm_environment.streaming import (
     CONTROL_SEQUENCE_LIMIT_BYTES,
     INCOMPLETE_CONTROL_SEQUENCE,
@@ -97,6 +71,32 @@ from docker.npm_environment.streaming import (
     TerminalSafeLineFramer,
     _Utf8ByteDecoder,
     _visible_control,
+)
+from docker.versioning.build_orchestration import (
+    BuildResult,
+    _host_failure_context,
+)
+from docker.versioning.constructor_project import ConstructorProject
+from docker.versioning.dispatch_types import ExitKind
+from docker.versioning.host_presentation import (
+    HostPresentationMode,
+    HostPresentationState,
+    format_failure_report,
+)
+from docker.versioning.host_progress import (
+    HostDiagnosticStream,
+    HostPhase,
+    HostStep,
+    HostStructuredDiagnostic,
+)
+from docker.versioning.model import NetworkUrlDisplay
+from docker.versioning.npm_diagnostic_stream import (
+    DIAGNOSTIC_LINE_LIMIT_BYTES,
+    OVERSIZED_DIAGNOSTIC_MARKER,
+    NpmDiagnosticStream,
+    classify_npm_diagnostic,
+    make_stream_factory,
+    project_tail,
 )
 
 _IMAGE = "sha256:" + "a" * 64

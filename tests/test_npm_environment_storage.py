@@ -24,9 +24,9 @@ from unittest import mock
 _THIS_DIR = Path(__file__).resolve().parent
 
 from docker.filesystem.descriptors import (  # noqa: E402
-    DescriptorError,
     _STAGE_CREATE,
     _STAGE_REOPEN,
+    DescriptorError,
 )
 from docker.npm_environment import LockedNpmError  # noqa: E402
 from docker.npm_environment import storage as storage_module  # noqa: E402

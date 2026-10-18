@@ -19,7 +19,6 @@ from docker.versioning.runtime_verification import (
     verify_runtime,
 )
 
-
 _CANONICAL_INVENTORY = (
     Path(__file__).resolve().parents[1] / "docker-constructor.toml"
 ).read_text(encoding="utf-8")

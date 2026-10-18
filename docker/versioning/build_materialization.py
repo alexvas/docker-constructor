@@ -41,8 +41,8 @@ from docker.versioning.host_progress import (
     attach_host_failure,
     emit,
 )
-from docker.versioning.project_state import ProjectState
 from docker.versioning.model import EffectiveBuildProjection
+from docker.versioning.project_state import ProjectState
 
 
 class MaterializationError(RuntimeError):

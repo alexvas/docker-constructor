@@ -246,14 +246,14 @@ class TestDoctorModeAwareRed(unittest.TestCase):
         """Docker-gateway mode must run diagnosis and atomically write
         the successful concrete address to ``[host-access].address``
         in the resolved local companion."""
-        from docker.versioning.build_orchestration import (
-            DoctorRequest,
-            orchestrate_doctor,
-        )
         from docker.networking import (
             DockerMode,
             GatewayDiagnosis,
             ProbeResult,
+        )
+        from docker.versioning.build_orchestration import (
+            DoctorRequest,
+            orchestrate_doctor,
         )
 
         with tempfile.TemporaryDirectory() as root:
@@ -599,6 +599,7 @@ class TestAtomicPersistenceRed(unittest.TestCase):
         rename — following the link would copy the target's content
         and replace the symlink with a regular file."""
         import os
+
         from docker.versioning.build_orchestration import (
             _persist_host_access_address,
         )
@@ -700,14 +701,14 @@ class TestDoctorConsentRed(unittest.TestCase):
         """``repair_consent`` without ``apply_override`` must not
         trigger override application, even when host-access is enabled
         in docker-gateway mode."""
-        from docker.versioning.build_orchestration import (
-            DoctorRequest,
-            orchestrate_doctor,
-        )
         from docker.networking import (
             DockerMode,
             GatewayDiagnosis,
             ProbeResult,
+        )
+        from docker.versioning.build_orchestration import (
+            DoctorRequest,
+            orchestrate_doctor,
         )
 
         with tempfile.TemporaryDirectory() as root:
@@ -756,14 +757,14 @@ class TestDoctorConsentRed(unittest.TestCase):
     def test_apply_override_without_consent_denied(self):
         """``apply_override=True`` without ``repair_consent=True``
         must deny the repair."""
-        from docker.versioning.build_orchestration import (
-            DoctorRequest,
-            orchestrate_doctor,
-        )
         from docker.networking import (
             DockerMode,
             GatewayDiagnosis,
             ProbeResult,
+        )
+        from docker.versioning.build_orchestration import (
+            DoctorRequest,
+            orchestrate_doctor,
         )
 
         with tempfile.TemporaryDirectory() as root:
@@ -812,14 +813,14 @@ class TestDoctorConsentRed(unittest.TestCase):
     def test_enabled_host_access_alone_does_not_imply_consent(self):
         """Enabling docker-gateway host access alone (no
         --apply-rootless-override, no --yes) must not trigger repair."""
-        from docker.versioning.build_orchestration import (
-            DoctorRequest,
-            orchestrate_doctor,
-        )
         from docker.networking import (
             DockerMode,
             GatewayDiagnosis,
             ProbeResult,
+        )
+        from docker.versioning.build_orchestration import (
+            DoctorRequest,
+            orchestrate_doctor,
         )
 
         with tempfile.TemporaryDirectory() as root:

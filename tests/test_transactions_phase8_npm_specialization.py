@@ -17,8 +17,8 @@ from unittest import mock
 from docker.npm_environment import LockedNpmError, publication
 from docker.transactions.errors import TransactionError
 from tests.test_npm_environment_publication import (
-    _PublicationTestCase,
     _no_write_bits,
+    _PublicationTestCase,
 )
 
 

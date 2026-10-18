@@ -29,7 +29,6 @@ from docker._owned_file import owned_file
 from docker.filesystem.descriptors import OwnedDescriptor
 from docker.filesystem.operations import PosixDescriptorOps
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # Mounted artifact lookup (host-side, read-only)
 # ═══════════════════════════════════════════════════════════════════════
@@ -418,6 +417,8 @@ class ProjectionEntry:
         ver = self.version
         from docker.versioning.semver import (
             SemverError,
+        )
+        from docker.versioning.semver import (
             validate as _validate_semver,
         )
 

@@ -2,8 +2,8 @@
 
 import io
 from types import SimpleNamespace
-from urllib.error import HTTPError
 from unittest.mock import Mock
+from urllib.error import HTTPError
 
 import pytest
 
@@ -99,10 +99,10 @@ def test_artifact_consumer_finalizes_retained_iterator(
     monkeypatch, tmp_path, close_error
 ):
     from tests.test_constructor_materialization import (
+        _VALID_INTEGRITY,
         _FakeFilesystem,
         _FakeLockFactory,
         _FakeTempDir,
-        _VALID_INTEGRITY,
     )
 
     closed = []

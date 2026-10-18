@@ -21,11 +21,12 @@ import unittest
 from docker.npm_environment.streaming import (
     REDACTED,
     RETAINED_CAPTURE_ATTR,
+    TAIL_BYTES,
     StreamChunk,
     StreamReaderFailure,
-    TAIL_BYTES,
     collect_streams,
 )
+from docker.versioning.diagnostic_projection import INCOMPLETE_TOKEN_MARKER
 from docker.versioning.host_presentation import (
     LINES_WINDOW_SECONDS,
     OMISSION_COUNTER_LIMIT,
@@ -52,10 +53,9 @@ from docker.versioning.host_progress import (
     InternalDirectHostEventSink,
 )
 from docker.versioning.model import NetworkUrlDisplay
-from docker.versioning.diagnostic_projection import INCOMPLETE_TOKEN_MARKER
 from docker.versioning.npm_diagnostic_stream import (
-    NpmDiagnosticStream,
     OVERSIZED_DIAGNOSTIC_MARKER,
+    NpmDiagnosticStream,
     make_stream_factory,
 )
 from docker.versioning.pi_assembly import (

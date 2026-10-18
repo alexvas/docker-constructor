@@ -29,7 +29,6 @@ from docker.filesystem.operations import DescriptorOps, PosixDescriptorOps
 
 from .providers.base import HttpResponse, HttpTransport
 
-
 # ---------------------------------------------------------------------------
 # Auth-scope derivation
 # ---------------------------------------------------------------------------

@@ -5,7 +5,6 @@ from __future__ import annotations
 from .errors import InventoryError
 from .model import LocalOutputPolicy, NetworkUrlDisplay
 
-
 _VALID_HEARTBEAT_MODES = frozenset({"interactive", "lines", "off"})
 _VALID_NETWORK_URL_DISPLAYS = frozenset(value.value for value in NetworkUrlDisplay)
 

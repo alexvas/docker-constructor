@@ -14,14 +14,16 @@ from unittest.mock import patch
 
 from docker.launcher import (
     ProcessResult,
-    WorkspaceSelection,
     RunRequest,
+    WorkspaceSelection,
     orchestrate_run,
 )
 from docker.versioning.build_orchestration import (
     BuildRequest,
-    ProcessResult as BuildProcessResult,
     orchestrate_build,
+)
+from docker.versioning.build_orchestration import (
+    ProcessResult as BuildProcessResult,
 )
 from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.project_state import resolve_project_state
@@ -202,8 +204,8 @@ class ExternalProjectStatePhase3Tests(unittest.TestCase):
     def test_run_projection_is_verified_by_facade_default_lookup_and_alias(self):
         """P3.R2: launch output is the facade's default verification input."""
         from docker.constructor_cli import main
-        from docker.versioning.effective import Filesystem, create_runtime_projection
         from docker.versioning import runtime_verification
+        from docker.versioning.effective import Filesystem, create_runtime_projection
 
         alias = self.project.parent / "constructor-project-alias"
         alias.symlink_to(self.project, target_is_directory=True)
@@ -287,8 +289,8 @@ class ExternalProjectStatePhase3Tests(unittest.TestCase):
             for root in (self.installation, self.project, self.primary, self.extra)
         }
         build_identities, run_identities = [], []
-        from docker.versioning import build_orchestration, project_state
         import docker.launcher as launcher
+        from docker.versioning import build_orchestration, project_state
 
         real_build_resolve = build_orchestration.resolve_project_state
         real_run_resolve = launcher.resolve_project_state
@@ -457,12 +459,12 @@ exit 0
     def test_explicit_runtime_projection_is_parsed_without_default_lookup(self):
         """P3.R7: caller path is parsed by real verification, not redirected."""
         from docker.constructor_cli import main
+        from docker.versioning import runtime_verification
         from docker.versioning.effective import (
             EffectiveRuntimeProjection,
             Filesystem,
             create_runtime_projection,
         )
-        from docker.versioning import runtime_verification
 
         state = resolve_project_state(self.project, cache_root=self.cache)
         before_project, before_namespace = (

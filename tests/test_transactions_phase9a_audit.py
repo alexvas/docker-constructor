@@ -17,9 +17,9 @@ from typing import cast
 from docker.filesystem.descriptors import OwnedDescriptor
 from docker.filesystem.operations import DescriptorOps
 from docker.transactions.capabilities import DirectoryCapability
+from docker.transactions.errors import STAGE_CLOSE, LockError
 from docker.transactions.locking import _release_descriptor
 from docker.transactions.regular import RegularFileContracts, _Publication
-from docker.transactions.errors import STAGE_CLOSE, LockError
 from tests.transactions_test_support import InjectedOps
 
 

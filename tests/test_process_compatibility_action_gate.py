@@ -9,7 +9,7 @@ from unittest import mock
 
 import pytest
 
-from tests.test_process_lifecycle import Child, workers, secondary
+from tests.test_process_lifecycle import Child, secondary, workers
 from tests.test_process_stop_policy import Action, api, launch
 
 

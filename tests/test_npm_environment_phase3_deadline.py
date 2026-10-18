@@ -28,17 +28,16 @@ _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
 import docker.npm_environment.execution as execution_module
-from docker.process import OwnedProcess
 from docker.npm_environment import (
+    REDACTED,
+    STREAM_STDOUT,
+    TRUNCATION_NOTICE,
     AssemblyTimeoutError,
     DockerRunExecutor,
     LockedNpmError,
     ProcessResult,
-    REDACTED,
     RootSpec,
-    STREAM_STDOUT,
     StreamReaderFailure,
-    TRUNCATION_NOTICE,
     assemble,
     assemble_environment,
     assembler_script_digest,
@@ -50,8 +49,9 @@ from docker.npm_environment import (
     publication,
     publish_environment,
 )
-from docker.versioning.npm_diagnostic_stream import make_stream_factory, project_tail
+from docker.process import OwnedProcess
 from docker.versioning.diagnostic_projection import INCOMPLETE_TOKEN_MARKER
+from docker.versioning.npm_diagnostic_stream import make_stream_factory, project_tail
 
 _IMAGE = "sha256:" + "a" * 64
 _NODE = "24.18.0"

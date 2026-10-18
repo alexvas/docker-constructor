@@ -9,9 +9,9 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
-import time
 from unittest import mock
 
 from docker.versioning.build_cache import (

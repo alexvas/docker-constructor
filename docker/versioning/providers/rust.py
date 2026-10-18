@@ -9,7 +9,6 @@ from __future__ import annotations
 import re
 import tomllib
 
-from .base import ProviderContext, ProviderResult, UpdateProvider
 from ..constraints import parse_numeric_version
 from ..model import (
     RustChannelSource,
@@ -18,6 +17,7 @@ from ..model import (
     UpdateKind,
     UpdateTarget,
 )
+from .base import ProviderContext, ProviderResult, UpdateProvider
 
 _RUST_VERSION_RE = re.compile(
     r"^((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))(?:\s+\([^)]*\))?$"

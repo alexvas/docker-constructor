@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from docker.versioning import build_snapshot as build_snapshot_module
 from docker.versioning.build_materialization import (
     SelectedBuildArtifact,
     materialize_artifact,
@@ -18,7 +19,6 @@ from docker.versioning.build_snapshot import (
     cleanup_artifact_snapshot,
     create_artifact_snapshot,
 )
-from docker.versioning import build_snapshot as build_snapshot_module
 from docker.versioning.digest_identity import DigestIdentity
 from tests.privilege_helpers import docker_dev_ids, sudo_chown, sudo_maintain_tree
 

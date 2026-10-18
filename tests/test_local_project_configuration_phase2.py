@@ -11,24 +11,24 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from docker.versioning.configuration_document_validation import (
-    ConfigurationDocumentError,
-    DocumentErrorClassification,
-    DocumentRole,
-)
 from docker.versioning import (
     build_output,
     cache_storage,
     corporate_network,
     host_access,
+    inventory,
 )
-from docker.versioning import inventory
 from docker.versioning import local_project_configuration as local_aggregate
+from docker.versioning.configuration_document_validation import (
+    ConfigurationDocumentError,
+    DocumentErrorClassification,
+    DocumentRole,
+)
 from docker.versioning.errors import InventoryError
 from docker.versioning.local_project_configuration import (
+    _LOCAL_DOMAIN_TABLES,
     LOCAL_COMPANION_BASENAME,
     LOCAL_TABLE_NAMES,
-    _LOCAL_DOMAIN_TABLES,
     load_local_project_configuration,
     load_optional_local_project_configuration,
     resolve_local_companion_path,

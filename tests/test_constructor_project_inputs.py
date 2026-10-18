@@ -101,6 +101,7 @@ class TestFixedProjectInputs(unittest.TestCase):
 
     def test_real_build_vector_uses_selected_context_and_dockerfile(self) -> None:
         from dataclasses import replace
+
         from docker.versioning.build_orchestration import BuildRequest, plan_build
         from docker.versioning.rendering import (
             Materialized,
@@ -209,6 +210,7 @@ class TestFixedProjectInputs(unittest.TestCase):
 
     def test_build_trust_uses_only_selected_project_bundle(self) -> None:
         from dataclasses import replace
+
         from docker.versioning.build_orchestration import BuildRequest, plan_build
         from docker.versioning.rendering import (
             Materialized,
@@ -259,7 +261,7 @@ class TestFixedProjectInputs(unittest.TestCase):
             )
 
     def test_run_trust_mount_uses_only_selected_project_bundle(self) -> None:
-        from docker.launcher import WorkspaceSelection, RunRequest, orchestrate_run
+        from docker.launcher import RunRequest, WorkspaceSelection, orchestrate_run
         from tests.test_constructor_corporate_network_run_red import (
             _bomb_artifact,
             _bomb_executor,

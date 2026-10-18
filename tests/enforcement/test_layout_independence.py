@@ -281,9 +281,10 @@ def test_npm_diagnostic_mutation_survives_exploded_call() -> None:
     assert _NOTE_OLD not in variant
 
     mutated = replace_snippet(variant, _NOTE_OLD, _NOTE_NEW)
+    import ast
+
     from tests.enforcement.test_npm_environment_process_contract import (
         diagnostic_proof,
     )
-    import ast
 
     assert diagnostic_proof(ast.parse(mutated))

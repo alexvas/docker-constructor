@@ -9,18 +9,10 @@ import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
-from unittest.mock import patch
 from pathlib import Path
-
-from tests.build_test_support import (
-    INVENTORY_PATH,
-    fake_pi_materialization,
-    fixture_directory,
-    no_network_transport_factory,
-)
+from unittest.mock import patch
 
 from docker.networking import BuildOutputPolicy, ProcessResult
-from docker.versioning.build_snapshot import MaterializedSnapshot
 from docker.versioning.build_orchestration import (
     BuildRequest,
     BuildResult,
@@ -28,9 +20,16 @@ from docker.versioning.build_orchestration import (
     SubprocessBuildExecutor,
     orchestrate_build,
 )
+from docker.versioning.build_snapshot import MaterializedSnapshot
 from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.host_progress import HostPhase, HostPhaseEvent, HostPhaseState
 from docker.versioning.pi_assembly import PiAssemblyError
+from tests.build_test_support import (
+    INVENTORY_PATH,
+    fake_pi_materialization,
+    fixture_directory,
+    no_network_transport_factory,
+)
 
 
 class RecordingExecutor:

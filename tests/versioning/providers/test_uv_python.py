@@ -6,14 +6,14 @@ import json
 import unittest
 
 from docker.versioning.model import (
+    UpdateTarget,
     UvPythonSource,
     UvPythonUpdate,
-    UpdateTarget,
 )
 from docker.versioning.providers.base import ProviderContext
 from docker.versioning.providers.uv_python import UvPythonProvider
-from tests.versioning.support.fake_http import FakeHttpTransport
 from tests.versioning.support.fake_git import FakeGitTransport
+from tests.versioning.support.fake_http import FakeHttpTransport
 
 _RELEASES_URL = (
     "https://api.github.com/repos/astral-sh/python-build-standalone/"

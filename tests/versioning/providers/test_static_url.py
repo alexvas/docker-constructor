@@ -15,9 +15,8 @@ from docker.versioning.model import (
 )
 from docker.versioning.providers.base import ProviderContext
 from docker.versioning.providers.static_url import StaticUrlProvider
-from tests.versioning.support.fake_http import FakeHttpTransport
 from tests.versioning.support.fake_git import FakeGitTransport
-
+from tests.versioning.support.fake_http import FakeHttpTransport
 
 _ARTIFACT_URL = (
     "https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init"
@@ -388,6 +387,7 @@ class TestStaticUrlMultiArtifactRejection(unittest.TestCase):
             f.write(_MULTI_ARTIFACT_TOML)
             f.flush()
             from pathlib import Path
+
             from docker.versioning.inventory import load_inventory
 
             try:

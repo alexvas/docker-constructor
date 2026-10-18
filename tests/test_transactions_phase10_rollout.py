@@ -6,7 +6,6 @@ import ast
 import unittest
 from pathlib import Path
 
-
 _ROOT = Path(__file__).parents[1]
 _CUTOVER = _ROOT / "docs" / "development-build-cache-cutover.md"
 _EXPECTED_COMMAND = "python - <<'PY'"

@@ -1,10 +1,251 @@
 {
-  "adapter_signatures": {
-    "DockerRunExecutor.run": "(self, argv: 'tuple[str, ...]') -> 'ProcessResult'",
-    "DockerRunExecutor.run_streaming": "(self, argv: 'tuple[str, ...]', *, secrets: 'Sequence[str]' = (), sink: 'DiagnosticSink | None' = None, deadline_seconds: 'float | None' = None, container_name: 'str | None' = None, grace_seconds: 'float' = 5.0, cleanup_outcome: '_StreamingCleanupOutcome | None' = None, stream_factory=None, tail_projector=None, network_url_display: 'NetworkUrlDisplay | None' = None, on_launched: 'Callable[[], None] | None' = None) -> 'ProcessResult'",
-    "collect_streams": "(*, stdout_read: 'Callable[[int], bytes]', stderr_read: 'Callable[[int], bytes]', secrets: 'Sequence[str]' = (), sink: 'DiagnosticSink | None' = None, on_reader_failure: 'Callable[[str], None] | None' = None, on_interruption: 'Callable[[], None] | None' = None, stream_factory: 'Callable[[str], DiagnosticStream] | None' = None, tail_projector: 'Callable[..., str] | None' = None, abort_event: 'threading.Event | None' = None, network_url_display: 'NetworkUrlDisplay | None' = None) -> 'StreamingCapture'",
-    "run_captured": "(argv: 'Sequence[str]', *, policy: 'LifecyclePolicy') -> 'tuple[OwnedProcess | None, LifecycleOutcome]'"
-  },
+  "errors": [],
+  "ledger": [
+    {
+      "path": "docker/launcher.py",
+      "scope": "ProcessRunner.run",
+      "kind": "stdlib-run",
+      "owner": "subprocess.run context; no escaping pipe authority"
+    },
+    {
+      "path": "docker/launcher.py",
+      "scope": "ProcessRunner.run",
+      "kind": "stdlib-run",
+      "owner": "subprocess.run context; no escaping pipe authority"
+    },
+    {
+      "path": "docker/networking.py",
+      "scope": "ProcessRunner.run",
+      "kind": "stdlib-run",
+      "owner": "subprocess.run context; no escaping pipe authority"
+    },
+    {
+      "path": "docker/npm_environment/execution.py",
+      "scope": "_is_rootless_docker",
+      "kind": "stdlib-run",
+      "owner": "subprocess.run context; no escaping pipe authority"
+    },
+    {
+      "path": "docker/npm_environment/execution.py",
+      "scope": "DockerRunExecutor.run",
+      "kind": "stdlib-run",
+      "owner": "subprocess.run context; no escaping pipe authority"
+    },
+    {
+      "path": "docker/npm_environment/execution.py",
+      "scope": "_ContainerRemovalAction._work",
+      "kind": "managed-helper",
+      "owner": "_CapturedOperation.owner / default local OwnedProcess"
+    },
+    {
+      "path": "docker/npm_environment/execution.py",
+      "scope": "DockerRunExecutor.run_streaming",
+      "kind": "owned-launch",
+      "owner": "OwnedProcess",
+      "collection": "single capture or stream"
+    },
+    {
+      "path": "docker/npm_environment/execution.py",
+      "scope": "_cleanup_container",
+      "kind": "stdlib-run",
+      "owner": "subprocess.run context; no escaping pipe authority"
+    },
+    {
+      "path": "docker/npm_environment/lifecycle.py",
+      "scope": "_run_captured",
+      "kind": "owned-launch",
+      "owner": "OwnedProcess",
+      "collection": "single capture or stream"
+    },
+    {
+      "path": "docker/process.py",
+      "scope": "OwnedProcess.launch",
+      "kind": "prepared-stream",
+      "owner": "one internal OwnedStream per pipe"
+    },
+    {
+      "path": "docker/process.py",
+      "scope": "OwnedProcess.launch",
+      "kind": "prepared-stream",
+      "owner": "one internal OwnedStream per pipe"
+    },
+    {
+      "path": "docker/process.py",
+      "scope": "OwnedProcess.launch",
+      "kind": "prepared-child",
+      "pipes": {
+        "stdout": [
+          "subprocess.PIPE"
+        ],
+        "stderr": [
+          "subprocess.PIPE"
+        ]
+      },
+      "owner": "OwnedProcess / prepared stdout+stderr slots"
+    },
+    {
+      "path": "docker/runtime_installer.py",
+      "scope": "InstallContext.real_mount_check._RealMountCheck.is_mount",
+      "kind": "stdlib-run",
+      "owner": "subprocess.run context; no escaping pipe authority"
+    },
+    {
+      "path": "docker/versioning/build_orchestration.py",
+      "scope": "_default_named_context_supported",
+      "kind": "stdlib-run",
+      "owner": "subprocess.run context; no escaping pipe authority"
+    },
+    {
+      "path": "docker/versioning/build_orchestration.py",
+      "scope": "SubprocessBuildExecutor.run",
+      "kind": "stdlib-run",
+      "owner": "subprocess.run context; no escaping pipe authority"
+    },
+    {
+      "path": "docker/versioning/build_orchestration.py",
+      "scope": "SubprocessBuildExecutor.run",
+      "kind": "stdlib-run",
+      "owner": "subprocess.run context; no escaping pipe authority"
+    },
+    {
+      "path": "docker/versioning/evidence.py",
+      "scope": "write_static_evidence",
+      "kind": "stdlib-run",
+      "owner": "subprocess.run context; no escaping pipe authority"
+    },
+    {
+      "path": "docker/versioning/evidence.py",
+      "scope": "collect_evidence",
+      "kind": "stdlib-run",
+      "owner": "subprocess.run context; no escaping pipe authority"
+    },
+    {
+      "path": "docker/versioning/transports.py",
+      "scope": "build_transports._ProductionGit.resolve_ref",
+      "kind": "stdlib-run",
+      "owner": "subprocess.run context; no escaping pipe authority"
+    },
+    {
+      "path": "docker/filesystem/streams.py",
+      "scope": "OwnedStream.close",
+      "kind": "terminal-release",
+      "owner": "synchronized terminal claim; winning outside-lock release"
+    },
+    {
+      "path": "docker/process.py",
+      "scope": "OwnedProcess._continue_cleanup",
+      "kind": "retained-continuation",
+      "owner": "same prepared local/action owners; reader barriers and winning outcomes"
+    }
+  ],
+  "files_scanned": [
+    "docker/_owned_file.py",
+    "docker/constructor_cli.py",
+    "docker/docker-constructor.py",
+    "docker/filesystem/__init__.py",
+    "docker/filesystem/cleanup.py",
+    "docker/filesystem/descriptors.py",
+    "docker/filesystem/operations.py",
+    "docker/filesystem/streams.py",
+    "docker/launcher.py",
+    "docker/networking.py",
+    "docker/npm_environment/__init__.py",
+    "docker/npm_environment/assembler.py",
+    "docker/npm_environment/errors.py",
+    "docker/npm_environment/evidence.py",
+    "docker/npm_environment/execution.py",
+    "docker/npm_environment/identity.py",
+    "docker/npm_environment/image_ref.py",
+    "docker/npm_environment/lifecycle.py",
+    "docker/npm_environment/lockfile.py",
+    "docker/npm_environment/model.py",
+    "docker/npm_environment/network.py",
+    "docker/npm_environment/observability.py",
+    "docker/npm_environment/preflight.py",
+    "docker/npm_environment/publication.py",
+    "docker/npm_environment/run_vector.py",
+    "docker/npm_environment/semver_range.py",
+    "docker/npm_environment/smoke.py",
+    "docker/npm_environment/storage.py",
+    "docker/npm_environment/streaming.py",
+    "docker/npm_environment/tree.py",
+    "docker/npm_environment/validation.py",
+    "docker/process.py",
+    "docker/runtime_installer.py",
+    "docker/transactions/__init__.py",
+    "docker/transactions/capabilities.py",
+    "docker/transactions/cleanup.py",
+    "docker/transactions/codec.py",
+    "docker/transactions/errors.py",
+    "docker/transactions/locking.py",
+    "docker/transactions/posix.py",
+    "docker/transactions/regular.py",
+    "docker/tui.py",
+    "docker/versioning/__init__.py",
+    "docker/versioning/activity_monitor.py",
+    "docker/versioning/aho_corasick.py",
+    "docker/versioning/artifact_cache.py",
+    "docker/versioning/assembly_activity.py",
+    "docker/versioning/build_cache.py",
+    "docker/versioning/build_cleanup.py",
+    "docker/versioning/build_context_confinement.py",
+    "docker/versioning/build_generations.py",
+    "docker/versioning/build_materialization.py",
+    "docker/versioning/build_orchestration.py",
+    "docker/versioning/build_output.py",
+    "docker/versioning/build_snapshot.py",
+    "docker/versioning/cache.py",
+    "docker/versioning/cache_storage.py",
+    "docker/versioning/configuration_document_validation.py",
+    "docker/versioning/constraints.py",
+    "docker/versioning/constructor_project.py",
+    "docker/versioning/corporate_network.py",
+    "docker/versioning/diagnostic_coordinator.py",
+    "docker/versioning/diagnostic_identity.py",
+    "docker/versioning/diagnostic_projection.py",
+    "docker/versioning/diagnostic_recognition.py",
+    "docker/versioning/diagnostic_recognizer.py",
+    "docker/versioning/digest_identity.py",
+    "docker/versioning/dispatch_types.py",
+    "docker/versioning/effective.py",
+    "docker/versioning/errors.py",
+    "docker/versioning/evidence.py",
+    "docker/versioning/fetch_identity.py",
+    "docker/versioning/host_access.py",
+    "docker/versioning/host_presentation.py",
+    "docker/versioning/host_progress.py",
+    "docker/versioning/immutable.py",
+    "docker/versioning/integrity.py",
+    "docker/versioning/inventory.py",
+    "docker/versioning/local_project_configuration.py",
+    "docker/versioning/logical_resource.py",
+    "docker/versioning/model.py",
+    "docker/versioning/npm_diagnostic_stream.py",
+    "docker/versioning/npm_fetch.py",
+    "docker/versioning/npm_tarball.py",
+    "docker/versioning/pi_assembly.py",
+    "docker/versioning/pi_consumer.py",
+    "docker/versioning/pi_release.py",
+    "docker/versioning/project_state.py",
+    "docker/versioning/providers/__init__.py",
+    "docker/versioning/providers/base.py",
+    "docker/versioning/providers/docker_registry.py",
+    "docker/versioning/providers/git.py",
+    "docker/versioning/providers/github.py",
+    "docker/versioning/providers/npm.py",
+    "docker/versioning/providers/pypi.py",
+    "docker/versioning/providers/rust.py",
+    "docker/versioning/providers/static_url.py",
+    "docker/versioning/providers/uv_python.py",
+    "docker/versioning/readonly_service.py",
+    "docker/versioning/rendering.py",
+    "docker/versioning/runtime_verification.py",
+    "docker/versioning/semver.py",
+    "docker/versioning/transports.py",
+    "docker/versioning/updates.py",
+    "docker/versioning/verification.py",
+    "docker/versions.py"
+  ],
   "dependency_edges": [
     [
       "docker._owned_file",
@@ -1743,6 +1984,137 @@
       "docker._owned_file"
     ]
   ],
+  "process_surface": {
+    "OwnedProcess": {
+      "signature": "() -> 'None'"
+    },
+    "ProcessResult": {
+      "signature": "(stdout: 'bytes', stderr: 'bytes', returncode: 'int | None', timed_out: 'bool', lifecycle: 'LifecycleResult', stream_outcomes: 'tuple[tuple[ProcessStream, StreamOutcome], ...]' = ()) -> None",
+      "fields": [
+        "stdout",
+        "stderr",
+        "returncode",
+        "timed_out",
+        "lifecycle",
+        "stream_outcomes"
+      ]
+    },
+    "ProcessStream": {
+      "signature": "(*values)"
+    },
+    "StreamOutcome": {
+      "signature": "(*values)"
+    },
+    "LifecycleResult": {
+      "signature": "(complete: 'bool', failures: 'tuple[FailureInfo, ...]' = ()) -> None",
+      "fields": [
+        "complete",
+        "failures"
+      ]
+    },
+    "CleanupIncomplete": {
+      "signature": "(cleanup: 'OwnedProcess') -> 'None'"
+    },
+    "FailureInfo": {
+      "signature": "(error: 'BaseException', kind: 'FailureKind', phase: 'FailurePhase', stream: 'ProcessStream | None' = None) -> None",
+      "fields": [
+        "error",
+        "kind",
+        "phase",
+        "stream"
+      ]
+    },
+    "FailureKind": {
+      "signature": "(*values)"
+    },
+    "FailurePhase": {
+      "signature": "(*values)"
+    },
+    "StopPolicy": {
+      "signature": "(stages: 'tuple[StopStage, ...]', local_cleanup_seconds: 'float', drain: 'bool' = False) -> None",
+      "fields": [
+        "stages",
+        "local_cleanup_seconds",
+        "drain"
+      ]
+    },
+    "StopStage": {
+      "signature": "(seconds: 'float', action: 'ManagedAction | None' = None, wait_child: 'bool' = False, run_on_normal: 'bool' = False, local_stop_before: 'bool' = False) -> None",
+      "fields": [
+        "seconds",
+        "action",
+        "wait_child",
+        "run_on_normal",
+        "local_stop_before"
+      ]
+    },
+    "StopContext": {
+      "signature": "(reason: 'str', returncode: 'int | None', deadline: 'float') -> None",
+      "fields": [
+        "reason",
+        "returncode",
+        "deadline"
+      ]
+    },
+    "ManagedAction": {
+      "signature": "(*args, **kwargs)"
+    },
+    "ActionResult": {
+      "signature": "(done: 'bool', cleanup_complete: 'bool', failures: 'tuple[FailureInfo, ...]' = ()) -> None",
+      "fields": [
+        "done",
+        "cleanup_complete",
+        "failures"
+      ]
+    },
+    "OwnedProcess.launch": {
+      "signature": "(argv: 'Any', *, grace_seconds: 'float' = 1.0, deadline_seconds: 'float | None' = None, capture_limit: 'int' = 65536, factory: 'Callable[..., Any]' = <class 'subprocess.Popen'>, popen_kwargs: 'dict[str, Any] | None' = None, on_launched: 'Callable[[], None] | None' = None, stop_policy: 'StopPolicy | None' = None, reporter: 'Callable[..., None] | None' = None) -> 'Self'"
+    },
+    "OwnedProcess.capture": {
+      "signature": "(self) -> 'ProcessResult'"
+    },
+    "OwnedProcess.stream": {
+      "signature": "(self, callback: 'Callable[[ProcessStream, bytes], Any]', *, on_stream_end: 'Callable[[ProcessStream, StreamOutcome], Any] | None' = None) -> 'ProcessResult'"
+    },
+    "OwnedProcess.shutdown": {
+      "signature": "(self, *, primary: 'BaseException | None' = None) -> 'LifecycleResult'"
+    },
+    "OwnedProcess.wait_cleanup": {
+      "signature": "(self, timeout: 'float') -> 'LifecycleResult'"
+    },
+    "OwnedProcess.__enter__": {
+      "signature": "(self) -> 'Self'"
+    },
+    "OwnedProcess.__exit__": {
+      "signature": "(self, exc_type: 'Any', exc: 'BaseException | None', tb: 'Any') -> 'None'"
+    },
+    "OwnedProcess.cleanup_status": {
+      "property": true,
+      "signature": "(self) -> 'LifecycleResult'"
+    },
+    "OwnedProcess.returncode": {
+      "property": true,
+      "signature": "(self) -> 'int | None'"
+    },
+    "ManagedAction.prepare": {
+      "signature": "(self) -> 'None'"
+    },
+    "ManagedAction.start": {
+      "signature": "(self, context: 'StopContext') -> 'None'"
+    },
+    "ManagedAction.observe": {
+      "signature": "(self) -> 'ActionResult'"
+    },
+    "ManagedAction.cancel": {
+      "signature": "(self, deadline: 'float') -> 'None'"
+    }
+  },
+  "adapter_signatures": {
+    "run_captured": "(argv: 'Sequence[str]', *, policy: 'LifecyclePolicy') -> 'tuple[OwnedProcess | None, LifecycleOutcome]'",
+    "DockerRunExecutor.run": "(self, argv: 'tuple[str, ...]') -> 'ProcessResult'",
+    "DockerRunExecutor.run_streaming": "(self, argv: 'tuple[str, ...]', *, secrets: 'Sequence[str]' = (), sink: 'DiagnosticSink | None' = None, deadline_seconds: 'float | None' = None, container_name: 'str | None' = None, grace_seconds: 'float' = 5.0, cleanup_outcome: '_StreamingCleanupOutcome | None' = None, stream_factory=None, tail_projector=None, network_url_display: 'NetworkUrlDisplay | None' = None, on_launched: 'Callable[[], None] | None' = None) -> 'ProcessResult'",
+    "collect_streams": "(*, stdout_read: 'Callable[[int], bytes]', stderr_read: 'Callable[[int], bytes]', secrets: 'Sequence[str]' = (), sink: 'DiagnosticSink | None' = None, on_reader_failure: 'Callable[[str], None] | None' = None, on_interruption: 'Callable[[], None] | None' = None, stream_factory: 'Callable[[str], DiagnosticStream] | None' = None, tail_projector: 'Callable[..., str] | None' = None, abort_event: 'threading.Event | None' = None, network_url_display: 'NetworkUrlDisplay | None' = None) -> 'StreamingCapture'"
+  },
   "domain_fields": {
     "LifecycleOutcome": [
       "return_code",
@@ -1758,484 +2130,112 @@
       "truncation_notice"
     ]
   },
-  "errors": [],
-  "files_scanned": [
-    "docker/_owned_file.py",
-    "docker/constructor_cli.py",
-    "docker/docker-constructor.py",
-    "docker/filesystem/__init__.py",
-    "docker/filesystem/cleanup.py",
-    "docker/filesystem/descriptors.py",
-    "docker/filesystem/operations.py",
-    "docker/filesystem/streams.py",
-    "docker/launcher.py",
-    "docker/networking.py",
-    "docker/npm_environment/__init__.py",
-    "docker/npm_environment/assembler.py",
-    "docker/npm_environment/errors.py",
-    "docker/npm_environment/evidence.py",
-    "docker/npm_environment/execution.py",
-    "docker/npm_environment/identity.py",
-    "docker/npm_environment/image_ref.py",
-    "docker/npm_environment/lifecycle.py",
-    "docker/npm_environment/lockfile.py",
-    "docker/npm_environment/model.py",
-    "docker/npm_environment/network.py",
-    "docker/npm_environment/observability.py",
-    "docker/npm_environment/preflight.py",
-    "docker/npm_environment/publication.py",
-    "docker/npm_environment/run_vector.py",
-    "docker/npm_environment/semver_range.py",
-    "docker/npm_environment/smoke.py",
-    "docker/npm_environment/storage.py",
-    "docker/npm_environment/streaming.py",
-    "docker/npm_environment/tree.py",
-    "docker/npm_environment/validation.py",
-    "docker/process.py",
-    "docker/runtime_installer.py",
-    "docker/transactions/__init__.py",
-    "docker/transactions/capabilities.py",
-    "docker/transactions/cleanup.py",
-    "docker/transactions/codec.py",
-    "docker/transactions/errors.py",
-    "docker/transactions/locking.py",
-    "docker/transactions/posix.py",
-    "docker/transactions/regular.py",
-    "docker/tui.py",
-    "docker/versioning/__init__.py",
-    "docker/versioning/activity_monitor.py",
-    "docker/versioning/aho_corasick.py",
-    "docker/versioning/artifact_cache.py",
-    "docker/versioning/assembly_activity.py",
-    "docker/versioning/build_cache.py",
-    "docker/versioning/build_cleanup.py",
-    "docker/versioning/build_context_confinement.py",
-    "docker/versioning/build_generations.py",
-    "docker/versioning/build_materialization.py",
-    "docker/versioning/build_orchestration.py",
-    "docker/versioning/build_output.py",
-    "docker/versioning/build_snapshot.py",
-    "docker/versioning/cache.py",
-    "docker/versioning/cache_storage.py",
-    "docker/versioning/configuration_document_validation.py",
-    "docker/versioning/constraints.py",
-    "docker/versioning/constructor_project.py",
-    "docker/versioning/corporate_network.py",
-    "docker/versioning/diagnostic_coordinator.py",
-    "docker/versioning/diagnostic_identity.py",
-    "docker/versioning/diagnostic_projection.py",
-    "docker/versioning/diagnostic_recognition.py",
-    "docker/versioning/diagnostic_recognizer.py",
-    "docker/versioning/digest_identity.py",
-    "docker/versioning/dispatch_types.py",
-    "docker/versioning/effective.py",
-    "docker/versioning/errors.py",
-    "docker/versioning/evidence.py",
-    "docker/versioning/fetch_identity.py",
-    "docker/versioning/host_access.py",
-    "docker/versioning/host_presentation.py",
-    "docker/versioning/host_progress.py",
-    "docker/versioning/immutable.py",
-    "docker/versioning/integrity.py",
-    "docker/versioning/inventory.py",
-    "docker/versioning/local_project_configuration.py",
-    "docker/versioning/logical_resource.py",
-    "docker/versioning/model.py",
-    "docker/versioning/npm_diagnostic_stream.py",
-    "docker/versioning/npm_fetch.py",
-    "docker/versioning/npm_tarball.py",
-    "docker/versioning/pi_assembly.py",
-    "docker/versioning/pi_consumer.py",
-    "docker/versioning/pi_release.py",
-    "docker/versioning/project_state.py",
-    "docker/versioning/providers/__init__.py",
-    "docker/versioning/providers/base.py",
-    "docker/versioning/providers/docker_registry.py",
-    "docker/versioning/providers/git.py",
-    "docker/versioning/providers/github.py",
-    "docker/versioning/providers/npm.py",
-    "docker/versioning/providers/pypi.py",
-    "docker/versioning/providers/rust.py",
-    "docker/versioning/providers/static_url.py",
-    "docker/versioning/providers/uv_python.py",
-    "docker/versioning/readonly_service.py",
-    "docker/versioning/rendering.py",
-    "docker/versioning/runtime_verification.py",
-    "docker/versioning/semver.py",
-    "docker/versioning/transports.py",
-    "docker/versioning/updates.py",
-    "docker/versioning/verification.py",
-    "docker/versions.py"
-  ],
-  "ledger": [
-    {
-      "kind": "stdlib-run",
-      "owner": "subprocess.run context; no escaping pipe authority",
-      "path": "docker/launcher.py",
-      "scope": "ProcessRunner.run"
-    },
-    {
-      "kind": "stdlib-run",
-      "owner": "subprocess.run context; no escaping pipe authority",
-      "path": "docker/launcher.py",
-      "scope": "ProcessRunner.run"
-    },
-    {
-      "kind": "stdlib-run",
-      "owner": "subprocess.run context; no escaping pipe authority",
-      "path": "docker/networking.py",
-      "scope": "ProcessRunner.run"
-    },
-    {
-      "kind": "stdlib-run",
-      "owner": "subprocess.run context; no escaping pipe authority",
-      "path": "docker/npm_environment/execution.py",
-      "scope": "_is_rootless_docker"
-    },
-    {
-      "kind": "stdlib-run",
-      "owner": "subprocess.run context; no escaping pipe authority",
-      "path": "docker/npm_environment/execution.py",
-      "scope": "DockerRunExecutor.run"
-    },
-    {
-      "kind": "managed-helper",
-      "owner": "_CapturedOperation.owner / default local OwnedProcess",
-      "path": "docker/npm_environment/execution.py",
-      "scope": "_ContainerRemovalAction._work"
-    },
-    {
-      "collection": "single capture or stream",
-      "kind": "owned-launch",
-      "owner": "OwnedProcess",
-      "path": "docker/npm_environment/execution.py",
-      "scope": "DockerRunExecutor.run_streaming"
-    },
-    {
-      "kind": "stdlib-run",
-      "owner": "subprocess.run context; no escaping pipe authority",
-      "path": "docker/npm_environment/execution.py",
-      "scope": "_cleanup_container"
-    },
-    {
-      "collection": "single capture or stream",
-      "kind": "owned-launch",
-      "owner": "OwnedProcess",
-      "path": "docker/npm_environment/lifecycle.py",
-      "scope": "_run_captured"
-    },
-    {
-      "kind": "prepared-stream",
-      "owner": "one internal OwnedStream per pipe",
-      "path": "docker/process.py",
-      "scope": "OwnedProcess.launch"
-    },
-    {
-      "kind": "prepared-stream",
-      "owner": "one internal OwnedStream per pipe",
-      "path": "docker/process.py",
-      "scope": "OwnedProcess.launch"
-    },
-    {
-      "kind": "prepared-child",
-      "owner": "OwnedProcess / prepared stdout+stderr slots",
-      "path": "docker/process.py",
-      "pipes": {
-        "stderr": [
-          "subprocess.PIPE"
-        ],
-        "stdout": [
-          "subprocess.PIPE"
-        ]
-      },
-      "scope": "OwnedProcess.launch"
-    },
-    {
-      "kind": "stdlib-run",
-      "owner": "subprocess.run context; no escaping pipe authority",
-      "path": "docker/runtime_installer.py",
-      "scope": "InstallContext.real_mount_check._RealMountCheck.is_mount"
-    },
-    {
-      "kind": "stdlib-run",
-      "owner": "subprocess.run context; no escaping pipe authority",
-      "path": "docker/versioning/build_orchestration.py",
-      "scope": "_default_named_context_supported"
-    },
-    {
-      "kind": "stdlib-run",
-      "owner": "subprocess.run context; no escaping pipe authority",
-      "path": "docker/versioning/build_orchestration.py",
-      "scope": "SubprocessBuildExecutor.run"
-    },
-    {
-      "kind": "stdlib-run",
-      "owner": "subprocess.run context; no escaping pipe authority",
-      "path": "docker/versioning/build_orchestration.py",
-      "scope": "SubprocessBuildExecutor.run"
-    },
-    {
-      "kind": "stdlib-run",
-      "owner": "subprocess.run context; no escaping pipe authority",
-      "path": "docker/versioning/evidence.py",
-      "scope": "write_static_evidence"
-    },
-    {
-      "kind": "stdlib-run",
-      "owner": "subprocess.run context; no escaping pipe authority",
-      "path": "docker/versioning/evidence.py",
-      "scope": "collect_evidence"
-    },
-    {
-      "kind": "stdlib-run",
-      "owner": "subprocess.run context; no escaping pipe authority",
-      "path": "docker/versioning/transports.py",
-      "scope": "build_transports._ProductionGit.resolve_ref"
-    },
-    {
-      "kind": "terminal-release",
-      "owner": "synchronized terminal claim; winning outside-lock release",
-      "path": "docker/filesystem/streams.py",
-      "scope": "OwnedStream.close"
-    },
-    {
-      "kind": "retained-continuation",
-      "owner": "same prepared local/action owners; reader barriers and winning outcomes",
-      "path": "docker/process.py",
-      "scope": "OwnedProcess._continue_cleanup"
-    }
-  ],
-  "process_surface": {
-    "ActionResult": {
-      "fields": [
-        "done",
-        "cleanup_complete",
-        "failures"
-      ],
-      "signature": "(done: 'bool', cleanup_complete: 'bool', failures: 'tuple[FailureInfo, ...]' = ()) -> None"
-    },
-    "CleanupIncomplete": {
-      "signature": "(cleanup: 'OwnedProcess') -> 'None'"
-    },
-    "FailureInfo": {
-      "fields": [
-        "error",
-        "kind",
-        "phase",
-        "stream"
-      ],
-      "signature": "(error: 'BaseException', kind: 'FailureKind', phase: 'FailurePhase', stream: 'ProcessStream | None' = None) -> None"
-    },
-    "FailureKind": {
-      "signature": "(*values)"
-    },
-    "FailurePhase": {
-      "signature": "(*values)"
-    },
-    "LifecycleResult": {
-      "fields": [
-        "complete",
-        "failures"
-      ],
-      "signature": "(complete: 'bool', failures: 'tuple[FailureInfo, ...]' = ()) -> None"
-    },
-    "ManagedAction": {
-      "signature": "(*args, **kwargs)"
-    },
-    "ManagedAction.cancel": {
-      "signature": "(self, deadline: 'float') -> 'None'"
-    },
-    "ManagedAction.observe": {
-      "signature": "(self) -> 'ActionResult'"
-    },
-    "ManagedAction.prepare": {
-      "signature": "(self) -> 'None'"
-    },
-    "ManagedAction.start": {
-      "signature": "(self, context: 'StopContext') -> 'None'"
-    },
-    "OwnedProcess": {
-      "signature": "() -> 'None'"
-    },
-    "OwnedProcess.__enter__": {
-      "signature": "(self) -> 'Self'"
-    },
-    "OwnedProcess.__exit__": {
-      "signature": "(self, exc_type: 'Any', exc: 'BaseException | None', tb: 'Any') -> 'None'"
-    },
-    "OwnedProcess.capture": {
-      "signature": "(self) -> 'ProcessResult'"
-    },
-    "OwnedProcess.cleanup_status": {
-      "property": true,
-      "signature": "(self) -> 'LifecycleResult'"
-    },
-    "OwnedProcess.launch": {
-      "signature": "(argv: 'Any', *, grace_seconds: 'float' = 1.0, deadline_seconds: 'float | None' = None, capture_limit: 'int' = 65536, factory: 'Callable[..., Any]' = <class 'subprocess.Popen'>, popen_kwargs: 'dict[str, Any] | None' = None, on_launched: 'Callable[[], None] | None' = None, stop_policy: 'StopPolicy | None' = None, reporter: 'Callable[..., None] | None' = None) -> 'Self'"
-    },
-    "OwnedProcess.returncode": {
-      "property": true,
-      "signature": "(self) -> 'int | None'"
-    },
-    "OwnedProcess.shutdown": {
-      "signature": "(self, *, primary: 'BaseException | None' = None) -> 'LifecycleResult'"
-    },
-    "OwnedProcess.stream": {
-      "signature": "(self, callback: 'Callable[[ProcessStream, bytes], Any]', *, on_stream_end: 'Callable[[ProcessStream, StreamOutcome], Any] | None' = None) -> 'ProcessResult'"
-    },
-    "OwnedProcess.wait_cleanup": {
-      "signature": "(self, timeout: 'float') -> 'LifecycleResult'"
-    },
-    "ProcessResult": {
-      "fields": [
-        "stdout",
-        "stderr",
-        "returncode",
-        "timed_out",
-        "lifecycle",
-        "stream_outcomes"
-      ],
-      "signature": "(stdout: 'bytes', stderr: 'bytes', returncode: 'int | None', timed_out: 'bool', lifecycle: 'LifecycleResult', stream_outcomes: 'tuple[tuple[ProcessStream, StreamOutcome], ...]' = ()) -> None"
-    },
-    "ProcessStream": {
-      "signature": "(*values)"
-    },
-    "StopContext": {
-      "fields": [
-        "reason",
-        "returncode",
-        "deadline"
-      ],
-      "signature": "(reason: 'str', returncode: 'int | None', deadline: 'float') -> None"
-    },
-    "StopPolicy": {
-      "fields": [
-        "stages",
-        "local_cleanup_seconds",
-        "drain"
-      ],
-      "signature": "(stages: 'tuple[StopStage, ...]', local_cleanup_seconds: 'float', drain: 'bool' = False) -> None"
-    },
-    "StopStage": {
-      "fields": [
-        "seconds",
-        "action",
-        "wait_child",
-        "run_on_normal",
-        "local_stop_before"
-      ],
-      "signature": "(seconds: 'float', action: 'ManagedAction | None' = None, wait_child: 'bool' = False, run_on_normal: 'bool' = False, local_stop_before: 'bool' = False) -> None"
-    },
-    "StreamOutcome": {
-      "signature": "(*values)"
-    }
-  },
   "source_ast_sha256": {
     "docker/_owned_file.py": "a1cb7ed0c7d5b866982dd67eb6c502c7eb36010ccb7c91d315b4d4dc04519ad7",
-    "docker/constructor_cli.py": "cb0c582e32a8b6cb9fa9dc86bb2eb2232b43dd99c4e9a84e914355c45dc9849c",
+    "docker/constructor_cli.py": "0b15875e35aa8affe366fe66637afc255297a37d6dc743cc05eeb16b8435eb96",
     "docker/docker-constructor.py": "0ca21e0aefc8977427e91432fed13bfbade25c68fd6851168dd565fda34663fd",
     "docker/filesystem/__init__.py": "ad2e13b69c4fc1fda46413f740f426fc1793cfc6d6da8d226ba619f1aef48be7",
     "docker/filesystem/cleanup.py": "2d1eba3403fdf1d4f162ba392444c8d449498bb6bcbf3a7bb5a1960bd4a39e4a",
     "docker/filesystem/descriptors.py": "9d8d2e043677cbc5d835af1a3e97ee09c19543b9f012ced2795a9c89ff5f85f3",
     "docker/filesystem/operations.py": "c9dca358fe72033e621ec1d1a646164d6890caf1ab6efd2fb10cc88fe5fc983d",
     "docker/filesystem/streams.py": "f1645dd08320df45b855f0e82333a4cd516c939de18492d70d230908f16c8c0e",
-    "docker/launcher.py": "ee6499720cadf1c3fababda85ef380373883b06a5e8ba04d017d4ecc6f55ea3a",
-    "docker/networking.py": "33e1e2d44cf9e14f23eeea75d5e53d75bfe90b681f73c72c6b4289e14b36b71e",
-    "docker/npm_environment/__init__.py": "6d5a8efba396ab5cf91810918b8df12fb5ed0dd58266f99c789e0c93be8a377e",
+    "docker/launcher.py": "bf54c8fbaa94001fe2e0ce1e6d3559da1d6e5668faf156210e7c704f8c794788",
+    "docker/networking.py": "304f8d204be5da96a0e47a5e839785d8e2c85bdae4f8f4c11b8d94b23229a53b",
+    "docker/npm_environment/__init__.py": "563c7730ddaf7e3be261f7f6f6d6c838076caeb85cb2469de3c7aa55f8a152bf",
     "docker/npm_environment/assembler.py": "13149d69c4f731b41d2e4317f0d5009ed7b491018f412cd814dafb34d39edb66",
     "docker/npm_environment/errors.py": "fe56e8d7f64bc4cbd8717d186b6ad71254ca67ff676fc1b2cb9bf42c252fd890",
     "docker/npm_environment/evidence.py": "23616e6e48a1a137194ef23d39f89dfa312d8e406b78edaa5e34e495f6482308",
-    "docker/npm_environment/execution.py": "20c6cd483cd896282980af16ac48203c4df2c182039b572ea2f360b712a20220",
+    "docker/npm_environment/execution.py": "14a89cef97c2167d909869fe252e0192527be7674dfef66a2d044470c93ac249",
     "docker/npm_environment/identity.py": "5f561bfaccb5c4227754d35c3c108554b6f2bbffaff2bf5e1bed5ca8832dd2d4",
     "docker/npm_environment/image_ref.py": "80c521580a9f11172bd22d776d760210c25aca40198547b1326eed004cef3db6",
     "docker/npm_environment/lifecycle.py": "781f3cf4f476393b3a630214fa1effa7241a490597947bb016e366885877da39",
-    "docker/npm_environment/lockfile.py": "2c17e3b586466be3385fb5457d2135460ca5c2740ab3484dc302fe22b126f0bf",
+    "docker/npm_environment/lockfile.py": "4fbeeffddf620d1c3d3cde077e5ff233419f73ccda263c58418c2bd3b307257d",
     "docker/npm_environment/model.py": "b895dd1d6fd441140719d365c55241b4a40a93b9a41ea422bb234b6dcb7bae0b",
     "docker/npm_environment/network.py": "ad4436f534f0d14cf68a5e7afe693f9533c54537833adf391df50a4838f30676",
     "docker/npm_environment/observability.py": "8cef273f04d9156cbc662d95356332078eb9fc8b9617679cb695aac4348f3e4e",
-    "docker/npm_environment/preflight.py": "314140ba23adca2f02e486f85eddc741e04ae07e19a0780de058f536f2f751c9",
+    "docker/npm_environment/preflight.py": "ad7d8a424859fbb3246761a7afa8d673a1a2356db4b5a534fd3b605b5cd8cd18",
     "docker/npm_environment/publication.py": "9b40e7d99548b3bb4f6e5441dd4ee2df1b8fcd76c1a04230bcef8d3430a793ef",
-    "docker/npm_environment/run_vector.py": "aada1b04e7441efb2c51e5b7cf3c2dd5d66585acca30c2a307519c358171b3b6",
-    "docker/npm_environment/semver_range.py": "963f8e7c986c2fe2737412caa2d70994b10a00e7c74a1f38ae4ed5cf406786fe",
+    "docker/npm_environment/run_vector.py": "6a65b6004e6e5cd5354651c9db893430cc8bca2fb69ae3c0fa958fac1cdf2907",
+    "docker/npm_environment/semver_range.py": "9864baa7cef1675f5ae62b3b4bca81a208873dc09b750145a3430a56c45381a8",
     "docker/npm_environment/smoke.py": "9887d6b143c123c08ac85fcd6e39bc74cfbfc6059ead4ee449cf7f58cba6adf5",
-    "docker/npm_environment/storage.py": "e2990f5d014371902616d1b1f2699006436fa03c75cc15775d720e20c981c093",
+    "docker/npm_environment/storage.py": "24459842ce49ea794650b820848c9a23f836d647a2b145bf0277bc710e41c49f",
     "docker/npm_environment/streaming.py": "ca498d2fedf0f4564fe0136cf9ab74a77bbc3b985423205f808a2250fc032a7e",
     "docker/npm_environment/tree.py": "db363296c0bf84846b612d467eca17d5f1b01d5c2c8cd53964ec825e4cf3901b",
     "docker/npm_environment/validation.py": "676494d2c303c0dd1313c2322fde9fecad6efeec4b4d6a752b26fff47b725aca",
     "docker/process.py": "3d4da6f35f08d5216d3ca40896fcfcc81d09a90f19d008b6f798acd7f0af3fcc",
-    "docker/runtime_installer.py": "4f0dba2d2a09a6e50d2f4389c5f4297df0e08158a05bda5ad86b55a374f83090",
+    "docker/runtime_installer.py": "c450899af141c26018589534a90a70fc7b18f0965be12fdedb97caec6b1bfbd5",
     "docker/transactions/__init__.py": "8fe5b97b78fa671f908cb34dc223732a6dd9187bc70849ac3e84e52e01f0302a",
-    "docker/transactions/capabilities.py": "db595bced87014a3c6c830876f9a0226095609e2655aab2c28ff5fe6c070444f",
+    "docker/transactions/capabilities.py": "584a15d9c145a2e867e8ffef6d63227c844b78b683422dbcffedbf5bea8b61bb",
     "docker/transactions/cleanup.py": "8b86a5ef355c5098e60aa1a07689b7fec37d71584c4fbefa8ce5408d6bd93112",
     "docker/transactions/codec.py": "7b6ced75cc304ef40de88ca6f3cc9086a4bebda08318a51031e0cabf56d0cf9e",
     "docker/transactions/errors.py": "c0f87a4e70050b273f4ad438b11f08880801b45c7e1c4c7fc80e34e54dace583",
     "docker/transactions/locking.py": "2c230b6608b7def30b355c20f30329c4a8681c77e634a469866dfbede53012e2",
     "docker/transactions/posix.py": "c5b2b9a57c82fb457e260e23de5a7edc7593077b6c6eabe034eb3415d1241fda",
-    "docker/transactions/regular.py": "b589af4a58cef35b55d4ccf78177288069a2afd43ff49a77f920ec075f9aa9b1",
+    "docker/transactions/regular.py": "13f20590e0d786f5a46910dd59e406a4be1e2c37070e231e4fc9fcf8a3c51fd2",
     "docker/tui.py": "6c3e1fa1941362814e8e70e7b283882c1736448417bfbdfd95ae67e608ffe664",
     "docker/versioning/__init__.py": "536e4ac915ac77ee117a1d63cc7f072eb4bbc81a8a6a9af5f2905ecb59baa6a8",
     "docker/versioning/activity_monitor.py": "b40bddede2f51eb200a84747678c2ef09bd2f845302f98e5f9eeb34dcced6fc0",
     "docker/versioning/aho_corasick.py": "e71588544828112f9269464854f34b5ce3755b173eec8ff2acd5cf7d687c8ac9",
-    "docker/versioning/artifact_cache.py": "1c0f4f976c1658320329c022eabcccad508a0c9d4f799c7d380cfad599792dbc",
+    "docker/versioning/artifact_cache.py": "6efd3669dcafd4d7979b4f7d2b55d85d360adbf977216b78d1ebabfda6b886fb",
     "docker/versioning/assembly_activity.py": "03f2d099868e907ae552f89e5ca5558fd6dc26f766efd18fecffc13df20fea3e",
     "docker/versioning/build_cache.py": "5a27ddf8f9dd04914b4dbba11ea28cd1652a2f8abaa2c988479730a8b50bcdfa",
     "docker/versioning/build_cleanup.py": "8e0cf17a3296255393b3fc4c0ef5c7bb6e77085451f256920d82c95397352427",
     "docker/versioning/build_context_confinement.py": "eceabc413e98a9f76620497ed5bc19374c4c6e127708b997a562ff914e814255",
     "docker/versioning/build_generations.py": "1125225df67ec40e8712afc56cd70ab26ec1c8188716689aa0a27c7a5a23760a",
-    "docker/versioning/build_materialization.py": "947e277240cfdbcd2eedf895eb9f0ae5553ea9e22d8e9f2ba92feecc01a514f1",
-    "docker/versioning/build_orchestration.py": "d81f51f657eba19043326456b49a772d4275ce92eeb60d167c9e51ef39ed8cbb",
+    "docker/versioning/build_materialization.py": "b8ac5e5317b2936bebbca0548fbdbab56259735b1706ffa8c28f5328e6862546",
+    "docker/versioning/build_orchestration.py": "56e5903a4e5d4b28ffd976d60711bea3101a4473367f1d166a939a51a0b8b8ed",
     "docker/versioning/build_output.py": "49a6607c125086196e61bd454990cc461f1e302ea259964e2aee00f7b3c5b130",
-    "docker/versioning/build_snapshot.py": "9c1718c77e76dedcd4a4e84f9dc38ffdd6cae0d226fd2ee03af4b5fd1bf450e1",
+    "docker/versioning/build_snapshot.py": "4051c2eb1217f81df74b8468d637c97f53c092b5579b1042fc4d2e7a3034e480",
     "docker/versioning/cache.py": "63fd19fd6214de848bf35dcb0f605f12b9ca8f2ff7d512814e5aa49097845b34",
-    "docker/versioning/cache_storage.py": "e5b90d7b2a07a7c3a393e05ff791e6b0bbf197209e3fc5e7d3d73b6bc0242188",
-    "docker/versioning/configuration_document_validation.py": "0b0feed31972ac5b389eb65010d229f55a122febdda07f63cf6aa93ad8b1b41d",
+    "docker/versioning/cache_storage.py": "7e9b2de0545453baab1fd187bdb92ae4668763de826685829751ba2712fc780d",
+    "docker/versioning/configuration_document_validation.py": "3c9bec197f6da44bca822b5c262eb35eefeabf306ee9b261af4dab534e4e6295",
     "docker/versioning/constraints.py": "214b10054a7e8c7906724989b991ae0e4c2abe3ed36d84648b73715403e9528f",
     "docker/versioning/constructor_project.py": "4801c79151e8d863e789e9d2ac0931bcaae9458669f03ca3ba451d04ec6fc173",
     "docker/versioning/corporate_network.py": "6b5cabff9fa13da87472ade9785cd2399c6ea6da1a8fb9ce3be2705b4cc6a3c8",
-    "docker/versioning/diagnostic_coordinator.py": "d19d3162315bbdeabf1b14f3df69197e0af14dfc3e35bcfd2f741350baf92ccb",
+    "docker/versioning/diagnostic_coordinator.py": "637784e8925ffe22a1fe44e3d8b1779e6f491a097d56673391a68a41cb25fa19",
     "docker/versioning/diagnostic_identity.py": "f2d9ee82ecaad72436fa43ab94fb0d8b6b0674768d9344d14c742dd48f6b2131",
-    "docker/versioning/diagnostic_projection.py": "c7e7dde7090791d2dabc78478a4edf5a557906ba682932d91dcbfb9da9ea8afa",
+    "docker/versioning/diagnostic_projection.py": "86cc6c09fbf73973579d683b6cf7ee267b5515e7a51785037730eac6ca64c6df",
     "docker/versioning/diagnostic_recognition.py": "6da4b36f2a40f390e454a151eefacc4750de9e7e41a4582f40cddec9c19558ef",
     "docker/versioning/diagnostic_recognizer.py": "f3e3569101f331b03370e1a5388c14cdc35d1b1a184e8b4780c117526110d947",
     "docker/versioning/digest_identity.py": "e72cdde11134faaff2f61787cfe25cef0c6294f60d11ddb7868276a1cc024c7c",
     "docker/versioning/dispatch_types.py": "9eee891462b973a2fcd93342977689e682a818a3aa1148c68f44ef5caa07c0af",
-    "docker/versioning/effective.py": "5c8168dc2c3746ef492b121a8f67b96d0be9f59f3df642c36316af919f12e3af",
+    "docker/versioning/effective.py": "a8835b6c2715e6b11ebd9acaa6cd7f43bf86d35e35516930c56b30d549441541",
     "docker/versioning/errors.py": "327eb4986c69270f87b4fd9f50897833a6174f4594f39cbcc57ea7b83bdfe23f",
     "docker/versioning/evidence.py": "413c8116afa747bb0b3189bbfe69ac61758b5534f68397d8bc5a883bc25208c4",
     "docker/versioning/fetch_identity.py": "da3354e06b0c445ad4aedd289f3843306277a8329de7f8cc9aab7b4d92ac80b8",
     "docker/versioning/host_access.py": "b48dd5014b2c36e7d37d07e5affd5273fbb5147ee2491bc703df4b1c9b2b5f7d",
-    "docker/versioning/host_presentation.py": "c506fa928476ae68ee34ec2ea3ddcb2d9f643eef926aeaef672b419d60c88387",
-    "docker/versioning/host_progress.py": "bfe08fff8a49c4429ff8403071ac676837654a41cb151f97cd134a279b66d679",
+    "docker/versioning/host_presentation.py": "2feaf61fbc638c864b5e3e728fcfd5a6837185e3f22a7e5d364b0094530da47a",
+    "docker/versioning/host_progress.py": "6a0ea802fc331b98ef3775f71e55e78c19aa21703a908516278067412ad766c2",
     "docker/versioning/immutable.py": "0935ee7696f39ce065159ab4318057d092d9ff6bf6d52da3fd425a07285d604e",
     "docker/versioning/integrity.py": "352098cf5757dffe08f08b8bcd7f2155997aaa26a50c0f8cc1d4b28af3bc6e04",
-    "docker/versioning/inventory.py": "5eb4eeaa1081e93915bf4c990ab1980803a713b99a54eab20936e7a84fbf4997",
+    "docker/versioning/inventory.py": "ca2bc27518292e5ae15ac2a749cd4be3a4a6a89df01b25e74d266e0f64638605",
     "docker/versioning/local_project_configuration.py": "7831ffe44366cbd9e1df92e0abbbcf67a9b2bbf402b789967b82eff009f7516a",
     "docker/versioning/logical_resource.py": "33d229aabaddb3ae4f322967faab78ea0156a86172d7c400daa08e2cf3b0311b",
-    "docker/versioning/model.py": "191afdbcead74bf5e0fb95214825c097770b722f1fa0fa8244d8a57a0043960b",
-    "docker/versioning/npm_diagnostic_stream.py": "cdfd8b3bded354e40077e1502a8452eb2dc264cc9960a5234cd3faa50e78be7e",
+    "docker/versioning/model.py": "377551af96618ed16d8b69018e1db1da3bdcadbb675a33c165f18c983b37412d",
+    "docker/versioning/npm_diagnostic_stream.py": "e0b282c843a487597398b7ed980446151100ad17afafda2dc1b7188fae6b43de",
     "docker/versioning/npm_fetch.py": "8c3ffdb7c8198b9d06234e6e3ca18d972bafe6bdcb82b717dc1eb8b3d4937895",
     "docker/versioning/npm_tarball.py": "2362c4b93badb3650c202f86a4221c7395d8e0a4b01bf1d27b33b55d712c16c4",
-    "docker/versioning/pi_assembly.py": "412325c83b6fcdbdd34e2fdc546fe0f00868006fd1a98c8a8ab8049b3c9f46a0",
+    "docker/versioning/pi_assembly.py": "3e8c3f8c916dc73b6ab395ed00572c7e9fed569f0cea66fb47a095b652182ebf",
     "docker/versioning/pi_consumer.py": "2f1b6f240acd402471bf369247b1dca11a40069d843c36a67961cb31b4913b75",
-    "docker/versioning/pi_release.py": "5e582b7675cdae1ca1078ec52a3b01c08671d976eb502bbab69b0e0490af9930",
-    "docker/versioning/project_state.py": "8dc039ab44ecd6dd6c4bcfde00e6e126e6c2e403232277401eec237df18c9bd7",
+    "docker/versioning/pi_release.py": "9c5bd3df46db8c0ea708f8229538c504296d34b3f9dbd58c9a4ae625c5c3864e",
+    "docker/versioning/project_state.py": "9dcb836815b2e2530708274306de01b0ab0d2a0b16b516e4c27f4ffd0167a26a",
     "docker/versioning/providers/__init__.py": "2a14045afddf9176d7f2e956059d02f034cb8c12a529f5c2b1f7b3cb5e65d8bb",
     "docker/versioning/providers/base.py": "71346c03ef696f5edebe9571b2bf105a3d84850f422091f71b60a7c637ce35b6",
-    "docker/versioning/providers/docker_registry.py": "175a3c94371510e94519ea9b04563acd736bdb179c80477699ffd5ecf88bb3a5",
-    "docker/versioning/providers/git.py": "1831e34ab07c619f07296e8bc6f74bef31b0b2de2b5b6ed39e16d18ebb45d7f0",
-    "docker/versioning/providers/github.py": "34ad217564d659afd16e31d769325c8095454b19301404027adfee5168739124",
-    "docker/versioning/providers/npm.py": "68237b7104473cf08098d1a6f4c6025a0d1cf53986664168e8b4f83e7c5f3d74",
-    "docker/versioning/providers/pypi.py": "a66f095c94a42b62b4a047d0ac8a01a5d32d936003456d5ec4c7eca7a69acd2b",
-    "docker/versioning/providers/rust.py": "b983224d32c52b6cce14fa2b6a3d2a90e8240525dc48884c4318eb262d9c6b85",
-    "docker/versioning/providers/static_url.py": "f6d755d7332dd74542f5902d1cae71e6e806289251e76c169a7b5475402f86ee",
-    "docker/versioning/providers/uv_python.py": "fa9eba5bc7b2b35a15f17c13275b6e0b180d12ef13d8df3f3c20dc8ed7b01c41",
-    "docker/versioning/readonly_service.py": "701a491e197c5e71f71c8b9ca296f28bd0c7ce5addcdea1a167ba9dc12dd6fe5",
-    "docker/versioning/rendering.py": "4963bcf32df5c8bd935b83f9840fd2ecb66d331ca0768c6ad3ef55b994c0ff0a",
-    "docker/versioning/runtime_verification.py": "044c178cccb37dc0e3417719eabcc765c320c9b026423a7b7a1cbcd09ef686d4",
+    "docker/versioning/providers/docker_registry.py": "7c7bee7222ddea828d891f9502df571e643a1059165fd615e65329ead45ff07c",
+    "docker/versioning/providers/git.py": "aafb11f1d162ceffd5f8a8cd1713e6c3588cee4be81fd15514e9038200332ba6",
+    "docker/versioning/providers/github.py": "27171c8494893a2a022657e5df1b7825d2c3714bd186afe0bb499bf952dad508",
+    "docker/versioning/providers/npm.py": "d5c4e2a035d37eef7d8c8436cd271a4479e1646ec2128f7c873f55345c59e824",
+    "docker/versioning/providers/pypi.py": "cfeee91111cde39d849a1d5a57ccf1cdf4eeb40d46e6bcfba369c3d11312c00c",
+    "docker/versioning/providers/rust.py": "f6e6d42c77d01dc10b2481d4ae2cead704d090ef079a96631c4ff9a42ae98255",
+    "docker/versioning/providers/static_url.py": "78fdc796e977f87dba43c422495b1294f3e16702437378025b6ddd05364b5cd2",
+    "docker/versioning/providers/uv_python.py": "0ee5bd1adfb75b5fec68dcdaae227e8daafcbc53e8f724aa4cbf04870d6bec80",
+    "docker/versioning/readonly_service.py": "4cd3872547c6de24e2a0bbb9ddeca25c0ba6ea0da6005e468b1e8cf6b414e421",
+    "docker/versioning/rendering.py": "2c7be2f3240173e04937e717a6b7fa9d3d55207ff509fd5f725928178ffe5171",
+    "docker/versioning/runtime_verification.py": "92f8ee490d11cbc278f938720f24f71a03d316e9fa246e032ddd467d461853b5",
     "docker/versioning/semver.py": "a3368b90b768567ffa4b084bf93963a0406fd0573f027562c90f1090dd75813d",
-    "docker/versioning/transports.py": "25c3e884d9cfb2a9d98fb35da5994ab094ea7a43896fb51c34ce8e9d9fab8bdb",
-    "docker/versioning/updates.py": "02e2abd535fc8af65df44e2a49738d3ce4ae38067b5c9f08c1236b4d733affe8",
+    "docker/versioning/transports.py": "8c2d41dba31df76c07a850e9358263250d48df0daaa917375c55c706b44e0d17",
+    "docker/versioning/updates.py": "579b052817d93b590c103212adfbfe564c06f8daa3c5b49816013b6a61ef3e41",
     "docker/versioning/verification.py": "a4d81c987451dba6e635a47c0edeaf58a9bf9a8452b103ac48e36be8c19d9b68",
-    "docker/versions.py": "151b43630c3a0403e2b29d8c98b6be6c52fa22596478898ade25043a536f1b71"
+    "docker/versions.py": "f35fe3e51eb344647872ed976539caec9e71aec3e2ea202b6bf77434ada6ee97"
   }
 }

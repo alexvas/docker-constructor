@@ -411,7 +411,6 @@ class ValidHitFastPathTests(_RuntimeLockCase):
     def test_cache_hit_never_creates_the_lock_entry(self) -> None:
         # A valid cache hit must not touch the identity lock namespace at all.
         from docker.versioning.artifact_cache import _try_cache_hit
-
         from tests.test_constructor_materialization import _make_integrity_for
 
         data = b"already-verified"

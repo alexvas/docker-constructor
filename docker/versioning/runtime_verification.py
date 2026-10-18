@@ -87,7 +87,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol, Sequence, TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, Sequence
 
 from .corporate_network import CLIENT_CA_ENVIRONMENT, SYSTEM_CA_BUNDLE
 
@@ -521,7 +521,7 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
         # gateway.mapping
         r = _exec(("getent", "hosts", "host.docker.internal"))
         if r.return_code != 0:
-            _add("gateway.mapping", False, f"host.docker.internal resolution failed", r)
+            _add("gateway.mapping", False, "host.docker.internal resolution failed", r)
         else:
             resolved = r.stdout.strip().split()[0] if r.stdout.strip() else ""
             if resolved == expected_addr:
@@ -536,7 +536,7 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
         # host-access.address
         r = _exec(("printenv", "HOST_ACCESS_ADDRESS"))
         if r.return_code != 0:
-            _add("host-access.address", False, f"HOST_ACCESS_ADDRESS is not set", r)
+            _add("host-access.address", False, "HOST_ACCESS_ADDRESS is not set", r)
         else:
             actual = r.stdout.strip()
             if actual == expected_addr:

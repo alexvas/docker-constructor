@@ -1,32 +1,24 @@
 """External project-state persistence contracts: projection and build transaction state."""
 
 from __future__ import annotations
-import hashlib, json, os, shutil, stat, tempfile, types, unittest
+
+import hashlib
+import json
+import os
+import shutil
+import stat
+import tempfile
+import types
+import unittest
 from pathlib import Path
 from unittest import mock
-from docker.transactions.errors import TransactionError
-from docker.versioning.effective import resolve_build_projection
-from docker.versioning.inventory import load_inventory
-from docker.versioning.rendering import (
-    EffectiveInventoryOutputError,
-    write_effective_build,
-)
-from docker.versioning.project_state import (
-    ProjectState,
-    ProjectStateError,
-    resolve_project_state,
-    validate_project_state,
-)
+
 import docker.versioning.build_cache as build_cache
-from docker.versioning.cache_storage import (
-    prepare_resolved_root,
-    resolve_default_root,
-    resolve_effective_root,
-)
+from docker.transactions.errors import TransactionError
 from docker.versioning.build_cache import (
+    UNCOMMITTED_TTL_SECONDS,
     BuildCacheError,
     BuildTransactionError,
-    UNCOMMITTED_TTL_SECONDS,
     acquire_constructor_project_build_lock,
     build_blob_path,
     commit_build_set,
@@ -37,7 +29,24 @@ from docker.versioning.build_cache import (
     publish_verified_blob,
     recover_abandoned_snapshots,
 )
+from docker.versioning.cache_storage import (
+    prepare_resolved_root,
+    resolve_default_root,
+    resolve_effective_root,
+)
 from docker.versioning.digest_identity import DigestIdentity
+from docker.versioning.effective import resolve_build_projection
+from docker.versioning.inventory import load_inventory
+from docker.versioning.project_state import (
+    ProjectState,
+    ProjectStateError,
+    resolve_project_state,
+    validate_project_state,
+)
+from docker.versioning.rendering import (
+    EffectiveInventoryOutputError,
+    write_effective_build,
+)
 
 _REPO = Path(__file__).resolve().parents[1]
 

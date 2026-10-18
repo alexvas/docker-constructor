@@ -32,7 +32,6 @@ from unittest import mock
 
 import docker.versioning.build_cache as build_cache
 
-
 #: Historical release order (reverse of the open order).
 _RELEASE_ORDER = (
     "transactions_fd",

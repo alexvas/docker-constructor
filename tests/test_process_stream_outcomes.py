@@ -1,8 +1,8 @@
 """Typed outcomes and once-only notifications for a single collection."""
 
-from dataclasses import FrozenInstanceError
 import inspect
 import threading
+from dataclasses import FrozenInstanceError
 from unittest import mock
 
 import pytest

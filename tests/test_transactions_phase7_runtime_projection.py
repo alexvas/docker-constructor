@@ -29,10 +29,10 @@ from docker.transactions.errors import CapabilityError, TransactionError
 from docker.versioning.effective import (
     EffectiveConfigError,
     Filesystem,
-    create_runtime_projection,
-    cleanup_runtime_projection,
     _generate_projection_path,
     _validate_safe_path,
+    cleanup_runtime_projection,
+    create_runtime_projection,
 )
 from docker.versioning.model import (
     EffectivePiExtensionEntry,

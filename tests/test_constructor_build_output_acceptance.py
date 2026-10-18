@@ -12,7 +12,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 _FAKE_DOCKER = """#!{python}
 import os
 import sys

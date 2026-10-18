@@ -12,6 +12,20 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, Optional
 
+from docker.transactions.capabilities import (
+    CapabilityError,
+    DirectoryCapability,
+)
+from docker.transactions.cleanup import CleanupFailures
+from docker.transactions.errors import (
+    CloseStageFailure,
+    DestinationExists,
+    TransactionError,
+)
+from docker.transactions.posix import PosixFileOps
+from docker.transactions.regular import RegularFileContracts
+
+from .artifact_cache import SelectedArtifact
 from .constraints import (
     Constraint,
     ConstraintClause,
@@ -41,20 +55,8 @@ from .model import (
     PythonEntry,
     RuntimeInventory,
 )
-from .artifact_cache import SelectedArtifact
-from .semver import SemverError, validate as _validate_semver
-from docker.transactions.capabilities import (
-    CapabilityError,
-    DirectoryCapability,
-)
-from docker.transactions.cleanup import CleanupFailures
-from docker.transactions.errors import (
-    CloseStageFailure,
-    DestinationExists,
-    TransactionError,
-)
-from docker.transactions.posix import PosixFileOps
-from docker.transactions.regular import RegularFileContracts
+from .semver import SemverError
+from .semver import validate as _validate_semver
 
 # ---------------------------------------------------------------------------
 # Override register

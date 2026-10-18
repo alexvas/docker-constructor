@@ -1,6 +1,7 @@
 """External constructor-project build-cache path contracts."""
 
 from __future__ import annotations
+
 import hashlib
 import os
 import stat

@@ -18,7 +18,6 @@ from unittest import mock
 
 from docker.versioning.model import UpdateCandidate, UpdateKind
 from docker.versioning.providers.base import ProviderResult
-
 from tests.versioning.support.inventory_builder import minimal_toml
 
 

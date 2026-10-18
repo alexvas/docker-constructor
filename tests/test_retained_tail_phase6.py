@@ -37,6 +37,7 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
+import docker.npm_environment.streaming as _streaming_module
 from docker.constructor_cli import CommandRequest, _real_dispatcher, _render
 from docker.npm_environment import (
     AssemblyTimeoutError,
@@ -53,12 +54,11 @@ from docker.npm_environment.execution import (
     default_stream_factory,
     default_tail_projector,
 )
-import docker.npm_environment.streaming as _streaming_module
 from docker.npm_environment.streaming import (
     TAIL_BYTES,
     TRUNCATION_NOTICE,
-    StreamReaderFailure,
     StreamingCapture,
+    StreamReaderFailure,
     collect_streams,
 )
 
@@ -76,11 +76,11 @@ from docker.versioning.constructor_project import ConstructorProject
 from docker.versioning.diagnostic_projection import REDACTED_PATH_MARKER
 from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.host_presentation import (
+    WORKER_JOIN_SECONDS,
     HostPresentationMode,
     HostPresentationSession,
     PresentationPlan,
     PresentationSelection,
-    WORKER_JOIN_SECONDS,
     format_failure_report,
 )
 from docker.versioning.model import NetworkUrlDisplay
@@ -89,7 +89,6 @@ from docker.versioning.npm_diagnostic_stream import (
     make_stream_factory,
     project_tail,
 )
-
 from tests.test_npm_environment_acceptance import (
     PopulatingExecutor,
     _assembler,
@@ -98,8 +97,8 @@ from tests.test_npm_environment_acceptance import (
     _validated,
 )
 from tests.test_npm_environment_phase3_deadline import (
-    _DeadlineProc,
     _assert_no_workers,
+    _DeadlineProc,
 )
 
 RESEARCH_LINE = (

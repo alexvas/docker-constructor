@@ -49,7 +49,6 @@ from docker.networking import (
 # touch real disk or systemd.
 from tests.test_networking import FakeFilesystem, FakeHostProbeServer
 
-
 # ---------------------------------------------------------------------------
 # Deterministic fakes (requirement 7)
 # ---------------------------------------------------------------------------
@@ -236,7 +235,8 @@ class TestDetectDockerMode(unittest.TestCase):
     # -- does not print ------------------------------------------------------
 
     def test_detection_does_not_print(self):
-        import io, sys
+        import io
+        import sys
 
         run = _fake_run(docker_info_stdout="Server: 27.0.0\n")
         buf = io.StringIO()
@@ -249,7 +249,8 @@ class TestDetectDockerMode(unittest.TestCase):
         self.assertEqual(buf.getvalue(), "")
 
     def test_detection_failure_does_not_print(self):
-        import io, sys
+        import io
+        import sys
 
         run = _fake_run(docker_info_stdout="", docker_info_rc=1)
         buf = io.StringIO()

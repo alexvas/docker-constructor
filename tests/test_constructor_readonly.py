@@ -155,7 +155,8 @@ class TestValidateScope(unittest.TestCase):
 
     def test_validate_no_network_no_docker(self) -> None:
         """validate must never invoke network or Docker."""
-        import socket, subprocess
+        import socket
+        import subprocess
         from unittest.mock import patch
 
         mod = _load_mod()
@@ -439,8 +440,8 @@ class TestShowEffective(unittest.TestCase):
 
     def test_effective_never_publishes_projection_file(self) -> None:
         """show --effective must never write a projection file to disk."""
-        import tempfile
         import pathlib
+        import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
             # Redirect CWD so any accidental file creation lands here
@@ -514,7 +515,8 @@ class TestShowOverrides(unittest.TestCase):
 
     def test_override_never_mutates_source_toml(self) -> None:
         """--override must never write back to docker-constructor.toml."""
-        import tempfile, pathlib
+        import pathlib
+        import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
             orig = os.getcwd()
@@ -840,7 +842,8 @@ class TestCheckUpdatesSuggestions(unittest.TestCase):
             ],
         }
         fake = _make_fake(self.m, exit_kind="policy", data=data, message="1 outdated")
-        import tempfile, pathlib
+        import pathlib
+        import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
             orig = os.getcwd()
@@ -862,7 +865,8 @@ class TestCheckUpdatesSuggestions(unittest.TestCase):
         fake = _make_fake(
             self.m, exit_kind="policy", data=data, message="suggestions follow"
         )
-        import tempfile, pathlib
+        import pathlib
+        import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
             orig = os.getcwd()
@@ -1698,8 +1702,8 @@ class TestCheckUpdatesSuggestRendering(unittest.TestCase):
             "replacement_fragments": '[x]\nversion = "2"\n',
         }
         fake = _make_fake(self.m, exit_kind="policy", data=data, message="1 outdated")
-        import tempfile
         import pathlib
+        import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
             orig = os.getcwd()
@@ -3040,8 +3044,9 @@ class TestAllExecutionBoundariesGuarded(unittest.TestCase):
         self.assertIn("rust", out.lower())
 
     def test_check_updates_under_boundary_guard(self) -> None:
-        import docker.versioning.updates
         from unittest.mock import patch
+
+        import docker.versioning.updates
 
         fake_providers = _make_recording_providers()
         with patch.object(
@@ -3057,8 +3062,9 @@ class TestAllExecutionBoundariesGuarded(unittest.TestCase):
         self.assertIn("docker-registry", provider_names)
 
     def test_check_updates_suggest_under_boundary_guard(self) -> None:
-        import docker.versioning.updates
         from unittest.mock import patch
+
+        import docker.versioning.updates
 
         fake_providers = _make_recording_providers()
         with patch.object(
@@ -3172,8 +3178,9 @@ class TestInventoryImmutability(unittest.TestCase):
 
     def test_check_updates_preserves_inventory_bytes(self) -> None:
         import pathlib
-        import docker.versioning.updates
         from unittest.mock import patch
+
+        import docker.versioning.updates
 
         path = pathlib.Path(self._temp_inventory())
         try:
@@ -3199,8 +3206,9 @@ class TestInventoryImmutability(unittest.TestCase):
 
     def test_check_updates_suggest_preserves_inventory_bytes(self) -> None:
         import pathlib
-        import docker.versioning.updates
         from unittest.mock import patch
+
+        import docker.versioning.updates
 
         path = pathlib.Path(self._temp_inventory())
         try:
@@ -3232,8 +3240,9 @@ class TestInventoryImmutability(unittest.TestCase):
         import contextlib
         import pathlib
         import tempfile
-        import docker.versioning.updates
         from unittest.mock import patch
+
+        import docker.versioning.updates
 
         path = pathlib.Path(self._temp_inventory())
         with tempfile.TemporaryDirectory() as tmp:
@@ -3272,8 +3281,9 @@ class TestInventoryImmutability(unittest.TestCase):
         """A selected project's fixed inventory remains byte-for-byte unchanged."""
         import contextlib
         import pathlib
-        import docker.versioning.updates
         from unittest.mock import patch
+
+        import docker.versioning.updates
 
         path = pathlib.Path(self._temp_inventory())
         try:

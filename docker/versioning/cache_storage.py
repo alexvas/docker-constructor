@@ -35,12 +35,12 @@ from pathlib import Path
 
 from docker.filesystem.cleanup import CleanupFailures
 from docker.filesystem.descriptors import (
-    DescriptorError,
-    DirectoryDescriptor,
-    OwnedDescriptor,
     _STAGE_CREATE,
     _STAGE_OPEN,
     _STAGE_REOPEN,
+    DescriptorError,
+    DirectoryDescriptor,
+    OwnedDescriptor,
 )
 from docker.filesystem.operations import DescriptorOps, PosixDescriptorOps
 

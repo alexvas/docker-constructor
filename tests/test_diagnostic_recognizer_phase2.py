@@ -34,9 +34,9 @@ import random
 import unittest
 
 from docker.versioning.diagnostic_recognition import (
+    SUPPORTED_SCHEMES,
     RecognitionKind,
     RecognitionResult,
-    SUPPORTED_SCHEMES,
 )
 
 _MODULE_NAME = "docker.versioning.diagnostic_recognizer"

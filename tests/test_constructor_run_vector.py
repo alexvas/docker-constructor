@@ -13,7 +13,6 @@ from docker.versioning.rendering import (
     render_run_vector,
 )
 
-
 # ---------------------------------------------------------------------------
 # Test helpers
 # ---------------------------------------------------------------------------
@@ -862,6 +861,7 @@ class TestArtifactMounts(unittest.TestCase):
         ``extra_artifacts`` (a dict of version→integrity for
         additional catalog entries).
         """
+        from docker.versioning.constraints import parse_constraint
         from docker.versioning.inventory import (
             NpmArtifact,
             NpmSource,
@@ -871,7 +871,6 @@ class TestArtifactMounts(unittest.TestCase):
             RuntimeInventory,
             RuntimeValidation,
         )
-        from docker.versioning.constraints import parse_constraint
 
         entries: dict[str, PiExtensionEntry] = {}
         for name, spec in extensions.items():
@@ -1203,7 +1202,8 @@ class TestArtifactMountRendering(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        import tempfile, os as _os
+        import os as _os
+        import tempfile
 
         cls._tmp = tempfile.TemporaryDirectory()
         cls._blob_a = _os.path.join(cls._tmp.name, "a.tgz")
@@ -1419,7 +1419,8 @@ class TestArtifactMountCollisions(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        import tempfile, os as _os
+        import os as _os
+        import tempfile
 
         cls._tmp = tempfile.TemporaryDirectory()
         d = cls._tmp.name
@@ -1621,7 +1622,8 @@ class TestArtifactMountCollisions(unittest.TestCase):
     # ── non-regular files (FIFO) ─────────────────────────────
 
     def test_rejects_fifo_as_mount_source(self):
-        import os as _os, tempfile
+        import os as _os
+        import tempfile
 
         fifo_path = _os.path.join(self._tmp.name, "fifo")
         _os.mkfifo(fifo_path)
@@ -1773,7 +1775,8 @@ class TestArchitecturalGuards(unittest.TestCase):
         # The renderer accepts arbitrary host paths (validated only
         # for directory structure, not file existence).  A path to a
         # nonexistent or empty file must not cause a read/parse error.
-        import tempfile, os as _os
+        import os as _os
+        import tempfile
 
         with tempfile.TemporaryDirectory() as td:
             runtime_dir = _os.path.join(td, ".docker-generated", "runtime")

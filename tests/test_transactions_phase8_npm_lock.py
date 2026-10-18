@@ -33,9 +33,9 @@ import threading
 import unittest
 from pathlib import Path
 
+from docker.npm_environment.errors import LockedNpmError
 from docker.npm_environment.publication import identity_coordination_lock
 from docker.npm_environment.storage import prepare_assembler_namespace
-from docker.npm_environment.errors import LockedNpmError
 from docker.transactions import locking
 from docker.transactions.errors import STAGE_CLOSE, LockError, TransactionError
 from tests.transactions_test_support import InjectedOps

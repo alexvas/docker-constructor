@@ -11,13 +11,13 @@ from docker.versioning.model import (
     NpmSource,
     NpmUpdate,
     PiReleaseSource,
-    UpdateTarget,
     UpdateKind,
+    UpdateTarget,
 )
 from docker.versioning.providers.base import ProviderContext
 from docker.versioning.providers.npm import NpmProvider
-from tests.versioning.support.fake_http import FakeHttpTransport, FailingHttpTransport
 from tests.versioning.support.fake_git import FakeGitTransport
+from tests.versioning.support.fake_http import FailingHttpTransport, FakeHttpTransport
 
 
 class TestNpmProvider(unittest.TestCase):

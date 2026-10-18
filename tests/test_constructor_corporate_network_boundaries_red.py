@@ -7,11 +7,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from docker.versioning.corporate_network import (
-    CLIENT_CA_ENVIRONMENT,
-    SYSTEM_CA_BUNDLE,
-    parse_local_corporate_trust,
-)
 from docker.npm_environment import (
     DockerRunVector,
     Mount,
@@ -19,8 +14,13 @@ from docker.npm_environment import (
     redact_run_vector,
     render_docker_argv,
 )
-from docker.versioning.evidence import collect_evidence
+from docker.versioning.corporate_network import (
+    CLIENT_CA_ENVIRONMENT,
+    SYSTEM_CA_BUNDLE,
+    parse_local_corporate_trust,
+)
 from docker.versioning.errors import InventoryError
+from docker.versioning.evidence import collect_evidence
 from tests.test_constructor_corporate_network_verification_red import (
     _ClientCaRunner,
     _verify,

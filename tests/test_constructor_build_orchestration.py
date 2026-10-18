@@ -13,41 +13,26 @@ that drives the Stage 9.3 implementation.
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
-import errno
 import os
 import tempfile
 import unittest
 from dataclasses import dataclass
-from unittest.mock import patch
 from pathlib import Path
 from types import MappingProxyType
 from typing import Optional
+from unittest.mock import patch
 
-from tests.build_test_support import (
-    DIGEST_VALID_ARTIFACT_BYTES,
-    INVENTORY_PATH,
-    digest_valid_selected_artifacts,
-    fake_pi_materialization,
-    fixture_directory,
-    no_network_transport_factory,
-    publish_digest_valid_artifacts,
-)
-
-from docker.transactions.errors import CapabilityError
 from docker.networking import (
     DockerMode,
     GatewayDiagnosis,
     PersistenceResult,
     ProbeResult,
 )
-from docker.versioning.build_snapshot import MaterializedSnapshot, SnapshotError
-from docker.versioning.build_materialization import (
-    MaterializationError,
-    SelectedBuildArtifact,
-    UrllibStreamingTransport,
-)
+from docker.npm_environment.errors import LockedNpmError
+from docker.transactions.errors import CapabilityError
 from docker.versioning.build_cache import (
     UNCOMMITTED_TTL_SECONDS,
     ConstructorProjectBuildLock,
@@ -60,28 +45,42 @@ from docker.versioning.build_cache import (
     publish_verified_blob,
 )
 from docker.versioning.build_cleanup import BuildCleanupError, CleanupFailure
-from docker.versioning.digest_identity import DigestIdentity
-from docker.versioning.cache_storage import runtime_artifacts_child, versioning_child
-from docker.npm_environment.errors import LockedNpmError
-from docker.versioning.pi_assembly import PiAssemblyError
-from docker.versioning.pi_consumer import PiConsumerError
+from docker.versioning.build_materialization import (
+    MaterializationError,
+    SelectedBuildArtifact,
+    UrllibStreamingTransport,
+)
 from docker.versioning.build_orchestration import (
     BuildRequest,
     BuildResult,
     DoctorRequest,
     DoctorResult,
+    ProcessResult,
     PublishError,
     PublishResult,
-    ProcessResult,
     diagnose_doctor,
     orchestrate_build,
     repair_rootless,
 )
+from docker.versioning.build_snapshot import MaterializedSnapshot, SnapshotError
+from docker.versioning.cache_storage import runtime_artifacts_child, versioning_child
+from docker.versioning.digest_identity import DigestIdentity
 from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.host_progress import (
     HostPhase,
     HostStep,
     attach_host_failure,
+)
+from docker.versioning.pi_assembly import PiAssemblyError
+from docker.versioning.pi_consumer import PiConsumerError
+from tests.build_test_support import (
+    DIGEST_VALID_ARTIFACT_BYTES,
+    INVENTORY_PATH,
+    digest_valid_selected_artifacts,
+    fake_pi_materialization,
+    fixture_directory,
+    no_network_transport_factory,
+    publish_digest_valid_artifacts,
 )
 
 # ═══════════════════════════════════════════════════════════════════════

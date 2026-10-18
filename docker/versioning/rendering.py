@@ -39,12 +39,12 @@ from docker.transactions.errors import (
 from docker.transactions.posix import PosixFileOps
 from docker.transactions.regular import RegularFileContracts
 
+from .corporate_network import CLIENT_CA_ENVIRONMENT, SYSTEM_CA_BUNDLE
 from .effective import (
     EffectiveBuildProjection,
     EffectiveConfiguration,
     to_plain_data,
 )
-from .corporate_network import CLIENT_CA_ENVIRONMENT, SYSTEM_CA_BUNDLE
 from .errors import EffectiveConfigError
 
 if TYPE_CHECKING:
@@ -1673,11 +1673,11 @@ def validate_effective_build(data: dict[str, object]):
     Raises ValueError or EffectiveConfigError on invalid data.
     """
     from .model import (
+        EffectiveArtifact,
         EffectiveBuildProjection,
         EffectiveNode,
         EffectiveRust,
         EffectiveTool,
-        EffectiveArtifact,
     )
 
     if not isinstance(data, dict):

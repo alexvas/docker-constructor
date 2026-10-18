@@ -14,6 +14,7 @@ from unittest import mock
 
 from docker.filesystem.descriptors import OwnedDescriptor
 from docker.filesystem.operations import PosixDescriptorOps
+from docker.npm_environment.lifecycle import LifecyclePolicy, run_captured
 from docker.process import (
     ActionResult,
     FailureKind,
@@ -22,7 +23,6 @@ from docker.process import (
     StopPolicy,
     StopStage,
 )
-from docker.npm_environment.lifecycle import LifecyclePolicy, run_captured
 from tests.test_process_lifecycle import workers
 
 

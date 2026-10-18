@@ -12,11 +12,11 @@ from docker.npm_environment.execution import _exit_failure, _timeout_error
 from docker.versioning.build_orchestration import BuildResult, _host_failure_context
 from docker.versioning.constructor_project import ConstructorProject
 from docker.versioning.dispatch_types import ExitKind
-from docker.versioning.host_progress import HostDiagnosticStream, HostPhase, HostStep
 from docker.versioning.host_presentation import (
     TerminalHostRenderer,
     format_failure_report,
 )
+from docker.versioning.host_progress import HostDiagnosticStream, HostPhase, HostStep
 
 
 class TestRetainedFailureContext(unittest.TestCase):

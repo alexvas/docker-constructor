@@ -24,9 +24,10 @@ from .constraints import Constraint, NumericVersion  # re-export for convenience
 # ---------------------------------------------------------------------------
 # Shared semver validation (used by both model and inventory layers)
 # ---------------------------------------------------------------------------
-
 from .semver import (
     SemverError,
+)
+from .semver import (
     validate as _validate_semver,
 )
 
@@ -905,7 +906,7 @@ def _validate_utc_rfc3339(value: str | None) -> str | None:
     absent, non-UTC, or unparseable.
     """
     import re
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
 
     if value is None or not isinstance(value, str) or not value.strip():
         return None

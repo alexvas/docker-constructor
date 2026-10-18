@@ -17,6 +17,10 @@ import unittest
 from pathlib import Path
 from typing import Sequence
 
+from docker.versioning.effective import (
+    resolve_build_projection,
+)
+from docker.versioning.inventory import load_inventory
 from docker.versioning.model import (
     EffectiveArtifact,
     EffectiveBuildProjection,
@@ -25,25 +29,23 @@ from docker.versioning.model import (
     EffectiveRust,
     EffectiveTool,
 )
-from docker.versioning.inventory import load_inventory
-from docker.versioning.effective import (
-    resolve_build_projection,
-)
 from docker.versioning.rendering import (
     _write_toml,
     serialize_effective_build,
     validate_effective_build,
 )
 from docker.versioning.verification import (
+    _CONTRACTS,
     BuildObservation,
     BuildVerificationResult,
     ObservationContract,
     VerifyBuildRequest,
-    verify_build,
-    ProcessResult as VProcessResult,
-    _CONTRACTS,
     _applicable_contracts,
     _extract_expected_value,
+    verify_build,
+)
+from docker.versioning.verification import (
+    ProcessResult as VProcessResult,
 )
 
 # ═══════════════════════════════════════════════════════════════════════

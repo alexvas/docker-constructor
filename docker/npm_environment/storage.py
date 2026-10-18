@@ -27,10 +27,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from docker.filesystem.descriptors import (
-    DescriptorError,
-    DirectoryDescriptor,
     _STAGE_CREATE,
     _STAGE_REOPEN,
+    DescriptorError,
+    DirectoryDescriptor,
 )
 from docker.filesystem.operations import DescriptorOps, PosixDescriptorOps
 

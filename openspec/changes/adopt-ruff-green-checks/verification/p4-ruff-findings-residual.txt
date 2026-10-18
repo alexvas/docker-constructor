@@ -1,0 +1,669 @@
+docker/constructor_cli.py:461:18: F401 [*] `os` imported but unused
+docker/constructor_cli.py:1231:24: F401 [*] `json` imported but unused
+docker/constructor_cli.py:1546:37: F401 [*] `docker.versioning.evidence.MAX_OUTPUT_BYTES` imported but unused
+docker/constructor_cli.py:2944:9: E731 Do not assign a `lambda` expression, use a `def`
+docker/constructor_cli.py:2952:9: E731 Do not assign a `lambda` expression, use a `def`
+docker/filesystem/cleanup.py:231:39: RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+docker/filesystem/descriptors.py:427:43: RUF100 [*] Unused `noqa` directive (non-enabled: `BLE001`)
+docker/launcher.py:27:21: F401 [*] `pathlib.Path` imported but unused
+docker/launcher.py:541:25: F811 [*] Redefinition of unused `Path` from line 27: `Path` redefined here
+docker/networking.py:18:8: F401 [*] `ipaddress` imported but unused
+docker/networking.py:19:8: F401 [*] `os` imported but unused
+docker/networking.py:28:30: F401 [*] `typing.Iterable` imported but unused
+docker/networking.py:367:40: RUF100 [*] Unused `noqa` directive (non-enabled: `N802`)
+docker/networking.py:393:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/networking.py:434:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/networking.py:610:5: F841 Local variable `persistence_applied` is assigned to but never used
+docker/npm_environment/publication.py:61:5: F401 [*] `.execution.CleanupFailure` imported but unused
+docker/npm_environment/publication.py:251:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/npm_environment/publication.py:257:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/process.py:598:21: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/process.py:1023:57: B023 Function definition does not bind loop variable `returncode`
+docker/process.py:1023:69: B023 Function definition does not bind loop variable `stage_end`
+docker/process.py:1073:41: B905 `zip()` without an explicit `strict=` parameter
+docker/process.py:1129:41: B905 `zip()` without an explicit `strict=` parameter
+docker/process.py:1288:17: B010 [*] Do not call `setattr` with a constant attribute value. It is not any safer than normal property access.
+docker/process.py:1316:17: B010 [*] Do not call `setattr` with a constant attribute value. It is not any safer than normal property access.
+docker/process.py:1360:19: B905 `zip()` without an explicit `strict=` parameter
+docker/process.py:1515:21: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/runtime_installer.py:25:36: F401 [*] `dataclasses.field` imported but unused
+docker/runtime_installer.py:586:16: F401 [*] `os` imported but unused
+docker/runtime_installer.py:587:24: F401 [*] `stat` imported but unused
+docker/runtime_installer.py:715:24: F401 [*] `stat` imported but unused
+docker/runtime_installer.py:724:21: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/runtime_installer.py:828:47: F811 Redefinition of unused `field` from line 25: `field` redefined here
+docker/runtime_installer.py:1029:5: F841 Local variable `workspace_dir` is assigned to but never used
+docker/transactions/capabilities.py:189:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/transactions/capabilities.py:426:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/transactions/errors.py:18:5: F401 [*] `docker.filesystem.cleanup._MAX_SECONDARY_NOTES` imported but unused
+docker/transactions/errors.py:19:5: F401 [*] `docker.filesystem.cleanup.attach_secondary` imported but unused
+docker/transactions/errors.py:20:5: F401 [*] `docker.filesystem.cleanup.carry_secondary_diagnostics` imported but unused
+docker/transactions/locking.py:213:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/tui.py:187:16: B007 Loop control variable `proj` not used within loop body
+docker/versioning/artifact_cache.py:614:5: F841 Local variable `safe_digest` is assigned to but never used
+docker/versioning/artifact_cache.py:655:5: F841 Local variable `cache_root` is assigned to but never used
+docker/versioning/artifact_cache.py:768:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/artifact_cache.py:771:9: F841 Local variable `safe_digest` is assigned to but never used
+docker/versioning/artifact_cache.py:1056:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/artifact_cache.py:1746:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/artifact_cache.py:1752:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:275:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:654:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:708:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:933:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:1095:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:1118:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:1446:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cache.py:1713:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cleanup.py:296:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cleanup.py:357:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cleanup.py:367:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_cleanup.py:383:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_materialization.py:22:5: F401 [*] `docker.versioning.build_cache.BLOB_EXTENSION` imported but unused
+docker/versioning/build_materialization.py:23:5: F401 [*] `docker.versioning.build_cache.BuildCacheError` imported but unused
+docker/versioning/build_materialization.py:72:52: B008 Do not perform function call `HostNetworkPolicy` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+docker/versioning/build_materialization.py:284:21: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_orchestration.py:29:44: F401 [*] `typing.Optional` imported but unused
+docker/versioning/build_orchestration.py:29:64: F401 [*] `typing.Sequence` imported but unused
+docker/versioning/build_orchestration.py:59:5: F401 [*] `docker.versioning.build_context_confinement.BuildContextConfinement` imported but unused
+docker/versioning/build_snapshot.py:161:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_snapshot.py:225:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_snapshot.py:590:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_snapshot.py:650:29: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/build_snapshot.py:711:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/diagnostic_identity.py:90:33: RUF100 [*] Unused `noqa` directive (non-enabled: `D105`)
+docker/versioning/diagnostic_identity.py:262:33: B905 `zip()` without an explicit `strict=` parameter
+docker/versioning/diagnostic_projection.py:84:5: F401 [*] `docker.npm_environment.streaming.REDACTED` imported but unused
+docker/versioning/diagnostic_projection.py:551:9: B018 Found useless expression. Either assign it to a variable or remove it.
+docker/versioning/diagnostic_projection.py:593:9: B018 Found useless expression. Either assign it to a variable or remove it.
+docker/versioning/diagnostic_projection.py:620:9: B018 Found useless expression. Either assign it to a variable or remove it.
+docker/versioning/diagnostic_projection.py:841:9: B018 Found useless expression. Either assign it to a variable or remove it.
+docker/versioning/diagnostic_projection.py:913:9: B018 Found useless expression. Either assign it to a variable or remove it.
+docker/versioning/effective.py:9:8: F401 [*] `json` imported but unused
+docker/versioning/effective.py:13:44: F401 [*] `typing.Optional` imported but unused
+docker/versioning/effective.py:53:5: F401 [*] `.model.NpmArtifact` imported but unused
+docker/versioning/effective.py:586:1: E402 Module level import not at top of file
+docker/versioning/effective.py:587:1: E402 Module level import not at top of file
+docker/versioning/effective.py:588:1: E402 Module level import not at top of file
+docker/versioning/evidence.py:119:1: E402 Module level import not at top of file
+docker/versioning/evidence.py:120:1: E402 Module level import not at top of file
+docker/versioning/evidence.py:121:1: E402 Module level import not at top of file
+docker/versioning/evidence.py:122:1: E402 Module level import not at top of file
+docker/versioning/evidence.py:123:1: E402 Module level import not at top of file
+docker/versioning/evidence.py:124:1: E402 Module level import not at top of file
+docker/versioning/inventory.py:14:44: F401 [*] `typing.Union` imported but unused
+docker/versioning/inventory.py:27:5: F401 [*] `.constraints.NumericVersion` imported but unused
+docker/versioning/inventory.py:55:5: F401 [*] `.model.InvalidArtifactKey` imported but unused
+docker/versioning/inventory.py:75:5: F401 [*] `.model.RuntimeInventory` imported but unused
+docker/versioning/inventory.py:463:9: F841 Local variable `validation_raw` is assigned to but never used
+docker/versioning/inventory.py:762:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/inventory.py:785:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/inventory.py:804:5: F841 Local variable `source_data` is assigned to but never used
+docker/versioning/inventory.py:1787:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/inventory.py:1878:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/inventory.py:2209:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/model.py:16:8: F401 [*] `re` imported but unused
+docker/versioning/model.py:20:20: F401 [*] `typing.Any` imported but unused
+docker/versioning/model.py:22:38: F401 [*] `.constraints.NumericVersion` imported but unused
+docker/versioning/model.py:867:1: E402 Module level import not at top of file
+docker/versioning/model.py:908:12: F811 [*] Redefinition of unused `re` from line 16: `re` redefined here
+docker/versioning/model.py:909:36: F401 [*] `datetime.timedelta` imported but unused
+docker/versioning/model.py:909:47: F401 [*] `datetime.timezone` imported but unused
+docker/versioning/model.py:1014:16: F401 [*] `json` imported but unused
+docker/versioning/npm_fetch.py:286:9: B018 Found useless expression. Either assign it to a variable or remove it.
+docker/versioning/pi_release.py:16:30: F401 [*] `typing.Iterable` imported but unused
+docker/versioning/project_state.py:500:23: B905 `zip()` without an explicit `strict=` parameter
+docker/versioning/providers/base.py:16:5: F401 [*] `typing.Sequence` imported but unused
+docker/versioning/providers/base.py:21:5: F401 [*] `..model.CandidateArtifact` imported but unused
+docker/versioning/providers/git.py:17:52: F401 [*] `.base.UpdateProvider` imported but unused
+docker/versioning/providers/github.py:304:32: E741 Ambiguous variable name: `l`
+docker/versioning/providers/npm.py:23:19: F401 [*] `.base.HttpTransport` imported but unused
+docker/versioning/providers/npm.py:23:67: F401 [*] `.base.UpdateProvider` imported but unused
+docker/versioning/providers/pypi.py:20:52: F401 [*] `.base.UpdateProvider` imported but unused
+docker/versioning/providers/pypi.py:30:14: B007 Loop control variable `files` not used within loop body
+docker/versioning/providers/pypi.py:46:14: B007 Loop control variable `files` not used within loop body
+docker/versioning/providers/pypi.py:147:40: F401 [*] `datetime.timezone` imported but unused
+docker/versioning/providers/rust.py:20:52: F401 [*] `.base.UpdateProvider` imported but unused
+docker/versioning/providers/uv_python.py:12:27: F401 [*] `..constraints.NumericVersion` imported but unused
+docker/versioning/providers/uv_python.py:20:52: F401 [*] `.base.UpdateProvider` imported but unused
+docker/versioning/readonly_service.py:147:5: F841 Local variable `overrides_map` is assigned to but never used
+docker/versioning/rendering.py:463:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/rendering.py:733:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/rendering.py:1372:9: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/rendering.py:1386:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/rendering.py:1398:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/rendering.py:1609:1: E402 Module level import not at top of file
+docker/versioning/rendering.py:1609:23: F401 [*] `dataclasses` imported but unused
+docker/versioning/rendering.py:1676:9: F401 [*] `.model.EffectiveArtifact` imported but unused
+docker/versioning/rendering.py:1677:9: F401 [*] `.model.EffectiveBuildProjection` imported but unused
+docker/versioning/rendering.py:1678:9: F401 [*] `.model.EffectiveNode` imported but unused
+docker/versioning/rendering.py:1679:9: F401 [*] `.model.EffectiveRust` imported but unused
+docker/versioning/rendering.py:1680:9: F401 [*] `.model.EffectiveTool` imported but unused
+docker/versioning/rendering.py:1893:9: F401 [*] `docker.versioning.project_state.ProjectState` imported but unused
+docker/versioning/semver.py:187:19: B905 `zip()` without an explicit `strict=` parameter
+docker/versioning/transports.py:14:19: F401 [*] `types.MappingProxyType` imported but unused
+docker/versioning/transports.py:146:17: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+docker/versioning/updates.py:17:5: F401 [*] `typing.Optional` imported but unused
+docker/versioning/updates.py:22:5: F401 [*] `.errors.ProviderUnavailableError` imported but unused
+docker/versioning/updates.py:23:5: F401 [*] `.errors.VersionConfigError` imported but unused
+docker/versioning/updates.py:27:5: F401 [*] `.model.CandidateArtifact` imported but unused
+docker/versioning/updates.py:28:5: F401 [*] `.model.DockerRegistrySource` imported but unused
+docker/versioning/updates.py:33:5: F401 [*] `.model.GitSource` imported but unused
+docker/versioning/updates.py:35:5: F401 [*] `.model.NodeEntry` imported but unused
+docker/versioning/updates.py:36:5: F401 [*] `.model.NpmSource` imported but unused
+docker/versioning/updates.py:38:5: F401 [*] `.model.OhMyZshEntry` imported but unused
+docker/versioning/updates.py:39:5: F401 [*] `.model.OverridePolicy` imported but unused
+docker/versioning/updates.py:40:5: F401 [*] `.model.PiExtensionEntry` imported but unused
+docker/versioning/updates.py:41:5: F401 [*] `.model.PrebuiltToolEntry` imported but unused
+docker/versioning/updates.py:42:5: F401 [*] `.model.PyPiSource` imported but unused
+docker/versioning/updates.py:43:5: F401 [*] `.model.PyPiUpdate` imported but unused
+docker/versioning/updates.py:44:5: F401 [*] `.model.PythonEntry` imported but unused
+docker/versioning/updates.py:45:5: F401 [*] `.model.RustChannelSource` imported but unused
+docker/versioning/updates.py:46:5: F401 [*] `.model.RustChannelUpdate` imported but unused
+docker/versioning/updates.py:47:5: F401 [*] `.model.RustEntry` imported but unused
+docker/versioning/updates.py:49:5: F401 [*] `.model.TyEntry` imported but unused
+docker/versioning/updates.py:55:5: F401 [*] `.model.UvEntry` imported but unused
+docker/versioning/updates.py:57:5: F401 [*] `.model.UvPythonUpdate` imported but unused
+docker/versioning/updates.py:61:5: F401 [*] `.providers.base.ProviderResult` imported but unused
+docker/versioning/verification.py:333:1: E402 Module level import not at top of file
+docker/versions.py:71:9: F401 [*] `versioning.constraints.Constraint` imported but unused
+docker/versions.py:72:9: F401 [*] `versioning.constraints.ConstraintClause` imported but unused
+docker/versions.py:73:9: F401 [*] `versioning.constraints.NumericVersion` imported but unused
+docker/versions.py:74:9: F401 [*] `versioning.constraints.parse_constraint` imported but unused
+docker/versions.py:75:9: F401 [*] `versioning.constraints.parse_numeric_version` imported but unused
+docker/versions.py:76:9: F401 [*] `versioning.constraints.validate_constraint_consistency` imported but unused
+docker/versions.py:79:9: F401 [*] `versioning.errors.ConstraintSyntaxError` imported but unused
+docker/versions.py:80:9: F401 [*] `versioning.errors.InventoryError` imported but unused
+docker/versions.py:81:9: F401 [*] `versioning.errors.VersionConfigError` imported but unused
+docker/versions.py:82:9: F401 [*] `versioning.errors.VersionSyntaxError` imported but unused
+docker/versions.py:84:38: F401 [*] `versioning.inventory.load_inventory` imported but unused
+docker/versions.py:84:54: F401 [*] `versioning.inventory.validate_inventory` imported but unused
+docker/versions.py:86:9: F401 [*] `versioning.model.ArtifactEntry` imported but unused
+docker/versions.py:87:9: F401 [*] `versioning.model.BaseStage` imported but unused
+docker/versions.py:88:9: F401 [*] `versioning.model.BuildInventory` imported but unused
+docker/versions.py:89:9: F401 [*] `versioning.model.DockerRegistrySource` imported but unused
+docker/versions.py:90:9: F401 [*] `versioning.model.DockerRegistryUpdate` imported but unused
+docker/versions.py:91:9: F401 [*] `versioning.model.FdPrebuiltStage` imported but unused
+docker/versions.py:92:9: F401 [*] `versioning.model.GitHubReleaseSource` imported but unused
+docker/versions.py:93:9: F401 [*] `versioning.model.GitHubReleaseUpdate` imported but unused
+docker/versions.py:94:9: F401 [*] `versioning.model.GitRefUpdate` imported but unused
+docker/versions.py:95:9: F401 [*] `versioning.model.GitSource` imported but unused
+docker/versions.py:96:9: F401 [*] `versioning.model.Inventory` imported but unused
+docker/versions.py:97:9: F401 [*] `versioning.model.NodeEntry` imported but unused
+docker/versions.py:98:9: F401 [*] `versioning.model.NpmArtifact` imported but unused
+docker/versions.py:99:9: F401 [*] `versioning.model.NpmSource` imported but unused
+docker/versions.py:100:9: F401 [*] `versioning.model.NpmToolEntry` imported but unused
+docker/versions.py:101:9: F401 [*] `versioning.model.NpmUpdate` imported but unused
+docker/versions.py:102:9: F401 [*] `versioning.model.OhMyZshEntry` imported but unused
+docker/versions.py:103:9: F401 [*] `versioning.model.OpenSpecToolsStage` imported but unused
+docker/versions.py:104:9: F401 [*] `versioning.model.OverridePolicy` imported but unused
+docker/versions.py:105:9: F401 [*] `versioning.model.PiExtensionEntry` imported but unused
+docker/versions.py:106:9: F401 [*] `versioning.model.PiReleaseSource` imported but unused
+docker/versions.py:107:9: F401 [*] `versioning.model.PiToolEntry` imported but unused
+docker/versions.py:108:9: F401 [*] `versioning.model.PiToolsStage` imported but unused
+docker/versions.py:109:9: F401 [*] `versioning.model.PrebuiltToolEntry` imported but unused
+docker/versions.py:110:9: F401 [*] `versioning.model.PyPiSource` imported but unused
+docker/versions.py:111:9: F401 [*] `versioning.model.PyPiUpdate` imported but unused
+docker/versions.py:112:9: F401 [*] `versioning.model.PythonEntry` imported but unused
+docker/versions.py:113:9: F401 [*] `versioning.model.RtkPrebuiltStage` imported but unused
+docker/versions.py:114:9: F401 [*] `versioning.model.RuntimeInventory` imported but unused
+docker/versions.py:115:9: F401 [*] `versioning.model.RuntimeStage` imported but unused
+docker/versions.py:116:9: F401 [*] `versioning.model.RuntimeValidation` imported but unused
+docker/versions.py:117:9: F401 [*] `versioning.model.RustChannelSource` imported but unused
+docker/versions.py:118:9: F401 [*] `versioning.model.RustChannelUpdate` imported but unused
+docker/versions.py:119:9: F401 [*] `versioning.model.RustEntry` imported but unused
+docker/versions.py:120:9: F401 [*] `versioning.model.Stages` imported but unused
+docker/versions.py:121:9: F401 [*] `versioning.model.ToolchainStage` imported but unused
+docker/versions.py:122:9: F401 [*] `versioning.model.TyEntry` imported but unused
+docker/versions.py:123:9: F401 [*] `versioning.model.UvEntry` imported but unused
+docker/versions.py:124:9: F401 [*] `versioning.model.UvPythonSource` imported but unused
+docker/versions.py:125:9: F401 [*] `versioning.model.UvPythonUpdate` imported but unused
+scripts/collect-docker-cancellation-evidence.py:287:17: B023 Function definition does not bind loop variable `barrier`
+tests/enforcement/process_convergence.py:242:37: B905 `zip()` without an explicit `strict=` parameter
+tests/enforcement/process_convergence.py:248:37: B905 `zip()` without an explicit `strict=` parameter
+tests/enforcement/test_descriptor_close_convergence.py:1723:33: B905 `zip()` without an explicit `strict=` parameter
+tests/enforcement/test_npm_environment_process_contract.py:83:24: B023 Function definition does not bind loop variable `aliases`
+tests/pi_fixtures.py:26:5: F401 [*] `docker.versioning.pi_release.SHA256SUMS_FILENAME` imported but unused
+tests/pi_fixtures.py:125:57: RUF100 [*] Unused `noqa` directive (non-enabled: `ARG002`)
+tests/test_configuration_document_validation_phase1.py:521:63: B023 Function definition does not bind loop variable `effects`
+tests/test_configuration_document_validation_phase1.py:525:63: B023 Function definition does not bind loop variable `effects`
+tests/test_constructor_acceptance.py:16:8: F401 [*] `os` imported but unused
+tests/test_constructor_acceptance.py:19:8: F401 [*] `sys` imported but unused
+tests/test_constructor_acceptance.py:213:24: E741 Ambiguous variable name: `l`
+tests/test_constructor_acceptance.py:243:24: E741 Ambiguous variable name: `l`
+tests/test_constructor_acceptance.py:406:9: B007 Loop control variable `i` not used within loop body
+tests/test_constructor_acceptance.py:637:13: F401 [*] `docker.versioning.build_orchestration.ExitKind` imported but unused
+tests/test_constructor_acceptance.py:1916:9: F841 Local variable `evidence` is assigned to but never used
+tests/test_constructor_build_cache_directory_handoff.py:50:45: F401 [*] `docker.versioning.project_state.resolve_project_state` imported but unused
+tests/test_constructor_build_cache_state_lifecycle.py:320:28: B905 `zip()` without an explicit `strict=` parameter
+tests/test_constructor_build_cleanup.py:228:44: RUF100 [*] Unused `noqa` directive (non-enabled: `ANN001`)
+tests/test_constructor_build_cleanup.py:234:48: RUF100 [*] Unused `noqa` directive (non-enabled: `ANN001`)
+tests/test_constructor_build_cleanup.py:434:9: F841 Local variable `order` is assigned to but never used
+tests/test_constructor_build_cleanup.py:650:9: F841 Local variable `order` is assigned to but never used
+tests/test_constructor_build_cleanup.py:1194:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_build_generations.py:27:57: F401 [*] `docker.transactions.errors.TransactionError` imported but unused
+tests/test_constructor_build_orchestration.py:22:25: F401 [*] `dataclasses.dataclass` imported but unused
+tests/test_constructor_build_orchestration.py:25:20: F401 [*] `typing.Optional` imported but unused
+tests/test_constructor_build_orchestration.py:56:5: F401 [*] `docker.versioning.build_orchestration.DoctorRequest` imported but unused
+tests/test_constructor_build_orchestration.py:74:43: F401 [*] `docker.versioning.pi_assembly.PiAssemblyError` imported but unused
+tests/test_constructor_build_orchestration.py:328:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_build_orchestration.py:331:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_build_orchestration.py:356:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_build_orchestration.py:1685:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_constructor_build_orchestration.py:1686:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_constructor_build_orchestration.py:2585:9: F841 Local variable `other_path` is assigned to but never used
+tests/test_constructor_build_orchestration.py:2798:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_constructor_build_orchestration.py:2852:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_constructor_build_orchestration.py:2880:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_constructor_build_output.py:9:8: F401 [*] `tempfile` imported but unused
+tests/test_constructor_build_persistence.py:16:41: F401 [*] `docker.versioning.build_cache` imported but unused
+tests/test_constructor_build_projection.py:9:8: F401 [*] `tempfile` imported but unused
+tests/test_constructor_build_projection.py:17:5: F401 [*] `docker.versioning.errors.InventoryError` imported but unused
+tests/test_constructor_build_projection.py:23:5: F401 [*] `docker.versioning.model.ArtifactEntry` imported but unused
+tests/test_constructor_build_projection.py:25:5: F401 [*] `docker.versioning.model.EffectiveBuildProjection` imported but unused
+tests/test_constructor_build_projection.py:512:1: E402 Module level import not at top of file
+tests/test_constructor_build_snapshot.py:714:9: F841 Local variable `real_rmtree` is assigned to but never used
+tests/test_constructor_cache_contracts.py:307:30: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_cache_contracts.py:319:30: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_cache_contracts.py:335:30: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_cache_contracts.py:346:30: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_cache_contracts.py:361:30: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_cache_contracts.py:378:30: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_cache_contracts.py:402:9: F841 Local variable `p1` is assigned to but never used
+tests/test_constructor_cache_contracts.py:407:9: F841 Local variable `p2` is assigned to but never used
+tests/test_constructor_cache_contracts.py:575:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_corporate_network_run_red.py:857:43: F821 Undefined name `subprocess`
+tests/test_constructor_corporate_network_verification_red.py:383:38: B905 `zip()` without an explicit `strict=` parameter
+tests/test_constructor_doctor_orchestration.py:18:20: F401 [*] `typing.Optional` imported but unused
+tests/test_constructor_doctor_orchestration.py:19:22: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_doctor_orchestration.py:43:1: E402 Module level import not at top of file
+tests/test_constructor_doctor_orchestration.py:50:5: F401 [*] `docker.networking.ProcessRunner` imported but unused
+tests/test_constructor_doctor_orchestration.py:53:1: E402 Module level import not at top of file
+tests/test_constructor_doctor_orchestration.py:58:1: E402 Module level import not at top of file
+tests/test_constructor_doctor_orchestration.py:334:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_doctor_orchestration.py:337:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_doctor_orchestration.py:733:47: F841 Local variable `tmp` is assigned to but never used
+tests/test_constructor_evidence_collector.py:198:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_evidence_collector.py:554:9: F841 Local variable `bundle` is assigned to but never used
+tests/test_constructor_facade.py:16:8: F401 [*] `os` imported but unused
+tests/test_constructor_facade.py:18:8: F401 [*] `sys` imported but unused
+tests/test_constructor_facade.py:1173:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_facade.py:1175:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_facade.py:1846:9: F841 Local variable `record` is assigned to but never used
+tests/test_constructor_facade.py:1921:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_facade.py:1971:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_facade.py:1990:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_facade.py:2126:16: F401 [*] `tempfile` imported but unused
+tests/test_constructor_facade.py:2127:32: F401 [*] `contextlib.contextmanager` imported but unused
+tests/test_constructor_facade.py:2212:13: F401 [*] `docker.launcher.ProcessRunner` imported but unused
+tests/test_constructor_host_access_acceptance.py:10:8: F401 [*] `io` imported but unused
+tests/test_constructor_host_access_acceptance.py:13:24: F401 [*] `contextlib.redirect_stdout` imported but unused
+tests/test_constructor_host_access_acceptance.py:15:25: F401 [*] `typing.Mapping` imported but unused
+tests/test_constructor_host_access_acceptance.py:26:41: F401 [*] `docker.versioning.rendering.RunHostAccess` imported but unused
+tests/test_constructor_host_access_doctor_red.py:348:13: F841 Local variable `original_bytes` is assigned to but never used
+tests/test_constructor_host_access_doctor_red.py:482:13: F841 Local variable `real_rename` is assigned to but never used
+tests/test_constructor_host_access_launch_red.py:165:21: B023 Function definition does not bind loop variable `effects`
+tests/test_constructor_host_access_migration_red.py:277:17: E741 Ambiguous variable name: `l`
+tests/test_constructor_host_progress.py:81:43: B023 Function definition does not bind loop variable `tty`
+tests/test_constructor_inventory_build.py:10:8: F401 [*] `tomllib` imported but unused
+tests/test_constructor_inventory_build.py:23:1: E402 Module level import not at top of file
+tests/test_constructor_inventory_build.py:25:1: E402 Module level import not at top of file
+tests/test_constructor_inventory_root.py:6:8: F401 [*] `tomllib` imported but unused
+tests/test_constructor_inventory_root.py:16:1: E402 Module level import not at top of file
+tests/test_constructor_inventory_root.py:18:1: E402 Module level import not at top of file
+tests/test_constructor_inventory_root.py:710:13: F401 [*] `docker.versions.Constraint` imported but unused
+tests/test_constructor_inventory_runtime.py:15:68: RUF100 [*] Unused `noqa` directive (unused: `E402`)
+tests/test_constructor_inventory_runtime.py:19:66: RUF100 [*] Unused `noqa` directive (unused: `E402`)
+tests/test_constructor_inventory_runtime.py:20:61: RUF100 [*] Unused `noqa` directive (unused: `E402`)
+tests/test_constructor_inventory_runtime.py:21:57: RUF100 [*] Unused `noqa` directive (unused: `E402`)
+tests/test_constructor_inventory_runtime.py:22:37: F401 [*] `docker.versioning.model.InvalidArtifactKey` imported but unused
+tests/test_constructor_inventory_runtime.py:22:57: RUF100 [*] Unused `noqa` directive (unused: `E402`)
+tests/test_constructor_inventory_runtime.py:23:45: RUF100 [*] Unused `noqa` directive (unused: `E402`)
+tests/test_constructor_inventory_runtime.py:24:41: RUF100 [*] Unused `noqa` directive (unused: `E402`)
+tests/test_constructor_inventory_runtime.py:442:51: F841 Local variable `ctx` is assigned to but never used
+tests/test_constructor_inventory_runtime.py:884:51: F841 Local variable `ctx` is assigned to but never used
+tests/test_constructor_inventory_runtime.py:891:51: F841 Local variable `ctx` is assigned to but never used
+tests/test_constructor_inventory_runtime.py:898:51: F841 Local variable `ctx` is assigned to but never used
+tests/test_constructor_inventory_runtime.py:911:51: F841 Local variable `ctx` is assigned to but never used
+tests/test_constructor_launcher.py:37:5: F401 [*] `docker.launcher.ProjectionFactory` imported but unused
+tests/test_constructor_launcher.py:38:5: F401 [*] `docker.launcher.RunExecutor` imported but unused
+tests/test_constructor_launcher.py:1149:37: F401 [*] `docker.launcher.orchestrate_run` imported but unused
+tests/test_constructor_launcher.py:1619:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_launcher.py:1640:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_launcher.py:2504:16: F401 [*] `stat` imported but unused
+tests/test_constructor_launcher.py:2519:79: F821 Undefined name `Any`
+tests/test_constructor_launcher.py:2535:22: F821 Undefined name `Any`
+tests/test_constructor_launcher.py:2555:13: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_launcher.py:3850:30: F401 [*] `unittest.mock` imported but unused
+tests/test_constructor_launcher.py:3852:52: F401 [*] `docker.versioning.artifact_cache` imported but unused
+tests/test_constructor_launcher.py:4135:24: F821 Undefined name `SelectedArtifact`
+tests/test_constructor_launcher.py:4137:20: F821 Undefined name `VerifiedCacheBlob`
+tests/test_constructor_launcher.py:4185:43: F821 Undefined name `SelectedArtifact`
+tests/test_constructor_materialization.py:35:25: F401 [*] `dataclasses.dataclass` imported but unused
+tests/test_constructor_materialization.py:35:36: F401 [*] `dataclasses.field` imported but unused
+tests/test_constructor_materialization.py:58:5: F401 [*] `docker.versioning.artifact_cache.validate_cache_blob` imported but unused
+tests/test_constructor_networking.py:31:5: F401 [*] `docker.networking.PersistenceResult` imported but unused
+tests/test_constructor_networking.py:50:35: F401 [*] `tests.test_networking.FakeFilesystem` imported but unused
+tests/test_constructor_networking.py:177:7: F811 Redefinition of unused `FakeHostProbeServer` from line 50: `FakeHostProbeServer` redefined here
+tests/test_constructor_networking.py:598:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_networking.py:605:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_networking.py:610:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_pi_assembly.py:27:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:37:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:38:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:39:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:40:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:45:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:46:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:47:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:48:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:54:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:67:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:68:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:69:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:74:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:75:1: E402 Module level import not at top of file
+tests/test_constructor_pi_assembly.py:789:28: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:790:25: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:792:28: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:797:36: B023 Function definition does not bind loop variable `expected`
+tests/test_constructor_pi_assembly.py:797:77: B023 Function definition does not bind loop variable `renderer`
+tests/test_constructor_pi_assembly.py:800:25: B023 Function definition does not bind loop variable `snapshot`
+tests/test_constructor_pi_assembly.py:800:57: B023 Function definition does not bind loop variable `renderer`
+tests/test_constructor_pi_assembly.py:801:25: B023 Function definition does not bind loop variable `snapshot`
+tests/test_constructor_pi_assembly.py:801:61: B023 Function definition does not bind loop variable `renderer`
+tests/test_constructor_pi_assembly.py:802:25: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:831:33: B007 Loop control variable `forbidden` not used within loop body
+tests/test_constructor_pi_assembly.py:841:28: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:842:25: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:844:28: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:847:36: B023 Function definition does not bind loop variable `expected`
+tests/test_constructor_pi_assembly.py:847:77: B023 Function definition does not bind loop variable `renderer`
+tests/test_constructor_pi_assembly.py:852:25: B023 Function definition does not bind loop variable `snapshot`
+tests/test_constructor_pi_assembly.py:852:48: B023 Function definition does not bind loop variable `delivered`
+tests/test_constructor_pi_assembly.py:853:25: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:927:29: B905 `zip()` without an explicit `strict=` parameter
+tests/test_constructor_pi_assembly.py:1082:28: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:1083:25: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:1085:28: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:1089:33: B023 Function definition does not bind loop variable `expected`
+tests/test_constructor_pi_assembly.py:1090:57: B023 Function definition does not bind loop variable `renderer`
+tests/test_constructor_pi_assembly.py:1094:25: B023 Function definition does not bind loop variable `snapshot`
+tests/test_constructor_pi_assembly.py:1094:57: B023 Function definition does not bind loop variable `renderer`
+tests/test_constructor_pi_assembly.py:1095:25: B023 Function definition does not bind loop variable `sent`
+tests/test_constructor_pi_assembly.py:1138:33: B023 Function definition does not bind loop variable `chunks`
+tests/test_constructor_pi_consumer.py:24:1: E402 Module level import not at top of file
+tests/test_constructor_pi_consumer.py:25:1: E402 Module level import not at top of file
+tests/test_constructor_pi_inventory.py:22:1: E402 Module level import not at top of file
+tests/test_constructor_pi_inventory.py:24:1: E402 Module level import not at top of file
+tests/test_constructor_pi_inventory.py:25:1: E402 Module level import not at top of file
+tests/test_constructor_pi_inventory.py:29:1: E402 Module level import not at top of file
+tests/test_constructor_pi_inventory.py:30:1: E402 Module level import not at top of file
+tests/test_constructor_pi_inventory.py:31:1: E402 Module level import not at top of file
+tests/test_constructor_pi_inventory.py:32:1: E402 Module level import not at top of file
+tests/test_constructor_pi_release.py:19:1: E402 Module level import not at top of file
+tests/test_constructor_pi_release.py:20:1: E402 Module level import not at top of file
+tests/test_constructor_pi_snapshot.py:29:1: E402 Module level import not at top of file
+tests/test_constructor_pi_snapshot.py:30:1: E402 Module level import not at top of file
+tests/test_constructor_pi_snapshot.py:31:1: E402 Module level import not at top of file
+tests/test_constructor_pi_snapshot.py:37:1: E402 Module level import not at top of file
+tests/test_constructor_pi_snapshot.py:38:1: E402 Module level import not at top of file
+tests/test_constructor_pi_snapshot.py:39:1: E402 Module level import not at top of file
+tests/test_constructor_pi_verify.py:26:1: E402 Module level import not at top of file
+tests/test_constructor_pi_verify.py:31:1: E402 Module level import not at top of file
+tests/test_constructor_pi_verify.py:38:1: E402 Module level import not at top of file
+tests/test_constructor_pi_verify.py:39:1: E402 Module level import not at top of file
+tests/test_constructor_pi_verify.py:40:1: E402 Module level import not at top of file
+tests/test_constructor_project_inputs.py:10:19: F401 [*] `types.SimpleNamespace` imported but unused
+tests/test_constructor_project_root_phase3.py:293:60: F401 [*] `docker.versioning.project_state` imported but unused
+tests/test_constructor_project_root_phase6.py:79:31: B905 `zip()` without an explicit `strict=` parameter
+tests/test_constructor_project_root_phase6.py:100:32: B905 `zip()` without an explicit `strict=` parameter
+tests/test_constructor_project_root_phase6.py:121:36: B905 `zip()` without an explicit `strict=` parameter
+tests/test_constructor_readonly.py:17:8: F401 [*] `sys` imported but unused
+tests/test_constructor_run_vector.py:856:38: F821 Undefined name `RuntimeInventory`
+tests/test_constructor_run_vector.py:912:66: F821 Undefined name `VerifiedCacheBlob`
+tests/test_constructor_run_vector.py:1220:52: F821 Undefined name `ArtifactMount`
+tests/test_constructor_run_vector.py:1447:52: F821 Undefined name `ArtifactMount`
+tests/test_constructor_run_vector.py:1626:16: F401 [*] `tempfile` imported but unused
+tests/test_constructor_runtime_cache_migration.py:121:13: F841 Local variable `base` is assigned to but never used
+tests/test_constructor_runtime_dto.py:3:8: F401 [*] `io` imported but unused
+tests/test_constructor_runtime_installer.py:29:8: F401 [*] `stat` imported but unused
+tests/test_constructor_runtime_installer.py:32:25: F401 [*] `dataclasses.dataclass` imported but unused
+tests/test_constructor_runtime_installer.py:33:21: F401 [*] `pathlib.Path` imported but unused
+tests/test_constructor_runtime_installer.py:39:5: F401 [*] `docker.runtime_installer._MOUNTED_ARTIFACT_ROOT` imported but unused
+tests/test_constructor_runtime_installer.py:57:5: F401 [*] `docker.runtime_installer._MountInspection` imported but unused
+tests/test_constructor_runtime_installer.py:272:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_runtime_installer.py:326:14: B017 Do not assert blind exception: `Exception`
+tests/test_constructor_runtime_installer.py:457:15: SIM115 Use a context manager for opening files
+tests/test_constructor_runtime_installer.py:1850:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_runtime_installer.py:2734:9: F841 Local variable `result` is assigned to but never used
+tests/test_constructor_runtime_installer.py:3161:13: B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling
+tests/test_constructor_runtime_installer.py:3177:16: F811 [*] Redefinition of unused `stat` from line 29: `stat` redefined here
+tests/test_constructor_runtime_installer.py:3186:16: F811 [*] Redefinition of unused `stat` from line 29: `stat` redefined here
+tests/test_constructor_runtime_installer.py:3420:11: SIM115 Use a context manager for opening files
+tests/test_constructor_runtime_installer.py:3804:12: F401 [*] `base64` imported but unused
+tests/test_constructor_runtime_installer.py:5096:11: F821 Undefined name `subprocess`
+tests/test_constructor_runtime_installer.py:5150:32: E741 Ambiguous variable name: `l`
+tests/test_constructor_runtime_installer.py:5186:29: E741 Ambiguous variable name: `l`
+tests/test_constructor_runtime_installer.py:5192:40: E741 Ambiguous variable name: `l`
+tests/test_constructor_runtime_lifecycle.py:17:5: F401 [*] `docker.versioning.effective.RuntimeProjectionHandle` imported but unused
+tests/test_constructor_runtime_lifecycle.py:19:5: F401 [*] `docker.versioning.effective._runtime_root` imported but unused
+tests/test_constructor_runtime_lifecycle.py:1119:49: F401 [*] `docker.versioning.effective.Filesystem` imported but unused
+tests/test_constructor_runtime_lifecycle.py:1143:49: F401 [*] `docker.versioning.effective.Filesystem` imported but unused
+tests/test_constructor_runtime_lifecycle.py:1157:49: F401 [*] `docker.versioning.effective.Filesystem` imported but unused
+tests/test_constructor_runtime_lifecycle.py:1175:49: F401 [*] `docker.versioning.effective.Filesystem` imported but unused
+tests/test_constructor_runtime_lifecycle.py:1194:49: F401 [*] `docker.versioning.effective.Filesystem` imported but unused
+tests/test_constructor_runtime_lifecycle.py:1261:16: F401 [*] `stat` imported but unused
+tests/test_constructor_runtime_lifecycle.py:1283:16: F401 [*] `stat` imported but unused
+tests/test_constructor_runtime_verification.py:33:5: F401 [*] `docker.versioning.model.EffectivePiExtensionEntry` imported but unused
+tests/test_constructor_runtime_verification.py:320:15: B007 Loop control variable `ver` not used within loop body
+tests/test_constructor_runtime_verification.py:377:57: F821 Undefined name `_RecordingProjectionFactory`
+tests/test_constructor_verification.py:41:5: F401 [*] `docker.versioning.verification.ObservationContract` imported but unused
+tests/test_container_workspace_contract.py:35:34: B008 Do not perform function call `RunHostAccess.disabled` in argument defaults; instead, perform the call within the function, or read the default from a module-level singleton variable
+tests/test_descriptor_close_phase6_artifact_cache.py:137:9: F841 Local variable `identity` is assigned to but never used
+tests/test_filesystem_directory_descriptors.py:1088:22: B017 Do not assert blind exception: `BaseException`
+tests/test_filesystem_directory_descriptors.py:1112:26: B017 Do not assert blind exception: `BaseException`
+tests/test_host_activity_monitor.py:471:34: B905 `zip()` without an explicit `strict=` parameter
+tests/test_host_activity_monitor.py:511:34: B905 `zip()` without an explicit `strict=` parameter
+tests/test_host_diagnostic_grouping_phase7.py:239:14: B017 Do not assert blind exception: `Exception`
+tests/test_host_diagnostic_projection.py:50:32: RUF100 [*] Unused `noqa` directive (non-enabled: `D105`)
+tests/test_host_diagnostic_projection.py:69:32: RUF100 [*] Unused `noqa` directive (non-enabled: `D105`)
+tests/test_host_download_observability.py:1061:14: B017 Do not assert blind exception: `Exception`
+tests/test_host_observability_acceptance_phase10.py:446:52: B905 `zip()` without an explicit `strict=` parameter
+tests/test_host_path_projection.py:29:5: F401 [*] `docker.versioning.diagnostic_projection.INCOMPLETE_TOKEN_MARKER` imported but unused
+tests/test_host_presentation_phase9.py:25:5: F401 [*] `docker.versioning.host_presentation.DIAGNOSTIC_SILENCE_SECONDS` imported but unused
+tests/test_host_presentation_phase9.py:26:5: F401 [*] `docker.versioning.host_presentation.FIRST_HEARTBEAT_SECONDS` imported but unused
+tests/test_host_presentation_phase9.py:28:5: F401 [*] `docker.versioning.host_presentation.LINES_STATUS_INTERVAL_SECONDS` imported but unused
+tests/test_inventory_independence.py:15:8: F401 [*] `os` imported but unused
+tests/test_inventory_independence.py:18:8: F401 [*] `tempfile` imported but unused
+tests/test_live_inventory_contract.py:206:9: F841 Local variable `inventory` is assigned to but never used
+tests/test_locked_assembly_observability_phase8.py:47:5: F401 [*] `docker.versioning.host_progress.HostPhase` imported but unused
+tests/test_locked_assembly_observability_phase8.py:328:35: RUF100 [*] Unused `noqa` directive (non-enabled: `ANN001`)
+tests/test_locked_assembly_observability_phase8.py:331:89: RUF100 [*] Unused `noqa` directive (non-enabled: `ANN001`)
+tests/test_locked_assembly_observability_phase8.py:366:35: RUF100 [*] Unused `noqa` directive (non-enabled: `ANN001`)
+tests/test_native_file_cleanup.py:207:25: B023 Function definition does not bind loop variable `owners`
+tests/test_native_file_cleanup.py:223:41: B023 Function definition does not bind loop variable `stream`
+tests/test_native_file_cleanup.py:280:21: B023 Function definition does not bind loop variable `owners`
+tests/test_networking.py:15:8: F401 [*] `subprocess` imported but unused
+tests/test_networking.py:24:5: F401 [*] `docker.networking.GatewayDiagnosis` imported but unused
+tests/test_networking.py:27:5: F401 [*] `docker.networking.PersistenceResult` imported but unused
+tests/test_networking.py:28:5: F401 [*] `docker.networking.ProbeResult` imported but unused
+tests/test_networking.py:34:5: F401 [*] `docker.networking._choose_gateway` imported but unused
+tests/test_networking.py:36:5: F401 [*] `docker.networking.candidate_gateways` imported but unused
+tests/test_npm_environment_acceptance.py:28:1: E402 Module level import not at top of file
+tests/test_npm_environment_cancellation.py:19:1: E402 Module level import not at top of file
+tests/test_npm_environment_cleanup.py:21:1: E402 Module level import not at top of file
+tests/test_npm_environment_cleanup.py:22:1: E402 Module level import not at top of file
+tests/test_npm_environment_cleanup.py:32:1: E402 Module level import not at top of file
+tests/test_npm_environment_concurrency_cache.py:27:1: E402 Module level import not at top of file
+tests/test_npm_environment_corporate_network.py:34:1: E402 Module level import not at top of file
+tests/test_npm_environment_execution.py:26:1: E402 Module level import not at top of file
+tests/test_npm_environment_execution.py:38:1: E402 Module level import not at top of file
+tests/test_npm_environment_identity.py:23:1: E402 Module level import not at top of file
+tests/test_npm_environment_identity.py:28:5: F401 [*] `docker.npm_environment.ReviewedRootMetadata` imported but unused
+tests/test_npm_environment_image_ref.py:23:1: E402 Module level import not at top of file
+tests/test_npm_environment_introspection.py:23:1: E402 Module level import not at top of file
+tests/test_npm_environment_introspection.py:24:1: E402 Module level import not at top of file
+tests/test_npm_environment_introspection.py:32:1: E402 Module level import not at top of file
+tests/test_npm_environment_lockfile.py:25:1: E402 Module level import not at top of file
+tests/test_npm_environment_manifest_policy.py:22:1: E402 Module level import not at top of file
+tests/test_npm_environment_output_validation.py:16:8: F401 [*] `stat` imported but unused
+tests/test_npm_environment_output_validation.py:25:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_deadline.py:30:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_deadline.py:31:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_deadline.py:52:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_deadline.py:53:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_deadline.py:54:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_deadline.py:1144:21: B023 Function definition does not bind loop variable `blocked`
+tests/test_npm_environment_phase3_deadline.py:1145:21: B023 Function definition does not bind loop variable `unblock`
+tests/test_npm_environment_phase3_deadline.py:1149:21: B023 Function definition does not bind loop variable `unblock`
+tests/test_npm_environment_phase3_deadline.py:1158:21: B023 Function definition does not bind loop variable `unblock`
+tests/test_npm_environment_phase3_deadline.py:1159:27: B023 Function definition does not bind loop variable `hook_exc`
+tests/test_npm_environment_phase3_deadline.py:1162:37: B023 Function definition does not bind loop variable `blocked`
+tests/test_npm_environment_phase3_introspection.py:20:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_introspection.py:21:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_introspection.py:22:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase3_validate.py:14:8: F401 [*] `shutil` imported but unused
+tests/test_npm_environment_phase3_validate.py:25:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase5_validate.py:23:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase6b_streams.py:687:25: B023 Function definition does not bind loop variable `calls`
+tests/test_npm_environment_phase6b_streams.py:688:32: B023 Function definition does not bind loop variable `calls`
+tests/test_npm_environment_phase6b_streams.py:688:46: B023 Function definition does not bind loop variable `position`
+tests/test_npm_environment_phase6b_streams.py:690:79: B023 Function definition does not bind loop variable `error`
+tests/test_npm_environment_phase6b_streams.py:764:21: B023 Function definition does not bind loop variable `attempts`
+tests/test_npm_environment_phase6b_streams.py:765:27: B023 Function definition does not bind loop variable `ordinary`
+tests/test_npm_environment_phase6b_streams.py:765:55: B023 Function definition does not bind loop variable `interruption`
+tests/test_npm_environment_phase9a_staging_cleanup.py:24:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase9a_staging_cleanup.py:34:1: E402 Module level import not at top of file
+tests/test_npm_environment_phase9a_staging_cleanup.py:35:1: E402 Module level import not at top of file
+tests/test_npm_environment_pi_fixture.py:24:1: E402 Module level import not at top of file
+tests/test_npm_environment_pi_fixture.py:80:13: B007 Loop control variable `name` not used within loop body
+tests/test_npm_environment_policy.py:27:1: E402 Module level import not at top of file
+tests/test_npm_environment_publication.py:24:1: E402 Module level import not at top of file
+tests/test_npm_environment_publication_cleanup.py:24:1: E402 Module level import not at top of file
+tests/test_npm_environment_publication_cleanup.py:25:1: E402 Module level import not at top of file
+tests/test_npm_environment_publication_cleanup.py:39:1: E402 Module level import not at top of file
+tests/test_npm_environment_rootless.py:22:1: E402 Module level import not at top of file
+tests/test_npm_environment_rootless.py:23:1: E402 Module level import not at top of file
+tests/test_npm_environment_run_vector.py:21:1: E402 Module level import not at top of file
+tests/test_npm_environment_semver_range.py:22:1: E402 Module level import not at top of file
+tests/test_npm_environment_semver_range.py:23:1: E402 Module level import not at top of file
+tests/test_npm_environment_semver_range.py:24:1: E402 Module level import not at top of file
+tests/test_npm_environment_serialization.py:13:8: F401 [*] `os` imported but unused
+tests/test_npm_environment_serialization.py:22:1: E402 Module level import not at top of file
+tests/test_npm_environment_smoke.py:22:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:31:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:32:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:33:5: F401 [*] `docker.npm_environment.DISPATCHER_DRAIN_BUDGET_SECONDS` imported but unused
+tests/test_npm_environment_streaming.py:37:5: F401 [*] `docker.npm_environment.SINK_CALLBACK_BUDGET_SECONDS` imported but unused
+tests/test_npm_environment_streaming.py:57:5: F401 [*] `docker.npm_environment.dedupe_secrets` imported but unused
+tests/test_npm_environment_streaming.py:61:5: F401 [*] `docker.npm_environment.redact_tail` imported but unused
+tests/test_npm_environment_streaming.py:64:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:65:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:75:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:79:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:80:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:81:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:86:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:92:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:93:1: E402 Module level import not at top of file
+tests/test_npm_environment_streaming.py:1772:21: B023 Function definition does not bind loop variable `threads`
+tests/test_npm_environment_streaming.py:1778:51: B023 Function definition does not bind loop variable `stdout`
+tests/test_npm_environment_streaming.py:1779:51: B023 Function definition does not bind loop variable `stderr`
+tests/test_npm_environment_streaming.py:2044:20: B023 Function definition does not bind loop variable `finish_returned`
+tests/test_npm_environment_streaming.py:2045:21: B023 Function definition does not bind loop variable `callbacks_after_finish`
+tests/test_npm_environment_streaming.py:2046:17: B023 Function definition does not bind loop variable `delivered`
+tests/test_npm_environment_streaming.py:2052:17: B023 Function definition does not bind loop variable `accepted`
+tests/test_npm_environment_streaming.py:2052:31: B023 Function definition does not bind loop variable `dispatcher`
+tests/test_npm_environment_streaming.py:2053:52: B023 Function definition does not bind loop variable `round_index`
+tests/test_npm_environment_streaming.py:2057:17: B023 Function definition does not bind loop variable `dispatcher`
+tests/test_npm_environment_streaming.py:2058:17: B023 Function definition does not bind loop variable `finish_returned`
+tests/test_output_configuration.py:445:47: B023 Function definition does not bind loop variable `isatty`
+tests/test_output_configuration.py:490:47: B023 Function definition does not bind loop variable `isatty`
+tests/test_process_adapter_compatibility.py:208:16: B023 Function definition does not bind loop variable `source`
+tests/test_process_adapter_compatibility.py:210:23: B023 Function definition does not bind loop variable `error`
+tests/test_process_adapter_compatibility.py:211:20: B023 Function definition does not bind loop variable `original_wait`
+tests/test_process_adapter_compatibility.py:216:48: B023 Function definition does not bind loop variable `child`
+tests/test_process_compatibility_action_gate.py:13:52: F401 [*] `tests.test_process_stop_policy.api` imported but unused
+tests/test_process_compatibility_action_gate.py:16:77: F811 Redefinition of unused `api` from line 13: `api` redefined here
+tests/test_process_compatibility_action_gate.py:45:5: F811 Redefinition of unused `api` from line 13: `api` redefined here
+tests/test_process_failure_snapshot.py:137:27: B905 `zip()` without an explicit `strict=` parameter
+tests/test_process_failure_snapshot.py:142:27: B905 `zip()` without an explicit `strict=` parameter
+tests/test_process_lifecycle.py:552:20: B023 Function definition does not bind loop variable `original`
+tests/test_process_stop_policy.py:6:8: F401 [*] `subprocess` imported but unused
+tests/test_process_stop_policy_faults.py:16:52: F401 [*] `tests.test_process_stop_policy.api` imported but unused
+tests/test_process_stop_policy_faults.py:30:5: F811 Redefinition of unused `api` from line 16: `api` redefined here
+tests/test_process_stop_policy_faults.py:70:5: F811 Redefinition of unused `api` from line 16: `api` redefined here
+tests/test_process_stop_policy_faults.py:132:65: F811 Redefinition of unused `api` from line 16: `api` redefined here
+tests/test_process_stop_policy_faults.py:159:53: F811 Redefinition of unused `api` from line 16: `api` redefined here
+tests/test_process_stop_policy_faults.py:201:68: F811 Redefinition of unused `api` from line 16: `api` redefined here
+tests/test_process_stop_policy_faults.py:219:5: F811 Redefinition of unused `api` from line 16: `api` redefined here
+tests/test_process_stop_policy_faults.py:286:5: F811 Redefinition of unused `api` from line 16: `api` redefined here
+tests/test_process_stop_policy_faults.py:334:5: F811 Redefinition of unused `api` from line 16: `api` redefined here
+tests/test_process_stop_policy_faults.py:369:62: F811 Redefinition of unused `api` from line 16: `api` redefined here
+tests/test_process_stop_policy_faults.py:401:62: F811 Redefinition of unused `api` from line 16: `api` redefined here
+tests/test_process_stop_policy_faults.py:425:59: F811 Redefinition of unused `api` from line 16: `api` redefined here
+tests/test_process_stop_policy_faults.py:441:59: F811 Redefinition of unused `api` from line 16: `api` redefined here
+tests/test_process_stop_policy_faults.py:480:64: F811 Redefinition of unused `api` from line 16: `api` redefined here
+tests/test_process_stop_policy_faults.py:501:77: F811 Redefinition of unused `api` from line 16: `api` redefined here
+tests/test_process_stop_policy_faults.py:525:70: F811 Redefinition of unused `api` from line 16: `api` redefined here
+tests/test_retained_tail_phase6.py:71:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:75:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:76:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:77:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:78:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:86:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:87:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:92:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:99:1: E402 Module level import not at top of file
+tests/test_retained_tail_phase6.py:917:21: B023 Function definition does not bind loop variable `second_read`
+tests/test_retained_tail_phase6.py:918:37: B023 Function definition does not bind loop variable `terminated`
+tests/test_retained_tail_phase6.py:919:27: B023 Function definition does not bind loop variable `read_error`
+tests/test_retained_tail_phase6.py:922:21: B023 Function definition does not bind loop variable `original_terminate`
+tests/test_retained_tail_phase6.py:923:21: B023 Function definition does not bind loop variable `terminated`
+tests/test_retained_tail_phase6.py:926:21: B023 Function definition does not bind loop variable `owners`
+tests/test_retained_tail_phase6.py:927:37: B023 Function definition does not bind loop variable `second_read`
+tests/test_retained_tail_phase6.py:928:28: B023 Function definition does not bind loop variable `original_supervisor`
+tests/test_transactions_l1_capabilities.py:29:39: F401 [*] `docker.transactions.posix.PosixFileOps` imported but unused
+tests/test_transactions_l1_error_boundary.py:1203:9: F841 Local variable `raw` is assigned to but never used
+tests/test_transactions_l1_error_boundary.py:1205:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_transactions_phase5a_typed_preservation.py:32:5: F401 [*] `docker.transactions.errors.STAGE_LOCK_VALIDATE` imported but unused
+tests/test_transactions_phase5a_typed_preservation.py:34:5: F401 [*] `docker.transactions.errors.CloseStageFailure` imported but unused
+tests/test_transactions_phase5a_typed_preservation.py:136:32: B023 Function definition does not bind loop variable `relative`
+tests/test_transactions_phase5a_typed_preservation.py:150:36: B023 Function definition does not bind loop variable `relative`
+tests/test_transactions_phase7_runtime_projection.py:310:19: SIM115 Use a context manager for opening files
+tests/test_transactions_phase8_npm_leaf_mechanics.py:30:48: F401 [*] `docker.npm_environment.publication.identity_coordination_lock` imported but unused
+tests/test_transactions_phase9a_ambient_primary.py:25:8: F401 [*] `stat` imported but unused
+tests/test_transactions_phase9a_audit.py:20:40: F401 [*] `docker.transactions.errors.STAGE_CLOSE` imported but unused
+tests/test_transactions_phase9a_build_cache_cleanup.py:217:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_transactions_phase9a_build_cache_cleanup.py:247:9: E731 Do not assign a `lambda` expression, use a `def`
+tests/test_version_cache.py:272:1: E402 Module level import not at top of file
+tests/test_version_cache.py:272:8: F811 [*] Redefinition of unused `tempfile` from line 8: `tempfile` redefined here
+tests/test_version_cache.py:340:56: F401 [*] `tests.versioning.support.fake_http.FakeHttpTransport` imported but unused
+tests/test_version_cache.py:508:21: F841 Local variable `resp2` is assigned to but never used
+tests/test_version_effective.py:11:19: F401 [*] `types.MappingProxyType` imported but unused
+tests/test_version_effective.py:14:5: F401 [*] `docker.versioning.effective.EffectiveConfiguration` imported but unused
+tests/test_version_effective.py:16:5: F401 [*] `docker.versioning.effective.get_path` imported but unused
+tests/test_version_effective.py:22:5: F401 [*] `docker.versioning.errors.UnknownPathError` imported but unused
+tests/test_version_effective.py:23:5: F401 [*] `docker.versioning.errors.UnsupportedOverrideError` imported but unused
+tests/test_version_effective.py:136:27: F811 [*] Redefinition of unused `MappingProxyType` from line 11: `MappingProxyType` redefined here
+tests/test_version_effective.py:145:27: F811 [*] Redefinition of unused `MappingProxyType` from line 11: `MappingProxyType` redefined here
+tests/test_version_readonly_no_effect.py:28:47: RUF100 [*] Unused `noqa` directive (non-enabled: `ANN001`)
+tests/test_version_readonly_no_effect.py:38:47: RUF100 [*] Unused `noqa` directive (non-enabled: `ANN001`)
+tests/test_version_updates.py:17:5: F401 [*] `docker.versioning.model.CandidateArtifact` imported but unused
+tests/test_version_updates.py:18:5: F401 [*] `docker.versioning.model.Constraint` imported but unused
+tests/test_version_updates.py:58:5: F401 [*] `docker.versioning.model.UpdateTarget` imported but unused
+tests/test_version_updates.py:66:5: F401 [*] `docker.versioning.providers.base.UpdateProvider` imported but unused
+tests/test_version_versions.py:8:5: F401 [*] `docker.versioning.semver.SemanticVersion` imported but unused
+tests/test_workspace_host_interface.py:5:8: F401 [*] `argparse` imported but unused
+tests/versioning/providers/test_github.py:12:5: F401 [*] `docker.versioning.model.UpdateKind` imported but unused
+tests/versioning/providers/test_github.py:198:9: F841 Local variable `ctx` is assigned to but never used
+tests/versioning/providers/test_npm.py:14:5: F401 [*] `docker.versioning.model.UpdateKind` imported but unused
+tests/versioning/providers/test_npm.py:20:48: F401 [*] `tests.versioning.support.fake_http.FailingHttpTransport` imported but unused
+tests/versioning/providers/test_static_url.py:8:41: F401 [*] `docker.versioning.inventory.load_inventory` imported but unused
+tests/versioning/providers/test_static_url.py:11:5: F401 [*] `docker.versioning.model.CandidateArtifact` imported but unused
+tests/versioning/support/fake_git.py:10:20: F401 [*] `typing.Optional` imported but unused
+tests/versioning/support/fake_http.py:12:60: F401 [*] `docker.versioning.providers.base.HttpTransport` imported but unused
+tests/versioning/support/inventory_builder.py:14:9: SIM115 Use a context manager for opening files
+Found 667 errors.
+[*] 277 fixable with `--fix` (78 unsafe fixes available with `--fix --unsafe-fixes`).

@@ -15,8 +15,8 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
-from unittest import mock
 from typing import Optional
+from unittest import mock
 
 # ---------------------------------------------------------------------------
 # Helper — create a docker-gateway-enabled inventory for tests that

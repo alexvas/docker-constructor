@@ -18,38 +18,38 @@ import time
 import unittest
 from unittest import mock
 
-from docker.versioning.model import NetworkUrlDisplay
+from docker.npm_environment.streaming import OVERSIZED_DIAGNOSTIC_MARKER
+from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.host_presentation import (
+    CONTROL_CAPACITY,
     DIAGNOSTIC_SILENCE_SECONDS,
     FIRST_HEARTBEAT_SECONDS,
     INTERACTIVE_REFRESH_SECONDS,
     LINES_STATUS_INTERVAL_SECONDS,
     OMISSION_COUNTER_LIMIT,
     AdmittedEvent,
+    HostEventEnqueueAdapter,
+    HostPresentationMode,
+    HostPresentationSession,
+    HostPresentationState,
     PresentationLane,
     PresentationMailbox,
     PresentationPlan,
     PresentationSelection,
     PresentationWorker,
-    HostEventEnqueueAdapter,
-    HostPresentationMode,
-    CONTROL_CAPACITY,
-    HostPresentationSession,
-    HostPresentationState,
     TerminalHostRenderer,
     format_elapsed,
     format_failure_report,
     format_heartbeat,
     select_presentation,
 )
-from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.host_progress import (
     HostBuildEvent,
+    HostDiagnosticClassification,
     HostDiagnosticEvent,
     HostDiagnosticPrefix,
     HostDiagnosticStream,
     HostHeartbeatEvent,
-    InternalDirectHostEventSink,
     HostLastActivityKind,
     HostPhase,
     HostPhaseEvent,
@@ -59,9 +59,9 @@ from docker.versioning.host_progress import (
     HostStepState,
     HostStructuredDiagnostic,
     HostTransportProgressEvent,
-    HostDiagnosticClassification,
+    InternalDirectHostEventSink,
 )
-from docker.npm_environment.streaming import OVERSIZED_DIAGNOSTIC_MARKER
+from docker.versioning.model import NetworkUrlDisplay
 
 
 def _diagnostic(text: str, **overrides: object) -> HostStructuredDiagnostic:

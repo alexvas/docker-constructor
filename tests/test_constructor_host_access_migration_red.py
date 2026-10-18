@@ -158,8 +158,8 @@ class TestNoUnconditionalRunMapping(unittest.TestCase):
 
     def test_disabled_renderer_emits_no_add_host(self) -> None:
         from docker.versioning.rendering import (
-            RunRenderInputs,
             RunHostAccess,
+            RunRenderInputs,
             render_run_vector,
         )
 
@@ -185,8 +185,8 @@ class TestNoUnconditionalRunMapping(unittest.TestCase):
 
     def test_enabled_renderer_emits_add_host(self) -> None:
         from docker.versioning.rendering import (
-            RunRenderInputs,
             RunHostAccess,
+            RunRenderInputs,
             render_run_vector,
         )
 

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import weakref
 from dataclasses import dataclass
 from enum import StrEnum
 from threading import Lock
 from typing import Any, Callable
-import weakref
 
 from docker.versioning.fetch_identity import FetchGroupKey
 from docker.versioning.logical_resource import require_approved_logical_resource

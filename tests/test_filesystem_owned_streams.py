@@ -12,8 +12,8 @@ process-aware factory must not exist.
 
 from __future__ import annotations
 
-import io
 import inspect
+import io
 import threading
 import time
 import unittest

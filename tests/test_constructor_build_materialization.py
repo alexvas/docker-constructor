@@ -4,18 +4,11 @@ import hashlib
 import os
 import tempfile
 import unittest
-from unittest.mock import patch
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
 
-from tests.build_test_support import (
-    digest_valid_selected_artifacts,
-    fake_pi_materialization,
-    fixture_directory,
-    publish_digest_valid_artifacts,
-)
-
-from docker.versioning.build_snapshot import MaterializedSnapshot
+from docker.networking import ProcessResult
 from docker.versioning.build_materialization import (
     HostNetworkPolicy,
     MaterializationError,
@@ -25,9 +18,6 @@ from docker.versioning.build_materialization import (
     materialize_build_artifacts,
     select_build_artifacts,
 )
-from docker.versioning.digest_identity import DigestIdentity
-from docker.versioning.effective import resolve_build_projection
-from docker.versioning.inventory import load_inventory
 from docker.versioning.build_orchestration import (
     BuildRequest,
     PublishResult,
@@ -35,14 +25,22 @@ from docker.versioning.build_orchestration import (
     orchestrate_build,
     plan_build,
 )
-from docker.networking import ProcessResult
+from docker.versioning.build_snapshot import MaterializedSnapshot
+from docker.versioning.digest_identity import DigestIdentity
 from docker.versioning.dispatch_types import ExitKind
+from docker.versioning.effective import resolve_build_projection
 from docker.versioning.host_progress import (
     HostPhase,
     HostStep,
     lookup_host_failure,
 )
-
+from docker.versioning.inventory import load_inventory
+from tests.build_test_support import (
+    digest_valid_selected_artifacts,
+    fake_pi_materialization,
+    fixture_directory,
+    publish_digest_valid_artifacts,
+)
 from tests.inventory_fixtures import (
     stable_inventory_path,
     stable_inventory_text,

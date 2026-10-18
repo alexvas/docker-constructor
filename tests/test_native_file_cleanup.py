@@ -235,8 +235,9 @@ class PreparedFileOwnershipTests(unittest.TestCase):
                     self.assertEqual(stream.attempts, 1)
 
     def test_preparation_failures_acquire_nothing(self):
-        from docker import _owned_file
         from unittest.mock import Mock
+
+        from docker import _owned_file
 
         for target in ("OwnedStream", "_FileRelease"):
             for failure in (
@@ -254,8 +255,9 @@ class PreparedFileOwnershipTests(unittest.TestCase):
                     opener.assert_not_called()
 
     def test_invalid_label_does_not_acquire(self):
-        from docker._owned_file import owned_file
         from unittest.mock import Mock
+
+        from docker._owned_file import owned_file
 
         opener = Mock()
         with self.assertRaises(ValueError):
@@ -264,9 +266,10 @@ class PreparedFileOwnershipTests(unittest.TestCase):
         opener.assert_not_called()
 
     def test_acquisition_failure_releases_empty_prepared_owner_once(self):
+        from unittest.mock import Mock
+
         from docker import _owned_file
         from docker.filesystem.streams import OwnedStream
-        from unittest.mock import Mock
 
         for failure in (OSError("open"), KeyboardInterrupt("open")):
             with self.subTest(failure=type(failure).__name__):
@@ -314,6 +317,7 @@ class PreparedFileOwnershipTests(unittest.TestCase):
 
     def test_concurrent_loser_cannot_repeat_winning_close(self):
         import threading
+
         from docker import _owned_file
         from docker.filesystem.streams import OwnedStream
 
@@ -363,6 +367,7 @@ class PreparedFileOwnershipTests(unittest.TestCase):
 
     def test_real_file_and_reader_release(self):
         import tempfile
+
         from docker._owned_file import owned_file
 
         with tempfile.TemporaryDirectory() as directory:

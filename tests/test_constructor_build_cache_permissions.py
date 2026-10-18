@@ -1,18 +1,25 @@
 """Permission, ownership, immutability, and no-repair coverage for external state."""
 
 from __future__ import annotations
-import hashlib, os, stat, tempfile, types, unittest
+
+import hashlib
+import os
+import stat
+import tempfile
+import types
+import unittest
 from pathlib import Path
 from unittest import mock
+
 from docker.versioning.build_cache import (
     BuildCacheError,
+    _open_namespace_fd,
+    _verify_published_blob,
     acquire_constructor_project_build_lock,
     maintain_uncommitted_blobs,
     prepare_build_cache,
     publish_uncommitted_blob,
     publish_verified_blob,
-    _open_namespace_fd,
-    _verify_published_blob,
 )
 from docker.versioning.digest_identity import DigestIdentity
 from docker.versioning.project_state import resolve_project_state
@@ -425,7 +432,7 @@ class ConstructorProjectForeignOwnership(unittest.TestCase):
             for p in watched
         }
 
-        from docker.launcher import WorkspaceSelection, RunRequest, orchestrate_run
+        from docker.launcher import RunRequest, WorkspaceSelection, orchestrate_run
         from docker.versioning.build_orchestration import ExitKind
 
         executor = _recording_executor()

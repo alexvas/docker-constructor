@@ -10,6 +10,7 @@ from docker.versioning.effective import (
     resolve_runtime,
 )
 from docker.versioning.model import (
+    EffectiveRuntimeProjection,
     NpmArtifact,
     NpmSource,
     NpmUpdate,
@@ -17,9 +18,7 @@ from docker.versioning.model import (
     PiExtensionEntry,
     RuntimeInventory,
     RuntimeValidation,
-    EffectiveRuntimeProjection,
 )
-
 
 _INT = "sha512-" + "A" * 86 + "=="
 

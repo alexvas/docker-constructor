@@ -8,7 +8,6 @@ from pathlib import Path
 
 from docker.versioning.rendering import RunRenderInputs, render_run_vector
 
-
 _BASE = dict(
     image="pi-cli-pi:latest",
     container_name="pi-1",
@@ -89,7 +88,7 @@ class TestHostAccessPlanningRed(unittest.TestCase):
         return path
 
     def _request(self, inventory: Path, *, dry_run: bool, effects: list[str]):
-        from docker.launcher import WorkspaceSelection, RunRequest
+        from docker.launcher import RunRequest, WorkspaceSelection
 
         class BombExecutor:
             def run(self, _args, *, interactive=False):

@@ -13,12 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from .build_cache import prepare_build_cache, validate_host_owner_traversal
-from .build_materialization import SelectedBuildArtifact
-from .project_state import ProjectState
 from docker.filesystem.descriptors import OwnedDescriptor
 from docker.filesystem.operations import PosixDescriptorOps
-from docker.transactions.cleanup import CleanupFailures
 from docker.npm_environment.errors import LockedNpmError
 from docker.npm_environment.evidence import AssemblerEvidence, parse_evidence
 from docker.npm_environment.tree import (
@@ -26,7 +22,12 @@ from docker.npm_environment.tree import (
     build_tree_manifest,
     canonical_tree_digest,
 )
+from docker.transactions.cleanup import CleanupFailures
 from docker.versioning.pi_consumer import PiConsumerError, validate_launcher_evidence
+
+from .build_cache import prepare_build_cache, validate_host_owner_traversal
+from .build_materialization import SelectedBuildArtifact
+from .project_state import ProjectState
 
 _LOGICAL_NAMES = {
     "rustup": "rustup-init",

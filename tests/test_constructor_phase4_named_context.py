@@ -24,6 +24,8 @@ from docker.versioning.build_snapshot import (
     create_artifact_snapshot,
 )
 from docker.versioning.digest_identity import DigestIdentity
+from docker.versioning.effective import resolve_build_projection
+from docker.versioning.inventory import load_inventory
 from docker.versioning.rendering import (
     BuildRenderInputs,
     Materialized,
@@ -33,8 +35,6 @@ from docker.versioning.rendering import (
     render_build_vector,
     render_prospective_build_display,
 )
-from docker.versioning.effective import resolve_build_projection
-from docker.versioning.inventory import load_inventory
 from tests.build_test_support import fake_pi_materialization
 from tests.privilege_helpers import differing_uid_read_status
 
@@ -280,7 +280,7 @@ class TestPhase4DockerfileContracts(unittest.TestCase):
             ("rtk.deb", "RTK"),
             ("fd.deb", "FD"),
         ):
-            self.assertIn(f"COPY --from=constructor-artifacts", dockerfile)
+            self.assertIn("COPY --from=constructor-artifacts", dockerfile)
             self.assertIn(filename, dockerfile)
             self.assertIn(f"ARG {arg}_SHA256", dockerfile)
             self.assertNotIn(f"ARG {arg}_URL", dockerfile)

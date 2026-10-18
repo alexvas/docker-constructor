@@ -1,8 +1,8 @@
 """Phase 6BC.9 strict action transport and sole-invocation reporting."""
 
-from types import SimpleNamespace
 import sys
 import threading
+from types import SimpleNamespace
 
 import pytest
 

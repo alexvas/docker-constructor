@@ -17,7 +17,6 @@ import unittest
 from pathlib import Path
 
 from docker.versioning.inventory import load_inventory
-
 from tests.inventory_fixtures import (
     STABLE_INVENTORY_PATH,
     artifact_bytes,

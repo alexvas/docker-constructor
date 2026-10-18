@@ -4,22 +4,22 @@ from __future__ import annotations
 
 import base64
 import builtins
-from contextlib import ExitStack, contextmanager, redirect_stdout, redirect_stderr
+import hashlib
 import io
 import json
-import hashlib
 import os
-from pathlib import Path
 import re
 import shutil
 import tempfile
 import unittest
+from contextlib import ExitStack, contextmanager, redirect_stderr, redirect_stdout
+from pathlib import Path
 from unittest import mock
 
 from docker.launcher import (
     ProcessResult,
-    WorkspaceSelection,
     RunRequest,
+    WorkspaceSelection,
     orchestrate_run,
 )
 from docker.versioning.readonly_service import dispatch

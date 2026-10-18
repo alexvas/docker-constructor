@@ -313,12 +313,12 @@ def test_foundation_transfer_and_synchronized_release_remain_required(
 
 
 def test_generated_architecture_and_runtime_packaging_boundary(sources):
+    import json
     from pathlib import Path
     from typing import get_type_hints
-    from docker.process import OwnedProcess
-    from docker.npm_environment.lifecycle import LifecycleOutcome, run_captured
 
-    import json
+    from docker.npm_environment.lifecycle import LifecycleOutcome, run_captured
+    from docker.process import OwnedProcess
 
     report = canonical_architecture_report(sources)
     assert report["errors"] == []

@@ -25,7 +25,8 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, Mapping, Sequence
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Mapping, Protocol, Sequence
 
 import docker.versioning.artifact_cache as artifact_cache
 from docker.versioning.dispatch_types import ExitKind
@@ -37,7 +38,6 @@ from docker.versioning.rendering import (
     plan_artifact_mounts,
     plan_dry_run_artifact_mounts,
 )
-from types import MappingProxyType
 
 if TYPE_CHECKING:
     from docker.versioning.effective import RuntimeProjectionHandle
@@ -885,6 +885,7 @@ def orchestrate_run(request: RunRequest) -> RunResult:
             # external namespace even when persistent cache roots are redirected.
             # Supply a unique non-existent path for atomic no-clobber publish.
             import uuid
+
             from docker.versioning.effective import Filesystem
 
             return create_runtime_projection(

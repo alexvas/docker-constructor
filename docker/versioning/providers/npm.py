@@ -9,7 +9,7 @@ import json
 from typing import Optional
 from urllib.parse import quote
 
-from .base import HttpTransport, ProviderContext, ProviderResult, UpdateProvider
+from ..integrity import is_valid_integrity
 from ..model import (
     CandidateArtifact,
     NpmSource,
@@ -19,8 +19,8 @@ from ..model import (
     UpdateKind,
     UpdateTarget,
 )
-from ..integrity import is_valid_integrity
 from ..semver import SemanticVersion, parse
+from .base import HttpTransport, ProviderContext, ProviderResult, UpdateProvider
 
 
 def _encode_package(pkg: str) -> str:

@@ -9,20 +9,21 @@ from unittest import mock
 import pytest
 
 from docker.filesystem.streams import OwnedStream
-from docker.process import OwnedProcess
 from docker.npm_environment import execution, publication
 from docker.npm_environment.execution import DockerRunExecutor
 from docker.npm_environment.streaming import (
+    READER_FAILURE_DETAIL_BYTES,
     REDACTED,
     RETAINED_CAPTURE_ATTR,
-    STREAM_STDOUT,
     STREAM_STDERR,
-    READER_FAILURE_DETAIL_BYTES,
+    STREAM_STDOUT,
     RedactingStream,
 )
+from docker.process import OwnedProcess
+from tests.test_npm_environment_phase3_deadline import _assembler, _validated
 from tests.test_process_failure_snapshot import Child
-from tests.test_process_stream_outcomes import Child as OutcomeChild, Pipe
-from tests.test_npm_environment_phase3_deadline import _validated, _assembler
+from tests.test_process_stream_outcomes import Child as OutcomeChild
+from tests.test_process_stream_outcomes import Pipe
 
 
 @pytest.mark.parametrize("join_defect", [False, True])
@@ -82,7 +83,7 @@ def test_timeout_projection_preserves_unexpected_join_authority_but_not_ordinary
     source,
 ):
     from docker.npm_environment.errors import AssemblyTimeoutError
-    from tests.test_npm_environment_phase3_deadline import _DeadlineProc, _DeadlinePipe
+    from tests.test_npm_environment_phase3_deadline import _DeadlinePipe, _DeadlineProc
 
     error = OSError("cleanup operation failed")
     child = _DeadlineProc()

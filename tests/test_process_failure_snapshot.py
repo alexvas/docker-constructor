@@ -1,13 +1,13 @@
 """Phase 6BC: failed collection retains supported bounded observations."""
 
-from dataclasses import FrozenInstanceError
 import io
+from dataclasses import FrozenInstanceError
 from unittest import mock
 
 import pytest
 
-from docker.process import OwnedProcess, ProcessResult
 from docker.npm_environment.lifecycle import LifecyclePolicy, run_captured
+from docker.process import OwnedProcess, ProcessResult
 
 
 class Pipe(io.BytesIO):

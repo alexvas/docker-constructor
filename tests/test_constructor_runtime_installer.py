@@ -35,8 +35,8 @@ from typing import Any
 from unittest import mock
 
 import docker
-
 from docker.runtime_installer import (
+    _MOUNTED_ARTIFACT_ROOT,
     ExtensionResult,
     InstallContext,
     InstallError,
@@ -54,14 +54,12 @@ from docker.runtime_installer import (
     ProjectionError,
     RuntimeArtifactReader,
     _mounted_artifact_path,
-    _MOUNTED_ARTIFACT_ROOT,
     _MountInspection,
     _StatvfsMountInspection,
     exit_code_for,
     install_extensions,
     read_projection,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════
 # 10.1 — immutable DTOs
@@ -4947,8 +4945,9 @@ class TestEntrypointExecution(unittest.TestCase):
     ) -> int:
         """Patch fixed paths + statvfs + mountpoint, then run
         ``main()``.  Returns the exit code."""
-        import docker.runtime_installer as mod
         import subprocess as sp
+
+        import docker.runtime_installer as mod
 
         real_run = sp.run
 

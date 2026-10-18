@@ -24,6 +24,7 @@ from docker.versioning.build_orchestration import (
     orchestrate_doctor,
 )
 from docker.versioning.rendering import RunHostAccess
+
 # verify_runtime is covered by Phase 4 focused tests
 
 
@@ -164,8 +165,7 @@ class TestDisabledHostAccess(unittest.TestCase):
             inv = _write_inventory(root_path)
             # No local companion at all — disabled should work without it
 
-            from docker.launcher import orchestrate_run
-            from docker.launcher import WorkspaceSelection
+            from docker.launcher import WorkspaceSelection, orchestrate_run
 
             with (
                 mock.patch(
@@ -229,8 +229,7 @@ class TestDisabledHostAccess(unittest.TestCase):
             root_path = Path(root)
             inv = _write_inventory(root_path)
 
-            from docker.launcher import orchestrate_run
-            from docker.launcher import WorkspaceSelection
+            from docker.launcher import WorkspaceSelection, orchestrate_run
 
             with (
                 mock.patch(
@@ -451,8 +450,7 @@ class TestDockerGatewayEndToEnd(unittest.TestCase):
             self.assertIn(f'address = "{gateway_ip}"', raw)
 
             # ── Run (dry) — consumes the persisted address ──
-            from docker.launcher import orchestrate_run
-            from docker.launcher import WorkspaceSelection
+            from docker.launcher import WorkspaceSelection, orchestrate_run
 
             run_result = orchestrate_run(
                 RunRequest(
@@ -518,8 +516,8 @@ class TestDockerGatewayEndToEnd(unittest.TestCase):
             container = "pi-test"
             pi_home = "/home/dev/.pi"
             proj_mount_line = (
-                f"/dev/sda1 /run/pi-cli/docker-constructor.runtime.toml"
-                f" ext4 ro,nosuid,nodev,relatime 0 0"
+                "/dev/sda1 /run/pi-cli/docker-constructor.runtime.toml"
+                " ext4 ro,nosuid,nodev,relatime 0 0"
             )
 
             runner = _VerifyRuntimeRunner(
@@ -577,8 +575,7 @@ class TestExternalAddressEndToEnd(unittest.TestCase):
             companion = root_path / "docker-constructor.local.toml"
             companion.write_text(f'[host-access]\naddress = "{address}"\n')
 
-            from docker.launcher import orchestrate_run
-            from docker.launcher import WorkspaceSelection
+            from docker.launcher import WorkspaceSelection, orchestrate_run
 
             with (
                 mock.patch(
@@ -813,8 +810,7 @@ class TestCustomInventoryWithCache(unittest.TestCase):
             )
 
             # 3. Run resolves the custom companion, not the repo one
-            from docker.launcher import orchestrate_run
-            from docker.launcher import WorkspaceSelection
+            from docker.launcher import WorkspaceSelection, orchestrate_run
 
             run_result = orchestrate_run(
                 RunRequest(
@@ -956,8 +952,7 @@ class TestInvalidLocalStateSafety(unittest.TestCase):
             companion = root_path / "docker-constructor.local.toml"
             companion.write_text("{{{ not toml }}}\n")
 
-            from docker.launcher import orchestrate_run
-            from docker.launcher import WorkspaceSelection
+            from docker.launcher import WorkspaceSelection, orchestrate_run
 
             effects: list[str] = []
 
@@ -1018,8 +1013,7 @@ class TestInvalidLocalStateSafety(unittest.TestCase):
             companion = root_path / "docker-constructor.local.toml"
             companion.write_text('[cache]\ndir = "/tmp/cache"\n')
 
-            from docker.launcher import orchestrate_run
-            from docker.launcher import WorkspaceSelection
+            from docker.launcher import WorkspaceSelection, orchestrate_run
 
             effects: list[str] = []
 

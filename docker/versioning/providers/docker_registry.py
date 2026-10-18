@@ -9,7 +9,6 @@ import json
 import re
 from typing import Mapping
 
-from .base import ProviderContext, ProviderResult
 from ..model import (
     DockerRegistrySource,
     DockerRegistryUpdate,
@@ -17,6 +16,7 @@ from ..model import (
     UpdateKind,
     UpdateTarget,
 )
+from .base import ProviderContext, ProviderResult
 
 _DOCKER_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 _AUTH_REALM_RE = re.compile(r'realm="([^"]+)"')

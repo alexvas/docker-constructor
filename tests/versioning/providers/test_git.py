@@ -5,15 +5,15 @@ from __future__ import annotations
 import unittest
 
 from docker.versioning.model import (
-    GitSource,
     GitRefUpdate,
-    UpdateTarget,
+    GitSource,
     UpdateKind,
+    UpdateTarget,
 )
 from docker.versioning.providers.base import ProviderContext
 from docker.versioning.providers.git import GitRefProvider
-from tests.versioning.support.fake_http import FakeHttpTransport
 from tests.versioning.support.fake_git import FakeGitTransport
+from tests.versioning.support.fake_http import FakeHttpTransport
 
 
 class TestGitProvider(unittest.TestCase):

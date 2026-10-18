@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+import tomllib
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-import tomllib
 from types import MappingProxyType
 from typing import Callable, Generic, Mapping, TypeVar, cast
 

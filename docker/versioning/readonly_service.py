@@ -16,7 +16,6 @@ from typing import Any, Callable, Mapping, Sequence
 from docker.versioning.dispatch_types import CommandResult, ExitKind
 from docker.versioning.model import Inventory
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # Override parsing
 # ═══════════════════════════════════════════════════════════════════════
@@ -196,14 +195,14 @@ def _handle_check_updates(
     facade; it is forwarded verbatim to the sequential coordinator and
     never becomes part of structured result data.
     """
-    from docker.versioning.updates import (
-        _DEFAULT_PROVIDERS,
-        check_updates,
-    )
     from docker.versioning.providers.base import ProviderContext
 
     # --- resolve transports (production http / git) ---
     from docker.versioning.transports import build_transports
+    from docker.versioning.updates import (
+        _DEFAULT_PROVIDERS,
+        check_updates,
+    )
 
     inventory_cache = getattr(inventory, "cache", None)
     inventory_path = command_args.get("_inventory_path")
@@ -319,10 +318,10 @@ def dispatch(
     ignored.
     """
     from docker.versioning.errors import (
-        VersionConfigError,
-        InventoryError,
         EffectiveConfigError,
+        InventoryError,
         UpdateError,
+        VersionConfigError,
     )
     from docker.versioning.inventory import load_project_configuration
 

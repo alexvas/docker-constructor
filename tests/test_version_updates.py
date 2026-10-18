@@ -9,17 +9,20 @@ import json
 import pathlib
 import unittest
 
+from docker.versioning.constraints import parse_constraint
+from docker.versioning.inventory import load_inventory, load_inventory_raw
 from docker.versioning.model import (
-    Constraint,
-    OverridePolicy,
     ArtifactEntry,
+    BaseStage,
     CandidateArtifact,
+    Constraint,
     DockerRegistrySource,
     DockerRegistryUpdate,
+    FdPrebuiltStage,
     GitHubReleaseSource,
     GitHubReleaseUpdate,
-    GitSource,
     GitRefUpdate,
+    GitSource,
     Inventory,
     NodeEntry,
     NpmArtifact,
@@ -27,40 +30,36 @@ from docker.versioning.model import (
     NpmToolEntry,
     NpmUpdate,
     OhMyZshEntry,
+    OpenSpecToolsStage,
+    OverridePolicy,
     PiExtensionEntry,
     PiReleaseSource,
     PiToolEntry,
+    PiToolsStage,
     PrebuiltToolEntry,
-    PythonEntry,
     PyPiSource,
     PyPiUpdate,
+    PythonEntry,
+    RtkPrebuiltStage,
+    RuntimeStage,
+    RuntimeValidation,
     RustChannelSource,
     RustChannelUpdate,
     RustEntry,
+    Stages,
     StaticUrlSource,
     StaticUrlUpdate,
+    ToolchainStage,
     TyEntry,
-    UvEntry,
-    UvPythonSource,
-    UvPythonUpdate,
     UpdateCandidate,
     UpdateKind,
     UpdateResult,
     UpdateStatus,
     UpdateTarget,
-    OverridePolicy,
-    BaseStage,
-    ToolchainStage,
-    RtkPrebuiltStage,
-    FdPrebuiltStage,
-    PiToolsStage,
-    OpenSpecToolsStage,
-    RuntimeStage,
-    RuntimeValidation,
-    Stages,
+    UvEntry,
+    UvPythonSource,
+    UvPythonUpdate,
 )
-from docker.versioning.constraints import parse_constraint
-from docker.versioning.inventory import load_inventory, load_inventory_raw
 from docker.versioning.providers.base import (
     ProviderContext,
     ProviderResult,
@@ -68,16 +67,16 @@ from docker.versioning.providers.base import (
 )
 from docker.versioning.providers.npm import NpmProvider
 from docker.versioning.updates import (
+    Scope,
     build_update_targets,
     check_updates,
-    render_table,
     render_json,
-    render_suggestions_json,
     render_replacement_fragments,
-    Scope,
+    render_suggestions_json,
+    render_table,
 )
-from tests.versioning.support.fake_http import FakeHttpTransport, FailingHttpTransport
-from tests.versioning.support.fake_git import FakeGitTransport, FailingGitTransport
+from tests.versioning.support.fake_git import FailingGitTransport, FakeGitTransport
+from tests.versioning.support.fake_http import FailingHttpTransport, FakeHttpTransport
 
 
 def _minimal_inventory():

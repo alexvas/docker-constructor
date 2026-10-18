@@ -7,9 +7,9 @@ import shutil
 import stat
 import tempfile
 import unittest
-from unittest.mock import patch
 from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import patch
 
 from docker.constructor_cli import main
 from docker.versioning.dispatch_types import CommandResult, ExitKind
@@ -91,7 +91,8 @@ class ConstructorProjectFacadeAcceptancePhase7Tests(unittest.TestCase):
     def test_explicit_project_real_facade_plans_all_commands_outside_checkout(self):
         """P7.R1: real facade planning uses only the selected project."""
         import io
-        from contextlib import redirect_stdout, redirect_stderr
+        from contextlib import redirect_stderr, redirect_stdout
+
         from docker.versioning.readonly_service import _HANDLERS
 
         before = {
@@ -395,7 +396,8 @@ class ConstructorProjectFacadeAcceptancePhase7Tests(unittest.TestCase):
     def test_default_cwd_uses_project_for_real_planning_flows(self):
         """P7.R3: CWD selection reaches real validate/build/run/doctor/verify planning."""
         import io
-        from contextlib import redirect_stdout, redirect_stderr
+        from contextlib import redirect_stderr, redirect_stdout
+
         from docker.versioning.verification import BuildVerificationResult
 
         state = resolve_project_state(

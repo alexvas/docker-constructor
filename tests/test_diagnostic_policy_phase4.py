@@ -19,8 +19,8 @@ import unittest
 
 from docker.versioning.diagnostic_identity import SessionUrlIdentity
 from docker.versioning.diagnostic_projection import (
-    DiagnosticProjector,
     REDACTED_PATH_MARKER,
+    DiagnosticProjector,
     project_host_acquisition_failure,
     project_structured_diagnostic,
     sanitize_host_paths,

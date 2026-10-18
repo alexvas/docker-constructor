@@ -15,11 +15,9 @@ simulated pass. Cleanup failure is recorded and makes the exit status nonzero.
 from __future__ import annotations
 
 import argparse
-from concurrent.futures import ThreadPoolExecutor
 import json
 import math
 import os
-from pathlib import Path
 import random
 import re
 import subprocess
@@ -27,6 +25,8 @@ import sys
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 # Direct execution puts scripts/, not the repository root, on sys.path.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))

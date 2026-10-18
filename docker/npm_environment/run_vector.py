@@ -13,6 +13,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from docker.versioning.corporate_network import (
+    CLIENT_CA_ENVIRONMENT,
+    SYSTEM_CA_BUNDLE,
+)
+
 from .assembler import (
     ASSEMBLER_SCRIPT,
     assembler_script_digest,
@@ -27,10 +32,6 @@ from .identity import (
 from .image_ref import validate_image_reference
 from .model import ValidatedAssemblyInput
 from .network import CorporateNetworkPolicy
-from docker.versioning.corporate_network import (
-    CLIENT_CA_ENVIRONMENT,
-    SYSTEM_CA_BUNDLE,
-)
 
 #: Fixed container paths — private HOME and the opaque npm cache both live
 #: under the disposable cache mount; the staging workspace is the workdir.

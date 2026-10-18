@@ -14,6 +14,7 @@ from unittest import mock
 import pytest
 
 from docker.filesystem.streams import OwnedStream
+from docker.npm_environment import lifecycle
 from docker.process import (
     ActionResult,
     FailureInfo,
@@ -23,9 +24,8 @@ from docker.process import (
     StopPolicy,
     StopStage,
 )
-from docker.npm_environment import lifecycle
 from tests.test_process_failure_snapshot import Child
-from tests.test_process_lifecycle import workers, secondary
+from tests.test_process_lifecycle import secondary, workers
 
 
 class CapturedAction:

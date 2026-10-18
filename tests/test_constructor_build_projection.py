@@ -11,19 +11,19 @@ import unittest
 from pathlib import Path
 from typing import Mapping
 
-from docker.versioning.inventory import load_inventory
-from docker.versioning.model import (
-    ArtifactEntry,
-    BuildInventory,
-    EffectiveBuildProjection,
-    Inventory,
-)
 from docker.versioning.effective import resolve_build_projection
 from docker.versioning.errors import (
     EffectiveConfigError,
     InventoryError,
     OverrideValidationError,
     UnsupportedOverrideError,
+)
+from docker.versioning.inventory import load_inventory
+from docker.versioning.model import (
+    ArtifactEntry,
+    BuildInventory,
+    EffectiveBuildProjection,
+    Inventory,
 )
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -533,23 +533,23 @@ def _copy_build(build: BuildInventory) -> BuildInventory:
     """Deep-copy a BuildInventory by round-tripping through asdict/rebuild."""
     # dataclasses.asdict produces a recursive dict; rebuild manually
     from docker.versioning.model import (
-        Stages,
         BaseStage,
-        NodeEntry,
-        ToolchainStage,
-        RustEntry,
-        UvEntry,
-        PythonEntry,
-        TyEntry,
-        RtkPrebuiltStage,
-        PrebuiltToolEntry,
         FdPrebuiltStage,
-        PiToolsStage,
-        PiToolEntry,
+        NodeEntry,
         NpmToolEntry,
-        OpenSpecToolsStage,
-        RuntimeStage,
         OhMyZshEntry,
+        OpenSpecToolsStage,
+        PiToolEntry,
+        PiToolsStage,
+        PrebuiltToolEntry,
+        PythonEntry,
+        RtkPrebuiltStage,
+        RuntimeStage,
+        RustEntry,
+        Stages,
+        ToolchainStage,
+        TyEntry,
+        UvEntry,
     )
 
     s = build.stages

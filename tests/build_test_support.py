@@ -11,7 +11,6 @@ from pathlib import Path
 from docker.versioning.build_cache import publish_verified_blob
 from docker.versioning.build_materialization import SelectedBuildArtifact
 from docker.versioning.digest_identity import DigestIdentity
-
 from tests.inventory_fixtures import stable_inventory_text
 from tests.pi_fixtures import (
     fake_pi_materialization,

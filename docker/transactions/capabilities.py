@@ -15,12 +15,16 @@ import stat
 from typing import cast
 
 from docker.filesystem.descriptors import (
+    _STAGE_OPEN as _FOUNDATION_OPEN_STAGE,
+)
+from docker.filesystem.descriptors import (
+    _STAGE_VALIDATE as _FOUNDATION_VALIDATE_STAGE,
+)
+from docker.filesystem.descriptors import (
     DescriptorError,
     DirectoryDescriptor,
     OwnedDescriptor,
     UnsafeDescriptorError,
-    _STAGE_OPEN as _FOUNDATION_OPEN_STAGE,
-    _STAGE_VALIDATE as _FOUNDATION_VALIDATE_STAGE,
 )
 from docker.filesystem.operations import DescriptorOps
 

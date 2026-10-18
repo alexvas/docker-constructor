@@ -8,8 +8,8 @@ line number, so harmless formatting or added test code cannot stale a guide.
 from __future__ import annotations
 
 import ast
-from pathlib import Path
 import re
+from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 import pytest

@@ -19,10 +19,10 @@ import shutil
 import sys
 import tempfile
 import unittest
-from unittest.mock import patch
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any, Callable, Sequence
+from unittest.mock import patch
 
 from tests.build_test_support import (
     INVENTORY_PATH,
@@ -500,7 +500,7 @@ class TestBuildFailureDiagnostics(unittest.TestCase):
     @staticmethod
     def _make_fake_diagnose(ip: str = "192.168.1.1") -> Callable[..., Any]:
         """Return a callable that emulates a successful gateway diagnosis."""
-        from docker.networking import GatewayDiagnosis, DockerMode, ProbeResult
+        from docker.networking import DockerMode, GatewayDiagnosis, ProbeResult
 
         def _fake_diagnose(**__: Any) -> GatewayDiagnosis:
             probe = ProbeResult(

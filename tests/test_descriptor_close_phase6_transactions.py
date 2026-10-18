@@ -26,8 +26,8 @@ from docker.transactions.capabilities import (
     DirectoryCapability,
     UnsafeFileError,
 )
-from docker.transactions.locking import LockCapability, LockPolicy
 from docker.transactions.errors import TransactionError
+from docker.transactions.locking import LockCapability, LockPolicy
 from docker.transactions.regular import RegularFileContracts
 from tests.descriptor_ownership_support import recording
 from tests.transactions_test_support import InjectedOps

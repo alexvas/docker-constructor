@@ -1,6 +1,7 @@
 """Focused regressions for Phase 1 external project-state propagation."""
 
 from __future__ import annotations
+
 import hashlib
 import os
 import stat

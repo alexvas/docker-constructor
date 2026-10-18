@@ -32,8 +32,6 @@ from docker.versioning.host_progress import (
     emit,
     guard_sink,
 )
-
-
 from docker.versioning.logical_resource import (
     PI_RELEASE_ASSET_NAMES,
     REVIEWED_ARTIFACT_NAMES,

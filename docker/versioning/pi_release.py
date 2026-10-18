@@ -15,8 +15,8 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Callable, Iterable, Protocol, overload
 
-from .model import PiReleaseSource
 from .build_materialization import StreamingTransport
+from .model import PiReleaseSource
 
 #: Receives the cumulative received bytes after every yielded body chunk.
 ProgressCallback = Callable[[int], None]

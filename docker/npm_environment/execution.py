@@ -58,11 +58,11 @@ from .identity import (
     compute_assembler_input_identity,
 )
 from .lifecycle import (
-    LifecyclePolicy,
     LifecycleOutcome,
-    run_captured,
-    _run_captured,
+    LifecyclePolicy,
     _label_final_reap,
+    _run_captured,
+    run_captured,
 )
 from .model import ValidatedAssemblyInput
 from .network import CorporateNetworkPolicy
@@ -83,14 +83,14 @@ from .storage import (
 from .streaming import (
     READER_FAILURE_DETAIL_BYTES,
     RETAINED_CAPTURE_ATTR,
-    DiagnosticSink,
     STREAM_STDERR,
     STREAM_STDOUT,
+    TRUNCATION_NOTICE,
+    DiagnosticSink,
     StreamingCapture,
     StreamReaderFailure,
-    TRUNCATION_NOTICE,
-    _DiagnosticCollector,
     _attach_retained_capture,
+    _DiagnosticCollector,
     redact_tail,
     redact_text,
 )

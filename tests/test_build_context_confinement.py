@@ -17,13 +17,6 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from tests.build_test_support import (
-    digest_valid_selected_artifacts,
-    fake_pi_materialization,
-    fixture_directory,
-    publish_digest_valid_artifacts,
-)
-
 from docker.networking import ProcessResult
 from docker.versioning import build_context_confinement as confinement_module
 from docker.versioning.build_context_confinement import (
@@ -40,6 +33,12 @@ from docker.versioning.build_orchestration import (
 )
 from docker.versioning.build_snapshot import MaterializedSnapshot
 from docker.versioning.dispatch_types import ExitKind
+from tests.build_test_support import (
+    digest_valid_selected_artifacts,
+    fake_pi_materialization,
+    fixture_directory,
+    publish_digest_valid_artifacts,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 _REVIEWED_INVENTORY_BYTES = (REPO_ROOT / "docker-constructor.toml").read_bytes()

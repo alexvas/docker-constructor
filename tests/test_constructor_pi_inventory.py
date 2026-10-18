@@ -19,19 +19,20 @@ _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 sys.path.insert(0, str(_THIS_DIR))
 
-from docker.versioning.inventory import load_inventory
+from versioning.support.inventory_builder import minimal_toml, write_toml
+
+from docker.npm_environment import SMOKE_NODE_VERSION, SMOKE_NPM_VERSION
 from docker.versioning.effective import (
     apply_overrides,
     resolve_build_projection,
 )
 from docker.versioning.errors import InventoryError
+from docker.versioning.inventory import load_inventory
 from docker.versioning.rendering import render_build_environment
-from docker.npm_environment import SMOKE_NODE_VERSION, SMOKE_NPM_VERSION
 from tests.inventory_fixtures import (
     stable_inventory_path,
     stable_inventory_text,
 )
-from versioning.support.inventory_builder import minimal_toml, write_toml
 
 _REPO = _THIS_DIR.parent
 _FIXTURE_PI_VERSION = "0.85.1"

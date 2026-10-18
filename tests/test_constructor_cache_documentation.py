@@ -1,8 +1,7 @@
 """Phase 7 cache documentation and maintained-source consistency checks."""
 
-from pathlib import Path
 import unittest
-
+from pathlib import Path
 
 _ROOT = Path(__file__).parents[1]
 _READMES = tuple(_ROOT / name for name in ("README.md", "README.en.md", "README.zh.md"))

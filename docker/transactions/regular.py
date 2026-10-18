@@ -66,8 +66,8 @@ from .errors import (
     STAGE_VALIDATE,
     STAGE_VALIDATE_DESTINATION,
     STAGE_WRITE,
-    DestinationExists,
     CloseStageFailure,
+    DestinationExists,
     TransactionError,
     UnsafeFileError,
 )

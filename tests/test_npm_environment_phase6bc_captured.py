@@ -9,8 +9,8 @@ from unittest import mock
 import pytest
 
 from docker.filesystem.streams import OwnedStream
-from docker.process import OwnedProcess
 from docker.npm_environment import lifecycle
+from docker.process import OwnedProcess
 from tests.test_process_failure_snapshot import Child
 
 

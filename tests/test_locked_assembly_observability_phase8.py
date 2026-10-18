@@ -32,8 +32,8 @@ from docker.npm_environment import (
     LockedNpmError,
     ProcessResult,
     RootSpec,
-    assembler_script_digest,
     assemble_environment,
+    assembler_script_digest,
     compute_assembler_identity,
     npm_policy_digest,
     preflight,
@@ -389,9 +389,9 @@ class TestOrderedStepSequence(_AssemblyCase):
 
 class TestCoordinationWait(_AssemblyCase):
     def test_lock_wait_is_observed_without_timeout_or_ownership_change(self):
+        from docker.npm_environment.identity import compute_assembler_input_identity
         from docker.npm_environment.publication import identity_coordination_lock
         from docker.npm_environment.storage import prepare_assembler_namespace
-        from docker.npm_environment.identity import compute_assembler_input_identity
 
         namespace = prepare_assembler_namespace(self.cache_root, self.assembler.digest)
         input_identity = compute_assembler_input_identity(

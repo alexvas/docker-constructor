@@ -442,8 +442,8 @@ class TestDockerBackedRegistryAcceptance(unittest.TestCase):
         # Feed the real constructor result through the production facade's JSON
         # renderer. No host event sink is created and stdout is exactly one
         # parseable document with no lifecycle/diagnostic contamination.
-        from docker import constructor_cli
         import docker.versioning.build_orchestration as build_orchestration
+        from docker import constructor_cli
 
         stdout = io.StringIO()
         with (
@@ -596,6 +596,7 @@ class TestDockerBackedRegistryAcceptance(unittest.TestCase):
 
     def test_partial_download_preserves_opaque_cache_and_retry_succeeds(self):
         import hashlib
+
         import docker.npm_environment.assembler as policy
 
         seed_validated = preflight(

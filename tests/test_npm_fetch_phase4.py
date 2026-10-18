@@ -30,8 +30,8 @@ from docker.versioning.diagnostic_projection import (
 )
 from docker.versioning.model import NetworkUrlDisplay
 from docker.versioning.npm_fetch import (
-    NpmFetchRecord,
     NpmFetchRecognizer,
+    NpmFetchRecord,
     SafeFetchRecord,
     canonical_fetch_text,
     fetch_group_identity,

@@ -38,6 +38,8 @@ from dataclasses import dataclass
 from docker.versioning.semver import (
     SemanticVersion,
     SemverError,
+)
+from docker.versioning.semver import (
     parse as _parse_version,
 )
 

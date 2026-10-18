@@ -13,7 +13,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 _ROOT = Path(__file__).resolve().parents[1]
 _VALID_BUNDLE = "-----BEGIN CERTIFICATE-----\nAQIDBAU=\n-----END CERTIFICATE-----\n"
 _COPY = (

@@ -31,26 +31,26 @@ from docker.versioning.diagnostic_identity import (
     DiagnosticDisposition,
     PresentationMode,
 )
-from docker.versioning.model import NetworkUrlDisplay
 from docker.versioning.host_progress import (
     HostBuildEvent,
-    HostDiagnosticEvent,
     HostDiagnosticEnvelope,
+    HostDiagnosticEvent,
     HostDiagnosticPrefix,
     HostDiagnosticStream,
     HostHeartbeatEvent,
-    HostPresentationEvent,
-    InternalDirectHostEventSink,
     HostLastActivityKind,
     HostPhase,
     HostPhaseEvent,
     HostPhaseState,
+    HostPresentationEvent,
     HostStep,
     HostStepEvent,
     HostStepState,
     HostStructuredDiagnostic,
     HostTransportProgressEvent,
+    InternalDirectHostEventSink,
 )
+from docker.versioning.model import NetworkUrlDisplay
 
 #: Seconds after operation start before the coordinator's first heartbeat.
 FIRST_HEARTBEAT_SECONDS = 3.0

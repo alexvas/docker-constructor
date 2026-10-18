@@ -80,14 +80,12 @@ import urllib.parse
 from dataclasses import dataclass
 from typing import Sequence
 
-from docker.versioning.diagnostic_coordinator import CoordinatedProjection
-from docker.versioning.model import NetworkUrlDisplay
-
 from docker.npm_environment.streaming import (
     REDACTED,
     dedupe_secrets,
     longest_secret_length,
 )
+from docker.versioning.diagnostic_coordinator import CoordinatedProjection
 from docker.versioning.diagnostic_identity import SessionUrlIdentity
 from docker.versioning.host_progress import (
     HostDiagnosticClassification,
@@ -102,6 +100,7 @@ from docker.versioning.logical_resource import (
     DiagnosticLogicalResource,
     DiagnosticResourceKind,
 )
+from docker.versioning.model import NetworkUrlDisplay
 
 #: Maximum retained ambiguous URL/secret pending state (UTF-8 bytes).
 PENDING_LIMIT_BYTES = 8 * 1024

@@ -9,7 +9,6 @@ import json
 from typing import Optional
 from urllib.parse import quote
 
-from .base import ProviderContext, ProviderResult, UpdateProvider
 from ..model import (
     PyPiSource,
     PyPiUpdate,
@@ -18,6 +17,7 @@ from ..model import (
     UpdateTarget,
 )
 from ..semver import SemanticVersion, parse
+from .base import ProviderContext, ProviderResult, UpdateProvider
 
 
 def _pypi_url(package: str) -> str:
@@ -145,6 +145,7 @@ class PyPiProvider:
         # Compare parsed datetimes to avoid lexicographic misordering
         # when fractional precision differs (Z vs .9Z).
         from datetime import datetime, timezone
+
         from ..model import _validate_utc_rfc3339
 
         pypi_published_at: str | None = None

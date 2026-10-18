@@ -22,7 +22,8 @@ import hashlib
 import json
 from typing import Mapping, Sequence
 
-from docker.versioning.semver import SemverError, validate as _validate_semver
+from docker.versioning.semver import SemverError
+from docker.versioning.semver import validate as _validate_semver
 
 from .errors import LockedNpmError
 from .lockfile import parse_lockfile

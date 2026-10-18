@@ -18,6 +18,7 @@ import unittest
 from docker.npm_environment import (
     NPM_CI_FLAGS,
     LockedNpmError,
+    RootSpec,
     assembler_script_bytes,
     assembler_script_digest,
     compute_assembler_identity,
@@ -28,7 +29,6 @@ from docker.npm_environment import (
     npm_policy_flags,
     preflight,
     recheck_assembler_bindings,
-    RootSpec,
 )
 from docker.npm_environment.assembler import ASSEMBLER_SCRIPT, NPM_CI_COMMAND
 from docker.npm_environment.evidence import AssemblerEvidenceBody

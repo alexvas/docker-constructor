@@ -43,6 +43,7 @@ from docker.versioning.artifact_cache import (
     CacheBlobInspection,
     CacheBlobStat,
     CacheFilesystem,
+    DigestIdentity,
     FileIdentityLockFactory,
     IdentityLock,
     LocalCacheFilesystem,
@@ -52,12 +53,10 @@ from docker.versioning.artifact_cache import (
     TemporaryDirectory,
     VerifiedCacheBlob,
     _compute_digest,
-    DigestIdentity,
     derive_cache_path_from_integrity,
     materialize_selected_artifacts,
     validate_cache_blob,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════
 # in-memory fake boundaries

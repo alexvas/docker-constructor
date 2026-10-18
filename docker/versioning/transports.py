@@ -9,15 +9,15 @@ this API — domain services never depend on CLI parsing modules.
 from __future__ import annotations
 
 import os as _os
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Mapping
 
 from .immutable import deep_freeze
 
 if TYPE_CHECKING:
-    from .providers.base import HttpTransport, GitRefTransport
+    from .providers.base import GitRefTransport, HttpTransport
 
 
 @dataclass(frozen=True)
@@ -79,12 +79,13 @@ def build_transports(
         Ready-to-use transports and auth tokens.
     """
     from docker.filesystem.streams import OwnedStream
-    from .providers.base import HttpTransport, GitRefTransport
+
+    from .providers.base import GitRefTransport, HttpTransport
 
     class _ProductionHttp(HttpTransport):
         def request(self, method, url, *, headers=(), nocache=False):
-            import urllib.request
             import urllib.error
+            import urllib.request
 
             req = urllib.request.Request(
                 url,

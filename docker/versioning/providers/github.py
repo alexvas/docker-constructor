@@ -10,7 +10,6 @@ import json
 import re
 from typing import Optional
 
-from .base import ProviderContext, ProviderResult
 from ..model import (
     CandidateArtifact,
     GitHubReleaseSource,
@@ -20,6 +19,7 @@ from ..model import (
     UpdateTarget,
 )
 from ..semver import SemanticVersion, parse
+from .base import ProviderContext, ProviderResult
 
 # Strip v-prefix for semver parsing
 _SEMVER_TAG_RE = re.compile(r"^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-.*)?$")

@@ -12,8 +12,8 @@ from docker.versioning.model import (
 )
 from docker.versioning.providers.base import ProviderContext
 from docker.versioning.providers.pypi import PyPiProvider
-from tests.versioning.support.fake_http import FakeHttpTransport
 from tests.versioning.support.fake_git import FakeGitTransport
+from tests.versioning.support.fake_http import FakeHttpTransport
 
 
 class TestPyPiProvider(unittest.TestCase):

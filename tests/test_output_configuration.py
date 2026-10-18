@@ -8,14 +8,19 @@ import json
 import tempfile
 import unittest
 from collections.abc import Mapping
+from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
-from pathlib import Path
 
-from docker.versioning.errors import InventoryError
+from docker.npm_environment.execution import assemble
+from docker.npm_environment.publication import assemble_environment
+from docker.npm_environment.streaming import collect_streams
+from docker.versioning.build_orchestration import BuildResult
 from docker.versioning.configuration_document_validation import (
     ConfigurationDocumentError,
 )
+from docker.versioning.dispatch_types import ExitKind
+from docker.versioning.errors import InventoryError
 from docker.versioning.inventory import load_inventory, load_project_configuration
 from docker.versioning.local_project_configuration import (
     LOCAL_COMPANION_BASENAME,
@@ -28,13 +33,7 @@ from docker.versioning.model import (
     LocalOutputPolicy,
     NetworkUrlDisplay,
 )
-from docker.versioning.build_orchestration import BuildResult
-from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.pi_assembly import PiAssemblyRequest
-from docker.npm_environment.execution import assemble
-from docker.npm_environment.publication import assemble_environment
-from docker.npm_environment.streaming import collect_streams
-
 
 PROHIBITED_FIELDS = frozenset({"output", "host_heartbeat"})
 
@@ -292,6 +291,7 @@ class TestOutputOwner(unittest.TestCase):
     def test_no_cli_or_environment_alias_exists_for_output_settings(self) -> None:
         import io
         import os
+
         from docker import constructor_cli
 
         # CLI: neither would-be flag belongs to the reviewed surface.
@@ -506,6 +506,7 @@ class TestOutputPolicyConfinement(unittest.TestCase):
 
     def test_output_policy_is_absent_from_domain_request_models(self) -> None:
         import dataclasses
+
         from docker.versioning.build_orchestration import BuildRequest
         from docker.versioning.host_progress import HostDiagnosticEvent
         from docker.versioning.pi_assembly import PiAssemblyRequest
@@ -631,8 +632,8 @@ class _RecordingBuildExecutor:
 
 
 def _fixture_snapshot(*_args: object, **_kwargs: object) -> object:
-    from tests.build_test_support import fixture_directory
     from docker.versioning.build_snapshot import MaterializedSnapshot
+    from tests.build_test_support import fixture_directory
 
     path = fixture_directory("fixture-snapshot-")
     return MaterializedSnapshot(path, path / "manifest.json")
@@ -824,13 +825,13 @@ class _RunDispatch:
         self.effective_projections: list[object] = []
 
     def run(self) -> object:
-        from docker.versioning import effective as effective_module
-        from docker.versioning import rendering
         from docker.launcher import (
             RunRequest,
             WorkspaceSelection,
             orchestrate_run,
         )
+        from docker.versioning import effective as effective_module
+        from docker.versioning import rendering
 
         project = self.project
         project.prepare_state()
@@ -888,6 +889,7 @@ class _VerifyDispatch:
 
     def run(self) -> int:
         from types import SimpleNamespace
+
         from docker import constructor_cli
         from docker.versioning import runtime_verification, verification
 
@@ -1140,6 +1142,7 @@ class TestOutputPolicyBoundaryConfinement(unittest.TestCase):
 
     def test_reviewed_serialization_and_update_discovery_exclude_output(self) -> None:
         from types import MappingProxyType
+
         from docker.versioning.effective import (
             EffectiveConfiguration,
             serialize_effective_inventory,

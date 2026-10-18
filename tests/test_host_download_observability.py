@@ -29,6 +29,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from docker.npm_environment import build_tree_manifest
 from docker.versioning import pi_assembly
 from docker.versioning.activity_monitor import (
     FIRST_HEARTBEAT_SECONDS,
@@ -75,7 +76,6 @@ from docker.versioning.pi_release import (
     acquire_install_assets,
     derive_pi_release_urls,
 )
-from docker.npm_environment import build_tree_manifest
 from tests.pi_fixtures import (
     FakePiReleaseTransport,
     assembled_pi_tree,

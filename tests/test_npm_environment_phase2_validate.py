@@ -14,8 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from docker.npm_environment import LockedNpmError
-from docker.npm_environment import storage, tree
+from docker.npm_environment import LockedNpmError, storage, tree
 from docker.npm_environment.publication import identity_coordination_lock
 
 

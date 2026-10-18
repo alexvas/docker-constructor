@@ -23,6 +23,12 @@ from .configuration_document_validation import (
     release_owner_result,
     validate_configuration_documents,
 )
+from .constraints import (
+    NumericVersion,
+    parse_constraint,
+    parse_numeric_version,
+    validate_constraint_consistency,
+)
 from .errors import (
     ConstraintSyntaxError,
     InventoryError,
@@ -34,18 +40,10 @@ from .local_project_configuration import (
     resolve_local_companion_path,
     validate_local_document,
 )
-from .constraints import (
-    parse_numeric_version,
-    parse_constraint,
-    validate_constraint_consistency,
-    NumericVersion,
-)
 from .model import (
     ArtifactEntry,
     BaseStage,
     CacheConfig,
-    HostAccessPolicy,
-    LocalConfig,
     DockerRegistrySource,
     DockerRegistryUpdate,
     FdPrebuiltStage,
@@ -53,8 +51,10 @@ from .model import (
     GitHubReleaseUpdate,
     GitRefUpdate,
     GitSource,
+    HostAccessPolicy,
     InvalidArtifactKey,
     Inventory,
+    LocalConfig,
     NodeEntry,
     NpmArtifact,
     NpmSource,
@@ -88,8 +88,8 @@ from .model import (
     UvPythonUpdate,
 )
 from .npm_tarball import validate as _validate_npm_tarball_url_model
-from .semver import SemverError, validate as _validate_semver
-
+from .semver import SemverError
+from .semver import validate as _validate_semver
 
 # ---------------------------------------------------------------------------
 # Regex constants

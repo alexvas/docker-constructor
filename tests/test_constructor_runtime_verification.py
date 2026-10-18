@@ -23,6 +23,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Mapping, Sequence
 
+from docker.versioning.constraints import Constraint, ConstraintClause, NumericVersion
 from docker.versioning.effective import (
     Filesystem,
     create_runtime_projection,
@@ -40,7 +41,6 @@ from docker.versioning.model import (
     RuntimeInventory,
     RuntimeValidation,
 )
-from docker.versioning.constraints import Constraint, ConstraintClause, NumericVersion
 from docker.versioning.runtime_verification import (
     ProcessResult,
     RuntimeCheck,

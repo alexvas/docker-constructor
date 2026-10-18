@@ -16,19 +16,19 @@ import time
 import unittest
 from unittest import mock
 
+import docker.filesystem.streams as streams_module
 import docker.npm_environment.execution as execution_module
 import docker.npm_environment.lifecycle as lifecycle_module
 import docker.process as process_module
-import docker.filesystem.streams as streams_module
 from docker.filesystem.descriptors import OwnedDescriptor
 from docker.filesystem.operations import PosixDescriptorOps
-from docker.process import OwnedProcess
 from docker.npm_environment import (
     AssemblyTimeoutError,
     DockerRunExecutor,
     StreamReaderFailure,
 )
 from docker.npm_environment.lifecycle import LifecyclePolicy, run_captured
+from docker.process import OwnedProcess
 from tests.test_npm_environment_phase4_lifecycle import _observed_children
 
 

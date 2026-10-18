@@ -17,11 +17,11 @@ from tests.enforcement.test_descriptor_close_convergence import (
     _close_violations_with_owners,
     _module_aliases,
 )
-from tests.enforcement.test_process_contract import methods, process_proof
 from tests.enforcement.test_npm_environment_process_contract import (
     adapter_proof,
     functions,
 )
+from tests.enforcement.test_process_contract import methods, process_proof
 
 
 def _imports(tree, path):

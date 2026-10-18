@@ -8,13 +8,7 @@ from __future__ import annotations
 
 import unittest
 
-from docker.versioning.rendering import (
-    BuildRenderInputs,
-    CacheControls,
-    Materialized,
-    NoDerivedEnvironment,
-    render_build_vector,
-)
+from docker.versioning.errors import EffectiveConfigError
 from docker.versioning.model import (
     EffectiveArtifact,
     EffectiveBuildProjection,
@@ -23,8 +17,13 @@ from docker.versioning.model import (
     EffectiveRust,
     EffectiveTool,
 )
-from docker.versioning.errors import EffectiveConfigError
-
+from docker.versioning.rendering import (
+    BuildRenderInputs,
+    CacheControls,
+    Materialized,
+    NoDerivedEnvironment,
+    render_build_vector,
+)
 
 # ---------------------------------------------------------------------------
 # Test helpers

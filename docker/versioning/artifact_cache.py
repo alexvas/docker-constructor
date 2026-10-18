@@ -18,7 +18,6 @@ import urllib.error
 import urllib.request
 from typing import IO, Iterator, Protocol, cast
 
-from docker.versioning.digest_identity import DigestIdentity, DigestIdentityError
 from docker.filesystem.descriptors import OwnedDescriptor
 from docker.filesystem.operations import DescriptorOps, PosixDescriptorOps
 from docker.filesystem.streams import OwnedStream
@@ -36,7 +35,7 @@ from docker.transactions.errors import (
 )
 from docker.transactions.locking import LockCapability, LockPolicy
 from docker.transactions.posix import PosixFileOps
-
+from docker.versioning.digest_identity import DigestIdentity, DigestIdentityError
 
 # ═══════════════════════════════════════════════════════════════════════
 # Error hierarchy

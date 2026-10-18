@@ -47,6 +47,8 @@ from docker.versioning.host_progress import (
 from docker.versioning.model import NetworkUrlDisplay
 from docker.versioning.npm_fetch import (
     FetchGroupKey as ReExportedFetchGroupKey,
+)
+from docker.versioning.npm_fetch import (
     canonical_fetch_text,
     fetch_group_identity,
     parse_npm_fetch_line,

@@ -51,8 +51,8 @@ from typing import Callable
 from docker.npm_environment.streaming import (
     DIAGNOSTIC_LINE_LIMIT_BYTES,
     OVERSIZED_DIAGNOSTIC_MARKER,
-    StreamChunk,
     TAIL_BYTES,
+    StreamChunk,
     TerminalSafeLineFramer,
     _OverflowMarker,
 )
@@ -70,7 +70,6 @@ from docker.versioning.npm_fetch import (
     canonical_fetch_text,
     fetch_group_identity,
 )
-
 
 _WARNING_RE = re.compile(r"(?i)(?:^|\s)npm\s+warn\b|(?:^|\s)warn(?:ing)?\b")
 _TIMEOUT_RE = re.compile(r"(?i)\btime(?:d)?[ _-]?out\b|\btimeout\b")

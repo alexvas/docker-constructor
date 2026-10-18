@@ -31,12 +31,16 @@ import time
 import unittest
 
 from docker.npm_environment.streaming import (
+    TAIL_BYTES,
     StreamChunk,
     StreamReaderFailure,
-    TAIL_BYTES,
     collect_streams,
 )
 from docker.versioning.diagnostic_identity import SessionUrlIdentity
+from docker.versioning.diagnostic_projection import (
+    INCOMPLETE_TOKEN_MARKER,
+    OVERSIZED_TOKEN_MARKER,
+)
 from docker.versioning.host_progress import (
     HostDiagnosticClassification,
     HostStructuredDiagnostic,
@@ -44,15 +48,11 @@ from docker.versioning.host_progress import (
 from docker.versioning.model import NetworkUrlDisplay
 from docker.versioning.npm_diagnostic_stream import (
     DIAGNOSTIC_LINE_LIMIT_BYTES,
-    NpmDiagnosticStream,
     OVERSIZED_DIAGNOSTIC_MARKER,
+    NpmDiagnosticStream,
     classify_npm_diagnostic,
     make_stream_factory,
     project_tail,
-)
-from docker.versioning.diagnostic_projection import (
-    INCOMPLETE_TOKEN_MARKER,
-    OVERSIZED_TOKEN_MARKER,
 )
 
 _REDACTED = "<redacted>"

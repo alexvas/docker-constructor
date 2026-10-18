@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import re
 
-from .base import ProviderContext, ProviderResult, UpdateProvider
 from ..model import (
     GitRefUpdate,
     GitSource,
@@ -15,6 +14,7 @@ from ..model import (
     UpdateKind,
     UpdateTarget,
 )
+from .base import ProviderContext, ProviderResult, UpdateProvider
 
 _GIT_REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 

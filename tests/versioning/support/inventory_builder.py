@@ -6,7 +6,6 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 
-
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "versions"
 
 

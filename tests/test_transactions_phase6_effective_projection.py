@@ -24,18 +24,18 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from docker.transactions.regular import RegularFileContracts
 from docker.transactions.errors import STAGE_CLOSE, STAGE_VALIDATE, TransactionError
-from docker.versioning import rendering as rendering_module
+from docker.transactions.regular import RegularFileContracts
 from docker.versioning import project_state as project_state_module
+from docker.versioning import rendering as rendering_module
 from docker.versioning.effective import apply_overrides, resolve_build_projection
 from docker.versioning.inventory import load_inventory
+from docker.versioning.project_state import resolve_project_state
 from docker.versioning.rendering import (
     EffectiveInventoryOutputError,
     write_effective_build,
     write_effective_inventory,
 )
-from docker.versioning.project_state import resolve_project_state
 from tests.transactions_test_support import InjectedOps, temporary_entries
 
 _REPO = Path(__file__).resolve().parents[1]

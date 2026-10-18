@@ -33,7 +33,6 @@ from docker.versioning.model import (
     RuntimeValidation,
 )
 
-
 _INT = "sha512-" + "A" * 86 + "=="
 
 
@@ -1513,8 +1512,9 @@ class TestSerializedProjectionValidator(unittest.TestCase):
         self.assertIn("invalid base64", str(ctx.exception))
 
     def test_rejects_sha256_with_wrong_digest_length(self):
-        from docker.versioning.effective import _validate_serialized_projection
         import base64
+
+        from docker.versioning.effective import _validate_serialized_projection
 
         # Encode 33 bytes instead of 32 — wrong length for sha256.
         bad = base64.b64encode(b"A" * 33).decode()
@@ -1526,8 +1526,9 @@ class TestSerializedProjectionValidator(unittest.TestCase):
         self.assertIn("32 bytes", str(ctx.exception))
 
     def test_rejects_sha384_with_wrong_digest_length(self):
-        from docker.versioning.effective import _validate_serialized_projection
         import base64
+
+        from docker.versioning.effective import _validate_serialized_projection
 
         bad = base64.b64encode(b"B" * 47).decode()
         data = self._valid_data()
@@ -1537,8 +1538,9 @@ class TestSerializedProjectionValidator(unittest.TestCase):
         self.assertIn("48 bytes", str(ctx.exception))
 
     def test_rejects_sha512_with_wrong_digest_length(self):
-        from docker.versioning.effective import _validate_serialized_projection
         import base64
+
+        from docker.versioning.effective import _validate_serialized_projection
 
         bad = base64.b64encode(b"C" * 63).decode()
         data = self._valid_data()

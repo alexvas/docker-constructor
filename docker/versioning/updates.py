@@ -19,8 +19,8 @@ from typing import (
 )
 
 from .errors import (
-    VersionConfigError,
     ProviderUnavailableError,
+    VersionConfigError,
 )
 from .model import (
     ArtifactEntry,
@@ -29,47 +29,46 @@ from .model import (
     DockerRegistryUpdate,
     GitHubReleaseSource,
     GitHubReleaseUpdate,
-    GitSource,
     GitRefUpdate,
+    GitSource,
     Inventory,
     NodeEntry,
     NpmSource,
     NpmUpdate,
     OhMyZshEntry,
+    OverridePolicy,
     PiExtensionEntry,
     PrebuiltToolEntry,
-    PythonEntry,
     PyPiSource,
     PyPiUpdate,
+    PythonEntry,
     RustChannelSource,
     RustChannelUpdate,
     RustEntry,
     StaticUrlUpdate,
     TyEntry,
-    UvEntry,
-    UvPythonSource,
-    UvPythonUpdate,
     UpdateCandidate,
     UpdateKind,
     UpdateResult,
     UpdateStatus,
     UpdateTarget,
-    OverridePolicy,
+    UvEntry,
+    UvPythonSource,
+    UvPythonUpdate,
 )
 from .providers.base import (
     ProviderContext,
     ProviderResult,
     UpdateProvider,
 )
-from .providers.npm import NpmProvider
-from .providers.pypi import PyPiProvider
-from .providers.github import GitHubReleaseProvider
-from .providers.rust import RustChannelProvider
 from .providers.docker_registry import DockerRegistryProvider
 from .providers.git import GitRefProvider
-from .providers.uv_python import UvPythonProvider
+from .providers.github import GitHubReleaseProvider
+from .providers.npm import NpmProvider
+from .providers.pypi import PyPiProvider
+from .providers.rust import RustChannelProvider
 from .providers.static_url import StaticUrlProvider
-
+from .providers.uv_python import UvPythonProvider
 
 # ---------------------------------------------------------------------------
 # Default provider registry

@@ -5,10 +5,10 @@ from __future__ import annotations
 import ast
 import inspect
 import json
-from pathlib import Path
 import subprocess
 import sys
 import textwrap
+from pathlib import Path
 
 import pytest
 

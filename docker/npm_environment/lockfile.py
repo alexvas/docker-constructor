@@ -68,10 +68,14 @@ from docker.versioning.integrity import (
 )
 from docker.versioning.npm_tarball import (
     NpmTarballUrlError,
+)
+from docker.versioning.npm_tarball import (
     validate as _validate_tarball,
 )
 from docker.versioning.semver import (
     SemverError,
+)
+from docker.versioning.semver import (
     validate as _validate_semver,
 )
 

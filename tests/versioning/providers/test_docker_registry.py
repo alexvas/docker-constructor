@@ -7,13 +7,13 @@ import unittest
 from docker.versioning.model import (
     DockerRegistrySource,
     DockerRegistryUpdate,
-    UpdateTarget,
     UpdateKind,
+    UpdateTarget,
 )
 from docker.versioning.providers.base import ProviderContext
 from docker.versioning.providers.docker_registry import DockerRegistryProvider
-from tests.versioning.support.fake_http import FakeHttpTransport
 from tests.versioning.support.fake_git import FakeGitTransport
+from tests.versioning.support.fake_http import FakeHttpTransport
 
 
 class TestDockerRegistryProvider(unittest.TestCase):

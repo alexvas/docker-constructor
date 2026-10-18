@@ -26,6 +26,7 @@ import tempfile
 import tomllib
 import unittest
 
+from docker.transactions.posix import PosixFileOps
 from docker.versioning.effective import (
     EffectiveConfigError,
     Filesystem,
@@ -40,7 +41,6 @@ from docker.versioning.model import (
     EffectivePiExtensionEntry,
     EffectiveRuntimeProjection,
 )
-from docker.transactions.posix import PosixFileOps
 from tests.transactions_test_support import InjectedOps, temporary_entries
 
 _RAW = hashlib.sha512(b"facade-payload").digest()

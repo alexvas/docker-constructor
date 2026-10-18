@@ -11,10 +11,10 @@ import unittest
 
 from docker.versioning.diagnostic_identity import SessionUrlIdentity
 from docker.versioning.diagnostic_projection import (
-    DiagnosticProjector,
     INCOMPLETE_TOKEN_MARKER,
     OVERSIZED_TOKEN_MARKER,
     PENDING_LIMIT_BYTES,
+    DiagnosticProjector,
 )
 from docker.versioning.model import NetworkUrlDisplay
 
@@ -388,11 +388,11 @@ class Phase3Tests(unittest.TestCase):
         self.assertEqual(14, p.recognition_stats.chars)
 
     def test_two_products_share_one_collector_raw_owner_and_line_overflow(self):
-        from docker.versioning.npm_diagnostic_stream import NpmDiagnosticStream
-        from docker.versioning.host_progress import HostDiagnosticStream
         from docker.npm_environment.streaming import (
             OVERSIZED_DIAGNOSTIC_MARKER as LINE_OVERFLOW_MARKER,
         )
+        from docker.versioning.host_progress import HostDiagnosticStream
+        from docker.versioning.npm_diagnostic_stream import NpmDiagnosticStream
 
         stream = NpmDiagnosticStream(
             HostDiagnosticStream.STDERR, network_url_display=NetworkUrlDisplay.HOST_PATH
@@ -603,6 +603,7 @@ class Phase3Tests(unittest.TestCase):
 
     def test_legacy_regex_and_payload_map_helpers_are_not_production_fallbacks(self):
         from unittest.mock import patch
+
         import docker.versioning.diagnostic_projection as boundary
 
         for host_path in (False, True):

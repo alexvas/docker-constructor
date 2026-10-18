@@ -20,7 +20,6 @@ from unittest.mock import patch
 
 from tests.inventory_fixtures import write_stable_project
 
-
 # Behavioural lane: an independent stable project document for every
 # check-updates acceptance run.  The target count/order comes from the
 # committed fixture, never from the live repository inventory.
@@ -86,6 +85,7 @@ def _stub_providers(
     value, producing a CURRENT result.
     """
     from types import MappingProxyType
+
     from docker.versioning.model import UpdateCandidate, UpdateKind
     from docker.versioning.providers.base import ProviderResult
 

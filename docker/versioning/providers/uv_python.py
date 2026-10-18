@@ -9,15 +9,15 @@ from __future__ import annotations
 import json
 import re
 
-from .base import ProviderContext, ProviderResult, UpdateProvider
 from ..constraints import NumericVersion, parse_numeric_version
 from ..model import (
-    UvPythonSource,
-    UvPythonUpdate,
     UpdateCandidate,
     UpdateKind,
     UpdateTarget,
+    UvPythonSource,
+    UvPythonUpdate,
 )
+from .base import ProviderContext, ProviderResult, UpdateProvider
 
 _CPYTHON_VERSION_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 

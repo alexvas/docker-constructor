@@ -20,10 +20,10 @@ import os
 import re
 import shutil
 import subprocess
-from enum import Enum
 import threading
 import time
 from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Callable, Iterable, Optional
 

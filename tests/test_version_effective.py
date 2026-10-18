@@ -17,13 +17,13 @@ from docker.versioning.effective import (
     serialize_effective_inventory,
     to_plain_data,
 )
-from docker.versioning.rendering import render_build_environment
 from docker.versioning.errors import (
     OverrideValidationError,
     UnknownPathError,
     UnsupportedOverrideError,
 )
 from docker.versioning.inventory import load_inventory
+from docker.versioning.rendering import render_build_environment
 from tests.inventory_fixtures import stable_inventory_path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -347,8 +347,8 @@ class TestEnvironmentMapping(unittest.TestCase):
 
     def test_source_metadata_change_affects_node_image(self):
         """Changing node source metadata changes NODE_BASE_IMAGE."""
-        from tests.versioning.support.inventory_builder import minimal_toml, write_toml
         from docker.versioning.inventory import load_inventory as load_inv
+        from tests.versioning.support.inventory_builder import minimal_toml, write_toml
 
         # Default fixture
         toml_default = minimal_toml()

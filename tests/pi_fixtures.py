@@ -23,8 +23,8 @@ from types import SimpleNamespace
 from docker.versioning.pi_release import (
     INSTALL_PACKAGE_FILENAME,
     INSTALL_PACKAGE_LOCK_FILENAME,
-    PiReleaseUrls,
     SHA256SUMS_FILENAME,
+    PiReleaseUrls,
 )
 
 PI_PACKAGE = "@earendil-works/pi-coding-agent"
@@ -161,9 +161,9 @@ def build_pi_attestation(
         RootSpec,
         assembler_script_digest,
         build_tree_manifest,
+        compute_assembled_output_identity,
         compute_assembler_identity,
         compute_assembler_input_identity,
-        compute_assembled_output_identity,
         evidence_body_digest,
         npm_policy_digest,
         npm_policy_flags,

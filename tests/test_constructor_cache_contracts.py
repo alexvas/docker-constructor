@@ -22,7 +22,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # 2.1a — canonical integrity identities
 # ═══════════════════════════════════════════════════════════════════════
@@ -32,8 +31,10 @@ class TestSRIIdentity(unittest.TestCase):
     """SRI parsing is owned by DigestIdentity."""
 
     def test_parse_and_canonical_encodings(self) -> None:
+        import base64
+        import hashlib
+
         from docker.versioning.digest_identity import DigestIdentity
-        import hashlib, base64
 
         data = b"cache-contract"
         raw = hashlib.sha512(data).digest()
@@ -127,8 +128,9 @@ class TestCacheLayout(unittest.TestCase):
 
     def test_layout_adapters_share_identity_but_not_storage_names(self) -> None:
         import hashlib
-        from docker.versioning.digest_identity import DigestIdentity
+
         from docker.versioning.build_cache import build_blob_path
+        from docker.versioning.digest_identity import DigestIdentity
 
         data = b"layout-boundary"
         identity = DigestIdentity("sha256", hashlib.sha256(data).digest())
@@ -585,6 +587,7 @@ class TestDerivationRejectsNonContentInputs(unittest.TestCase):
 
     def test_derive_cache_path_has_no_url_parameter(self) -> None:
         import inspect
+
         from docker.versioning.artifact_cache import derive_cache_path
 
         sig = inspect.signature(derive_cache_path)
@@ -595,6 +598,7 @@ class TestDerivationRejectsNonContentInputs(unittest.TestCase):
 
     def test_derive_cache_path_from_integrity_has_no_url_parameter(self) -> None:
         import inspect
+
         from docker.versioning.artifact_cache import (
             derive_cache_path_from_integrity,
         )

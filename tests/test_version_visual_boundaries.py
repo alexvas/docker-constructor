@@ -27,14 +27,13 @@ from docker.versioning.updates import (
     render_replacement_fragments,
     serialize_replacement_block,
 )
-
+from tests.inventory_fixtures import stable_inventory_path
 from tests.live_owner_audit import (
     independent_update_owners,
     owner_header_violations,
     production_update_owners,
 )
 from tests.versioning.support.inventory_builder import minimal_toml
-from tests.inventory_fixtures import stable_inventory_path
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 # Behavioural lane: committed stable fixture (fixed owner→display examples).

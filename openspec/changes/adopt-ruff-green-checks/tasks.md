@@ -191,28 +191,28 @@ This forward-only chain is the chosen DAG. A phase may depend only on an earlier
 
 ### RED
 
-- [ ] 4.1 Capture post-format Ruff findings; accept when diagnostics and source fingerprints identify the exact autofix input.
+- [x] 4.1 Capture post-format Ruff findings; accept when diagnostics and source fingerprints identify the exact autofix input.
 
 ### GREEN
 
-- [ ] 4.2 Run full-inventory `ruff check --fix` without unsafe fixes; accept when the exact command/generated delta/status are recorded and any residual findings are explicitly unresolved, not a successful lint check.
-- [ ] 4.3 Reformat autofix-changed files; accept when the additional delta is exclusively Ruff formatter output.
+- [x] 4.2 Run full-inventory `ruff check --fix` without unsafe fixes; accept when the exact command/generated delta/status are recorded and any residual findings are explicitly unresolved, not a successful lint check.
+- [x] 4.3 Reformat autofix-changed files; accept when the additional delta is exclusively Ruff formatter output.
 
 ### INTROSPECT
 
-- [ ] 4.4 Create an automatic-change review ledger; accept when each changed import block or independent semantic fix has a target-specific behavior/side-effect assessment and named verification.
-- [ ] 4.5 Instantiate one review work order per ledger target; accept when each `P4-R<n>` has one target, evidence of preserved behavior and a passing named check. An unverified fix blocks P4. If additional test/repair is needed, reopen preparation and revalidate descendants; do not rely on P5 to repair P4.
-- [ ] 4.6 Capture residual Ruff findings; accept when the complete remaining location/rule inventory is available to P5 and no rejected automatic change is concealed.
+- [x] 4.4 Create an automatic-change review ledger; accept when each changed import block or independent semantic fix has a target-specific behavior/side-effect assessment and named verification.
+- [x] 4.5 Instantiate one review work order per ledger target; accept when each `P4-R<n>` has one target, evidence of preserved behavior and a passing named check. An unverified fix blocks P4. If additional test/repair is needed, reopen preparation and revalidate descendants; do not rely on P5 to repair P4.
+- [x] 4.6 Capture residual Ruff findings; accept when the complete remaining location/rule inventory is available to P5 and no rejected automatic change is concealed.
 
 ### VALIDATE
 
-- [ ] 4.7 Execute the accepted review-ledger checks; accept only successful results for every concrete instance.
-- [ ] 4.8 Run full-inventory format check; accept only exit 0.
-- [ ] 4.9 Run full pytest for R; accept only exit 0 and its durable summary.
-- [ ] 4.10 Execute manifest checks mandatory in P4: all existing required checks, shared compilation and full-inventory format check; accept only successful statuses. Full-inventory lint remains diagnostic backlog until P5.
-- [ ] 4.11 Run shared compilation for R; accept only exit 0.
-- [ ] 4.12 Review phase-exit skips; accept only justified reasons.
-- [ ] 4.13 Publish the P4 exit report; accept when the automatic-only delta, accepted review ledger, residual backlog and R refer to the same source state.
+- [x] 4.7 Execute the accepted review-ledger checks; accept only successful results for every concrete instance.
+- [x] 4.8 Run full-inventory format check; accept only exit 0.
+- [x] 4.9 Run full pytest for R; accept only exit 0 and its durable summary.
+- [x] 4.10 Execute manifest checks mandatory in P4: all existing required checks, shared compilation and full-inventory format check; accept only successful statuses. Full-inventory lint remains diagnostic backlog until P5.
+- [x] 4.11 Run shared compilation for R; accept only exit 0.
+- [x] 4.12 Review phase-exit skips; accept only justified reasons.
+- [x] 4.13 Publish the P4 exit report; accept when the automatic-only delta, accepted review ledger, residual backlog and R refer to the same source state.
 
 ## 5. P5 — Manual resolution (3.2)
 

@@ -13,10 +13,9 @@ _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 sys.path.insert(0, str(_THIS_DIR))
 
-from docker.versions import InventoryError, load_inventory
-
 from versioning.support.inventory_builder import write_toml
 
+from docker.versions import InventoryError, load_inventory
 
 # ---------------------------------------------------------------------------
 # Helper — canonical TOML with build/runtime envelope
@@ -468,7 +467,7 @@ class TestTypedPhaseContainers(unittest.TestCase):
 
     def test_inventory_is_frozen_dataclass(self):
         """Inventory must be a frozen dataclass."""
-        from dataclasses import is_dataclass, fields
+        from dataclasses import fields, is_dataclass
 
         self.assertTrue(is_dataclass(type(self.inv)))
         f = fields(type(self.inv))
@@ -584,14 +583,14 @@ class TestDirectConstructionImmutability(unittest.TestCase):
     def test_runtime_inventory_normalises_mutable_dict(self):
         """RuntimeInventory normalises a plain dict to MappingProxyType."""
         from docker.versions import (
-            PiExtensionEntry,
+            NpmArtifact,
             NpmSource,
             NpmUpdate,
             OverridePolicy,
-            parse_constraint,
-            NpmArtifact,
-            RuntimeValidation,
+            PiExtensionEntry,
             RuntimeInventory,
+            RuntimeValidation,
+            parse_constraint,
         )
 
         mutable: dict[str, PiExtensionEntry] = {
@@ -639,14 +638,14 @@ class TestDirectConstructionImmutability(unittest.TestCase):
         """A MappingProxyType backed by a reachable dict must be deep-copied
         so the original dict cannot affect the frozen container."""
         from docker.versions import (
-            PiExtensionEntry,
+            NpmArtifact,
             NpmSource,
             NpmUpdate,
             OverridePolicy,
-            parse_constraint,
-            NpmArtifact,
-            RuntimeValidation,
+            PiExtensionEntry,
             RuntimeInventory,
+            RuntimeValidation,
+            parse_constraint,
         )
 
         backing: dict[str, PiExtensionEntry] = {
@@ -708,16 +707,16 @@ class TestDirectConstructionImmutability(unittest.TestCase):
     def test_inventory_normalises_runtime_pi_extensions(self):
         """Direct Inventory construction normalises runtime_pi_extensions."""
         from docker.versions import (
+            Constraint,
             Inventory,
-            PiExtensionEntry,
+            NpmArtifact,
             NpmSource,
             NpmUpdate,
-            NpmArtifact,
-            RuntimeValidation,
             OverridePolicy,
-            Constraint,
+            PiExtensionEntry,
+            RuntimeValidation,
+            parse_constraint,
         )
-        from docker.versions import parse_constraint
 
         mutable_ext: dict[str, PiExtensionEntry] = {
             "ext-a": PiExtensionEntry(

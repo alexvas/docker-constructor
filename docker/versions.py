@@ -9,21 +9,21 @@ import ...`` statements in internal tests continue to resolve.
 from __future__ import annotations
 
 if __package__:
-    from .versioning.inventory import load_inventory, validate_inventory
-    from .versioning.errors import (
-        VersionConfigError,
-        InventoryError,
-        VersionSyntaxError,
-        ConstraintSyntaxError,
-    )
     from .versioning.constraints import (
-        NumericVersion,
-        ConstraintClause,
         Constraint,
-        parse_numeric_version,
+        ConstraintClause,
+        NumericVersion,
         parse_constraint,
+        parse_numeric_version,
         validate_constraint_consistency,
     )
+    from .versioning.errors import (
+        ConstraintSyntaxError,
+        InventoryError,
+        VersionConfigError,
+        VersionSyntaxError,
+    )
+    from .versioning.inventory import load_inventory, validate_inventory
     from .versioning.model import (
         ArtifactEntry,
         BaseStage,
@@ -41,12 +41,12 @@ if __package__:
         NpmSource,
         NpmToolEntry,
         NpmUpdate,
-        PiReleaseSource,
-        PiToolEntry,
         OhMyZshEntry,
         OpenSpecToolsStage,
         OverridePolicy,
         PiExtensionEntry,
+        PiReleaseSource,
+        PiToolEntry,
         PiToolsStage,
         PrebuiltToolEntry,
         PyPiSource,
@@ -67,21 +67,21 @@ if __package__:
         UvPythonUpdate,
     )
 else:
-    from versioning.inventory import load_inventory, validate_inventory  # type: ignore[import-not-found]
-    from versioning.errors import (  # type: ignore[import-not-found]
-        VersionConfigError,
-        InventoryError,
-        VersionSyntaxError,
-        ConstraintSyntaxError,
-    )
     from versioning.constraints import (  # type: ignore[import-not-found]
-        NumericVersion,
-        ConstraintClause,
         Constraint,
-        parse_numeric_version,
+        ConstraintClause,
+        NumericVersion,
         parse_constraint,
+        parse_numeric_version,
         validate_constraint_consistency,
     )
+    from versioning.errors import (  # type: ignore[import-not-found]
+        ConstraintSyntaxError,
+        InventoryError,
+        VersionConfigError,
+        VersionSyntaxError,
+    )
+    from versioning.inventory import load_inventory, validate_inventory  # type: ignore[import-not-found]
     from versioning.model import (  # type: ignore[import-not-found]
         ArtifactEntry,
         BaseStage,
@@ -99,12 +99,12 @@ else:
         NpmSource,
         NpmToolEntry,
         NpmUpdate,
-        PiReleaseSource,
-        PiToolEntry,
         OhMyZshEntry,
         OpenSpecToolsStage,
         OverridePolicy,
         PiExtensionEntry,
+        PiReleaseSource,
+        PiToolEntry,
         PiToolsStage,
         PrebuiltToolEntry,
         PyPiSource,

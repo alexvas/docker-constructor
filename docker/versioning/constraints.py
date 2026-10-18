@@ -11,7 +11,6 @@ from typing import Optional
 
 from .errors import ConstraintSyntaxError, VersionSyntaxError
 
-
 # ---------------------------------------------------------------------------
 # Regex
 # ---------------------------------------------------------------------------

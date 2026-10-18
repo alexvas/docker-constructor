@@ -31,9 +31,9 @@ from pathlib import Path
 from unittest import mock
 
 from docker.launcher import (
-    WorkspaceSelection,
     RunRequest,
     RunResult,
+    WorkspaceSelection,
     orchestrate_run,
 )
 from docker.versioning.dispatch_types import ExitKind

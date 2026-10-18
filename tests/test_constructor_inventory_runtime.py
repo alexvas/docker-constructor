@@ -12,20 +12,19 @@ from typing import ClassVar
 # ---------------------------------------------------------------------------
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from docker.versioning.constraints import parse_numeric_version  # noqa: E402
-from docker.versioning.inventory import InventoryError  # noqa: E402
-from docker.versioning.integrity import is_valid_integrity  # noqa: E402
 from docker.versioning.configuration_document_validation import (  # noqa: E402
     ConfigurationDocumentError,
     DocumentRole,
 )
+from docker.versioning.constraints import parse_numeric_version  # noqa: E402
+from docker.versioning.integrity import is_valid_integrity  # noqa: E402
+from docker.versioning.inventory import InventoryError  # noqa: E402
 from docker.versioning.model import InvalidArtifactKey  # noqa: E402
 from docker.versions import load_inventory  # noqa: E402
 from tests.inventory_fixtures import (  # noqa: E402
     stable_inventory_path,
     stable_inventory_text,
 )
-
 
 # ── helpers ────────────────────────────────────────────────────────────────
 _REPO_ROOT = Path(__file__).resolve().parents[1]

@@ -277,7 +277,7 @@ class TestPolicyRendering(unittest.TestCase):
     def test_npm_limits_render_into_executable_argv(self):
         argv = render_docker_argv(_vector())
         for name, value in npm_policy_env():
-            self.assertIn(f"--env", argv)
+            self.assertIn("--env", argv)
             self.assertIn(f"{name}={value}", argv)
 
     def test_npm_limits_are_policy_not_local_network_config(self):

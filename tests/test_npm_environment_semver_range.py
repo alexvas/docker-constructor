@@ -20,7 +20,8 @@ _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
 from docker.npm_environment import NpmRange, NpmRangeError, parse_range, satisfies
-from docker.versioning.semver import SemverError, parse as parse_version
+from docker.versioning.semver import SemverError
+from docker.versioning.semver import parse as parse_version
 
 _FIXTURES_PATH = _THIS_DIR / "data" / "npm_range_fixtures.json"
 

@@ -8,21 +8,21 @@ from __future__ import annotations
 
 import sys
 import tomllib
+import unittest
+from pathlib import Path
+from types import MappingProxyType
 
 from docker.versioning.configuration_document_validation import (
     ConfigurationDocumentError,
 )
-import unittest
-from pathlib import Path
-from types import MappingProxyType
 
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 sys.path.insert(0, str(_THIS_DIR))
 
-from docker.versions import InventoryError, load_inventory
 from versioning.support.inventory_builder import write_toml
 
+from docker.versions import InventoryError, load_inventory
 
 # ── canonical build TOML generator ──────────────────────────────────
 

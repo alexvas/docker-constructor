@@ -24,18 +24,27 @@ from unittest.mock import patch
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR.parent))
 
+from docker.npm_environment import (
+    RootSpec,
+    assembler_script_digest,
+    build_tree_manifest,
+    compute_assembler_identity,
+    compute_assembler_input_identity,
+    npm_policy_digest,
+    npm_policy_flags,
+    preflight,
+)
 from docker.npm_environment import streaming as npm_streaming
+from docker.npm_environment.errors import LockedNpmError
+from docker.npm_environment.preflight import _parse_install_package
+from docker.npm_environment.streaming import (
+    DIAGNOSTIC_LINE_LIMIT_BYTES,
+    OVERSIZED_DIAGNOSTIC_MARKER,
+    StreamChunk,
+)
 from docker.versioning import pi_assembly
 from docker.versioning.build_orchestration import BuildRequest, _host_failure_context
 from docker.versioning.effective import resolve_build_projection
-from docker.versioning.inventory import load_inventory
-from docker.versioning.pi_assembly import (
-    PiAssemblyError,
-    PiAssemblyRequest,
-    materialize_pi,
-)
-from docker.versioning.pi_release import PiReleaseSource, derive_pi_release_urls
-from docker.versioning.model import NetworkUrlDisplay
 from docker.versioning.host_presentation import (
     HostPresentationMode,
     HostPresentationSession,
@@ -55,23 +64,14 @@ from docker.versioning.host_progress import (
     InternalDirectHostEventSink,
     lookup_host_failure,
 )
-from docker.npm_environment.streaming import StreamChunk
-from docker.npm_environment.streaming import (
-    DIAGNOSTIC_LINE_LIMIT_BYTES,
-    OVERSIZED_DIAGNOSTIC_MARKER,
+from docker.versioning.inventory import load_inventory
+from docker.versioning.model import NetworkUrlDisplay
+from docker.versioning.pi_assembly import (
+    PiAssemblyError,
+    PiAssemblyRequest,
+    materialize_pi,
 )
-from docker.npm_environment.errors import LockedNpmError
-from docker.npm_environment.preflight import _parse_install_package
-from docker.npm_environment import (
-    RootSpec,
-    assembler_script_digest,
-    build_tree_manifest,
-    compute_assembler_identity,
-    compute_assembler_input_identity,
-    npm_policy_digest,
-    npm_policy_flags,
-    preflight,
-)
+from docker.versioning.pi_release import PiReleaseSource, derive_pi_release_urls
 from tests.pi_fixtures import (
     PI_BIN_TARGET,
     PI_PACKAGE,

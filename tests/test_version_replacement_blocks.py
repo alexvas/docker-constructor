@@ -11,13 +11,13 @@ from __future__ import annotations
 import tomllib
 import unittest
 
+from docker.versioning.inventory import validate_inventory
 from docker.versioning.model import (
     CandidateArtifact,
     UpdateKind,
     UpdateResult,
     UpdateStatus,
 )
-from docker.versioning.inventory import validate_inventory
 from docker.versioning.updates import (
     build_replacement_blocks,
     build_update_targets,

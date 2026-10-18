@@ -4,20 +4,20 @@ from __future__ import annotations
 
 import base64
 import builtins
-from contextlib import ExitStack, contextmanager
 import hashlib
 import os
-from pathlib import Path
 import re
 import shutil
 import tempfile
 import unittest
+from contextlib import ExitStack, contextmanager
+from pathlib import Path
 from unittest import mock
 
 from docker.launcher import (
     ProcessResult,
-    WorkspaceSelection,
     RunRequest,
+    WorkspaceSelection,
     orchestrate_run,
 )
 

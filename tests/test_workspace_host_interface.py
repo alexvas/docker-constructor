@@ -169,9 +169,9 @@ class WorkspaceTuiTests(unittest.TestCase):
         self.assertTrue(any("node-2/" in frame for frame in rendered_frames[7:]))
 
     def test_tui_selector_returns_primary_and_extra_workspaces(self) -> None:
+        import docker.tui
         from docker.constructor_cli import _tui_workspace_selector
         from docker.tui import FlatItem, TreeNode
-        import docker.tui
 
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
@@ -191,9 +191,9 @@ class WorkspaceTuiTests(unittest.TestCase):
         )
 
     def test_tui_selector_lexically_absolutizes_relative_tree_paths(self) -> None:
+        import docker.tui
         from docker.constructor_cli import _tui_workspace_selector
         from docker.tui import FlatItem, TreeNode
-        import docker.tui
 
         primary = FlatItem("tree", "primary", node=TreeNode(Path("link"), "primary"))
         extra = FlatItem("tree", "extra", node=TreeNode(Path("extra"), "extra"))

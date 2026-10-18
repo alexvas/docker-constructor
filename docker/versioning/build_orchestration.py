@@ -22,32 +22,32 @@ from __future__ import annotations
 
 import os
 import subprocess
-from dataclasses import dataclass, field, replace as dataclass_replace
+from dataclasses import dataclass, field
+from dataclasses import replace as dataclass_replace
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, Optional, Protocol, Sequence, TypedDict, cast
 
-from docker.npm_environment.errors import LockedNpmError
 from docker.networking import (
+    BuildOutputPolicy,
     DockerMode,
     GatewayDiagnosis,
     OverrideFailure,
     OverrideState,
     PersistenceResult,
-    BuildOutputPolicy,
     ProcessResult,
     ProcessRunner,
     RootlessOverridePlan,
+    apply_rootless_override,
     diagnose_gateway,
     plan_rootless_override,
-    apply_rootless_override,
 )
+from docker.npm_environment.errors import LockedNpmError
 from docker.transactions.errors import attach_secondary
-from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.build_cache import (
     BuildCacheError,
-    PostCommitBuildError,
     ConstructorProjectBuildLock,
+    PostCommitBuildError,
     acquire_constructor_project_build_lock,
     commit_build_set,
     maintain_uncommitted_blobs,
@@ -63,7 +63,6 @@ from docker.versioning.build_context_confinement import (
     materialize_build_context_confinement,
     plan_build_context_confinement,
 )
-from docker.versioning.cache_storage import prepare_project_root, resolve_effective_root
 from docker.versioning.build_materialization import (
     HostNetworkPolicy,
     MaterializationError,
@@ -79,6 +78,9 @@ from docker.versioning.build_snapshot import (
     cleanup_artifact_snapshot,
     create_artifact_snapshot,
 )
+from docker.versioning.cache_storage import prepare_project_root, resolve_effective_root
+from docker.versioning.diagnostic_projection import project_exception_type_chain
+from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.effective import (
     EffectiveBuildProjection,
     resolve_build_projection,
@@ -87,6 +89,18 @@ from docker.versioning.errors import (
     InventoryError,
     UnsupportedOverrideError,
     VersionConfigError,
+)
+from docker.versioning.host_progress import (
+    HostDiagnosticStream,
+    HostEventSink,
+    HostFailureContext,
+    HostPhase,
+    HostPhaseEvent,
+    HostPhaseState,
+    HostStep,
+    emit,
+    guard_sink,
+    lookup_host_failure,
 )
 from docker.versioning.inventory import (
     load_project_configuration,
@@ -99,19 +113,6 @@ from docker.versioning.model import (
     Inventory,
     NetworkUrlDisplay,
 )
-from docker.versioning.project_state import resolve_project_state
-from docker.versioning.rendering import (
-    BuildRenderInputs,
-    CacheControls,
-    DerivedEnvironment,
-    _docker_platform,
-    Materialized,
-    Prospective,
-    render_build_vector,
-    render_command_display,
-    render_prospective_build_display,
-    write_effective_build,
-)
 from docker.versioning.pi_assembly import (
     PiAssemblyError,
     PiAssemblyRequest,
@@ -119,20 +120,19 @@ from docker.versioning.pi_assembly import (
     materialize_pi,
 )
 from docker.versioning.pi_consumer import PiConsumerError
-from docker.versioning.host_progress import (
-    HostDiagnosticStream,
-    HostEventSink,
-    HostFailureContext,
-    HostPhase,
-    HostPhaseEvent,
-    HostPhaseState,
-    HostStep,
-    lookup_host_failure,
-    emit,
-    guard_sink,
+from docker.versioning.project_state import resolve_project_state
+from docker.versioning.rendering import (
+    BuildRenderInputs,
+    CacheControls,
+    DerivedEnvironment,
+    Materialized,
+    Prospective,
+    _docker_platform,
+    render_build_vector,
+    render_command_display,
+    render_prospective_build_display,
+    write_effective_build,
 )
-from docker.versioning.diagnostic_projection import project_exception_type_chain
-
 
 # ═══════════════════════════════════════════════════════════════════════
 # Injectables

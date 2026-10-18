@@ -11,7 +11,8 @@ import docker.process as process
 from docker.filesystem.streams import OwnedStream
 from docker.process import CleanupIncomplete, OwnedProcess, ProcessResult
 from tests.test_process_failure_snapshot import Child
-from tests.test_process_stream_outcomes import Child as OutcomeChild, Pipe
+from tests.test_process_stream_outcomes import Child as OutcomeChild
+from tests.test_process_stream_outcomes import Pipe
 
 
 def collect(owner, method, callback=None, end=None):

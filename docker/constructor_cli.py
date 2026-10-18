@@ -36,7 +36,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, Callable, Mapping, Optional, Protocol, Sequence, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Mapping, Optional, Protocol, Sequence
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
     from docker.versioning.model import Inventory, LocalConfig
@@ -46,15 +46,15 @@ from docker.versioning.constructor_project import (
     resolve_constructor_project,
 )
 from docker.versioning.dispatch_types import CommandResult, ExitKind
-from docker.versioning.immutable import deep_freeze
-from docker.versioning.model import HostAccessPolicy, NetworkUrlDisplay
-from docker.versioning.host_progress import HostDiagnosticEvent, HostPhaseEvent
 from docker.versioning.host_presentation import (
     HostPresentationSession,
     TerminalHostRenderer,
     format_failure_report,
     select_presentation,
 )
+from docker.versioning.host_progress import HostDiagnosticEvent, HostPhaseEvent
+from docker.versioning.immutable import deep_freeze
+from docker.versioning.model import HostAccessPolicy, NetworkUrlDisplay
 
 _INSTALLATION_ROOT = Path(__file__).resolve().parent.parent
 
@@ -318,6 +318,7 @@ def _resolve_verify_host_access(
     transaction on its own.
     """
     from pathlib import Path
+
     from docker.versioning.inventory import (
         load_project_configuration,
         resolve_local_companion_path,
@@ -458,6 +459,7 @@ def _tui_workspace_selector(workspace_root: str | None = None) -> Any:
     → ``Path.home()``.
     """
     import os as _os
+
     from docker.tui import build_tree, run_tui
 
     class TuiWorkspaceSelector:
@@ -1226,16 +1228,17 @@ def _real_dispatcher(
 
     # ── verify ─────────────────────────────────────────────────────────
     if command == "verify":
-        from docker.versioning.verification import (
-            VerifyBuildRequest,
-            verify_build,
-        )
+        import json as _json
+
+        from docker.launcher import ProcessRunner
         from docker.versioning.runtime_verification import (
             VerifyRuntimeRequest,
             verify_runtime,
         )
-        from docker.launcher import ProcessRunner
-        import json as _json
+        from docker.versioning.verification import (
+            VerifyBuildRequest,
+            verify_build,
+        )
 
         try:
             inv_path = _resolve_inventory_path(request)
@@ -1257,16 +1260,16 @@ def _real_dispatcher(
         from pathlib import Path as _Path
 
         _project_root = request.constructor_project.root
-        from docker.versioning.project_state import resolve_project_state
+        from docker.versioning.cache_storage import (
+            prepare_resolved_root,
+            resolve_effective_root,
+        )
         from docker.versioning.inventory import (
             load_project_configuration,
             resolve_corporate_trust_bundle_path,
             validate_corporate_trust_bundle,
         )
-        from docker.versioning.cache_storage import (
-            prepare_resolved_root,
-            resolve_effective_root,
-        )
+        from docker.versioning.project_state import resolve_project_state
 
         # One shared reviewed/local transaction for the whole verify command;
         # host-access, corporate-network, and cache consumers below receive
@@ -1537,15 +1540,26 @@ def _real_dispatcher(
                     all_ok = False
 
         if collect_evidence_flag:
+            from datetime import datetime, timezone
+
             from docker.versioning.evidence import (
-                collect_evidence as _collect,
-                write_static_evidence as _write_static,
-                normalize_static_record as _norm_rec,
-                _SystemClock as _SysClk,
                 MAX_OUTPUT_BYTES as _MAX_BYTES,
+            )
+            from docker.versioning.evidence import (
                 EvidenceCommand as _EvidenceCommand,
             )
-            from datetime import datetime, timezone
+            from docker.versioning.evidence import (
+                _SystemClock as _SysClk,
+            )
+            from docker.versioning.evidence import (
+                collect_evidence as _collect,
+            )
+            from docker.versioning.evidence import (
+                normalize_static_record as _norm_rec,
+            )
+            from docker.versioning.evidence import (
+                write_static_evidence as _write_static,
+            )
 
             _image_name = image
             _evidence_secrets: tuple[str, ...] = ()
