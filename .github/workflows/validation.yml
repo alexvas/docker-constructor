@@ -21,6 +21,19 @@ jobs:
         with:
           python-version: "3.14"
 
+      - name: Set up reviewed Node version
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: "24.18.0"
+
+      - name: Install reviewed npm version
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global npm@11.16.0
+          test "$(node --version)" = "v24.18.0"
+          test "$(npm --version)" = "11.16.0"
+
       - name: Provision privilege-test prerequisites
         shell: bash
         run: |

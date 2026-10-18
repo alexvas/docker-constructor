@@ -36,6 +36,7 @@ from docker.versioning.rendering import (
     render_prospective_build_display,
 )
 from tests.build_test_support import fake_pi_materialization
+from tests.inventory_fixtures import write_stable_project
 from tests.privilege_helpers import differing_uid_read_status
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -217,10 +218,11 @@ class TestPhase4Cleanup(unittest.TestCase):
         return MaterializedSnapshot(path, path / "manifest.json")
 
     def _request(self, root: Path, *, publish=None, runner=None):
+        inventory = write_stable_project(root)
         return BuildRequest(
-            inventory_path=str(ROOT / "docker-constructor.toml"),
-            repo_root=str(ROOT),
-            project_root=str(ROOT),
+            inventory_path=str(inventory),
+            repo_root=str(root),
+            project_root=str(root),
             confirmed=True,
             _named_context_supported=lambda: True,
             _materialize_artifacts=lambda *_a, **_kw: tuple(

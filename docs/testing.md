@@ -25,7 +25,23 @@ For a focused enforcement-only check (not a substitute for the full suite):
 .venv/bin/python -m pytest tests/enforcement -n 8 --dist loadfile --tb=short -q
 ```
 
-The tests use unittest-compatible cases and do not invoke Docker. The parallel
+The ordinary suite does not invoke Docker, but its local HTTPS/npm research
+fixtures execute **Node 24.18.0 and npm 11.16.0**. Use the project image or
+provision that Node version with your host's version manager, then install and
+verify the reviewed npm version:
+
+```bash
+npm install --global npm@11.16.0
+node --version                         # must report v24.18.0
+npm --version                          # must report 11.16.0
+```
+
+CI provisions both explicitly; the runner's preinstalled Node/npm are not
+assumed suitable. These are test-environment prerequisites, not changes to the
+managed image inventory. Corporate CA tests use public test certificates and
+must not require a developer's ignored `.docker-local` trust bundle.
+
+The tests use unittest-compatible cases. The parallel
 runner requires pytest and pytest-xdist; do not use serial `unittest discover`
 as the default. If a task explicitly requires `unittest discover`, run that
 command as well: pytest does not replace an explicitly required verification.

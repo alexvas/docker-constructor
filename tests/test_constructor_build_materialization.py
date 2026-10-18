@@ -41,6 +41,7 @@ from tests.build_test_support import (
     fixture_directory,
     publish_digest_valid_artifacts,
 )
+from tests.certificate_fixtures import TEST_CA_PEM
 from tests.inventory_fixtures import (
     stable_inventory_path,
     stable_inventory_text,
@@ -482,9 +483,7 @@ class TestMaterializationOrchestration(unittest.TestCase):
             local = root / ".docker-local"
             local.mkdir()
             bundle = local / "corporate-ca-bundle.crt"
-            bundle.write_bytes(
-                (ROOT / ".docker-local/corporate-ca-bundle.crt").read_bytes()
-            )
+            bundle.write_bytes(TEST_CA_PEM.encode("ascii"))
             effects = []
 
             class Docker:
