@@ -226,6 +226,7 @@ For subprocess coordination, use `OwnedProcess` and the launch-configured polici
 ### Validate Dockerfile changes
 
 See the [canonical testing guide](docs/testing.md) for instructions on running tests and checks.
+After every major change (a completed phase or cohesive behavior/refactor unit) and before any commit, the complete green gate is mandatory; see the [contributor check guide](docs/python-checks.md) for commands and justified skip conditions.
 
 ### Verify the image
 

@@ -265,39 +265,39 @@ This forward-only chain is the chosen DAG. A phase may depend only on an earlier
 
 ### RED
 
-- [ ] 6.1 Add local-integration contract tests; accept when deliberate isolated lint/format/syntax/type failures have named expected nonzero outcomes and omitted existing commands are detected.
-- [ ] 6.2 Add workflow-contract tests; accept when fixtures detect dropped push/PR triggers, narrower source/test coverage, mutation commands and swallowed failure statuses.
-- [ ] 6.3 Add skip-policy tests; accept when fixtures distinguish documented environmental/non-applicability conditions from unknown reasons, without a fixed numeric skip count.
-- [ ] 6.4 Add log-retention/status tests; accept when a failed check must remain failed while diagnostic output is available temporarily or as a retention-limited artifact.
+- [x] 6.1 Add local-integration contract tests; accept when deliberate isolated lint/format/syntax/type failures have named expected nonzero outcomes and omitted existing commands are detected.
+- [x] 6.2 Add workflow-contract tests; accept when fixtures detect dropped push/PR triggers, narrower source/test coverage, mutation commands and swallowed failure statuses.
+- [x] 6.3 Add skip-policy tests; accept when fixtures distinguish documented environmental/non-applicability conditions from unknown reasons, without a fixed numeric skip count.
+- [x] 6.4 Add log-retention/status tests; accept when a failed check must remain failed while diagnostic output is available temporarily or as a retention-limited artifact.
 
 ### GREEN
 
-- [ ] 6.5 Add the AGENTS green-check rule; accept when it requires G after every major change and before committing without replacing existing lifecycle guidance. Define a major change as a completed implementation phase or cohesive behavior/refactor unit; any commit requires G regardless of size.
-- [ ] 6.6 Add the contributor-guide link to README.md; accept when the link resolves and its Russian text describes the agreed rule.
-- [ ] 6.7 Add the contributor-guide link to README.en.md; accept when the link resolves and its English text describes the same rule.
-- [ ] 6.8 Add the contributor-guide link to README.zh.md; accept when the link resolves and its Chinese text describes the same rule.
-- [ ] 6.9 Wire local green-loop checks; accept when 6.1 tests pass and every previously configured command remains required.
-- [ ] 6.10 Implement skip-review enforcement for local/CI reports; accept when 6.3 tests reject unexplained skips and allow only explicitly documented applicability conditions.
+- [x] 6.5 Add the AGENTS green-check rule; accept when it requires G after every major change and before committing without replacing existing lifecycle guidance. Define a major change as a completed implementation phase or cohesive behavior/refactor unit; any commit requires G regardless of size.
+- [x] 6.6 Add the contributor-guide link to README.md; accept when the link resolves and its Russian text describes the agreed rule.
+- [x] 6.7 Add the contributor-guide link to README.en.md; accept when the link resolves and its English text describes the same rule.
+- [x] 6.8 Add the contributor-guide link to README.zh.md; accept when the link resolves and its Chinese text describes the same rule.
+- [x] 6.9 Wire local green-loop checks; accept when 6.1 tests pass and every previously configured command remains required.
+- [x] 6.10 Implement skip-review enforcement for local/CI reports; accept when 6.3 tests reject unexplained skips and allow only explicitly documented applicability conditions.
 - [ ] 6.11 Declare CI development/test provisioning; accept when a clean Python 3.14 environment installs the declared Ruff group and all P1 prerequisites, with no separate drifting Ruff version declaration.
-- [ ] 6.12 Extend Validation workflow check execution; accept when 6.2 tests confirm non-mutating Ruff/format/compilation, existing type commands and the full mandated pytest under retained push/PR triggers.
-- [ ] 6.13 Add CI diagnostic retention; accept when 6.4 tests pass and artifact-upload success cannot replace a check's failure status. Permanent full-log storage is not required.
-- [ ] 6.14 Document permanent check operation; accept when executable commands distinguish local-before-commit checks from post-push/PR verification and state that hooks/automatic commits/branch protection are not implemented here.
+- [x] 6.12 Extend Validation workflow check execution; accept when 6.2 tests confirm non-mutating Ruff/format/compilation, existing type commands and the full mandated pytest under retained push/PR triggers.
+- [x] 6.13 Add CI diagnostic retention; accept when 6.4 tests pass and artifact-upload success cannot replace a check's failure status. Permanent full-log storage is not required.
+- [x] 6.14 Document permanent check operation; accept when executable commands distinguish local-before-commit checks from post-push/PR verification and state that hooks/automatic commits/branch protection are not implemented here.
 
 ### INTROSPECT
 
-- [ ] 6.15 Compare local/CI coverage; accept when the comparison shows identical Ruff version/rules/source scope and no narrowed mandatory test/type commands.
-- [ ] 6.16 Audit workflow non-mutation; accept when no check uses write-mode fixes/formatting, commits changes or hides nonzero tool status.
-- [ ] 6.17 Audit evidence behavior; accept when durable summaries are self-contained and no permanent full-log requirement or temporary-path durable link was introduced.
+- [x] 6.15 Compare local/CI coverage; accept when the comparison shows identical Ruff version/rules/source scope and no narrowed mandatory test/type commands.
+- [x] 6.16 Audit workflow non-mutation; accept when no check uses write-mode fixes/formatting, commits changes or hides nonzero tool status.
+- [x] 6.17 Audit evidence behavior; accept when durable summaries are self-contained and no permanent full-log requirement or temporary-path durable link was introduced.
 
 ### VALIDATE
 
-- [ ] 6.18 Run focused integration tests; accept only all local/workflow/skip/retention contract fixtures passing.
-- [ ] 6.19 Run full-inventory Ruff check; accept only exit 0.
-- [ ] 6.20 Run full-inventory format check; accept only exit 0.
-- [ ] 6.21 Run full pytest for G; accept only exit 0 and its durable summary.
-- [ ] 6.22 Execute all manifest checks mandatory in P6: every command in both sections; accept only successful statuses.
-- [ ] 6.23 Run shared compilation for G; accept only exit 0.
-- [ ] 6.24 Review phase-exit skips; accept only justified reasons.
+- [x] 6.18 Run focused integration tests; accept only all local/workflow/skip/retention contract fixtures passing.
+- [x] 6.19 Run full-inventory Ruff check; accept only exit 0.
+- [x] 6.20 Run full-inventory format check; accept only exit 0.
+- [x] 6.21 Run full pytest for G; accept only exit 0 and its durable summary.
+- [x] 6.22 Execute all manifest checks mandatory in P6: every command in both sections; accept only successful statuses.
+- [x] 6.23 Run shared compilation for G; accept only exit 0.
+- [x] 6.24 Review phase-exit skips; accept only justified reasons.
 - [ ] 6.25 Publish the P6 exit report; accept when implemented local/CI policy, focused tests and G apply to the same exit state.
 
 ## 7. P7 — Final acceptance

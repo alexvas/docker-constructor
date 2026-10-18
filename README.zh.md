@@ -225,6 +225,7 @@ no_proxy = "localhost,.corp.example"
 ### 验证 Dockerfile 更改
 
 测试和检查的运行说明请参阅[统一测试指南](docs/testing.md)。
+每次重大更改（完成一个实施阶段或一项完整的行为变更／重构）后，以及任何提交之前，都必须通过完整的绿色检查；命令和允许跳过测试的条件请参阅[贡献者检查指南](docs/python-checks.md)。
 
 ### 验证镜像
 

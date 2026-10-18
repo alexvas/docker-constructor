@@ -5,6 +5,24 @@
 Read and follow [docs/testing.md](docs/testing.md) for instructions on running
 tests and checks.
 
+## Mandatory green gate
+
+After every major change and before any commit, run `scripts/check-green`
+from the repository root and require G on the final candidate state. A major
+change is a completed implementation phase or a cohesive behavior/refactor
+unit; every commit requires G regardless of size. Source edits invalidate
+prior results and require fresh checks.
+
+G means zero unresolved Ruff and ty diagnostics, successful full-inventory
+format and syntax checks, and the complete mandated parallel pytest passing
+with only reviewed environmental/non-applicability skips. Unknown skips and
+unexpected xfails/xpasses block acceptance. Preserve every existing required
+check, including `scripts/check-dockerfile` when the Dockerfile changes.
+Capture complete output temporarily and preserve actual failure statuses.
+See [docs/python-checks.md](docs/python-checks.md) for installation, operation,
+skip conditions and the independent push/PR CI checks. No hook, automatic
+commit or branch-protection configuration is implied by this rule.
+
 ## Verification evidence
 
 Store verification results and implementation evidence separately from

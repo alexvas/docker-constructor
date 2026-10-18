@@ -15,8 +15,9 @@ depends on an unrecorded global installation:
 
 ```bash
 uv venv --python 3.14 .venv                 # only when .venv does not exist
-uv pip install --python .venv/bin/python pytest pytest-xdist
+uv pip install --python .venv/bin/python pytest pytest-xdist ty==0.0.73
 uv pip install --python .venv/bin/python --group dev
+export PATH="$PWD/.venv/bin:$PATH"
 ```
 
 `[dependency-groups].dev` in `pyproject.toml` pins `ruff==0.17.1`, and the same
@@ -87,19 +88,91 @@ Ruff is resolved from the interpreter running the tooling, then from `PATH`.
 - **Deterministic output.** Paths are sorted, repository-relative POSIX paths
   without duplicates.
 
-## Temporary migration backlog
+## Permanent green gate (G)
 
-While the Ruff adoption is in progress, a lint or format run may still report
-findings. That run is recorded with its actual nonzero status as **migration
-backlog**; it is never called a passing check, and it does not become green by
-excluding files, suppressing rules or narrowing the inventory. A check that is
-already active for the current phase, and every existing repository check,
-must still pass.
+After every major change and before **any commit**, run:
 
-Once the migration reaches manual resolution, all three commands are
-mandatory: full-inventory lint has zero unresolved diagnostics, the format
-check exits 0, and compilation exits 0 for the complete inventory. From then
-on, a new nonzero status blocks the change like any other failed check.
+```bash
+scripts/check-green
+```
+
+A major change is a completed implementation phase or a cohesive behavior or
+refactor unit. Every commit requires G regardless of size, on the final
+candidate state. Any later source edit invalidates the affected results.
+
+The gate runs all three source checks above, `scripts/check-types` (both
+`docker/` and `tests/typing/`), and the exact full-suite command in
+[testing.md](testing.md). It attempts every independent check and returns the
+first failing status; incomplete process cleanup also fails. No scope or fix
+arguments are supported. Run this entry point directly; no pi-green-loop
+configuration is required. When the Dockerfile changes, also run its
+conditional gate from the testing guide.
+
+For temporary complete diagnostic retention, run in a separate Bash shell:
+
+```bash
+log=$(mktemp /tmp/docker-constructor-green.XXXXXX.log)
+scripts/check-green >"$log" 2>&1
+status=$?
+cat "$log"
+printf 'Temporary log: %s; gate exit: %s\n' "$log" "$status"
+exit "$status"
+```
+
+Do not use a `tee`/filter/upload exit status as the gate result. Keep the full
+log while diagnosing and summarizing. Durable evidence records the source
+fingerprint, commands, environment, actual statuses/counts, warnings and
+limitations; it does not depend on temporary paths or permanently stored logs.
+
+### Independent GitHub verification
+
+The existing Validation workflow runs on push and pull request. It provisions
+Python 3.14, the same development group, test tools and pinned ty, then runs the
+same gate without write-mode fixes or commits. Complete gate output is uploaded
+on success or failure with **seven-day retention**; uploading cannot change a
+failed gate into success. The retained explicit type-check step is also
+required. CI sets `PRIVILEGED_HELPERS=1` and provisions `sudo`, `runuser`,
+`docker-dev` and `nobody`, so missing installable privilege prerequisites fail
+rather than becoming accepted skips. The invoking user must differ from
+`docker-dev`; the latter's group is a test ownership fixture, not Docker daemon
+access.
+
+Local checks are required **before committing**; GitHub checks the pushed tip
+and PR independently, not every intermediate local commit. Hooks, automatic
+commits and branch-protection settings are **not implemented** here. A remote
+run is not claimed by a local simulation.
+
+### Reviewed skip applicability
+
+`tests/conftest.py` loads `tests.green_skip_policy` for the mandated pytest
+command, including xdist. The report lists every skipped test and reason.
+Unknown test/reason pairs and unexpected xfail/xpass force failure, even if
+pytest otherwise reports success. There is no fixed numeric skip allowance.
+
+Only these reviewed cases are allowed (full individual IDs are enumerated in
+the policy module):
+
+| Tests | Exact reason / condition |
+| --- | --- |
+| Foreign-owner snapshot hard-link rejection, two-build ownership maintenance, and foreign-owned constructor project | `an existing 'docker-dev' account is required`; ordinary local environments only, never CI or privileged-helper mode. |
+| Differing-UID private snapshot traversal | `sudo runuser -u nobody unavailable: [Errno 2] No such file or directory: 'sudo'`; ordinary local environments without sudo only, never CI or privileged-helper mode. Other sudo failures are not blanket-approved. |
+| Seven Docker-backed registry acceptance tests | `run through validate-bound-pi-assembly-execution-phase6-registry`; only while `BOUND_PI_PHASE6_HERMETIC` is not `1`. |
+| Docker-backed host deadline/reaping acceptance | `run through validate-bound-pi-assembly-execution-phase6-host`; only while `BOUND_PI_PHASE6_HERMETIC` is not `1`. |
+| Real pinned Node container smoke | `set NPM_ENV_REAL_DOCKER=1 to run the real pinned-container smoke test`; only while `NPM_ENV_REAL_DOCKER` is not `1`. |
+
+The opt-in Docker checks require their standalone runners and usable Docker;
+they are genuinely inapplicable in the ordinary unit-suite run. Do not enable
+them merely to trim skips or silently accept missing CI packages. New reasons,
+platform-specific conditions or unexpected increases require review and a
+specific documented disposition before acceptance; never add a broad pattern
+or a regression-hiding skip/xfail.
+
+### Historical migration backlog
+
+The P1–P4 activation schedule in the command table describes historical
+migration checkpoints only. Since manual resolution (P5), all lint, formatting
+and compilation checks must pass. No migration-backlog exception applies to
+current permanent checks.
 
 ## Justified specific suppressions
 
