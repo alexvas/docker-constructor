@@ -3,12 +3,15 @@
 Task 2.1 — Canonical Build-Schema Tests
 Task 2.2 — Migration-Contract Tests
 """
+
 from __future__ import annotations
 
 import sys
 import tomllib
 
-from docker.versioning.configuration_document_validation import ConfigurationDocumentError
+from docker.versioning.configuration_document_validation import (
+    ConfigurationDocumentError,
+)
 import unittest
 from pathlib import Path
 from types import MappingProxyType
@@ -22,6 +25,7 @@ from versioning.support.inventory_builder import write_toml
 
 
 # ── canonical build TOML generator ──────────────────────────────────
+
 
 def _canonical_build_toml(
     *,
@@ -226,6 +230,7 @@ def _legacy_stages_toml() -> str:
 # Task 2.1 — Canonical Build-Schema Tests
 # ===================================================================
 
+
 class TestCanonicalBuildSchema(unittest.TestCase):
     """build.stages.* is the canonical build path."""
 
@@ -299,7 +304,8 @@ metadata_file = "package.json"
     def test_build_stages_is_required(self):
         """build.stages is required."""
         t = _canonical_build_toml().replace(
-            "[build.stages.base.node]", "build = 42\n[build.stages.base.node]")
+            "[build.stages.base.node]", "build = 42\n[build.stages.base.node]"
+        )
         p = self._write(t)
         with self.assertRaises(ConfigurationDocumentError):
             load_inventory(p)
@@ -353,7 +359,7 @@ metadata_file = "package.json"
         """build + top-level stages together is rejected."""
         t = _canonical_build_toml()
         # Inject a legacy stages section after the build section
-        t += "\n[stages.extra.something]\nversion = \"1.0\"\n"
+        t += '\n[stages.extra.something]\nversion = "1.0"\n'
         p = self._write(t)
         with self.assertRaises(ConfigurationDocumentError) as ctx:
             load_inventory(p)
@@ -364,7 +370,10 @@ metadata_file = "package.json"
     def test_unknown_keys_under_build_rejected(self):
         """Unknown top-level keys under build are rejected."""
         t = _canonical_build_toml()
-        t = t.replace("[build.stages.base.node]", "[build.extra_section]\nkey = true\n[build.stages.base.node]")
+        t = t.replace(
+            "[build.stages.base.node]",
+            "[build.extra_section]\nkey = true\n[build.stages.base.node]",
+        )
         p = self._write(t)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(p)
@@ -373,7 +382,7 @@ metadata_file = "package.json"
     def test_unknown_build_stage_rejected(self):
         """Unknown build stage named 'fantasy' is rejected."""
         t = _canonical_build_toml()
-        t += "\n[build.stages.fantasy.widget]\nversion = \"1.0\"\n"
+        t += '\n[build.stages.fantasy.widget]\nversion = "1.0"\n'
         p = self._write(t)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(p)
@@ -410,7 +419,7 @@ metadata_file = "package.json"
     def test_pi_extensions_under_build_rejected(self):
         """Pi extensions may not appear under build."""
         t = _canonical_build_toml()
-        t += "\n[build.stages.pi-extensions.something]\nversion = \"1.0\"\n"
+        t += '\n[build.stages.pi-extensions.something]\nversion = "1.0"\n'
         p = self._write(t)
         with self.assertRaises(InventoryError):
             load_inventory(p)
@@ -418,11 +427,12 @@ metadata_file = "package.json"
     def test_operational_fields_under_build_rejected(self):
         """Operational fields (gateway, uid, gid, launcher, etc.) may not
         appear under build."""
-        for field in ("gateway", "uid", "gid", "launcher",
-                       "project_path", "ownership"):
+        for field in ("gateway", "uid", "gid", "launcher", "project_path", "ownership"):
             t = _canonical_build_toml()
-            t = t.replace("[build.stages.base.node]",
-                          f"[build.{field}]\nval = true\n[build.stages.base.node]")
+            t = t.replace(
+                "[build.stages.base.node]",
+                f"[build.{field}]\nval = true\n[build.stages.base.node]",
+            )
             p = self._write(t)
             with self.subTest(field=field):
                 with self.assertRaises(InventoryError) as ctx:
@@ -458,6 +468,7 @@ metadata_file = "package.json"
 # ===================================================================
 # Task 2.2 — Migration-Contract Tests
 # ===================================================================
+
 
 class TestMigrationContract(unittest.TestCase):
     """Pre-migration snapshot to protect dependency values across the rename."""
@@ -572,8 +583,13 @@ class TestMigrationContract(unittest.TestCase):
         """Every build dependency path begins with build.stages."""
         st = self.pre_inv.stages
         for stage_name in (
-            "base", "toolchain", "rtk_prebuilt", "fd_prebuilt",
-            "pi_tools", "openspec_tools", "runtime",
+            "base",
+            "toolchain",
+            "rtk_prebuilt",
+            "fd_prebuilt",
+            "pi_tools",
+            "openspec_tools",
+            "runtime",
         ):
             self.assertTrue(
                 hasattr(st, stage_name),

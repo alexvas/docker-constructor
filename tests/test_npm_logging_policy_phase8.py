@@ -7,6 +7,7 @@ evidence identity, and the assembled-output/cache identity, so no output
 assembled under the prior policy can be reused.  No rejection branch that
 preserves the prior command or identity remains.
 """
+
 from __future__ import annotations
 
 import base64

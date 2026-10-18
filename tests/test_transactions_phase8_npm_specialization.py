@@ -7,6 +7,7 @@ recursive fsync/sealing, evidence authority, advisory-index best-effort
 failure, corrupt-output quarantine, cancellation, workspace cleanup, and
 primary-error preservation.
 """
+
 from __future__ import annotations
 
 import os
@@ -32,14 +33,21 @@ class SpecializationBoundaryTests(unittest.TestCase):
         # operations; they never own npm tree, evidence, collision, or
         # quarantine authority.
         for forbidden in (
-            "quarantine", "evidence", "TreeManifest", "tree_digest",
+            "quarantine",
+            "evidence",
+            "TreeManifest",
+            "tree_digest",
             "output_identity",
         ):
             self.assertNotIn(forbidden, source)
         # The npm module still owns the complete publication surface.
         for name in (
-            "_atomic_publish", "_fsync_tree", "_quarantine_corrupt_output",
-            "_remove_redundant_tree", "publish_environment", "verify_output",
+            "_atomic_publish",
+            "_fsync_tree",
+            "_quarantine_corrupt_output",
+            "_remove_redundant_tree",
+            "publish_environment",
+            "verify_output",
             "find_cached_result",
         ):
             self.assertTrue(callable(getattr(publication, name)))
@@ -61,9 +69,7 @@ class ImmutablePublicationSpecializationTests(_PublicationTestCase):
         self.assertTrue(_no_write_bits(env_root))
         self.assertTrue(_no_write_bits(env_root.parent))
         self.assertTrue(_no_write_bits(env_root / "node_modules" / "a"))
-        self.assertTrue(
-            _no_write_bits(env_root / "node_modules" / "a" / "marker.txt")
-        )
+        self.assertTrue(_no_write_bits(env_root / "node_modules" / "a" / "marker.txt"))
         self.assertTrue(_no_write_bits(result.evidence_path))
 
     def test_verified_collision_never_overwrites_committed_bytes(self) -> None:
@@ -72,9 +78,7 @@ class ImmutablePublicationSpecializationTests(_PublicationTestCase):
         self.assertEqual(second.output_identity, first.output_identity)
         self.assertEqual(second.environment_root, first.environment_root)
         self.assertEqual(
-            (
-                first.environment_root / "node_modules" / "a" / "marker.txt"
-            ).read_bytes(),
+            (first.environment_root / "node_modules" / "a" / "marker.txt").read_bytes(),
             b"same",
         )
 
@@ -88,7 +92,9 @@ class ImmutablePublicationSpecializationTests(_PublicationTestCase):
             )
         )
         # Replacing the stored evidence makes the candidate a cache miss.
-        evidence_path = self.namespace.outputs / result.output_identity / "evidence.json"
+        evidence_path = (
+            self.namespace.outputs / result.output_identity / "evidence.json"
+        )
         os.chmod(evidence_path, 0o600)
         evidence_path.write_bytes(b"{}")
         self.assertIsNone(
@@ -163,7 +169,9 @@ class CancellationPreservationTests(_PublicationTestCase):
                 executor=FakeExecutor(),
             )
 
-    def test_publication_cancellation_preserves_primary_and_removes_staging(self) -> None:
+    def test_publication_cancellation_preserves_primary_and_removes_staging(
+        self,
+    ) -> None:
         cancellation = KeyboardInterrupt("publication cancelled")
         staging_path = self.namespace.staging / self.input_identity.digest
         with self.assertRaises(KeyboardInterrupt) as ctx:
@@ -171,9 +179,7 @@ class CancellationPreservationTests(_PublicationTestCase):
         self.assertIs(ctx.exception, cancellation)
         # The matching staging workspace was removed; no output committed.
         self.assertFalse(staging_path.exists())
-        self.assertEqual(
-            [p for p in self.namespace.outputs.iterdir()], []
-        )
+        self.assertEqual([p for p in self.namespace.outputs.iterdir()], [])
 
     def test_operational_publication_failure_preserves_primary(self) -> None:
         failure = LockedNpmError("output_validation_failed", "boom")

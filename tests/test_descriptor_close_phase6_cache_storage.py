@@ -10,6 +10,7 @@ contract: the file descriptor is adopted into an ``OwnedDescriptor`` and every
 release delegates to ``owner.close`` (terminal before the syscall, never
 retried), while the existing precedence and completion guarantees hold.
 """
+
 from __future__ import annotations
 
 import errno
@@ -82,7 +83,9 @@ class ReleaseFileAndCapabilityTests(_CacheStoragePhase6Case):
         primary = RuntimeError("primary operation failure")
         with recording(cache_storage_module) as rec:
             owner = cache_storage_module.OwnedDescriptor(ops, fd, label="entry")
-            cache_storage_module._release_file_and_capability(owner, capability, primary)
+            cache_storage_module._release_file_and_capability(
+                owner, capability, primary
+            )
 
         rec.assert_terminal_and_at_most_once(self)
         self.assertIn(os.path.normpath(str(self.entry)), ops.closed_paths)
@@ -104,7 +107,9 @@ class ReleaseFileAndCapabilityTests(_CacheStoragePhase6Case):
         primary = cache_storage_module.CacheStorageError("cannot secure")
         with recording(cache_storage_module) as rec:
             owner = cache_storage_module.OwnedDescriptor(ops, fd, label="entry")
-            cache_storage_module._release_file_and_capability(owner, capability, primary)
+            cache_storage_module._release_file_and_capability(
+                owner, capability, primary
+            )
 
         rec.assert_terminal_and_at_most_once(self)
         self.assertIn(os.path.normpath(str(self.entry)), ops.closed_paths)

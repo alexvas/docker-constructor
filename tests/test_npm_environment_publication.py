@@ -56,7 +56,11 @@ def _lock(marker_name: str = "a") -> bytes:
             "lockfileVersion": 3,
             "requires": True,
             "packages": {
-                "": {"name": "root", "version": "1.0.0", "dependencies": {"a": "1.0.0"}},
+                "": {
+                    "name": "root",
+                    "version": "1.0.0",
+                    "dependencies": {"a": "1.0.0"},
+                },
                 "node_modules/a": {
                     "version": "1.0.0",
                     "resolved": _url("a", "1.0.0"),
@@ -148,9 +152,7 @@ class TestImmutableModes(_PublicationTestCase):
         self.assertTrue(_no_write_bits(env_root))
         self.assertTrue(_no_write_bits(env_root.parent))  # outputs/<identity>
         self.assertTrue(_no_write_bits(env_root / "node_modules" / "a"))
-        self.assertTrue(
-            _no_write_bits(env_root / "node_modules" / "a" / "marker.txt")
-        )
+        self.assertTrue(_no_write_bits(env_root / "node_modules" / "a" / "marker.txt"))
         self.assertTrue(_no_write_bits(result.evidence_path))
 
 
@@ -214,9 +216,7 @@ class TestCollisionHandling(_PublicationTestCase):
         self.assertEqual(recovered.output_identity, one.output_identity)
         # The unrelated, previously valid output is untouched.
         self.assertEqual(
-            (
-                two.environment_root / "node_modules" / "a" / "marker.txt"
-            ).read_bytes(),
+            (two.environment_root / "node_modules" / "a" / "marker.txt").read_bytes(),
             b"two",
         )
         self.assertEqual(
@@ -313,10 +313,9 @@ class TestDurabilityBeforeRename(_PublicationTestCase):
             events.append("rename-tree")
             return real_rename(src, dst, *args, **kwargs)
 
-        with mock.patch.object(
-            publication.os, "fsync", side_effect=fake_fsync
-        ), mock.patch.object(
-            publication.os, "rename", side_effect=fake_rename
+        with (
+            mock.patch.object(publication.os, "fsync", side_effect=fake_fsync),
+            mock.patch.object(publication.os, "rename", side_effect=fake_rename),
         ):
             with self.assertRaises(OSError):
                 publish_environment(
@@ -360,16 +359,15 @@ class TestInterruptionCleanup(_PublicationTestCase):
 
         # No temporary publication directory remains.
         leftovers = [
-            p.name for p in self.namespace.outputs.iterdir()
+            p.name
+            for p in self.namespace.outputs.iterdir()
             if p.name.startswith(".tmp-")
         ]
         self.assertEqual(leftovers, [])
         # The prior committed generation is untouched.
         self.assertTrue(prior.environment_root.exists())
         self.assertEqual(
-            (
-                prior.environment_root / "node_modules" / "a" / "marker.txt"
-            ).read_bytes(),
+            (prior.environment_root / "node_modules" / "a" / "marker.txt").read_bytes(),
             prior_bytes,
         )
 
@@ -384,7 +382,9 @@ class TestPriorGenerationPreservation(_PublicationTestCase):
             b"first",
         )
         self.assertEqual(
-            (second.environment_root / "node_modules" / "a" / "marker.txt").read_bytes(),
+            (
+                second.environment_root / "node_modules" / "a" / "marker.txt"
+            ).read_bytes(),
             b"second",
         )
         self.assertTrue(first.environment_root.exists())
@@ -401,9 +401,7 @@ class TestPartialWritePublication(_PublicationTestCase):
             return real_write(fd, data[:7])
 
         tree = self._new_tree(b"payload")
-        with mock.patch.object(
-            publication.os, "write", side_effect=partial_write
-        ):
+        with mock.patch.object(publication.os, "write", side_effect=partial_write):
             result = publish_environment(
                 validated=self.validated,
                 tree_root=tree,

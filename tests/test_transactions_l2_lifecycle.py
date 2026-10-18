@@ -7,6 +7,7 @@ idempotent.  Raw ``OSError`` subclasses and errno stay observable through
 unchanged.  Ordinary cleanup/close failures never replace a primary failure,
 while process-control interruptions raised by cleanup always propagate.
 """
+
 from __future__ import annotations
 
 import errno
@@ -93,7 +94,9 @@ class DurableUnlinkTests(_Case):
         self._write()
         events: list[tuple[str, object]] = []
         self.ops.hooks["close"] = lambda fd: events.append(("close", fd))
-        self.ops.hooks["unlinkat"] = lambda dir_fd, name: events.append(("unlink", name))
+        self.ops.hooks["unlinkat"] = lambda dir_fd, name: events.append(
+            ("unlink", name)
+        )
         self.contracts.durable_unlink(self.directory, "entry")
         # The validated descriptor must stay open until after the unlink.
         self.assertEqual([event[0] for event in events], ["unlink", "close"])

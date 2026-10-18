@@ -6,6 +6,7 @@ for type, ownership, link count, and (optionally) mode before any bytes are
 read.  A capability never reconstructs a pathname from its descriptor, and a
 released or cross-directory capability is rejected before mutation.
 """
+
 from __future__ import annotations
 
 import errno
@@ -98,7 +99,9 @@ def _validate_directory(info: os.stat_result, label: str) -> None:
     if not stat.S_ISDIR(info.st_mode):
         raise CapabilityError(f"directory capability {label!r} is not a directory")
     if info.st_uid != os.geteuid():
-        raise CapabilityError(f"directory capability {label!r} is not owned by the invoking user")
+        raise CapabilityError(
+            f"directory capability {label!r} is not owned by the invoking user"
+        )
 
 
 def _validate_regular(
@@ -111,7 +114,9 @@ def _validate_regular(
     if not stat.S_ISREG(info.st_mode):
         raise UnsafeFileError(STAGE_VALIDATE, f"{label!r} is not a regular file")
     if info.st_uid != os.geteuid():
-        raise UnsafeFileError(STAGE_VALIDATE, f"{label!r} is not owned by the invoking user")
+        raise UnsafeFileError(
+            STAGE_VALIDATE, f"{label!r} is not owned by the invoking user"
+        )
     if require_single_link and info.st_nlink != 1:
         raise UnsafeFileError(STAGE_VALIDATE, f"{label!r} has multiple hard links")
     if allowed_mode is not None and stat.S_IMODE(info.st_mode) != allowed_mode:
@@ -195,7 +200,9 @@ class DirectoryCapability:
         return cls(ops, fd, label, authority=_AUTHORITY)
 
     @classmethod
-    def from_path(cls, ops: PosixFileOps, path, *, label: str | None = None) -> "DirectoryCapability":
+    def from_path(
+        cls, ops: PosixFileOps, path, *, label: str | None = None
+    ) -> "DirectoryCapability":
         name = os.fspath(path)
         target_label = label if label is not None else name
         try:
@@ -216,7 +223,11 @@ class DirectoryCapability:
 
     @classmethod
     def from_secure_path(
-        cls, ops: PosixFileOps, path, *, label: str | None = None,
+        cls,
+        ops: PosixFileOps,
+        path,
+        *,
+        label: str | None = None,
     ) -> "DirectoryCapability":
         """Open *path* through the shared secure descriptor walk.
 
@@ -258,8 +269,7 @@ class DirectoryCapability:
             prefix = f"directory capability {_internal_label(target_label)!r} "
             if message.startswith(prefix):
                 message = (
-                    f"directory capability {target_label!r} "
-                    f"{message[len(prefix):]}"
+                    f"directory capability {target_label!r} {message[len(prefix) :]}"
                 )
             error = CapabilityError(message)
             carry_secondary_diagnostics(error, exc)
@@ -395,7 +405,8 @@ class DirectoryCapability:
                     STAGE_VALIDATE, f"cannot stat {base!r}", cause=exc
                 ) from exc
             _validate_regular(
-                info, base,
+                info,
+                base,
                 allowed_mode=allowed_mode,
                 require_single_link=require_single_link,
             )

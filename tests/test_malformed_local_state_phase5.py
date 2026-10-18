@@ -17,6 +17,7 @@ Effect boundaries are probed with fail-on-call doubles (an exploding
 materializer, a patched ``execute_build``) plus filesystem assertions that the
 cache root was never created.
 """
+
 from __future__ import annotations
 
 import os
@@ -186,11 +187,14 @@ class _MalformedStateHarness(unittest.TestCase):
             fetchers.append(url)
             return b"should-not-be-fetched"
 
-        with mock.patch(
-            "docker.versioning.artifact_cache.materialize_selected_artifacts",
-        ) as materialize, mock.patch(
-            "urllib.request.urlopen",
-            side_effect=AssertionError("network access reached"),
+        with (
+            mock.patch(
+                "docker.versioning.artifact_cache.materialize_selected_artifacts",
+            ) as materialize,
+            mock.patch(
+                "urllib.request.urlopen",
+                side_effect=AssertionError("network access reached"),
+            ),
         ):
             result = orchestrate_run(
                 RunRequest(

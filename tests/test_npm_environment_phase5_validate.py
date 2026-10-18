@@ -52,7 +52,11 @@ def _lock() -> bytes:
             "lockfileVersion": 3,
             "requires": True,
             "packages": {
-                "": {"name": "root", "version": "1.0.0", "dependencies": {"a": "1.0.0"}},
+                "": {
+                    "name": "root",
+                    "version": "1.0.0",
+                    "dependencies": {"a": "1.0.0"},
+                },
                 "node_modules/a": {
                     "version": "1.0.0",
                     "resolved": "https://registry.npmjs.org/a/-/a-1.0.0.tgz",

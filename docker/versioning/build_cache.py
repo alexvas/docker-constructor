@@ -54,7 +54,11 @@ from docker.transactions.posix import PosixFileOps
 from docker.transactions.regular import RegularFileContracts
 from docker.versioning.cache_storage import resolve_default_root
 from docker.versioning.digest_identity import DigestIdentity
-from docker.versioning.project_state import ProjectState, ProjectStateError, resolve_project_state
+from docker.versioning.project_state import (
+    ProjectState,
+    ProjectStateError,
+    resolve_project_state,
+)
 
 BLOB_EXTENSION = ".blob"
 """Content-addressed build-blob filename extension."""
@@ -121,26 +125,44 @@ def _resolve_cache_root(cache_root: str | Path | None) -> Path:
     return resolve_default_root(os.environ.get("XDG_CACHE_HOME"), home=Path.home())
 
 
-def resolve_build_cache_root(constructor_project_root: str | Path, *, cache_root: str | Path | None = None) -> Path:
+def resolve_build_cache_root(
+    constructor_project_root: str | Path, *, cache_root: str | Path | None = None
+) -> Path:
     """Return the selected project's external persistent artifact root."""
     try:
-        return resolve_project_state(constructor_project_root, cache_root=cache_root, create=False).build_artifacts_root
+        return resolve_project_state(
+            constructor_project_root, cache_root=cache_root, create=False
+        ).build_artifacts_root
     except ProjectStateError as exc:
         raise BuildCacheError(str(exc)) from exc
 
 
-def resolve_build_blobs_root(constructor_project_root: str | Path, *, cache_root: str | Path | None = None) -> Path:
-    return resolve_build_cache_root(constructor_project_root, cache_root=cache_root) / "blobs"
+def resolve_build_blobs_root(
+    constructor_project_root: str | Path, *, cache_root: str | Path | None = None
+) -> Path:
+    return (
+        resolve_build_cache_root(constructor_project_root, cache_root=cache_root)
+        / "blobs"
+    )
 
 
-def resolve_build_tmp_root(constructor_project_root: str | Path, *, cache_root: str | Path | None = None) -> Path:
-    return resolve_build_cache_root(constructor_project_root, cache_root=cache_root) / "tmp"
+def resolve_build_tmp_root(
+    constructor_project_root: str | Path, *, cache_root: str | Path | None = None
+) -> Path:
+    return (
+        resolve_build_cache_root(constructor_project_root, cache_root=cache_root)
+        / "tmp"
+    )
 
 
-def resolve_build_generated_root(constructor_project_root: str | Path, *, cache_root: str | Path | None = None) -> Path:
+def resolve_build_generated_root(
+    constructor_project_root: str | Path, *, cache_root: str | Path | None = None
+) -> Path:
     """Return the selected project's external transaction root."""
     try:
-        return resolve_project_state(constructor_project_root, cache_root=cache_root, create=False).transactions_root
+        return resolve_project_state(
+            constructor_project_root, cache_root=cache_root, create=False
+        ).transactions_root
     except ProjectStateError as exc:
         raise BuildCacheError(str(exc)) from exc
 
@@ -218,20 +240,28 @@ def _open_namespace_fd(namespace: Path) -> int:
     try:
         raw = os.open(os.fspath(namespace), _DIR_FLAGS)
     except FileNotFoundError as exc:
-        raise BuildCacheError(f"project-state namespace {namespace} does not exist") from exc
+        raise BuildCacheError(
+            f"project-state namespace {namespace} does not exist"
+        ) from exc
     except PermissionError as exc:
-        raise BuildCacheError(f"cannot access project-state namespace {namespace}: {exc}") from exc
+        raise BuildCacheError(
+            f"cannot access project-state namespace {namespace}: {exc}"
+        ) from exc
     except OSError as exc:
         raise BuildCacheError(
             f"project-state namespace {namespace} is a symlink or not a directory: {exc}"
         ) from exc
     owner = OwnedDescriptor(
-        PosixDescriptorOps(), raw, label=f"namespace descriptor {namespace}",
+        PosixDescriptorOps(),
+        raw,
+        label=f"namespace descriptor {namespace}",
     )
     try:
         st = os.fstat(owner.fd)
         if not _stat.S_ISDIR(st.st_mode):
-            raise BuildCacheError(f"project-state namespace {namespace} is not a directory")
+            raise BuildCacheError(
+                f"project-state namespace {namespace} is not a directory"
+            )
         if not os.access(namespace, os.W_OK | os.X_OK):
             raise BuildCacheError(
                 f"project-state namespace {namespace} is not writable by the invoking user"
@@ -266,16 +296,16 @@ def _open_relative_dir(
     ambiguously failed close.
     """
     ops = PosixDescriptorOps()
-    current = OwnedDescriptor(
-        ops, os.dup(namespace_fd), label="build-cache namespace"
-    )
+    current = OwnedDescriptor(ops, os.dup(namespace_fd), label="build-cache namespace")
     parent: OwnedDescriptor | None = None
     try:
         for component in parts:
             created = False
             try:
                 value = os.stat(
-                    component, dir_fd=current.fd, follow_symlinks=False,
+                    component,
+                    dir_fd=current.fd,
+                    follow_symlinks=False,
                 )
             except FileNotFoundError:
                 if not create:
@@ -295,7 +325,9 @@ def _open_relative_dir(
                 # strip the owner bits and make the new entry unopenable.
                 os.chmod(component, 0o700, dir_fd=current.fd, follow_symlinks=False)
                 value = os.stat(
-                    component, dir_fd=current.fd, follow_symlinks=False,
+                    component,
+                    dir_fd=current.fd,
+                    follow_symlinks=False,
                 )
             except OSError as exc:
                 raise BuildCacheError(
@@ -359,14 +391,17 @@ def _require_algorithm_dir(algorithm_fd: int, algorithm: str) -> None:
     st = os.fstat(algorithm_fd)
     if not _stat.S_ISDIR(st.st_mode):
         raise BuildCacheError(
-            f"build blob algorithm {algorithm!r} entry is not a directory")
+            f"build blob algorithm {algorithm!r} entry is not a directory"
+        )
     if st.st_uid != os.geteuid():
         raise BuildCacheError(
-            f"build blob algorithm {algorithm!r} directory is not owned by the invoking user")
+            f"build blob algorithm {algorithm!r} directory is not owned by the invoking user"
+        )
     if _stat.S_IMODE(st.st_mode) != 0o700:
         raise BuildCacheError(
             f"build blob algorithm {algorithm!r} directory has mode "
-            f"{oct(_stat.S_IMODE(st.st_mode))}, expected 0o700")
+            f"{oct(_stat.S_IMODE(st.st_mode))}, expected 0o700"
+        )
 
 
 def _validate_relative_dir(
@@ -381,7 +416,9 @@ def _validate_relative_dir(
     if fd is None:
         return
     owner = OwnedDescriptor(
-        PosixDescriptorOps(), fd, label=f"validated directory {label}",
+        PosixDescriptorOps(),
+        fd,
+        label=f"validated directory {label}",
     )
     primary: BaseException | None = None
     try:
@@ -410,7 +447,9 @@ def _ensure_relative_dir(
     if fd is None:
         raise BuildCacheError(f"cannot open build-cache component {label}")
     owner = OwnedDescriptor(
-        PosixDescriptorOps(), fd, label=f"ensured directory {label}",
+        PosixDescriptorOps(),
+        fd,
+        label=f"ensured directory {label}",
     )
     primary: BaseException | None = None
     try:
@@ -451,8 +490,12 @@ _GENERATED_PARTS = _GENERATED_PARENT_PARTS
 _MARKERS_PARTS = (_BUILD_ARTIFACTS_NAME, _MARKERS_NAME)
 
 
-def prepare_build_cache(constructor_project_root: str | Path, *, cache_root: str | Path | None = None,
-                        project_state: ProjectState | None = None) -> BuildCachePaths:
+def prepare_build_cache(
+    constructor_project_root: str | Path,
+    *,
+    cache_root: str | Path | None = None,
+    project_state: ProjectState | None = None,
+) -> BuildCachePaths:
     """Prepare private external state for the selected constructor project.
 
     The source project is read/traversed only; every created component is
@@ -462,25 +505,50 @@ def prepare_build_cache(constructor_project_root: str | Path, *, cache_root: str
     project = _normalize_constructor_project(constructor_project_root)
     validate_host_owner_traversal(project)
     try:
-        state = project_state or resolve_project_state(project, cache_root=cache_root, create=True)
+        state = project_state or resolve_project_state(
+            project, cache_root=cache_root, create=True
+        )
         if state.project_path != project.resolve(strict=True):
-            raise ProjectStateError("project state belongs to a different constructor project")
+            raise ProjectStateError(
+                "project state belongs to a different constructor project"
+            )
     except ProjectStateError as exc:
         raise BuildCacheError(str(exc)) from exc
     namespace = state.namespace
     namespace_fd = _open_namespace_fd(namespace)
     namespace_owner = OwnedDescriptor(
-        PosixDescriptorOps(), namespace_fd,
+        PosixDescriptorOps(),
+        namespace_fd,
         label=f"prepared namespace {namespace}",
     )
     primary: BaseException | None = None
     try:
-        for parts in (_CACHE_PARTS, _BLOBS_PARTS, _TMP_PARTS,
-                      _GENERATED_PARENT_PARTS, _MARKERS_PARTS):
-            _validate_relative_dir(namespace_owner.fd, parts, label=str(namespace.joinpath(*parts)), check_owner=True)
-        for parts in (_CACHE_PARTS, _BLOBS_PARTS, _TMP_PARTS,
-                      _GENERATED_PARENT_PARTS, _MARKERS_PARTS):
-            _ensure_relative_dir(namespace_owner.fd, parts, label=str(namespace.joinpath(*parts)), check_owner=True)
+        for parts in (
+            _CACHE_PARTS,
+            _BLOBS_PARTS,
+            _TMP_PARTS,
+            _GENERATED_PARENT_PARTS,
+            _MARKERS_PARTS,
+        ):
+            _validate_relative_dir(
+                namespace_owner.fd,
+                parts,
+                label=str(namespace.joinpath(*parts)),
+                check_owner=True,
+            )
+        for parts in (
+            _CACHE_PARTS,
+            _BLOBS_PARTS,
+            _TMP_PARTS,
+            _GENERATED_PARENT_PARTS,
+            _MARKERS_PARTS,
+        ):
+            _ensure_relative_dir(
+                namespace_owner.fd,
+                parts,
+                label=str(namespace.joinpath(*parts)),
+                check_owner=True,
+            )
     except BaseException as exc:
         primary = exc
         raise
@@ -530,7 +598,9 @@ class BuildCacheState:
         # authority and ordered secondary diagnostics stay stable.
         ops = PosixDescriptorOps()
         self._owners = (
-            OwnedDescriptor(ops, self.transactions_fd, label="build-cache transactions"),
+            OwnedDescriptor(
+                ops, self.transactions_fd, label="build-cache transactions"
+            ),
             OwnedDescriptor(ops, self.markers_fd, label="build-cache markers"),
             OwnedDescriptor(ops, self.tmp_fd, label="build-cache tmp"),
             OwnedDescriptor(ops, self.blobs_fd, label="build-cache blobs"),
@@ -563,13 +633,17 @@ def _open_validated_child(parent_fd: int, name: str, *, label: str) -> int:
     except OSError as exc:
         raise BuildCacheError(f"unsafe build-cache {label} directory: {exc}") from exc
     owner = OwnedDescriptor(
-        PosixDescriptorOps(), raw, label=f"validated child {label}",
+        PosixDescriptorOps(),
+        raw,
+        label=f"validated child {label}",
     )
     try:
         st = os.fstat(owner.fd)
-        if (not _stat.S_ISDIR(st.st_mode)
-                or st.st_uid != os.geteuid()
-                or _stat.S_IMODE(st.st_mode) != 0o700):
+        if (
+            not _stat.S_ISDIR(st.st_mode)
+            or st.st_uid != os.geteuid()
+            or _stat.S_IMODE(st.st_mode) != 0o700
+        ):
             raise BuildCacheError(f"unsafe build-cache {label} directory")
         return owner.detach()
     except BaseException as exc:
@@ -588,9 +662,12 @@ def open_build_cache_state(
     project_state: ProjectState | None = None,
 ) -> BuildCacheState:
     """Prepare the namespace and retain verified no-follow child descriptors."""
-    paths = prepare_build_cache(constructor_project_root, cache_root=cache_root, project_state=project_state)
+    paths = prepare_build_cache(
+        constructor_project_root, cache_root=cache_root, project_state=project_state
+    )
     namespace_owner = OwnedDescriptor(
-        PosixDescriptorOps(), _open_namespace_fd(paths.namespace_root),
+        PosixDescriptorOps(),
+        _open_namespace_fd(paths.namespace_root),
         label="state namespace",
     )
 
@@ -707,7 +784,9 @@ def publish_verified_blob(
     """
     _validate_publication_inputs(identity, data)
 
-    paths = prepare_build_cache(constructor_project_root, cache_root=cache_root, project_state=project_state)
+    paths = prepare_build_cache(
+        constructor_project_root, cache_root=cache_root, project_state=project_state
+    )
     blob_path = build_blob_path(paths.blobs_root, identity)
     # Generate the temporary name *before* acquiring the namespace descriptor.
     # ``os.urandom`` can fail or be interrupted, and generating the name first
@@ -715,7 +794,8 @@ def publish_verified_blob(
     # The naming format is unchanged.
     temp_name = f".publish-{os.urandom(16).hex()}"
     namespace_owner = OwnedDescriptor(
-        PosixDescriptorOps(), _open_namespace_fd(paths.namespace_root),
+        PosixDescriptorOps(),
+        _open_namespace_fd(paths.namespace_root),
         label="publication namespace",
     )
     blobs_owner = tmp_owner = algorithm_owner = fd_owner = None
@@ -727,24 +807,34 @@ def publish_verified_blob(
         blobs_raw = _open_relative_dir(namespace_owner.fd, _BLOBS_PARTS, create=False)
         if blobs_raw is not None:
             blobs_owner = OwnedDescriptor(
-                PosixDescriptorOps(), blobs_raw, label="publication blobs",
+                PosixDescriptorOps(),
+                blobs_raw,
+                label="publication blobs",
             )
         tmp_raw = _open_relative_dir(namespace_owner.fd, _TMP_PARTS, create=False)
         if tmp_raw is not None:
             tmp_owner = OwnedDescriptor(
-                PosixDescriptorOps(), tmp_raw, label="publication tmp",
+                PosixDescriptorOps(),
+                tmp_raw,
+                label="publication tmp",
             )
         if blobs_owner is None or tmp_owner is None:
             raise BuildCacheError("prepared build-cache directories disappeared")
         try:
-            algorithm_raw = os.open(identity.algorithm, _DIR_FLAGS, dir_fd=blobs_owner.fd)
+            algorithm_raw = os.open(
+                identity.algorithm, _DIR_FLAGS, dir_fd=blobs_owner.fd
+            )
         except FileNotFoundError:
             os.mkdir(identity.algorithm, 0o700, dir_fd=blobs_owner.fd)
             # Pin the freshly created algorithm directory to exactly 0700
             # before opening; os.mkdir's mode is masked by the ambient umask.
-            os.chmod(identity.algorithm, 0o700, dir_fd=blobs_owner.fd, follow_symlinks=False)
+            os.chmod(
+                identity.algorithm, 0o700, dir_fd=blobs_owner.fd, follow_symlinks=False
+            )
             try:
-                algorithm_raw = os.open(identity.algorithm, _DIR_FLAGS, dir_fd=blobs_owner.fd)
+                algorithm_raw = os.open(
+                    identity.algorithm, _DIR_FLAGS, dir_fd=blobs_owner.fd
+                )
             except OSError as exc:
                 raise BuildCacheError(
                     f"build blob algorithm directory {identity.algorithm!r} is unsafe: {exc}"
@@ -754,13 +844,19 @@ def publish_verified_blob(
                 f"build blob algorithm directory {identity.algorithm!r} is unsafe: {exc}"
             ) from exc
         algorithm_owner = OwnedDescriptor(
-            PosixDescriptorOps(), algorithm_raw,
+            PosixDescriptorOps(),
+            algorithm_raw,
             label=f"publication algorithm {identity.algorithm}",
         )
         _require_algorithm_dir(algorithm_owner.fd, identity.algorithm)
         fd_owner = OwnedDescriptor(
             PosixDescriptorOps(),
-            os.open(temp_name, os.O_CREAT | os.O_EXCL | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0), 0o600, dir_fd=tmp_owner.fd),
+            os.open(
+                temp_name,
+                os.O_CREAT | os.O_EXCL | os.O_RDWR | getattr(os, "O_NOFOLLOW", 0),
+                0o600,
+                dir_fd=tmp_owner.fd,
+            ),
             label=f"publication temporary {temp_name}",
         )
         temporary_owned = True
@@ -797,7 +893,12 @@ def publish_verified_blob(
             raise BuildCacheError("temporary published blob has unsafe type or mode")
         if check.digest() != identity.digest_bytes:
             raise BuildCacheError("temporary published blob digest mismatch")
-        os.replace(temp_name, blob_path.name, src_dir_fd=tmp_owner.fd, dst_dir_fd=algorithm_owner.fd)
+        os.replace(
+            temp_name,
+            blob_path.name,
+            src_dir_fd=tmp_owner.fd,
+            dst_dir_fd=algorithm_owner.fd,
+        )
         # The temporary entry no longer exists under ``temp_name``; it is owned
         # by the published destination now.
         temporary_owned = False
@@ -846,7 +947,9 @@ def publish_verified_blob(
     return blob_path
 
 
-def _validate_blob_descriptor(alg_fd: int, filename: str, identity: DigestIdentity) -> None:
+def _validate_blob_descriptor(
+    alg_fd: int, filename: str, identity: DigestIdentity
+) -> None:
     """Validate one immutable blob descriptor-relatively without following links.
 
     Requires a regular file owned by the invoking user with mode exactly
@@ -865,13 +968,17 @@ def _validate_blob_descriptor(alg_fd: int, filename: str, identity: DigestIdenti
             f"published blob {identity.algorithm}/{filename} is unsafe or missing: {exc}"
         ) from exc
     owner = OwnedDescriptor(
-        PosixDescriptorOps(), blob_raw, label=f"blob descriptor {filename}",
+        PosixDescriptorOps(),
+        blob_raw,
+        label=f"blob descriptor {filename}",
     )
     primary: BaseException | None = None
     try:
         blob_stat = os.fstat(owner.fd)
         if not _stat.S_ISREG(blob_stat.st_mode):
-            raise BuildCacheError(f"published blob {identity.algorithm}/{filename} is not a regular file")
+            raise BuildCacheError(
+                f"published blob {identity.algorithm}/{filename} is not a regular file"
+            )
         if _stat.S_IMODE(blob_stat.st_mode) != 0o444:
             raise BuildCacheError(
                 f"published blob {identity.algorithm}/{filename} has mode "
@@ -883,7 +990,9 @@ def _validate_blob_descriptor(alg_fd: int, filename: str, identity: DigestIdenti
         while chunk := os.read(owner.fd, 64 * 1024):
             digest.update(chunk)
         if digest.digest() != identity.digest_bytes:
-            raise BuildCacheError(f"published blob {identity.algorithm}/{filename} digest mismatch")
+            raise BuildCacheError(
+                f"published blob {identity.algorithm}/{filename} digest mismatch"
+            )
     except BaseException as exc:
         primary = exc
         raise
@@ -908,14 +1017,17 @@ def _verify_published_blob(identity: DigestIdentity, paths: BuildCachePaths) -> 
     primary: BaseException | None = None
     try:
         namespace_owner = OwnedDescriptor(
-            PosixDescriptorOps(), _open_namespace_fd(paths.namespace_root),
+            PosixDescriptorOps(),
+            _open_namespace_fd(paths.namespace_root),
             label="verify namespace",
         )
         blobs_raw = _open_relative_dir(namespace_owner.fd, _BLOBS_PARTS, create=False)
         if blobs_raw is None:
             raise BuildCacheError("published blob directory disappeared")
         blobs_owner = OwnedDescriptor(
-            PosixDescriptorOps(), blobs_raw, label="verify blobs",
+            PosixDescriptorOps(),
+            blobs_raw,
+            label="verify blobs",
         )
         try:
             algorithm_raw = os.open(algorithm, _DIR_FLAGS, dir_fd=blobs_owner.fd)
@@ -924,7 +1036,8 @@ def _verify_published_blob(identity: DigestIdentity, paths: BuildCachePaths) -> 
                 f"published blob algorithm directory {algorithm!r} is unsafe or missing: {exc}"
             ) from exc
         algorithm_owner = OwnedDescriptor(
-            PosixDescriptorOps(), algorithm_raw,
+            PosixDescriptorOps(),
+            algorithm_raw,
             label=f"verify algorithm {algorithm}",
         )
         _require_algorithm_dir(algorithm_owner.fd, algorithm)
@@ -964,7 +1077,9 @@ class _BuildStorageHandle:
     def _open(self, name: str) -> DirectoryCapability:
         base = self._generations.child_basename(name)
         raw = self._ops.openat(self._generations.fd, base, _STORAGE_DIRECTORY_FLAGS, 0)
-        owner = OwnedDescriptor(cast(DescriptorOps, self._ops), raw, label=f"storage {name}")
+        owner = OwnedDescriptor(
+            cast(DescriptorOps, self._ops), raw, label=f"storage {name}"
+        )
         try:
             capability = DirectoryCapability.from_fd(
                 self._ops, owner.fd, f"build-artifacts/{name}"
@@ -1031,10 +1146,16 @@ class ConstructorProjectBuildLock:
     constructor-project diagnostics stay unchanged.
     """
 
-    def __init__(self, ops: PosixFileOps, capability: LockCapability,
-                 generation_directory: DirectoryCapability,
-                 constructor_project_root: Path, cache_root: Path,
-                 namespace: Path, project_state: ProjectState) -> None:
+    def __init__(
+        self,
+        ops: PosixFileOps,
+        capability: LockCapability,
+        generation_directory: DirectoryCapability,
+        constructor_project_root: Path,
+        cache_root: Path,
+        namespace: Path,
+        project_state: ProjectState,
+    ) -> None:
         self._ops = ops
         self._capability = capability
         self._generation_directory = generation_directory
@@ -1076,10 +1197,16 @@ class ConstructorProjectBuildLock:
         """Open blob and marker capabilities for generation cleanup/recovery."""
         return _BuildStorageHandle(self._ops, self._generation_directory)
 
-    def assert_held_for(self, constructor_project_root: str | Path, *,
-                        cache_root: str | Path | None = None) -> None:
+    def assert_held_for(
+        self,
+        constructor_project_root: str | Path,
+        *,
+        cache_root: str | Path | None = None,
+    ) -> None:
         if self._released:
-            raise BuildTransactionError("a live constructor-project build lock is required")
+            raise BuildTransactionError(
+                "a live constructor-project build lock is required"
+            )
         try:
             canonical = Path(constructor_project_root).resolve(strict=True)
         except OSError as exc:
@@ -1095,6 +1222,7 @@ class ConstructorProjectBuildLock:
                 "the constructor-project build lock belongs to a different cache namespace"
             )
         from docker.versioning.build_generations import BUILD_LOCK_NAMESPACE
+
         try:
             self._capability.assert_authorizes(
                 directory=self._generation_directory,
@@ -1143,7 +1271,9 @@ class ConstructorProjectBuildLock:
             raise result
 
 
-def _bootstrap_constructor_project_lock_parent(constructor_project_root: str | Path, *, cache_root: str | Path | None = None) -> tuple[ProjectState, int]:
+def _bootstrap_constructor_project_lock_parent(
+    constructor_project_root: str | Path, *, cache_root: str | Path | None = None
+) -> tuple[ProjectState, int]:
     """Open the lock parent, creating only missing private path components.
 
     Existing cache entries are deliberately not chmodded or otherwise
@@ -1153,7 +1283,12 @@ def _bootstrap_constructor_project_lock_parent(constructor_project_root: str | P
     constructor_project = _normalize_constructor_project(constructor_project_root)
     validate_host_owner_traversal(constructor_project)
     try:
-        state = resolve_project_state(constructor_project, cache_root=cache_root, create=True, validate_children=False)
+        state = resolve_project_state(
+            constructor_project,
+            cache_root=cache_root,
+            create=True,
+            validate_children=False,
+        )
     except ProjectStateError as exc:
         raise BuildTransactionError(str(exc)) from exc
     ops = PosixDescriptorOps()
@@ -1219,7 +1354,9 @@ def _lock_entry_is_unsafe(directory: DirectoryCapability, base: str) -> bool:
     )
 
 
-def _raise_lock_failure(directory: DirectoryCapability, base: str, exc: LockError) -> NoReturn:
+def _raise_lock_failure(
+    directory: DirectoryCapability, base: str, exc: LockError
+) -> NoReturn:
     """Re-raise a shared lock failure with the legacy build diagnostic.
 
     Only a genuine unsafe lock entry (or an indistinguishable in-place
@@ -1235,7 +1372,9 @@ def _raise_lock_failure(directory: DirectoryCapability, base: str, exc: LockErro
     raise exc
 
 
-def acquire_constructor_project_build_lock(constructor_project_root: str | Path, *, cache_root: str | Path | None = None) -> ConstructorProjectBuildLock:
+def acquire_constructor_project_build_lock(
+    constructor_project_root: str | Path, *, cache_root: str | Path | None = None
+) -> ConstructorProjectBuildLock:
     """Acquire the single non-blocking constructor-project transaction lock first.
 
     The lock file lives under the selected project's external namespace and
@@ -1246,17 +1385,26 @@ def acquire_constructor_project_build_lock(constructor_project_root: str | Path,
     by the shared layer, while a competing build is rejected before any cache
     validation or mutation and the existing diagnostics are preserved.
     """
-    from docker.versioning.build_generations import BUILD_LOCK_NAME, acquire_build_generation_lock
+    from docker.versioning.build_generations import (
+        BUILD_LOCK_NAME,
+        acquire_build_generation_lock,
+    )
 
-    state, parent_fd = _bootstrap_constructor_project_lock_parent(constructor_project_root, cache_root=cache_root)
+    state, parent_fd = _bootstrap_constructor_project_lock_parent(
+        constructor_project_root, cache_root=cache_root
+    )
     parent_owner = OwnedDescriptor(
-        PosixDescriptorOps(), parent_fd, label="build lock parent",
+        PosixDescriptorOps(),
+        parent_fd,
+        label="build lock parent",
     )
     ops = PosixFileOps()
     directory: DirectoryCapability | None = None
     capability: LockCapability | None = None
     try:
-        directory = DirectoryCapability.from_fd(ops, parent_owner.fd, "constructor-project build")
+        directory = DirectoryCapability.from_fd(
+            ops, parent_owner.fd, "constructor-project build"
+        )
         # ``from_fd`` adopted the descriptor; the caller-owned tracker must not
         # close a descriptor the capability now owns.
         parent_owner.detach()
@@ -1269,10 +1417,17 @@ def acquire_constructor_project_build_lock(constructor_project_root: str | Path,
         except LockError as exc:
             _raise_lock_failure(directory, BUILD_LOCK_NAME, exc)
         # The lock now serializes all validation and permitted cache repair.
-        prepare_build_cache(state.project_path, cache_root=cache_root, project_state=state)
+        prepare_build_cache(
+            state.project_path, cache_root=cache_root, project_state=state
+        )
         return ConstructorProjectBuildLock(
-            ops, capability, directory, state.project_path, state.cache_root,
-            state.namespace, state,
+            ops,
+            capability,
+            directory,
+            state.project_path,
+            state.cache_root,
+            state.namespace,
+            state,
         )
     except BaseException as exc:
         # Release the acquired lock capability, the adopted directory, and the
@@ -1413,10 +1568,21 @@ def publish_uncommitted_blob(
     """
     lock.assert_held_for(constructor_project_root, cache_root=cache_root)
     _validate_publication_inputs(identity, data)
-    mark_uncommitted_blob(identity, constructor_project_root, lock=lock, verified_at=verified_at,
-                          cache_root=cache_root, project_state=project_state)
-    return publish_verified_blob(identity, data, constructor_project_root=constructor_project_root,
-                                 cache_root=cache_root, project_state=project_state)
+    mark_uncommitted_blob(
+        identity,
+        constructor_project_root,
+        lock=lock,
+        verified_at=verified_at,
+        cache_root=cache_root,
+        project_state=project_state,
+    )
+    return publish_verified_blob(
+        identity,
+        data,
+        constructor_project_root=constructor_project_root,
+        cache_root=cache_root,
+        project_state=project_state,
+    )
 
 
 def _validate_marker_timestamp(value: object, *, label: str) -> float | int:
@@ -1449,7 +1615,8 @@ def mark_uncommitted_blob(
         constructor_project_root, cache_root=cache_root, project_state=project_state
     )
     timestamp = _validate_marker_timestamp(
-        time.time() if verified_at is None else verified_at, label="verified_at",
+        time.time() if verified_at is None else verified_at,
+        label="verified_at",
     )
     with lock.open_storage() as storage:
         _replace_marker_json(
@@ -1473,7 +1640,9 @@ def _identity_from_key(key: object) -> DigestIdentity:
     return identity
 
 
-def _read_authoritative_blobs(lock: "ConstructorProjectBuildLock") -> set[DigestIdentity]:
+def _read_authoritative_blobs(
+    lock: "ConstructorProjectBuildLock",
+) -> set[DigestIdentity]:
     """Return the committed blob set of the durable authoritative generation.
 
     Discovery synchronizes the generation directory before the visible newest
@@ -1519,7 +1688,9 @@ def _open_blob_algorithm(
         raw = ops.openat(blobs.fd, base, _STORAGE_DIRECTORY_FLAGS, 0)
     except FileNotFoundError:
         return None
-    owner = OwnedDescriptor(cast(DescriptorOps, ops), raw, label=f"blob algorithm {algorithm}")
+    owner = OwnedDescriptor(
+        cast(DescriptorOps, ops), raw, label=f"blob algorithm {algorithm}"
+    )
     try:
         info = ops.fstat(owner.fd)
         if (
@@ -1527,9 +1698,7 @@ def _open_blob_algorithm(
             or info.st_uid != os.geteuid()
             or _stat.S_IMODE(info.st_mode) != 0o700
         ):
-            raise BuildCacheError(
-                f"unsafe blob algorithm directory {algorithm!r}"
-            )
+            raise BuildCacheError(f"unsafe blob algorithm directory {algorithm!r}")
         capability = DirectoryCapability.from_fd(
             ops, owner.fd, f"build-artifacts/blobs/{algorithm}"
         )
@@ -1561,9 +1730,7 @@ def _validate_existing_blob(
         if isinstance(exc.cause, FileNotFoundError):
             return
         if isinstance(exc, UnsafeFileError):
-            raise BuildTransactionError(
-                f"unsafe build blob: {_key(identity)}"
-            ) from exc
+            raise BuildTransactionError(f"unsafe build blob: {_key(identity)}") from exc
         raise
     blob.close()
 
@@ -1655,7 +1822,9 @@ def commit_build_set(
         for identity in live:
             _verify_published_blob(identity, paths)
     except BuildCacheError as exc:
-        raise BuildTransactionError("cannot commit an unsafe or invalid build blob") from exc
+        raise BuildTransactionError(
+            "cannot commit an unsafe or invalid build blob"
+        ) from exc
     publish_generation(lock.ops, lock.generation_directory, live, lock=lock.capability)
     try:
         inventory = inspect_generations(lock.ops, lock.generation_directory)
@@ -1688,7 +1857,8 @@ def maintain_uncommitted_blobs(
         project_state=project_state,
     )
     current_time = _validate_marker_timestamp(
-        time.time() if now is None else now, label="now",
+        time.time() if now is None else now,
+        label="now",
     )
     live = _read_authoritative_blobs(lock)
     with lock.open_storage() as storage:
@@ -1699,7 +1869,7 @@ def maintain_uncommitted_blobs(
             stem = name[: -len(".json")]
             try:
                 identity = _identity_from_key(stem)
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 # A malformed marker cannot authorize any blob deletion.
                 _durably_remove_marker(lock.ops, markers, name)
                 continue
@@ -1714,7 +1884,7 @@ def maintain_uncommitted_blobs(
                 verified_at = _validate_marker_timestamp(
                     value["verified_at"], label="verified_at"
                 )
-            except (OSError, TransactionError, ValueError, KeyError, TypeError):
+            except OSError, TransactionError, ValueError, KeyError, TypeError:
                 # An absent, corrupt, or operationally unreadable marker selects
                 # the cleanup outcome.  ``_read_marker_json`` preserves a typed
                 # transaction failure, so the absence/operational decision is
@@ -1764,7 +1934,8 @@ def _remove_snapshot_tree(parent_fd: int, name: str, *, depth: int) -> None:
             pass
         return
     owner = OwnedDescriptor(
-        PosixDescriptorOps(), os.open(name, _DIR_FLAGS, dir_fd=parent_fd),
+        PosixDescriptorOps(),
+        os.open(name, _DIR_FLAGS, dir_fd=parent_fd),
         label=f"snapshot directory {name}",
     )
     primary: BaseException | None = None
@@ -1788,17 +1959,23 @@ def _remove_snapshot_tree(parent_fd: int, name: str, *, depth: int) -> None:
 
 
 def recover_abandoned_snapshots(
-    constructor_project_root: str | Path, *, lock: ConstructorProjectBuildLock,
+    constructor_project_root: str | Path,
+    *,
+    lock: ConstructorProjectBuildLock,
     cache_root: str | Path | None = None,
     project_state: ProjectState | None = None,
 ) -> None:
     """Remove snapshots found after exclusive ownership has been acquired."""
     lock.assert_held_for(constructor_project_root, cache_root=cache_root)
-    state = open_build_cache_state(constructor_project_root, cache_root=cache_root, project_state=project_state)
+    state = open_build_cache_state(
+        constructor_project_root, cache_root=cache_root, project_state=project_state
+    )
     primary: BaseException | None = None
     try:
         for name in sorted(os.listdir(state.transactions_fd)):
-            _remove_snapshot_tree(state.transactions_fd, name, depth=_MAX_SNAPSHOT_DEPTH)
+            _remove_snapshot_tree(
+                state.transactions_fd, name, depth=_MAX_SNAPSHOT_DEPTH
+            )
     except BaseException as exc:
         primary = exc
         raise

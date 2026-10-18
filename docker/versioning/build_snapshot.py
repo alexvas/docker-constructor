@@ -1,4 +1,5 @@
 """Immutable, minimal BuildKit named-context snapshots for build artifacts."""
+
 from __future__ import annotations
 
 import errno
@@ -48,17 +49,21 @@ _PI_LAUNCHER_EVIDENCE = _PI_ISOLATION_DIR / "pi-launcher-evidence.json"
 _NOFOLLOW_RDONLY = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
 
 # Read-only, no-follow directory open for descriptor-relative staging.
-_NOFOLLOW_DIR = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+_NOFOLLOW_DIR = (
+    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+)
 
 # Hard-link failure modes that mean hard linking is unavailable, not unsafe.
 # Only these fall back to descriptor-based copying.  EPERM/EACCES (protected
 # hard links), ELOOP (a replaced symlink), a vanished source, or any other
 # error fails closed instead of silently copying an unverified payload.
-_HARD_LINK_UNAVAILABLE = frozenset({
-    errno.EXDEV,
-    errno.EOPNOTSUPP,
-    getattr(errno, "ENOTSUP", errno.EOPNOTSUPP),
-})
+_HARD_LINK_UNAVAILABLE = frozenset(
+    {
+        errno.EXDEV,
+        errno.EOPNOTSUPP,
+        getattr(errno, "ENOTSUP", errno.EOPNOTSUPP),
+    }
+)
 
 
 class SnapshotError(RuntimeError):
@@ -128,17 +133,22 @@ def _open_validated_source(blob: Path, expected: str) -> int:
     except OSError as exc:
         raise SnapshotError(f"cannot open snapshot source blob {blob}: {exc}") from exc
     owner = OwnedDescriptor(
-        PosixDescriptorOps(), fd, label=f"snapshot source blob {blob}")
+        PosixDescriptorOps(), fd, label=f"snapshot source blob {blob}"
+    )
     try:
         st = os.fstat(owner.fd)
         if not stat.S_ISREG(st.st_mode):
             raise SnapshotError(f"snapshot source blob {blob} is not a regular file")
         if st.st_uid != os.geteuid():
-            raise SnapshotError(f"snapshot source blob {blob} is not owned by the invoking user")
+            raise SnapshotError(
+                f"snapshot source blob {blob} is not owned by the invoking user"
+            )
         if stat.S_IMODE(st.st_mode) != 0o444:
             raise SnapshotError(f"snapshot source blob {blob} must be mode 0444")
         if _hash_descriptor(owner.fd) != expected:
-            raise SnapshotError(f"snapshot source blob {blob} failed digest verification")
+            raise SnapshotError(
+                f"snapshot source blob {blob} failed digest verification"
+            )
         return owner.detach()
     except BaseException as primary:
         # A failed source validation must not be masked by a descriptor-close
@@ -152,7 +162,10 @@ def _open_validated_source(blob: Path, expected: str) -> int:
 
 
 def _copy_source_fd_to_destination(
-    source_fd: int, destination_name: str, dir_fd: int, expected: str,
+    source_fd: int,
+    destination_name: str,
+    dir_fd: int,
+    expected: str,
 ) -> None:
     """Copy a validated source descriptor to a descriptor-relative destination.
 
@@ -166,9 +179,13 @@ def _copy_source_fd_to_destination(
     try:
         fd = os.open(destination_name, flags, 0o444, dir_fd=dir_fd)
     except OSError as exc:
-        raise SnapshotError(f"cannot create snapshot payload {destination_name!r}: {exc}") from exc
+        raise SnapshotError(
+            f"cannot create snapshot payload {destination_name!r}: {exc}"
+        ) from exc
     owner = OwnedDescriptor(
-        PosixDescriptorOps(), fd, label=f"snapshot payload {destination_name!r}",
+        PosixDescriptorOps(),
+        fd,
+        label=f"snapshot payload {destination_name!r}",
     )
     try:
         os.lseek(source_fd, 0, os.SEEK_SET)
@@ -183,7 +200,9 @@ def _copy_source_fd_to_destination(
                 written = os.write(owner.fd, view)
                 view = view[written:]
         if digest.hexdigest() != expected:
-            raise SnapshotError(f"snapshot payload {destination_name!r} failed digest verification")
+            raise SnapshotError(
+                f"snapshot payload {destination_name!r} failed digest verification"
+            )
         os.fchmod(owner.fd, 0o444)
         os.fsync(owner.fd)
     except BaseException as primary:
@@ -213,7 +232,10 @@ def _copy_source_fd_to_destination(
 
 
 def _validate_hard_link_destination(
-    destination_name: str, dir_fd: int, source_stat: os.stat_result, expected: str,
+    destination_name: str,
+    dir_fd: int,
+    source_stat: os.stat_result,
+    expected: str,
 ) -> None:
     """Open and revalidate a hard-linked destination descriptor-relatively.
 
@@ -230,7 +252,8 @@ def _validate_hard_link_destination(
             f"cannot open hard-linked snapshot payload {destination_name!r}: {exc}"
         ) from exc
     owner = OwnedDescriptor(
-        PosixDescriptorOps(), fd,
+        PosixDescriptorOps(),
+        fd,
         label=f"snapshot hard link {destination_name!r}",
     )
     primary: BaseException | None = None
@@ -242,13 +265,21 @@ def _validate_hard_link_destination(
                 "reference the validated source inode"
             )
         if not stat.S_ISREG(st.st_mode):
-            raise SnapshotError(f"hard-linked snapshot payload {destination_name!r} is not a regular file")
+            raise SnapshotError(
+                f"hard-linked snapshot payload {destination_name!r} is not a regular file"
+            )
         if st.st_uid != os.geteuid():
-            raise SnapshotError(f"hard-linked snapshot payload {destination_name!r} is not owned by the invoking user")
+            raise SnapshotError(
+                f"hard-linked snapshot payload {destination_name!r} is not owned by the invoking user"
+            )
         if stat.S_IMODE(st.st_mode) != 0o444:
-            raise SnapshotError(f"hard-linked snapshot payload {destination_name!r} must be mode 0444")
+            raise SnapshotError(
+                f"hard-linked snapshot payload {destination_name!r} must be mode 0444"
+            )
         if _hash_descriptor(owner.fd) != expected:
-            raise SnapshotError(f"hard-linked snapshot payload {destination_name!r} failed digest verification")
+            raise SnapshotError(
+                f"hard-linked snapshot payload {destination_name!r} failed digest verification"
+            )
     except BaseException as exc:
         primary = exc
         raise
@@ -263,7 +294,9 @@ def _validate_hard_link_destination(
             raise result
 
 
-def _readonly_tree(root: Path, hard_linked: set[Path], *, derived_root: Path | None = None) -> None:
+def _readonly_tree(
+    root: Path, hard_linked: set[Path], *, derived_root: Path | None = None
+) -> None:
     # Files first: directory permissions must not prevent traversal during
     # finalisation.  Hard-linked payloads already share the cache blob's
     # required 0444 inode and must never be chmodded (that would mutate the
@@ -274,15 +307,25 @@ def _readonly_tree(root: Path, hard_linked: set[Path], *, derived_root: Path | N
     # skipped here.
     for path in root.rglob("*"):
         rel = path.relative_to(root)
-        if derived_root is not None and (rel == derived_root or derived_root in rel.parents):
+        if derived_root is not None and (
+            rel == derived_root or derived_root in rel.parents
+        ):
             continue
         if path.is_symlink():
-            raise SnapshotError("selected prebuilt-artifact snapshot contains a symlink")
+            raise SnapshotError(
+                "selected prebuilt-artifact snapshot contains a symlink"
+            )
         if path.is_file() and rel not in hard_linked:
             os.chmod(path, 0o444)
-    for path in sorted((p for p in root.rglob("*") if p.is_dir()), key=lambda p: len(p.parts), reverse=True):
+    for path in sorted(
+        (p for p in root.rglob("*") if p.is_dir()),
+        key=lambda p: len(p.parts),
+        reverse=True,
+    ):
         rel = path.relative_to(root)
-        if derived_root is not None and (rel == derived_root or derived_root in rel.parents):
+        if derived_root is not None and (
+            rel == derived_root or derived_root in rel.parents
+        ):
             continue
         os.chmod(path, 0o555)
     os.chmod(root, 0o555)
@@ -319,7 +362,11 @@ def _copy_contained_tree(source: Path, destination: Path) -> None:
             raise SnapshotError(
                 f"Pi tree entry {rel} is not a regular file, directory, or symlink"
             )
-    for entry in sorted((p for p in destination.rglob("*") if p.is_dir()), key=lambda p: len(p.parts), reverse=True):
+    for entry in sorted(
+        (p for p in destination.rglob("*") if p.is_dir()),
+        key=lambda p: len(p.parts),
+        reverse=True,
+    ):
         os.chmod(entry, 0o555)
 
 
@@ -366,7 +413,9 @@ def _content_signature(entries: Iterable) -> tuple:
     )
 
 
-def _validate_derived_environment(derived: DerivedEnvironmentSource) -> AssemblerEvidence:
+def _validate_derived_environment(
+    derived: DerivedEnvironmentSource,
+) -> AssemblerEvidence:
     """Validate every derived-environment binding before any copy occurs.
 
     Re-verifies the assembler-evidence byte digest and its parsed
@@ -425,7 +474,9 @@ def _validate_derived_environment(derived: DerivedEnvironmentSource) -> Assemble
         raise SnapshotError(f"derived environment validation failed: {exc}") from exc
 
 
-def admit_derived_environment(staging: Path, derived: DerivedEnvironmentSource) -> dict[str, object]:
+def admit_derived_environment(
+    staging: Path, derived: DerivedEnvironmentSource
+) -> dict[str, object]:
     """Validate, copy, and re-validate the Pi environment into *staging*.
 
     Returns canonical manifest entries for the admitted set.  The complete
@@ -490,8 +541,12 @@ def admit_derived_environment(staging: Path, derived: DerivedEnvironmentSource) 
 
 
 def create_artifact_snapshot(
-    selected: Iterable[SelectedBuildArtifact], blobs: Iterable[Path], *, constructor_project_root: str | Path,
-    cache_root: str | Path | None = None, project_state: ProjectState | None = None,
+    selected: Iterable[SelectedBuildArtifact],
+    blobs: Iterable[Path],
+    *,
+    constructor_project_root: str | Path,
+    cache_root: str | Path | None = None,
+    project_state: ProjectState | None = None,
     derived: DerivedEnvironmentSource | None = None,
 ) -> MaterializedSnapshot:
     """Create a narrow immutable snapshot, preferring hard links to blobs.
@@ -507,7 +562,9 @@ def create_artifact_snapshot(
     entries = tuple(zip(selected, blobs, strict=True))
     if {entry.name for entry, _ in entries} != set(_LOGICAL_NAMES):
         raise SnapshotError("snapshot requires exactly the selected reviewed artifacts")
-    paths = prepare_build_cache(constructor_project_root, cache_root=cache_root, project_state=project_state)
+    paths = prepare_build_cache(
+        constructor_project_root, cache_root=cache_root, project_state=project_state
+    )
     staging = Path(tempfile.mkdtemp(prefix="transaction-", dir=paths.generated_root))
     try:
         staging_fd = os.open(staging, _NOFOLLOW_DIR)
@@ -517,7 +574,8 @@ def create_artifact_snapshot(
         # diagnostic while an unexpected defect or interruption remains
         # authoritative; the original open error is retained as the cause.
         domain_error = SnapshotError(
-            f"cannot open snapshot staging directory {staging}: {exc}")
+            f"cannot open snapshot staging directory {staging}: {exc}"
+        )
         # Retain the original open error as the cause even when a superseding
         # cleanup interruption or unexpected defect ends up raised instead.
         domain_error.__cause__ = exc
@@ -531,13 +589,16 @@ def create_artifact_snapshot(
             raise result
         raise domain_error from exc
     staging_owner = OwnedDescriptor(
-        PosixDescriptorOps(), staging_fd, label=f"snapshot staging directory {staging}")
+        PosixDescriptorOps(), staging_fd, label=f"snapshot staging directory {staging}"
+    )
     staging_owner_fd = staging_owner.fd
     snapshot_primary: BaseException | None = None
     try:
         manifest_entries: list[dict[str, str]] = []
         hard_linked: set[Path] = set()
-        for item, blob in sorted(entries, key=lambda pair: _LOGICAL_NAMES[pair[0].name]):
+        for item, blob in sorted(
+            entries, key=lambda pair: _LOGICAL_NAMES[pair[0].name]
+        ):
             destination_name = _LOGICAL_NAMES[item.name]
             expected = item.identity.hex_digest()
             source_owner = OwnedDescriptor(
@@ -549,18 +610,26 @@ def create_artifact_snapshot(
             try:
                 source_stat = os.fstat(source_owner.fd)
                 try:
-                    os.link(blob, destination_name, follow_symlinks=False, dst_dir_fd=staging_owner_fd)
+                    os.link(
+                        blob,
+                        destination_name,
+                        follow_symlinks=False,
+                        dst_dir_fd=staging_owner_fd,
+                    )
                 except OSError as exc:
                     if exc.errno not in _HARD_LINK_UNAVAILABLE:
                         raise SnapshotError(
                             f"cannot hard link snapshot payload {destination_name!r} "
                             f"from source blob {blob}: {exc}"
                         ) from exc
-                    _copy_source_fd_to_destination(source_owner.fd, destination_name, staging_owner_fd, expected)
+                    _copy_source_fd_to_destination(
+                        source_owner.fd, destination_name, staging_owner_fd, expected
+                    )
                 else:
                     try:
                         _validate_hard_link_destination(
-                            destination_name, staging_owner_fd, source_stat, expected)
+                            destination_name, staging_owner_fd, source_stat, expected
+                        )
                     except BaseException as primary:
                         # An unsafe linked destination is removed only through
                         # its declared idempotent absence; a non-absence unlink
@@ -593,16 +662,27 @@ def create_artifact_snapshot(
                 result = close_failures.complete()
                 if result is not None:
                     raise result
-            manifest_entries.append({"name": item.name, "filename": destination_name,
-                                     "sha256": item.identity.hex_digest()})
+            manifest_entries.append(
+                {
+                    "name": item.name,
+                    "filename": destination_name,
+                    "sha256": item.identity.hex_digest(),
+                }
+            )
         manifest = staging / "manifest.json"
         manifest_body: dict[str, object] = {"artifacts": manifest_entries}
         if derived is not None:
             manifest_body["pi"] = admit_derived_environment(staging, derived)
-        manifest.write_bytes((json.dumps(manifest_body, sort_keys=True,
-                                         separators=(",", ":")) + "\n").encode())
-        _readonly_tree(staging, hard_linked,
-                       derived_root=_PI_ISOLATION_DIR if derived is not None else None)
+        manifest.write_bytes(
+            (
+                json.dumps(manifest_body, sort_keys=True, separators=(",", ":")) + "\n"
+            ).encode()
+        )
+        _readonly_tree(
+            staging,
+            hard_linked,
+            derived_root=_PI_ISOLATION_DIR if derived is not None else None,
+        )
         validate_host_owner_traversal(staging)
         return MaterializedSnapshot(path=staging, manifest=manifest)
     except BaseException as primary:

@@ -129,7 +129,7 @@ def _named_context_sources(instr: str) -> list[str]:
     """Return the source operands of a COPY reading from constructor-artifacts."""
     if "--from=constructor-artifacts" not in instr:
         return []
-    body = instr[len("COPY"):].strip()
+    body = instr[len("COPY") :].strip()
     operands = shlex.split(body)
     return [op for op in operands[:-1] if not op.startswith("--")]
 
@@ -149,9 +149,7 @@ def _named_context_sources_by_stage(
     return result
 
 
-def _stages_touching_arg(
-    stages: dict[str, dict[str, object]], arg: str
-) -> set[str]:
+def _stages_touching_arg(stages: dict[str, dict[str, object]], arg: str) -> set[str]:
     """Return stages whose body declares or references *arg*."""
     result: set[str] = set()
     for name, info in stages.items():
@@ -159,7 +157,8 @@ def _stages_touching_arg(
         assert isinstance(body, list)
         for instr in body:
             if (f"${{{arg}}}" in instr) or (
-                re.search(r"\bARG\b", instr) and re.search(rf"\b{re.escape(arg)}\b", instr)
+                re.search(r"\bARG\b", instr)
+                and re.search(rf"\b{re.escape(arg)}\b", instr)
             ):
                 result.add(name)
     return result
@@ -200,7 +199,8 @@ class TestIndependentArtifactStageInvalidation(unittest.TestCase):
             for arg in args:
                 with self.subTest(artifact=artifact, arg=arg):
                     self.assertEqual(
-                        {ARTIFACT_STAGE[artifact]}, _stages_touching_arg(self.stages, arg)
+                        {ARTIFACT_STAGE[artifact]},
+                        _stages_touching_arg(self.stages, arg),
                     )
 
     def test_rtk_input_invalidates_only_rtk_stage_and_final_assembly(self) -> None:
@@ -219,7 +219,13 @@ class TestIndependentArtifactStageInvalidation(unittest.TestCase):
 
     def test_final_assembly_consumes_every_independent_tool_stage(self) -> None:
         runtime_ancestors = _ancestors(FINAL_ASSEMBLY, self.deps)
-        for stage in ("rtk-prebuilt", "fd-prebuilt", "toolchain", "pi-tools", "openspec-tools"):
+        for stage in (
+            "rtk-prebuilt",
+            "fd-prebuilt",
+            "toolchain",
+            "pi-tools",
+            "openspec-tools",
+        ):
             with self.subTest(stage=stage):
                 self.assertIn(stage, runtime_ancestors)
 

@@ -5,6 +5,7 @@ production ``PosixDescriptorOps`` adapter delegates to the corresponding
 descriptor-relative POSIX calls while preserving the raised ``OSError``
 subclass, ``errno``, and cause behavior.
 """
+
 from __future__ import annotations
 
 import errno
@@ -162,7 +163,9 @@ class PosixDescriptorOpsDelegationTests(unittest.TestCase):
 
         leaf_fd = self.ops.openat(fd, "leaf", os.O_CREAT | os.O_WRONLY, 0o600)
         self.ops.close(leaf_fd)
-        self.assertTrue(stat.S_ISREG(self.ops.statat(fd, "leaf", follow_symlinks=False).st_mode))
+        self.assertTrue(
+            stat.S_ISREG(self.ops.statat(fd, "leaf", follow_symlinks=False).st_mode)
+        )
         self.ops.unlinkat(fd, "leaf")
         with self.assertRaises(FileNotFoundError):
             self.ops.statat(fd, "leaf", follow_symlinks=False)

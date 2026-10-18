@@ -1,4 +1,5 @@
 """Git ref provider tests."""
+
 from __future__ import annotations
 
 import unittest
@@ -23,11 +24,15 @@ class TestGitProvider(unittest.TestCase):
 
     def _ctx(self):
         return ProviderContext(
-            http=self.http, git=self.git,
-            include_prerelease=False, tokens={},
+            http=self.http,
+            git=self.git,
+            include_prerelease=False,
+            tokens={},
         )
 
-    def _target(self, revision="a" * 40, repo="https://github.com/test/repo.git", ref="master"):
+    def _target(
+        self, revision="a" * 40, repo="https://github.com/test/repo.git", ref="master"
+    ):
         return UpdateTarget(
             path="build.stages.runtime.oh-my-zsh",
             current=revision,

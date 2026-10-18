@@ -1,4 +1,5 @@
 """Hermetic inventory fixtures for tests that do not exercise local companions."""
+
 from __future__ import annotations
 
 import atexit
@@ -43,8 +44,10 @@ def fixture_directory(prefix: str) -> Path:
 
 
 DIGEST_VALID_ARTIFACT_BYTES = {
-    "rustup": b"test-rustup-artifact", "uv": b"test-uv-artifact",
-    "rtk": b"test-rtk-artifact", "fd": b"test-fd-artifact",
+    "rustup": b"test-rustup-artifact",
+    "uv": b"test-uv-artifact",
+    "rtk": b"test-rtk-artifact",
+    "fd": b"test-fd-artifact",
 }
 
 
@@ -52,9 +55,11 @@ def digest_valid_selected_artifacts(_projection=None):
     """Return test-only artifact identities derived from local fixture bytes."""
     return tuple(
         SelectedBuildArtifact(
-            name=name, url=f"https://test.invalid/{name}",
+            name=name,
+            url=f"https://test.invalid/{name}",
             identity=DigestIdentity.from_hex(
-                "sha256", hashlib.sha256(data).hexdigest(),
+                "sha256",
+                hashlib.sha256(data).hexdigest(),
             ),
         )
         for name, data in DIGEST_VALID_ARTIFACT_BYTES.items()
@@ -62,13 +67,20 @@ def digest_valid_selected_artifacts(_projection=None):
 
 
 def publish_digest_valid_artifacts(
-    projection=None, *, constructor_project_root, cache_root=None, project_state=None, **_kwargs,
+    projection=None,
+    *,
+    constructor_project_root,
+    cache_root=None,
+    project_state=None,
+    **_kwargs,
 ):
     """Publish real digest-verified blobs for orchestration fixture builds."""
     return tuple(
         publish_verified_blob(
-            selected.identity, DIGEST_VALID_ARTIFACT_BYTES[selected.name],
-            constructor_project_root=constructor_project_root, cache_root=cache_root,
+            selected.identity,
+            DIGEST_VALID_ARTIFACT_BYTES[selected.name],
+            constructor_project_root=constructor_project_root,
+            cache_root=cache_root,
             project_state=project_state,
         )
         for selected in digest_valid_selected_artifacts(projection)

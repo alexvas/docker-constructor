@@ -31,6 +31,7 @@ write_stable_project(_STABLE_PROJECT.name)
 
 def _load_mod() -> Any:
     from docker import constructor_cli
+
     return constructor_cli
 
 
@@ -46,7 +47,9 @@ def _run(
     effective_argv = list(argv)
     if "--project-directory" not in effective_argv:
         effective_argv = [
-            "--project-directory", _STABLE_PROJECT.name, *effective_argv,
+            "--project-directory",
+            _STABLE_PROJECT.name,
+            *effective_argv,
         ]
     with redirect_stdout(out), redirect_stderr(err):
         rc = mod.main(
@@ -58,8 +61,14 @@ def _run(
 
 
 _PROVIDER_NAMES = (
-    "docker-registry", "rust-channel", "static-url",
-    "github-release", "uv-python", "pypi", "npm", "git-ref",
+    "docker-registry",
+    "rust-channel",
+    "static-url",
+    "github-release",
+    "uv-python",
+    "pypi",
+    "npm",
+    "git-ref",
 )
 
 
@@ -102,10 +111,12 @@ def _stub_providers(
                 ),
             )
 
-    return MappingProxyType({
-        name: _Stub(name, name in failing, cands.get(name))
-        for name in _PROVIDER_NAMES
-    })
+    return MappingProxyType(
+        {
+            name: _Stub(name, name in failing, cands.get(name))
+            for name in _PROVIDER_NAMES
+        }
+    )
 
 
 class TestCheckUpdatesAcceptance(unittest.TestCase):
@@ -125,24 +136,27 @@ class TestCheckUpdatesAcceptance(unittest.TestCase):
         candidates: dict[str, str] | None = None,
     ) -> tuple[int, str, str]:
         import docker.versioning.updates
+
         with patch.object(
-            docker.versioning.updates, "_DEFAULT_PROVIDERS",
+            docker.versioning.updates,
+            "_DEFAULT_PROVIDERS",
             _stub_providers(failing=failing, candidates=candidates),
         ):
             return _run(
-                self.m, argv,
+                self.m,
+                argv,
                 stdout_isatty=stdout_isatty,
                 stderr_isatty=stderr_isatty,
             )
 
     def test_default_compact_output_with_provider_failure(self) -> None:
         rc, out, err = self._run_stub(
-            ["check-updates"], failing=frozenset({"pypi"}),
+            ["check-updates"],
+            failing=frozenset({"pypi"}),
         )
         self.assertEqual(0, rc)
         self.assertEqual("", err)
-        for header in ("TARGET", "PROVIDER", "CURR -> NEXT", "STATUS",
-                       "PUBLISHED"):
+        for header in ("TARGET", "PROVIDER", "CURR -> NEXT", "STATUS", "PUBLISHED"):
             self.assertIn(header, out)
         self.assertIn("unavailable", out)
         self.assertIn("Details:", out)
@@ -157,8 +171,17 @@ class TestCheckUpdatesAcceptance(unittest.TestCase):
         )
         self.assertEqual(0, rc)
         self.assertEqual("", err)
-        for header in ("PATH", "PROVIDER", "CURRENT", "CANDIDATE", "STATUS",
-                       "KIND", "APPLICABLE", "PUBLISHED", "DETAIL"):
+        for header in (
+            "PATH",
+            "PROVIDER",
+            "CURRENT",
+            "CANDIDATE",
+            "STATUS",
+            "KIND",
+            "APPLICABLE",
+            "PUBLISHED",
+            "DETAIL",
+        ):
             self.assertIn(header, out)
         # Detailed mode retains full paths and the new candidate value.
         self.assertIn("build.stages.toolchain.ty", out)
@@ -170,19 +193,22 @@ class TestCheckUpdatesAcceptance(unittest.TestCase):
 
     def test_interactive_progress_then_clean_report(self) -> None:
         rc, out, err = self._run_stub(
-            ["check-updates"], stderr_isatty=True,
+            ["check-updates"],
+            stderr_isatty=True,
         )
         self.assertEqual(0, rc)
         self.assertIn("TARGET", out)
         self.assertIn(
-            "Checking updates [1/14] base.node (docker-registry)…", err,
+            "Checking updates [1/14] base.node (docker-registry)…",
+            err,
         )
         self.assertTrue(err.endswith("\r\x1b[K"))
         self.assertNotIn("\n", err)
 
     def test_redirected_json_has_no_progress(self) -> None:
         rc, out, err = self._run_stub(
-            ["--output", "json", "check-updates"], stderr_isatty=False,
+            ["--output", "json", "check-updates"],
+            stderr_isatty=False,
         )
         self.assertEqual(0, rc)
         self.assertEqual("", err)

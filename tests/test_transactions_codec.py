@@ -4,6 +4,7 @@ The codec provides deterministic UTF-8 bytes, stable mapping order, generic
 JSON decoding, and rejects non-finite or unsupported values.  It grants no
 envelope, schema, version, path, or deletion authority.
 """
+
 from __future__ import annotations
 
 import inspect

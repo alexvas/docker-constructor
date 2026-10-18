@@ -3,6 +3,7 @@
 Maps (method, URL) pairs to pre-configured responses.
 Records all requests for assertion.  Fails on unexpected requests.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -46,7 +47,9 @@ class FakeHttpTransport:
         body: bytes = b"",
     ) -> None:
         self._responses[(method, url)] = HttpResponse(
-            status=status, headers=dict(headers or {}), body=body,
+            status=status,
+            headers=dict(headers or {}),
+            body=body,
         )
 
     def request(
@@ -82,6 +85,4 @@ class FailingHttpTransport:
         headers: Mapping[str, str] = (),
         nocache: bool = False,
     ) -> HttpResponse:
-        raise AssertionError(
-            f"Unexpected HTTP request: {method} {url}"
-        )
+        raise AssertionError(f"Unexpected HTTP request: {method} {url}")

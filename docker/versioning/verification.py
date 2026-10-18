@@ -107,6 +107,7 @@ All observation commands are issued as
 build projection is read from the host only — it is NEVER mounted,
 volume-bound, or ``docker cp``'d into the container.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -155,6 +156,7 @@ class ObservationContract:
     build projection via :func:`_extract_expected_value` — it is never
     stored in the contract itself.
     """
+
     key: str
     """Unique observation key (e.g. ``"node.version"``)."""
     command_suffix: tuple[str, ...]
@@ -299,18 +301,30 @@ def _applicable_contracts(
     # targets the *configured* version, not the active/default.
     if "rustfmt" in components:
         version = projection["rust"]["version"]
-        result.append(ObservationContract(
-            key="rust.rustfmt",
-            command_suffix=(
-                "rustup", "which", "--toolchain", version, "rustfmt",
-            ),
-        ))
-        result.append(ObservationContract(
-            key="rust.rustfmt.component",
-            command_suffix=(
-                "rustup", "component", "list", "--toolchain", version,
-            ),
-        ))
+        result.append(
+            ObservationContract(
+                key="rust.rustfmt",
+                command_suffix=(
+                    "rustup",
+                    "which",
+                    "--toolchain",
+                    version,
+                    "rustfmt",
+                ),
+            )
+        )
+        result.append(
+            ObservationContract(
+                key="rust.rustfmt.component",
+                command_suffix=(
+                    "rustup",
+                    "component",
+                    "list",
+                    "--toolchain",
+                    version,
+                ),
+            )
+        )
 
     return tuple(result)
 
@@ -361,11 +375,16 @@ def _normalize(key: str, value: str) -> str:
     """Apply the per-contract normalization to observed or expected output."""
     if key in ("node.version",):
         return _strip_v(value)
-    elif key in ("rust.version", "rust.cargo", "uv.version",
-                 "python.version", "rtk.version", "fd.version"):
+    elif key in (
+        "rust.version",
+        "rust.cargo",
+        "uv.version",
+        "python.version",
+        "rtk.version",
+        "fd.version",
+    ):
         return _extract_x_y_z(value)
-    elif key in ("ty.version", "pi.version", "openspec.version",
-                 "rust.clippy"):
+    elif key in ("ty.version", "pi.version", "openspec.version", "rust.clippy"):
         return _extract_v_stripped_x_y_z(value)
     elif key == "rust.rustfmt":
         # Extract the toolchain version from a rustup which path
@@ -400,6 +419,7 @@ def _load_build_projection(path: Path) -> dict:
     Raises ``OSError`` when the file is missing or unreadable.
     """
     import tomllib
+
     with owned_file(lambda: path.open("rb"), label="build projection") as fh:
         return tomllib.load(fh)
 
@@ -410,6 +430,7 @@ def _load_build_projection(path: Path) -> dict:
 @dataclass(frozen=True)
 class BuildObservation:
     """A single container-side observation extracted from a command run."""
+
     key: str
     """Human-readable label (e.g. ``"node.version"``)."""
     command: tuple[str, ...]
@@ -427,6 +448,7 @@ class BuildObservation:
 @dataclass(frozen=True)
 class BuildVerificationResult:
     """Complete result of a build verification pass."""
+
     image: str
     observations: tuple[BuildObservation, ...]
     all_ok: bool
@@ -441,6 +463,7 @@ class BuildVerificationResult:
 @dataclass(frozen=True)
 class VerifyBuildRequest:
     """Request to verify a built image against host-side expectations."""
+
     image: str
     """Docker image to inspect (e.g. ``"pi-cli-pi:latest"``)."""
     effective_projection_path: Path
@@ -486,26 +509,30 @@ def verify_build(request: VerifyBuildRequest) -> BuildVerificationResult:
         except Exception as exc:
             err_msg = f"{contract.key}: {exc}"
             errors.append(err_msg)
-            observations.append(BuildObservation(
-                key=contract.key,
-                command=cmd,
-                expected_value=str(exc),
-                observed_value=None,
-                ok=False,
-            ))
+            observations.append(
+                BuildObservation(
+                    key=contract.key,
+                    command=cmd,
+                    expected_value=str(exc),
+                    observed_value=None,
+                    ok=False,
+                )
+            )
             continue
 
         observed_raw = result.stdout if result.return_code == 0 else result.stderr
         normalized_obs = _normalize(contract.key, observed_raw)
         normalized_exp = _normalize(contract.key, expected)
         ok = normalized_obs == normalized_exp
-        observations.append(BuildObservation(
-            key=contract.key,
-            command=cmd,
-            expected_value=expected,
-            observed_value=observed_raw,
-            ok=ok,
-        ))
+        observations.append(
+            BuildObservation(
+                key=contract.key,
+                command=cmd,
+                expected_value=expected,
+                observed_value=observed_raw,
+                ok=ok,
+            )
+        )
 
     # 4. Assemble result.
     all_ok = all(o.ok for o in observations) and len(errors) == 0

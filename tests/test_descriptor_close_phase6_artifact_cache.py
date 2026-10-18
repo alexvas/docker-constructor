@@ -9,6 +9,7 @@ owner, so the migration contract (terminal-before-close + at-most-once) is the
 RED part.  The capability-based ``release_capability`` / ``release_directory``
 helpers already delegate to shared capabilities and stay passing.
 """
+
 from __future__ import annotations
 
 import base64
@@ -74,7 +75,9 @@ class ReadonlyInspectionOwnershipTests(_ArtifactCacheCase):
 
     def test_inspect_verified_blob_readonly_miss_still_releases_owners(self):
         integrity, _ = self._write_blob()
-        missing = "sha512-" + base64.b64encode(hashlib.sha512(b"other").digest()).decode()
+        missing = (
+            "sha512-" + base64.b64encode(hashlib.sha512(b"other").digest()).decode()
+        )
         with recording(artifact_cache) as rec:
             self.assertFalse(
                 artifact_cache.inspect_verified_blob_readonly(
@@ -148,7 +151,9 @@ class LocalFilesystemInspectionOwnershipTests(_ArtifactCacheCase):
         integrity, blob = self._write_blob()
         identity = DigestIdentity.from_sri(integrity)
         with recording(artifact_cache) as rec:
-            inspection = self.filesystem.inspect_and_digest(str(blob), identity.algorithm)
+            inspection = self.filesystem.inspect_and_digest(
+                str(blob), identity.algorithm
+            )
         rec.assert_terminal_and_at_most_once(self)
         self.assertEqual(inspection.digest, identity.base64_digest())
 
@@ -250,7 +255,8 @@ class MutationOwnershipTests(_ArtifactCacheCase):
         final = self.root / "final"
         with recording(artifact_cache) as rec:
             with mock.patch.object(
-                artifact_cache, "_open_parent",
+                artifact_cache,
+                "_open_parent",
                 side_effect=self._fail_target_parent_open(),
             ):
                 with self.assertRaises(OSError) as caught:
@@ -288,7 +294,8 @@ class MutationOwnershipTests(_ArtifactCacheCase):
 
         with recording(artifact_cache, close_fault=fault_source_close) as rec:
             with mock.patch.object(
-                artifact_cache, "_open_parent",
+                artifact_cache,
+                "_open_parent",
                 side_effect=self._fail_target_parent_open(),
             ):
                 with self.assertRaises(OSError) as caught:
@@ -324,6 +331,7 @@ class StreamWrapperCleanupTests(_ArtifactCacheCase):
     def _fault_blob_close(fault):
         def selector(fd, owner):
             return fault if owner.label.startswith("cache blob ") else None
+
         return selector
 
     def _assert_one_blob_release(self, rec) -> None:

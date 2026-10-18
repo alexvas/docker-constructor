@@ -39,7 +39,9 @@ class TestFixedProjectInputs(unittest.TestCase):
             root = Path(temp)
             seen: list[Path] = []
 
-            def dispatch(inventory_path: Path, command: str, **kwargs: object) -> CommandResult:
+            def dispatch(
+                inventory_path: Path, command: str, **kwargs: object
+            ) -> CommandResult:
                 seen.append(Path(inventory_path))
                 return CommandResult(exit_kind=ExitKind.SUCCESS)
 
@@ -55,7 +57,9 @@ class TestFixedProjectInputs(unittest.TestCase):
             seen: list[Path] = []
             old_cwd = Path.cwd()
 
-            def dispatch(inventory_path: Path, command: str, **kwargs: object) -> CommandResult:
+            def dispatch(
+                inventory_path: Path, command: str, **kwargs: object
+            ) -> CommandResult:
                 seen.append(Path(inventory_path))
                 return CommandResult(exit_kind=ExitKind.SUCCESS)
 
@@ -73,39 +77,54 @@ class TestFixedProjectInputs(unittest.TestCase):
             root = Path(temp).resolve()
             captured: list[object] = []
 
-            def orchestrate(request: object, *, inventory: object, local_inputs: object) -> object:
+            def orchestrate(
+                request: object, *, inventory: object, local_inputs: object
+            ) -> object:
                 from docker.versioning.build_orchestration import BuildResult
+
                 captured.append(request)
                 return BuildResult(exit_kind=ExitKind.SUCCESS)
 
-            with patch("docker.versioning.build_orchestration.orchestrate_build", orchestrate):
-                rc, _, _ = _main([
-                    "--project-directory", str(root), "build", "--dry-run"
-                ])
+            with patch(
+                "docker.versioning.build_orchestration.orchestrate_build", orchestrate
+            ):
+                rc, _, _ = _main(
+                    ["--project-directory", str(root), "build", "--dry-run"]
+                )
             self.assertEqual(0, rc)
             request = captured[0]
             self.assertEqual(str(root), request.context)
             self.assertEqual(str(root / "Dockerfile"), request.dockerfile)
-            self.assertEqual(str(root / "docker-constructor.toml"), request.inventory_path)
+            self.assertEqual(
+                str(root / "docker-constructor.toml"), request.inventory_path
+            )
 
     def test_real_build_vector_uses_selected_context_and_dockerfile(self) -> None:
         from dataclasses import replace
         from docker.versioning.build_orchestration import BuildRequest, plan_build
         from docker.versioning.rendering import (
-            Materialized, NoDerivedEnvironment, render_build_vector,
+            Materialized,
+            NoDerivedEnvironment,
+            render_build_vector,
         )
         from tests.test_constructor_build_orchestration import FakeBuildExecutor
 
-        with tempfile.TemporaryDirectory() as installed, tempfile.TemporaryDirectory() as context:
+        with (
+            tempfile.TemporaryDirectory() as installed,
+            tempfile.TemporaryDirectory() as context,
+        ):
             root = _REPO.resolve()
             selected_context = Path(context).resolve()
             dockerfile = selected_context / "Dockerfile"
             dockerfile.write_text("FROM scratch\n")
-            plan = plan_build(BuildRequest(
-                inventory_path=str(root / "docker-constructor.toml"),
-                context=str(selected_context), dockerfile=str(dockerfile),
-                project_root=str(root),
-            ))
+            plan = plan_build(
+                BuildRequest(
+                    inventory_path=str(root / "docker-constructor.toml"),
+                    context=str(selected_context),
+                    dockerfile=str(dockerfile),
+                    project_root=str(root),
+                )
+            )
             self.assertEqual(ExitKind.SUCCESS, plan.exit_kind, plan.message)
             inputs = replace(
                 plan.render_inputs,
@@ -128,16 +147,19 @@ class TestFixedProjectInputs(unittest.TestCase):
             root = Path(temp).resolve()
             publication_calls: list[object] = []
             runner_calls: list[object] = []
-            with patch(
-                "docker.versioning.build_orchestration._publish_projection_default",
-                side_effect=lambda *a, **k: publication_calls.append((a, k)),
-            ), patch(
-                "docker.versioning.build_orchestration.SubprocessBuildExecutor.run",
-                side_effect=lambda *a, **k: runner_calls.append((a, k)),
+            with (
+                patch(
+                    "docker.versioning.build_orchestration._publish_projection_default",
+                    side_effect=lambda *a, **k: publication_calls.append((a, k)),
+                ),
+                patch(
+                    "docker.versioning.build_orchestration.SubprocessBuildExecutor.run",
+                    side_effect=lambda *a, **k: runner_calls.append((a, k)),
+                ),
             ):
-                rc, _, err = _main([
-                    "--project-directory", str(root), "build", "--dry-run"
-                ])
+                rc, _, err = _main(
+                    ["--project-directory", str(root), "build", "--dry-run"]
+                )
             self.assertEqual(3, rc)
             self.assertIn(str(root / "Dockerfile"), err)
             self.assertEqual([], publication_calls)
@@ -162,17 +184,23 @@ class TestFixedProjectInputs(unittest.TestCase):
                 return "external-address", fixed, None
 
             with patch(
-                "docker.versioning.build_orchestration._resolve_doctor_host_access", resolve
+                "docker.versioning.build_orchestration._resolve_doctor_host_access",
+                resolve,
             ):
                 rc, _, _ = _main(["--project-directory", str(root), "doctor"])
             self.assertEqual(0, rc)
             self.assertEqual([fixed], resolved)
 
     def test_launcher_dotenv_is_selected_project_owned(self) -> None:
-        with tempfile.TemporaryDirectory() as selected, tempfile.TemporaryDirectory() as installed:
+        with (
+            tempfile.TemporaryDirectory() as selected,
+            tempfile.TemporaryDirectory() as installed,
+        ):
             selected_root, installed_root = Path(selected), Path(installed)
             (selected_root / ".env").write_text("WORKSPACE_ROOT=/selected/workspaces\n")
-            (installed_root / ".env").write_text("WORKSPACE_ROOT=/installed/workspaces\n")
+            (installed_root / ".env").write_text(
+                "WORKSPACE_ROOT=/installed/workspaces\n"
+            )
             with patch.object(constructor_cli, "_INSTALLATION_ROOT", installed_root):
                 value = constructor_cli._read_env_key(
                     "WORKSPACE_ROOT", selected_root / ".env"
@@ -183,25 +211,37 @@ class TestFixedProjectInputs(unittest.TestCase):
         from dataclasses import replace
         from docker.versioning.build_orchestration import BuildRequest, plan_build
         from docker.versioning.rendering import (
-            Materialized, NoDerivedEnvironment, render_build_vector,
+            Materialized,
+            NoDerivedEnvironment,
+            render_build_vector,
         )
 
         bundle_text = "-----BEGIN CERTIFICATE-----\nQQ==\n-----END CERTIFICATE-----\n"
-        with _project(dockerfile=True) as temp, tempfile.TemporaryDirectory() as installed:
+        with (
+            _project(dockerfile=True) as temp,
+            tempfile.TemporaryDirectory() as installed,
+        ):
             root, install_root = Path(temp).resolve(), Path(installed).resolve()
             (root / "docker-constructor.local.toml").write_text(
                 "[corporate-trust]\nenabled = true\n"
             )
             (root / "custom.local.toml").write_text("not = [")
-            for owner, marker in ((root, bundle_text), (install_root, bundle_text.replace("QQ==", "Qg=="))):
+            for owner, marker in (
+                (root, bundle_text),
+                (install_root, bundle_text.replace("QQ==", "Qg==")),
+            ):
                 (owner / ".docker-local").mkdir()
                 (owner / ".docker-local/corporate-ca-bundle.crt").write_text(marker)
-            plan = plan_build(BuildRequest(
-                inventory_path=str(root / "docker-constructor.toml"),
-                context=str(root), dockerfile=str(root / "Dockerfile"),
-                project_root=str(root), repo_root=str(install_root),
-                dry_run=True,
-            ))
+            plan = plan_build(
+                BuildRequest(
+                    inventory_path=str(root / "docker-constructor.toml"),
+                    context=str(root),
+                    dockerfile=str(root / "Dockerfile"),
+                    project_root=str(root),
+                    repo_root=str(install_root),
+                    dry_run=True,
+                )
+            )
             self.assertEqual(ExitKind.SUCCESS, plan.exit_kind, plan.message)
             self.assertIsNotNone(plan.render_inputs)
             inputs = replace(
@@ -221,7 +261,10 @@ class TestFixedProjectInputs(unittest.TestCase):
     def test_run_trust_mount_uses_only_selected_project_bundle(self) -> None:
         from docker.launcher import WorkspaceSelection, RunRequest, orchestrate_run
         from tests.test_constructor_corporate_network_run_red import (
-            _bomb_artifact, _bomb_executor, _bomb_inspector, _bomb_projection,
+            _bomb_artifact,
+            _bomb_executor,
+            _bomb_inspector,
+            _bomb_projection,
             _collect_mounts,
         )
 
@@ -232,26 +275,40 @@ class TestFixedProjectInputs(unittest.TestCase):
                 "[corporate-trust]\nenabled = true\n"
             )
             (root / "custom.local.toml").write_text("not = [")
-            for owner, payload in ((root, bundle_text), (install_root, bundle_text.replace("QQ==", "Qg=="))):
+            for owner, payload in (
+                (root, bundle_text),
+                (install_root, bundle_text.replace("QQ==", "Qg==")),
+            ):
                 (owner / ".docker-local").mkdir()
                 (owner / ".docker-local/corporate-ca-bundle.crt").write_text(payload)
             effects: list[str] = []
-            result = orchestrate_run(RunRequest(
-                inventory_path=str(root / "docker-constructor.toml"),
-                image="pi-cli-pi:latest",
-                selection=WorkspaceSelection(workspace="/work/project"),
-                pi_home_host="/home/user/.pi", project_root=str(root),
-                repo_root=str(install_root), dry_run=True,
-                executor=_bomb_executor(effects), inspector=_bomb_inspector(effects),
-                _create_projection=_bomb_projection(effects),
-                _artifact_fetcher=_bomb_artifact(effects),
-            ))
+            result = orchestrate_run(
+                RunRequest(
+                    inventory_path=str(root / "docker-constructor.toml"),
+                    image="pi-cli-pi:latest",
+                    selection=WorkspaceSelection(workspace="/work/project"),
+                    pi_home_host="/home/user/.pi",
+                    project_root=str(root),
+                    repo_root=str(install_root),
+                    dry_run=True,
+                    executor=_bomb_executor(effects),
+                    inspector=_bomb_inspector(effects),
+                    _create_projection=_bomb_projection(effects),
+                    _artifact_fetcher=_bomb_artifact(effects),
+                )
+            )
             self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
             mount_text = " ".join(str(m) for m in _collect_mounts(result.run_args))
-            self.assertIn(str(root / ".docker-local/corporate-ca-bundle.crt"), mount_text)
-            self.assertNotIn(str(install_root / ".docker-local/corporate-ca-bundle.crt"), mount_text)
+            self.assertIn(
+                str(root / ".docker-local/corporate-ca-bundle.crt"), mount_text
+            )
+            self.assertNotIn(
+                str(install_root / ".docker-local/corporate-ca-bundle.crt"), mount_text
+            )
 
-    def test_verify_trust_uses_selected_root_and_rejects_installation_fallback(self) -> None:
+    def test_verify_trust_uses_selected_root_and_rejects_installation_fallback(
+        self,
+    ) -> None:
         bundle_text = "-----BEGIN CERTIFICATE-----\nQQ==\n-----END CERTIFICATE-----\n"
         with _project() as temp, tempfile.TemporaryDirectory() as installed:
             root, install_root = Path(temp).resolve(), Path(installed).resolve()
@@ -260,13 +317,16 @@ class TestFixedProjectInputs(unittest.TestCase):
             )
             for owner in (root, install_root):
                 (owner / ".docker-local").mkdir()
-                (owner / ".docker-local/corporate-ca-bundle.crt").write_text(bundle_text)
+                (owner / ".docker-local/corporate-ca-bundle.crt").write_text(
+                    bundle_text
+                )
             seen: list[Path] = []
             original = constructor_cli._resolve_verify_corporate_network
 
             class Runner:
                 def run(self, argv: object, **kwargs: object):
                     from docker.launcher import ProcessResult
+
                     return ProcessResult(
                         argv=tuple(argv), return_code=1, stdout="", stderr="unavailable"
                     )
@@ -277,43 +337,76 @@ class TestFixedProjectInputs(unittest.TestCase):
                 seen.append(project_root)
                 return original(inv_path, project_root)
 
-            with patch.object(constructor_cli, "_INSTALLATION_ROOT", install_root), patch.object(
-                constructor_cli, "_resolve_verify_corporate_network", resolve
+            with (
+                patch.object(constructor_cli, "_INSTALLATION_ROOT", install_root),
+                patch.object(
+                    constructor_cli, "_resolve_verify_corporate_network", resolve
+                ),
             ):
-                _main([
-                    "--project-directory", str(root), "verify", "--scope", "runtime",
-                    "--runtime-projection", str(root / "missing-runtime.toml"),
-                    "--container", "none",
-                ], _process_runner=runner)
+                _main(
+                    [
+                        "--project-directory",
+                        str(root),
+                        "verify",
+                        "--scope",
+                        "runtime",
+                        "--runtime-projection",
+                        str(root / "missing-runtime.toml"),
+                        "--container",
+                        "none",
+                    ],
+                    _process_runner=runner,
+                )
             self.assertEqual([root], seen)
 
             (root / ".docker-local/corporate-ca-bundle.crt").unlink()
             with patch.object(constructor_cli, "_INSTALLATION_ROOT", install_root):
-                rc, _, err = _main([
-                    "--project-directory", str(root), "verify", "--scope", "runtime",
-                    "--runtime-projection", str(root / "missing-runtime.toml"),
-                    "--container", "none",
-                ], _process_runner=runner)
+                rc, _, err = _main(
+                    [
+                        "--project-directory",
+                        str(root),
+                        "verify",
+                        "--scope",
+                        "runtime",
+                        "--runtime-projection",
+                        str(root / "missing-runtime.toml"),
+                        "--container",
+                        "none",
+                    ],
+                    _process_runner=runner,
+                )
             self.assertEqual(3, rc)
             self.assertIn(str(root / ".docker-local/corporate-ca-bundle.crt"), err)
-            self.assertNotIn(str(install_root / ".docker-local/corporate-ca-bundle.crt"), err)
+            self.assertNotIn(
+                str(install_root / ".docker-local/corporate-ca-bundle.crt"), err
+            )
 
     def test_build_threads_selected_root_for_local_and_trust_inputs(self) -> None:
-        with _project(dockerfile=True) as temp, tempfile.TemporaryDirectory() as installed:
+        with (
+            _project(dockerfile=True) as temp,
+            tempfile.TemporaryDirectory() as installed,
+        ):
             root = Path(temp).resolve()
             captured: list[object] = []
 
-            def orchestrate(request: object, *, inventory: object, local_inputs: object) -> object:
+            def orchestrate(
+                request: object, *, inventory: object, local_inputs: object
+            ) -> object:
                 from docker.versioning.build_orchestration import BuildResult
+
                 captured.append(request)
                 return BuildResult(exit_kind=ExitKind.SUCCESS)
 
-            with patch.object(constructor_cli, "_INSTALLATION_ROOT", Path(installed)), patch(
-                "docker.versioning.build_orchestration.orchestrate_build", orchestrate
+            with (
+                patch.object(constructor_cli, "_INSTALLATION_ROOT", Path(installed)),
+                patch(
+                    "docker.versioning.build_orchestration.orchestrate_build",
+                    orchestrate,
+                ),
             ):
-                rc, _, _ = _main([
-                    "--project-directory", str(root), "build", "--dry-run"
-                ])
+                rc, _, _ = _main(
+                    ["--project-directory", str(root), "build", "--dry-run"]
+                )
             self.assertEqual(0, rc)
             self.assertEqual(str(root), captured[0].project_root)
             self.assertNotEqual(str(Path(installed)), captured[0].project_root)

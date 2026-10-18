@@ -2,6 +2,7 @@
 
 These tests import the effective module directly, no subprocess.
 """
+
 from __future__ import annotations
 
 import json
@@ -11,7 +12,6 @@ from types import MappingProxyType
 
 from docker.versioning.effective import (
     EffectiveConfiguration,
-
     apply_overrides,
     get_path,
     serialize_effective_inventory,
@@ -38,6 +38,7 @@ def _default_inventory():
 # ---------------------------------------------------------------------------
 # Default selection
 # ---------------------------------------------------------------------------
+
 
 class TestDefaultSelection(unittest.TestCase):
     @classmethod
@@ -93,6 +94,7 @@ class TestDefaultSelection(unittest.TestCase):
 # Immutability
 # ---------------------------------------------------------------------------
 
+
 class TestImmutability(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -132,6 +134,7 @@ class TestEffectiveImmutability(unittest.TestCase):
 
     def test_overrides_is_mappingproxy(self):
         from types import MappingProxyType
+
         self.assertIsInstance(self.effective.overrides, MappingProxyType)
 
     def test_cannot_mutate_overrides(self):
@@ -140,6 +143,7 @@ class TestEffectiveImmutability(unittest.TestCase):
 
     def test_env_is_mappingproxy(self):
         from types import MappingProxyType
+
         env = render_build_environment(self.effective)
         self.assertIsInstance(env, MappingProxyType)
 
@@ -171,6 +175,7 @@ class TestSourceInventoryImmutability(unittest.TestCase):
 # Override policy
 # ---------------------------------------------------------------------------
 
+
 class TestOverridePolicy(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -180,25 +185,19 @@ class TestOverridePolicy(unittest.TestCase):
         eff = apply_overrides(
             self.inventory, {"build.stages.toolchain.python.version": "3.14.6"}
         )
-        self.assertEqual(
-            eff.inventory.stages.toolchain.python.version, "3.14.6"
-        )
+        self.assertEqual(eff.inventory.stages.toolchain.python.version, "3.14.6")
 
     def test_3147_accepted(self):
         eff = apply_overrides(
             self.inventory, {"build.stages.toolchain.python.version": "3.14.7"}
         )
-        self.assertEqual(
-            eff.inventory.stages.toolchain.python.version, "3.14.7"
-        )
+        self.assertEqual(eff.inventory.stages.toolchain.python.version, "3.14.7")
 
     def test_400_accepted_by_constraint(self):
         eff = apply_overrides(
             self.inventory, {"build.stages.toolchain.python.version": "4.0.0"}
         )
-        self.assertEqual(
-            eff.inventory.stages.toolchain.python.version, "4.0.0"
-        )
+        self.assertEqual(eff.inventory.stages.toolchain.python.version, "4.0.0")
 
     def test_3145_rejected(self):
         with self.assertRaises(OverrideValidationError) as ctx:
@@ -235,6 +234,7 @@ class TestOverridePolicy(unittest.TestCase):
 # Serialization
 # ---------------------------------------------------------------------------
 
+
 class TestSerialization(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -250,7 +250,9 @@ class TestSerialization(unittest.TestCase):
 
     def test_mappingproxy_to_dict(self):
         raw = serialize_effective_inventory(self.effective)
-        self.assertIsInstance(raw["build"]["stages"]["toolchain"]["uv"]["artifacts"], dict)
+        self.assertIsInstance(
+            raw["build"]["stages"]["toolchain"]["uv"]["artifacts"], dict
+        )
 
     def test_tuple_to_array(self):
         data = serialize_effective_inventory(self.effective)
@@ -311,6 +313,7 @@ class TestSerialization(unittest.TestCase):
 # Environment mapping
 # ---------------------------------------------------------------------------
 
+
 class TestEnvironmentMapping(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -329,7 +332,6 @@ class TestEnvironmentMapping(unittest.TestCase):
         env = render_build_environment(eff)
         self.assertEqual(env["PYTHON_VERSION"], "3.14.7")
 
-
     def test_node_base_image_from_source_metadata(self):
         """NODE_BASE_IMAGE is derived from source.registry/repository, not hardcoded."""
         env = render_build_environment(self.effective)
@@ -342,7 +344,6 @@ class TestEnvironmentMapping(unittest.TestCase):
         self.assertTrue(image.endswith(node.digest))
         # Verify not hardcoded: contains registry, not just "node:"
         self.assertIn("/", image)  # registry/repository separator
-
 
     def test_source_metadata_change_affects_node_image(self):
         """Changing node source metadata changes NODE_BASE_IMAGE."""
@@ -357,13 +358,15 @@ class TestEnvironmentMapping(unittest.TestCase):
         env_default = render_build_environment(eff_default)
 
         # Modified fixture with different registry
-        toml_modified = minimal_toml(**{
-            "build.stages.base.node.source": (
-                'type = "docker-registry"\n'
-                'registry = "quay.io"\n'
-                'repository = "custom/node"\n'
-            )
-        })
+        toml_modified = minimal_toml(
+            **{
+                "build.stages.base.node.source": (
+                    'type = "docker-registry"\n'
+                    'registry = "quay.io"\n'
+                    'repository = "custom/node"\n'
+                )
+            }
+        )
         path_modified = write_toml(toml_modified)
         try:
             inv_modified = load_inv(path_modified)

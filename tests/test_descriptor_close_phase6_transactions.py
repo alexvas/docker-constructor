@@ -8,6 +8,7 @@ shared terminal owner, so the migration contract (terminal-before-close +
 at-most-once) is the RED part.  The capability ``close()`` methods already
 carry their own terminal, at-most-once state and stay passing.
 """
+
 from __future__ import annotations
 
 import errno

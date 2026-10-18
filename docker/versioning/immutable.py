@@ -30,7 +30,5 @@ def deep_freeze(value: object) -> object:
         return frozenset(deep_freeze(v) for v in value)
     if isinstance(value, Mapping):
         # Always rebuild — proxies may contain mutable children
-        return MappingProxyType(
-            {k: deep_freeze(v) for k, v in value.items()}
-        )
+        return MappingProxyType({k: deep_freeze(v) for k, v in value.items()})
     return value

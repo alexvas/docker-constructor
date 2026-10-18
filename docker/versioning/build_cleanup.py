@@ -40,6 +40,7 @@ candidate blob and its marker are both preserved, and the predecessor is
 retained.  Ordinary ``OSError`` cleanup failures are aggregated into
 :class:`BuildCleanupError`; process-control interruptions propagate unchanged.
 """
+
 from __future__ import annotations
 
 import os
@@ -178,9 +179,7 @@ def superseded_candidates(inventory: GenerationInventory) -> tuple[DigestIdentit
         return ()
     current_keys = set(current.manifest.keys)
     candidates = [
-        blob
-        for blob in previous.blobs
-        if canonical_blob_key(blob) not in current_keys
+        blob for blob in previous.blobs if canonical_blob_key(blob) not in current_keys
     ]
     return tuple(sorted(candidates, key=canonical_blob_key))
 
@@ -262,8 +261,7 @@ def _unlink_entry(
     except OSError as exc:
         failures.append(CleanupFailure(target, exc))
         return False
-    owner = OwnedDescriptor(
-        cast(DescriptorOps, ops), fd, label=f"build entry {base}")
+    owner = OwnedDescriptor(cast(DescriptorOps, ops), fd, label=f"build entry {base}")
     closed = False
     try:
         try:
@@ -337,8 +335,8 @@ def _open_algorithm_directory(
     except OSError as exc:
         return None, _algorithm_failure(algorithm, exc)
     owner = OwnedDescriptor(
-        cast(DescriptorOps, ops), fd,
-        label=f"build blob algorithm {algorithm!r}")
+        cast(DescriptorOps, ops), fd, label=f"build blob algorithm {algorithm!r}"
+    )
     try:
         capability = DirectoryCapability.from_fd(
             ops, owner.fd, f"{blobs.label}/{algorithm}"

@@ -11,6 +11,7 @@ rest of the diagnostic path uses (``<redacted-host>`` / ``/<redacted-path>``).
 The channel-isolation obligations are already implemented by earlier phases and
 are asserted here so a regression cannot silently disable them.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -179,9 +180,7 @@ class TestCollectorChannelModes(unittest.TestCase):
             f"{FETCH_PREFIX} {REDACTED_HOST}/public (cache miss)",
             chunk.fetch_text,
         )
-        self.assertEqual(
-            f"{REDACTED_HOST}/public", chunk.fetch_key.host_path
-        )
+        self.assertEqual(f"{REDACTED_HOST}/public", chunk.fetch_key.host_path)
 
     def test_host_path_masks_secret_path_but_keeps_safe_host(self):
         line = _fetch_line("https://host.example/TOKEN/private") + "\n"
@@ -229,7 +228,9 @@ class TestCollectorChannelModes(unittest.TestCase):
         for mode in NetworkUrlDisplay:
             with self.subTest(mode=mode):
                 chunk, tail = _only_finalized(text, mode=mode)
-                self.assertIn("custom+transport://internal.example/private", chunk.local_text)
+                self.assertIn(
+                    "custom+transport://internal.example/private", chunk.local_text
+                )
                 self.assertIn("custom+transport://internal.example/private", tail)
                 self.assertEqual((), chunk.hostnames)
                 self.assertEqual((), chunk.url_fingerprints)
@@ -301,15 +302,11 @@ class TestGroupingPolicy(unittest.TestCase):
             network_url_display=NetworkUrlDisplay.REDACTED,
         )
         for index in range(2):
-            state.admit_diagnostic(
-                _plain_envelope(text), now=float(index) * 0.1
-            )
+            state.admit_diagnostic(_plain_envelope(text), now=float(index) * 0.1)
         state.due(now=1.0)
         # Identical unknown-scheme text groups by its rendered text, with no
         # URL-derived identity.
-        self.assertEqual(
-            [text, f"{text} (repeated 2 times)"], renderer.durable_texts()
-        )
+        self.assertEqual([text, f"{text} (repeated 2 times)"], renderer.durable_texts())
         self.assertEqual((), _plain_envelope(text).url_fingerprints)
 
         # Different unknown-scheme text does not group.
@@ -319,9 +316,7 @@ class TestGroupingPolicy(unittest.TestCase):
             mode=HostPresentationMode.LINES,
             network_url_display=NetworkUrlDisplay.REDACTED,
         )
-        other_state.admit_diagnostic(
-            _plain_envelope(text), now=0.0
-        )
+        other_state.admit_diagnostic(_plain_envelope(text), now=0.0)
         other_state.admit_diagnostic(
             _plain_envelope("custom+transport://b.example/y"), now=0.1
         )
@@ -343,9 +338,7 @@ class TestGroupingPolicy(unittest.TestCase):
         )
         for index, line in enumerate(lines):
             state.admit_diagnostic(
-                _fetch_envelope(
-                    line, NetworkUrlDisplay.HOST_PATH, secrets=("TOKEN",)
-                ),
+                _fetch_envelope(line, NetworkUrlDisplay.HOST_PATH, secrets=("TOKEN",)),
                 now=float(index) * 0.1,
             )
         # The hidden hosts must not split the group.
@@ -372,9 +365,7 @@ class TestGroupingPolicy(unittest.TestCase):
             )
         ):
             state.admit_diagnostic(
-                _fetch_envelope(
-                    line, NetworkUrlDisplay.HOST_PATH, secrets=("TOKEN",)
-                ),
+                _fetch_envelope(line, NetworkUrlDisplay.HOST_PATH, secrets=("TOKEN",)),
                 now=float(index) * 0.1,
             )
         self.assertEqual(
@@ -427,9 +418,7 @@ class TestGroupingPolicy(unittest.TestCase):
             )
         ):
             state.admit_diagnostic(
-                _fetch_envelope(
-                    line, NetworkUrlDisplay.HOST_PATH, secrets=("TOKEN",)
-                ),
+                _fetch_envelope(line, NetworkUrlDisplay.HOST_PATH, secrets=("TOKEN",)),
                 now=float(index) * 0.1,
             )
         state.due(now=1.0)
@@ -507,9 +496,7 @@ class TestFetchSidePaths(unittest.TestCase):
             record, NetworkUrlDisplay.HOST_PATH, secrets=("TOKEN",)
         )
         assert key is not None
-        self.assertEqual(
-            f"host.example{REDACTED_PATH_MARKER}", key.host_path
-        )
+        self.assertEqual(f"host.example{REDACTED_PATH_MARKER}", key.host_path)
 
     def test_unknown_scheme_with_literal_secret_contributes_no_group_field(self):
         # A literal secret inside an unsupported URL is still redacted from the

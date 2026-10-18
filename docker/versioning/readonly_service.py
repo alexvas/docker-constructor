@@ -31,9 +31,7 @@ def _parse_overrides(raw: Sequence[str]) -> dict[str, str]:
     result: dict[str, str] = {}
     for token in raw:
         if "=" not in token:
-            raise ValueError(
-                f"invalid override {token!r}: expected PATH=VALUE"
-            )
+            raise ValueError(f"invalid override {token!r}: expected PATH=VALUE")
         path, value = token.split("=", 1)
         if path != path.strip() or value != value.strip():
             raise ValueError(
@@ -56,7 +54,8 @@ def _parse_overrides(raw: Sequence[str]) -> dict[str, str]:
 
 
 def _handle_validate(
-    inventory: Inventory, command_args: Mapping[str, Any],
+    inventory: Inventory,
+    command_args: Mapping[str, Any],
 ) -> CommandResult:
     """Validate — inventory is already loaded and valid, so this is a
     no-op that confirms success."""
@@ -68,7 +67,8 @@ def _handle_validate(
 
 
 def _handle_show(
-    inventory: Inventory, command_args: Mapping[str, Any],
+    inventory: Inventory,
+    command_args: Mapping[str, Any],
 ) -> CommandResult:
     """Display reviewed inventory (source or effective projection).
 
@@ -118,16 +118,12 @@ def _handle_show(
         if scope == "build" and path.startswith("runtime."):
             return CommandResult(
                 exit_kind=ExitKind.CONFIG,
-                message=(
-                    f"override {path!r} is not valid for scope build"
-                ),
+                message=(f"override {path!r} is not valid for scope build"),
             )
         if scope == "runtime" and path.startswith("build."):
             return CommandResult(
                 exit_kind=ExitKind.CONFIG,
-                message=(
-                    f"override {path!r} is not valid for scope runtime"
-                ),
+                message=(f"override {path!r} is not valid for scope runtime"),
             )
 
     # ── source mode: plain-data dump of reviewed inventory ──────────
@@ -136,17 +132,16 @@ def _handle_show(
         if not isinstance(plain, dict):
             raise TypeError("inventory must serialize to a mapping")
         if scope == "build":
-            filtered = {k: v for k, v in plain.items()
-                        if k in ("schema", "build", "cache")}
+            filtered = {
+                k: v for k, v in plain.items() if k in ("schema", "build", "cache")
+            }
         elif scope == "runtime":
-            filtered = {k: v for k, v in plain.items()
-                        if k in ("schema", "runtime")}
+            filtered = {k: v for k, v in plain.items() if k in ("schema", "runtime")}
         else:
             filtered = plain
         return CommandResult(
             exit_kind=ExitKind.SUCCESS,
-            data={"scope": scope, "effective": False,
-                  "inventory": filtered},
+            data={"scope": scope, "effective": False, "inventory": filtered},
         )
 
     # ── effective mode: phase-specific projections ──────────────────
@@ -154,27 +149,27 @@ def _handle_show(
 
     # Partition overrides by phase — each resolver rejects paths
     # it does not own, so we must not pass the combined map to both.
-    build_overrides: Mapping[str, str] = MappingProxyType({
-        k: v for k, v in overrides_parsed.items()
-        if k.startswith("build.")
-    })
-    runtime_overrides: Mapping[str, str] = MappingProxyType({
-        k: v for k, v in overrides_parsed.items()
-        if k.startswith("runtime.")
-    })
+    build_overrides: Mapping[str, str] = MappingProxyType(
+        {k: v for k, v in overrides_parsed.items() if k.startswith("build.")}
+    )
+    runtime_overrides: Mapping[str, str] = MappingProxyType(
+        {k: v for k, v in overrides_parsed.items() if k.startswith("runtime.")}
+    )
 
     data: dict[str, object] = {"scope": scope, "effective": True}
 
     try:
         if scope in ("build", "all"):
             build_proj = resolve_build_projection(
-                inventory.build, build_overrides,
+                inventory.build,
+                build_overrides,
             )
             data["build"] = to_plain_data(build_proj)
 
         if scope in ("runtime", "all"):
             _, runtime_proj = resolve_runtime(
-                inventory.runtime, runtime_overrides,
+                inventory.runtime,
+                runtime_overrides,
             )
             data["runtime"] = to_plain_data(runtime_proj)
     except EffectiveConfigError as exc:
@@ -226,18 +221,15 @@ def _handle_check_updates(
     context = ProviderContext(
         http=config.http,
         git=config.git,
-        include_prerelease=bool(
-            command_args.get("include_prerelease", False)
-        ),
+        include_prerelease=bool(command_args.get("include_prerelease", False)),
         tokens=config.tokens,
     )
 
     scope_str: str = str(command_args.get("scope", "all"))
     from docker.versioning.updates import Scope
+
     scope = Scope(scope_str)
-    only: tuple[str, ...] = tuple(
-        command_args.get("only_filter", ()) or ()
-    )
+    only: tuple[str, ...] = tuple(command_args.get("only_filter", ()) or ())
     providers = _DEFAULT_PROVIDERS
 
     results = check_updates(
@@ -251,9 +243,7 @@ def _handle_check_updates(
 
     suggest: bool = bool(command_args.get("suggest", False))
     strict: bool = bool(command_args.get("strict", False))
-    fail_on_outdated: bool = bool(
-        command_args.get("fail_on_outdated", False)
-    )
+    fail_on_outdated: bool = bool(command_args.get("fail_on_outdated", False))
 
     # --- exit kind ---
     exit_kind = ExitKind.SUCCESS
@@ -283,11 +273,14 @@ def _handle_check_updates(
             build_update_targets,
             render_replacement_fragments,
         )
+
         if isinstance(inventory_path, (str, Path)):
             raw = load_inventory_raw(Path(inventory_path))
             targets = build_update_targets(inventory)
             result_data["replacement_fragments"] = render_replacement_fragments(
-                raw, targets, results,
+                raw,
+                targets,
+                results,
             )
 
     return CommandResult(
@@ -296,9 +289,7 @@ def _handle_check_updates(
     )
 
 
-_HANDLERS: dict[
-    str, Callable[..., CommandResult]
-] = {
+_HANDLERS: dict[str, Callable[..., CommandResult]] = {
     "validate": _handle_validate,
     "show": _handle_show,
     "check-updates": _handle_check_updates,
@@ -362,8 +353,12 @@ def dispatch(
         if command == "check-updates":
             return handler(inventory, handler_args, progress=progress)
         return handler(inventory, handler_args)
-    except (VersionConfigError, InventoryError, EffectiveConfigError,
-            UpdateError) as exc:
+    except (
+        VersionConfigError,
+        InventoryError,
+        EffectiveConfigError,
+        UpdateError,
+    ) as exc:
         return CommandResult(
             exit_kind=ExitKind.CONFIG,
             message=str(exc),

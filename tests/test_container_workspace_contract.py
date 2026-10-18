@@ -1,4 +1,5 @@
 """Phase 5 contract tests for the atomic host/image workspace interface."""
+
 from __future__ import annotations
 
 import os
@@ -7,11 +8,17 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from docker.versioning.rendering import RunHostAccess, RunRenderInputs, render_run_vector
+from docker.versioning.rendering import (
+    RunHostAccess,
+    RunRenderInputs,
+    render_run_vector,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 ENTRYPOINT = (ROOT / "docker/entrypoint.sh").read_text(encoding="utf-8")
-VERIFIER = (ROOT / "docker/versioning/runtime_verification.py").read_text(encoding="utf-8")
+VERIFIER = (ROOT / "docker/versioning/runtime_verification.py").read_text(
+    encoding="utf-8"
+)
 LAUNCHER = (ROOT / "docker/versioning/rendering.py").read_text(encoding="utf-8")
 
 
@@ -24,7 +31,9 @@ def _env(vector: tuple[str, ...]) -> dict[str, str]:
     return result
 
 
-def _render(host_access: RunHostAccess = RunHostAccess.disabled(), **kwargs: object) -> tuple[str, ...]:
+def _render(
+    host_access: RunHostAccess = RunHostAccess.disabled(), **kwargs: object
+) -> tuple[str, ...]:
     values = dict(
         image="pi-cli-pi:latest",
         container_name="pi-1",
@@ -46,10 +55,16 @@ class TestRunWorkspaceContract(unittest.TestCase):
         vector = _render()
         env = _env(vector)
         self.assertEqual(
-            [(key, value) for key, value in env.items() if key.startswith("WORKSPACE_PATH_")],
-            [("WORKSPACE_PATH_1", "/work/primary"),
-             ("WORKSPACE_PATH_2", "/work/extra-a"),
-             ("WORKSPACE_PATH_3", "/work/extra-b")],
+            [
+                (key, value)
+                for key, value in env.items()
+                if key.startswith("WORKSPACE_PATH_")
+            ],
+            [
+                ("WORKSPACE_PATH_1", "/work/primary"),
+                ("WORKSPACE_PATH_2", "/work/extra-a"),
+                ("WORKSPACE_PATH_3", "/work/extra-b"),
+            ],
         )
         self.assertFalse(any(key.startswith("PROJECT_PATH_") for key in env))
 
@@ -60,14 +75,22 @@ class TestRunWorkspaceContract(unittest.TestCase):
         self.assertFalse(any(key.startswith("PROJECT_PATH_") for key in env))
 
     def test_corporate_network_uses_only_workspace_contract(self) -> None:
-        env = _env(_render(proxy_url="http://proxy.example:8080", proxy_no_proxy="localhost"))
+        env = _env(
+            _render(proxy_url="http://proxy.example:8080", proxy_no_proxy="localhost")
+        )
         self.assertEqual(env["WORKSPACE_PATH_3"], "/work/extra-b")
         self.assertEqual(env["HTTPS_PROXY"], "http://proxy.example:8080")
         self.assertFalse(any(key.startswith("PROJECT_PATH_") for key in env))
 
 
 class TestEntrypointWorkspaceContract(unittest.TestCase):
-    def _run(self, *, mounted: tuple[str, ...] = (), enabled: str = "1", paths: dict[str, str] | None = None) -> str:
+    def _run(
+        self,
+        *,
+        mounted: tuple[str, ...] = (),
+        enabled: str = "1",
+        paths: dict[str, str] | None = None,
+    ) -> str:
         with tempfile.TemporaryDirectory() as tmp:
             workspace_paths = paths or {"WORKSPACE_PATH_1": tmp}
             env = {
@@ -84,7 +107,10 @@ class TestEntrypointWorkspaceContract(unittest.TestCase):
             }
             result = subprocess.run(
                 ["bash", str(ROOT / "tests/entrypoint_harness.sh")],
-                text=True, capture_output=True, env=env, check=True,
+                text=True,
+                capture_output=True,
+                env=env,
+                check=True,
             )
             return result.stdout
 
@@ -101,7 +127,8 @@ class TestEntrypointWorkspaceContract(unittest.TestCase):
     def test_mounted_gap_is_rejected_before_any_repair(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             trace = self._run(
-                mounted=(tmp,), paths={"WORKSPACE_PATH_2": tmp},
+                mounted=(tmp,),
+                paths={"WORKSPACE_PATH_2": tmp},
             )
         self.assertIn("exit_code 1", trace)
         self.assertNotIn("mountpoint -q", trace)
@@ -112,7 +139,8 @@ class TestEntrypointWorkspaceContract(unittest.TestCase):
     def test_malformed_suffix_is_rejected_before_any_repair(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             trace = self._run(
-                mounted=(tmp,), paths={"WORKSPACE_PATH_X": tmp},
+                mounted=(tmp,),
+                paths={"WORKSPACE_PATH_X": tmp},
             )
         self.assertIn("exit_code 1", trace)
         self.assertNotIn("mountpoint -q", trace)
@@ -135,7 +163,7 @@ class TestEntrypointWorkspaceContract(unittest.TestCase):
 
     def test_scans_are_symlink_safe_and_preserve_executable_intent(self) -> None:
         self.assertNotIn("find -L", ENTRYPOINT)
-        self.assertIn("find \"${1}\"", ENTRYPOINT)
+        self.assertIn('find "${1}"', ENTRYPOINT)
         self.assertIn("chmod ug+rwX", ENTRYPOINT)
 
 

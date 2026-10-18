@@ -80,7 +80,11 @@ def _lock() -> bytes:
             "lockfileVersion": 3,
             "requires": True,
             "packages": {
-                "": {"name": "root", "version": "1.0.0", "dependencies": {"a": "1.0.0"}},
+                "": {
+                    "name": "root",
+                    "version": "1.0.0",
+                    "dependencies": {"a": "1.0.0"},
+                },
                 "node_modules/a": _pkg("a", "1.0.0", dependencies={"b": "^1.0.0"}),
                 "node_modules/b": _pkg("b", "1.0.0"),
             },
@@ -222,7 +226,9 @@ class TestDistinctOutputsShareInputIdentity(_ConcurrencyTestCase):
             b"one",
         )
         self.assertEqual(
-            (second.environment_root / "node_modules" / "a" / "marker.txt").read_bytes(),
+            (
+                second.environment_root / "node_modules" / "a" / "marker.txt"
+            ).read_bytes(),
             b"two",
         )
         self.assertTrue(first.environment_root.exists())
@@ -276,11 +282,15 @@ class TestCorruptedAndSubstitutedCandidates(_ConcurrencyTestCase):
         target.write_text("tampered")
         self.assertIsNone(
             verify_output(
-                self.namespace, first.output_identity, input_identity=first.input_identity
+                self.namespace,
+                first.output_identity,
+                input_identity=first.input_identity,
             )
         )
         self.assertIsNone(
-            find_cached_result(namespace=self.namespace, input_identity=first.input_identity)
+            find_cached_result(
+                namespace=self.namespace, input_identity=first.input_identity
+            )
         )
 
     def test_substituted_evidence_is_not_reused(self):
@@ -288,13 +298,17 @@ class TestCorruptedAndSubstitutedCandidates(_ConcurrencyTestCase):
         second = self._publish(b"two")
         # Swap second's evidence over first's output: the envelope no longer
         # matches the stored tree/manifest and must be rejected.
-        second_evidence = (self.namespace.outputs / second.output_identity / "evidence.json").read_bytes()
+        second_evidence = (
+            self.namespace.outputs / second.output_identity / "evidence.json"
+        ).read_bytes()
         target = self.namespace.outputs / first.output_identity / "evidence.json"
         _make_writable(target)
         target.write_bytes(second_evidence)
         self.assertIsNone(
             verify_output(
-                self.namespace, first.output_identity, input_identity=first.input_identity
+                self.namespace,
+                first.output_identity,
+                input_identity=first.input_identity,
             )
         )
 
@@ -302,13 +316,17 @@ class TestCorruptedAndSubstitutedCandidates(_ConcurrencyTestCase):
         first = self._assemble(b"one")
         second = self._publish(b"two")
         # Swap the manifest: its digest no longer matches the stored tree.
-        second_manifest = (self.namespace.outputs / second.output_identity / "manifest.json").read_bytes()
+        second_manifest = (
+            self.namespace.outputs / second.output_identity / "manifest.json"
+        ).read_bytes()
         target = self.namespace.outputs / first.output_identity / "manifest.json"
         _make_writable(target)
         target.write_bytes(second_manifest)
         self.assertIsNone(
             verify_output(
-                self.namespace, first.output_identity, input_identity=first.input_identity
+                self.namespace,
+                first.output_identity,
+                input_identity=first.input_identity,
             )
         )
 
@@ -466,10 +484,7 @@ class TestCorruptOutputRecovery(_ConcurrencyTestCase):
         )
         self.assertEqual(
             (
-                recovered.environment_root
-                / "node_modules"
-                / "a"
-                / "marker.txt"
+                recovered.environment_root / "node_modules" / "a" / "marker.txt"
             ).read_bytes(),
             b"one",
         )
@@ -491,14 +506,14 @@ class TestIndexHealing(_ConcurrencyTestCase):
     """The verified-collision path heals a missing or corrupt index."""
 
     def _remove_index(self, input_identity_digest: str) -> None:
-        publication.index_path(
-            self.namespace, input_identity_digest
-        ).unlink(missing_ok=True)
+        publication.index_path(self.namespace, input_identity_digest).unlink(
+            missing_ok=True
+        )
 
     def _corrupt_index(self, input_identity_digest: str) -> None:
-        publication.index_path(
-            self.namespace, input_identity_digest
-        ).write_text("not json")
+        publication.index_path(self.namespace, input_identity_digest).write_text(
+            "not json"
+        )
 
     def _assert_healed_and_cache_hit(self, first) -> None:
         indexed = read_index(self.namespace, first.input_identity.digest)
@@ -547,9 +562,7 @@ class TestCoordinationLock(unittest.TestCase):
             wraps=publication.LockCapability.acquire,
         ) as acquire:
             with identity_coordination_lock(namespace, "b" * 64):
-                self.assertTrue(
-                    (namespace.locks / ("b" * 64 + ".lock")).is_file()
-                )
+                self.assertTrue((namespace.locks / ("b" * 64 + ".lock")).is_file())
         self.assertEqual(acquire.call_count, 1)
         self.assertIs(acquire.call_args.kwargs["policy"], publication.LockPolicy.BLOCK)
         self.assertEqual(acquire.call_args.kwargs["namespace"], "b" * 64)

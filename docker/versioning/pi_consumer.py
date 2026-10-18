@@ -9,6 +9,7 @@ filesystem with no-follow-aware containment checks, and derives a deterministic
 launcher plus consumer evidence for its exact contents, non-writable executable
 mode, target, and containment.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -25,13 +26,15 @@ LAUNCHER_PATH = "/opt/pi/bin/pi"
 LAUNCHER_MODE = 0o555
 
 # The authoritative launcher-evidence schema: exactly these five fields.
-_LAUNCHER_EVIDENCE_KEYS = frozenset({
-    "launcher_path",
-    "contents_sha256",
-    "mode",
-    "target",
-    "containment",
-})
+_LAUNCHER_EVIDENCE_KEYS = frozenset(
+    {
+        "launcher_path",
+        "contents_sha256",
+        "mode",
+        "target",
+        "containment",
+    }
+)
 
 _SHA256_HEX = re.compile(r"[0-9a-f]{64}\Z")
 
@@ -56,9 +59,7 @@ def _validate_relative_target(target: object) -> str:
         )
     parts = PurePosixPath(target).parts
     if not parts or ".." in parts:
-        raise PiConsumerError(
-            f"launcher evidence target {target!r} escapes its base"
-        )
+        raise PiConsumerError(f"launcher evidence target {target!r} escapes its base")
     return target
 
 
@@ -76,15 +77,17 @@ def _launcher_script(relative_target: str) -> bytes:
         '  case "$link" in\n'
         '    /*) self="$link" ;;\n'
         '    *) self="$dir/$link" ;;\n'
-        '  esac\n'
-        'done\n'
+        "  esac\n"
+        "done\n"
         'base=$(CDPATH= cd -- "$(dirname -- "$self")" && pwd -P)\n'
         f'exec node "$base/{launcher_target}" "$@"\n'
     ).encode("utf-8")
 
 
 def select_pi_metadata(
-    validated: ValidatedAssemblyInput, *, package: str,
+    validated: ValidatedAssemblyInput,
+    *,
+    package: str,
 ) -> ReviewedRootMetadata:
     """Return the exact reviewed-root metadata for *package*.
 
@@ -93,9 +96,7 @@ def select_pi_metadata(
     """
     matches = [m for m in validated.root_metadata if m.package_name == package]
     if not matches:
-        raise PiConsumerError(
-            f"reviewed root {package!r} has no preserved metadata"
-        )
+        raise PiConsumerError(f"reviewed root {package!r} has no preserved metadata")
     if len(matches) > 1:
         raise PiConsumerError(
             f"reviewed root {package!r} resolves to multiple lock paths: "
@@ -105,7 +106,9 @@ def select_pi_metadata(
 
 
 def resolve_contained_target(
-    environment_root: str | Path, lock_path: str, bin_target: str,
+    environment_root: str | Path,
+    lock_path: str,
+    bin_target: str,
 ) -> Path:
     """Resolve ``environment_root / lock_path / bin_target`` through symlinks.
 
@@ -141,7 +144,9 @@ class LauncherPlan:
 
 
 def plan_launcher(
-    metadata: ReviewedRootMetadata, *, environment_root: str | Path,
+    metadata: ReviewedRootMetadata,
+    *,
+    environment_root: str | Path,
 ) -> LauncherPlan:
     """Derive launcher contents and resolved target from one reviewed root.
 
@@ -154,7 +159,9 @@ def plan_launcher(
         raise PiConsumerError("selected Pi root declares no 'pi' bin entry")
     bin_target = bin_map["pi"]
     resolved = resolve_contained_target(
-        environment_root, metadata.lock_path, bin_target,
+        environment_root,
+        metadata.lock_path,
+        bin_target,
     )
     root = Path(os.path.realpath(os.fspath(environment_root)))
     relative = resolved.relative_to(root).as_posix()

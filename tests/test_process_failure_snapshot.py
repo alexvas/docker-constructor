@@ -1,4 +1,5 @@
 """Phase 6BC: failed collection retains supported bounded observations."""
+
 from dataclasses import FrozenInstanceError
 import io
 from unittest import mock
@@ -46,12 +47,17 @@ class Child:
 def test_release_failure_returns_value_or_propagates_control_flow(method, kind):
     error = kind("release")
     child = Child(error)
-    owner = OwnedProcess.launch(["child"], factory=lambda *a, **k: child,
-                                capture_limit=6, grace_seconds=.1)
+    owner = OwnedProcess.launch(
+        ["child"], factory=lambda *a, **k: child, capture_limit=6, grace_seconds=0.1
+    )
     calls = []
 
     def collect():
-        return owner.stream(lambda name, chunk: calls.append((name, chunk))) if method == "stream" else owner.capture()
+        return (
+            owner.stream(lambda name, chunk: calls.append((name, chunk)))
+            if method == "stream"
+            else owner.capture()
+        )
 
     if kind is KeyboardInterrupt:
         with pytest.raises(KeyboardInterrupt) as caught:
@@ -61,7 +67,11 @@ def test_release_failure_returns_value_or_propagates_control_flow(method, kind):
     else:
         result = collect()
         assert isinstance(result, ProcessResult)
-        assert (result.stdout, result.stderr, result.returncode) == (b"stdout", b"stderr", 7)
+        assert (result.stdout, result.stderr, result.returncode) == (
+            b"stdout",
+            b"stderr",
+            7,
+        )
         assert not result.timed_out
         with pytest.raises(FrozenInstanceError):
             result.stdout = b"changed"
@@ -71,7 +81,7 @@ def test_release_failure_returns_value_or_propagates_control_flow(method, kind):
     assert not hasattr(error, "process_result")
     assert child.stdout.attempts == child.stderr.attempts == 1
     before = tuple(calls)
-    assert owner.wait_cleanup(.1).complete
+    assert owner.wait_cleanup(0.1).complete
     owner.shutdown()
     assert not hasattr(error, "process_result")
     with pytest.raises(RuntimeError):
@@ -87,15 +97,17 @@ def test_prepared_factory_failure_returns_owner_without_exception_snapshot():
     assert result.lifecycle.failures[0].error is error
     assert result.lifecycle.failures[0].phase.name == "SETUP"
     assert result.returncode is None and result.stdout == result.stderr == b""
-    assert owner.wait_cleanup(.1).complete
+    assert owner.wait_cleanup(0.1).complete
     assert not hasattr(error, "process_result")
 
 
 def test_captured_adapter_returns_owner_and_preserves_failure_output():
     error = OSError("release")
     child = Child(error)
-    with mock.patch("docker.npm_environment.lifecycle.subprocess.Popen", return_value=child):
-        owner, outcome = run_captured(["child"], policy=LifecyclePolicy(.1))
+    with mock.patch(
+        "docker.npm_environment.lifecycle.subprocess.Popen", return_value=child
+    ):
+        owner, outcome = run_captured(["child"], policy=LifecyclePolicy(0.1))
     assert isinstance(owner, OwnedProcess)
     assert outcome.return_code == 7
     assert (outcome.stdout, outcome.stderr) == ("retained stdout", "retained stderr")
@@ -113,13 +125,15 @@ def test_captured_adapter_rejects_missing_streams_and_releases_sibling(missing):
     if missing in ("stderr", "both"):
         child.stderr = None
     try:
-        with mock.patch("docker.npm_environment.lifecycle.subprocess.Popen", return_value=child):
-            owner, outcome = run_captured(["child"], policy=LifecyclePolicy(.1))
+        with mock.patch(
+            "docker.npm_environment.lifecycle.subprocess.Popen", return_value=child
+        ):
+            owner, outcome = run_captured(["child"], policy=LifecyclePolicy(0.1))
         assert outcome.errors
         assert any("missing captured stream" in str(error) for error in outcome.errors)
         # Prepared-owner rejection returns the same owner, never Popen.
         assert isinstance(owner, OwnedProcess)
-        assert owner.wait_cleanup(.1).complete
+        assert owner.wait_cleanup(0.1).complete
         for name, pipe in zip(("stdout", "stderr"), pipes):
             if getattr(child, name) is not None:
                 assert pipe.attempts == 1

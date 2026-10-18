@@ -11,6 +11,7 @@ Task 6.3: ``write_effective_inventory`` is a user-directed atomic output.  It
 keeps its sibling-temporary-file plus ``os.replace`` mechanics and is not
 migrated to the shared L2 durable contract.
 """
+
 from __future__ import annotations
 
 import errno
@@ -219,13 +220,9 @@ class _ProjectionCase(unittest.TestCase):
         self.cache = self.base / "cache"
         self.cache.mkdir(mode=0o700)
         self.state = resolve_project_state(self.root, cache_root=self.cache)
-        self.projection = resolve_build_projection(
-            load_inventory(_INVENTORY).build, {}
-        )
+        self.projection = resolve_build_projection(load_inventory(_INVENTORY).build, {})
         self.ops = InjectedOps()
-        patcher = mock.patch.object(
-            rendering_module, "PosixFileOps", lambda: self.ops
-        )
+        patcher = mock.patch.object(rendering_module, "PosixFileOps", lambda: self.ops)
         patcher.start()
         self.addCleanup(patcher.stop)
 
@@ -272,8 +269,19 @@ class EffectiveProjectionMigrationTests(_ProjectionCase):
         self.assertEqual(result, self.dest)
         self.assertNotEqual(self.dest.read_bytes(), b"prior")
         parsed = tomllib.loads(self.dest.read_text(encoding="utf-8"))
-        for section in ("platform", "node", "rust", "uv", "python", "ty",
-                        "rtk", "fd", "pi", "openspec", "oh-my-zsh"):
+        for section in (
+            "platform",
+            "node",
+            "rust",
+            "uv",
+            "python",
+            "ty",
+            "rtk",
+            "fd",
+            "pi",
+            "openspec",
+            "oh-my-zsh",
+        ):
             self.assertIn(section, parsed)
         self.assertEqual(stat.S_IMODE(self.dest.stat().st_mode), 0o600)
         self.assertEqual(self._leftovers(), [])
@@ -480,9 +488,7 @@ class EffectiveProjectionMigrationTests(_ProjectionCase):
             )
         # The interruption is neither attached as secondary nor converted.
         self.assertIs(ctx.exception, self.ops.close_error)
-        self.assertEqual(
-            list(getattr(ctx.exception, "_transaction_secondary", [])), []
-        )
+        self.assertEqual(list(getattr(ctx.exception, "_transaction_secondary", [])), [])
         parsed = tomllib.loads(self.dest.read_text(encoding="utf-8"))
         self.assertEqual(parsed["platform"], self.projection.platform)
 
@@ -525,9 +531,7 @@ class EffectiveProjectionMigrationTests(_ProjectionCase):
         # is only a secondary diagnostic.
         self.assertIn("expected 0o600", str(primary))
         secondary = list(getattr(primary, "_transaction_secondary", []))
-        self.assertEqual(
-            sum(1 for exc in secondary if exc is close_error), 1
-        )
+        self.assertEqual(sum(1 for exc in secondary if exc is close_error), 1)
         self.assertIsNot(primary, close_error)
         # The destination is neither repaired nor replaced.
         self.assertEqual(self.dest.read_bytes(), b"prior")
@@ -578,10 +582,11 @@ class EffectiveProjectionMigrationTests(_ProjectionCase):
                 raise namespace_close_error
             return real_close(fd)
 
-        with mock.patch.object(
-            project_state_module, "ValidatedProjectState", _RecordingValidated
-        ), mock.patch.object(
-            project_state_module.os, "close", side_effect=closing
+        with (
+            mock.patch.object(
+                project_state_module, "ValidatedProjectState", _RecordingValidated
+            ),
+            mock.patch.object(project_state_module.os, "close", side_effect=closing),
         ):
             with self.assertRaises(EffectiveInventoryOutputError) as ctx:
                 write_effective_build(
@@ -594,9 +599,7 @@ class EffectiveProjectionMigrationTests(_ProjectionCase):
         self.assertIsInstance(typed, TransactionError)
         self.assertIs(typed.cause, publication_error)
         secondary = list(getattr(primary, "_transaction_secondary", []))
-        self.assertEqual(
-            sum(1 for exc in secondary if exc is namespace_close_error), 1
-        )
+        self.assertEqual(sum(1 for exc in secondary if exc is namespace_close_error), 1)
         self.assertIsNot(primary, namespace_close_error)
         self.assertEqual(recorded.get("attempts"), 1)
         self.assertEqual(self.dest.read_bytes(), b"prior")
@@ -659,9 +662,7 @@ class GeneratedAdoptionOwnershipTests(_ProjectionCase):
     def test_secondary_diagnostics_survive_typed_wrapping(self) -> None:
         cause = OSError(errno.EIO, "injected generated fstat")
         secondary = OSError(errno.EIO, "injected close diagnostic")
-        wrapper = TransactionError(
-            STAGE_VALIDATE, "cannot stat directory", cause=cause
-        )
+        wrapper = TransactionError(STAGE_VALIDATE, "cannot stat directory", cause=cause)
         wrapper.add_secondary(secondary)
         with mock.patch.object(
             rendering_module.DirectoryCapability, "from_fd", side_effect=wrapper
@@ -774,9 +775,11 @@ class UserDirectedInventoryOutputBoundaryTests(unittest.TestCase):
         def forbidden(*args, **kwargs):  # pragma: no cover - must never run
             raise AssertionError("user output must not use the shared L2 contracts")
 
-        with mock.patch.object(RegularFileContracts, "durable_replace", forbidden), \
-                mock.patch.object(RegularFileContracts, "atomic_no_clobber", forbidden), \
-                mock.patch.object(RegularFileContracts, "durable_no_clobber", forbidden):
+        with (
+            mock.patch.object(RegularFileContracts, "durable_replace", forbidden),
+            mock.patch.object(RegularFileContracts, "atomic_no_clobber", forbidden),
+            mock.patch.object(RegularFileContracts, "durable_no_clobber", forbidden),
+        ):
             write_effective_inventory(self.effective, self.destination)
         self.assertTrue(self.destination.is_file())
 

@@ -11,6 +11,7 @@ release) is the RED part.  The capability-based ``_validate_existing_blob`` /
 ``_validate_existing_marker`` helpers already delegate to shared capabilities
 and stay passing.
 """
+
 from __future__ import annotations
 
 import base64
@@ -72,9 +73,7 @@ class _BuildCacheCase(unittest.TestCase):
 
     def _publish(self, payload: bytes = b"blob") -> DigestIdentity:
         raw = hashlib.sha512(payload).digest()
-        identity = DigestIdentity.from_sri(
-            "sha512-" + base64.b64encode(raw).decode()
-        )
+        identity = DigestIdentity.from_sri("sha512-" + base64.b64encode(raw).decode())
         build_cache.publish_verified_blob(
             identity,
             payload,
@@ -183,9 +182,7 @@ class NamespaceStateOwnershipTests(_BuildCacheCase):
 class PublicationOwnershipTests(_BuildCacheCase):
     def test_publish_verified_blob_releases_all_owners(self) -> None:
         raw = hashlib.sha512(b"payload").digest()
-        identity = DigestIdentity.from_sri(
-            "sha512-" + base64.b64encode(raw).decode()
-        )
+        identity = DigestIdentity.from_sri("sha512-" + base64.b64encode(raw).decode())
         with recording(build_cache) as rec:
             path = build_cache.publish_verified_blob(
                 identity,
@@ -261,9 +258,7 @@ class PublicationOwnershipTests(_BuildCacheCase):
         tree = self.paths.generated_root / "snapshot"
         (tree / "sub").mkdir(parents=True)
         (tree / "sub" / "file").write_bytes(b"x")
-        parent_fd = os.open(
-            self.paths.generated_root, os.O_RDONLY | os.O_DIRECTORY
-        )
+        parent_fd = os.open(self.paths.generated_root, os.O_RDONLY | os.O_DIRECTORY)
         try:
             with recording(build_cache) as rec:
                 build_cache._remove_snapshot_tree(parent_fd, "snapshot", depth=64)
@@ -275,9 +270,7 @@ class PublicationOwnershipTests(_BuildCacheCase):
 
     def test_storage_handle_open_failure_releases_owner(self) -> None:
         ops = PosixFileOps()
-        parent_fd = os.open(
-            self.paths.persistent_root, os.O_RDONLY | os.O_DIRECTORY
-        )
+        parent_fd = os.open(self.paths.persistent_root, os.O_RDONLY | os.O_DIRECTORY)
 
         class _FakeGenerations:
             fd = parent_fd
@@ -314,6 +307,7 @@ class PublicationOwnershipTests(_BuildCacheCase):
         rec.assert_terminal_and_at_most_once(self)
         self.assertTrue(_has_label(rec, "build lock parent"))
 
+
 class PublicationStreamCleanupTests(_BuildCacheCase):
     """A write/flush failure must survive a simultaneous wrapper-close failure."""
 
@@ -325,6 +319,7 @@ class PublicationStreamCleanupTests(_BuildCacheCase):
     def _fault_temporary_close(fault):
         def selector(fd, owner):
             return fault if owner.label.startswith("publication temporary ") else None
+
         return selector
 
     def _publish(self, identity: DigestIdentity) -> Path:
@@ -337,7 +332,8 @@ class PublicationStreamCleanupTests(_BuildCacheCase):
 
     def _assert_one_temporary_release(self, rec) -> None:
         temp_owners = [
-            owner for owner in rec.owners
+            owner
+            for owner in rec.owners
             if owner.label.startswith("publication temporary ")
         ]
         self.assertEqual(len(temp_owners), 1)
@@ -463,9 +459,7 @@ class PublicationInitializationFailureTests(_BuildCacheCase):
         identity = self._identity()
         interruption = KeyboardInterrupt("injected urandom interruption")
         with recording(build_cache) as rec:
-            with mock.patch.object(
-                build_cache.os, "urandom", side_effect=interruption
-            ):
+            with mock.patch.object(build_cache.os, "urandom", side_effect=interruption):
                 with self.assertRaises(KeyboardInterrupt) as caught:
                     self._publish(identity)
         self.assertIs(caught.exception, interruption)
@@ -495,8 +489,7 @@ class PublicationInitializationFailureTests(_BuildCacheCase):
         self.assertIs(caught.exception, primary_fault)
         self.assertIn(close_fault, secondary_diagnostics(primary_fault))
         namespace_owners = [
-            owner for owner in rec.owners
-            if owner.label == "publication namespace"
+            owner for owner in rec.owners if owner.label == "publication namespace"
         ]
         self.assertEqual(len(namespace_owners), 1)
         namespace_closes = [

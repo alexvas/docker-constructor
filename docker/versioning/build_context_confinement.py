@@ -22,6 +22,7 @@ This module owns that enforcement.  It:
 The generated files live only in private constructor transaction state and are
 never written into the selected project.
 """
+
 from __future__ import annotations
 
 import os
@@ -280,7 +281,11 @@ def materialize_build_context_confinement(
     try:
         os.chmod(directory, 0o700)
         requested = confinement.dockerfile_requested
-        name = requested.name if requested is not None else confinement.dockerfile_source.name
+        name = (
+            requested.name
+            if requested is not None
+            else confinement.dockerfile_source.name
+        )
         dockerfile = directory / name
         _write_private(dockerfile, confinement.dockerfile_source.read_bytes())
         ignorefile = directory / (dockerfile.name + ".dockerignore")

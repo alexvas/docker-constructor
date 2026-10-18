@@ -7,6 +7,7 @@ lambda).  Precedence, aggregation, and at-most-once behavior were already
 correct, but there was no shared terminal owner, so the migration contract
 (terminal-before-close + tracked transfer + at-most-once) is the RED part.
 """
+
 from __future__ import annotations
 
 import os
@@ -48,8 +49,12 @@ class UnlinkEntryOwnershipTests(unittest.TestCase):
         with recording(build_cleanup_module) as rec:
             self.assertTrue(
                 _unlink_entry(
-                    self.ops, self.leafs, "candidate.blob", failures,
-                    target="candidate.blob", allowed_mode=0o444,
+                    self.ops,
+                    self.leafs,
+                    "candidate.blob",
+                    failures,
+                    target="candidate.blob",
+                    allowed_mode=0o444,
                 )
             )
         rec.assert_terminal_and_at_most_once(self)
@@ -65,8 +70,12 @@ class UnlinkEntryOwnershipTests(unittest.TestCase):
             with recording(build_cleanup_module) as rec:
                 with self.assertRaises(KeyboardInterrupt) as caught:
                     _unlink_entry(
-                        self.ops, self.leafs, "candidate.blob", failures,
-                        target="candidate.blob", allowed_mode=0o444,
+                        self.ops,
+                        self.leafs,
+                        "candidate.blob",
+                        failures,
+                        target="candidate.blob",
+                        allowed_mode=0o444,
                     )
             self.assertIs(caught.exception, interruption)
             rec.assert_terminal_and_at_most_once(self)
@@ -92,7 +101,8 @@ class OpenAlgorithmDirectoryOwnershipTests(unittest.TestCase):
     def test_success_transfers_live_descriptor_to_the_capability(self) -> None:
         with recording(build_cleanup_module) as rec:
             capability, failure = _open_algorithm_directory(
-                self.ops, self.blobs, "sha256")
+                self.ops, self.blobs, "sha256"
+            )
         self.assertIsNone(failure)
         self.assertIsNotNone(capability)
         self.assertEqual(len(rec.owners), 1)
@@ -107,7 +117,8 @@ class OpenAlgorithmDirectoryOwnershipTests(unittest.TestCase):
                 side_effect=CapabilityError("adoption rejected"),
             ):
                 capability, failure = _open_algorithm_directory(
-                    self.ops, self.blobs, "sha256")
+                    self.ops, self.blobs, "sha256"
+                )
         self.assertIsNone(capability)
         self.assertIsNotNone(failure)
         rec.assert_terminal_and_at_most_once(self)
@@ -115,7 +126,8 @@ class OpenAlgorithmDirectoryOwnershipTests(unittest.TestCase):
     def test_missing_algorithm_constructs_no_owner(self) -> None:
         with recording(build_cleanup_module) as rec:
             capability, failure = _open_algorithm_directory(
-                self.ops, self.blobs, "absent")
+                self.ops, self.blobs, "absent"
+            )
         self.assertIsNone(capability)
         self.assertIsNone(failure)
         self.assertEqual(rec.owners, [])

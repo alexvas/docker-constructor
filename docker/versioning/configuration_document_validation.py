@@ -1,4 +1,5 @@
 """Shared, safe parsing boundary for fixed constructor TOML documents."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -70,7 +71,9 @@ class ConfigurationDocumentError(InventoryError):
         self.field = field
         self.line = line if isinstance(line, int) else None
         self.column = column if isinstance(column, int) else None
-        role_label = "local companion" if self.role is DocumentRole.LOCAL else "reviewed"
+        role_label = (
+            "local companion" if self.role is DocumentRole.LOCAL else "reviewed"
+        )
         displayed_classification = _CLASSIFICATION_LABELS[normalized]
         detail = (
             f"{role_label} configuration {self.path}: "
@@ -103,7 +106,9 @@ class ParsedConfigurationDocument:
     data: Mapping[str, object]
 
 
-def parse_configuration_document(identity: DocumentIdentity) -> ParsedConfigurationDocument:
+def parse_configuration_document(
+    identity: DocumentIdentity,
+) -> ParsedConfigurationDocument:
     """Read and parse one document once, safely projecting syntax errors.
 
     Parsing happens in :func:`_parse_toml`, whose frame returns before this
@@ -136,7 +141,9 @@ def _parse_toml(
         raw = tomllib.loads(source)
     except (UnicodeDecodeError, tomllib.TOMLDecodeError) as exc:
         return None, getattr(exc, "lineno", None), getattr(exc, "colno", None)
-    if not isinstance(raw, dict):  # tomllib currently returns dict; keep boundary closed.
+    if not isinstance(
+        raw, dict
+    ):  # tomllib currently returns dict; keep boundary closed.
         return None, None, None
     return raw, None, None
 

@@ -146,12 +146,8 @@ def _capture(parts, *, mode, secrets=(), sink=None, tail_bytes=TAIL_BYTES):
         stderr_read=_Reader(b""),
         secrets=secrets,
         sink=sink,
-        stream_factory=make_stream_factory(
-            secrets, network_url_display=mode
-        ),
-        tail_projector=functools.partial(
-            project_tail, network_url_display=mode
-        ),
+        stream_factory=make_stream_factory(secrets, network_url_display=mode),
+        tail_projector=functools.partial(project_tail, network_url_display=mode),
         network_url_display=mode,
     )
 
@@ -196,18 +192,12 @@ class _FailAfterServe:
 
 def _stream_kwargs(mode, *, secrets=()):
     return {
-        "stream_factory": make_stream_factory(
-            secrets, network_url_display=mode
-        ),
-        "tail_projector": functools.partial(
-            project_tail, network_url_display=mode
-        ),
+        "stream_factory": make_stream_factory(secrets, network_url_display=mode),
+        "tail_projector": functools.partial(project_tail, network_url_display=mode),
     }
 
 
-def _reader_failure_error(
-    mode, *, parts=(RESEARCH_BYTES,), secrets=(), sink=None
-):
+def _reader_failure_error(mode, *, parts=(RESEARCH_BYTES,), secrets=(), sink=None):
     """Run the real collector to a reader failure and return its exception.
 
     Exercises the production failure path after diagnostics have been
@@ -341,9 +331,7 @@ class TestSelectedRetainedTail(unittest.TestCase):
     """Tasks 6.1--6.3: one mode-selected representation is retained."""
 
     def _tail(self, mode, *, parts=(RESEARCH_BYTES,), secrets=()):
-        stream = NpmDiagnosticStream(
-            "stdout", secrets, network_url_display=mode
-        )
+        stream = NpmDiagnosticStream("stdout", secrets, network_url_display=mode)
         for part in parts:
             stream.feed_bytes(part)
         stream.finish()
@@ -366,9 +354,7 @@ class TestSelectedRetainedTail(unittest.TestCase):
         tail = stream.tail()
         self.assertIn(HOST_PATH_TAIL.strip(), tail)
         # The unsafe (secret-bearing) path falls back to the fixed marker.
-        self.assertIn(
-            f"registry.npmjs.org{REDACTED_PATH_MARKER}", tail
-        )
+        self.assertIn(f"registry.npmjs.org{REDACTED_PATH_MARKER}", tail)
         # No duplicate redacted tail and no scheme/userinfo/port/query.
         self.assertNotIn("<redacted>", tail)
         self.assertNotIn("https://", tail)
@@ -385,7 +371,9 @@ class TestSelectedRetainedTail(unittest.TestCase):
         tail = stream.tail()
         # Source URLs, credentials, proxy detail, query, fragment, and caller
         # secrets are preserved exactly...
-        self.assertIn(f"https://user:pw@registry.npmjs.org/{SECRET}/pkg.tgz?q=1#frag", tail)
+        self.assertIn(
+            f"https://user:pw@registry.npmjs.org/{SECRET}/pkg.tgz?q=1#frag", tail
+        )
         self.assertIn("proxy=https://proxy.internal:8080/path", tail)
         # ...while terminal controls stay inert and no other tail is retained.
         self.assertNotIn("\x1b", tail)
@@ -456,9 +444,7 @@ class TestFailureContextChannels(unittest.TestCase):
                 truncation_notice=capture.truncation_notice,
             )
         context = _host_failure_context(error)
-        self.assertTrue(
-            context.timeout_retained_context if timeout else True
-        )
+        self.assertTrue(context.timeout_retained_context if timeout else True)
         report = format_failure_report(
             context.phase,
             context.step,
@@ -488,9 +474,7 @@ class TestFailureContextChannels(unittest.TestCase):
         for mode, expected in EXPECTED.items():
             with self.subTest(mode=mode):
                 received = []
-                capture = _capture(
-                    [RESEARCH_BYTES], mode=mode, sink=received.append
-                )
+                capture = _capture([RESEARCH_BYTES], mode=mode, sink=received.append)
                 self.assertTrue(received)
                 _context, report = self._report(mode, capture)
                 self.assertIn(expected.strip(), report)
@@ -569,10 +553,10 @@ class TestFailureContextChannels(unittest.TestCase):
     def test_aborted_finalization_retains_the_selected_representation(self):
         def _aborted(mode: NetworkUrlDisplay) -> str:
             abort = threading.Event()
-            stream = NpmDiagnosticStream(
-                "stdout", (SECRET,), network_url_display=mode
+            stream = NpmDiagnosticStream("stdout", (SECRET,), network_url_display=mode)
+            stream.feed_bytes(
+                b"npm status https://registry.npmjs.org/" + SECRET.encode()
             )
-            stream.feed_bytes(b"npm status https://registry.npmjs.org/" + SECRET.encode())
             abort.set()
             stream.finish(abort=True)
             return stream.tail()
@@ -596,9 +580,7 @@ class TestFailureContextChannels(unittest.TestCase):
                 capture = collect_streams(
                     stdout_read=_Reader(unterminated),
                     stderr_read=_Reader(b""),
-                    stream_factory=make_stream_factory(
-                        (), network_url_display=mode
-                    ),
+                    stream_factory=make_stream_factory((), network_url_display=mode),
                     tail_projector=functools.partial(
                         project_tail, network_url_display=mode
                     ),
@@ -637,9 +619,7 @@ class TestFailureContextChannels(unittest.TestCase):
                 )
                 request = CommandRequest(
                     command="build",
-                    constructor_project=ConstructorProject(
-                        Path.cwd().resolve()
-                    ),
+                    constructor_project=ConstructorProject(Path.cwd().resolve()),
                     output="json",
                     verbose=False,
                     color="never",
@@ -697,9 +677,7 @@ class TestFailureChannelMatrix(unittest.TestCase):
                 )
                 context, report = _text_failure(self, error, mode)
                 self.assertEqual(expected.strip(), context.tail)
-                self.assertLessEqual(
-                    len(context.tail.encode("utf-8")), TAIL_BYTES
-                )
+                self.assertLessEqual(len(context.tail.encode("utf-8")), TAIL_BYTES)
                 self.assertNotIn("\x1b", context.tail)
                 self._assert_section(report, expected.strip(), present=True)
                 json_context, payload = _render_json_failure(self, error)
@@ -718,9 +696,7 @@ class TestFailureChannelMatrix(unittest.TestCase):
                 self.assertEqual("", context.tail)
                 self._assert_section(report, "", present=False)
                 _context, payload = _render_json_failure(self, error)
-                self.assertEqual(
-                    "", payload["data"]["host_failure"]["tail"]
-                )
+                self.assertEqual("", payload["data"]["host_failure"]["tail"])
 
     def test_truncated_tail_is_bounded_in_text_and_json(self):
         oversized = (
@@ -734,16 +710,10 @@ class TestFailureChannelMatrix(unittest.TestCase):
                 self.assertLessEqual(
                     len(capture.stdout_tail.encode("utf-8")), TAIL_BYTES
                 )
-                error = _exit_failure(
-                    1, stderr="", stdout=capture.stdout_tail
-                )
+                error = _exit_failure(1, stderr="", stdout=capture.stdout_tail)
                 context, report = _text_failure(self, error, mode)
-                self.assertLessEqual(
-                    len(context.tail.encode("utf-8")), TAIL_BYTES
-                )
-                self._assert_section(
-                    report, context.tail, present=bool(context.tail)
-                )
+                self.assertLessEqual(len(context.tail.encode("utf-8")), TAIL_BYTES)
+                self._assert_section(report, context.tail, present=bool(context.tail))
                 self.assertNotIn("\x1b", context.tail)
                 _context, payload = _render_json_failure(self, error)
                 json_tail = payload["data"]["host_failure"]["tail"]
@@ -770,9 +740,7 @@ class TestFailureChannelMatrix(unittest.TestCase):
                     payload["data"]["host_failure"]["tail"],
                 )
                 self.assertTrue(
-                    payload["data"]["host_failure"][
-                        "timeout_retained_context"
-                    ]
+                    payload["data"]["host_failure"]["timeout_retained_context"]
                 )
 
     def test_reader_failure_carries_its_selected_tail(self):
@@ -963,13 +931,20 @@ class TestConcurrentTimeoutReaderFailure(unittest.TestCase):
                 proc.stdout.read = read
                 proc.terminate = terminate
                 try:
-                    with mock.patch.object(OwnedProcess, "_start_supervisor", supervise), \
-                         mock.patch.object(execution_module.subprocess, "Popen", return_value=proc):
+                    with (
+                        mock.patch.object(OwnedProcess, "_start_supervisor", supervise),
+                        mock.patch.object(
+                            execution_module.subprocess, "Popen", return_value=proc
+                        ),
+                    ):
                         with self.assertRaises(AssemblyTimeoutError) as timed_out:
                             DockerRunExecutor().run_streaming(
                                 ("docker", "run", "--rm", "alpine", "true"),
-                                deadline_seconds=.2, grace_seconds=.5,
-                                network_url_display=mode, **_stream_kwargs(mode))
+                                deadline_seconds=0.2,
+                                grace_seconds=0.5,
+                                network_url_display=mode,
+                                **_stream_kwargs(mode),
+                            )
                     timeout = timed_out.exception
                     self.assertEqual("assembly_timeout", timeout.reason)
                     self.assertEqual(expected.strip(), timeout.diagnostic_tail)
@@ -1047,8 +1022,7 @@ class TestPresentationOnlyInvariance(unittest.TestCase):
         """
         token = str(cache_root)
         return [
-            tuple(part.replace(token, "<CACHE>") for part in call)
-            for call in calls
+            tuple(part.replace(token, "<CACHE>") for part in call) for call in calls
         ]
 
     def test_three_modes_have_identical_semantics(self):
@@ -1068,9 +1042,7 @@ class TestPresentationOnlyInvariance(unittest.TestCase):
                     reference[0].input_identity.digest,
                     result.input_identity.digest,
                 )
-                self.assertEqual(
-                    reference[0].output_identity, result.output_identity
-                )
+                self.assertEqual(reference[0].output_identity, result.output_identity)
                 self.assertEqual(reference[0].tree_digest, result.tree_digest)
                 self.assertEqual(
                     reference[0].evidence_path.read_bytes(),
@@ -1079,9 +1051,7 @@ class TestPresentationOnlyInvariance(unittest.TestCase):
                 # npm/Docker argv is identical once the per-run host cache
                 # path (the only intended difference) is normalized out.
                 self.assertEqual(
-                    self._normalized_argv(
-                        reference[1].calls, roots[reference_mode]
-                    ),
+                    self._normalized_argv(reference[1].calls, roots[reference_mode]),
                     self._normalized_argv(executor.calls, roots[mode]),
                 )
                 # Lifecycle event production is identical.
@@ -1148,19 +1118,20 @@ class TestPresentationOnlyInvariance(unittest.TestCase):
                     first_result.input_identity.digest,
                     result.input_identity.digest,
                 )
-                self.assertEqual(
-                    first_result.output_identity, result.output_identity
-                )
+                self.assertEqual(first_result.output_identity, result.output_identity)
 
     def test_revealing_modes_do_not_change_selected_tail_semantics(self):
         # The three requests above are semantically identical; only the local
         # retained capture may differ, and each mode retains its own form.
         captures = {
-            mode: _capture([RESEARCH_BYTES], mode=mode)
-            for mode in NetworkUrlDisplay
+            mode: _capture([RESEARCH_BYTES], mode=mode) for mode in NetworkUrlDisplay
         }
-        self.assertEqual(REDACTED_TAIL, captures[NetworkUrlDisplay.REDACTED].stdout_tail)
-        self.assertEqual(HOST_PATH_TAIL, captures[NetworkUrlDisplay.HOST_PATH].stdout_tail)
+        self.assertEqual(
+            REDACTED_TAIL, captures[NetworkUrlDisplay.REDACTED].stdout_tail
+        )
+        self.assertEqual(
+            HOST_PATH_TAIL, captures[NetworkUrlDisplay.HOST_PATH].stdout_tail
+        )
         self.assertEqual(EXACT_TAIL, captures[NetworkUrlDisplay.EXACT].stdout_tail)
 
 
@@ -1190,8 +1161,11 @@ class TestSingleBufferOwnership(unittest.TestCase):
                     # this deque is pending source, not another retained tail.
                     self.assertEqual(
                         ["_buffer"],
-                        [name for name, value in vars(alternate).items()
-                         if isinstance(value, collections.deque)],
+                        [
+                            name
+                            for name, value in vars(alternate).items()
+                            if isinstance(value, collections.deque)
+                        ],
                     )
                 else:
                     self.assertIsNone(alternate)
@@ -1222,9 +1196,7 @@ class TestSingleBufferOwnership(unittest.TestCase):
             with self.subTest(mode=mode):
                 plain = _capture([RESEARCH_BYTES], mode=mode)
                 received = []
-                with_sink = _capture(
-                    [RESEARCH_BYTES], mode=mode, sink=received.append
-                )
+                with_sink = _capture([RESEARCH_BYTES], mode=mode, sink=received.append)
                 # The sink is transient: the retained tail is unchanged and
                 # still the single selected representation.
                 self.assertEqual(plain.stdout_tail, with_sink.stdout_tail)
@@ -1295,9 +1267,7 @@ class TestAssemblerRequestBinding(unittest.TestCase):
                         executor=executor,
                         network_url_display=mode,
                     )
-                self.assertEqual(
-                    expected.strip(), raised.exception.diagnostic_tail
-                )
+                self.assertEqual(expected.strip(), raised.exception.diagnostic_tail)
 
     def test_direct_request_rejects_an_invalid_selector_before_effects(self):
         tmp = tempfile.TemporaryDirectory(prefix="phase6-binding-")
@@ -1346,7 +1316,7 @@ class _InterruptionBoundaryBase(unittest.TestCase):
     def _write_local(self, mode, *, host_heartbeat: str = "off") -> None:
         (self.project / "docker-constructor.local.toml").write_text(
             f'[cache]\ndir = "{self.cache}"\n'
-            f"[output]\nhost_heartbeat = \"{host_heartbeat}\"\n"
+            f'[output]\nhost_heartbeat = "{host_heartbeat}"\n'
             f'network_url_display = "{mode.value}"\n'
         )
 
@@ -1357,8 +1327,14 @@ class _InterruptionBoundaryBase(unittest.TestCase):
         return interrupting
 
     def _run_main(
-        self, *, mode, output, host_heartbeat: str = "off",
-        session_factory=None, stdout_stream=None, stderr_stream=None,
+        self,
+        *,
+        mode,
+        output,
+        host_heartbeat: str = "off",
+        session_factory=None,
+        stdout_stream=None,
+        stderr_stream=None,
     ):
         from docker import constructor_cli
         from tests.build_test_support import (
@@ -1375,12 +1351,14 @@ class _InterruptionBoundaryBase(unittest.TestCase):
         def recording_make(policy, *, text_output, stderr_is_tty):
             if session_factory is not None:
                 handle = session_factory(
-                    policy, text_output=text_output,
+                    policy,
+                    text_output=text_output,
                     stderr_is_tty=stderr_is_tty,
                 )
             else:
                 handle = real_make(
-                    policy, text_output=text_output,
+                    policy,
+                    text_output=text_output,
                     stderr_is_tty=stderr_is_tty,
                 )
             created.append(handle)
@@ -1443,9 +1421,7 @@ class TestInterruptionEndToEnd(_InterruptionBoundaryBase):
 
         for mode, expected in EXPECTED.items():
             with self.subTest(mode=mode):
-                _out, err, _created = self._run_main(
-                    mode=mode, output="text"
-                )
+                _out, err, _created = self._run_main(mode=mode, output="text")
                 self.assertEqual(1, err.count(self.LABEL))
                 self.assertIn(expected.strip(), err)
                 self.assertEqual(1, err.count(expected.strip()))
@@ -1548,14 +1524,13 @@ class TestInterruptionEndToEnd(_InterruptionBoundaryBase):
                     with self.assertRaises(KeyboardInterrupt) as raised:
                         orchestrate_build(request)
                 exc = raised.exception
-                self.assertEqual(
-                    expected.strip(), getattr(exc, "diagnostic_tail", "")
-                )
+                self.assertEqual(expected.strip(), getattr(exc, "diagnostic_tail", ""))
                 context = describe_host_failure(exc)
                 self.assertEqual(expected.strip(), context.tail)
                 # Interruption cleanup still released the build lock.
                 with acquire_constructor_project_build_lock(
-                    self.project, cache_root=self.cache,
+                    self.project,
+                    cache_root=self.cache,
                 ):
                     pass
 
@@ -1648,7 +1623,8 @@ class TestInterruptionPresentationOwnership(_InterruptionBoundaryBase):
         )
 
         with acquire_constructor_project_build_lock(
-            self.project, cache_root=self.cache,
+            self.project,
+            cache_root=self.cache,
         ):
             pass
 
@@ -1700,9 +1676,7 @@ class TestInterruptionPresentationOwnership(_InterruptionBoundaryBase):
         )
         session = created[0]
         # The session admitted and attempted the report exactly once.
-        self.assertEqual(
-            1, len([c for c in renderer.durable_calls if self.LABEL in c])
-        )
+        self.assertEqual(1, len([c for c in renderer.durable_calls if self.LABEL in c]))
         self.assertTrue(
             getattr(
                 self.last_interruption,
@@ -1736,9 +1710,7 @@ class TestInterruptionPresentationOwnership(_InterruptionBoundaryBase):
         # Bounded by the existing presentation shutdown budget, never by the
         # renderer's unbounded block.
         self.assertLess(elapsed, WORKER_JOIN_SECONDS + 3.0)
-        self.assertEqual(
-            1, len([c for c in renderer.durable_calls if self.LABEL in c])
-        )
+        self.assertEqual(1, len([c for c in renderer.durable_calls if self.LABEL in c]))
         self.assertEqual("", out)
         self.assertEqual("", err)
         self._assert_build_lock_released()

@@ -62,6 +62,7 @@ projector that already computed it.  :func:`parse_npm_fetch_line` and
 Nothing here renders, schedules a timer, reads a mailbox, mutates state, or
 touches transport, Docker, or the filesystem.
 """
+
 from __future__ import annotations
 
 import re
@@ -168,7 +169,10 @@ class NpmFetchRecord:
     cache_outcome: str | None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.method, str) or _METHOD_RE.fullmatch(self.method) is None:
+        if (
+            not isinstance(self.method, str)
+            or _METHOD_RE.fullmatch(self.method) is None
+        ):
             raise ValueError("method must be an uppercase ASCII HTTP method token")
         if (
             not isinstance(self.status, int)
@@ -214,7 +218,10 @@ class SafeFetchRecord:
     host_path: SafeHostPath | None = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.method, str) or _METHOD_RE.fullmatch(self.method) is None:
+        if (
+            not isinstance(self.method, str)
+            or _METHOD_RE.fullmatch(self.method) is None
+        ):
             raise ValueError("method must be an uppercase ASCII HTTP method token")
         if (
             not isinstance(self.status, int)
@@ -304,7 +311,7 @@ def parse_npm_fetch_line(text: str) -> NpmFetchRecord | None:
     prefix = NPM_FETCH_PREFIX + " "
     if not text.startswith(prefix):
         return None
-    match = _LINE_RE.fullmatch(text[len(prefix):])
+    match = _LINE_RE.fullmatch(text[len(prefix) :])
     if match is None:
         return None
     status = int(match.group("status"))
@@ -660,9 +667,7 @@ class NpmFetchRecognizer:
             if not self._finish_host():
                 self._malformed = True
                 return
-            self._state = (
-                _ST_LATENCY if character == " " else _ST_URL_BODY
-            )
+            self._state = _ST_LATENCY if character == " " else _ST_URL_BODY
             return
         if ord(character) < 0x20 or ord(character) == 0x7F:
             self._malformed = True
@@ -676,15 +681,10 @@ class NpmFetchRecognizer:
             # so the recognizer can fail closed rather than diverge from the
             # complete-line parser.
             self._userinfo_percent_structural = (
-                self._userinfo_percent_structural
-                or self._segment_percent_structural
+                self._userinfo_percent_structural or self._segment_percent_structural
             )
-            self._userinfo_bracket = (
-                self._userinfo_bracket or self._segment_bracket
-            )
-            self._userinfo_unicode = (
-                self._userinfo_unicode or self._segment_unicode
-            )
+            self._userinfo_bracket = self._userinfo_bracket or self._segment_bracket
+            self._userinfo_unicode = self._userinfo_unicode or self._segment_unicode
             self._segment_percent_structural = False
             self._segment_bracket = False
             self._segment_unicode = False
@@ -745,9 +745,7 @@ class NpmFetchRecognizer:
         """
         if character in "[]":
             self._segment_bracket = True
-        elif not character.isascii() and _nfkc_introduces_delimiter(
-            character
-        ):
+        elif not character.isascii() and _nfkc_introduces_delimiter(character):
             self._segment_unicode = True
         escape = self._segment_escape
         if escape is None:

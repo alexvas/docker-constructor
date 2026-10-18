@@ -93,7 +93,9 @@ class _StorageTestCase(unittest.TestCase):
             os.chmod(root, mode)
         return root
 
-    def _prepare(self, cache_root: Path | None = None) -> storage_module.AssemblerNamespace:
+    def _prepare(
+        self, cache_root: Path | None = None
+    ) -> storage_module.AssemblerNamespace:
         return storage_module.prepare_assembler_namespace(
             cache_root or self._cache_root(), _ASSEMBLER_DIGEST
         )
@@ -125,9 +127,7 @@ class TestOwnerPrivateNamespace(_StorageTestCase):
         ns = self._prepare()
         for path in (ns.root, ns.npm_cache, ns.locks, ns.staging):
             self.assertTrue(path.is_dir(), f"{path} must be a directory")
-            self.assertEqual(
-                _mode(path), 0o700, f"{path} must be owner-only 0700"
-            )
+            self.assertEqual(_mode(path), 0o700, f"{path} must be owner-only 0700")
 
     def test_npm_cache_is_separate_and_disposable(self):
         ns = self._prepare()
@@ -202,9 +202,7 @@ class TestUnsafeStorageRejected(_StorageTestCase):
     def test_foreign_owned_cache_root_rejected(self):
         root = self._cache_root()
         foreign_uid = os.getuid() + 1
-        with mock.patch(
-            "os.fstat", side_effect=_foreign_uid_fstat(root, foreign_uid)
-        ):
+        with mock.patch("os.fstat", side_effect=_foreign_uid_fstat(root, foreign_uid)):
             with self.assertRaises(LockedNpmError) as ctx:
                 storage_module.prepare_assembler_namespace(root, _ASSEMBLER_DIGEST)
         self.assertEqual(ctx.exception.reason, "unsafe_cache_path")
@@ -278,9 +276,7 @@ class TestIdentityLocks(_StorageTestCase):
 
         ops.fstat_override = override
         with self.assertRaises(LockedNpmError) as ctx:
-            with identity_coordination_lock(
-                ns, _INPUT_IDENTITY_DIGEST, ops=ops
-            ):
+            with identity_coordination_lock(ns, _INPUT_IDENTITY_DIGEST, ops=ops):
                 pass
         self.assertEqual(ctx.exception.reason, "unsafe_lock_path")
         # The foreign-owned file must not be truncated or rewritten.
@@ -351,9 +347,7 @@ class _LedgerOps(InjectedOps):
     def fd_for(self, path: Path) -> int:
         """Return the descriptor recorded for the successful open of *path*."""
         norm = os.path.normpath(str(path))
-        matches = [
-            fd for fd, resolved in self.open_paths if resolved == norm
-        ]
+        matches = [fd for fd, resolved in self.open_paths if resolved == norm]
         if not matches:
             raise AssertionError(f"no descriptor opened for {path!r}")
         return matches[0]
@@ -401,9 +395,7 @@ class TestSecureWalkHandoff(_StorageTestCase):
         failure = OSError(errno.EIO, "injected parent close failure")
         ops.failures["close"] = lambda count: failure if count == 1 else None
         with self.assertRaises(OSError) as ctx:
-            storage_module.prepare_assembler_namespace(
-                root, _ASSEMBLER_DIGEST, ops=ops
-            )
+            storage_module.prepare_assembler_namespace(root, _ASSEMBLER_DIGEST, ops=ops)
         # The handoff close failure keeps its raw identity rather than being
         # retried or demoted to a diagnostic.
         self.assertIs(ctx.exception, failure)
@@ -413,9 +405,7 @@ class TestSecureWalkHandoff(_StorageTestCase):
         self.assertEqual(ops.double_closes, [])
         self.assertEqual(ops.live, set())
         # The namespace was never created past the failing walk.
-        self.assertFalse(
-            (root / storage_module.NPM_ENVIRONMENTS_CHILD).exists()
-        )
+        self.assertFalse((root / storage_module.NPM_ENVIRONMENTS_CHILD).exists())
 
 
 class TestNamespaceHandoffOwnership(_StorageTestCase):
@@ -452,9 +442,7 @@ class TestNamespaceHandoffOwnership(_StorageTestCase):
         self.assertEqual(ops.live, set())
         for _, opened in ops.open_paths:
             if opened is not None:
-                self.assertLessEqual(
-                    ops.close_paths.count(opened), 1, opened
-                )
+                self.assertLessEqual(ops.close_paths.count(opened), 1, opened)
 
     def test_env_close_failure_releases_assembler_and_digest(self):
         root = self._cache_root()
@@ -464,31 +452,21 @@ class TestNamespaceHandoffOwnership(_StorageTestCase):
         self._inject_close_failure_on(ops, env_path, failure)
 
         with self.assertRaises(OSError) as ctx:
-            storage_module.prepare_assembler_namespace(
-                root, _ASSEMBLER_DIGEST, ops=ops
-            )
+            storage_module.prepare_assembler_namespace(root, _ASSEMBLER_DIGEST, ops=ops)
 
         self.assertIs(ctx.exception, failure)
         assembler_norm = os.path.normpath(
             str(env_path / storage_module.ASSEMBLER_CHILD)
         )
         digest_norm = os.path.normpath(
-            str(
-                env_path
-                / storage_module.ASSEMBLER_CHILD
-                / _ASSEMBLER_DIGEST
-            )
+            str(env_path / storage_module.ASSEMBLER_CHILD / _ASSEMBLER_DIGEST)
         )
         self.assertIn(
             ops.fd_for(env_path / storage_module.ASSEMBLER_CHILD),
             ops.close_order,
         )
         self.assertIn(
-            ops.fd_for(
-                env_path
-                / storage_module.ASSEMBLER_CHILD
-                / _ASSEMBLER_DIGEST
-            ),
+            ops.fd_for(env_path / storage_module.ASSEMBLER_CHILD / _ASSEMBLER_DIGEST),
             ops.close_order,
         )
         self.assertEqual(ops.close_paths.count(assembler_norm), 1)
@@ -507,16 +485,12 @@ class TestNamespaceHandoffOwnership(_StorageTestCase):
         self._inject_close_failure_on(ops, assembler_path, failure)
 
         with self.assertRaises(OSError) as ctx:
-            storage_module.prepare_assembler_namespace(
-                root, _ASSEMBLER_DIGEST, ops=ops
-            )
+            storage_module.prepare_assembler_namespace(root, _ASSEMBLER_DIGEST, ops=ops)
 
         self.assertIs(ctx.exception, failure)
         digest_path = assembler_path / _ASSEMBLER_DIGEST
         self.assertIn(ops.fd_for(digest_path), ops.close_order)
-        self.assertEqual(
-            ops.close_paths.count(os.path.normpath(str(digest_path))), 1
-        )
+        self.assertEqual(ops.close_paths.count(os.path.normpath(str(digest_path))), 1)
         self._assert_no_descriptor_leaked(ops)
 
 
@@ -539,9 +513,7 @@ class TestStagingPreparationPrecedence(_StorageTestCase):
         ops.hooks[arm_on] = lambda *args: armed.__setitem__("on", True)
         for name, exc in injections.items():
             ops.failures[name] = exc
-        ops.failures["close"] = (
-            lambda count: close_error if armed["on"] else None
-        )
+        ops.failures["close"] = lambda count: close_error if armed["on"] else None
         return ops
 
     def test_fchmod_failure_is_primary_with_close_secondary(self):
@@ -557,9 +529,7 @@ class TestStagingPreparationPrecedence(_StorageTestCase):
         foundation = ctx.exception.__cause__
         self.assertIsInstance(foundation, DescriptorError)
         self.assertIs(foundation.cause, fchmod_error)
-        self.assertIn(
-            close_error, getattr(foundation, "_transaction_secondary", [])
-        )
+        self.assertIn(close_error, getattr(foundation, "_transaction_secondary", []))
         self.assertEqual(ops.double_closes, [])
         # The exclusive create reached the filesystem before fchmod failed, so
         # the residue is left in place for cancellation cleanup to observe.
@@ -609,7 +579,6 @@ class TestStagingPreparationPrecedence(_StorageTestCase):
         )
         self.assertEqual(ops.double_closes, [])
 
-
     def test_existing_workspace_is_rejected_without_reuse(self):
         ns = self._namespace()
         first = storage_module.prepare_staging_workspace(ns, "run-1")
@@ -638,9 +607,7 @@ class TestCreateVersusReopenDiagnostics(_StorageTestCase):
         ops = _LedgerOps()
         armed = {"on": False}
         ops.hooks[arm_on] = lambda *args: armed.__setitem__("on", True)
-        ops.failures["close"] = (
-            lambda count: close_error if armed["on"] else None
-        )
+        ops.failures["close"] = lambda count: close_error if armed["on"] else None
         return ops
 
     def _fail_open_attempt(
@@ -662,9 +629,7 @@ class TestCreateVersusReopenDiagnostics(_StorageTestCase):
     def _assert_secondary_close(self, primary, close_error: OSError) -> None:
         """The active failure stays primary; the close failure is a note."""
         notes = getattr(primary, "__notes__", [])
-        self.assertTrue(
-            any(str(close_error) in note for note in notes), notes
-        )
+        self.assertTrue(any(str(close_error) in note for note in notes), notes)
 
     # -- namespace child (open_or_create_directory) ---------------------
 
@@ -676,9 +641,7 @@ class TestCreateVersusReopenDiagnostics(_StorageTestCase):
         ops.failures["mkdirat"] = mkdir_error
 
         with self.assertRaises(LockedNpmError) as ctx:
-            storage_module.prepare_assembler_namespace(
-                root, _ASSEMBLER_DIGEST, ops=ops
-            )
+            storage_module.prepare_assembler_namespace(root, _ASSEMBLER_DIGEST, ops=ops)
 
         label = root / storage_module.NPM_ENVIRONMENTS_CHILD
         self.assertEqual(ctx.exception.reason, "unsafe_cache_path")
@@ -712,9 +675,7 @@ class TestCreateVersusReopenDiagnostics(_StorageTestCase):
         )
 
         with self.assertRaises(LockedNpmError) as ctx:
-            storage_module.prepare_assembler_namespace(
-                root, _ASSEMBLER_DIGEST, ops=ops
-            )
+            storage_module.prepare_assembler_namespace(root, _ASSEMBLER_DIGEST, ops=ops)
 
         label = root / storage_module.NPM_ENVIRONMENTS_CHILD
         self.assertEqual(ctx.exception.reason, "unsafe_cache_path")
@@ -891,8 +852,7 @@ class TestPreMigrationCharacterization(_StorageTestCase):
         self.assertEqual(ctx.exception.reason, "unsafe_cache_path")
         self.assertEqual(
             ctx.exception.detail,
-            f"unsafe cache entry {component!r} "
-            f"(symlink or non-directory): {raw}",
+            f"unsafe cache entry {component!r} (symlink or non-directory): {raw}",
         )
         self.assertEqual(list(external.iterdir()), [])
 
@@ -917,13 +877,9 @@ class TestPreMigrationCharacterization(_StorageTestCase):
     def test_foreign_owned_cache_root_detail_is_pinned(self):
         root = self._cache_root()
         foreign_uid = os.getuid() + 1
-        with mock.patch(
-            "os.fstat", side_effect=_foreign_uid_fstat(root, foreign_uid)
-        ):
+        with mock.patch("os.fstat", side_effect=_foreign_uid_fstat(root, foreign_uid)):
             with self.assertRaises(LockedNpmError) as ctx:
-                storage_module.prepare_assembler_namespace(
-                    root, _ASSEMBLER_DIGEST
-                )
+                storage_module.prepare_assembler_namespace(root, _ASSEMBLER_DIGEST)
         self.assertEqual(ctx.exception.reason, "unsafe_cache_path")
         self.assertEqual(
             ctx.exception.detail,
@@ -963,8 +919,7 @@ class TestPreMigrationCharacterization(_StorageTestCase):
             / storage_module.ASSEMBLER_CHILD
             / _ASSEMBLER_DIGEST,
         )
-        for path in (ns.root, ns.npm_cache, ns.locks, ns.staging,
-                     ns.outputs, ns.index):
+        for path in (ns.root, ns.npm_cache, ns.locks, ns.staging, ns.outputs, ns.index):
             self.assertTrue(path.is_dir(), path)
             self.assertEqual(_mode(path), 0o700, path)
 

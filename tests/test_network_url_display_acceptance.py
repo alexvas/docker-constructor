@@ -1,4 +1,5 @@
 """Release acceptance matrix for the network URL display policies."""
+
 from __future__ import annotations
 
 import json
@@ -20,7 +21,11 @@ class TestNetworkUrlDisplayAcceptanceMatrix(unittest.TestCase):
     }
 
     def test_cross_capability_matrix(self) -> None:
-        path = Path(__file__).parent / "data" / "network_url_display_acceptance_matrix.json"
+        path = (
+            Path(__file__).parent
+            / "data"
+            / "network_url_display_acceptance_matrix.json"
+        )
         matrix = json.loads(path.read_text(encoding="utf-8"))
         self.assertEqual(self.REQUIRED_ROWS, set(matrix))
 

@@ -1,4 +1,5 @@
 """uv-python provider tests."""
+
 from __future__ import annotations
 
 import json
@@ -35,8 +36,7 @@ def _make_asset(version):
     """A CPython install-only linux amd64 asset."""
     return {
         "name": (
-            f"cpython-{version}+20250115-"
-            "x86_64-unknown-linux-gnu-install_only.tar.gz"
+            f"cpython-{version}+20250115-x86_64-unknown-linux-gnu-install_only.tar.gz"
         ),
         "browser_download_url": (
             f"https://github.com/astral-sh/python-build-standalone/releases/"
@@ -54,8 +54,10 @@ class TestUvPythonProvider(unittest.TestCase):
 
     def _ctx(self):
         return ProviderContext(
-            http=self.http, git=self.git,
-            include_prerelease=False, tokens={},
+            http=self.http,
+            git=self.git,
+            include_prerelease=False,
+            tokens={},
         )
 
     def _target(self, version="3.14.6"):
@@ -76,17 +78,17 @@ class TestUvPythonProvider(unittest.TestCase):
         )
 
     def test_current(self):
-        self._set_releases([
-            _make_release([_make_asset("3.14.6"), _make_asset("3.13.5")])
-        ])
+        self._set_releases(
+            [_make_release([_make_asset("3.14.6"), _make_asset("3.13.5")])]
+        )
         result = self.provider.discover(self._target("3.14.6"), self._ctx())
         self.assertIsNotNone(result.candidate)
         self.assertEqual(result.candidate.value, "3.14.6")
 
     def test_outdated(self):
-        self._set_releases([
-            _make_release([_make_asset("3.14.6"), _make_asset("3.15.0")])
-        ])
+        self._set_releases(
+            [_make_release([_make_asset("3.14.6"), _make_asset("3.15.0")])]
+        )
         result = self.provider.discover(self._target("3.14.6"), self._ctx())
         self.assertEqual(result.candidate.value, "3.15.0")
 
@@ -101,9 +103,7 @@ class TestUvPythonProvider(unittest.TestCase):
         self.assertIsNotNone(result.unavailable_reason)
 
     def test_no_cpython_data(self):
-        self._set_releases([
-            _make_release([{"name": "pypy-7.3.11+20250115-..."}])
-        ])
+        self._set_releases([_make_release([{"name": "pypy-7.3.11+20250115-..."}])])
         result = self.provider.discover(self._target(), self._ctx())
         self.assertIsNotNone(result.unavailable_reason)
 
@@ -114,9 +114,9 @@ class TestUvPythonProvider(unittest.TestCase):
 
     def test_no_downgrade_when_upstream_max_older(self):
         """Upstream max (3.14.6) below selected (3.15.0) → reported CURRENT."""
-        self._set_releases([
-            _make_release([_make_asset("3.14.6"), _make_asset("3.13.5")])
-        ])
+        self._set_releases(
+            [_make_release([_make_asset("3.14.6"), _make_asset("3.13.5")])]
+        )
         result = self.provider.discover(self._target("3.15.0"), self._ctx())
         self.assertIsNotNone(result.candidate)
         self.assertEqual(result.candidate.value, "3.15.0")
@@ -135,10 +135,12 @@ class TestUvPythonProvider(unittest.TestCase):
 
     def test_missing_published_at_is_none(self) -> None:
         """Release without published_at → published_at is None."""
-        self._set_releases([
-            _make_release([_make_asset("3.14.6")]),
-            _make_release([_make_asset("3.15.0")]),
-        ])
+        self._set_releases(
+            [
+                _make_release([_make_asset("3.14.6")]),
+                _make_release([_make_asset("3.15.0")]),
+            ]
+        )
         result = self.provider.discover(self._target("3.14.6"), self._ctx())
         self.assertIsNone(result.candidate.published_at)
 

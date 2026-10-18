@@ -5,6 +5,7 @@ virtual filesystem or a domain-facing god object.  Every method delegates
 directly to the corresponding descriptor-relative POSIX call and preserves
 the raised ``OSError`` subclass, ``errno``, and chaining inputs unchanged.
 """
+
 from __future__ import annotations
 
 import errno
@@ -33,8 +34,10 @@ class PosixFileOps:
 
     def linkat(self, src_dir_fd, src, dst_dir_fd, dst, *, follow_symlinks=False):
         os.link(
-            src, dst,
-            src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd,
+            src,
+            dst,
+            src_dir_fd=src_dir_fd,
+            dst_dir_fd=dst_dir_fd,
             follow_symlinks=follow_symlinks,
         )
 
@@ -64,6 +67,7 @@ class PosixFileOps:
 
     def flock(self, fd, operation):
         import fcntl
+
         fcntl.flock(fd, operation)
 
     def close(self, fd):

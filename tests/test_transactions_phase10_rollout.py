@@ -1,4 +1,5 @@
 """Phase 10 rollout, legacy isolation, and final acceptance contracts."""
+
 from __future__ import annotations
 
 import ast
@@ -19,7 +20,7 @@ class CutoverDocumentationTests(unittest.TestCase):
         self.assertEqual(text.count(_EXPECTED_COMMAND), 1)
         self.assertIn("resolve_project_state(Path.cwd(), create=False)", text)
         self.assertIn("target = state.build_artifacts_root", text)
-        self.assertIn("if target.name != \"build-artifacts\"", text)
+        self.assertIn('if target.name != "build-artifacts"', text)
         self.assertIn("shutil.rmtree(target)", text)
         self.assertIn("Run from the constructor project root", text)
 

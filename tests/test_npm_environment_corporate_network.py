@@ -252,8 +252,13 @@ class TestEnabledDisabledProjection(unittest.TestCase):
             self.assertNotIn(name, env)
         self.assertEqual(
             set(env),
-            {"HOME", "npm_config_cache", "REVIEWED_NODE_VERSION",
-             "REVIEWED_NPM_VERSION", NPM_CONFIG_CAFILE}
+            {
+                "HOME",
+                "npm_config_cache",
+                "REVIEWED_NODE_VERSION",
+                "REVIEWED_NPM_VERSION",
+                NPM_CONFIG_CAFILE,
+            }
             | set(_CLIENT_CA_NAMES)
             | {name for name, _value in npm_policy_env()},
         )
@@ -350,7 +355,8 @@ class TestClientCaEnvironmentDisabled(unittest.TestCase):
         vector = _vector(policy=CorporateNetworkPolicy())
         for name in _CLIENT_CA_NAMES + (NPM_CONFIG_CAFILE,):
             self.assertEqual(
-                [v for k, v in vector.env if k == name], [],
+                [v for k, v in vector.env if k == name],
+                [],
                 f"{name} must be absent and never emitted empty",
             )
 
@@ -373,9 +379,7 @@ class TestStandaloneAssemblerLaunchVectorParity(unittest.TestCase):
 
     def test_vector_and_argv_agree_on_enabled_client_ca_policy(self):
         vector = _vector(policy=_policy())
-        vector_assignments = [
-            (k, v) for k, v in vector.env if k in _CLIENT_CA_NAMES
-        ]
+        vector_assignments = [(k, v) for k, v in vector.env if k in _CLIENT_CA_NAMES]
         argv_assignments = [
             (k, v)
             for k, v in _env_assignments(render_docker_argv(vector))
@@ -383,7 +387,8 @@ class TestStandaloneAssemblerLaunchVectorParity(unittest.TestCase):
         ]
         self.assertEqual(vector_assignments, argv_assignments)
         self.assertEqual(
-            [k for k, _v in vector_assignments], list(_CLIENT_CA_NAMES),
+            [k for k, _v in vector_assignments],
+            list(_CLIENT_CA_NAMES),
         )
 
     def test_vector_and_argv_agree_on_disabled_client_ca_policy(self):
@@ -391,7 +396,9 @@ class TestStandaloneAssemblerLaunchVectorParity(unittest.TestCase):
         argv = render_docker_argv(vector)
         for name in _CLIENT_CA_NAMES + (NPM_CONFIG_CAFILE,):
             self.assertEqual([v for k, v in vector.env if k == name], [], name)
-            self.assertEqual([v for k, v in _env_assignments(argv) if k == name], [], name)
+            self.assertEqual(
+                [v for k, v in _env_assignments(argv) if k == name], [], name
+            )
 
     def test_assembler_policy_matches_primary_run_rendering_path(self):
         from docker.versioning.rendering import (
@@ -400,23 +407,23 @@ class TestStandaloneAssemblerLaunchVectorParity(unittest.TestCase):
             render_run_vector,
         )
 
-        primary = render_run_vector(RunRenderInputs(
-            image="pi-cli-pi:latest",
-            container_name="pi-1",
-            projection_host_path="/tmp/.docker-generated/runtime/projection.toml",
-            projection_container_path="/run/pi-cli/docker-constructor.runtime.toml",
-            pi_home_host="/home/user/.pi",
-            workspace="/work/project",
-            host_access=RunHostAccess.disabled(),
-            corporate_trust_bundle=_TRUST_BUNDLE,
-        ))
+        primary = render_run_vector(
+            RunRenderInputs(
+                image="pi-cli-pi:latest",
+                container_name="pi-1",
+                projection_host_path="/tmp/.docker-generated/runtime/projection.toml",
+                projection_container_path="/run/pi-cli/docker-constructor.runtime.toml",
+                pi_home_host="/home/user/.pi",
+                workspace="/work/project",
+                host_access=RunHostAccess.disabled(),
+                corporate_trust_bundle=_TRUST_BUNDLE,
+            )
+        )
         primary_pairs = sorted(
-            (k, v) for k, v in _env_assignments(primary)
-            if k in _CLIENT_CA_NAMES
+            (k, v) for k, v in _env_assignments(primary) if k in _CLIENT_CA_NAMES
         )
         assembler_pairs = sorted(
-            (k, v) for k, v in _vector(policy=_policy()).env
-            if k in _CLIENT_CA_NAMES
+            (k, v) for k, v in _vector(policy=_policy()).env if k in _CLIENT_CA_NAMES
         )
         self.assertEqual(primary_pairs, assembler_pairs)
         self.assertEqual([k for k, _v in primary_pairs], sorted(_CLIENT_CA_NAMES))
@@ -447,11 +454,17 @@ class TestOnlyResolvedPolicyReceived(_AssemblerTestBase):
         self.assertIsInstance(result, AssemblyRun)
         argv = executor.calls[0]
         env = _env_dict(argv)
-        base = {"HOME", "npm_config_cache", "REVIEWED_NODE_VERSION",
-                "REVIEWED_NPM_VERSION"}
+        base = {
+            "HOME",
+            "npm_config_cache",
+            "REVIEWED_NODE_VERSION",
+            "REVIEWED_NPM_VERSION",
+        }
         self.assertEqual(
             set(env),
-            base | set(PROXY_URL_ENV_NAMES) | set(PROXY_BYPASS_ENV_NAMES)
+            base
+            | set(PROXY_URL_ENV_NAMES)
+            | set(PROXY_BYPASS_ENV_NAMES)
             | {NPM_CONFIG_CAFILE}
             | set(_CLIENT_CA_NAMES)
             | {name for name, _value in npm_policy_env()},
@@ -577,8 +590,7 @@ class TestNetworkConfigNonPersistence(_AssemblerTestBase):
                 "run_vector": {
                     "env": list(result.run_vector.env),
                     "mounts": [
-                        (m.host, m.container, m.mode)
-                        for m in result.run_vector.mounts
+                        (m.host, m.container, m.mode) for m in result.run_vector.mounts
                     ],
                 },
             }

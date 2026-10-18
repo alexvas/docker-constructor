@@ -65,8 +65,7 @@ class DigestIdentity:
         object.__setattr__(self, "algorithm", algorithm)
         if not isinstance(self.digest_bytes, bytes):
             raise DigestIdentityError(
-                "digest_bytes must be bytes, got "
-                f"{type(self.digest_bytes).__name__}"
+                f"digest_bytes must be bytes, got {type(self.digest_bytes).__name__}"
             )
         expected = _DIGEST_BYTE_LENGTHS[algorithm]
         if len(self.digest_bytes) != expected:
@@ -161,7 +160,9 @@ class DigestIdentity:
         return self.base64_digest().replace("+", "-").replace("/", "_")
 
     @classmethod
-    def runtime_cache_path_from_component(cls, algorithm: str, digest: str, root: str) -> str:
+    def runtime_cache_path_from_component(
+        cls, algorithm: str, digest: str, root: str
+    ) -> str:
         """Build a legacy runtime path from an encoded component."""
         if algorithm not in _DIGEST_BYTE_LENGTHS:
             raise DigestIdentityError(f"unsupported algorithm {algorithm!r}")

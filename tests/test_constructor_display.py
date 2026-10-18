@@ -24,10 +24,13 @@ def _assert_join(test: unittest.TestCase, argv: tuple[str, ...]) -> None:
     display = render_command_display(argv)
     test.assertIsInstance(display, str)
     expected = shlex.join(list(argv))
-    test.assertEqual(display, expected,
-                     f"display must be shlex.join: {argv!r}\n"
-                     f"  got:      {display!r}\n"
-                     f"  expected: {expected!r}")
+    test.assertEqual(
+        display,
+        expected,
+        f"display must be shlex.join: {argv!r}\n"
+        f"  got:      {display!r}\n"
+        f"  expected: {expected!r}",
+    )
     # Round-trip sanity check.
     test.assertEqual(shlex.split(display), list(argv))
 
@@ -138,9 +141,11 @@ class TestReturnsStringNotEligibleForSubprocess(unittest.TestCase):
         argv = ("bash", "-c", "echo $HOME")
         plain = " ".join(argv)
         display = render_command_display(argv)
-        self.assertNotEqual(display, plain,
-                            "display must escape metacharacters, "
-                            "not just join with spaces")
+        self.assertNotEqual(
+            display,
+            plain,
+            "display must escape metacharacters, not just join with spaces",
+        )
 
     def test_display_not_fed_to_subprocess(self):
         """``render_command_display`` returns a ``str`` — it MUST NOT
@@ -162,7 +167,9 @@ class TestArtifactMountDisplay(unittest.TestCase):
 
     def test_spaces_in_host_path_quoted(self):
         argv = (
-            "docker", "run", "--rm",
+            "docker",
+            "run",
+            "--rm",
             "--mount",
             "type=bind,src=/home/alice/my projects/.pi-cache/a.tgz,"
             "dst=/run/pi-cli/runtime-artifacts/sha512/abc.tgz,readonly",
@@ -172,7 +179,8 @@ class TestArtifactMountDisplay(unittest.TestCase):
         # The display must single-quote the mount options string
         # because src contains a space.
         self.assertIn(
-            "'type=bind,src=/home/alice/my projects/", display,
+            "'type=bind,src=/home/alice/my projects/",
+            display,
             "mount option containing spaces must be quoted",
         )
         # Round-trip check.
@@ -180,7 +188,9 @@ class TestArtifactMountDisplay(unittest.TestCase):
 
     def test_dollar_in_path_quoted(self):
         argv = (
-            "docker", "run", "--mount",
+            "docker",
+            "run",
+            "--mount",
             "type=bind,src=/home/alice/$PROJ/cache/a.tgz,"
             "dst=/run/pi-cli/runtime-artifacts/sha512/abc.tgz,readonly",
             "pi-cli-pi:latest",
@@ -192,7 +202,8 @@ class TestArtifactMountDisplay(unittest.TestCase):
 
     def test_multiple_artifact_mounts_with_spaces(self):
         argv = (
-            "docker", "run",
+            "docker",
+            "run",
             "--mount",
             "type=bind,src=/home/alice/my cache/a.tgz,"
             "dst=/run/pi-cli/runtime-artifacts/sha512/a.tgz,readonly",

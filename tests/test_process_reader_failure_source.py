@@ -1,4 +1,5 @@
 """Selected occurrence context replaces the obsolete parallel reader source."""
+
 from dataclasses import FrozenInstanceError
 from unittest import mock
 import threading
@@ -12,17 +13,29 @@ from tests.test_process_stream_outcomes import Child, Pipe
 @pytest.mark.parametrize("method", ["capture", "stream"])
 @pytest.mark.parametrize("position", [0, 1])
 @pytest.mark.parametrize("kind", [OSError, RuntimeError, KeyboardInterrupt])
-def test_winning_read_error_preserves_identity_and_records_stream(method, position, kind):
+def test_winning_read_error_preserves_identity_and_records_stream(
+    method, position, kind
+):
     error = kind("read failure")
     ready = threading.Event()
     pipes = [Pipe([b"stdout"], gate=ready), Pipe([b"stderr"], gate=ready)]
     pipes[position].error = error
     child = Child(stdout=pipes[0], stderr=pipes[1])
-    owner = OwnedProcess.launch(["child"], factory=lambda *a, **k: child, grace_seconds=.1,
-                                on_launched=ready.set)
+    owner = OwnedProcess.launch(
+        ["child"],
+        factory=lambda *a, **k: child,
+        grace_seconds=0.1,
+        on_launched=ready.set,
+    )
     try:
+
         def collect():
-            return owner.capture() if method == "capture" else owner.stream(lambda *args: None)
+            return (
+                owner.capture()
+                if method == "capture"
+                else owner.stream(lambda *args: None)
+            )
+
         if kind is KeyboardInterrupt:
             with pytest.raises(KeyboardInterrupt) as caught:
                 collect()
@@ -32,11 +45,24 @@ def test_winning_read_error_preserves_identity_and_records_stream(method, positi
             result = collect()
             lifecycle = result.lifecycle
             assert not hasattr(result, "reader_failure_stream")
-            assert dict(result.stream_outcomes)[tuple(ProcessStream)[position]] is StreamOutcome.READ_FAILED
+            assert (
+                dict(result.stream_outcomes)[tuple(ProcessStream)[position]]
+                is StreamOutcome.READ_FAILED
+            )
         selected = lifecycle.failures[0]
         assert selected.error is error
-        assert selected.phase.name == "READ" and selected.stream is tuple(ProcessStream)[position]
-        assert selected.kind.name == {OSError: "ORDINARY", RuntimeError: "UNEXPECTED", KeyboardInterrupt: "INTERRUPTION"}[kind]
+        assert (
+            selected.phase.name == "READ"
+            and selected.stream is tuple(ProcessStream)[position]
+        )
+        assert (
+            selected.kind.name
+            == {
+                OSError: "ORDINARY",
+                RuntimeError: "UNEXPECTED",
+                KeyboardInterrupt: "INTERRUPTION",
+            }[kind]
+        )
         with pytest.raises(FrozenInstanceError):
             selected.stream = None
         with pytest.raises(RuntimeError):
@@ -61,12 +87,16 @@ def test_winning_read_error_preserves_identity_and_records_stream(method, positi
 
 @pytest.mark.parametrize("same_object", [False, True])
 @pytest.mark.parametrize("position", [0, 1])
-def test_join_defect_has_join_context_even_if_exception_object_is_reused(position, same_object):
+def test_join_defect_has_join_context_even_if_exception_object_is_reused(
+    position, same_object
+):
     reader_error = OSError("read failure")
     join_error = reader_error if same_object else OSError("join defect")
     ready = threading.Event()
-    child = Child(stdout=Pipe([b"stdout"], error=reader_error, gate=ready),
-                  stderr=Pipe([b"stderr"], gate=ready))
+    child = Child(
+        stdout=Pipe([b"stdout"], error=reader_error, gate=ready),
+        stderr=Pipe([b"stderr"], gate=ready),
+    )
     original = OwnedProcess._join_reader
     injected = False
 
@@ -80,12 +110,19 @@ def test_join_defect_has_join_context_even_if_exception_object_is_reused(positio
     owner = None
     try:
         with mock.patch.object(OwnedProcess, "_join_reader", join):
-            owner = OwnedProcess.launch(["child"], factory=lambda *a, **k: child, grace_seconds=.1,
-                                        on_launched=ready.set)
+            owner = OwnedProcess.launch(
+                ["child"],
+                factory=lambda *a, **k: child,
+                grace_seconds=0.1,
+                on_launched=ready.set,
+            )
             result = owner.capture()
         selected = result.lifecycle.failures[0]
         assert selected.error is join_error and selected.kind.name == "UNEXPECTED"
-        assert selected.phase.name == "JOIN" and selected.stream is tuple(ProcessStream)[position]
+        assert (
+            selected.phase.name == "JOIN"
+            and selected.stream is tuple(ProcessStream)[position]
+        )
         assert any(f.error is reader_error for f in owner.cleanup_status.failures)
         assert not hasattr(join_error, "process_result")
     finally:
@@ -96,7 +133,9 @@ def test_join_defect_has_join_context_even_if_exception_object_is_reused(positio
 
 
 @pytest.mark.parametrize("winner_position", [0, 1])
-def test_competing_read_errors_identify_selected_reader_not_stream_order(winner_position):
+def test_competing_read_errors_identify_selected_reader_not_stream_order(
+    winner_position,
+):
     ready, recorded = threading.Event(), threading.Barrier(2)
     errors = [OSError("ordinary read"), OSError("ordinary read")]
     errors[winner_position] = RuntimeError("unexpected read defect")
@@ -105,20 +144,32 @@ def test_competing_read_errors_identify_selected_reader_not_stream_order(winner_
     original = OwnedProcess._shutdown
 
     def shutdown(owner, *args, **kwargs):
-        if threading.current_thread() in owner._readers and kwargs.get("reason") == "reader":
+        if (
+            threading.current_thread() in owner._readers
+            and kwargs.get("reason") == "reader"
+        ):
             recorded.wait(1)
         return original(owner, *args, **kwargs)
 
     owner = None
     try:
         with mock.patch.object(OwnedProcess, "_shutdown", shutdown):
-            owner = OwnedProcess.launch(["child"], factory=lambda *a, **k: child,
-                                        grace_seconds=.1, on_launched=ready.set)
+            owner = OwnedProcess.launch(
+                ["child"],
+                factory=lambda *a, **k: child,
+                grace_seconds=0.1,
+                on_launched=ready.set,
+            )
             result = owner.capture()
         selected = result.lifecycle.failures[0]
-        assert selected.error is errors[winner_position] and selected.phase.name == "READ"
+        assert (
+            selected.error is errors[winner_position] and selected.phase.name == "READ"
+        )
         assert selected.stream is tuple(ProcessStream)[winner_position]
-        assert all(any(f.error is error for f in owner.cleanup_status.failures) for error in errors)
+        assert all(
+            any(f.error is error for f in owner.cleanup_status.failures)
+            for error in errors
+        )
     finally:
         ready.set()
         recorded.abort()
@@ -130,10 +181,14 @@ def test_competing_read_errors_identify_selected_reader_not_stream_order(winner_
 
 def test_successful_result_has_no_selected_failure_or_parallel_reader_source():
     child = Child(stdout=Pipe([b"stdout"]), stderr=Pipe([b"stderr"]))
-    owner = OwnedProcess.launch(["child"], factory=lambda *a, **k: child, grace_seconds=.1)
+    owner = OwnedProcess.launch(
+        ["child"], factory=lambda *a, **k: child, grace_seconds=0.1
+    )
     try:
         result = owner.capture()
-        assert result.lifecycle.failures == () and not hasattr(result, "reader_failure_stream")
+        assert result.lifecycle.failures == () and not hasattr(
+            result, "reader_failure_stream"
+        )
     finally:
         owner.shutdown()
         assert owner.wait_cleanup(1).complete

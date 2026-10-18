@@ -227,9 +227,7 @@ class AssemblerNamespace:
     """Non-authoritative input-identity lookup index (``index``)."""
 
 
-def assembler_namespace_path(
-    cache_root: str | Path, assembler_digest: str
-) -> Path:
+def assembler_namespace_path(cache_root: str | Path, assembler_digest: str) -> Path:
     """Return the lexical namespace path for *assembler_digest*.
 
     Pure and deterministic: no filesystem access.  The digest token is
@@ -237,10 +235,7 @@ def assembler_namespace_path(
     """
     _require_hex_digest(assembler_digest, reason="unsafe_cache_path")
     return (
-        Path(cache_root)
-        / NPM_ENVIRONMENTS_CHILD
-        / ASSEMBLER_CHILD
-        / assembler_digest
+        Path(cache_root) / NPM_ENVIRONMENTS_CHILD / ASSEMBLER_CHILD / assembler_digest
     )
 
 
@@ -268,14 +263,9 @@ def prepare_assembler_namespace(
     _require_hex_digest(assembler_digest, reason="unsafe_cache_path")
     descriptor_ops = _resolve_ops(ops)
     cache_root_path = Path(cache_root)
-    root = _open_directory_no_follow(
-        descriptor_ops, cache_root_path, check_owner=True
-    )
+    root = _open_directory_no_follow(descriptor_ops, cache_root_path, check_owner=True)
     namespace_root = (
-        cache_root_path
-        / NPM_ENVIRONMENTS_CHILD
-        / ASSEMBLER_CHILD
-        / assembler_digest
+        cache_root_path / NPM_ENVIRONMENTS_CHILD / ASSEMBLER_CHILD / assembler_digest
     )
     with root:
         env = _create_or_open_child(
@@ -390,8 +380,7 @@ def _open_child_for_removal(
     except DescriptorError as exc:
         raise LockedNpmError(
             "unsafe_staging_path",
-            f"cannot open staging entry {name!r} for removal: "
-            f"{_foundation_cause(exc)}",
+            f"cannot open staging entry {name!r} for removal: {_foundation_cause(exc)}",
         ) from exc
 
 

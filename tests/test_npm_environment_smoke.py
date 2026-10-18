@@ -150,9 +150,7 @@ class TestParseSmokeArgs(SmokeTestCase):
         for argv in ([], ["img"], ["img", "report", "extra"]):
             with self.assertRaises(LockedNpmError) as ctx:
                 parse_smoke_args(argv)
-            self.assertEqual(
-                ctx.exception.reason, "invalid_smoke_arguments"
-            )
+            self.assertEqual(ctx.exception.reason, "invalid_smoke_arguments")
 
     def test_rejects_mutable_image_reference(self):
         with self.assertRaises(LockedNpmError) as ctx:
@@ -193,15 +191,11 @@ class TestFailurePropagation(SmokeTestCase):
 
     def test_missing_package_fails(self):
         code = self._run(
-            SmokeExecutor(packages=_without(
-                _FIXTURE_PACKAGES, "node_modules/isexe"
-            ))
+            SmokeExecutor(packages=_without(_FIXTURE_PACKAGES, "node_modules/isexe"))
         )
         self.assertEqual(code, 1)
         report = self._report()
-        self.assertEqual(
-            report["failure"]["reason"], "smoke_closure_mismatch"
-        )
+        self.assertEqual(report["failure"]["reason"], "smoke_closure_mismatch")
         statuses = {c["name"]: c["status"] for c in report["checks"]}
         self.assertEqual(statuses["installed_closure"], "fail")
 
@@ -211,9 +205,7 @@ class TestFailurePropagation(SmokeTestCase):
         code = self._run(SmokeExecutor(packages=packages))
         self.assertEqual(code, 1)
         report = self._report()
-        self.assertEqual(
-            report["failure"]["reason"], "smoke_closure_mismatch"
-        )
+        self.assertEqual(report["failure"]["reason"], "smoke_closure_mismatch")
 
     def test_wrong_version_fails(self):
         packages = dict(_FIXTURE_PACKAGES)
@@ -221,9 +213,7 @@ class TestFailurePropagation(SmokeTestCase):
         code = self._run(SmokeExecutor(packages=packages))
         self.assertEqual(code, 1)
         report = self._report()
-        self.assertEqual(
-            report["failure"]["reason"], "smoke_closure_mismatch"
-        )
+        self.assertEqual(report["failure"]["reason"], "smoke_closure_mismatch")
 
     def test_unexpected_nested_package_fails(self):
         packages = dict(_FIXTURE_PACKAGES)
@@ -231,9 +221,7 @@ class TestFailurePropagation(SmokeTestCase):
         code = self._run(SmokeExecutor(packages=packages))
         self.assertEqual(code, 1)
         report = self._report()
-        self.assertEqual(
-            report["failure"]["reason"], "smoke_closure_mismatch"
-        )
+        self.assertEqual(report["failure"]["reason"], "smoke_closure_mismatch")
 
     def test_unexpected_scoped_package_fails(self):
         packages = dict(_FIXTURE_PACKAGES)
@@ -241,9 +229,7 @@ class TestFailurePropagation(SmokeTestCase):
         code = self._run(SmokeExecutor(packages=packages))
         self.assertEqual(code, 1)
         report = self._report()
-        self.assertEqual(
-            report["failure"]["reason"], "smoke_closure_mismatch"
-        )
+        self.assertEqual(report["failure"]["reason"], "smoke_closure_mismatch")
 
     def test_lifecycle_marker_file_fails(self):
         code = self._run(SmokeExecutor(create_marker=True))
@@ -280,9 +266,7 @@ class TestReportSerialization(SmokeTestCase):
         self.assertEqual(code, 0)
         report = self._report()
 
-        self.assertEqual(
-            report["schema_version"], SMOKE_REPORT_SCHEMA_VERSION
-        )
+        self.assertEqual(report["schema_version"], SMOKE_REPORT_SCHEMA_VERSION)
         self.assertEqual(report["image_digest"], _IMAGE)
         self.assertEqual(report["node_version"], SMOKE_NODE_VERSION)
         self.assertEqual(report["npm_version"], SMOKE_NPM_VERSION)
@@ -290,9 +274,7 @@ class TestReportSerialization(SmokeTestCase):
         self.assertEqual(report["policy_digest"], npm_policy_digest())
         self.assertEqual(report["fixture_digest"], smoke_fixture_digest())
         self.assertEqual(report["lockfile_digest"], smoke_fixture_digest())
-        self.assertEqual(
-            report["timestamp"], "2025-06-01T00:00:00+00:00"
-        )
+        self.assertEqual(report["timestamp"], "2025-06-01T00:00:00+00:00")
         self.assertEqual(report["result"], "pass")
         self.assertIsNone(report["failure"])
 
@@ -309,9 +291,7 @@ class TestReportSerialization(SmokeTestCase):
                 "no_executable_link",
             ],
         )
-        self.assertTrue(
-            all(c["status"] == "pass" for c in report["checks"])
-        )
+        self.assertTrue(all(c["status"] == "pass" for c in report["checks"]))
 
     def test_report_round_trips(self):
         code = self._run(SmokeExecutor())
@@ -347,9 +327,7 @@ class TestReportSerialization(SmokeTestCase):
         report = self._report()
         self.assertEqual(report["result"], "fail")
         self.assertEqual(report["failure"]["reason"], "npm_exit_nonzero")
-        self.assertEqual(
-            report["timestamp"], "2025-06-01T00:00:00+00:00"
-        )
+        self.assertEqual(report["timestamp"], "2025-06-01T00:00:00+00:00")
 
 
 if __name__ == "__main__":

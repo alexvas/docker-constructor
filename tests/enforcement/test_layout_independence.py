@@ -6,6 +6,7 @@ reformat, then shows that the structural mutation still makes the audit reject
 the same invalid shape.  These tests fail while the mutation helpers still bind
 exact formatter output.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -43,24 +44,21 @@ _DEADLINE_NEW = (
 # Configured child-wait observation: replacing the protected action call loses
 # its failure classification.  The formatter explodes the call arguments.
 _ACTION_OLD = (
-    "self._action(observe_returncode, ordinary=(OSError,), "
-    "phase=FailurePhase.WAIT)"
+    "self._action(observe_returncode, ordinary=(OSError,), phase=FailurePhase.WAIT)"
 )
 _ACTION_NEW = "observe_returncode()"
 
 # Keyword-only mutation: the ordinary classification must not gain OSError.
 _KEYWORDS_OLD = (
-    "ordinary=(), phase=FailurePhase.JOIN, "
-    "stream=tuple(ProcessStream)[index]"
+    "ordinary=(), phase=FailurePhase.JOIN, stream=tuple(ProcessStream)[index]"
 )
 _KEYWORDS_NEW = (
-    "ordinary=(OSError,), phase=FailurePhase.JOIN, "
-    "stream=tuple(ProcessStream)[index]"
+    "ordinary=(OSError,), phase=FailurePhase.JOIN, stream=tuple(ProcessStream)[index]"
 )
 
 # Prepared-owner/reader barrier: drop the tracked release guard.
 _GUARD_OLD = (
-    'self._safe(index) or self._descriptorless[index] or '
+    "self._safe(index) or self._descriptorless[index] or "
     'not callable(getattr(owner.stream, "fileno", None))'
 )
 _GUARD_NEW = 'True or not callable(getattr(owner.stream, "fileno", None))'
@@ -93,8 +91,7 @@ _COMPLETE_NEW = (
 
 # Diagnostic provenance: replacing the bounded sanitizer must be rejected.
 _NOTE_OLD = (
-    "_render_close_failure(failure.error, secrets, "
-    "tail_projector=tail_projector)"
+    "_render_close_failure(failure.error, secrets, tail_projector=tail_projector)"
 )
 _NOTE_NEW = "str(failure.error)"
 
@@ -105,9 +102,7 @@ def test_secure_walker_survives_harmless_line_shift() -> None:
     source = sources[path]
     marker = "    def open_secure_path("
     assert marker in source
-    shifted = source.replace(
-        marker, "    # harmless layout probe\n\n" + marker, 1
-    )
+    shifted = source.replace(marker, "    # harmless layout probe\n\n" + marker, 1)
     assert shifted != source
 
     assert _static_violations({**sources, path: shifted}) == []
@@ -196,7 +191,9 @@ def test_release_guard_mutations_survive_parenthesized_test() -> None:
     assert process_proof(mutated, STREAMS)
 
     mutated = replace_snippet(variant, _RELEASE_IF_OLD, _RELEASE_IF_NEW)
-    assert "release lacks prepared-owner/reader barrier" in process_proof(mutated, STREAMS)
+    assert "release lacks prepared-owner/reader barrier" in process_proof(
+        mutated, STREAMS
+    )
 
 
 def test_completion_predicate_mutation_survives_wrapped_return() -> None:
@@ -266,12 +263,8 @@ def test_architecture_inventory_detects_docstring_content_change() -> None:
     assert canonical_architecture_report(sources) == fixture
 
     path = "docker/filesystem/streams.py"
-    original = (
-        '"""Exclusively own one already-open fd-owning stream until release."""'
-    )
-    changed = (
-        '"""Exclusively own one already-open fd-owning stream until disposal."""'
-    )
+    original = '"""Exclusively own one already-open fd-owning stream until release."""'
+    changed = '"""Exclusively own one already-open fd-owning stream until disposal."""'
     assert sources[path].count(original) == 1
     mutated = {**sources, path: sources[path].replace(original, changed)}
     assert canonical_architecture_report(mutated) != fixture

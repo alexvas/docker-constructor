@@ -18,6 +18,7 @@ their parsers also supply the default for an absent table:
   :mod:`~docker.versioning.corporate_network` (corporate-network)
 - ``[output]`` -- :mod:`~docker.versioning.build_output` (host presentation)
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -59,6 +60,7 @@ def resolve_local_companion_path(inventory_path: Path) -> Path:
 # ---------------------------------------------------------------------------
 # Closed aggregate registry
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True, slots=True)
 class _LocalDomainTable:
@@ -121,6 +123,7 @@ def validate_local_document(
 # Boundary-routed loaders
 # ---------------------------------------------------------------------------
 
+
 def load_local_project_configuration(
     path: Path,
     *,
@@ -145,7 +148,9 @@ def load_optional_local_project_configuration(
     companion = resolve_local_companion_path(inventory_path)
     if not companion.exists():
         return validate_local_document({}, host_access_mode=host_access_mode)
-    return load_local_project_configuration(companion, host_access_mode=host_access_mode)
+    return load_local_project_configuration(
+        companion, host_access_mode=host_access_mode
+    )
 
 
 def _load_local_document(

@@ -59,9 +59,10 @@ def _model_tarball_id(resolved: str, integrity: str | None) -> str:
     cache entry.  This identifier is fake-executor instrumentation only; it
     does not represent npm's cache keys, filenames, or on-disk layout.
     """
-    return "model-tarball-" + hashlib.sha256(
-        f"{resolved}\n{integrity or ''}".encode()
-    ).hexdigest()
+    return (
+        "model-tarball-"
+        + hashlib.sha256(f"{resolved}\n{integrity or ''}".encode()).hexdigest()
+    )
 
 
 def _lock_tarballs(lock_bytes: bytes) -> list[tuple[str, str, str | None]]:
@@ -214,9 +215,7 @@ class PopulatingExecutor:
                 self.events.append(("download", path))
         for rel, (name, version, dependencies) in self.spec.items():
             _write_pkg(self.staging, rel, name, version, dependencies)
-        root_rel = next(
-            rel for rel in self.spec if rel.startswith("node_modules/")
-        )
+        root_rel = next(rel for rel in self.spec if rel.startswith("node_modules/"))
         (self.staging / root_rel / "marker.txt").write_bytes(self.marker)
         return ProcessResult(argv, 0, "", "")
 
@@ -309,12 +308,8 @@ class TestSharedDownloadIndependentOutputs(_AcceptanceTestCase):
             [("hit", shared_path)],
         )
         # Each lock's own root tarball is distinct and fetched exactly once.
-        self.assertEqual(
-            executor_a.events.count(("download", "node_modules/app-a")), 1
-        )
-        self.assertEqual(
-            executor_b.events.count(("download", "node_modules/app-b")), 1
-        )
+        self.assertEqual(executor_a.events.count(("download", "node_modules/app-a")), 1)
+        self.assertEqual(executor_b.events.count(("download", "node_modules/app-b")), 1)
         self.assertNotIn(("hit", "node_modules/app-a"), executor_a.events)
         self.assertNotIn(("hit", "node_modules/app-b"), executor_b.events)
 
@@ -343,7 +338,9 @@ class TestSharedDownloadIndependentOutputs(_AcceptanceTestCase):
                 )
             )
             self.assertTrue(
-                (result.environment_root / "node_modules" / "shared" / "package.json").is_file()
+                (
+                    result.environment_root / "node_modules" / "shared" / "package.json"
+                ).is_file()
             )
 
 
@@ -436,9 +433,7 @@ class TestCacheAcceptance(_AcceptanceTestCase):
     def test_incomplete_cache_with_outage_fails_structured(self):
         raw = _lock("consumer-a", "app-a", "shared")
         validated = _validated(raw, "app-a")
-        input_identity = compute_assembler_input_identity(
-            validated, self.assembler
-        )
+        input_identity = compute_assembler_input_identity(validated, self.assembler)
         namespace = self._namespace()
 
         # A real, incomplete published candidate: a partial tree directory
@@ -478,9 +473,7 @@ class TestCacheAcceptance(_AcceptanceTestCase):
         # The incomplete candidate was not treated as a valid environment and
         # no new committed output was published.
         self.assertIsNone(
-            verify_output(
-                namespace, stale_identity, input_identity=input_identity
-            )
+            verify_output(namespace, stale_identity, input_identity=input_identity)
         )
         self.assertEqual(
             {p.name for p in namespace.outputs.iterdir()},

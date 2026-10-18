@@ -1,4 +1,5 @@
 """npm provider tests with fake HTTP transport."""
+
 from __future__ import annotations
 
 import base64
@@ -44,6 +45,7 @@ class TestNpmProvider(unittest.TestCase):
 
     def _set_versions(self, package, versions_dict):
         from urllib.parse import quote
+
         encoded = quote(package, safe="")
         self.http.set(
             "GET",
@@ -53,37 +55,49 @@ class TestNpmProvider(unittest.TestCase):
         )
 
     def test_current_when_no_newer_version(self):
-        self._set_versions("@scope/pkg", {
-            "1.2.3": {"version": "1.2.3"},
-            "1.2.2": {"version": "1.2.2"},
-        })
+        self._set_versions(
+            "@scope/pkg",
+            {
+                "1.2.3": {"version": "1.2.3"},
+                "1.2.2": {"version": "1.2.2"},
+            },
+        )
         result = self.provider.discover(self._target("1.2.3"), self._ctx())
         self.assertIsNotNone(result.candidate)
         self.assertEqual(result.candidate.value, "1.2.3")
 
     def test_outdated_when_newer_stable(self):
-        self._set_versions("@scope/pkg", {
-            "1.2.3": {"version": "1.2.3"},
-            "1.3.0": {"version": "1.3.0"},
-        })
+        self._set_versions(
+            "@scope/pkg",
+            {
+                "1.2.3": {"version": "1.2.3"},
+                "1.3.0": {"version": "1.3.0"},
+            },
+        )
         result = self.provider.discover(self._target("1.2.3"), self._ctx())
         self.assertEqual(result.candidate.value, "1.3.0")
 
     def test_prerelease_excluded_when_stable_only(self):
-        self._set_versions("@scope/pkg", {
-            "1.2.3": {"version": "1.2.3"},
-            "1.3.0-beta.1": {"version": "1.3.0-beta.1"},
-        })
+        self._set_versions(
+            "@scope/pkg",
+            {
+                "1.2.3": {"version": "1.2.3"},
+                "1.3.0-beta.1": {"version": "1.3.0-beta.1"},
+            },
+        )
         result = self.provider.discover(
             self._target("1.2.3", stable_only=True), self._ctx()
         )
         self.assertEqual(result.candidate.value, "1.2.3")
 
     def test_prerelease_included_with_flag(self):
-        self._set_versions("@scope/pkg", {
-            "1.2.3": {"version": "1.2.3"},
-            "1.3.0-beta.1": {"version": "1.3.0-beta.1"},
-        })
+        self._set_versions(
+            "@scope/pkg",
+            {
+                "1.2.3": {"version": "1.2.3"},
+                "1.3.0-beta.1": {"version": "1.3.0-beta.1"},
+            },
+        )
         result = self.provider.discover(
             self._target("1.2.3", stable_only=False),
             self._ctx(include_prerelease=True),
@@ -91,18 +105,23 @@ class TestNpmProvider(unittest.TestCase):
         self.assertEqual(result.candidate.value, "1.3.0-beta.1")
 
     def test_1_10_gt_1_9(self):
-        self._set_versions("@scope/pkg", {
-            "1.2.3": {"version": "1.2.3"},
-            "1.9.0": {"version": "1.9.0"},
-            "1.10.0": {"version": "1.10.0"},
-        })
+        self._set_versions(
+            "@scope/pkg",
+            {
+                "1.2.3": {"version": "1.2.3"},
+                "1.9.0": {"version": "1.9.0"},
+                "1.10.0": {"version": "1.10.0"},
+            },
+        )
         result = self.provider.discover(self._target("1.2.3"), self._ctx())
         self.assertEqual(result.candidate.value, "1.10.0")
 
     def test_missing_package(self):
         self.http.set(
-            "GET", "https://registry.npmjs.org/no-such-pkg",
-            status=404, body=b"{}",
+            "GET",
+            "https://registry.npmjs.org/no-such-pkg",
+            status=404,
+            body=b"{}",
         )
         target = self._target(package="no-such-pkg")
         result = self.provider.discover(target, self._ctx())
@@ -110,8 +129,10 @@ class TestNpmProvider(unittest.TestCase):
 
     def test_malformed_json(self):
         self.http.set(
-            "GET", "https://registry.npmjs.org/bad-pkg",
-            status=200, body=b"not json",
+            "GET",
+            "https://registry.npmjs.org/bad-pkg",
+            status=200,
+            body=b"not json",
         )
         target = self._target(package="bad-pkg")
         result = self.provider.discover(target, self._ctx())
@@ -119,7 +140,8 @@ class TestNpmProvider(unittest.TestCase):
 
     def test_no_versions(self):
         self.http.set(
-            "GET", "https://registry.npmjs.org/empty-pkg",
+            "GET",
+            "https://registry.npmjs.org/empty-pkg",
             status=200,
             body=json.dumps({"versions": {}}).encode(),
         )
@@ -128,12 +150,16 @@ class TestNpmProvider(unittest.TestCase):
         self.assertIsNotNone(result.skipped_reason)
 
     def test_token_not_in_result(self):
-        self._set_versions("@private/pkg", {
-            "1.0.0": {"version": "1.0.0"},
-            "2.0.0": {"version": "2.0.0"},
-        })
+        self._set_versions(
+            "@private/pkg",
+            {
+                "1.0.0": {"version": "1.0.0"},
+                "2.0.0": {"version": "2.0.0"},
+            },
+        )
         ctx = ProviderContext(
-            http=self.http, git=self.git,
+            http=self.http,
+            git=self.git,
             include_prerelease=False,
             tokens={"NPM_TOKEN": "secret-token-123"},
         )
@@ -148,9 +174,12 @@ class TestNpmProvider(unittest.TestCase):
         self.assertNotIn("secret-token-123", str(result))
 
     def test_scoped_package_url_encoded(self):
-        self._set_versions("@earendil-works/pi-coding-agent", {
-            "1.0.0": {"version": "1.0.0"},
-        })
+        self._set_versions(
+            "@earendil-works/pi-coding-agent",
+            {
+                "1.0.0": {"version": "1.0.0"},
+            },
+        )
         target = self._target(package="@earendil-works/pi-coding-agent")
         self.provider.discover(target, self._ctx())
         # Check that the URL was percent-encoded
@@ -180,10 +209,13 @@ class TestNpmProvider(unittest.TestCase):
         self,
     ) -> None:
         """A dedicated PiReleaseSource uses its npm package identity."""
-        self._set_versions("@earendil-works/pi-coding-agent", {
-            "1.2.3": {"version": "1.2.3"},
-            "1.3.0": {"version": "1.3.0"},
-        })
+        self._set_versions(
+            "@earendil-works/pi-coding-agent",
+            {
+                "1.2.3": {"version": "1.2.3"},
+                "1.3.0": {"version": "1.3.0"},
+            },
+        )
         result = self.provider.discover(self._pi_target(), self._ctx())
         self.assertIsNone(result.skipped_reason)
         self.assertIsNone(result.unavailable_reason)
@@ -199,22 +231,24 @@ class TestNpmProvider(unittest.TestCase):
         """Pi follows ordinary npm stable filtering and publication time."""
         import json as _json
         from urllib.parse import quote
+
         pkg = "@earendil-works/pi-coding-agent"
         encoded = quote(pkg, safe="")
         self.http.set(
-            "GET", f"https://registry.npmjs.org/{encoded}",
+            "GET",
+            f"https://registry.npmjs.org/{encoded}",
             status=200,
-            body=_json.dumps({
-                "versions": {
-                    "1.2.3": {"version": "1.2.3"},
-                    "1.3.0-beta.1": {"version": "1.3.0-beta.1"},
-                },
-                "time": {"1.2.3": "2025-03-01T00:00:00Z"},
-            }).encode(),
+            body=_json.dumps(
+                {
+                    "versions": {
+                        "1.2.3": {"version": "1.2.3"},
+                        "1.3.0-beta.1": {"version": "1.3.0-beta.1"},
+                    },
+                    "time": {"1.2.3": "2025-03-01T00:00:00Z"},
+                }
+            ).encode(),
         )
-        result = self.provider.discover(
-            self._pi_target(stable_only=True), self._ctx()
-        )
+        result = self.provider.discover(self._pi_target(stable_only=True), self._ctx())
         self.assertIsNotNone(result.candidate)
         self.assertEqual("1.2.3", result.candidate.value)
         self.assertEqual("2025-03-01T00:00:00Z", result.candidate.published_at)
@@ -244,10 +278,13 @@ class TestNpmProvider(unittest.TestCase):
 
     def test_no_downgrade_when_upstream_max_older(self):
         """Upstream max (1.0.0) below current (2.0.0) → reported CURRENT."""
-        self._set_versions("some-pkg", {
-            "1.0.0": {"version": "1.0.0"},
-            "0.9.0": {"version": "0.9.0"},
-        })
+        self._set_versions(
+            "some-pkg",
+            {
+                "1.0.0": {"version": "1.0.0"},
+                "0.9.0": {"version": "0.9.0"},
+            },
+        )
         target = self._target(package="some-pkg", version="2.0.0")
         result = self.provider.discover(target, self._ctx())
         self.assertIsNotNone(result.candidate)
@@ -258,21 +295,25 @@ class TestNpmProvider(unittest.TestCase):
         """npm registry version time propagated as published_at."""
         import json as _json
         from urllib.parse import quote
+
         pkg = "some-pkg"
         encoded = quote(pkg, safe="")
         self.http.set(
-            "GET", f"https://registry.npmjs.org/{encoded}",
+            "GET",
+            f"https://registry.npmjs.org/{encoded}",
             status=200,
-            body=_json.dumps({
-                "versions": {
-                    "1.0.0": {"version": "1.0.0"},
-                    "2.0.0": {"version": "2.0.0"},
-                },
-                "time": {
-                    "1.0.0": "2025-01-01T00:00:00.000Z",
-                    "2.0.0": "2025-06-15T12:30:00.000Z",
-                },
-            }).encode(),
+            body=_json.dumps(
+                {
+                    "versions": {
+                        "1.0.0": {"version": "1.0.0"},
+                        "2.0.0": {"version": "2.0.0"},
+                    },
+                    "time": {
+                        "1.0.0": "2025-01-01T00:00:00.000Z",
+                        "2.0.0": "2025-06-15T12:30:00.000Z",
+                    },
+                }
+            ).encode(),
         )
         target = self._target(package=pkg, version="1.0.0")
         result = self.provider.discover(target, self._ctx())
@@ -282,10 +323,13 @@ class TestNpmProvider(unittest.TestCase):
 
     def test_missing_time_field_yields_none(self) -> None:
         """When the 'time' object is absent, published_at is None."""
-        self._set_versions("some-pkg", {
-            "1.0.0": {"version": "1.0.0"},
-            "2.0.0": {"version": "2.0.0"},
-        })
+        self._set_versions(
+            "some-pkg",
+            {
+                "1.0.0": {"version": "1.0.0"},
+                "2.0.0": {"version": "2.0.0"},
+            },
+        )
         target = self._target(package="some-pkg", version="1.0.0")
         result = self.provider.discover(target, self._ctx())
         self.assertIsNotNone(result.candidate)
@@ -295,15 +339,19 @@ class TestNpmProvider(unittest.TestCase):
         """CURRENT early-return preserves published_at from time object."""
         import json as _json
         from urllib.parse import quote
+
         pkg = "some-pkg"
         encoded = quote(pkg, safe="")
         self.http.set(
-            "GET", f"https://registry.npmjs.org/{encoded}",
+            "GET",
+            f"https://registry.npmjs.org/{encoded}",
             status=200,
-            body=_json.dumps({
-                "versions": {"1.0.0": {"version": "1.0.0"}},
-                "time": {"1.0.0": "2025-02-01T00:00:00Z"},
-            }).encode(),
+            body=_json.dumps(
+                {
+                    "versions": {"1.0.0": {"version": "1.0.0"}},
+                    "time": {"1.0.0": "2025-02-01T00:00:00Z"},
+                }
+            ).encode(),
         )
         target = self._target(package=pkg, version="1.0.0")
         result = self.provider.discover(target, self._ctx())
@@ -327,7 +375,9 @@ class TestNpmProvider(unittest.TestCase):
         self.assertIsNone(result.candidate.incomplete_reason)
         art = result.candidate.artifacts.get("2.0.0")
         self.assertIsNotNone(art)
-        self.assertEqual(art.url, "https://registry.npmjs.org/@scope/pkg/-/pkg-2.0.0.tgz")
+        self.assertEqual(
+            art.url, "https://registry.npmjs.org/@scope/pkg/-/pkg-2.0.0.tgz"
+        )
         self.assertEqual(art.integrity, valid_integrity)
         self.assertIsNone(art.sha256)
 
@@ -347,19 +397,23 @@ class TestNpmProvider(unittest.TestCase):
         omit the ``dist`` table entirely.
         """
         from urllib.parse import quote
+
         encoded = quote(package, safe="")
         candidate: dict = {"version": "2.0.0"}
         if dist is not None:
             candidate["dist"] = dist
         self.http.set(
-            "GET", f"https://registry.npmjs.org/{encoded}",
+            "GET",
+            f"https://registry.npmjs.org/{encoded}",
             status=200,
-            body=json.dumps({
-                "versions": {
-                    "1.0.0": {"version": "1.0.0"},
-                    "2.0.0": candidate,
-                },
-            }).encode(),
+            body=json.dumps(
+                {
+                    "versions": {
+                        "1.0.0": {"version": "1.0.0"},
+                        "2.0.0": candidate,
+                    },
+                }
+            ).encode(),
         )
 
     def test_extension_missing_dist_is_incomplete(self) -> None:
@@ -457,16 +511,19 @@ class TestNpmProvider(unittest.TestCase):
 
     def test_build_target_gets_no_artifacts(self) -> None:
         """Build-stage npm tools keep an empty artifact map (version-only)."""
-        self._set_versions("build-pkg", {
-            "1.0.0": {"version": "1.0.0"},
-            "2.0.0": {
-                "version": "2.0.0",
-                "dist": {
-                    "tarball": "https://registry.npmjs.org/build-pkg/-/build-pkg-2.0.0.tgz",
-                    "integrity": "sha512-AAAA",
+        self._set_versions(
+            "build-pkg",
+            {
+                "1.0.0": {"version": "1.0.0"},
+                "2.0.0": {
+                    "version": "2.0.0",
+                    "dist": {
+                        "tarball": "https://registry.npmjs.org/build-pkg/-/build-pkg-2.0.0.tgz",
+                        "integrity": "sha512-AAAA",
+                    },
                 },
             },
-        })
+        )
         target = self._target(package="build-pkg", version="1.0.0")
         result = self.provider.discover(target, self._ctx())
         self.assertIsNotNone(result.candidate)

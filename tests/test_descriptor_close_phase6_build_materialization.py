@@ -10,6 +10,7 @@ adopted immediately into an ``OwnedDescriptor``, the file object is opened with
 ``closefd=False``, and the owner is released through shared precedence after
 the file-object cleanup.
 """
+
 from __future__ import annotations
 
 import errno
@@ -66,8 +67,10 @@ class MaterializeArtifactOwnershipTests(unittest.TestCase):
         transport = RecordingTransport((b"pay", b"load"))
         with recording(materialization_module) as rec:
             path = materialize_artifact(
-                _selected(), constructor_project_root=root,
-                cache_root=cache, transport=transport,
+                _selected(),
+                constructor_project_root=root,
+                cache_root=cache,
+                transport=transport,
             )
         rec.assert_terminal_and_at_most_once(self)
         self.assertEqual(path.read_bytes(), b"payload")
@@ -78,8 +81,10 @@ class MaterializeArtifactOwnershipTests(unittest.TestCase):
         with recording(materialization_module) as rec:
             with self.assertRaises(MaterializationError):
                 materialize_artifact(
-                    _selected(), constructor_project_root=root,
-                    cache_root=cache, transport=transport,
+                    _selected(),
+                    constructor_project_root=root,
+                    cache_root=cache,
+                    transport=transport,
                 )
         rec.assert_terminal_and_at_most_once(self)
         self.assertEqual([], self._temporaries(state))
@@ -91,13 +96,13 @@ class MaterializeArtifactOwnershipTests(unittest.TestCase):
         with recording(
             materialization_module, close_fault=lambda fd, owner: close_error
         ) as rec:
-            with mock.patch.object(
-                materialization_module.os, "replace"
-            ) as replace:
+            with mock.patch.object(materialization_module.os, "replace") as replace:
                 with self.assertRaises(MaterializationError) as ctx:
                     materialize_artifact(
-                        _selected(), constructor_project_root=root,
-                        cache_root=cache, transport=transport,
+                        _selected(),
+                        constructor_project_root=root,
+                        cache_root=cache,
+                        transport=transport,
                     )
         # The release failure is mapped by the materialization boundary, not
         # escaped as a raw OSError, and it can never follow a publication.
@@ -121,13 +126,13 @@ class MaterializeArtifactOwnershipTests(unittest.TestCase):
                 write_fault=write_error,
                 close_fault=file_close_error,
             ):
-                with mock.patch.object(
-                    materialization_module.os, "replace"
-                ) as replace:
+                with mock.patch.object(materialization_module.os, "replace") as replace:
                     with self.assertRaises(MaterializationError) as ctx:
                         materialize_artifact(
-                            _selected(), constructor_project_root=root,
-                            cache_root=cache, transport=transport,
+                            _selected(),
+                            constructor_project_root=root,
+                            cache_root=cache,
+                            transport=transport,
                         )
         self.assertIs(ctx.exception.__cause__, write_error)
         secondary = secondary_diagnostics(ctx.exception)
@@ -146,16 +151,14 @@ class MaterializeArtifactOwnershipTests(unittest.TestCase):
         with recording(
             materialization_module, close_fault=lambda fd, owner: descriptor_error
         ) as rec:
-            with file_object_faults(
-                materialization_module, flush_fault=flush_error
-            ):
-                with mock.patch.object(
-                    materialization_module.os, "replace"
-                ) as replace:
+            with file_object_faults(materialization_module, flush_fault=flush_error):
+                with mock.patch.object(materialization_module.os, "replace") as replace:
                     with self.assertRaises(MaterializationError) as ctx:
                         materialize_artifact(
-                            _selected(), constructor_project_root=root,
-                            cache_root=cache, transport=transport,
+                            _selected(),
+                            constructor_project_root=root,
+                            cache_root=cache,
+                            transport=transport,
                         )
         self.assertIs(ctx.exception.__cause__, flush_error)
         self.assertIn(descriptor_error, secondary_diagnostics(ctx.exception))
@@ -164,7 +167,9 @@ class MaterializeArtifactOwnershipTests(unittest.TestCase):
         self.assertEqual([], self._temporaries(state))
         self.assertFalse(self._destination(state).exists())
 
-    def test_file_object_close_failure_stays_primary_over_descriptor_close(self) -> None:
+    def test_file_object_close_failure_stays_primary_over_descriptor_close(
+        self,
+    ) -> None:
         root, cache, state = self._environment()
         transport = RecordingTransport((b"pay", b"load"))
         file_close_error = OSError(errno.EIO, "injected file-object close")
@@ -175,13 +180,13 @@ class MaterializeArtifactOwnershipTests(unittest.TestCase):
             with file_object_faults(
                 materialization_module, close_fault=file_close_error
             ):
-                with mock.patch.object(
-                    materialization_module.os, "replace"
-                ) as replace:
+                with mock.patch.object(materialization_module.os, "replace") as replace:
                     with self.assertRaises(MaterializationError) as ctx:
                         materialize_artifact(
-                            _selected(), constructor_project_root=root,
-                            cache_root=cache, transport=transport,
+                            _selected(),
+                            constructor_project_root=root,
+                            cache_root=cache,
+                            transport=transport,
                         )
         self.assertIs(ctx.exception.__cause__, file_close_error)
         self.assertIn(descriptor_error, secondary_diagnostics(ctx.exception))
@@ -198,13 +203,13 @@ class MaterializeArtifactOwnershipTests(unittest.TestCase):
             with mock.patch.object(
                 materialization_module.hashlib, "new", side_effect=init_error
             ):
-                with mock.patch.object(
-                    materialization_module.os, "replace"
-                ) as replace:
+                with mock.patch.object(materialization_module.os, "replace") as replace:
                     with self.assertRaises(MaterializationError) as ctx:
                         materialize_artifact(
-                            _selected(), constructor_project_root=root,
-                            cache_root=cache, transport=transport,
+                            _selected(),
+                            constructor_project_root=root,
+                            cache_root=cache,
+                            transport=transport,
                         )
         self.assertIs(ctx.exception.__cause__, init_error)
         replace.assert_not_called()
@@ -232,13 +237,13 @@ class MaterializeArtifactOwnershipTests(unittest.TestCase):
             with mock.patch.object(
                 materialization_module, "Path", side_effect=faulty_path
             ):
-                with mock.patch.object(
-                    materialization_module.os, "replace"
-                ) as replace:
+                with mock.patch.object(materialization_module.os, "replace") as replace:
                     with self.assertRaises(MaterializationError) as ctx:
                         materialize_artifact(
-                            _selected(), constructor_project_root=root,
-                            cache_root=cache, transport=transport,
+                            _selected(),
+                            constructor_project_root=root,
+                            cache_root=cache,
+                            transport=transport,
                         )
         self.assertIs(ctx.exception.__cause__, init_error)
         replace.assert_not_called()
@@ -253,13 +258,13 @@ class MaterializeArtifactOwnershipTests(unittest.TestCase):
         with recording(
             materialization_module, close_fault=lambda fd, owner: descriptor_error
         ) as rec:
-            with mock.patch.object(
-                materialization_module.os, "replace"
-            ) as replace:
+            with mock.patch.object(materialization_module.os, "replace") as replace:
                 with self.assertRaises(MaterializationError) as ctx:
                     materialize_artifact(
-                        _selected(), constructor_project_root=root,
-                        cache_root=cache, transport=transport,
+                        _selected(),
+                        constructor_project_root=root,
+                        cache_root=cache,
+                        transport=transport,
                     )
         self.assertEqual(str(ctx.exception), "interrupted")
         self.assertIn(descriptor_error, secondary_diagnostics(ctx.exception))

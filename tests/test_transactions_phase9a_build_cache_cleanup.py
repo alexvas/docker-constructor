@@ -21,6 +21,7 @@ descriptor open, but fd numbers are otherwise reused freely.  Counts are
 therefore taken from the post-fault call window and from the snapshot of
 descriptors that were open when the fault was injected.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -72,7 +73,7 @@ class _CloseFaults:
         self.open_fds.discard(fd)
 
     def post_fault(self, fd: int) -> list[int]:
-        return self.calls[self.fault_index[fd] + 1:]
+        return self.calls[self.fault_index[fd] + 1 :]
 
     def cleanup(self) -> None:
         for fd in dict.fromkeys(self.faulted):
@@ -94,15 +95,19 @@ class _BuildCacheCase(unittest.TestCase):
         # Warm the namespace, then skip the (idempotent) preparation call inside
         # the functions under test so fd churn cannot pollute call counting.
         resolve_project_state(self.project, cache_root=self.cache)
-        self.paths = build_cache.prepare_build_cache(self.project, cache_root=self.cache)
+        self.paths = build_cache.prepare_build_cache(
+            self.project, cache_root=self.cache
+        )
 
     def identity(self, data: bytes) -> DigestIdentity:
         return DigestIdentity.from_hex("sha256", hashlib.sha256(data).hexdigest())
 
     def publish(self, data: bytes = b"payload"):
         return build_cache.publish_verified_blob(
-            self.identity(data), data,
-            constructor_project_root=self.project, cache_root=self.cache,
+            self.identity(data),
+            data,
+            constructor_project_root=self.project,
+            cache_root=self.cache,
         )
 
     @contextlib.contextmanager
@@ -137,8 +142,11 @@ class _BuildCacheCase(unittest.TestCase):
             return real_replace(src, dst, src_dir_fd=src_dir_fd, dst_dir_fd=dst_dir_fd)
 
         with contextlib.ExitStack() as stack:
-            stack.enter_context(mock.patch.object(
-                build_cache, "prepare_build_cache", lambda *a, **k: self.paths))
+            stack.enter_context(
+                mock.patch.object(
+                    build_cache, "prepare_build_cache", lambda *a, **k: self.paths
+                )
+            )
             stack.enter_context(mock.patch.object(os, "close", faults.close))
             stack.enter_context(mock.patch.object(os, "open", recording_open))
             stack.enter_context(mock.patch.object(os, "unlink", recording_unlink))
@@ -168,7 +176,9 @@ class _BuildCacheCase(unittest.TestCase):
 
         def recording_child(parent_fd, name, *, label):
             if fail_child_open_at is not None and len(child_fds) == fail_child_open_at:
-                raise build_cache.BuildCacheError(f"injected child open failure: {label}")
+                raise build_cache.BuildCacheError(
+                    f"injected child open failure: {label}"
+                )
             fd = real_child(parent_fd, name, label=label)
             paths[fd] = name
             faults.note_open(fd)
@@ -176,11 +186,20 @@ class _BuildCacheCase(unittest.TestCase):
             return fd
 
         with contextlib.ExitStack() as stack:
-            stack.enter_context(mock.patch.object(
-                build_cache, "prepare_build_cache", lambda *a, **k: self.paths))
+            stack.enter_context(
+                mock.patch.object(
+                    build_cache, "prepare_build_cache", lambda *a, **k: self.paths
+                )
+            )
             stack.enter_context(mock.patch.object(os, "close", faults.close))
-            stack.enter_context(mock.patch.object(build_cache, "_open_namespace_fd", recording_namespace))
-            stack.enter_context(mock.patch.object(build_cache, "_open_validated_child", recording_child))
+            stack.enter_context(
+                mock.patch.object(
+                    build_cache, "_open_namespace_fd", recording_namespace
+                )
+            )
+            stack.enter_context(
+                mock.patch.object(build_cache, "_open_validated_child", recording_child)
+            )
             try:
                 yield faults, namespace_fds, child_fds
             finally:
@@ -195,9 +214,15 @@ class PublicationCleanupTests(_BuildCacheCase):
 
     def test_close_interruption_still_unlinks_temporary_entry(self) -> None:
         interruption = KeyboardInterrupt()
-        policy = lambda fd, path, attempt: interruption if path and path.startswith(".publish-") else None
+        policy = lambda fd, path, attempt: (
+            interruption if path and path.startswith(".publish-") else None
+        )
 
-        with self._publication_instruments(close_policy=policy) as (faults, paths, unlinks):
+        with self._publication_instruments(close_policy=policy) as (
+            faults,
+            paths,
+            unlinks,
+        ):
             with self.assertRaises(KeyboardInterrupt) as caught:
                 self.publish()
             temp_fd = self._temporary_fd(paths)
@@ -206,18 +231,28 @@ class PublicationCleanupTests(_BuildCacheCase):
             unlink_count = sum(1 for name in unlinks if name.startswith(".publish-"))
 
         self.assertIs(caught.exception, interruption)
-        self.assertEqual(unlink_count, 1, "temporary entry was not unlinked exactly once")
+        self.assertEqual(
+            unlink_count, 1, "temporary entry was not unlinked exactly once"
+        )
         self.assertEqual(post.count(temp_fd), 0, "failed descriptor close was retried")
         others = snapshot - {temp_fd}
         self.assertEqual(len(others), 4)
         for fd in others:
-            self.assertEqual(post.count(fd), 1, f"descriptor {fd} not released exactly once")
+            self.assertEqual(
+                post.count(fd), 1, f"descriptor {fd} not released exactly once"
+            )
 
     def test_unexpected_close_defect_still_unlinks_and_continues(self) -> None:
         defect = ValueError("injected close defect")
-        policy = lambda fd, path, attempt: defect if path and path.startswith(".publish-") else None
+        policy = lambda fd, path, attempt: (
+            defect if path and path.startswith(".publish-") else None
+        )
 
-        with self._publication_instruments(close_policy=policy) as (faults, paths, unlinks):
+        with self._publication_instruments(close_policy=policy) as (
+            faults,
+            paths,
+            unlinks,
+        ):
             with self.assertRaises(ValueError) as caught:
                 self.publish()
             temp_fd = self._temporary_fd(paths)
@@ -246,7 +281,9 @@ class PublicationCleanupTests(_BuildCacheCase):
         io_error = OSError(errno.EIO, "temporary unlink I/O failure")
 
         with self._publication_instruments(
-            unlink_policy=lambda name: io_error if name.startswith(".publish-") else None
+            unlink_policy=lambda name: (
+                io_error if name.startswith(".publish-") else None
+            )
         ):
             with self.assertRaises(build_cache.BuildCacheError) as caught:
                 self.publish()
@@ -283,7 +320,9 @@ class PublicationCleanupTests(_BuildCacheCase):
                 # Every descriptor opened for the failed publication is gone.
                 self.assertEqual(faults.open_fds, set())
                 collided = [fd for fd, name in paths.items() if name == temp_name]
-                self.assertEqual(collided, [], "O_EXCL collision unexpectedly opened temp_name")
+                self.assertEqual(
+                    collided, [], "O_EXCL collision unexpectedly opened temp_name"
+                )
 
         self.assertNotIn(temp_name, unlinks)
         self.assertEqual(existing.read_bytes(), original)
@@ -304,7 +343,11 @@ class StateOpenCleanupTests(_BuildCacheCase):
                 return namespace_close
             return None
 
-        with self._state_instruments(close_policy=policy) as (faults, ns_fds, child_fds):
+        with self._state_instruments(close_policy=policy) as (
+            faults,
+            ns_fds,
+            child_fds,
+        ):
             seen["namespace"] = ns_fds
             with self.assertRaises(OSError) as caught:
                 build_cache.open_build_cache_state(self.project, cache_root=self.cache)
@@ -316,7 +359,9 @@ class StateOpenCleanupTests(_BuildCacheCase):
         self.assertEqual(len(opened_children), 5)
         self.assertEqual(set(opened_children) | {ns_fds[0]}, snapshot)
         for fd in opened_children:
-            self.assertEqual(post.count(fd), 1, f"retained child {fd} not released exactly once")
+            self.assertEqual(
+                post.count(fd), 1, f"retained child {fd} not released exactly once"
+            )
         self.assertEqual(post.count(ns_fds[0]), 0, "failed namespace close was retried")
 
     def test_namespace_close_interruption_releases_every_child(self) -> None:
@@ -328,7 +373,11 @@ class StateOpenCleanupTests(_BuildCacheCase):
                 return interruption
             return None
 
-        with self._state_instruments(close_policy=policy) as (faults, ns_fds, child_fds):
+        with self._state_instruments(close_policy=policy) as (
+            faults,
+            ns_fds,
+            child_fds,
+        ):
             seen["namespace"] = ns_fds
             with self.assertRaises(KeyboardInterrupt) as caught:
                 build_cache.open_build_cache_state(self.project, cache_root=self.cache)
@@ -338,9 +387,13 @@ class StateOpenCleanupTests(_BuildCacheCase):
         self.assertIs(caught.exception, interruption)
         self.assertEqual(len(opened_children), 5)
         for fd in opened_children:
-            self.assertEqual(post.count(fd), 1, f"retained child {fd} not released exactly once")
+            self.assertEqual(
+                post.count(fd), 1, f"retained child {fd} not released exactly once"
+            )
 
-    def test_child_release_interruption_authoritative_over_namespace_failure(self) -> None:
+    def test_child_release_interruption_authoritative_over_namespace_failure(
+        self,
+    ) -> None:
         namespace_close = OSError(errno.EIO, "namespace close failed")
         interruption = KeyboardInterrupt()
         seen: dict[str, list[int]] = {"child": [], "namespace": []}
@@ -352,9 +405,11 @@ class StateOpenCleanupTests(_BuildCacheCase):
                 return namespace_close
             return None
 
-        with self._state_instruments(
-            close_policy=policy, fail_child_open_at=1
-        ) as (faults, ns_fds, child_fds):
+        with self._state_instruments(close_policy=policy, fail_child_open_at=1) as (
+            faults,
+            ns_fds,
+            child_fds,
+        ):
             seen["namespace"] = ns_fds
             seen["child"] = child_fds
             with self.assertRaises(KeyboardInterrupt) as caught:
@@ -365,11 +420,17 @@ class StateOpenCleanupTests(_BuildCacheCase):
 
         self.assertIs(caught.exception, interruption)
         self.assertEqual(len(opened_children), 1)
-        self.assertEqual(post.count(interruption_fd), 0, "failed child close was retried")
-        self.assertEqual(namespace_count, 1, "namespace descriptor was not released once")
+        self.assertEqual(
+            post.count(interruption_fd), 0, "failed child close was retried"
+        )
+        self.assertEqual(
+            namespace_count, 1, "namespace descriptor was not released once"
+        )
         secondary = _secondary_of(caught.exception)
         self.assertIn(namespace_close, secondary)
-        self.assertTrue(any(isinstance(item, build_cache.BuildCacheError) for item in secondary))
+        self.assertTrue(
+            any(isinstance(item, build_cache.BuildCacheError) for item in secondary)
+        )
 
     def test_child_interruption_after_namespace_failure_is_authoritative(self) -> None:
         namespace_close = OSError(errno.EIO, "namespace close failed")
@@ -383,7 +444,11 @@ class StateOpenCleanupTests(_BuildCacheCase):
                 return interruption
             return None
 
-        with self._state_instruments(close_policy=policy) as (faults, ns_fds, child_fds):
+        with self._state_instruments(close_policy=policy) as (
+            faults,
+            ns_fds,
+            child_fds,
+        ):
             seen["namespace"] = ns_fds
             seen["child"] = child_fds
             with self.assertRaises(KeyboardInterrupt) as caught:

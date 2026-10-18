@@ -41,6 +41,7 @@ waiter honouring ``set()``. A monitor, clock, waiter, or sink failure is always
 secondary to the wrapped operation's result, is contained inside the monitor,
 and never emits a terminal event before production is confirmed stopped.
 """
+
 from __future__ import annotations
 
 import math
@@ -89,9 +90,7 @@ def _next_heartbeat_deadline(previous: float, observed: float) -> float:
     """
     deadline = previous + HEARTBEAT_INTERVAL_SECONDS
     if deadline <= observed:
-        missed = (
-            math.floor((observed - deadline) / HEARTBEAT_INTERVAL_SECONDS) + 1
-        )
+        missed = math.floor((observed - deadline) / HEARTBEAT_INTERVAL_SECONDS) + 1
         deadline += missed * HEARTBEAT_INTERVAL_SECONDS
     return deadline
 
@@ -203,7 +202,10 @@ class HostActivityMonitor:
         emit(
             self._sink,
             HostStepEvent(
-                phase, step, HostStepState.STARTED, expects_diagnostic_stream,
+                phase,
+                step,
+                HostStepState.STARTED,
+                expects_diagnostic_stream,
                 logical_resource,
             ),
         )
@@ -318,8 +320,11 @@ class HostActivityMonitor:
         emit(
             self._sink,
             HostStepEvent(
-                self._phase, self._step, requested_state,
-                self._expects_diagnostic_stream, self._logical_resource,
+                self._phase,
+                self._step,
+                requested_state,
+                self._expects_diagnostic_stream,
+                self._logical_resource,
             ),
         )
 
@@ -436,9 +441,7 @@ class HostActivityMonitor:
                     return
                 if not self._publish_heartbeat():
                     return
-                next_at = _next_heartbeat_deadline(
-                    next_at, float(self._clock())
-                )
+                next_at = _next_heartbeat_deadline(next_at, float(self._clock()))
         except BaseException:
             # Monitor, clock, waiter, or sink failure must never escape the
             # heartbeat producer or change the wrapped operation's result.

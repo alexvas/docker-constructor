@@ -60,9 +60,7 @@ class TestPublishedPiInstallLock(unittest.TestCase):
         self.assertIn("tests/data", str(_FIXTURE))
 
     def test_sha256_matches_recorded_provenance(self):
-        self.assertEqual(
-            hashlib.sha256(self._raw()).hexdigest(), _SHA256
-        )
+        self.assertEqual(hashlib.sha256(self._raw()).hexdigest(), _SHA256)
 
     def test_pi_version_read_from_root_package_metadata(self):
         data = json.loads(self._raw().decode())
@@ -95,8 +93,10 @@ class TestPublishedPiInstallLock(unittest.TestCase):
         self.assertGreaterEqual(count(lambda n: "license" in n), 1)
         self.assertGreaterEqual(
             count(
-                lambda n: isinstance(n.get("engines"), dict)
-                and "||" in str(n["engines"].get("node", ""))
+                lambda n: (
+                    isinstance(n.get("engines"), dict)
+                    and "||" in str(n["engines"].get("node", ""))
+                )
             ),
             1,
         )

@@ -122,7 +122,9 @@ class TestExactClosureAccepted(_OutputTestCase):
         # The root package.json is the synthesized manifest; add it too.
         _write_pkg(self.root, "", "root", "1.0.0")
         manifest = validate_assembled_tree(validated, self.root)
-        self.assertTrue(any(e.path == "node_modules/a/package.json" for e in manifest.entries))
+        self.assertTrue(
+            any(e.path == "node_modules/a/package.json" for e in manifest.entries)
+        )
 
     def test_scoped_and_nested_paths_accepted(self):
         validated = _validated(
@@ -204,7 +206,10 @@ class TestDependencyClosure(_OutputTestCase):
         validated = self._validated()
         self._tree()
         _write_pkg(
-            self.root, "node_modules/a", "a", "1.0.0",
+            self.root,
+            "node_modules/a",
+            "a",
+            "1.0.0",
             dependencies={"b": "*"},
         )
         validate_assembled_tree(validated, self.root)
@@ -216,7 +221,10 @@ class TestDependencyClosure(_OutputTestCase):
         validated = self._validated()
         self._tree()
         _write_pkg(
-            self.root, "node_modules/a", "a", "1.0.0",
+            self.root,
+            "node_modules/a",
+            "a",
+            "1.0.0",
             dependencies={"b": "^2.0.0"},
         )
         validate_assembled_tree(validated, self.root)
@@ -233,7 +241,9 @@ class TestNpmStyleDependencyPlacement(_OutputTestCase):
                 "node_modules/a/node_modules/x": _pkg("x", "1.0.0"),
             },
         )
-        _write_pkg(self.root, "node_modules/a", "a", "1.0.0", dependencies={"x": "^1.0.0"})
+        _write_pkg(
+            self.root, "node_modules/a", "a", "1.0.0", dependencies={"x": "^1.0.0"}
+        )
         _write_pkg(self.root, "node_modules/a/node_modules/x", "x", "1.0.0")
         validate_assembled_tree(validated, self.root)
 
@@ -248,9 +258,14 @@ class TestNpmStyleDependencyPlacement(_OutputTestCase):
                 "node_modules/a/node_modules/x": _pkg("x", "1.0.0"),
             },
         )
-        _write_pkg(self.root, "node_modules/a", "a", "1.0.0", dependencies={"b": "^1.0.0"})
         _write_pkg(
-            self.root, "node_modules/a/node_modules/b", "b", "1.0.0",
+            self.root, "node_modules/a", "a", "1.0.0", dependencies={"b": "^1.0.0"}
+        )
+        _write_pkg(
+            self.root,
+            "node_modules/a/node_modules/b",
+            "b",
+            "1.0.0",
             dependencies={"x": "^1.0.0"},
         )
         _write_pkg(self.root, "node_modules/a/node_modules/x", "x", "1.0.0")
@@ -266,9 +281,13 @@ class TestNpmStyleDependencyPlacement(_OutputTestCase):
                 "node_modules/x": _pkg("x", "2.0.0"),
             },
         )
-        _write_pkg(self.root, "node_modules/a", "a", "1.0.0", dependencies={"x": "^1.0.0"})
+        _write_pkg(
+            self.root, "node_modules/a", "a", "1.0.0", dependencies={"x": "^1.0.0"}
+        )
         _write_pkg(self.root, "node_modules/a/node_modules/x", "x", "1.0.0")
-        _write_pkg(self.root, "node_modules/b", "b", "1.0.0", dependencies={"x": "^2.0.0"})
+        _write_pkg(
+            self.root, "node_modules/b", "b", "1.0.0", dependencies={"x": "^2.0.0"}
+        )
         _write_pkg(self.root, "node_modules/x", "x", "2.0.0")
         validate_assembled_tree(validated, self.root)
 
@@ -289,9 +308,7 @@ class TestOmissionsAndExtras(_OutputTestCase):
 
     def test_omitted_optional_absent_accepted(self):
         validated = self._validated_with_omission()
-        self.assertEqual(
-            [o.name for o in validated.omitted_optionals], ["native"]
-        )
+        self.assertEqual([o.name for o in validated.omitted_optionals], ["native"])
         _write_pkg(self.root, "node_modules/a", "a", "1.0.0")
         validate_assembled_tree(validated, self.root)
 
@@ -379,9 +396,7 @@ class TestOwnershipPermissionsSymlinksSpecial(_OutputTestCase):
         validated = self._validated()
         self._tree()
         with self.assertRaises(LockedNpmError) as ctx:
-            validate_assembled_tree(
-                validated, self.root, uid=os.geteuid() + 1
-            )
+            validate_assembled_tree(validated, self.root, uid=os.geteuid() + 1)
         self.assertEqual(ctx.exception.reason, "output_ownership_mismatch")
 
     def test_group_writable_rejected(self):
@@ -404,9 +419,7 @@ class TestOwnershipPermissionsSymlinksSpecial(_OutputTestCase):
     def test_escaping_symlink_rejected(self):
         validated = self._validated()
         self._tree()
-        (self.root / "node_modules" / "a" / "escape").symlink_to(
-            "../../../outside"
-        )
+        (self.root / "node_modules" / "a" / "escape").symlink_to("../../../outside")
         with self.assertRaises(LockedNpmError) as ctx:
             validate_assembled_tree(validated, self.root)
         self.assertEqual(ctx.exception.reason, "unsafe_symlink_target")
@@ -432,11 +445,7 @@ class TestBinTargetValidation(_OutputTestCase):
     def _validated(self):
         return _validated(
             {"a": "1.0.0"},
-            packages={
-                "node_modules/a": _pkg(
-                    "a", "1.0.0", bin={"acmd": "bin/run"}
-                )
-            },
+            packages={"node_modules/a": _pkg("a", "1.0.0", bin={"acmd": "bin/run"})},
         )
 
     def _write_package(self) -> None:
@@ -446,9 +455,7 @@ class TestBinTargetValidation(_OutputTestCase):
         validated = self._validated()
         self._write_package()
         (self.root / "node_modules" / "a" / "bin").mkdir(parents=True)
-        (self.root / "node_modules" / "a" / "bin" / "run").write_text(
-            "#!/bin/sh\n"
-        )
+        (self.root / "node_modules" / "a" / "bin" / "run").write_text("#!/bin/sh\n")
         validate_assembled_tree(validated, self.root)
 
     def test_contained_symlink_target_accepted(self):

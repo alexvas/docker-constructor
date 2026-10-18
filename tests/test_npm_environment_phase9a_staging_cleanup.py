@@ -233,9 +233,7 @@ class TestMakeWritableActions(_StagingCleanupTestCase):
         _write_tree(root, b"payload")
         manifest = build_tree_manifest(root)
         expected = {
-            str(e.path)
-            for e in manifest.entries
-            if e.kind in ("file", "directory")
+            str(e.path) for e in manifest.entries if e.kind in ("file", "directory")
         } | {"."}
 
         seen: list[str] = []
@@ -260,9 +258,7 @@ class TestMakeWritableActions(_StagingCleanupTestCase):
         _write_tree(root, b"payload")
         manifest = build_tree_manifest(root)
         expected = {
-            str(e.path)
-            for e in manifest.entries
-            if e.kind in ("file", "directory")
+            str(e.path) for e in manifest.entries if e.kind in ("file", "directory")
         } | {"."}
 
         attempted: list[str] = []
@@ -311,9 +307,7 @@ class TestPublicationFailurePrecedence(_StagingCleanupTestCase):
 
         self.assertTrue(prior.environment_root.exists())
         self.assertEqual(
-            (
-                prior.environment_root / "node_modules" / "a" / "marker.txt"
-            ).read_bytes(),
+            (prior.environment_root / "node_modules" / "a" / "marker.txt").read_bytes(),
             prior_bytes,
         )
 
@@ -323,9 +317,7 @@ class TestCleanupAbsence(_StagingCleanupTestCase):
         def fake_rmtree(path, *args, **kwargs):
             raise FileNotFoundError(path)
 
-        with mock.patch.object(
-            publication.shutil, "rmtree", side_effect=fake_rmtree
-        ):
+        with mock.patch.object(publication.shutil, "rmtree", side_effect=fake_rmtree):
             with self._interrupt_final_rename():
                 with self.assertRaises(OSError) as ctx:
                     self._publish(b"payload")
@@ -425,10 +417,13 @@ class TestCleanupActionIndependence(_StagingCleanupTestCase):
             remove_paths.append(Path(path))
             return real_remove(path)
 
-        with mock.patch.object(
-            publication, "_restore_write_access", side_effect=fake_restore
-        ), mock.patch.object(
-            publication, "_remove_owned_tree", side_effect=fake_remove
+        with (
+            mock.patch.object(
+                publication, "_restore_write_access", side_effect=fake_restore
+            ),
+            mock.patch.object(
+                publication, "_remove_owned_tree", side_effect=fake_remove
+            ),
         ):
             with self._interrupt_final_rename():
                 with self.assertRaises(OSError) as ctx:

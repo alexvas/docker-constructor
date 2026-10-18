@@ -13,6 +13,7 @@ These tests bind the RED deliverables for Phase 5 of
 * host acquisition failures carry the logical asset and the bounded safe
   exception-type chain without leaking URLs, proxies, credentials, or messages.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -96,7 +97,10 @@ def _payload(name: str) -> bytes:
 
 
 def _selected(
-    name: str, payload: bytes | None = None, *, url: str | None = None,
+    name: str,
+    payload: bytes | None = None,
+    *,
+    url: str | None = None,
 ) -> SelectedBuildArtifact:
     data = payload if payload is not None else _payload(name)
     return SelectedBuildArtifact(
@@ -199,7 +203,12 @@ class _ProjectFixture(unittest.TestCase):
         self.cache.mkdir(mode=0o700)
 
     def materialize(
-        self, artifacts, transport, *, sink=None, monitor_factory=None,
+        self,
+        artifacts,
+        transport,
+        *,
+        sink=None,
+        monitor_factory=None,
         failure_secrets=(),
     ):
         with patch(
@@ -207,9 +216,13 @@ class _ProjectFixture(unittest.TestCase):
             return_value=tuple(artifacts),
         ):
             return materialize_build_artifacts(
-                object(), constructor_project_root=self.project,
-                cache_root=self.cache, transport=transport, event_sink=sink,
-                monitor_factory=monitor_factory, failure_secrets=failure_secrets,
+                object(),
+                constructor_project_root=self.project,
+                cache_root=self.cache,
+                transport=transport,
+                event_sink=sink,
+                monitor_factory=monitor_factory,
+                failure_secrets=failure_secrets,
             )
 
 
@@ -257,23 +270,24 @@ class TestReviewedBuildArtifactActivity(_ProjectFixture):
         records: list[object] = []
         bomb = _KeyedTransport(
             {name: _payload(name) for name in _REVIEWED_ARTIFACT_NAMES},
-            fail_urls={f"https://downloads.example/{name}?token=shhh"
-                       for name in _REVIEWED_ARTIFACT_NAMES},
+            fail_urls={
+                f"https://downloads.example/{name}?token=shhh"
+                for name in _REVIEWED_ARTIFACT_NAMES
+            },
             error=AssertionError("network on verified hit"),
         )
         self.materialize(artifacts, bomb, sink=records.append)
         self.assertEqual([], bomb.calls)
         reuse = [
-            event for event in _of(records, HostStepEvent)
+            event
+            for event in _of(records, HostStepEvent)
             if event.step is HostStep.CACHE_REUSE
         ]
         self.assertEqual(
             list(_REVIEWED_ARTIFACT_NAMES),
             [event.logical_resource for event in reuse],
         )
-        self.assertTrue(
-            all(event.state is HostStepState.SUCCEEDED for event in reuse)
-        )
+        self.assertTrue(all(event.state is HostStepState.SUCCEEDED for event in reuse))
         self.assertEqual([], _of(records, HostTransportProgressEvent))
         self.assertFalse(
             any(
@@ -283,18 +297,33 @@ class TestReviewedBuildArtifactActivity(_ProjectFixture):
             )
         )
         for name in _REVIEWED_ARTIFACT_NAMES:
-            started = records.index(HostStepEvent(
-                HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION,
-                HostStepState.STARTED, False, name,
-            ))
-            reused = records.index(HostStepEvent(
-                HostPhase.RELEASE_ACQUISITION, HostStep.CACHE_REUSE,
-                HostStepState.SUCCEEDED, False, name,
-            ))
-            terminal = records.index(HostStepEvent(
-                HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION,
-                HostStepState.SUCCEEDED, False, name,
-            ))
+            started = records.index(
+                HostStepEvent(
+                    HostPhase.RELEASE_ACQUISITION,
+                    HostStep.ARTIFACT_ACQUISITION,
+                    HostStepState.STARTED,
+                    False,
+                    name,
+                )
+            )
+            reused = records.index(
+                HostStepEvent(
+                    HostPhase.RELEASE_ACQUISITION,
+                    HostStep.CACHE_REUSE,
+                    HostStepState.SUCCEEDED,
+                    False,
+                    name,
+                )
+            )
+            terminal = records.index(
+                HostStepEvent(
+                    HostPhase.RELEASE_ACQUISITION,
+                    HostStep.ARTIFACT_ACQUISITION,
+                    HostStepState.SUCCEEDED,
+                    False,
+                    name,
+                )
+            )
             self.assertLess(started, reused, f"{name}: reuse precedes start")
             self.assertLess(reused, terminal, f"{name}: reuse precedes success")
 
@@ -358,7 +387,8 @@ class TestTransportProgressFacts(_ProjectFixture):
         self.assertIsNone(heartbeat.diagnostic_silence_seconds)
         self.assertFalse(heartbeat.expects_diagnostic_stream)
         self.assertLess(
-            records.index(progress[0]), records.index(heartbeat),
+            records.index(progress[0]),
+            records.index(heartbeat),
             "progress must precede the heartbeat that publishes it",
         )
 
@@ -367,10 +397,7 @@ class TestTransportProgressFacts(_ProjectFixture):
         self.assertIs(HostStepState.SUCCEEDED, terminal.state)
         self.assertEqual(
             len(records) - 1,
-            next(
-                index for index, event in enumerate(records)
-                if event is terminal
-            ),
+            next(index for index, event in enumerate(records) if event is terminal),
             "no progress or heartbeat may follow the terminal fact",
         )
 
@@ -403,9 +430,7 @@ class TestTransportProgressFacts(_ProjectFixture):
             monitor.record_transport_progress(target * 512)
         beats = _of(records, HostHeartbeatEvent)
         self.assertEqual([3, 4, 5], [beat.elapsed_seconds for beat in beats])
-        self.assertTrue(
-            all(beat.diagnostic_silence_seconds is None for beat in beats)
-        )
+        self.assertTrue(all(beat.diagnostic_silence_seconds is None for beat in beats))
         monitor.finish(HostStepState.SUCCEEDED)
 
     def test_single_chunk_transport_reports_one_cumulative_update(self):
@@ -416,8 +441,10 @@ class TestTransportProgressFacts(_ProjectFixture):
         self.assertEqual(1, len(transport.calls))
         self.assertEqual(
             [4096],
-            [event.received_bytes
-             for event in _of(records, HostTransportProgressEvent)],
+            [
+                event.received_bytes
+                for event in _of(records, HostTransportProgressEvent)
+            ],
         )
 
 
@@ -481,7 +508,9 @@ class TestWriteBoundaryProgress(_ProjectFixture):
         def run() -> None:
             try:
                 self.materialize(
-                    (artifact,), transport, monitor_factory=lambda name: monitor,
+                    (artifact,),
+                    transport,
+                    monitor_factory=lambda name: monitor,
                 )
             except BaseException as exc:  # surfaced by the assertion below
                 errors.append(exc)
@@ -514,7 +543,8 @@ class TestWriteBoundaryProgress(_ProjectFixture):
                 [(event.logical_resource, event.received_bytes) for event in progress],
             )
             self.assertLess(
-                records.index(progress[0]), records.index(heartbeat),
+                records.index(progress[0]),
+                records.index(heartbeat),
                 "progress must precede the heartbeat that exposes it",
             )
             gate.set()
@@ -551,12 +581,14 @@ class TestWriteBoundaryProgress(_ProjectFixture):
             "the yielded chunk must be reported even though the write failed",
         )
         failed = [
-            event for event in _artifact_steps(records)
+            event
+            for event in _artifact_steps(records)
             if event.state is HostStepState.FAILED
         ]
         self.assertEqual(["uv"], [event.logical_resource for event in failed])
         self.assertEqual(
-            [], list(paths.tmp_root.iterdir()),
+            [],
+            list(paths.tmp_root.iterdir()),
             "temporary data must be cleaned up after a failed write",
         )
         self.assertFalse(blob.exists(), "no artifact may be published")
@@ -567,7 +599,9 @@ class TestHostAcquisitionFailureContext(_ProjectFixture):
         artifact = _selected(
             "uv", url="https://user:pass@downloads.example/uv.tar.gz?token=topsecret"
         )
-        inner = ValueError("https://user:pass@downloads.example/uv.tar.gz?token=topsecret")
+        inner = ValueError(
+            "https://user:pass@downloads.example/uv.tar.gz?token=topsecret"
+        )
         error = RuntimeError("proxy http://proxy.internal:3128/path?key=leaky")
         error.__cause__ = inner
         transport = _KeyedTransport({"uv": b""}, fail_urls={artifact.url}, error=error)
@@ -587,7 +621,12 @@ class TestHostAcquisitionFailureContext(_ProjectFixture):
         text = diagnostic.text
         self.assertNotIn("downloads.example", text)
         for leaked in (
-            "user", "pass", "topsecret", "proxy.internal", "3128", "leaky",
+            "user",
+            "pass",
+            "topsecret",
+            "proxy.internal",
+            "3128",
+            "leaky",
             "token=",
         ):
             self.assertNotIn(leaked, text, f"{leaked!r} leaked into failure text")
@@ -596,7 +635,8 @@ class TestHostAcquisitionFailureContext(_ProjectFixture):
         self.assertIn("ValueError", text)
 
         failed = [
-            event for event in _artifact_steps(records)
+            event
+            for event in _artifact_steps(records)
             if event.state is HostStepState.FAILED
         ]
         self.assertEqual(["uv"], [event.logical_resource for event in failed])
@@ -609,13 +649,16 @@ class TestHostAcquisitionFailureContext(_ProjectFixture):
     def test_registered_failure_secrets_are_redacted_from_text(self):
         artifact = _selected("rtk", url="https://downloads.example/rtk.deb")
         transport = _KeyedTransport(
-            {"rtk": b""}, fail_urls={artifact.url},
+            {"rtk": b""},
+            fail_urls={artifact.url},
             error=RuntimeError("proxy http://proxy.internal:3128"),
         )
         records: list[object] = []
         with self.assertRaises(MaterializationError):
             self.materialize(
-                (artifact,), transport, sink=records.append,
+                (artifact,),
+                transport,
+                sink=records.append,
                 failure_secrets=("http://proxy.internal:3128",),
             )
         text = _of(records, HostStructuredDiagnostic)[0].text
@@ -678,12 +721,14 @@ class TestUrllibTransportFailureDiagnostics(_ProjectFixture):
         self.assertEqual(
             ["uv"],
             [
-                event.logical_resource for event in _artifact_steps(records)
+                event.logical_resource
+                for event in _artifact_steps(records)
                 if event.state is HostStepState.FAILED
             ],
         )
         self.assertEqual(
-            [], list(paths.tmp_root.iterdir()),
+            [],
+            list(paths.tmp_root.iterdir()),
             "temporary data must be cleaned up after an acquisition failure",
         )
         self.assertFalse(blob.exists(), "no artifact may be published")
@@ -692,15 +737,20 @@ class TestUrllibTransportFailureDiagnostics(_ProjectFixture):
         transport = self._urllib_transport()
         records: list[object] = []
         with patch.object(
-            pi_assembly, "assemble_environment",
+            pi_assembly,
+            "assemble_environment",
             side_effect=AssertionError("assembly must not run"),
         ):
             with self.assertRaises(PiAssemblyError):
-                materialize_pi(PiAssemblyRequest(
-                    projection=_projection(), transport=transport,
-                    cache_root=Path(tempfile.mkdtemp()),
-                    executor=SimpleNamespace(), event_sink=records.append,
-                ))
+                materialize_pi(
+                    PiAssemblyRequest(
+                        projection=_projection(),
+                        transport=transport,
+                        cache_root=Path(tempfile.mkdtemp()),
+                        executor=SimpleNamespace(),
+                        event_sink=records.append,
+                    )
+                )
 
         diagnostics = _of(records, HostStructuredDiagnostic)
         self.assertEqual(1, len(diagnostics))
@@ -739,7 +789,9 @@ class TestHostileExceptionDiagnostics(_ProjectFixture):
         artifact = _selected("uv")
         hostile = _HostileRelationshipError("reason")
         transport = _KeyedTransport(
-            {"uv": b""}, fail_urls={artifact.url}, error=hostile,
+            {"uv": b""},
+            fail_urls={artifact.url},
+            error=hostile,
         )
         records: list[object] = []
         with self.assertRaises(MaterializationError) as caught:
@@ -756,11 +808,13 @@ class TestHostileExceptionDiagnostics(_ProjectFixture):
         self.assertNotIn("hostile message", diagnostic.text)
 
         failed = [
-            event for event in _artifact_steps(records)
+            event
+            for event in _artifact_steps(records)
             if event.state is HostStepState.FAILED
         ]
         self.assertEqual(
-            ["uv"], [event.logical_resource for event in failed],
+            ["uv"],
+            [event.logical_resource for event in failed],
             "the monitor must still emit its terminal FAILED fact",
         )
 
@@ -857,9 +911,7 @@ class TestPiReleaseActivity(unittest.TestCase):
             [len(served[urls.sha256sums])],
             scopes.progress[SHA256SUMS_FILENAME][-1:],
         )
-        self.assertEqual(
-            [len(package)], scopes.progress[INSTALL_PACKAGE_FILENAME][-1:]
-        )
+        self.assertEqual([len(package)], scopes.progress[INSTALL_PACKAGE_FILENAME][-1:])
         self.assertEqual(
             [len(lock)], scopes.progress[INSTALL_PACKAGE_LOCK_FILENAME][-1:]
         )
@@ -879,7 +931,9 @@ class TestPiReleaseActivity(unittest.TestCase):
         scopes = _ScopeRecorder()
         with self.assertRaises(PiReleaseError):
             acquire_install_assets(
-                urls, lambda url, progress=None: served[url], activity=scopes,
+                urls,
+                lambda url, progress=None: served[url],
+                activity=scopes,
             )
         self.assertEqual(
             [
@@ -940,14 +994,21 @@ class TestPiReleaseActivity(unittest.TestCase):
             )
 
         records: list[object] = []
-        with patch.object(pi_assembly, "assemble_environment", side_effect=fake_assemble):
-            materialize_pi(PiAssemblyRequest(
-                projection=_projection(), transport=transport,
-                cache_root=Path(tempfile.mkdtemp()), executor=SimpleNamespace(),
-                event_sink=records.append,
-            ))
+        with patch.object(
+            pi_assembly, "assemble_environment", side_effect=fake_assemble
+        ):
+            materialize_pi(
+                PiAssemblyRequest(
+                    projection=_projection(),
+                    transport=transport,
+                    cache_root=Path(tempfile.mkdtemp()),
+                    executor=SimpleNamespace(),
+                    event_sink=records.append,
+                )
+            )
         asset_steps = [
-            event for event in _of(records, HostStepEvent)
+            event
+            for event in _of(records, HostStepEvent)
             if event.step is HostStep.RELEASE_ACQUISITION
         ]
         self.assertEqual(
@@ -967,10 +1028,17 @@ class TestPiReleaseActivity(unittest.TestCase):
             "observability must add no request and must preserve order",
         )
         self.assertEqual(
-            list((SHA256SUMS_FILENAME, INSTALL_PACKAGE_FILENAME,
-                  INSTALL_PACKAGE_LOCK_FILENAME)),
-            [event.logical_resource
-             for event in _of(records, HostTransportProgressEvent)],
+            list(
+                (
+                    SHA256SUMS_FILENAME,
+                    INSTALL_PACKAGE_FILENAME,
+                    INSTALL_PACKAGE_LOCK_FILENAME,
+                )
+            ),
+            [
+                event.logical_resource
+                for event in _of(records, HostTransportProgressEvent)
+            ],
         )
 
     def test_materialize_pi_attributes_transport_failure_to_the_asset(self):
@@ -991,11 +1059,15 @@ class TestPiReleaseActivity(unittest.TestCase):
 
         records: list[object] = []
         with self.assertRaises(Exception):
-            materialize_pi(PiAssemblyRequest(
-                projection=_projection(), transport=FailingAfterSums(),
-                cache_root=Path(tempfile.mkdtemp()), executor=SimpleNamespace(),
-                event_sink=records.append,
-            ))
+            materialize_pi(
+                PiAssemblyRequest(
+                    projection=_projection(),
+                    transport=FailingAfterSums(),
+                    cache_root=Path(tempfile.mkdtemp()),
+                    executor=SimpleNamespace(),
+                    event_sink=records.append,
+                )
+            )
         diagnostics = _of(records, HostStructuredDiagnostic)
         self.assertEqual(1, len(diagnostics))
         diagnostic = diagnostics[0]

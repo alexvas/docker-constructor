@@ -1,4 +1,5 @@
 """Private descriptor-relative external state keyed by a canonical project path."""
+
 from __future__ import annotations
 
 import hashlib
@@ -57,7 +58,9 @@ class ValidatedProjectState:
         self.state = state
         self.namespace_fd = namespace_fd
         self._owner = OwnedDescriptor(
-            PosixDescriptorOps(), namespace_fd, label="validated project namespace",
+            PosixDescriptorOps(),
+            namespace_fd,
+            label="validated project namespace",
         )
 
     def __enter__(self) -> "ValidatedProjectState":
@@ -86,14 +89,21 @@ class ValidatedProjectState:
 _CHILD_NAMES = ("generated", "runtime", "evidence", "build-artifacts", "transactions")
 """Namespace children validated before any missing child is created."""
 
-_CHILD_ATTRS = ("generated_root", "runtime_root", "evidence_root",
-                "build_artifacts_root", "transactions_root")
+_CHILD_ATTRS = (
+    "generated_root",
+    "runtime_root",
+    "evidence_root",
+    "build_artifacts_root",
+    "transactions_root",
+)
 """``ProjectState`` field names, aligned with ``_CHILD_NAMES``."""
 
 
 def _safe_basename(value: str) -> str:
     rendered = "".join(
-        c if ("A" <= c <= "Z") or ("a" <= c <= "z") or ("0" <= c <= "9") or c in "._-" else "-"
+        c
+        if ("A" <= c <= "Z") or ("a" <= c <= "z") or ("0" <= c <= "9") or c in "._-"
+        else "-"
         for c in value
     )
     return rendered.strip(".-") or "project"
@@ -105,8 +115,18 @@ def _project_identity(project: Path) -> str:
 
 
 def _metadata(project: Path, identity: str) -> bytes:
-    return (json.dumps({"version": _METADATA_VERSION, "canonical_path": str(project),
-                        "sha256": identity}, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    return (
+        json.dumps(
+            {
+                "version": _METADATA_VERSION,
+                "canonical_path": str(project),
+                "sha256": identity,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        + "\n"
+    ).encode()
 
 
 def _adopt(fd: int, *, label: str) -> OwnedDescriptor:
@@ -144,10 +164,14 @@ def _open_private_dir_at(parent_fd: int | None, name: str, *, label: str) -> int
             st = os.fstat(owner.fd)
         except OSError as exc:
             raise ProjectStateError(f"unsafe project state {label}") from exc
-        if (not stat.S_ISDIR(st.st_mode) or st.st_uid != os.geteuid()
-                or stat.S_IMODE(st.st_mode) != 0o700):
+        if (
+            not stat.S_ISDIR(st.st_mode)
+            or st.st_uid != os.geteuid()
+            or stat.S_IMODE(st.st_mode) != 0o700
+        ):
             raise ProjectStateError(
-                f"project state {label} must be invoking-user-owned and mode 0700")
+                f"project state {label} must be invoking-user-owned and mode 0700"
+            )
     except BaseException as exc:
         primary = exc
         raise
@@ -161,7 +185,9 @@ def _open_private_dir_at(parent_fd: int | None, name: str, *, label: str) -> int
     return owner.detach()
 
 
-def _ensure_private_dir_at(parent_fd: int, name: str, *, label: str) -> tuple[int, bool]:
+def _ensure_private_dir_at(
+    parent_fd: int, name: str, *, label: str
+) -> tuple[int, bool]:
     """Open or create a private directory, validating without repair.
 
     Existing entries are validated without modification.  A missing entry is
@@ -214,16 +240,25 @@ def _read_metadata(namespace_fd: int, expected: bytes, label: str) -> None:
     try:
         fd = os.open("project.json", _FILE_FLAGS, dir_fd=namespace_fd)
     except FileNotFoundError:
-        raise ProjectStateError(f"missing project identity metadata {label}/project.json") from None
+        raise ProjectStateError(
+            f"missing project identity metadata {label}/project.json"
+        ) from None
     except OSError as exc:
-        raise ProjectStateError(f"unsafe project identity metadata {label}/project.json") from exc
+        raise ProjectStateError(
+            f"unsafe project identity metadata {label}/project.json"
+        ) from exc
     owner = _adopt(fd, label=f"project metadata {label}")
     primary: BaseException | None = None
     try:
         st = os.fstat(owner.fd)
-        if (not stat.S_ISREG(st.st_mode) or st.st_uid != os.geteuid()
-                or stat.S_IMODE(st.st_mode) != 0o600):
-            raise ProjectStateError(f"unsafe project identity metadata {label}/project.json")
+        if (
+            not stat.S_ISREG(st.st_mode)
+            or st.st_uid != os.geteuid()
+            or stat.S_IMODE(st.st_mode) != 0o600
+        ):
+            raise ProjectStateError(
+                f"unsafe project identity metadata {label}/project.json"
+            )
         parts: list[bytes] = []
         while chunk := os.read(owner.fd, 64 * 1024):
             parts.append(chunk)
@@ -303,22 +338,40 @@ def _publish_metadata(namespace_fd: int, expected: bytes, label: str) -> None:
     # capability is intentionally not closed here.
 
 
-def resolve_project_state(project_root: str | Path, *, cache_root: str | Path | None = None,
-                          create: bool = True, validate_children: bool = True) -> ProjectState:
+def resolve_project_state(
+    project_root: str | Path,
+    *,
+    cache_root: str | Path | None = None,
+    create: bool = True,
+    validate_children: bool = True,
+) -> ProjectState:
     """Resolve project state through retained no-follow directory descriptors."""
     project = Path(project_root).resolve(strict=True)
     if not project.is_dir():
         raise ProjectStateError(f"constructor project is not a directory: {project}")
     identity = _project_identity(project)
-    root = Path(cache_root) if cache_root is not None else prepare_default_root(
-        os.environ.get("XDG_CACHE_HOME"), home=Path.home())
+    root = (
+        Path(cache_root)
+        if cache_root is not None
+        else prepare_default_root(os.environ.get("XDG_CACHE_HOME"), home=Path.home())
+    )
     namespace_name = f"{_safe_basename(project.name)}-{identity[:16]}"
     namespace = root / "projects" / namespace_name
-    result = ProjectState(project, root, namespace, identity, namespace / "generated",
-                          namespace / "runtime", namespace / "evidence",
-                          namespace / "build-artifacts", namespace / "transactions")
+    result = ProjectState(
+        project,
+        root,
+        namespace,
+        identity,
+        namespace / "generated",
+        namespace / "runtime",
+        namespace / "evidence",
+        namespace / "build-artifacts",
+        namespace / "transactions",
+    )
     try:
-        root_fd = _open_private_dir_at(None, os.fspath(root), label=f"cache root {root}")
+        root_fd = _open_private_dir_at(
+            None, os.fspath(root), label=f"cache root {root}"
+        )
     except FileNotFoundError:
         if not create:
             return result
@@ -328,20 +381,28 @@ def resolve_project_state(project_root: str | Path, *, cache_root: str | Path | 
     primary: BaseException | None = None
     try:
         try:
-            projects_fd = _open_private_dir_at(root_owner.fd, "projects", label=str(root / "projects"))
+            projects_fd = _open_private_dir_at(
+                root_owner.fd, "projects", label=str(root / "projects")
+            )
         except FileNotFoundError:
             if not create:
                 return result
-            projects_fd, _ = _ensure_private_dir_at(root_owner.fd, "projects", label=str(root / "projects"))
+            projects_fd, _ = _ensure_private_dir_at(
+                root_owner.fd, "projects", label=str(root / "projects")
+            )
         owners.append(_adopt(projects_fd, label=str(root / "projects")))
         projects_owner = owners[-1]
         namespace_created = False
         try:
-            namespace_fd = _open_private_dir_at(projects_owner.fd, namespace_name, label=str(namespace))
+            namespace_fd = _open_private_dir_at(
+                projects_owner.fd, namespace_name, label=str(namespace)
+            )
         except FileNotFoundError:
             if not create:
                 return result
-            namespace_fd, namespace_created = _ensure_private_dir_at(projects_owner.fd, namespace_name, label=str(namespace))
+            namespace_fd, namespace_created = _ensure_private_dir_at(
+                projects_owner.fd, namespace_name, label=str(namespace)
+            )
         owners.append(_adopt(namespace_fd, label=str(namespace)))
         namespace_owner = owners[-1]
         expected = _metadata(project, identity)
@@ -363,7 +424,8 @@ def resolve_project_state(project_root: str | Path, *, cache_root: str | Path | 
             for name in _CHILD_NAMES:
                 try:
                     child_fd = _open_private_dir_at(
-                        namespace_owner.fd, name, label=str(namespace / name))
+                        namespace_owner.fd, name, label=str(namespace / name)
+                    )
                 except FileNotFoundError:
                     if create:
                         missing.append(name)
@@ -374,7 +436,8 @@ def resolve_project_state(project_root: str | Path, *, cache_root: str | Path | 
             # create the missing children descriptor-relatively and no-follow.
             for name in missing:
                 child_fd, _ = _ensure_private_dir_at(
-                    namespace_owner.fd, name, label=str(namespace / name))
+                    namespace_owner.fd, name, label=str(namespace / name)
+                )
                 owners.append(_adopt(child_fd, label=str(namespace / name)))
         return result
     except BaseException as exc:
@@ -411,24 +474,28 @@ def validate_project_state(state: ProjectState) -> ValidatedProjectState:
         raise ProjectStateError(f"constructor project is not a directory: {project}")
     if state.project_path != project:
         raise ProjectStateError(
-            f"project state path {state.project_path!r} is not canonical ({project!r})")
+            f"project state path {state.project_path!r} is not canonical ({project!r})"
+        )
 
     identity = _project_identity(project)
     if state.identity != identity:
         raise ProjectStateError(
-            f"project state identity {state.identity!r} does not match {identity!r}")
+            f"project state identity {state.identity!r} does not match {identity!r}"
+        )
 
     expected_name = f"{_safe_basename(project.name)}-{identity[:16]}"
     cache_root = Path(state.cache_root).resolve()
     if state.cache_root != cache_root:
         raise ProjectStateError(
-            f"project state cache root {state.cache_root!r} is not canonical ({cache_root!r})")
+            f"project state cache root {state.cache_root!r} is not canonical ({cache_root!r})"
+        )
 
     expected_namespace = cache_root / "projects" / expected_name
     if state.namespace != expected_namespace:
         raise ProjectStateError(
             f"project state namespace {state.namespace!r} does not match "
-            f"the expected {expected_namespace!r}")
+            f"the expected {expected_namespace!r}"
+        )
 
     for name, attr in zip(_CHILD_NAMES, _CHILD_ATTRS):
         expected_child = state.namespace / name
@@ -436,7 +503,8 @@ def validate_project_state(state: ProjectState) -> ValidatedProjectState:
         if actual_child != expected_child:
             raise ProjectStateError(
                 f"project state child {attr} {actual_child!r} is not the "
-                f"expected namespace child {expected_child!r}")
+                f"expected namespace child {expected_child!r}"
+            )
 
     root_owner: OwnedDescriptor | None = None
     projects_owner: OwnedDescriptor | None = None
@@ -445,21 +513,25 @@ def validate_project_state(state: ProjectState) -> ValidatedProjectState:
     try:
         root_owner = _adopt(
             _open_private_dir_at(
-                None, os.fspath(cache_root), label=f"cache root {cache_root}"),
+                None, os.fspath(cache_root), label=f"cache root {cache_root}"
+            ),
             label=f"cache root {cache_root}",
         )
         projects_owner = _adopt(
             _open_private_dir_at(
-                root_owner.fd, "projects", label=str(cache_root / "projects")),
+                root_owner.fd, "projects", label=str(cache_root / "projects")
+            ),
             label=str(cache_root / "projects"),
         )
         namespace_owner = _adopt(
             _open_private_dir_at(
-                projects_owner.fd, expected_name, label=str(expected_namespace)),
+                projects_owner.fd, expected_name, label=str(expected_namespace)
+            ),
             label=str(expected_namespace),
         )
         _read_metadata(
-            namespace_owner.fd, _metadata(project, identity), str(state.namespace))
+            namespace_owner.fd, _metadata(project, identity), str(state.namespace)
+        )
     except FileNotFoundError:
         # Map the missing ancestor to a domain error and retain it as the
         # primary before any descriptor is released.  The ancestor releases in
@@ -469,10 +541,12 @@ def validate_project_state(state: ProjectState) -> ValidatedProjectState:
             primary = ProjectStateError(f"missing constructor cache root {cache_root}")
         elif projects_owner is None:
             primary = ProjectStateError(
-                f"missing project state {cache_root / 'projects'}")
+                f"missing project state {cache_root / 'projects'}"
+            )
         else:
             primary = ProjectStateError(
-                f"missing project namespace {expected_namespace}")
+                f"missing project namespace {expected_namespace}"
+            )
         raise primary from None
     except BaseException as exc:
         primary = exc

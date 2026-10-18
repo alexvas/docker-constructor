@@ -18,39 +18,44 @@ from docker.versioning.rendering import (
 # Test helpers
 # ---------------------------------------------------------------------------
 
-def _render(*,
-            image: str = "pi-cli-pi:latest",
-            container_name: str = "pi-1",
-            projection_host_path: str = "/home/dev/.cache/docker-constructor/projects/constructor-identity/runtime/proj-abc123.toml",
-            projection_container_path: str = "/run/pi-cli/docker-constructor.runtime.toml",
-            pi_home_host: str = "/home/alice/.pi",
-            workspace: str = "/home/dev/work/my-project",
-            extra_workspaces: tuple[str, ...] = (),
-            host_access = None,
-            tty: bool = True,
-            stdin_open: bool = True,
-            command: tuple[str, ...] = (),
-            chown_on_start: str | None = None,
-            artifact_mounts: tuple = (),
-            ) -> tuple[str, ...]:
+
+def _render(
+    *,
+    image: str = "pi-cli-pi:latest",
+    container_name: str = "pi-1",
+    projection_host_path: str = "/home/dev/.cache/docker-constructor/projects/constructor-identity/runtime/proj-abc123.toml",
+    projection_container_path: str = "/run/pi-cli/docker-constructor.runtime.toml",
+    pi_home_host: str = "/home/alice/.pi",
+    workspace: str = "/home/dev/work/my-project",
+    extra_workspaces: tuple[str, ...] = (),
+    host_access=None,
+    tty: bool = True,
+    stdin_open: bool = True,
+    command: tuple[str, ...] = (),
+    chown_on_start: str | None = None,
+    artifact_mounts: tuple = (),
+) -> tuple[str, ...]:
     from docker.versioning.rendering import RunHostAccess
+
     if host_access is None:
         host_access = RunHostAccess.disabled()
-    return render_run_vector(RunRenderInputs(
-        image=image,
-        container_name=container_name,
-        projection_host_path=projection_host_path,
-        projection_container_path=projection_container_path,
-        pi_home_host=pi_home_host,
-        workspace=workspace,
-        extra_workspaces=extra_workspaces,
-        host_access=host_access,
-        tty=tty,
-        stdin_open=stdin_open,
-        command=command,
-        chown_on_start=chown_on_start,
-        artifact_mounts=artifact_mounts,
-    ))
+    return render_run_vector(
+        RunRenderInputs(
+            image=image,
+            container_name=container_name,
+            projection_host_path=projection_host_path,
+            projection_container_path=projection_container_path,
+            pi_home_host=pi_home_host,
+            workspace=workspace,
+            extra_workspaces=extra_workspaces,
+            host_access=host_access,
+            tty=tty,
+            stdin_open=stdin_open,
+            command=command,
+            chown_on_start=chown_on_start,
+            artifact_mounts=artifact_mounts,
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -63,8 +68,11 @@ class TestDefaultRunVector(unittest.TestCase):
 
     def test_command_prefix_is_docker_run(self):
         args = _render()
-        self.assertEqual(args[:2], ("docker", "run"),
-                         "prefix must be 'docker run', never 'docker compose'")
+        self.assertEqual(
+            args[:2],
+            ("docker", "run"),
+            "prefix must be 'docker run', never 'docker compose'",
+        )
 
     def test_no_compose_in_output(self):
         args = _render()
@@ -103,19 +111,24 @@ class TestMounts(unittest.TestCase):
 
     def test_pi_home_mount(self):
         from docker.versioning.rendering import _CONTAINER_PI_HOME
+
         args = _render(pi_home_host="/home/alice/.pi")
         mounts = _collect_mounts(args)
         pi_mount = _find_mount(mounts, dst=_CONTAINER_PI_HOME)
         self.assertIsNotNone(pi_mount, "missing Pi home mount")
         self.assertEqual(pi_mount["src"], "/home/alice/.pi")
-        self.assertNotEqual(pi_mount["src"], pi_mount["dst"],
-                            "Pi home mount must map host ~/.pi to "
-                            f"fixed container path {_CONTAINER_PI_HOME}")
+        self.assertNotEqual(
+            pi_mount["src"],
+            pi_mount["dst"],
+            "Pi home mount must map host ~/.pi to "
+            f"fixed container path {_CONTAINER_PI_HOME}",
+        )
 
     def test_pi_home_asymmetric_mount(self):
         """/home/bob/.pi on the host maps to /home/dev/.pi in the
         container — regardless of host username."""
         from docker.versioning.rendering import _CONTAINER_PI_HOME
+
         args = _render(pi_home_host="/home/bob/.pi")
         mounts = _collect_mounts(args)
         pi_mount = _find_mount(mounts, dst=_CONTAINER_PI_HOME)
@@ -139,8 +152,7 @@ class TestMounts(unittest.TestCase):
         mounts = _collect_mounts(args)
         proj = _find_mount(mounts, dst="/run/pi-cli/docker-constructor.runtime.toml")
         self.assertIsNotNone(proj)
-        self.assertIn("readonly", proj,
-                      "projection mount must be read-only")
+        self.assertIn("readonly", proj, "projection mount must be read-only")
 
     def test_runtime_projection_fixed_container_path(self):
         """The container-side path is fixed regardless of host path."""
@@ -156,10 +168,12 @@ class TestMounts(unittest.TestCase):
             ),
             projection_container_path="/run/pi-cli/docker-constructor.runtime.toml",
         )
-        mount_a = _find_mount(_collect_mounts(a),
-                              dst="/run/pi-cli/docker-constructor.runtime.toml")
-        mount_b = _find_mount(_collect_mounts(b),
-                              dst="/run/pi-cli/docker-constructor.runtime.toml")
+        mount_a = _find_mount(
+            _collect_mounts(a), dst="/run/pi-cli/docker-constructor.runtime.toml"
+        )
+        mount_b = _find_mount(
+            _collect_mounts(b), dst="/run/pi-cli/docker-constructor.runtime.toml"
+        )
         self.assertEqual(mount_a["dst"], mount_b["dst"])
         self.assertNotEqual(mount_a["src"], mount_b["src"])
 
@@ -210,19 +224,26 @@ class TestGatewayMapping(unittest.TestCase):
 
     def test_gateway_docker_gateway_mode(self):
         from docker.versioning.rendering import RunHostAccess
-        args = _render(host_access=RunHostAccess(address="172.17.0.1", mode="docker-gateway"))
+
+        args = _render(
+            host_access=RunHostAccess(address="172.17.0.1", mode="docker-gateway")
+        )
         self.assertIn("--add-host", args)
         idx = args.index("--add-host")
         self.assertEqual(args[idx + 1], "host.docker.internal:172.17.0.1")
 
     def test_gateway_external_address_mode(self):
         from docker.versioning.rendering import RunHostAccess
-        args = _render(host_access=RunHostAccess(address="10.0.2.2", mode="external-address"))
+
+        args = _render(
+            host_access=RunHostAccess(address="10.0.2.2", mode="external-address")
+        )
         idx = args.index("--add-host")
         self.assertEqual(args[idx + 1], "host.docker.internal:10.0.2.2")
 
     def test_gateway_disabled_has_no_mapping(self):
         from docker.versioning.rendering import RunHostAccess
+
         args = _render(host_access=RunHostAccess.disabled())
         self.assertNotIn("--add-host", args)
 
@@ -240,14 +261,15 @@ class TestImageAndCommand(unittest.TestCase):
         # Image appears after all flags and before any passthrough command.
         idx = args.index("pi-cli-pi:latest")
         # No flag after the image.
-        for token in args[idx + 1:]:
-            self.assertFalse(token.startswith("--"),
-                             f"flag {token!r} appears after image")
+        for token in args[idx + 1 :]:
+            self.assertFalse(
+                token.startswith("--"), f"flag {token!r} appears after image"
+            )
 
     def test_command_passthrough_after_image(self):
         args = _render(command=("bash", "-c", "echo hello"))
         img_idx = args.index("pi-cli-pi:latest")
-        self.assertEqual(args[img_idx + 1:], ("bash", "-c", "echo hello"))
+        self.assertEqual(args[img_idx + 1 :], ("bash", "-c", "echo hello"))
 
     def test_no_command_passthrough_when_empty(self):
         args = _render(command=())
@@ -352,19 +374,19 @@ class TestCommandSpacesAndMetacharacters(unittest.TestCase):
         internal spaces — subprocess passes them verbatim."""
         args = _render(command=("echo", "hello world", "foo bar"))
         img_idx = args.index("pi-cli-pi:latest")
-        tail = args[img_idx + 1:]
+        tail = args[img_idx + 1 :]
         self.assertEqual(tail, ("echo", "hello world", "foo bar"))
 
     def test_command_with_dollar_sign(self):
         args = _render(command=("bash", "-c", "echo $HOME"))
         img_idx = args.index("pi-cli-pi:latest")
-        tail = args[img_idx + 1:]
+        tail = args[img_idx + 1 :]
         self.assertEqual(tail, ("bash", "-c", "echo $HOME"))
 
     def test_command_with_semicolon(self):
         args = _render(command=("sh", "-c", "echo a; echo b"))
         img_idx = args.index("pi-cli-pi:latest")
-        tail = args[img_idx + 1:]
+        tail = args[img_idx + 1 :]
         self.assertEqual(tail, ("sh", "-c", "echo a; echo b"))
 
 
@@ -380,21 +402,32 @@ class TestDeterministicOutput(unittest.TestCase):
 
     def test_same_inputs_produce_identical_vector(self):
         ri = RunRenderInputs(
-            image="pi-cli-pi:latest", container_name="pi-1",
+            image="pi-cli-pi:latest",
+            container_name="pi-1",
             projection_host_path=self._PROJECTION,
             projection_container_path="/run/pi-cli/docker-constructor.runtime.toml",
-            pi_home_host="/home/alice/.pi", workspace="/home/dev/work/primary",
+            pi_home_host="/home/alice/.pi",
+            workspace="/home/dev/work/primary",
         )
         self.assertEqual(render_run_vector(ri), render_run_vector(ri))
 
     def test_different_kwarg_order_same_result(self):
-        a = RunRenderInputs(image="pi-cli-pi:latest", container_name="pi-1",
+        a = RunRenderInputs(
+            image="pi-cli-pi:latest",
+            container_name="pi-1",
             projection_host_path=self._PROJECTION,
             projection_container_path="/run/pi-cli/docker-constructor.runtime.toml",
-            pi_home_host="/home/alice/.pi", workspace="/home/dev/work/primary")
-        b = RunRenderInputs(workspace="/home/dev/work/primary", pi_home_host="/home/alice/.pi",
+            pi_home_host="/home/alice/.pi",
+            workspace="/home/dev/work/primary",
+        )
+        b = RunRenderInputs(
+            workspace="/home/dev/work/primary",
+            pi_home_host="/home/alice/.pi",
             projection_container_path="/run/pi-cli/docker-constructor.runtime.toml",
-            projection_host_path=self._PROJECTION, container_name="pi-1", image="pi-cli-pi:latest")
+            projection_host_path=self._PROJECTION,
+            container_name="pi-1",
+            image="pi-cli-pi:latest",
+        )
         self.assertEqual(render_run_vector(a), render_run_vector(b))
 
 
@@ -436,6 +469,7 @@ class TestPathEdgeCases(unittest.TestCase):
         args = _render(pi_home_host="/home/user name/.pi")
         mounts = _collect_mounts(args)
         from docker.versioning.rendering import _CONTAINER_PI_HOME
+
         pi = _find_mount(mounts, dst=_CONTAINER_PI_HOME)
         self.assertIsNotNone(pi)
         self.assertEqual(pi["src"], "/home/user name/.pi")
@@ -543,15 +577,16 @@ class TestMountSecurity(unittest.TestCase):
         renderer enforces it unconditionally."""
         args = _render()
         mounts = _collect_mounts(args)
-        proj = _find_mount(mounts,
-                           dst="/run/pi-cli/docker-constructor.runtime.toml")
+        proj = _find_mount(mounts, dst="/run/pi-cli/docker-constructor.runtime.toml")
         self.assertIsNotNone(proj)
         # readonly may be "true" or present as a key with empty value.
         # Either way, it signals read-only.
-        self.assertIn("readonly", proj,
-                      "projection mount must be read-only")
-        self.assertNotEqual(proj.get("readonly", "true"), "false",
-                            "projection mount must not be writable")
+        self.assertIn("readonly", proj, "projection mount must be read-only")
+        self.assertNotEqual(
+            proj.get("readonly", "true"),
+            "false",
+            "projection mount must not be writable",
+        )
 
     def test_docker_constructor_toml_as_projection_rejected(self):
         """Passing docker-constructor.toml as projection_host_path
@@ -559,9 +594,7 @@ class TestMountSecurity(unittest.TestCase):
         the container."""
         with self.assertRaises(ValueError):
             _render(
-                projection_host_path=(
-                    "/home/dev/.pi-cli/docker-constructor.toml"
-                ),
+                projection_host_path=("/home/dev/.pi-cli/docker-constructor.toml"),
             )
 
     def test_effective_build_projection_as_projection_rejected(self):
@@ -581,9 +614,7 @@ class TestMountSecurity(unittest.TestCase):
         valid projection paths."""
         with self.assertRaises(ValueError):
             _render(
-                projection_host_path=(
-                    "/home/dev/.pi-cli/.docker-generated"
-                ),
+                projection_host_path=("/home/dev/.pi-cli/.docker-generated"),
             )
 
     def test_projection_path_outside_runtime_dir_rejected(self):
@@ -599,9 +630,7 @@ class TestMountSecurity(unittest.TestCase):
         directory, not a child of .docker-generated/."""
         with self.assertRaises(ValueError):
             _render(
-                projection_host_path=(
-                    "/tmp/not.docker-generated/runtime/file.toml"
-                ),
+                projection_host_path=("/tmp/not.docker-generated/runtime/file.toml"),
             )
 
     def test_relative_projection_host_path_rejected(self):
@@ -609,9 +638,7 @@ class TestMountSecurity(unittest.TestCase):
         must supply an absolute path."""
         with self.assertRaises(ValueError):
             _render(
-                projection_host_path=(
-                    ".docker-generated/runtime/proj.toml"
-                ),
+                projection_host_path=(".docker-generated/runtime/proj.toml"),
             )
 
     def test_noncanonical_projection_container_path_rejected(self):
@@ -627,9 +654,7 @@ class TestMountSecurity(unittest.TestCase):
         """The fixed path must be accepted (sanity check — the
         default helper already uses this value)."""
         _render(
-            projection_container_path=(
-                "/run/pi-cli/docker-constructor.runtime.toml"
-            ),
+            projection_container_path=("/run/pi-cli/docker-constructor.runtime.toml"),
         )
 
     def test_projection_path_in_runtime_dir_accepted(self):
@@ -671,9 +696,7 @@ class TestDestinationCollisions(unittest.TestCase):
         with self.assertRaises(ValueError):
             _render(
                 workspace="/home/dev/work/primary",
-                extra_workspaces=(
-                    "/run/pi-cli/docker-constructor.runtime.toml",
-                ),
+                extra_workspaces=("/run/pi-cli/docker-constructor.runtime.toml",),
             )
 
     def test_no_collision_between_pi_home_and_projection(self):
@@ -681,9 +704,7 @@ class TestDestinationCollisions(unittest.TestCase):
         (/run/pi-cli/...) are distinct — must not raise."""
         _render(
             pi_home_host="/home/alice/.pi",
-            projection_container_path=(
-                "/run/pi-cli/docker-constructor.runtime.toml"
-            ),
+            projection_container_path=("/run/pi-cli/docker-constructor.runtime.toml"),
         )
 
 
@@ -708,30 +729,35 @@ class TestDeterministicOrderingEdge(unittest.TestCase):
         """Calling render_run_vector twice with identical RunRenderInputs
         constructed with different kwarg order must produce the same
         flag order in the output vector."""
-        a = render_run_vector(RunRenderInputs(
-            image="pi-cli-pi:latest",
-            container_name="pi-1",
-            projection_host_path=(
-                "/home/dev/.pi-cli/.docker-generated/runtime/x.toml"
-            ),
-            projection_container_path="/run/pi-cli/docker-constructor.runtime.toml",
-            pi_home_host="/home/alice/.pi",
-            workspace="/home/dev/work/primary",
-            extra_workspaces=("/home/dev/work/lib",),
-        ))
-        b = render_run_vector(RunRenderInputs(
-            extra_workspaces=("/home/dev/work/lib",),
-            workspace="/home/dev/work/primary",
-            pi_home_host="/home/alice/.pi",
-            projection_container_path="/run/pi-cli/docker-constructor.runtime.toml",
-            projection_host_path=(
-                "/home/dev/.pi-cli/.docker-generated/runtime/x.toml"
-            ),
-            container_name="pi-1",
-            image="pi-cli-pi:latest",
-        ))
-        self.assertEqual(a, b,
-                         "output must be independent of RunRenderInputs kwarg order")
+        a = render_run_vector(
+            RunRenderInputs(
+                image="pi-cli-pi:latest",
+                container_name="pi-1",
+                projection_host_path=(
+                    "/home/dev/.pi-cli/.docker-generated/runtime/x.toml"
+                ),
+                projection_container_path="/run/pi-cli/docker-constructor.runtime.toml",
+                pi_home_host="/home/alice/.pi",
+                workspace="/home/dev/work/primary",
+                extra_workspaces=("/home/dev/work/lib",),
+            )
+        )
+        b = render_run_vector(
+            RunRenderInputs(
+                extra_workspaces=("/home/dev/work/lib",),
+                workspace="/home/dev/work/primary",
+                pi_home_host="/home/alice/.pi",
+                projection_container_path="/run/pi-cli/docker-constructor.runtime.toml",
+                projection_host_path=(
+                    "/home/dev/.pi-cli/.docker-generated/runtime/x.toml"
+                ),
+                container_name="pi-1",
+                image="pi-cli-pi:latest",
+            )
+        )
+        self.assertEqual(
+            a, b, "output must be independent of RunRenderInputs kwarg order"
+        )
 
 
 class TestArgumentAtomicity(unittest.TestCase):
@@ -746,10 +772,8 @@ class TestArgumentAtomicity(unittest.TestCase):
         )
         for token in args:
             if token.startswith("--"):
-                self.assertNotIn("=", token,
-                                 f"flag {token!r} must not embed its value")
-                self.assertNotIn(" ", token,
-                                 f"flag {token!r} must not embed its value")
+                self.assertNotIn("=", token, f"flag {token!r} must not embed its value")
+                self.assertNotIn(" ", token, f"flag {token!r} must not embed its value")
 
     def test_no_env_with_equals_in_key(self):
         """--env KEY=VALUE must be two tokens: --env and KEY=VALUE."""
@@ -758,8 +782,10 @@ class TestArgumentAtomicity(unittest.TestCase):
         for i, token in enumerate(args):
             if token == "--env":
                 self.assertLess(i + 1, len(args))
-                self.assertFalse(args[i + 1].startswith("--"),
-                                 f"--env followed by flag {args[i+1]!r}")
+                self.assertFalse(
+                    args[i + 1].startswith("--"),
+                    f"--env followed by flag {args[i + 1]!r}",
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -782,8 +808,7 @@ def _collect_mounts(args: tuple[str, ...]) -> list[dict[str, str]]:
     return mounts
 
 
-def _find_mount(mounts: list[dict[str, str]],
-                dst: str) -> dict[str, str] | None:
+def _find_mount(mounts: list[dict[str, str]], dst: str) -> dict[str, str] | None:
     for m in mounts:
         if m.get("dst") == dst:
             return m
@@ -823,8 +848,9 @@ class TestArtifactMounts(unittest.TestCase):
     def _integrity(alg: str = "sha512", seed: str = "A") -> str:
         """Return a well-formed SRI string for the given algorithm."""
         import base64
+
         lengths = {"sha256": 32, "sha384": 48, "sha512": 64}
-        raw = (seed.encode() * lengths[alg])[:lengths[alg]]
+        raw = (seed.encode() * lengths[alg])[: lengths[alg]]
         return f"{alg}-{base64.b64encode(raw).decode()}"
 
     @staticmethod
@@ -837,8 +863,13 @@ class TestArtifactMounts(unittest.TestCase):
         additional catalog entries).
         """
         from docker.versioning.inventory import (
-            NpmArtifact, NpmSource, NpmUpdate, OverridePolicy,
-            PiExtensionEntry, RuntimeInventory, RuntimeValidation,
+            NpmArtifact,
+            NpmSource,
+            NpmUpdate,
+            OverridePolicy,
+            PiExtensionEntry,
+            RuntimeInventory,
+            RuntimeValidation,
         )
         from docker.versioning.constraints import parse_constraint
 
@@ -854,16 +885,15 @@ class TestArtifactMounts(unittest.TestCase):
                 f"-{ver}.tgz",
             )
             artifacts = {ver: NpmArtifact(url=url, integrity=integ)}
-            for extra_ver, extra_integ in (
-                spec.get("extra_artifacts", {}).items()
-            ):
+            for extra_ver, extra_integ in spec.get("extra_artifacts", {}).items():
                 extra_url = (
                     f"https://registry.npmjs.org/{pkg}/"
                     f"-/{pkg.rsplit('/', 1)[-1] if '/' in pkg else pkg}"
                     f"-{extra_ver}.tgz"
                 )
                 artifacts[extra_ver] = NpmArtifact(
-                    url=extra_url, integrity=extra_integ,
+                    url=extra_url,
+                    integrity=extra_integ,
                 )
             entries[name] = PiExtensionEntry(
                 version=ver,
@@ -883,13 +913,11 @@ class TestArtifactMounts(unittest.TestCase):
     def _blob_result(*, integrity: str, host_path: str = "") -> "VerifiedCacheBlob":
         """Synthetic ``VerifiedCacheBlob`` — no filesystem access."""
         from docker.versioning.artifact_cache import VerifiedCacheBlob
+
         algo, raw_b64 = integrity.split("-", 1)
         digest = raw_b64.replace("+", "-").replace("/", "_")
         if not host_path:
-            host_path = (
-                f"/tmp/runtime-artifacts/blobs/"
-                f"{algo}/{digest}.tgz"
-            )
+            host_path = f"/tmp/runtime-artifacts/blobs/{algo}/{digest}.tgz"
         return VerifiedCacheBlob(
             algorithm=algo,
             digest=digest,
@@ -901,12 +929,14 @@ class TestArtifactMounts(unittest.TestCase):
     def _plan(blobs):
         """Thin forward to the production boundary."""
         from docker.versioning.rendering import plan_artifact_mounts
+
         return plan_artifact_mounts(blobs)
 
     # ── unique selected integrity (resolve_runtime) ──────────
 
     def test_same_integrity_across_extensions_produces_one_selection(self):
         from docker.versioning.effective import resolve_runtime
+
         shared = self._integrity()
         inv = self._inventory(
             a={"pkg": "@s/a", "version": "1.0.0", "integrity": shared},
@@ -918,11 +948,18 @@ class TestArtifactMounts(unittest.TestCase):
 
     def test_distinct_integrities_produce_distinct_selections(self):
         from docker.versioning.effective import resolve_runtime
+
         inv = self._inventory(
-            a={"pkg": "@s/a", "version": "1.0.0",
-               "integrity": self._integrity(seed="A")},
-            b={"pkg": "@s/b", "version": "1.0.0",
-               "integrity": self._integrity(seed="B")},
+            a={
+                "pkg": "@s/a",
+                "version": "1.0.0",
+                "integrity": self._integrity(seed="A"),
+            },
+            b={
+                "pkg": "@s/b",
+                "version": "1.0.0",
+                "integrity": self._integrity(seed="B"),
+            },
         )
         selected, _ = resolve_runtime(inv, {})
         integrities = {s.integrity for s in selected}
@@ -930,12 +967,16 @@ class TestArtifactMounts(unittest.TestCase):
 
     def test_unselected_artifact_version_not_in_selected_set(self):
         from docker.versioning.effective import resolve_runtime
+
         default_integ = self._integrity(seed="D")
         alt_integ = self._integrity(seed="X")
         inv = self._inventory(
-            ext={"pkg": "@s/ext", "version": "1.0.0",
-                 "integrity": default_integ,
-                 "extra_artifacts": {"2.0.0": alt_integ}},
+            ext={
+                "pkg": "@s/ext",
+                "version": "1.0.0",
+                "integrity": default_integ,
+                "extra_artifacts": {"2.0.0": alt_integ},
+            },
         )
         selected, _ = resolve_runtime(inv, {})
         integrities = {s.integrity for s in selected}
@@ -947,19 +988,25 @@ class TestArtifactMounts(unittest.TestCase):
     def test_plan_one_mount_per_unique_integrity(self):
         """Duplicate integrities are collapsed into a single mount."""
         shared = self._integrity()
-        mounts = self._plan([
-            self._blob_result(integrity=shared, host_path="/cache/a.tgz"),
-            self._blob_result(integrity=shared, host_path="/cache/b.tgz"),
-        ])
+        mounts = self._plan(
+            [
+                self._blob_result(integrity=shared, host_path="/cache/a.tgz"),
+                self._blob_result(integrity=shared, host_path="/cache/b.tgz"),
+            ]
+        )
         self.assertEqual(len(mounts), 1)
 
     def test_plan_distinct_integrities_produce_distinct_mounts(self):
-        mounts = self._plan([
-            self._blob_result(integrity=self._integrity(seed="A"),
-                              host_path="/cache/a.tgz"),
-            self._blob_result(integrity=self._integrity(seed="B"),
-                              host_path="/cache/b.tgz"),
-        ])
+        mounts = self._plan(
+            [
+                self._blob_result(
+                    integrity=self._integrity(seed="A"), host_path="/cache/a.tgz"
+                ),
+                self._blob_result(
+                    integrity=self._integrity(seed="B"), host_path="/cache/b.tgz"
+                ),
+            ]
+        )
         self.assertEqual(len(mounts), 2)
 
     def test_plan_no_unselected_integrity_in_mounts(self):
@@ -968,9 +1015,11 @@ class TestArtifactMounts(unittest.TestCase):
 
         default_integ = self._integrity(seed="D")
         alt_integ = self._integrity(seed="X")
-        mounts = self._plan([
-            self._blob_result(integrity=default_integ, host_path="/cache/d.tgz"),
-        ])
+        mounts = self._plan(
+            [
+                self._blob_result(integrity=default_integ, host_path="/cache/d.tgz"),
+            ]
+        )
         targets = {m.container_target for m in mounts}
         alt_target = f"/run/pi-cli/runtime-artifacts/{_derive_artifact_id(alt_integ)}"
         self.assertNotIn(alt_target, targets)
@@ -982,10 +1031,11 @@ class TestArtifactMounts(unittest.TestCase):
         """The planner MUST use the blob's verified host_path, not
         reconstruct a synthetic cache path."""
         custom = "/custom/verified/path/to/blob.tgz"
-        mounts = self._plan([
-            self._blob_result(integrity=self._integrity(),
-                              host_path=custom),
-        ])
+        mounts = self._plan(
+            [
+                self._blob_result(integrity=self._integrity(), host_path=custom),
+            ]
+        )
         self.assertEqual(mounts[0].host_path, custom)
 
     def test_plan_host_paths_follow_explicit_cache_root(self):
@@ -998,14 +1048,18 @@ class TestArtifactMounts(unittest.TestCase):
     # ── mount planning: fixed container targets ──────────────
 
     def test_plan_targets_beneath_fixed_artifact_root(self):
-        mounts = self._plan([
-            self._blob_result(integrity=self._integrity(alg="sha256",
-                                                         seed="H"),
-                              host_path="/cache/h.tgz"),
-            self._blob_result(integrity=self._integrity(alg="sha512",
-                                                         seed="J"),
-                              host_path="/cache/j.tgz"),
-        ])
+        mounts = self._plan(
+            [
+                self._blob_result(
+                    integrity=self._integrity(alg="sha256", seed="H"),
+                    host_path="/cache/h.tgz",
+                ),
+                self._blob_result(
+                    integrity=self._integrity(alg="sha512", seed="J"),
+                    host_path="/cache/j.tgz",
+                ),
+            ]
+        )
         self.assertGreater(len(mounts), 0)
         root = "/run/pi-cli/runtime-artifacts"
         for m in mounts:
@@ -1015,10 +1069,13 @@ class TestArtifactMounts(unittest.TestCase):
             )
 
     def test_plan_targets_always_end_with_tgz(self):
-        mounts = self._plan([
-            self._blob_result(integrity=self._integrity(),
-                              host_path="/cache/x.tgz"),
-        ])
+        mounts = self._plan(
+            [
+                self._blob_result(
+                    integrity=self._integrity(), host_path="/cache/x.tgz"
+                ),
+            ]
+        )
         for m in mounts:
             self.assertTrue(
                 m.container_target.endswith(".tgz"),
@@ -1026,12 +1083,16 @@ class TestArtifactMounts(unittest.TestCase):
             )
 
     def test_plan_container_targets_are_unique(self):
-        mounts = self._plan([
-            self._blob_result(integrity=self._integrity(seed="M"),
-                              host_path="/cache/m.tgz"),
-            self._blob_result(integrity=self._integrity(seed="N"),
-                              host_path="/cache/n.tgz"),
-        ])
+        mounts = self._plan(
+            [
+                self._blob_result(
+                    integrity=self._integrity(seed="M"), host_path="/cache/m.tgz"
+                ),
+                self._blob_result(
+                    integrity=self._integrity(seed="N"), host_path="/cache/n.tgz"
+                ),
+            ]
+        )
         targets = [m.container_target for m in mounts]
         self.assertEqual(len(targets), len(set(targets)))
 
@@ -1039,16 +1100,18 @@ class TestArtifactMounts(unittest.TestCase):
         """plan_artifact_mounts must return mounts sorted by
         container_target for deterministic rendering."""
         # Two integrities whose artifact_ids sort in reverse order.
-        mounts = self._plan([
-            self._blob_result(
-                integrity=self._integrity(alg="sha512", seed="Z"),
-                host_path="/cache/z.tgz",
-            ),
-            self._blob_result(
-                integrity=self._integrity(alg="sha256", seed="A"),
-                host_path="/cache/a.tgz",
-            ),
-        ])
+        mounts = self._plan(
+            [
+                self._blob_result(
+                    integrity=self._integrity(alg="sha512", seed="Z"),
+                    host_path="/cache/z.tgz",
+                ),
+                self._blob_result(
+                    integrity=self._integrity(alg="sha256", seed="A"),
+                    host_path="/cache/a.tgz",
+                ),
+            ]
+        )
         targets = [m.container_target for m in mounts]
         self.assertEqual(targets, sorted(targets))
 
@@ -1056,26 +1119,33 @@ class TestArtifactMounts(unittest.TestCase):
         """The container root ``/run/pi-cli/runtime-artifacts`` is
         a private module constant — every target must start there."""
         from docker.versioning.rendering import _RUNTIME_ARTIFACT_ROOT
-        mounts = self._plan([
-            self._blob_result(integrity=self._integrity(),
-                              host_path="/cache/x.tgz"),
-        ])
+
+        mounts = self._plan(
+            [
+                self._blob_result(
+                    integrity=self._integrity(), host_path="/cache/x.tgz"
+                ),
+            ]
+        )
         for m in mounts:
             self.assertTrue(
                 m.container_target.startswith(_RUNTIME_ARTIFACT_ROOT + "/"),
-                f"{m.container_target!r} must start with "
-                f"{_RUNTIME_ARTIFACT_ROOT!r}",
+                f"{m.container_target!r} must start with {_RUNTIME_ARTIFACT_ROOT!r}",
             )
 
     # ── mount planning: no cache-root mount ──────────────────
 
     def test_plan_no_cache_root_directory_in_targets(self):
-        mounts = self._plan([
-            self._blob_result(integrity=self._integrity(),
-                              host_path="/cache/q.tgz"),
-            self._blob_result(integrity=self._integrity(seed="Z"),
-                              host_path="/cache/z.tgz"),
-        ])
+        mounts = self._plan(
+            [
+                self._blob_result(
+                    integrity=self._integrity(), host_path="/cache/q.tgz"
+                ),
+                self._blob_result(
+                    integrity=self._integrity(seed="Z"), host_path="/cache/z.tgz"
+                ),
+            ]
+        )
         root = "/run/pi-cli/runtime-artifacts"
         for m in mounts:
             self.assertNotEqual(m.container_target, root)
@@ -1090,8 +1160,7 @@ class TestArtifactMounts(unittest.TestCase):
 
     def test_plan_is_deterministic(self):
         blobs = [
-            self._blob_result(integrity=self._integrity(),
-                              host_path="/cache/x.tgz"),
+            self._blob_result(integrity=self._integrity(), host_path="/cache/x.tgz"),
         ]
         a = self._plan(blobs)
         b = self._plan(blobs)
@@ -1108,15 +1177,18 @@ class TestArtifactMounts(unittest.TestCase):
         """Artifact mount source must be an absolute path — caught
         before any filesystem access."""
         from docker.versioning.rendering import ArtifactMount
+
         with self.assertRaises(ValueError) as ctx:
-            _render(artifact_mounts=(
-                ArtifactMount(
-                    host_path="cache/sha512/blob.tgz",
-                    container_target=(
-                        "/run/pi-cli/runtime-artifacts/sha512/blob.tgz"
+            _render(
+                artifact_mounts=(
+                    ArtifactMount(
+                        host_path="cache/sha512/blob.tgz",
+                        container_target=(
+                            "/run/pi-cli/runtime-artifacts/sha512/blob.tgz"
+                        ),
                     ),
-                ),
-            ))
+                )
+            )
         self.assertIn("canonical", str(ctx.exception).lower())
 
 
@@ -1132,6 +1204,7 @@ class TestArtifactMountRendering(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         import tempfile, os as _os
+
         cls._tmp = tempfile.TemporaryDirectory()
         cls._blob_a = _os.path.join(cls._tmp.name, "a.tgz")
         cls._blob_b = _os.path.join(cls._tmp.name, "b.tgz")
@@ -1146,53 +1219,60 @@ class TestArtifactMountRendering(unittest.TestCase):
     @staticmethod
     def _mount(*, host_path: str, target: str) -> "ArtifactMount":
         from docker.versioning.rendering import ArtifactMount
+
         return ArtifactMount(host_path=host_path, container_target=target)
 
     # ── happy path ───────────────────────────────────────────
 
     def test_one_mount_produces_one_mount_arg_pair(self):
         """Each ArtifactMount → one ``--mount <opts>`` token pair."""
-        args = _render(artifact_mounts=(
-            self._mount(
-                host_path=self._blob_a,
-                target="/run/pi-cli/runtime-artifacts/sha512/abc.tgz",
-            ),
-        ))
+        args = _render(
+            artifact_mounts=(
+                self._mount(
+                    host_path=self._blob_a,
+                    target="/run/pi-cli/runtime-artifacts/sha512/abc.tgz",
+                ),
+            )
+        )
         # Count --mount tokens whose destination is an artifact target.
         art_mounts = [
-            i for i, tok in enumerate(args)
-            if tok == "--mount"
-            and "runtime-artifacts" in args[i + 1]
+            i
+            for i, tok in enumerate(args)
+            if tok == "--mount" and "runtime-artifacts" in args[i + 1]
         ]
         self.assertEqual(len(art_mounts), 1)
 
     def test_multiple_mounts_produce_multiple_arg_pairs(self):
-        args = _render(artifact_mounts=(
-            self._mount(
-                host_path=self._blob_a,
-                target="/run/pi-cli/runtime-artifacts/sha256/aaa.tgz",
-            ),
-            self._mount(
-                host_path=self._blob_b,
-                target="/run/pi-cli/runtime-artifacts/sha512/bbb.tgz",
-            ),
-        ))
+        args = _render(
+            artifact_mounts=(
+                self._mount(
+                    host_path=self._blob_a,
+                    target="/run/pi-cli/runtime-artifacts/sha256/aaa.tgz",
+                ),
+                self._mount(
+                    host_path=self._blob_b,
+                    target="/run/pi-cli/runtime-artifacts/sha512/bbb.tgz",
+                ),
+            )
+        )
         art_mounts = [
-            i for i, tok in enumerate(args)
-            if tok == "--mount"
-            and "runtime-artifacts" in args[i + 1]
+            i
+            for i, tok in enumerate(args)
+            if tok == "--mount" and "runtime-artifacts" in args[i + 1]
         ]
         self.assertEqual(len(art_mounts), 2)
 
     def test_mount_opts_is_single_string_not_shell_split(self):
         """The options string following ``--mount`` is a single
         comma-separated value, not tokenised by whitespace."""
-        args = _render(artifact_mounts=(
-            self._mount(
-                host_path=self._blob_a,
-                target="/run/pi-cli/runtime-artifacts/sha512/abc.tgz",
-            ),
-        ))
+        args = _render(
+            artifact_mounts=(
+                self._mount(
+                    host_path=self._blob_a,
+                    target="/run/pi-cli/runtime-artifacts/sha512/abc.tgz",
+                ),
+            )
+        )
         # Find the --mount token for our artifact.
         for i, tok in enumerate(args):
             if tok == "--mount" and "runtime-artifacts" in args[i + 1]:
@@ -1200,13 +1280,13 @@ class TestArtifactMountRendering(unittest.TestCase):
                 self.assertIn("type=bind", opts)
                 self.assertIn("src=" + self._blob_a, opts)
                 self.assertIn(
-                    "dst=/run/pi-cli/runtime-artifacts/", opts,
+                    "dst=/run/pi-cli/runtime-artifacts/",
+                    opts,
                 )
                 self.assertIn(",readonly", opts)
                 # Must be a single string — no spaces to split on
                 # (the source/dest are absolute paths without spaces).
-                self.assertNotIn(" ", opts,
-                                 "mount options must be one token")
+                self.assertNotIn(" ", opts, "mount options must be one token")
                 return
         self.fail("artifact --mount not found in rendered vector")
 
@@ -1216,16 +1296,18 @@ class TestArtifactMountRendering(unittest.TestCase):
         """The renderer emits artifact mounts in
         container_target order."""
         # Insert in reverse alphabetical target order.
-        args = _render(artifact_mounts=(
-            self._mount(
-                host_path=self._blob_a,
-                target="/run/pi-cli/runtime-artifacts/sha512/z.tgz",
-            ),
-            self._mount(
-                host_path=self._blob_b,
-                target="/run/pi-cli/runtime-artifacts/sha256/a.tgz",
-            ),
-        ))
+        args = _render(
+            artifact_mounts=(
+                self._mount(
+                    host_path=self._blob_a,
+                    target="/run/pi-cli/runtime-artifacts/sha512/z.tgz",
+                ),
+                self._mount(
+                    host_path=self._blob_b,
+                    target="/run/pi-cli/runtime-artifacts/sha256/a.tgz",
+                ),
+            )
+        )
         # Collect artifact destinations in emission order.
         seen: list[str] = []
         for i, tok in enumerate(args):
@@ -1239,32 +1321,37 @@ class TestArtifactMountRendering(unittest.TestCase):
 
     def test_every_artifact_mount_has_readonly(self):
         """Every artifact mount MUST include the ``readonly`` flag."""
-        args = _render(artifact_mounts=(
-            self._mount(
-                host_path=self._blob_a,
-                target="/run/pi-cli/runtime-artifacts/sha512/first.tgz",
-            ),
-            self._mount(
-                host_path=self._blob_b,
-                target="/run/pi-cli/runtime-artifacts/sha256/second.tgz",
-            ),
-        ))
+        args = _render(
+            artifact_mounts=(
+                self._mount(
+                    host_path=self._blob_a,
+                    target="/run/pi-cli/runtime-artifacts/sha512/first.tgz",
+                ),
+                self._mount(
+                    host_path=self._blob_b,
+                    target="/run/pi-cli/runtime-artifacts/sha256/second.tgz",
+                ),
+            )
+        )
         for i, tok in enumerate(args):
             if tok == "--mount" and "runtime-artifacts" in args[i + 1]:
                 self.assertIn(
-                    ",readonly", args[i + 1],
-                    f"artifact mount {args[i+1]!r} missing readonly",
+                    ",readonly",
+                    args[i + 1],
+                    f"artifact mount {args[i + 1]!r} missing readonly",
                 )
 
     # ── host / target passthrough ────────────────────────────
 
     def test_source_is_host_path(self):
-        args = _render(artifact_mounts=(
-            self._mount(
-                host_path=self._blob_a,
-                target="/run/pi-cli/runtime-artifacts/sha512/x.tgz",
-            ),
-        ))
+        args = _render(
+            artifact_mounts=(
+                self._mount(
+                    host_path=self._blob_a,
+                    target="/run/pi-cli/runtime-artifacts/sha512/x.tgz",
+                ),
+            )
+        )
         for i, tok in enumerate(args):
             if tok == "--mount" and "runtime-artifacts" in args[i + 1]:
                 self.assertIn("src=" + self._blob_a, args[i + 1])
@@ -1276,9 +1363,9 @@ class TestArtifactMountRendering(unittest.TestCase):
             "/run/pi-cli/runtime-artifacts/sha512/"
             "0000000000000000000000000000000000000000.tgz"
         )
-        args = _render(artifact_mounts=(
-            self._mount(host_path=self._blob_a, target=target),
-        ))
+        args = _render(
+            artifact_mounts=(self._mount(host_path=self._blob_a, target=target),)
+        )
         for i, tok in enumerate(args):
             if tok == "--mount" and "runtime-artifacts" in args[i + 1]:
                 self.assertIn("dst=" + target, args[i + 1])
@@ -1290,12 +1377,14 @@ class TestArtifactMountRendering(unittest.TestCase):
     def test_rendered_output_is_arg_tuple(self):
         """render_run_vector returns ``tuple[str, ...]``, never a
         shell command string."""
-        args = _render(artifact_mounts=(
-            self._mount(
-                host_path=self._blob_a,
-                target="/run/pi-cli/runtime-artifacts/sha512/x.tgz",
-            ),
-        ))
+        args = _render(
+            artifact_mounts=(
+                self._mount(
+                    host_path=self._blob_a,
+                    target="/run/pi-cli/runtime-artifacts/sha512/x.tgz",
+                ),
+            )
+        )
         self.assertIsInstance(args, tuple)
         self.assertTrue(all(isinstance(t, str) for t in args))
         # Must start with "docker", "run" — not a shell string.
@@ -1313,9 +1402,9 @@ class TestArtifactMountRendering(unittest.TestCase):
         for i, tok in enumerate(args):
             if tok == "--mount":
                 self.assertNotIn(
-                    "runtime-artifacts", args[i + 1],
-                    "empty artifact_mounts must not produce "
-                    "artifact mount arguments",
+                    "runtime-artifacts",
+                    args[i + 1],
+                    "empty artifact_mounts must not produce artifact mount arguments",
                 )
 
 
@@ -1331,6 +1420,7 @@ class TestArtifactMountCollisions(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         import tempfile, os as _os
+
         cls._tmp = tempfile.TemporaryDirectory()
         d = cls._tmp.name
         # Regular files for valid mounts
@@ -1355,6 +1445,7 @@ class TestArtifactMountCollisions(unittest.TestCase):
     @staticmethod
     def _mount(*, host_path: str, target: str) -> "ArtifactMount":
         from docker.versioning.rendering import ArtifactMount
+
         return ArtifactMount(host_path=host_path, container_target=target)
 
     _ART_ROOT = "/run/pi-cli/runtime-artifacts"
@@ -1367,26 +1458,30 @@ class TestArtifactMountCollisions(unittest.TestCase):
     def test_rejects_duplicate_container_target(self):
         target = self._target("sha512/dup.tgz")
         with self.assertRaises(ValueError) as ctx:
-            _render(artifact_mounts=(
-                self._mount(host_path=self._reg_a, target=target),
-                self._mount(host_path=self._reg_b, target=target),
-            ))
+            _render(
+                artifact_mounts=(
+                    self._mount(host_path=self._reg_a, target=target),
+                    self._mount(host_path=self._reg_b, target=target),
+                )
+            )
         self.assertIn("duplicate or aliased", str(ctx.exception).lower())
 
     # ── duplicate sources ────────────────────────────────────
 
     def test_rejects_duplicate_host_source(self):
         with self.assertRaises(ValueError) as ctx:
-            _render(artifact_mounts=(
-                self._mount(
-                    host_path=self._reg_a,
-                    target=self._target("sha512/t1.tgz"),
-                ),
-                self._mount(
-                    host_path=self._reg_a,
-                    target=self._target("sha256/t2.tgz"),
-                ),
-            ))
+            _render(
+                artifact_mounts=(
+                    self._mount(
+                        host_path=self._reg_a,
+                        target=self._target("sha512/t1.tgz"),
+                    ),
+                    self._mount(
+                        host_path=self._reg_a,
+                        target=self._target("sha256/t2.tgz"),
+                    ),
+                )
+            )
         self.assertIn("duplicate or aliased", str(ctx.exception).lower())
 
     # ── source/target aliasing (reaches "duplicate or aliased") ─
@@ -1396,16 +1491,16 @@ class TestArtifactMountCollisions(unittest.TestCase):
         artifact-root paths, the duplicate/aliased check fires.
         Mocked so realpath returns host_path unchanged."""
         from unittest.mock import patch
+
         target = self._target("sha512/aliased.tgz")
-        with patch("os.path.realpath", side_effect=lambda p: p), \
-             patch("os.path.isfile", return_value=True), \
-             patch("os.path.islink", return_value=False):
+        with (
+            patch("os.path.realpath", side_effect=lambda p: p),
+            patch("os.path.isfile", return_value=True),
+            patch("os.path.islink", return_value=False),
+        ):
             with self.assertRaises(ValueError) as ctx:
-                _render(artifact_mounts=(
-                    self._mount(host_path=target, target=target),
-                ))
-            self.assertIn("duplicate or aliased",
-                          str(ctx.exception).lower())
+                _render(artifact_mounts=(self._mount(host_path=target, target=target),))
+            self.assertIn("duplicate or aliased", str(ctx.exception).lower())
 
     def test_rejects_artifact_target_collision_with_workspace(self):
         """When workspace is set to a valid artifact-root path,
@@ -1415,25 +1510,23 @@ class TestArtifactMountCollisions(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             _render(
                 workspace=target,
-                artifact_mounts=(
-                    self._mount(host_path=self._reg_a, target=target),
-                ),
+                artifact_mounts=(self._mount(host_path=self._reg_a, target=target),),
             )
-        self.assertIn("duplicate or aliased",
-                      str(ctx.exception).lower())
+        self.assertIn("duplicate or aliased", str(ctx.exception).lower())
 
     def test_rejects_target_collision_with_pi_home(self):
         """Artifact target outside the fixed root is caught by the
         canonical-root check before collision is considered."""
         with self.assertRaises(ValueError) as ctx:
-            _render(artifact_mounts=(
-                self._mount(
-                    host_path=self._reg_a,
-                    target="/home/dev/.pi",
-                ),
-            ))
-        self.assertIn("canonical beneath fixed root",
-                      str(ctx.exception))
+            _render(
+                artifact_mounts=(
+                    self._mount(
+                        host_path=self._reg_a,
+                        target="/home/dev/.pi",
+                    ),
+                )
+            )
+        self.assertIn("canonical beneath fixed root", str(ctx.exception))
 
     def test_rejects_target_collision_with_projection(self):
         proj_target = "/run/pi-cli/docker-constructor.runtime.toml"
@@ -1444,19 +1537,20 @@ class TestArtifactMountCollisions(unittest.TestCase):
                     self._mount(host_path=self._reg_a, target=proj_target),
                 ),
             )
-        self.assertIn("canonical beneath fixed root",
-                      str(ctx.exception))
+        self.assertIn("canonical beneath fixed root", str(ctx.exception))
 
     # ── directory mounts ─────────────────────────────────────
 
     def test_rejects_directory_as_mount_source(self):
         with self.assertRaises(ValueError) as ctx:
-            _render(artifact_mounts=(
-                self._mount(
-                    host_path=self._dir,
-                    target=self._target("sha512/dir.tgz"),
-                ),
-            ))
+            _render(
+                artifact_mounts=(
+                    self._mount(
+                        host_path=self._dir,
+                        target=self._target("sha512/dir.tgz"),
+                    ),
+                )
+            )
         self.assertIn("regular non-symlink file", str(ctx.exception).lower())
 
     # ── traversal ────────────────────────────────────────────
@@ -1465,27 +1559,31 @@ class TestArtifactMountCollisions(unittest.TestCase):
         """A source with ``..`` whose realpath differs from the
         literal string is rejected as non-canonical."""
         import os as _os
+
         dirname = _os.path.dirname(self._reg_a)
         basename = _os.path.basename(self._reg_a)
         parent = _os.path.basename(dirname)
         traversal = _os.path.join(dirname, "..", parent, basename)
         with self.assertRaises(ValueError) as ctx:
-            _render(artifact_mounts=(
-                self._mount(
-                    host_path=traversal,
-                    target=self._target("sha512/trav.tgz"),
-                ),
-            ))
+            _render(
+                artifact_mounts=(
+                    self._mount(
+                        host_path=traversal,
+                        target=self._target("sha512/trav.tgz"),
+                    ),
+                )
+            )
         self.assertIn("canonical and absolute", str(ctx.exception))
 
     def test_rejects_traversal_in_container_target(self):
         target = self._ART_ROOT + "/sha512/../../../etc/passwd"
         with self.assertRaises(ValueError) as ctx:
-            _render(artifact_mounts=(
-                self._mount(host_path=self._reg_a, target=target),
-            ))
+            _render(
+                artifact_mounts=(self._mount(host_path=self._reg_a, target=target),)
+            )
         self.assertIn(
-            "canonical beneath fixed root", str(ctx.exception),
+            "canonical beneath fixed root",
+            str(ctx.exception),
         )
 
     # ── symlinks ─────────────────────────────────────────────
@@ -1494,14 +1592,15 @@ class TestArtifactMountCollisions(unittest.TestCase):
         """Symlinks are rejected by the os.path.islink guard,
         which now runs before realpath."""
         with self.assertRaises(ValueError) as ctx:
-            _render(artifact_mounts=(
-                self._mount(
-                    host_path=self._link,
-                    target=self._target("sha512/link.tgz"),
-                ),
-            ))
-        self.assertIn("regular non-symlink file",
-                      str(ctx.exception).lower())
+            _render(
+                artifact_mounts=(
+                    self._mount(
+                        host_path=self._link,
+                        target=self._target("sha512/link.tgz"),
+                    ),
+                )
+            )
+        self.assertIn("regular non-symlink file", str(ctx.exception).lower())
 
     # ── missing blobs ────────────────────────────────────────
 
@@ -1509,28 +1608,32 @@ class TestArtifactMountCollisions(unittest.TestCase):
         """A host_path that does not exist on the filesystem must
         be rejected with the defined regular-file message."""
         with self.assertRaises(ValueError) as ctx:
-            _render(artifact_mounts=(
-                self._mount(
-                    host_path=self._missing,
-                    target=self._target("sha512/missing.tgz"),
-                ),
-            ))
-        self.assertIn("regular non-symlink file",
-                      str(ctx.exception).lower())
+            _render(
+                artifact_mounts=(
+                    self._mount(
+                        host_path=self._missing,
+                        target=self._target("sha512/missing.tgz"),
+                    ),
+                )
+            )
+        self.assertIn("regular non-symlink file", str(ctx.exception).lower())
 
     # ── non-regular files (FIFO) ─────────────────────────────
 
     def test_rejects_fifo_as_mount_source(self):
         import os as _os, tempfile
+
         fifo_path = _os.path.join(self._tmp.name, "fifo")
         _os.mkfifo(fifo_path)
         with self.assertRaises(ValueError) as ctx:
-            _render(artifact_mounts=(
-                self._mount(
-                    host_path=fifo_path,
-                    target=self._target("sha512/fifo.tgz"),
-                ),
-            ))
+            _render(
+                artifact_mounts=(
+                    self._mount(
+                        host_path=fifo_path,
+                        target=self._target("sha512/fifo.tgz"),
+                    ),
+                )
+            )
         self.assertIn("regular non-symlink file", str(ctx.exception).lower())
 
     # ── non-canonical target ─────────────────────────────────
@@ -1539,11 +1642,12 @@ class TestArtifactMountCollisions(unittest.TestCase):
         """Target with double-slash or trailing dot is rejected."""
         target = self._ART_ROOT + "//sha512/abc.tgz"
         with self.assertRaises(ValueError) as ctx:
-            _render(artifact_mounts=(
-                self._mount(host_path=self._reg_a, target=target),
-            ))
+            _render(
+                artifact_mounts=(self._mount(host_path=self._reg_a, target=target),)
+            )
         self.assertIn(
-            "canonical beneath fixed root", str(ctx.exception),
+            "canonical beneath fixed root",
+            str(ctx.exception),
         )
 
     # ── target outside fixed root ────────────────────────────
@@ -1551,11 +1655,12 @@ class TestArtifactMountCollisions(unittest.TestCase):
     def test_rejects_target_outside_artifact_root(self):
         target = "/var/tmp/not-under-runtime-artifacts.tgz"
         with self.assertRaises(ValueError) as ctx:
-            _render(artifact_mounts=(
-                self._mount(host_path=self._reg_a, target=target),
-            ))
+            _render(
+                artifact_mounts=(self._mount(host_path=self._reg_a, target=target),)
+            )
         self.assertIn(
-            "canonical beneath fixed root", str(ctx.exception),
+            "canonical beneath fixed root",
+            str(ctx.exception),
         )
 
     # ── happy path (sanity) ──────────────────────────────────
@@ -1563,16 +1668,18 @@ class TestArtifactMountCollisions(unittest.TestCase):
     def test_valid_mounts_pass_validation(self):
         """Two distinct, regular-file, non-symlink mounts with
         valid targets must not raise."""
-        args = _render(artifact_mounts=(
-            self._mount(
-                host_path=self._reg_a,
-                target=self._target("sha512/a.tgz"),
-            ),
-            self._mount(
-                host_path=self._reg_b,
-                target=self._target("sha256/b.tgz"),
-            ),
-        ))
+        args = _render(
+            artifact_mounts=(
+                self._mount(
+                    host_path=self._reg_a,
+                    target=self._target("sha512/a.tgz"),
+                ),
+                self._mount(
+                    host_path=self._reg_b,
+                    target=self._target("sha256/b.tgz"),
+                ),
+            )
+        )
         self.assertIsInstance(args, tuple)
 
     # ── writable mount safety ────────────────────────────────
@@ -1582,33 +1689,38 @@ class TestArtifactMountCollisions(unittest.TestCase):
         the ``readonly`` flag and MUST NOT expose the default
         ``rw`` mode.  There is no DTO field to request writable
         artifact mounts — the renderer always forces readonly."""
-        args = _render(artifact_mounts=(
-            self._mount(
-                host_path=self._reg_a,
-                target=self._target("sha512/ro.tgz"),
-            ),
-            self._mount(
-                host_path=self._reg_b,
-                target=self._target("sha256/ro.tgz"),
-            ),
-        ))
+        args = _render(
+            artifact_mounts=(
+                self._mount(
+                    host_path=self._reg_a,
+                    target=self._target("sha512/ro.tgz"),
+                ),
+                self._mount(
+                    host_path=self._reg_b,
+                    target=self._target("sha256/ro.tgz"),
+                ),
+            )
+        )
         for i, tok in enumerate(args):
             if tok == "--mount" and "runtime-artifacts" in args[i + 1]:
                 opts = args[i + 1]
-                self.assertIn(",readonly", opts,
-                              f"artifact mount must have readonly: {opts!r}")
+                self.assertIn(
+                    ",readonly", opts, f"artifact mount must have readonly: {opts!r}"
+                )
                 # "rw" must not appear unless it is part of "readonly"
                 # (i.e.  "readonly" itself contains no "rw" substring).
                 # Docker default is rw, and no artifact mount may rely
                 # on that default.
                 before_readonly = opts.split(",readonly")[0]
                 self.assertNotIn(
-                    ",rw", before_readonly + ",",
+                    ",rw",
+                    before_readonly + ",",
                     f"artifact mount must not have rw mode: {opts!r}",
                 )
 
 
 # ── 6.6 architectural guards ──────────────────────────────────────
+
 
 class TestArchitecturalGuards(unittest.TestCase):
     """New direct-Docker renderers must not depend on process
@@ -1622,10 +1734,18 @@ class TestArchitecturalGuards(unittest.TestCase):
 
     def test_environment_does_not_affect_output(self):
         import os as _os
+
         baseline = _render()
         saved = {}
-        for k in ("COMPOSE_FILE", "DOCKER_HOST", "PI_PROJECT_DIR",
-                  "HOME", "USER", "PI_HOME", "DOCKER_RUN_OPTS"):
+        for k in (
+            "COMPOSE_FILE",
+            "DOCKER_HOST",
+            "PI_PROJECT_DIR",
+            "HOME",
+            "USER",
+            "PI_HOME",
+            "DOCKER_RUN_OPTS",
+        ):
             saved[k] = _os.environ.get(k)
             _os.environ[k] = f"injected-{k}-value"
         try:
@@ -1654,6 +1774,7 @@ class TestArchitecturalGuards(unittest.TestCase):
         # for directory structure, not file existence).  A path to a
         # nonexistent or empty file must not cause a read/parse error.
         import tempfile, os as _os
+
         with tempfile.TemporaryDirectory() as td:
             runtime_dir = _os.path.join(td, ".docker-generated", "runtime")
             _os.makedirs(runtime_dir)
@@ -1667,11 +1788,13 @@ class TestArchitecturalGuards(unittest.TestCase):
             # The path must appear verbatim in a mount argument
             mounts = _collect_mounts(args)
             projection_mounts = [
-                m for m in mounts
+                m
+                for m in mounts
                 if m["dst"] == "/run/pi-cli/docker-constructor.runtime.toml"
             ]
             self.assertEqual(
-                len(projection_mounts), 1,
-                "Runtime projection must be mounted exactly once"
+                len(projection_mounts),
+                1,
+                "Runtime projection must be mounted exactly once",
             )
             self.assertEqual(projection_mounts[0]["src"], empty_path)

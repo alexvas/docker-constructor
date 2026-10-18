@@ -10,6 +10,7 @@ Step names are exactly the closed
 :class:`~docker.versioning.host_progress.HostStep` values so the implementation
 can validate them against one authoritative enum without importing it here.
 """
+
 from __future__ import annotations
 
 from contextlib import AbstractContextManager
@@ -41,9 +42,7 @@ class _NullStep:
 class NullAssemblyActivity:
     """No-op activity used when no event sink/observation is requested."""
 
-    def step(
-        self, name: str, *, container_name: str | None = None
-    ) -> _NullStep:
+    def step(self, name: str, *, container_name: str | None = None) -> _NullStep:
         return _NullStep()
 
     def cache_reuse(self) -> None:

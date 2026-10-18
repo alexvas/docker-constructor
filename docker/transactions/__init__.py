@@ -5,6 +5,7 @@ L1 adds validated directory and regular-file capabilities retaining live
 descriptors.  L2 exposes distinct complete regular-file contracts.  The
 canonical JSON codec grants deterministic bytes and generic decoding only.
 """
+
 from __future__ import annotations
 
 from .capabilities import DirectoryCapability, FileCapability

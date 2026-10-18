@@ -5,6 +5,7 @@ The registry fixture is an HTTPS CONNECT proxy.  Lockfiles keep their reviewed
 credential-free proxy and a fixture CA.  The proxy never opens an upstream
 socket, so a passing test cannot depend on the public npm registry.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -40,13 +41,18 @@ class FixturePackage:
         return "sha512-" + base64.b64encode(digest).decode("ascii")
 
 
-def make_package(name: str = "phase6-fixture", version: str = "1.0.0") -> FixturePackage:
+def make_package(
+    name: str = "phase6-fixture", version: str = "1.0.0"
+) -> FixturePackage:
     """Create deterministic npm package tarball bytes without npm or network."""
-    package_json = json.dumps(
-        {"name": name, "version": version, "bin": {"pi": "index.js"}},
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode() + b"\n"
+    package_json = (
+        json.dumps(
+            {"name": name, "version": version, "bin": {"pi": "index.js"}},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+        + b"\n"
+    )
     raw = io.BytesIO()
     with gzip.GzipFile(fileobj=raw, mode="wb", mtime=0) as zipped:
         with tarfile.open(fileobj=zipped, mode="w") as archive:
@@ -69,24 +75,33 @@ def make_package(name: str = "phase6-fixture", version: str = "1.0.0") -> Fixtur
 
 
 def make_lock(package: FixturePackage, consumer: str = "phase6-consumer") -> bytes:
-    return json.dumps({
-        "name": consumer, "version": "1.0.0", "lockfileVersion": 3,
-        "requires": True,
-        "packages": {
-            "": {"name": consumer, "version": "1.0.0",
-                 "dependencies": {package.name: package.version}},
-            f"node_modules/{package.name}": {
-                "version": package.version,
-                "resolved": "https://registry.npmjs.org" + package.path,
-                "integrity": package.integrity,
-                "bin": {"pi": "index.js"},
+    return json.dumps(
+        {
+            "name": consumer,
+            "version": "1.0.0",
+            "lockfileVersion": 3,
+            "requires": True,
+            "packages": {
+                "": {
+                    "name": consumer,
+                    "version": "1.0.0",
+                    "dependencies": {package.name: package.version},
+                },
+                f"node_modules/{package.name}": {
+                    "version": package.version,
+                    "resolved": "https://registry.npmjs.org" + package.path,
+                    "integrity": package.integrity,
+                    "bin": {"pi": "index.js"},
+                },
             },
         },
-    }, sort_keys=True).encode()
+        sort_keys=True,
+    ).encode()
 
 
 class FaultController:
     """Thread-safe deterministic response mode selected by an acceptance test."""
+
     def __init__(self) -> None:
         self._condition = threading.Condition()
         self.mode = "normal"
@@ -105,8 +120,11 @@ class FaultController:
 
 class LocalRegistryProxy:
     """Local-only CONNECT proxy serving one npm tarball and controllable faults."""
+
     def __init__(
-        self, package: FixturePackage | tuple[FixturePackage, ...], root: Path,
+        self,
+        package: FixturePackage | tuple[FixturePackage, ...],
+        root: Path,
     ):
         self.packages = package if isinstance(package, tuple) else (package,)
         if not self.packages:
@@ -132,10 +150,12 @@ class LocalRegistryProxy:
             try:
                 asyncio.run(self._serve(ready))
             except BaseException as exc:  # surfaced to the owner thread
-                failure.append(exc); ready.set()
+                failure.append(exc)
+                ready.set()
 
         self._thread = threading.Thread(target=run, name="phase6-registry", daemon=True)
-        self._thread.start(); ready.wait(10)
+        self._thread.start()
+        ready.wait(10)
         if failure:
             raise RuntimeError("fixture registry failed to start") from failure[0]
         if not self.port:
@@ -162,18 +182,43 @@ class LocalRegistryProxy:
 
     def _make_certificate(self) -> None:
         command = (
-            "openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes",
-            "-keyout", os.fspath(self._ca_key), "-out", os.fspath(self.ca),
-            "-days", "1", "-subj", "/CN=phase6 fixture CA",
-            "-addext", "basicConstraints=critical,CA:TRUE",
-            "-addext", "keyUsage=critical,keyCertSign,cRLSign",
+            "openssl",
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-nodes",
+            "-keyout",
+            os.fspath(self._ca_key),
+            "-out",
+            os.fspath(self.ca),
+            "-days",
+            "1",
+            "-subj",
+            "/CN=phase6 fixture CA",
+            "-addext",
+            "basicConstraints=critical,CA:TRUE",
+            "-addext",
+            "keyUsage=critical,keyCertSign,cRLSign",
         )
         subprocess.run(command, check=True, capture_output=True)
-        subprocess.run((
-            "openssl", "req", "-newkey", "rsa:2048", "-nodes",
-            "-keyout", os.fspath(self._key), "-out", os.fspath(self.root / "server.csr"),
-            "-subj", "/CN=registry.npmjs.org",
-        ), check=True, capture_output=True)
+        subprocess.run(
+            (
+                "openssl",
+                "req",
+                "-newkey",
+                "rsa:2048",
+                "-nodes",
+                "-keyout",
+                os.fspath(self._key),
+                "-out",
+                os.fspath(self.root / "server.csr"),
+                "-subj",
+                "/CN=registry.npmjs.org",
+            ),
+            check=True,
+            capture_output=True,
+        )
         extensions = self.root / "extensions"
         extensions.write_text(
             "basicConstraints=critical,CA:FALSE\n"
@@ -181,12 +226,28 @@ class LocalRegistryProxy:
             "extendedKeyUsage=serverAuth\n"
             "subjectAltName=DNS:registry.npmjs.org\n"
         )
-        subprocess.run((
-            "openssl", "x509", "-req", "-in", os.fspath(self.root / "server.csr"),
-            "-CA", os.fspath(self.ca), "-CAkey", os.fspath(self._ca_key),
-            "-CAcreateserial", "-out", os.fspath(self._cert), "-days", "1",
-            "-extfile", os.fspath(extensions),
-        ), check=True, capture_output=True)
+        subprocess.run(
+            (
+                "openssl",
+                "x509",
+                "-req",
+                "-in",
+                os.fspath(self.root / "server.csr"),
+                "-CA",
+                os.fspath(self.ca),
+                "-CAkey",
+                os.fspath(self._ca_key),
+                "-CAcreateserial",
+                "-out",
+                os.fspath(self._cert),
+                "-days",
+                "1",
+                "-extfile",
+                os.fspath(extensions),
+            ),
+            check=True,
+            capture_output=True,
+        )
 
     async def _serve(self, ready: threading.Event) -> None:
         self._loop = asyncio.get_running_loop()
@@ -199,13 +260,16 @@ class LocalRegistryProxy:
             except asyncio.CancelledError:
                 pass
 
-    async def _client(self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+    async def _client(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
+    ) -> None:
         try:
             request = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), 10)
             first = request.split(b"\r\n", 1)[0]
             if first != b"CONNECT registry.npmjs.org:443 HTTP/1.1":
                 writer.write(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n")
-                await writer.drain(); return
+                await writer.drain()
+                return
             writer.write(b"HTTP/1.1 200 Connection Established\r\n\r\n")
             await writer.drain()
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -218,35 +282,51 @@ class LocalRegistryProxy:
             mode = self.controller.mode
             if mode == "pause":
                 await asyncio.to_thread(self.controller.release.wait)
-            package = next((item for item in self.packages if item.path == target), None)
+            package = next(
+                (item for item in self.packages if item.path == target), None
+            )
             if package is None:
-                await self._response(writer, 404, b"not found\n"); return
+                await self._response(writer, 404, b"not found\n")
+                return
             if mode == "large-error":
-                await self._response(writer, 503, b"fixture-error " * 100_000); return
+                await self._response(writer, 503, b"fixture-error " * 100_000)
+                return
             if mode == "partial":
                 body = package.tarball
-                writer.write(f"HTTP/1.1 200 OK\r\nContent-Length: {len(body)}\r\n\r\n".encode())
-                writer.write(body[: max(1, len(body) // 2)]); await writer.drain(); return
+                writer.write(
+                    f"HTTP/1.1 200 OK\r\nContent-Length: {len(body)}\r\n\r\n".encode()
+                )
+                writer.write(body[: max(1, len(body) // 2)])
+                await writer.drain()
+                return
             await self._response(writer, 200, package.tarball)
-        except (asyncio.IncompleteReadError, ConnectionError, TimeoutError, ssl.SSLError):
+        except asyncio.IncompleteReadError, ConnectionError, TimeoutError, ssl.SSLError:
             pass
         finally:
             writer.close()
-            try: await writer.wait_closed()
-            except Exception: pass
+            try:
+                await writer.wait_closed()
+            except Exception:
+                pass
 
     @staticmethod
     async def _response(writer: asyncio.StreamWriter, status: int, body: bytes) -> None:
         reason = {200: "OK", 404: "Not Found", 503: "Unavailable"}[status]
-        writer.write(f"HTTP/1.1 {status} {reason}\r\nContent-Length: {len(body)}\r\nConnection: close\r\n\r\n".encode() + body)
+        writer.write(
+            f"HTTP/1.1 {status} {reason}\r\nContent-Length: {len(body)}\r\nConnection: close\r\n\r\n".encode()
+            + body
+        )
         await writer.drain()
 
 
 class ManagedChild:
     """A process-group-owned command for deadline, output, and build interruption."""
+
     def __init__(self, argv: tuple[str, ...]):
         self.process = subprocess.Popen(
-            argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            argv,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             start_new_session=True,
         )
 
@@ -265,5 +345,8 @@ class ManagedChild:
             if stream is not None and not stream.closed:
                 stream.close()
 
-    def __enter__(self) -> "ManagedChild": return self
-    def __exit__(self, *_: object) -> None: self.stop()
+    def __enter__(self) -> "ManagedChild":
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.stop()

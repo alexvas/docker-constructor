@@ -43,6 +43,7 @@ write_stable_project(_STABLE_PROJECT.name)
 def _load_mod() -> Any:
     """Import the importable facade module."""
     from docker import constructor_cli
+
     return constructor_cli
 
 
@@ -74,13 +75,19 @@ def _run(
             Path(argv[index + 1]).mkdir(parents=True, exist_ok=True)
     if _create_projection is not None:
         original_create_projection = _create_projection
+
         def _create_projection(_projection: Any, *, parent_dir: str) -> Any:
             handle = original_create_projection(_projection, parent_dir=parent_dir)
             handle.path = str(Path(parent_dir) / "fake-projection.toml")
             return handle
+
     effective_argv = list(argv)
     if "--project-directory" not in effective_argv:
-        effective_argv = ["--project-directory", str(_TEST_PROJECT_ROOT), *effective_argv]
+        effective_argv = [
+            "--project-directory",
+            str(_TEST_PROJECT_ROOT),
+            *effective_argv,
+        ]
     out = io.StringIO()
     err = io.StringIO()
     with redirect_stdout(out), redirect_stderr(err):
@@ -103,6 +110,7 @@ def _run(
 # Fake dispatchers
 # ════════════════════════════════════════════════════════════════════════
 
+
 def _make_fake(
     mod: Any,
     *,
@@ -121,6 +129,7 @@ def _make_fake(
                 message=message,
                 debug=debug,
             )
+
     return Fake()
 
 
@@ -128,12 +137,14 @@ def _make_recording_fake(mod: Any) -> Any:
     class Recording:
         def __init__(self) -> None:
             self.calls: list[tuple[str, Any]] = []
+
         def execute(self, command: str, request: Any) -> Any:
             self.calls.append((command, request))
             return mod.CommandResult(
                 exit_kind=mod.ExitKind.SUCCESS,
                 data={"ok": True},
             )
+
     return Recording()
 
 
@@ -159,29 +170,29 @@ class TestImportSafety(unittest.TestCase):
 
     def test_import_does_not_read_files(self) -> None:
         from unittest.mock import patch
+
         with patch("builtins.open", side_effect=RuntimeError("no open")):
             _load_mod()
 
     def test_import_does_not_access_network(self) -> None:
         import socket
         from unittest.mock import patch
-        with patch.object(socket, "socket",
-                          side_effect=RuntimeError("no network")):
+
+        with patch.object(socket, "socket", side_effect=RuntimeError("no network")):
             _load_mod()
 
     def test_import_does_not_execute_docker(self) -> None:
         import subprocess
         from unittest.mock import patch
-        with patch.object(subprocess, "run",
-                          side_effect=RuntimeError("no subprocess")):
+
+        with patch.object(subprocess, "run", side_effect=RuntimeError("no subprocess")):
             _load_mod()
 
 
 class TestGlobalHelp(unittest.TestCase):
     """``--help`` behaviour and command surface."""
 
-    AGREED = {"validate", "build", "run", "doctor", "verify", "show",
-              "check-updates"}
+    AGREED = {"validate", "build", "run", "doctor", "verify", "show", "check-updates"}
     LEGACY = {"env", "get", "compose", "extensions", "schema"}
 
     @classmethod
@@ -217,8 +228,7 @@ class TestExitCodeMapping(unittest.TestCase):
         self.assertEqual(0, rc)
 
     def test_policy_maps_to_one(self) -> None:
-        fake = _make_fake(self.m, exit_kind="policy",
-                          message="updates available")
+        fake = _make_fake(self.m, exit_kind="policy", message="updates available")
         rc, _, _ = _run(self.m, ["check-updates"], dispatcher=fake)
         self.assertEqual(1, rc)
 
@@ -228,14 +238,12 @@ class TestExitCodeMapping(unittest.TestCase):
         self.assertEqual(2, rc)
 
     def test_config_maps_to_three(self) -> None:
-        fake = _make_fake(self.m, exit_kind="config",
-                          message="invalid TOML")
+        fake = _make_fake(self.m, exit_kind="config", message="invalid TOML")
         rc, _, _ = _run(self.m, ["validate"], dispatcher=fake)
         self.assertEqual(3, rc)
 
     def test_operational_maps_to_four(self) -> None:
-        fake = _make_fake(self.m, exit_kind="operational",
-                          message="network error")
+        fake = _make_fake(self.m, exit_kind="operational", message="network error")
         rc, _, _ = _run(self.m, ["check-updates"], dispatcher=fake)
         self.assertEqual(4, rc)
 
@@ -267,12 +275,21 @@ class TestDefaultDispatcherReturnsUnavailable(unittest.TestCase):
         """Mixed build + runtime overrides with --scope all --effective
         must partition overrides by phase so each resolver only sees
         its own paths."""
-        rc, out, err = _run(self.m, [
-            "--output", "json",
-            "show", "--scope", "all", "--effective",
-            "--override", "build.stages.toolchain.python.version=3.15.0",
-            "--override", "runtime.pi-extensions.pi-proxy.version=1.0.0",
-        ])
+        rc, out, err = _run(
+            self.m,
+            [
+                "--output",
+                "json",
+                "show",
+                "--scope",
+                "all",
+                "--effective",
+                "--override",
+                "build.stages.toolchain.python.version=3.15.0",
+                "--override",
+                "runtime.pi-extensions.pi-proxy.version=1.0.0",
+            ],
+        )
         self.assertEqual(0, rc, f"exit {rc}: {err}")
         self.assertEqual("", err)
         payload = json.loads(out)
@@ -284,8 +301,11 @@ class TestDefaultDispatcherReturnsUnavailable(unittest.TestCase):
         # Runtime projection reflects the runtime override
         extensions = data["runtime"]["extensions"]
         pi_proxy = next(
-            (e for e in extensions.values()
-             if e.get("package", "").endswith("pi-proxy")),
+            (
+                e
+                for e in extensions.values()
+                if e.get("package", "").endswith("pi-proxy")
+            ),
             None,
         )
         self.assertIsNotNone(pi_proxy, "pi-proxy not found in runtime")
@@ -311,14 +331,24 @@ class TestDefaultDispatcherReturnsUnavailable(unittest.TestCase):
                     ),
                 )
 
-        fake_providers = MappingProxyType({
-            k: _Stub(k) for k in (
-                "docker-registry", "rust-channel", "static-url",
-                "github-release", "uv-python", "pypi", "npm", "git-ref",
-            )
-        })
-        with patch.object(docker.versioning.updates, "_DEFAULT_PROVIDERS",
-                          fake_providers):
+        fake_providers = MappingProxyType(
+            {
+                k: _Stub(k)
+                for k in (
+                    "docker-registry",
+                    "rust-channel",
+                    "static-url",
+                    "github-release",
+                    "uv-python",
+                    "pypi",
+                    "npm",
+                    "git-ref",
+                )
+            }
+        )
+        with patch.object(
+            docker.versioning.updates, "_DEFAULT_PROVIDERS", fake_providers
+        ):
             rc, out, err = _run(self.m, ["check-updates"])
         self.assertEqual(0, rc)
         self.assertTrue(
@@ -357,8 +387,14 @@ def _make_stub_providers(discover=None):
             )
 
     names = (
-        "docker-registry", "rust-channel", "static-url",
-        "github-release", "uv-python", "pypi", "npm", "git-ref",
+        "docker-registry",
+        "rust-channel",
+        "static-url",
+        "github-release",
+        "uv-python",
+        "pypi",
+        "npm",
+        "git-ref",
     )
     return MappingProxyType({name: _Stub(name, discover) for name in names})
 
@@ -376,19 +412,25 @@ class TestInteractiveProgress(unittest.TestCase):
 
     def _run_real(self, argv, *, stderr_isatty=False, discover=None):
         import docker.versioning.updates
+
         effective_argv = ["--project-directory", _STABLE_PROJECT.name, *argv]
-        with patch.object(docker.versioning.updates, "_DEFAULT_PROVIDERS",
-                          _make_stub_providers(discover=discover)):
+        with patch.object(
+            docker.versioning.updates,
+            "_DEFAULT_PROVIDERS",
+            _make_stub_providers(discover=discover),
+        ):
             return _run(self.m, effective_argv, stderr_isatty=stderr_isatty)
 
     def test_progress_content_compact_targets_and_event_updates(self):
         """4.1 — exact content, compact targets, one replaceable line."""
         rc, out, err = self._run_real(
-            ["check-updates"], stderr_isatty=True,
+            ["check-updates"],
+            stderr_isatty=True,
         )
         self.assertEqual(0, rc)
         self.assertIn(
-            "Checking updates [1/14] base.node (docker-registry)…", err,
+            "Checking updates [1/14] base.node (docker-registry)…",
+            err,
         )
         self.assertIn(
             "Checking updates [14/14] runtime.pi-extensions.pi-usage (npm)…",
@@ -406,7 +448,8 @@ class TestInteractiveProgress(unittest.TestCase):
     def test_non_tty_stderr_emits_no_progress(self):
         """4.2 — non-TTY stderr emits zero progress bytes."""
         rc, out, err = self._run_real(
-            ["check-updates"], stderr_isatty=False,
+            ["check-updates"],
+            stderr_isatty=False,
         )
         self.assertEqual(0, rc)
         self.assertEqual("", err)
@@ -415,7 +458,8 @@ class TestInteractiveProgress(unittest.TestCase):
     def test_json_output_emits_no_progress_even_with_tty(self):
         """4.2 — JSON output stays clean even when stderr is a TTY."""
         rc, out, err = self._run_real(
-            ["--output", "json", "check-updates"], stderr_isatty=True,
+            ["--output", "json", "check-updates"],
+            stderr_isatty=True,
         )
         self.assertEqual(0, rc)
         self.assertEqual("", err)
@@ -424,7 +468,8 @@ class TestInteractiveProgress(unittest.TestCase):
     def test_cleanup_clears_line_before_final_success_output(self):
         """4.3 — transient line cleared before the final success report."""
         rc, out, err = self._run_real(
-            ["check-updates"], stderr_isatty=True,
+            ["check-updates"],
+            stderr_isatty=True,
         )
         self.assertEqual(0, rc)
         self.assertIn("TARGET", out)
@@ -434,20 +479,33 @@ class TestInteractiveProgress(unittest.TestCase):
     def test_cleanup_before_handled_diagnostics(self):
         """4.3 — clear happens before handled diagnostic output."""
         import docker.versioning.updates
-        with patch.object(docker.versioning.updates, "_DEFAULT_PROVIDERS",
-                          _make_stub_providers()), \
-             patch.object(docker.versioning.updates, "serialize_results",
-                          side_effect=RuntimeError("boom")):
+
+        with (
+            patch.object(
+                docker.versioning.updates, "_DEFAULT_PROVIDERS", _make_stub_providers()
+            ),
+            patch.object(
+                docker.versioning.updates,
+                "serialize_results",
+                side_effect=RuntimeError("boom"),
+            ),
+        ):
             rc, out, err = _run(
                 self.m,
-                ["--project-directory", _STABLE_PROJECT.name,
-                 "--color", "never", "check-updates"],
+                [
+                    "--project-directory",
+                    _STABLE_PROJECT.name,
+                    "--color",
+                    "never",
+                    "check-updates",
+                ],
                 stderr_isatty=True,
             )
         self.assertEqual(4, rc)
         self.assertIn("[OPERATIONAL] boom", err)
         self.assertIn(
-            "Checking updates [1/14] base.node (docker-registry)…", err,
+            "Checking updates [1/14] base.node (docker-registry)…",
+            err,
         )
         self.assertLess(err.rfind("\r\x1b[K"), err.index("[OPERATIONAL] boom"))
 
@@ -460,19 +518,25 @@ class TestInteractiveProgress(unittest.TestCase):
 
         out = io.StringIO()
         err = io.StringIO()
-        with patch.object(docker.versioning.updates, "_DEFAULT_PROVIDERS",
-                          _make_stub_providers(discover=_interrupt)), \
-             redirect_stdout(out), redirect_stderr(err):
+        with (
+            patch.object(
+                docker.versioning.updates,
+                "_DEFAULT_PROVIDERS",
+                _make_stub_providers(discover=_interrupt),
+            ),
+            redirect_stdout(out),
+            redirect_stderr(err),
+        ):
             with self.assertRaises(KeyboardInterrupt):
                 self.m.main(
-                    ["--project-directory", _STABLE_PROJECT.name,
-                     "check-updates"],
+                    ["--project-directory", _STABLE_PROJECT.name, "check-updates"],
                     stdout_isatty=lambda: False,
                     stderr_isatty=lambda: True,
                 )
         captured = err.getvalue()
         self.assertIn(
-            "Checking updates [1/14] base.node (docker-registry)…", captured,
+            "Checking updates [1/14] base.node (docker-registry)…",
+            captured,
         )
         self.assertTrue(captured.endswith("\r\x1b[K"))
 
@@ -499,8 +563,7 @@ class TestChannelContract(unittest.TestCase):
         self.assertEqual("", err)
 
     def test_policy_message_on_stdout_empty_stderr(self) -> None:
-        fake = _make_fake(self.m, exit_kind="policy",
-                          message="updates found")
+        fake = _make_fake(self.m, exit_kind="policy", message="updates found")
         _, out, err = _run(self.m, ["check-updates"], dispatcher=fake)
         self.assertIn("[POLICY]", out)
         self.assertIn("updates found", out)
@@ -516,16 +579,14 @@ class TestChannelContract(unittest.TestCase):
         self.assertIn("bad input", err)
 
     def test_config_error_on_stderr_empty_stdout(self) -> None:
-        fake = _make_fake(self.m, exit_kind="config",
-                          message="missing key")
+        fake = _make_fake(self.m, exit_kind="config", message="missing key")
         _, out, err = _run(self.m, ["validate"], dispatcher=fake)
         self.assertEqual("", out)
         self.assertIn("[CONFIG]", err)
         self.assertIn("missing key", err)
 
     def test_operational_error_on_stderr_empty_stdout(self) -> None:
-        fake = _make_fake(self.m, exit_kind="operational",
-                          message="timeout")
+        fake = _make_fake(self.m, exit_kind="operational", message="timeout")
         _, out, err = _run(self.m, ["check-updates"], dispatcher=fake)
         self.assertEqual("", out)
         self.assertIn("[OPERATIONAL]", err)
@@ -534,17 +595,21 @@ class TestChannelContract(unittest.TestCase):
     # ── data + message both rendered ─────────────────────────────────
 
     def test_success_renders_both_data_and_message(self) -> None:
-        fake = _make_fake(self.m, exit_kind="success",
-                          data={"count": 3}, message="inventory loaded")
+        fake = _make_fake(
+            self.m, exit_kind="success", data={"count": 3}, message="inventory loaded"
+        )
         _, out, _ = _run(self.m, ["show"], dispatcher=fake)
         self.assertIn("inventory loaded", out)
         self.assertIn("data:", out)
         self.assertIn("count", out)
 
     def test_error_renders_both_data_and_message_on_stderr(self) -> None:
-        fake = _make_fake(self.m, exit_kind="config",
-                          data={"missing": ["key1"]},
-                          message="validation failed")
+        fake = _make_fake(
+            self.m,
+            exit_kind="config",
+            data={"missing": ["key1"]},
+            message="validation failed",
+        )
         _, out, err = _run(self.m, ["validate"], dispatcher=fake)
         self.assertEqual("", out)
         self.assertIn("validation failed", err)
@@ -555,11 +620,12 @@ class TestChannelContract(unittest.TestCase):
 
     def test_json_error_still_on_stdout(self) -> None:
         """In JSON mode, even errors go to stdout (machine-readable)."""
-        fake = _make_fake(self.m, exit_kind="config",
-                          message="missing key",
-                          data={"field": "runtime"})
+        fake = _make_fake(
+            self.m, exit_kind="config", message="missing key", data={"field": "runtime"}
+        )
         _, out, _ = _run(
-            self.m, ["--output", "json", "validate"],
+            self.m,
+            ["--output", "json", "validate"],
             dispatcher=fake,
         )
         payload = json.loads(out)
@@ -571,7 +637,8 @@ class TestChannelContract(unittest.TestCase):
     def test_json_success_empty_stderr(self) -> None:
         fake = _make_fake(self.m, exit_kind="success", data={"ok": True})
         _, _, err = _run(
-            self.m, ["--output", "json", "show"],
+            self.m,
+            ["--output", "json", "show"],
             dispatcher=fake,
         )
         self.assertEqual("", err)
@@ -579,16 +646,14 @@ class TestChannelContract(unittest.TestCase):
     # ── data-only (no message) ───────────────────────────────────────
 
     def test_success_data_only_on_stdout(self) -> None:
-        fake = _make_fake(self.m, exit_kind="success",
-                          data={"valid": True})
+        fake = _make_fake(self.m, exit_kind="success", data={"valid": True})
         _, out, err = _run(self.m, ["validate"], dispatcher=fake)
         self.assertIn("[SUCCESS]", out)
         self.assertIn("valid", out)
         self.assertEqual("", err)
 
     def test_error_data_only_on_stderr(self) -> None:
-        fake = _make_fake(self.m, exit_kind="config",
-                          data={"errors": 3})
+        fake = _make_fake(self.m, exit_kind="config", data={"errors": 3})
         _, out, err = _run(self.m, ["validate"], dispatcher=fake)
         self.assertEqual("", out)
         self.assertIn("[CONFIG]", err)
@@ -599,9 +664,14 @@ class TestChannelContract(unittest.TestCase):
     def test_success_display_string_rendered_verbatim(self) -> None:
         """When data has a ``display_string`` key, text mode renders
         that string instead of Python's dict repr."""
-        fake = _make_fake(self.m, exit_kind="success",
-                          data={"display_string": "docker build --tag x .",
-                                "build_args": ["docker", "build", "."]})
+        fake = _make_fake(
+            self.m,
+            exit_kind="success",
+            data={
+                "display_string": "docker build --tag x .",
+                "build_args": ["docker", "build", "."],
+            },
+        )
         _, out, err = _run(self.m, ["build"], dispatcher=fake)
         self.assertIn("docker build --tag x .", out)
         self.assertNotIn("display_string", out)
@@ -611,11 +681,17 @@ class TestChannelContract(unittest.TestCase):
     def test_json_mode_preserves_full_structure(self) -> None:
         """In JSON mode, the full data dict (including display_string
         and build_args) is preserved."""
-        fake = _make_fake(self.m, exit_kind="success",
-                          data={"display_string": "docker build --tag x .",
-                                "build_args": ["docker", "build", "."]})
+        fake = _make_fake(
+            self.m,
+            exit_kind="success",
+            data={
+                "display_string": "docker build --tag x .",
+                "build_args": ["docker", "build", "."],
+            },
+        )
         _, out, _ = _run(
-            self.m, ["--output", "json", "build"],
+            self.m,
+            ["--output", "json", "build"],
             dispatcher=fake,
         )
         payload = json.loads(out)
@@ -636,7 +712,8 @@ class TestColourBehaviour(unittest.TestCase):
     def test_error_color_always_stderr_tty_adds_ansi(self) -> None:
         fake = _make_fake(self.m, exit_kind="config", message="fail")
         _, _, err = _run(
-            self.m, ["--color", "always", "validate"],
+            self.m,
+            ["--color", "always", "validate"],
             dispatcher=fake,
             stderr_isatty=True,
         )
@@ -645,7 +722,8 @@ class TestColourBehaviour(unittest.TestCase):
     def test_error_color_never_stderr_tty_no_ansi(self) -> None:
         fake = _make_fake(self.m, exit_kind="config", message="fail")
         _, _, err = _run(
-            self.m, ["--color", "never", "validate"],
+            self.m,
+            ["--color", "never", "validate"],
             dispatcher=fake,
             stderr_isatty=True,
         )
@@ -654,7 +732,8 @@ class TestColourBehaviour(unittest.TestCase):
     def test_error_color_auto_stderr_not_tty_no_ansi(self) -> None:
         fake = _make_fake(self.m, exit_kind="config", message="fail")
         _, _, err = _run(
-            self.m, ["--color", "auto", "validate"],
+            self.m,
+            ["--color", "auto", "validate"],
             dispatcher=fake,
             stderr_isatty=False,
         )
@@ -663,7 +742,8 @@ class TestColourBehaviour(unittest.TestCase):
     def test_error_color_auto_stderr_tty_adds_ansi(self) -> None:
         fake = _make_fake(self.m, exit_kind="config", message="fail")
         _, _, err = _run(
-            self.m, ["--color", "auto", "validate"],
+            self.m,
+            ["--color", "auto", "validate"],
             dispatcher=fake,
             stderr_isatty=True,
         )
@@ -674,7 +754,8 @@ class TestColourBehaviour(unittest.TestCase):
     def test_success_color_always_stdout_tty_adds_ansi(self) -> None:
         fake = _make_fake(self.m, exit_kind="success", message="ok")
         _, out, _ = _run(
-            self.m, ["--color", "always", "validate"],
+            self.m,
+            ["--color", "always", "validate"],
             dispatcher=fake,
             stdout_isatty=True,
         )
@@ -683,7 +764,8 @@ class TestColourBehaviour(unittest.TestCase):
     def test_success_color_never_stdout_tty_no_ansi(self) -> None:
         fake = _make_fake(self.m, exit_kind="success", message="ok")
         _, out, _ = _run(
-            self.m, ["--color", "never", "validate"],
+            self.m,
+            ["--color", "never", "validate"],
             dispatcher=fake,
             stdout_isatty=True,
         )
@@ -696,7 +778,8 @@ class TestColourBehaviour(unittest.TestCase):
         fake = _make_fake(self.m, exit_kind="config", message="fail")
         # stdout tty, stderr not tty, color=auto → no ANSI on stderr
         _, _, err = _run(
-            self.m, ["--color", "auto", "validate"],
+            self.m,
+            ["--color", "auto", "validate"],
             dispatcher=fake,
             stdout_isatty=True,
             stderr_isatty=False,
@@ -721,9 +804,7 @@ class TestReplacementHeaderColourPolicy(unittest.TestCase):
         ],
         "suggest": True,
         "replacement_fragments": (
-            "# --- base.node ---\n"
-            "[build.stages.base.node]\n"
-            'tag = "25-trixie-slim"\n'
+            '# --- base.node ---\n[build.stages.base.node]\ntag = "25-trixie-slim"\n'
         ),
     }
 
@@ -798,8 +879,7 @@ class TestReplacementHeaderColourPolicy(unittest.TestCase):
         fake = self._suggest_fake(data=self.SUGGEST_JSON_DATA)
         _, out, _ = _run(
             self.m,
-            ["--output", "json", "--color", "always",
-             "check-updates", "--suggest"],
+            ["--output", "json", "--color", "always", "check-updates", "--suggest"],
             dispatcher=fake,
             stdout_isatty=True,
         )
@@ -839,7 +919,8 @@ class TestReplacementHeaderColourPolicy(unittest.TestCase):
                 )
                 if expect_decorated:
                     self.assertIn(
-                        "\x1b[90m# --- base.node ---\x1b[0m", out,
+                        "\x1b[90m# --- base.node ---\x1b[0m",
+                        out,
                     )
                 else:
                     self.assertIsNone(ANSI_RE.search(out))
@@ -896,7 +977,9 @@ class TestReplacementHeaderColourPolicy(unittest.TestCase):
         self,
     ) -> None:
         fake = _make_fake(
-            self.m, exit_kind="operational", data=self.SUGGEST_DATA,
+            self.m,
+            exit_kind="operational",
+            data=self.SUGGEST_DATA,
         )
         _, out, err = _run(
             self.m,
@@ -913,7 +996,9 @@ class TestReplacementHeaderColourPolicy(unittest.TestCase):
         self,
     ) -> None:
         fake = _make_fake(
-            self.m, exit_kind="operational", data=self.SUGGEST_DATA,
+            self.m,
+            exit_kind="operational",
+            data=self.SUGGEST_DATA,
         )
         _, out, err = _run(
             self.m,
@@ -934,33 +1019,31 @@ class TestVerbosity(unittest.TestCase):
         cls.m = _load_mod()
 
     def test_verbose_adds_debug_to_stderr(self) -> None:
-        fake = _make_fake(self.m, exit_kind="success", message="ok",
-                          debug="trace: x=1")
+        fake = _make_fake(self.m, exit_kind="success", message="ok", debug="trace: x=1")
         _, _, err = _run(self.m, ["-v", "validate"], dispatcher=fake)
         self.assertIn("[debug] trace: x=1", err)
 
     def test_no_verbose_omits_debug(self) -> None:
-        fake = _make_fake(self.m, exit_kind="success", message="ok",
-                          debug="trace: x=1")
+        fake = _make_fake(self.m, exit_kind="success", message="ok", debug="trace: x=1")
         _, _, err = _run(self.m, ["validate"], dispatcher=fake)
         self.assertNotIn("[debug]", err)
 
     def test_semantic_stdout_identical_with_and_without_verbose(self) -> None:
-        fake = _make_fake(self.m, exit_kind="success", message="ok",
-                          debug="extra")
+        fake = _make_fake(self.m, exit_kind="success", message="ok", debug="extra")
         _, out_v, _ = _run(self.m, ["-v", "validate"], dispatcher=fake)
         _, out_nv, _ = _run(self.m, ["validate"], dispatcher=fake)
         self.assertEqual(out_v, out_nv)
 
     def test_json_stdout_unchanged_by_verbose(self) -> None:
-        fake = _make_fake(self.m, exit_kind="success", data={"x": 1},
-                          debug="extra")
+        fake = _make_fake(self.m, exit_kind="success", data={"x": 1}, debug="extra")
         _, out_v, _ = _run(
-            self.m, ["--output", "json", "-v", "validate"],
+            self.m,
+            ["--output", "json", "-v", "validate"],
             dispatcher=fake,
         )
         _, out_nv, _ = _run(
-            self.m, ["--output", "json", "validate"],
+            self.m,
+            ["--output", "json", "validate"],
             dispatcher=fake,
         )
         self.assertEqual(out_v, out_nv)
@@ -974,10 +1057,10 @@ class TestJSONOutput(unittest.TestCase):
         cls.m = _load_mod()
 
     def test_json_output_is_parseable(self) -> None:
-        fake = _make_fake(self.m, exit_kind="success",
-                          data={"valid": True}, message="All good")
-        _, out, _ = _run(self.m, ["--output", "json", "validate"],
-                         dispatcher=fake)
+        fake = _make_fake(
+            self.m, exit_kind="success", data={"valid": True}, message="All good"
+        )
+        _, out, _ = _run(self.m, ["--output", "json", "validate"], dispatcher=fake)
         payload = json.loads(out)
         self.assertEqual("validate", payload["command"])
         self.assertEqual("success", payload["status"])
@@ -986,8 +1069,7 @@ class TestJSONOutput(unittest.TestCase):
 
     def test_json_output_has_no_ansi_regardless_of_color(self) -> None:
         for color in ("auto", "always", "never"):
-            fake = _make_fake(self.m, exit_kind="config",
-                              data={"x": 1}, message="err")
+            fake = _make_fake(self.m, exit_kind="config", data={"x": 1}, message="err")
             _, out, _ = _run(
                 self.m,
                 ["--output", "json", "--color", color, "validate"],
@@ -1001,8 +1083,7 @@ class TestJSONOutput(unittest.TestCase):
 
     def test_json_no_data_no_message(self) -> None:
         fake = _make_fake(self.m, exit_kind="success")
-        _, out, _ = _run(self.m, ["--output", "json", "validate"],
-                         dispatcher=fake)
+        _, out, _ = _run(self.m, ["--output", "json", "validate"], dispatcher=fake)
         payload = json.loads(out)
         self.assertEqual("validate", payload["command"])
         self.assertEqual("success", payload["status"])
@@ -1033,7 +1114,8 @@ class TestDispatchRecording(unittest.TestCase):
         project = fake.calls[0][1].constructor_project
         self.assertEqual(_TEST_PROJECT_ROOT.resolve(), project.root)
         self.assertEqual(
-            _TEST_PROJECT_ROOT.resolve(), project.inventory.parent,
+            _TEST_PROJECT_ROOT.resolve(),
+            project.inventory.parent,
         )
         self.assertEqual("docker-constructor.toml", project.inventory.name)
 
@@ -1062,8 +1144,7 @@ class TestDispatchRecording(unittest.TestCase):
 
     def test_receives_command_specific_args(self) -> None:
         fake = _make_recording_fake(self.m)
-        _run(self.m, ["show", "--scope", "build", "--effective"],
-             dispatcher=fake)
+        _run(self.m, ["show", "--scope", "build", "--effective"], dispatcher=fake)
         self.assertEqual("build", fake.calls[0][1].command_args["scope"])
         self.assertTrue(fake.calls[0][1].command_args["effective"])
 
@@ -1117,8 +1198,11 @@ class TestDispatchRecording(unittest.TestCase):
     def test_nested_list_from_real_parser_is_frozen(self) -> None:
         """--extra-workspace /a --extra-workspace /b → tuple, not list."""
         fake = _make_recording_fake(self.m)
-        _run(self.m, ["run", "--extra-workspace", "/a", "--extra-workspace", "/b"],
-             dispatcher=fake)
+        _run(
+            self.m,
+            ["run", "--extra-workspace", "/a", "--extra-workspace", "/b"],
+            dispatcher=fake,
+        )
         self.assertEqual(1, len(fake.calls))
         req = fake.calls[0][1]
         extra_workspaces = req.command_args["extra_workspaces"]
@@ -1130,8 +1214,11 @@ class TestDispatchRecording(unittest.TestCase):
     def test_only_filter_list_frozen_via_real_parser(self) -> None:
         """--only x --only y becomes a frozen tuple."""
         fake = _make_recording_fake(self.m)
-        _run(self.m, ["check-updates", "--only", "gh", "--only", "docker"],
-             dispatcher=fake)
+        _run(
+            self.m,
+            ["check-updates", "--only", "gh", "--only", "docker"],
+            dispatcher=fake,
+        )
         req = fake.calls[0][1]
         only_filter = req.command_args["only_filter"]
         self.assertIsInstance(only_filter, tuple)
@@ -1181,6 +1268,7 @@ class TestDispatchRecording(unittest.TestCase):
         already-frozen proxy without inspecting its children.
         """
         from types import MappingProxyType
+
         CR = self.m.CommandRequest
         # Pre-wrap a dict with a mutable list value in a proxy
         pre_frozen = MappingProxyType({"items": [1, 2, 3]})
@@ -1195,8 +1283,9 @@ class TestDispatchRecording(unittest.TestCase):
         opts = req.command_args["opts"]
         self.assertIsInstance(opts, MappingProxyType)
         items = opts["items"]
-        self.assertIsInstance(items, tuple,
-                             "nested list inside proxy must become tuple")
+        self.assertIsInstance(
+            items, tuple, "nested list inside proxy must become tuple"
+        )
         self.assertEqual((1, 2, 3), items)
         with self.assertRaises(TypeError):
             items[0] = 99  # type: ignore[index]
@@ -1261,21 +1350,20 @@ class TestBuildCLIFlags(unittest.TestCase):
     def test_platform_flag(self) -> None:
         fake = _make_recording_fake(self.m)
         _run(self.m, ["build", "--platform", "linux-arm64"], dispatcher=fake)
-        self.assertEqual("linux-arm64",
-                         fake.calls[0][1].command_args["platform"])
+        self.assertEqual("linux-arm64", fake.calls[0][1].command_args["platform"])
 
     def test_tag_flag(self) -> None:
         fake = _make_recording_fake(self.m)
         _run(self.m, ["build", "--tag", "pi-cli-pi:v2"], dispatcher=fake)
-        self.assertEqual("pi-cli-pi:v2",
-                         fake.calls[0][1].command_args["tag"])
+        self.assertEqual("pi-cli-pi:v2", fake.calls[0][1].command_args["tag"])
 
     def test_empty_tag_preserved_for_renderer_validation(self) -> None:
         """``--tag ""`` must be preserved as an empty string (not
         coerced to ``None``) so the renderer rejects it as CONFIG."""
         fake = _make_recording_fake(self.m)
-        rc, _out, err = _run(self.m, ["build", "--dry-run", "--tag", ""],
-                             dispatcher=fake)
+        rc, _out, err = _run(
+            self.m, ["build", "--dry-run", "--tag", ""], dispatcher=fake
+        )
         # The empty tag reaches orchestration via BuildRequest, not
         # silently discarded by the facade.
         self.assertEqual(1, len(fake.calls))
@@ -1293,8 +1381,17 @@ class TestBuildCLIFlags(unittest.TestCase):
 
     def test_overrides_flag_parsed(self) -> None:
         fake = _make_recording_fake(self.m)
-        _run(self.m, ["build", "--override", "python.version=3.13.0",
-                      "--override", "node.version=22.0.0"], dispatcher=fake)
+        _run(
+            self.m,
+            [
+                "build",
+                "--override",
+                "python.version=3.13.0",
+                "--override",
+                "node.version=22.0.0",
+            ],
+            dispatcher=fake,
+        )
         self.assertEqual(
             {"python.version": "3.13.0", "node.version": "22.0.0"},
             dict(fake.calls[0][1].command_args["overrides"]),
@@ -1323,13 +1420,11 @@ class TestBuildCLIFlags(unittest.TestCase):
     def test_progress_flag(self) -> None:
         fake = _make_recording_fake(self.m)
         _run(self.m, ["build", "--progress", "plain"], dispatcher=fake)
-        self.assertEqual("plain",
-                         fake.calls[0][1].command_args["progress"])
+        self.assertEqual("plain", fake.calls[0][1].command_args["progress"])
 
     def test_uid_gid_flags(self) -> None:
         fake = _make_recording_fake(self.m)
-        _run(self.m, ["build", "--uid", "2000", "--gid", "2001"],
-             dispatcher=fake)
+        _run(self.m, ["build", "--uid", "2000", "--gid", "2001"], dispatcher=fake)
         self.assertEqual(2000, fake.calls[0][1].command_args["uid"])
         self.assertEqual(2001, fake.calls[0][1].command_args["gid"])
 
@@ -1343,8 +1438,9 @@ class TestBuildCLIFlags(unittest.TestCase):
         """``--override no-equals`` (missing '=') is caught by the facade
         before reaching the dispatcher."""
         fake = _make_recording_fake(self.m)
-        rc, _out, err = _run(self.m, ["build", "--override", "no-equals"],
-                              dispatcher=fake)
+        rc, _out, err = _run(
+            self.m, ["build", "--override", "no-equals"], dispatcher=fake
+        )
         self.assertEqual(2, rc)
         self.assertIn("expected path=value", err.lower())
         # Dispatcher must not have been called
@@ -1372,8 +1468,7 @@ class TestDoctorCLIFlags(unittest.TestCase):
 
     def test_apply_override_flag(self) -> None:
         fake = _make_recording_fake(self.m)
-        _run(self.m, ["doctor", "--apply-rootless-override"],
-             dispatcher=fake)
+        _run(self.m, ["doctor", "--apply-rootless-override"], dispatcher=fake)
         self.assertTrue(fake.calls[0][1].command_args["apply_override"])
 
     def test_apply_override_default_false(self) -> None:
@@ -1388,15 +1483,12 @@ class TestDoctorCLIFlags(unittest.TestCase):
 
     def test_probe_image_flag(self) -> None:
         fake = _make_recording_fake(self.m)
-        _run(self.m, ["doctor", "--probe-image", "busybox:1.36"],
-             dispatcher=fake)
-        self.assertEqual("busybox:1.36",
-                         fake.calls[0][1].command_args["probe_image"])
+        _run(self.m, ["doctor", "--probe-image", "busybox:1.36"], dispatcher=fake)
+        self.assertEqual("busybox:1.36", fake.calls[0][1].command_args["probe_image"])
 
     def test_probe_timeout_flag(self) -> None:
         fake = _make_recording_fake(self.m)
-        _run(self.m, ["doctor", "--probe-timeout", "10"],
-             dispatcher=fake)
+        _run(self.m, ["doctor", "--probe-timeout", "10"], dispatcher=fake)
         self.assertEqual(10, fake.calls[0][1].command_args["probe_timeout"])
 
     def test_doctor_dispatches_to_execute(self) -> None:
@@ -1416,19 +1508,19 @@ class TestDoctorCLIFlags(unittest.TestCase):
         """An explicit ``--probe-image ""`` must be rejected as a CLI
         input error before calling the dispatcher."""
         fake = _make_recording_fake(self.m)
-        rc, _out, err = _run(self.m, ["doctor", "--probe-image", ""],
-                             dispatcher=fake)
-        self.assertEqual(2, rc,
-                         "empty --probe-image must produce CLI error")
+        rc, _out, err = _run(self.m, ["doctor", "--probe-image", ""], dispatcher=fake)
+        self.assertEqual(2, rc, "empty --probe-image must produce CLI error")
         self.assertIn("must not be empty", err.lower())
-        self.assertEqual(0, len(fake.calls),
-                         "dispatcher must NOT be called on invalid input")
+        self.assertEqual(
+            0, len(fake.calls), "dispatcher must NOT be called on invalid input"
+        )
 
     def test_probe_timeout_below_minimum_rejected(self) -> None:
         """``--probe-timeout 0`` must be rejected (below 1)."""
         fake = _make_recording_fake(self.m)
-        rc, _out, err = _run(self.m, ["doctor", "--probe-timeout", "0"],
-                             dispatcher=fake)
+        rc, _out, err = _run(
+            self.m, ["doctor", "--probe-timeout", "0"], dispatcher=fake
+        )
         self.assertEqual(2, rc)
         self.assertIn("must be 1", err.lower())
         self.assertEqual(0, len(fake.calls))
@@ -1436,8 +1528,9 @@ class TestDoctorCLIFlags(unittest.TestCase):
     def test_probe_timeout_above_maximum_rejected(self) -> None:
         """``--probe-timeout 301`` must be rejected (above 300)."""
         fake = _make_recording_fake(self.m)
-        rc, _out, err = _run(self.m, ["doctor", "--probe-timeout", "301"],
-                             dispatcher=fake)
+        rc, _out, err = _run(
+            self.m, ["doctor", "--probe-timeout", "301"], dispatcher=fake
+        )
         self.assertEqual(2, rc)
         self.assertIn("must be 1", err.lower())
         self.assertEqual(0, len(fake.calls))
@@ -1470,8 +1563,11 @@ class TestDoctorStructuredData(unittest.TestCase):
         command_args, skipping prompt (yes=True)."""
         CR = self.m.CommandRequest
         req = CR(
-            command="doctor", constructor_project=ConstructorProject(Path.cwd().resolve()), output="text",
-            verbose=False, color="auto",
+            command="doctor",
+            constructor_project=ConstructorProject(Path.cwd().resolve()),
+            output="text",
+            verbose=False,
+            color="auto",
             command_args={"yes": True, **cmd_args},
         )
         return self.m._real_dispatcher("doctor", req)
@@ -1480,8 +1576,9 @@ class TestDoctorStructuredData(unittest.TestCase):
         """When the gateway is unreachable, data must still include
         gateway (null) and repair_applied."""
         result = self._call_dispatcher()
-        self.assertIsNotNone(result.data,
-                             "data must not be None on unreachable gateway")
+        self.assertIsNotNone(
+            result.data, "data must not be None on unreachable gateway"
+        )
         self.assertIsNone(result.data["gateway"])
         self.assertFalse(result.data["repair_applied"])
 
@@ -1496,8 +1593,10 @@ class TestDoctorStructuredData(unittest.TestCase):
         from docker.versioning.dispatch_types import ExitKind
 
         failure = OverrideFailure(
-            operation="mkdir", path_or_command="/etc/docker",
-            detail="permission denied", persistence_applied=False,
+            operation="mkdir",
+            path_or_command="/etc/docker",
+            detail="permission denied",
+            persistence_applied=False,
         )
 
         fake_result = DoctorResult(
@@ -1509,14 +1608,18 @@ class TestDoctorStructuredData(unittest.TestCase):
             repair_failure=failure,
         )
 
-        with patch.object(build_orchestration, "orchestrate_doctor",
-                          return_value=fake_result):
+        with patch.object(
+            build_orchestration, "orchestrate_doctor", return_value=fake_result
+        ):
             CR = self.m.CommandRequest
             result = self.m._real_dispatcher(
                 "doctor",
                 CR(
-                    command="doctor", constructor_project=ConstructorProject(Path.cwd().resolve()), output="text",
-                    verbose=False, color="auto",
+                    command="doctor",
+                    constructor_project=ConstructorProject(Path.cwd().resolve()),
+                    output="text",
+                    verbose=False,
+                    color="auto",
                     command_args={"apply_override": True, "yes": True},
                 ),
             )
@@ -1552,12 +1655,16 @@ class TestDoctorStructuredData(unittest.TestCase):
             lan_ip=None,
             probes=(
                 ProbeResult(
-                    candidate="10.0.2.2", ok=True,
-                    resolved_ip="10.0.2.2", detail="",
+                    candidate="10.0.2.2",
+                    ok=True,
+                    resolved_ip="10.0.2.2",
+                    detail="",
                 ),
                 ProbeResult(
-                    candidate="172.17.0.1", ok=False,
-                    resolved_ip=None, detail="timeout",
+                    candidate="172.17.0.1",
+                    ok=False,
+                    resolved_ip=None,
+                    detail="timeout",
                 ),
             ),
             chosen_gateway="10.0.2.2",
@@ -1565,9 +1672,11 @@ class TestDoctorStructuredData(unittest.TestCase):
             override_needed=True,
         )
         plan = RootlessOverridePlan(
-            installed=False, needed=True,
+            installed=False,
+            needed=True,
             state=OverrideState.ABSENT,
-            filesystem_ops=(), service_ops=(),
+            filesystem_ops=(),
+            service_ops=(),
         )
 
         fake_result = DoctorResult(
@@ -1578,14 +1687,18 @@ class TestDoctorStructuredData(unittest.TestCase):
             repair_applied=False,
         )
 
-        with patch.object(build_orchestration, "orchestrate_doctor",
-                          return_value=fake_result):
+        with patch.object(
+            build_orchestration, "orchestrate_doctor", return_value=fake_result
+        ):
             CR = self.m.CommandRequest
             result = self.m._real_dispatcher(
                 "doctor",
                 CR(
-                    command="doctor", constructor_project=ConstructorProject(Path.cwd().resolve()), output="text",
-                    verbose=False, color="auto",
+                    command="doctor",
+                    constructor_project=ConstructorProject(Path.cwd().resolve()),
+                    output="text",
+                    verbose=False,
+                    color="auto",
                     command_args={"yes": True},
                 ),
             )
@@ -1625,8 +1738,10 @@ class TestDoctorStructuredData(unittest.TestCase):
             lan_ip=None,
             probes=(
                 ProbeResult(
-                    candidate="10.0.2.2", ok=True,
-                    resolved_ip="10.0.2.2", detail="",
+                    candidate="10.0.2.2",
+                    ok=True,
+                    resolved_ip="10.0.2.2",
+                    detail="",
                 ),
             ),
             chosen_gateway="10.0.2.2",
@@ -1641,14 +1756,18 @@ class TestDoctorStructuredData(unittest.TestCase):
             repair_applied=True,
         )
 
-        with patch.object(build_orchestration, "orchestrate_doctor",
-                          return_value=fake_result):
+        with patch.object(
+            build_orchestration, "orchestrate_doctor", return_value=fake_result
+        ):
             CR = self.m.CommandRequest
             result = self.m._real_dispatcher(
                 "doctor",
                 CR(
-                    command="doctor", constructor_project=ConstructorProject(Path.cwd().resolve()), output="text",
-                    verbose=False, color="auto",
+                    command="doctor",
+                    constructor_project=ConstructorProject(Path.cwd().resolve()),
+                    output="text",
+                    verbose=False,
+                    color="auto",
                     command_args={"apply_override": True, "yes": True},
                 ),
             )
@@ -1671,9 +1790,11 @@ class TestDoctorStructuredData(unittest.TestCase):
 def _make_prompt_always(mod: Any) -> Callable[[str], bool]:
     """Return a prompt mock that always approves."""
     calls: list[str] = []
+
     def _approve(prompt_text: str) -> bool:
         calls.append(prompt_text)
         return True
+
     _approve.calls = calls  # type: ignore[attr-defined]
     return _approve
 
@@ -1681,9 +1802,11 @@ def _make_prompt_always(mod: Any) -> Callable[[str], bool]:
 def _make_prompt_never(mod: Any) -> Callable[[str], bool]:
     """Return a prompt mock that always denies."""
     calls: list[str] = []
+
     def _deny(prompt_text: str) -> bool:
         calls.append(prompt_text)
         return False
+
     _deny.calls = calls  # type: ignore[attr-defined]
     return _deny
 
@@ -1698,6 +1821,7 @@ class TestBuildConfirmation(unittest.TestCase):
     def test_prompted_when_neither_dry_run_nor_yes(self) -> None:
         prompt = _make_prompt_always(self.m)
         from docker.constructor_cli import CommandRequest
+
         req = CommandRequest(
             command="build",
             constructor_project=ConstructorProject(Path.cwd().resolve()),
@@ -1707,7 +1831,9 @@ class TestBuildConfirmation(unittest.TestCase):
             command_args={"dry_run": False, "yes": False},
         )
         _result = self.m._real_dispatcher(
-            "build", req, _prompt_user=prompt,
+            "build",
+            req,
+            _prompt_user=prompt,
         )
         self.assertEqual(1, len(prompt.calls))  # type: ignore[attr-defined]
         self.assertIn("Build the Pi container", prompt.calls[0])  # type: ignore[attr-defined]
@@ -1718,6 +1844,7 @@ class TestBuildConfirmation(unittest.TestCase):
         record = _make_recording_fake(self.m)
         # Call _real_dispatcher directly since prompt is injectable there
         from docker.constructor_cli import CommandRequest
+
         req = CommandRequest(
             command="build",
             constructor_project=ConstructorProject(Path.cwd().resolve()),
@@ -1727,7 +1854,9 @@ class TestBuildConfirmation(unittest.TestCase):
             command_args={"dry_run": False, "yes": False},
         )
         result = self.m._real_dispatcher(
-            "build", req, _prompt_user=prompt,
+            "build",
+            req,
+            _prompt_user=prompt,
         )
         self.assertEqual(self.m.ExitKind.SUCCESS, result.exit_kind)
         self.assertIn("cancelled", result.message.lower())
@@ -1735,6 +1864,7 @@ class TestBuildConfirmation(unittest.TestCase):
     def test_approval_passes_yes_true_to_dispatch(self) -> None:
         prompt = _make_prompt_always(self.m)
         from docker.constructor_cli import CommandRequest
+
         req = CommandRequest(
             command="build",
             constructor_project=ConstructorProject(Path.cwd().resolve()),
@@ -1744,7 +1874,9 @@ class TestBuildConfirmation(unittest.TestCase):
             command_args={"dry_run": False, "yes": False},
         )
         result = self.m._real_dispatcher(
-            "build", req, _prompt_user=prompt,
+            "build",
+            req,
+            _prompt_user=prompt,
         )
         # Confirmation was approved; orchestration ran and returned
         # a result (may be CONFIG or SUCCESS depending on inventory)
@@ -1754,6 +1886,7 @@ class TestBuildConfirmation(unittest.TestCase):
     def test_dry_run_bypasses_prompt(self) -> None:
         prompt = _make_prompt_never(self.m)
         from docker.constructor_cli import CommandRequest
+
         req = CommandRequest(
             command="build",
             constructor_project=ConstructorProject(Path.cwd().resolve()),
@@ -1763,7 +1896,9 @@ class TestBuildConfirmation(unittest.TestCase):
             command_args={"dry_run": True, "yes": False},
         )
         result = self.m._real_dispatcher(
-            "build", req, _prompt_user=prompt,
+            "build",
+            req,
+            _prompt_user=prompt,
         )
         # Prompt was never called; orchestration ran
         self.assertEqual(0, len(prompt.calls))  # type: ignore[attr-defined]
@@ -1772,6 +1907,7 @@ class TestBuildConfirmation(unittest.TestCase):
     def test_yes_bypasses_prompt(self) -> None:
         prompt = _make_prompt_never(self.m)
         from docker.constructor_cli import CommandRequest
+
         req = CommandRequest(
             command="build",
             constructor_project=ConstructorProject(Path.cwd().resolve()),
@@ -1781,7 +1917,9 @@ class TestBuildConfirmation(unittest.TestCase):
             command_args={"dry_run": False, "yes": True},
         )
         result = self.m._real_dispatcher(
-            "build", req, _prompt_user=prompt,
+            "build",
+            req,
+            _prompt_user=prompt,
         )
         # Prompt was never called
         self.assertEqual(0, len(prompt.calls))  # type: ignore[attr-defined]
@@ -1799,6 +1937,7 @@ class TestDoctorConfirmation(unittest.TestCase):
     def test_diagnosis_only_no_prompt(self) -> None:
         prompt = _make_prompt_never(self.m)
         from docker.constructor_cli import CommandRequest
+
         req = CommandRequest(
             command="doctor",
             constructor_project=ConstructorProject(Path.cwd().resolve()),
@@ -1808,7 +1947,9 @@ class TestDoctorConfirmation(unittest.TestCase):
             command_args={"apply_override": False, "yes": False},
         )
         result = self.m._real_dispatcher(
-            "doctor", req, _prompt_user=prompt,
+            "doctor",
+            req,
+            _prompt_user=prompt,
         )
         self.assertEqual(0, len(prompt.calls))  # type: ignore[attr-defined]
         self.assertIsNotNone(result.exit_kind)
@@ -1816,6 +1957,7 @@ class TestDoctorConfirmation(unittest.TestCase):
     def test_repair_with_yes_bypasses_prompt(self) -> None:
         prompt = _make_prompt_never(self.m)
         from docker.constructor_cli import CommandRequest
+
         req = CommandRequest(
             command="doctor",
             constructor_project=ConstructorProject(Path.cwd().resolve()),
@@ -1825,13 +1967,16 @@ class TestDoctorConfirmation(unittest.TestCase):
             command_args={"apply_override": True, "yes": True},
         )
         result = self.m._real_dispatcher(
-            "doctor", req, _prompt_user=prompt,
+            "doctor",
+            req,
+            _prompt_user=prompt,
         )
         self.assertEqual(0, len(prompt.calls))  # type: ignore[attr-defined]
 
     def test_repair_without_yes_prompts(self) -> None:
         prompt = _make_prompt_always(self.m)
         from docker.constructor_cli import CommandRequest
+
         req = CommandRequest(
             command="doctor",
             constructor_project=ConstructorProject(Path.cwd().resolve()),
@@ -1841,7 +1986,9 @@ class TestDoctorConfirmation(unittest.TestCase):
             command_args={"apply_override": True, "yes": False},
         )
         result = self.m._real_dispatcher(
-            "doctor", req, _prompt_user=prompt,
+            "doctor",
+            req,
+            _prompt_user=prompt,
         )
         self.assertEqual(1, len(prompt.calls))  # type: ignore[attr-defined]
         self.assertIn("Apply rootless", prompt.calls[0])  # type: ignore[attr-defined]
@@ -1849,6 +1996,7 @@ class TestDoctorConfirmation(unittest.TestCase):
     def test_repair_denied_returns_cancellation(self) -> None:
         prompt = _make_prompt_never(self.m)
         from docker.constructor_cli import CommandRequest
+
         req = CommandRequest(
             command="doctor",
             constructor_project=ConstructorProject(Path.cwd().resolve()),
@@ -1858,7 +2006,9 @@ class TestDoctorConfirmation(unittest.TestCase):
             command_args={"apply_override": True, "yes": False},
         )
         result = self.m._real_dispatcher(
-            "doctor", req, _prompt_user=prompt,
+            "doctor",
+            req,
+            _prompt_user=prompt,
         )
         self.assertEqual(self.m.ExitKind.SUCCESS, result.exit_kind)
         self.assertIn("denied", result.message.lower())
@@ -1872,6 +2022,7 @@ class TestConfirmationNonInteractive(unittest.TestCase):
         # The real _stdin_prompt checks sys.__stdin__.isatty()
         # In a unittest runner, stdin is typically not a TTY
         from docker.constructor_cli import _stdin_prompt
+
         result = _stdin_prompt("Should not block")
         self.assertFalse(result)
 
@@ -1896,12 +2047,13 @@ class TestRunExecutionBoundaries(unittest.TestCase):
         calls: list[tuple[list[str]]] = []
 
         class FakeRunner:
-            def run(self, argv: list[str], *,
-                    mode=None) -> ProcessResult:
+            def run(self, argv: list[str], *, mode=None) -> ProcessResult:
                 calls.append((list(argv),))
                 return ProcessResult(
-                    argv=tuple(argv), return_code=0,
-                    stdout="", stderr="",
+                    argv=tuple(argv),
+                    return_code=0,
+                    stdout="",
+                    stderr="",
                 )
 
         return FakeRunner(), calls
@@ -1988,8 +2140,7 @@ class TestRunExecutionBoundaries(unittest.TestCase):
                 self.runner = runner
                 self.calls: list[object] = []
 
-            def run(self, argv: tuple[str, ...], *,
-                    interactive: bool = False) -> Any:
+            def run(self, argv: tuple[str, ...], *, interactive: bool = False) -> Any:
                 self.calls.append(argv)
                 return self.runner.run(list(argv))
 
@@ -2058,6 +2209,7 @@ class TestRunExecutionBoundaries(unittest.TestCase):
             DockerRunExecutor,
             ProcessRunner,
         )
+
         # Only inject _process_runner — the facade should create
         # the Docker wrappers around it.
         fake_runner, _ = self._make_fake_runner()
@@ -2086,16 +2238,26 @@ class TestRunExecutionBoundaries(unittest.TestCase):
         class FakeExecutor:
             def __init__(self, runner):
                 self._runner = runner
-            def run(self, argv, *,
-                    interactive=False):
+
+            def run(self, argv, *, interactive=False):
                 return self._runner.run(list(argv))
 
-        runner = type("R", (), {
-            "run": lambda self, a: type("P", (), {
-                "argv": tuple(a), "return_code": 0,
-                "stdout": "", "stderr": "",
-            })()
-        })()
+        runner = type(
+            "R",
+            (),
+            {
+                "run": lambda self, a: type(
+                    "P",
+                    (),
+                    {
+                        "argv": tuple(a),
+                        "return_code": 0,
+                        "stdout": "",
+                        "stderr": "",
+                    },
+                )()
+            },
+        )()
 
         rc, out, err = _run(
             self.m,
@@ -2134,37 +2296,39 @@ class TestTUISelectorWiring(unittest.TestCase):
         from docker.launcher import ProcessResult
 
         class FakeRunner:
-            def run(self, argv: list[str], *,
-                    mode=None) -> Any:
+            def run(self, argv: list[str], *, mode=None) -> Any:
                 return ProcessResult(
-                    argv=tuple(argv), return_code=0,
-                    stdout="fake-stdout", stderr="",
+                    argv=tuple(argv),
+                    return_code=0,
+                    stdout="fake-stdout",
+                    stderr="",
                 )
 
         class FakeInspector:
             def __init__(self, runner: Any) -> None:
                 self._runner = runner
+
             def list_names(self) -> set[str]:
                 return set()
 
         class FakeExecutor:
             def __init__(self, runner: Any) -> None:
                 self._runner = runner
-            def run(self, argv: tuple[str, ...], *,
-                    interactive: bool = False) -> Any:
+
+            def run(self, argv: tuple[str, ...], *, interactive: bool = False) -> Any:
                 return self._runner.run(list(argv))
 
         def factory(projection: object, *, parent_dir: str) -> Any:
             class Handle:
                 def __enter__(self) -> "Handle":
                     return self
+
                 def __exit__(self, *a: object) -> None:
                     pass
+
             h = Handle()
             h.path = "/tmp/.docker-generated/runtime/proj.toml"
-            h.content_hash = (
-                "a" * 64
-            )
+            h.content_hash = "a" * 64
             return h
 
         runner = FakeRunner()
@@ -2178,6 +2342,7 @@ class TestTUISelectorWiring(unittest.TestCase):
         class RecordingSelector:
             def __init__(self) -> None:
                 self.select_called = False
+
             def select(self) -> Any:
                 self.select_called = True
                 return WorkspaceSelection(
@@ -2186,9 +2351,7 @@ class TestTUISelectorWiring(unittest.TestCase):
                 )
 
         selector = RecordingSelector()
-        runner, inspector, executor, proj_factory = (
-            self._fake_runner_for_tests()
-        )
+        runner, inspector, executor, proj_factory = self._fake_runner_for_tests()
 
         rc, out, err = _run(
             self.m,
@@ -2201,22 +2364,20 @@ class TestTUISelectorWiring(unittest.TestCase):
             _workspace_selector=selector,
         )
         self.assertEqual(0, rc, f"rc={rc} out={out!r} err={err!r}")
-        self.assertTrue(selector.select_called,
-                        "TUI selector should have been invoked")
+        self.assertTrue(selector.select_called, "TUI selector should have been invoked")
         # The display string should mention the TUI-selected projects
         self.assertIn("/work/tui-main", out)
 
     def test_tui_cancelled_maps_to_no_workspace(self) -> None:
         """When the TUI selector returns None (user cancelled), the
         facade maps it to a CONFIG-level NoWorkspaceError."""
+
         class CancelledSelector:
             def select(self) -> None:
                 return None
 
         selector = CancelledSelector()
-        runner, inspector, executor, proj_factory = (
-            self._fake_runner_for_tests()
-        )
+        runner, inspector, executor, proj_factory = self._fake_runner_for_tests()
 
         rc, out, err = _run(
             self.m,
@@ -2247,10 +2408,8 @@ class TestTUISelectorWiring(unittest.TestCase):
         from docker.constructor_cli import _tui_workspace_selector
 
         sel = _tui_workspace_selector()
-        self.assertTrue(hasattr(sel, "select"),
-                        "Default selector must have select()")
-        self.assertTrue(callable(sel.select),
-                        "select must be callable")
+        self.assertTrue(hasattr(sel, "select"), "Default selector must have select()")
+        self.assertTrue(callable(sel.select), "select must be callable")
 
     def test_real_tui_selector_conforms_to_protocol(self) -> None:
         """The _tui_workspace_selector returns an object whose
@@ -2269,19 +2428,18 @@ class TestTUISelectorWiring(unittest.TestCase):
         """When both --tui and --workspace are given, explicit
         main-project takes precedence (per resolve_workspace_selection
         resolution order).  The TUI selector is NOT invoked."""
+
         class BombSelector:
             def select(self) -> Any:
-                raise RuntimeError("TUI must not be invoked when "
-                                   "--workspace is explicit")
+                raise RuntimeError(
+                    "TUI must not be invoked when --workspace is explicit"
+                )
 
-        runner, inspector, executor, proj_factory = (
-            self._fake_runner_for_tests()
-        )
+        runner, inspector, executor, proj_factory = self._fake_runner_for_tests()
 
         rc, out, err = _run(
             self.m,
-            ["run", "--tui", "--workspace", "/work/explicit",
-             "--dry-run"],
+            ["run", "--tui", "--workspace", "/work/explicit", "--dry-run"],
             dispatcher=None,
             _process_runner=runner,
             _container_inspector=inspector,
@@ -2307,9 +2465,7 @@ class TestTUISelectorWiring(unittest.TestCase):
                     workspace="/work/from-tui",
                 )
 
-        runner, inspector, executor, proj_factory = (
-            self._fake_runner_for_tests()
-        )
+        runner, inspector, executor, proj_factory = self._fake_runner_for_tests()
 
         _run(
             self.m,
@@ -2321,10 +2477,12 @@ class TestTUISelectorWiring(unittest.TestCase):
             _create_projection=proj_factory,
             _workspace_selector=ArgRecordingSelector(),
         )
-        self.assertEqual(1, len(select_args),
-                         "Selector.select() must be called exactly once")
-        self.assertEqual((), select_args[0],
-                         "Selector.select() must receive no arguments")
+        self.assertEqual(
+            1, len(select_args), "Selector.select() must be called exactly once"
+        )
+        self.assertEqual(
+            (), select_args[0], "Selector.select() must receive no arguments"
+        )
 
 
 class TestBaseProjectDirPrecedence(unittest.TestCase):
@@ -2354,10 +2512,12 @@ class TestBaseProjectDirPrecedence(unittest.TestCase):
 
         def _fake_tui_selector(workspace_root=None):
             captured.append(workspace_root)
+
             # Return a selector that cancels → NoWorkspaceError
             class Cancelled:
                 def select(self):
                     return None
+
             return Cancelled()
 
         mod._tui_workspace_selector = _fake_tui_selector
@@ -2371,20 +2531,22 @@ class TestBaseProjectDirPrecedence(unittest.TestCase):
         """--workspace-root /custom/path reaches the selector."""
         captured, restore = self._patch_selector()
         try:
-            _run(self.m, ["run", "--tui",
-                  "--workspace-root", "/custom/tui/root"])
+            _run(self.m, ["run", "--tui", "--workspace-root", "/custom/tui/root"])
         finally:
             restore()
 
-        self.assertEqual(1, len(captured),
-                         "TUI selector factory must be called")
-        self.assertEqual("/custom/tui/root", captured[0],
-                         "CLI arg must reach _tui_workspace_selector")
+        self.assertEqual(1, len(captured), "TUI selector factory must be called")
+        self.assertEqual(
+            "/custom/tui/root",
+            captured[0],
+            "CLI arg must reach _tui_workspace_selector",
+        )
 
     def test_cli_workspace_root_wins_over_env(self) -> None:
         """When both --workspace-root and .env WORKSPACE_ROOT
         are present, CLI wins."""
         from docker import constructor_cli as mod
+
         captured, restore_sel = self._patch_selector()
         orig_read = mod._read_env_key
 
@@ -2395,19 +2557,20 @@ class TestBaseProjectDirPrecedence(unittest.TestCase):
 
         mod._read_env_key = _fake_read
         try:
-            _run(self.m, ["run", "--tui",
-                  "--workspace-root", "/cli/wins"])
+            _run(self.m, ["run", "--tui", "--workspace-root", "/cli/wins"])
         finally:
             restore_sel()
             mod._read_env_key = orig_read
 
         self.assertEqual(1, len(captured))
-        self.assertEqual("/cli/wins", captured[0],
-                         "--workspace-root must take precedence over .env")
+        self.assertEqual(
+            "/cli/wins", captured[0], "--workspace-root must take precedence over .env"
+        )
 
     def test_env_workspace_root_fallback(self) -> None:
         """Without --workspace-root, .env WORKSPACE_ROOT is used."""
         from docker import constructor_cli as mod
+
         captured, restore_sel = self._patch_selector()
         orig_read = mod._read_env_key
 
@@ -2424,14 +2587,16 @@ class TestBaseProjectDirPrecedence(unittest.TestCase):
             mod._read_env_key = orig_read
 
         self.assertEqual(1, len(captured))
-        self.assertEqual("/from/env/file", captured[0],
-                         ".env WORKSPACE_ROOT must be the fallback")
+        self.assertEqual(
+            "/from/env/file", captured[0], ".env WORKSPACE_ROOT must be the fallback"
+        )
 
     def test_home_fallback_when_nothing_specified(self) -> None:
         """When neither --workspace-root nor .env WORKSPACE_ROOT
         is set, None reaches the selector, which internally falls
         back to Path.home()."""
         from docker import constructor_cli as mod
+
         captured, restore_sel = self._patch_selector()
         orig_read = mod._read_env_key
 
@@ -2446,9 +2611,10 @@ class TestBaseProjectDirPrecedence(unittest.TestCase):
             mod._read_env_key = orig_read
 
         self.assertEqual(1, len(captured))
-        self.assertIsNone(captured[0],
-                          "No base dir should yield None "
-                          "(selector falls back to Path.home())")
+        self.assertIsNone(
+            captured[0],
+            "No base dir should yield None (selector falls back to Path.home())",
+        )
 
     def test_invalid_directory_passed_to_selector(self) -> None:
         """When --workspace-root points to a non-existent path,
@@ -2456,30 +2622,31 @@ class TestBaseProjectDirPrecedence(unittest.TestCase):
         handles the invalid-directory fallback internally."""
         captured, restore = self._patch_selector()
         try:
-            _run(self.m, ["run", "--tui",
-                  "--workspace-root", "/nonexistent/path/42"])
+            _run(self.m, ["run", "--tui", "--workspace-root", "/nonexistent/path/42"])
         finally:
             restore()
 
         self.assertEqual(1, len(captured))
-        self.assertEqual("/nonexistent/path/42", captured[0],
-                         "Invalid path must still reach the selector "
-                         "(selector owns the fallback logic)")
+        self.assertEqual(
+            "/nonexistent/path/42",
+            captured[0],
+            "Invalid path must still reach the selector "
+            "(selector owns the fallback logic)",
+        )
 
     def test_expanduser_applied_to_cli_value(self) -> None:
         """--workspace-root ~/projects should be expanded."""
         from pathlib import Path
+
         captured, restore = self._patch_selector()
         try:
-            _run(self.m, ["run", "--tui",
-                  "--workspace-root", "~/projects"])
+            _run(self.m, ["run", "--tui", "--workspace-root", "~/projects"])
         finally:
             restore()
 
         expected = str(Path("~/projects").expanduser())
         self.assertEqual(1, len(captured))
-        self.assertEqual(expected, captured[0],
-                         "~ must be expanded to home directory")
+        self.assertEqual(expected, captured[0], "~ must be expanded to home directory")
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -2498,12 +2665,16 @@ class TestVerifyBuildWiring(unittest.TestCase):
     def setUp(self) -> None:
         import tempfile
         from pathlib import Path
+
         # Create a temporary external build projection that verify_build can parse.
         self._tmpdir = tempfile.TemporaryDirectory()
         self._cache_root = Path(self._tmpdir.name) / "constructor-cache"
         self._cache_root.mkdir(mode=0o700)
         from docker.versioning.project_state import resolve_project_state
-        self._proj_dir = resolve_project_state(self._tmpdir.name, cache_root=self._cache_root).generated_root
+
+        self._proj_dir = resolve_project_state(
+            self._tmpdir.name, cache_root=self._cache_root
+        ).generated_root
         proj_path = self._proj_dir / "docker-constructor.build.effective.toml"
         proj_path.write_text(
             '[python]\nversion = "3.12.0"\n'
@@ -2535,12 +2706,13 @@ class TestVerifyBuildWiring(unittest.TestCase):
         calls: list[tuple[str, ...]] = []
 
         class _Rec:
-            def run(self, argv, *,
-                    mode=None):
+            def run(self, argv, *, mode=None):
                 calls.append(tuple(argv))
                 return ProcessResult(
-                    argv=tuple(argv), return_code=return_code,
-                    stdout=stdout, stderr=stderr,
+                    argv=tuple(argv),
+                    return_code=return_code,
+                    stdout=stdout,
+                    stderr=stderr,
                 )
 
         return _Rec(), calls
@@ -2549,9 +2721,17 @@ class TestVerifyBuildWiring(unittest.TestCase):
         """``verify --scope build`` runs ``docker run --rm <image> <tool>
         --version`` for each contract tool."""
         runner, calls = self._make_recording_runner()
-        rc, out, err = _run(self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "build", "--image", "test-img:1"],
+        rc, out, err = _run(
+            self.m,
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "build",
+                "--image",
+                "test-img:1",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -2573,8 +2753,15 @@ class TestVerifyBuildWiring(unittest.TestCase):
         )
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "build", "--image", "ok-img:v1"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "build",
+                "--image",
+                "ok-img:v1",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -2590,8 +2777,15 @@ class TestVerifyBuildWiring(unittest.TestCase):
         )
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "build", "--image", "bad-img:v2"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "build",
+                "--image",
+                "bad-img:v2",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -2607,9 +2801,17 @@ class TestVerifyBuildWiring(unittest.TestCase):
         )
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "--output", "json",
-             "verify", "--scope", "build", "--image", "json-img:v3"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "--output",
+                "json",
+                "verify",
+                "--scope",
+                "build",
+                "--image",
+                "json-img:v3",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -2633,10 +2835,12 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
     def setUp(self) -> None:
         import tempfile
         from pathlib import Path
+
         self._tmpdir = tempfile.TemporaryDirectory()
         self._cache_root = Path(self._tmpdir.name) / "constructor-cache"
         self._cache_root.mkdir(mode=0o700)
         from docker.versioning.project_state import resolve_project_state
+
         _state = resolve_project_state(self._tmpdir.name, cache_root=self._cache_root)
         self._proj_dir = _state.generated_root
         # Build projection for --scope all tests
@@ -2658,14 +2862,14 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         self._runtime_dir = _state.runtime_root
         rp = self._runtime_dir / "a1b2c3d4.toml"
         rp.write_text(
-            '[extensions]\n'
-            '[workspace_paths]\n'
-            'paths = []\n'
-            '[pi_home]\n'
+            "[extensions]\n"
+            "[workspace_paths]\n"
+            "paths = []\n"
+            "[pi_home]\n"
             'path = "/home/dev/.pi"\n'
-            '[gateway]\n'
+            "[gateway]\n"
             'address = "192.168.65.1"\n'
-            '[integrity]\n'
+            "[integrity]\n"
             'sha256 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="\n'
         )
         self._inv_path = write_stable_inventory(self._tmpdir.name)
@@ -2686,12 +2890,13 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         calls: list[tuple[str, ...]] = []
 
         class _Rec:
-            def run(self, argv, *,
-                    mode=None):
+            def run(self, argv, *, mode=None):
                 calls.append(tuple(argv))
                 return ProcessResult(
-                    argv=tuple(argv), return_code=return_code,
-                    stdout=stdout, stderr=stderr,
+                    argv=tuple(argv),
+                    return_code=return_code,
+                    stdout=stdout,
+                    stderr=stderr,
                 )
 
         return _Rec(), calls
@@ -2700,13 +2905,18 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         """``verify --scope runtime`` without --container auto-detects
         via ``docker ps -q --filter ancestor=<image>``.  When no
         containers are found the result is an error."""
-        runner, calls = self._make_recording_runner(
-            return_code=0, stdout=""
-        )
+        runner, calls = self._make_recording_runner(return_code=0, stdout="")
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "runtime", "--image", "no-such-img:v0"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "runtime",
+                "--image",
+                "no-such-img:v0",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -2726,16 +2936,20 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         )
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "runtime", "--image", "good-img:v1"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "runtime",
+                "--image",
+                "good-img:v1",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
         # Must use the detected container in docker exec calls
-        docker_exec_calls = [
-            c for c in calls
-            if c[0] == "docker" and c[1] == "exec"
-        ]
+        docker_exec_calls = [c for c in calls if c[0] == "docker" and c[1] == "exec"]
         self.assertTrue(docker_exec_calls, "must run docker exec checks")
         for c in docker_exec_calls:
             self.assertIn("abc123def456", c)
@@ -2747,8 +2961,15 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         )
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "runtime", "--image", "bad-img:v2"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "runtime",
+                "--image",
+                "bad-img:v2",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -2760,15 +2981,21 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         calls_list: list[tuple[str, ...]] = []
 
         class _OSErrorRunner:
-            def run(self, argv, *,
-                    mode=None):
+            def run(self, argv, *, mode=None):
                 calls_list.append(tuple(argv))
                 raise OSError("no docker daemon")
 
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "runtime", "--image", "nosock-img:v3"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "runtime",
+                "--image",
+                "nosock-img:v3",
+            ],
             _process_runner=_OSErrorRunner(),
             _prompt_user=lambda _: True,
         )
@@ -2791,11 +3018,16 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
             def run(self, argv, *, mode=None):
                 calls.append(tuple(argv))
                 return ProcessResult(
-                    argv=tuple(argv), return_code=0,
-                    stdout=json.dumps([{
-                        "Destination": "/run/pi-cli/docker-constructor.runtime.toml",
-                        "Source": str(mounted),
-                    }]),
+                    argv=tuple(argv),
+                    return_code=0,
+                    stdout=json.dumps(
+                        [
+                            {
+                                "Destination": "/run/pi-cli/docker-constructor.runtime.toml",
+                                "Source": str(mounted),
+                            }
+                        ]
+                    ),
                     stderr="",
                 )
 
@@ -2811,17 +3043,24 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         # Create a separate projection file
         custom_rp = self._runtime_dir / "custom-proj.toml"
         custom_rp.write_text(
-            '[extensions]\n'
-            '[integrity]\n'
+            "[extensions]\n"
+            "[integrity]\n"
             'sha256 = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB="\n'
         )
         runner, calls = self._make_recording_runner()
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "runtime",
-             "--container", "pi-custom",
-             "--runtime-projection", str(custom_rp)],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "runtime",
+                "--container",
+                "pi-custom",
+                "--runtime-projection",
+                str(custom_rp),
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -2837,21 +3076,27 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         runner, calls = self._make_recording_runner()
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "runtime",
-             "--container", "pi-multi",
-             "--workspace", "/home/dev/p1",
-             "--workspace", "/home/dev/p2"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "runtime",
+                "--container",
+                "pi-multi",
+                "--workspace",
+                "/home/dev/p1",
+                "--workspace",
+                "/home/dev/p2",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
         # WORKSPACE_PATH_1 and WORKSPACE_PATH_2 must appear in docker exec
         exec_calls = [c for c in calls if c[0] == "docker" and c[1] == "exec"]
         all_argv = " ".join(" ".join(c) for c in exec_calls)
-        self.assertIn("/home/dev/p1", all_argv,
-                      "WORKSPACE_PATH_1 must be checked")
-        self.assertIn("/home/dev/p2", all_argv,
-                      "WORKSPACE_PATH_2 must be checked")
+        self.assertIn("/home/dev/p1", all_argv, "WORKSPACE_PATH_1 must be checked")
+        self.assertIn("/home/dev/p2", all_argv, "WORKSPACE_PATH_2 must be checked")
 
     def test_workspace_paths_auto_discovered_from_container(self) -> None:
         """When ``--workspace`` is omitted, workspace paths are read from
@@ -2861,24 +3106,35 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         """
         _paths = "/home/dev/alpha\n/home/dev/beta\n"
         runner, calls = self._make_recording_runner(
-            stdout="WORKSPACE_PATH_1=/home/dev/alpha\n"
-                    "WORKSPACE_PATH_2=/home/dev/beta\n"
+            stdout="WORKSPACE_PATH_1=/home/dev/alpha\nWORKSPACE_PATH_2=/home/dev/beta\n"
         )
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "runtime",
-             "--container", "pi-discover"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "runtime",
+                "--container",
+                "pi-discover",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
         exec_calls = [c for c in calls if c[0] == "docker" and c[1] == "exec"]
         all_argv = " ".join(" ".join(c) for c in exec_calls)
         # Both auto-discovered paths must be checked
-        self.assertIn("/home/dev/alpha", all_argv,
-                      "WORKSPACE_PATH_1 must be auto-discovered and checked")
-        self.assertIn("/home/dev/beta", all_argv,
-                      "WORKSPACE_PATH_2 must be auto-discovered and checked")
+        self.assertIn(
+            "/home/dev/alpha",
+            all_argv,
+            "WORKSPACE_PATH_1 must be auto-discovered and checked",
+        )
+        self.assertIn(
+            "/home/dev/beta",
+            all_argv,
+            "WORKSPACE_PATH_2 must be auto-discovered and checked",
+        )
 
     def test_auto_discovery_empty_projects_is_error(self) -> None:
         """When the container has no WORKSPACE_PATH_* vars, auto-discovery
@@ -2888,9 +3144,15 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         )
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "runtime",
-             "--container", "pi-empty"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "runtime",
+                "--container",
+                "pi-empty",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -2902,14 +3164,19 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         the path string.  ``WORKSPACE_PATH_2=/zzz`` must appear after
         ``WORKSPACE_PATH_1=/aaa`` even though "/aaa" > "/zzz"."""
         runner, calls = self._make_recording_runner(
-            stdout="WORKSPACE_PATH_2=/home/dev/zzz\n"
-                    "WORKSPACE_PATH_1=/home/dev/aaa\n"
+            stdout="WORKSPACE_PATH_2=/home/dev/zzz\nWORKSPACE_PATH_1=/home/dev/aaa\n"
         )
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "runtime",
-             "--container", "pi-order"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "runtime",
+                "--container",
+                "pi-order",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -2921,8 +3188,9 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         self.assertNotEqual(-1, pos_aaa)
         self.assertNotEqual(-1, pos_zzz)
         # Numeric order: 1 before 2 → aaa must appear before zzz
-        self.assertLess(pos_aaa, pos_zzz,
-                        "WORKSPACE_PATH_1 must appear before WORKSPACE_PATH_2")
+        self.assertLess(
+            pos_aaa, pos_zzz, "WORKSPACE_PATH_1 must appear before WORKSPACE_PATH_2"
+        )
 
     def test_auto_discovery_gaps_in_indices_rejected(self) -> None:
         """Gaps in WORKSPACE_PATH_N (e.g., 1, 3 but no 2) are rejected."""
@@ -2931,9 +3199,15 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         )
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "runtime",
-             "--container", "pi-gap"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "runtime",
+                "--container",
+                "pi-gap",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -2947,9 +3221,15 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         )
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "runtime",
-             "--container", "pi-offby"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "runtime",
+                "--container",
+                "pi-offby",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -2963,14 +3243,18 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         # Remove the existing projection
         for f in self._runtime_dir.iterdir():
             f.unlink()
-        runner, calls = self._make_recording_runner(
-            return_code=0, stdout="abc123\n"
-        )
+        runner, calls = self._make_recording_runner(return_code=0, stdout="abc123\n")
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "runtime",
-             "--container", "pi-noproj"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "runtime",
+                "--container",
+                "pi-noproj",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -2983,17 +3267,20 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         runner, calls = self._make_recording_runner()
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "runtime",
-             "--container", "pi-1"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "runtime",
+                "--container",
+                "pi-1",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
         # docker exec commands must reference pi-1
-        docker_exec_calls = [
-            c for c in calls
-            if c[0] == "docker" and c[1] == "exec"
-        ]
+        docker_exec_calls = [c for c in calls if c[0] == "docker" and c[1] == "exec"]
         for c in docker_exec_calls:
             self.assertIn("pi-1", c)
 
@@ -3003,9 +3290,17 @@ class TestVerifyRuntimeWiring(unittest.TestCase):
         runner, calls = self._make_recording_runner()
         _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "all",
-             "--container", "pi-1", "--image", "img:v99"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "all",
+                "--container",
+                "pi-1",
+                "--image",
+                "img:v99",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -3027,6 +3322,7 @@ class TestVerifyEvidenceWiring(unittest.TestCase):
     def setUp(self) -> None:
         import tempfile
         from pathlib import Path
+
         self._tmpdir = tempfile.TemporaryDirectory()
         self._proj_dir = Path(self._tmpdir.name) / ".docker-generated"
         self._proj_dir.mkdir(parents=True)
@@ -3048,8 +3344,8 @@ class TestVerifyEvidenceWiring(unittest.TestCase):
         rp.mkdir(parents=True)
         rt_proj = rp / "evidence-proj.toml"
         rt_proj.write_text(
-            '[extensions]\n'
-            '[integrity]\n'
+            "[extensions]\n"
+            "[integrity]\n"
             'sha256 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="\n'
         )
         self._inv_path = write_stable_inventory(self._tmpdir.name)
@@ -3065,12 +3361,13 @@ class TestVerifyEvidenceWiring(unittest.TestCase):
         calls: list[tuple[str, ...]] = []
 
         class _Rec:
-            def run(self, argv, *,
-                    mode=None):
+            def run(self, argv, *, mode=None):
                 calls.append(tuple(argv))
                 return ProcessResult(
-                    argv=tuple(argv), return_code=return_code,
-                    stdout=stdout, stderr=stderr,
+                    argv=tuple(argv),
+                    return_code=return_code,
+                    stdout=stdout,
+                    stderr=stderr,
                 )
 
         return _Rec(), calls
@@ -3081,16 +3378,22 @@ class TestVerifyEvidenceWiring(unittest.TestCase):
         runner, calls = self._make_recording_runner()
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "build", "--collect-evidence",
-             "--image", "ev-img:v1"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "build",
+                "--collect-evidence",
+                "--image",
+                "ev-img:v1",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
         # Verify build calls + docker inspect (auto) + maybe host-metadata
         self.assertTrue(
-            any("docker" in c and "inspect" in c and "ev-img:v1" in c
-                for c in calls),
+            any("docker" in c and "inspect" in c and "ev-img:v1" in c for c in calls),
             "must auto-run docker inspect for image metadata",
         )
 
@@ -3098,16 +3401,25 @@ class TestVerifyEvidenceWiring(unittest.TestCase):
         """Enabled trust is validated and decoded before build verification."""
         local_path = self._inv_path.with_name("docker-constructor.local.toml")
         local_path.write_text("[corporate-trust]\nenabled = true\n")
-        bundle_path = self._inv_path.parent / ".docker-local" / "corporate-ca-bundle.crt"
+        bundle_path = (
+            self._inv_path.parent / ".docker-local" / "corporate-ca-bundle.crt"
+        )
         bundle_path.parent.mkdir()
         bundle_path.write_bytes(b"-----BEGIN CERTIFICATE-----\n\xff\n")
         runner, calls = self._make_recording_runner()
 
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "build", "--collect-evidence",
-             "--image", "ev-img:invalid"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "build",
+                "--collect-evidence",
+                "--image",
+                "ev-img:invalid",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -3121,7 +3433,9 @@ class TestVerifyEvidenceWiring(unittest.TestCase):
         """The real verify flow supplies bundle path/content redaction."""
         local_path = self._inv_path.with_name("docker-constructor.local.toml")
         local_path.write_text("[corporate-trust]\nenabled = true\n")
-        bundle_path = self._inv_path.parent / ".docker-local" / "corporate-ca-bundle.crt"
+        bundle_path = (
+            self._inv_path.parent / ".docker-local" / "corporate-ca-bundle.crt"
+        )
         bundle_path.parent.mkdir()
         certificate = (
             "-----BEGIN CERTIFICATE-----\n"
@@ -3129,19 +3443,32 @@ class TestVerifyEvidenceWiring(unittest.TestCase):
             "-----END CERTIFICATE-----\n"
         )
         bundle_path.write_text(certificate)
-        inspect_payload = json.dumps([{
-            "Id": "sha256:evidence",
-            "Mounts": [{"Source": str(bundle_path)}],
-            "Comment": certificate.rstrip("\n"),
-        }])
+        inspect_payload = json.dumps(
+            [
+                {
+                    "Id": "sha256:evidence",
+                    "Mounts": [{"Source": str(bundle_path)}],
+                    "Comment": certificate.rstrip("\n"),
+                }
+            ]
+        )
         runner, _ = self._make_recording_runner(stdout=inspect_payload)
         evidence_dir = self._inv_path.parent / "evidence-output"
 
         _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "verify", "--scope", "build", "--collect-evidence",
-             "--output-dir", str(evidence_dir), "--image", "ev-img:redact"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "verify",
+                "--scope",
+                "build",
+                "--collect-evidence",
+                "--output-dir",
+                str(evidence_dir),
+                "--image",
+                "ev-img:redact",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -3162,10 +3489,18 @@ class TestVerifyEvidenceWiring(unittest.TestCase):
         runner, calls = self._make_recording_runner()
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "--output", "json",
-             "verify", "--scope", "build", "--collect-evidence",
-             "--image", "ev-img:v2"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "--output",
+                "json",
+                "verify",
+                "--scope",
+                "build",
+                "--collect-evidence",
+                "--image",
+                "ev-img:v2",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -3183,10 +3518,18 @@ class TestVerifyEvidenceWiring(unittest.TestCase):
         runner, calls = self._make_recording_runner()
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "--output", "json",
-             "verify", "--scope", "runtime", "--collect-evidence",
-             "--container", "pi-2"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "--output",
+                "json",
+                "verify",
+                "--scope",
+                "runtime",
+                "--collect-evidence",
+                "--container",
+                "pi-2",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -3206,10 +3549,19 @@ class TestVerifyEvidenceWiring(unittest.TestCase):
         runner, calls = self._make_recording_runner()
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(self._inv_path.parent),
-             "--output", "json",
-             "verify", "--scope", "runtime", "--collect-evidence",
-             "--dry-run", "--container", "pi-dry"],
+            [
+                "--project-directory",
+                str(self._inv_path.parent),
+                "--output",
+                "json",
+                "verify",
+                "--scope",
+                "runtime",
+                "--collect-evidence",
+                "--dry-run",
+                "--container",
+                "pi-dry",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -3221,12 +3573,15 @@ class TestVerifyEvidenceWiring(unittest.TestCase):
         # mounted projection; evidence collection itself adds no commands in
         # dry-run mode.
         mount_inspects = [
-            c for c in calls
-            if c[:3] == ("docker", "inspect", "--format")
-            and "{{json .Mounts}}" in c
+            c
+            for c in calls
+            if c[:3] == ("docker", "inspect", "--format") and "{{json .Mounts}}" in c
         ]
-        self.assertEqual(1, len(mount_inspects),
-                         "runtime verification must inspect its projection mount")
+        self.assertEqual(
+            1,
+            len(mount_inspects),
+            "runtime verification must inspect its projection mount",
+        )
 
 
 if __name__ == "__main__":

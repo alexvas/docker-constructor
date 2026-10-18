@@ -26,8 +26,12 @@ from types import MappingProxyType
 from typing import Optional
 
 from tests.build_test_support import (
-    DIGEST_VALID_ARTIFACT_BYTES, INVENTORY_PATH, digest_valid_selected_artifacts,
-    fake_pi_materialization, fixture_directory, no_network_transport_factory,
+    DIGEST_VALID_ARTIFACT_BYTES,
+    INVENTORY_PATH,
+    digest_valid_selected_artifacts,
+    fake_pi_materialization,
+    fixture_directory,
+    no_network_transport_factory,
     publish_digest_valid_artifacts,
 )
 
@@ -40,12 +44,19 @@ from docker.networking import (
 )
 from docker.versioning.build_snapshot import MaterializedSnapshot, SnapshotError
 from docker.versioning.build_materialization import (
-    MaterializationError, SelectedBuildArtifact, UrllibStreamingTransport,
+    MaterializationError,
+    SelectedBuildArtifact,
+    UrllibStreamingTransport,
 )
 from docker.versioning.build_cache import (
-    UNCOMMITTED_TTL_SECONDS, ConstructorProjectBuildLock,
-    acquire_constructor_project_build_lock, build_blob_path,
-    commit_build_set, mark_uncommitted_blob, prepare_build_cache, publish_uncommitted_blob,
+    UNCOMMITTED_TTL_SECONDS,
+    ConstructorProjectBuildLock,
+    acquire_constructor_project_build_lock,
+    build_blob_path,
+    commit_build_set,
+    mark_uncommitted_blob,
+    prepare_build_cache,
+    publish_uncommitted_blob,
     publish_verified_blob,
 )
 from docker.versioning.build_cleanup import BuildCleanupError, CleanupFailure
@@ -77,6 +88,7 @@ from docker.versioning.host_progress import (
 # Fakes — injectable, no Docker/systemd/fs/network
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _make_diagnosis(
     *,
     mode: DockerMode = DockerMode.ROOTFUL,
@@ -101,11 +113,11 @@ def _make_diagnosis(
         override_needed=False,
     )
 
+
 class FakeBuildExecutor:
     """Recording build executor matching ``BuildExecutor`` Protocol."""
 
-    def __init__(self, result: ProcessResult | None = None,
-                 returncode: int = 0):
+    def __init__(self, result: ProcessResult | None = None, returncode: int = 0):
         self._result = result
         self.returncode = returncode
         self.calls: list[tuple[str, ...]] = []
@@ -121,7 +133,9 @@ class FakeBuildExecutor:
             stderr="" if self.returncode == 0 else "build error",
         )
 
+
 # ── Convenience factories (inject into BuildRequest fields) ──────────
+
 
 def _diag_reachable(**kw):
     return _make_diagnosis(
@@ -129,11 +143,13 @@ def _diag_reachable(**kw):
         chosen_address="172.17.0.1",
     )
 
+
 def _diag_unreachable(**kw):
     return _make_diagnosis(
         mode=DockerMode.ROOTFUL,
         chosen_gateway=None,
     )
+
 
 def _persist_ok(path=None, gateway=None):
     return PersistenceResult(
@@ -142,6 +158,7 @@ def _persist_ok(path=None, gateway=None):
         written=True,
     )
 
+
 def _persist_fail(path=None, gateway=None):
     return PersistenceResult(
         path=Path("/tmp/.env"),
@@ -149,6 +166,7 @@ def _persist_fail(path=None, gateway=None):
         written=False,
         error="EACCES",
     )
+
 
 def _publish_ok(projection, *, repo_root=None):
     return PublishResult(published_path="/tmp/effective.toml")
@@ -162,10 +180,19 @@ def _test_selected_artifacts(_projection):
     return digest_valid_selected_artifacts(_projection)
 
 
-def _materialize_ok(projection, *, constructor_project_root, cache_root=None, project_state=None, **_kwargs):
+def _materialize_ok(
+    projection,
+    *,
+    constructor_project_root,
+    cache_root=None,
+    project_state=None,
+    **_kwargs,
+):
     """Publish real digest-verified blobs for orchestration fixture builds."""
     return publish_digest_valid_artifacts(
-        projection, constructor_project_root=constructor_project_root, cache_root=cache_root,
+        projection,
+        constructor_project_root=constructor_project_root,
+        cache_root=cache_root,
         project_state=project_state,
     )
 
@@ -199,17 +226,25 @@ def _assert_prospective(result) -> None:
     assert result.build_args == ()
     assert result.display_string is not None
     assert "Planned build (not executable)" in result.display_string
-    assert "--build-context constructor-artifacts=<prospective:not-materialized>" in result.display_string
+    assert (
+        "--build-context constructor-artifacts=<prospective:not-materialized>"
+        in result.display_string
+    )
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # 7.  DTO expectations (GREEN — these test the DTOs, not the stub)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestBuildRequestDto(unittest.TestCase):
     """Task 7 — immutable BuildRequest fields."""
 
     def test_minimal_request_has_all_defaults(self):
-        req = BuildRequest(inventory_path=str(INVENTORY_PATH), project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+        req = BuildRequest(
+            inventory_path=str(INVENTORY_PATH),
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         self.assertEqual(str(INVENTORY_PATH), req.inventory_path)
         self.assertEqual("linux-amd64", req.platform)
         self.assertIsNone(req.tag)
@@ -254,7 +289,8 @@ class TestBuildRequestDto(unittest.TestCase):
             repo_root="/tmp",
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         self.assertEqual("linux-arm64", req.platform)
         self.assertEqual("pi:custom", req.tag)
         self.assertEqual("build", req.target)
@@ -269,7 +305,9 @@ class TestBuildRequestDto(unittest.TestCase):
         self.assertTrue(req.dry_run)
 
     def test_build_result_carries_all_fields(self):
-        pr = ProcessResult(argv=("docker", "build", "."), return_code=0, stdout="ok", stderr="")
+        pr = ProcessResult(
+            argv=("docker", "build", "."), return_code=0, stdout="ok", stderr=""
+        )
         result = BuildResult(
             exit_kind=ExitKind.SUCCESS,
             message="done",
@@ -284,7 +322,10 @@ class TestBuildRequestDto(unittest.TestCase):
         self.assertIs(pr, result.process_result)
 
     def test_dtos_are_frozen(self):
-        req = BuildRequest(inventory_path=str(INVENTORY_PATH), project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+        req = BuildRequest(
+            inventory_path=str(INVENTORY_PATH),
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         with self.assertRaises(Exception):
             req.platform = "linux-arm64"  # type: ignore[misc]
         result = BuildResult(exit_kind=ExitKind.SUCCESS)
@@ -298,7 +339,8 @@ class TestBuildRequestDto(unittest.TestCase):
         req = BuildRequest(
             inventory_path=str(INVENTORY_PATH),
             overrides=mutable,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         self.assertIsInstance(req.overrides, MappingProxyType)
         self.assertEqual({"A": "1", "B": "2"}, dict(req.overrides))
         # Mutate the caller-owned dict
@@ -306,8 +348,11 @@ class TestBuildRequestDto(unittest.TestCase):
         mutable["C"] = "3"
         del mutable["B"]
         # Request must be unchanged
-        self.assertEqual({"A": "1", "B": "2"}, dict(req.overrides),
-                         "caller mutation must not alter frozen request")
+        self.assertEqual(
+            {"A": "1", "B": "2"},
+            dict(req.overrides),
+            "caller mutation must not alter frozen request",
+        )
         # Setting overrides on frozen instance must still fail
         with self.assertRaises(Exception):
             req.overrides = MappingProxyType({"X": "Y"})  # type: ignore[misc]
@@ -315,7 +360,10 @@ class TestBuildRequestDto(unittest.TestCase):
     def test_overrides_default_is_empty_immutable(self):
         """Default ``overrides`` (no argument) must be an empty immutable
         mapping."""
-        req = BuildRequest(inventory_path=str(INVENTORY_PATH), project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+        req = BuildRequest(
+            inventory_path=str(INVENTORY_PATH),
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         self.assertIsInstance(req.overrides, MappingProxyType)
         self.assertEqual({}, dict(req.overrides))
 
@@ -323,8 +371,12 @@ class TestBuildRequestDto(unittest.TestCase):
         """``ProcessResult`` used by build orchestration is the same type
         accepted by ``docker.networking`` — there is no duplicate."""
         from docker.networking import ProcessResult as NetPR
-        self.assertIs(NetPR, ProcessResult,
-                      "build_orchestration must re-use networking.ProcessResult")
+
+        self.assertIs(
+            NetPR,
+            ProcessResult,
+            "build_orchestration must re-use networking.ProcessResult",
+        )
 
     def test_build_executor_boundary(self):
         """A ``FakeBuildExecutor`` satisfies the ``BuildExecutor`` Protocol —
@@ -341,14 +393,17 @@ class TestBuildRequestDto(unittest.TestCase):
         build uses ``tuple[str, ...]`` while networking uses ``list[str]``."""
         from docker.networking import ProcessRunner
         from docker.versioning.build_orchestration import BuildExecutor
+
         self.assertIsNot(BuildExecutor, ProcessRunner)
         # A BuildExecutor is NOT a ProcessRunner (different signatures)
         be = FakeBuildExecutor()
         self.assertNotIsInstance(be, ProcessRunner)
 
+
 # ═══════════════════════════════════════════════════════════════════════
 # 8.  Injectables wired through BuildRequest
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestInjectablesWired(unittest.TestCase):
     """Task 8 — all side-effecting boundaries injectable through BuildRequest."""
@@ -365,7 +420,8 @@ class TestInjectablesWired(unittest.TestCase):
             _materialize_pi=fake_pi_materialization,
             _transport_factory=UrllibStreamingTransport,
             _named_context_supported=lambda: True,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         # Just verify the slots are populated
         self.assertIs(runner, req.runner)
         self.assertIs(_diag_reachable, req._diagnose_gateway)
@@ -374,9 +430,11 @@ class TestInjectablesWired(unittest.TestCase):
         self.assertIs(UrllibStreamingTransport, req._transport_factory)
         self.assertTrue(req._named_context_supported())
 
+
 # ═══════════════════════════════════════════════════════════════════════
 # 9.  Default-build tests (RED)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestDefaultBuild(unittest.TestCase):
     """Task 9 — canonical image, target runtime, platform, deterministic,
@@ -389,10 +447,14 @@ class TestDefaultBuild(unittest.TestCase):
             dry_run=True,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.SUCCESS, result.exit_kind,
-                         f"expected SUCCESS, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.SUCCESS,
+            result.exit_kind,
+            f"expected SUCCESS, got {result.exit_kind}: {result.message}",
+        )
 
     def test_default_tag_is_pi_cli_pi_latest(self):
         """Default image tag is exactly ``pi-cli-pi:latest`` — canonical identity."""
@@ -401,10 +463,14 @@ class TestDefaultBuild(unittest.TestCase):
             dry_run=True,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.SUCCESS, result.exit_kind,
-                         f"expected SUCCESS, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.SUCCESS,
+            result.exit_kind,
+            f"expected SUCCESS, got {result.exit_kind}: {result.message}",
+        )
         _assert_prospective(result)
 
     def test_default_target_is_runtime(self):
@@ -414,7 +480,8 @@ class TestDefaultBuild(unittest.TestCase):
             dry_run=True,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         _assert_prospective(result)
 
@@ -425,7 +492,8 @@ class TestDefaultBuild(unittest.TestCase):
             dry_run=True,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         _assert_prospective(result)
 
@@ -436,16 +504,19 @@ class TestDefaultBuild(unittest.TestCase):
             dry_run=True,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         r1 = orchestrate_build(req)
         r2 = orchestrate_build(req)
         _assert_prospective(r1)
         _assert_prospective(r2)
         self.assertEqual(r1.display_string.encode(), r2.display_string.encode())
 
+
 # ═══════════════════════════════════════════════════════════════════════
 # 10.  Build override tests (RED)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestBuildOverrides(unittest.TestCase):
     """Task 10 — accepted build override, unsupported rejected,
@@ -458,12 +529,15 @@ class TestBuildOverrides(unittest.TestCase):
         req = BuildRequest(
             inventory_path=str(INVENTORY_PATH),
             dry_run=True,
-            overrides=MappingProxyType({
-                "build.stages.toolchain.python.version": "3.15.0",
-            }),
+            overrides=MappingProxyType(
+                {
+                    "build.stages.toolchain.python.version": "3.15.0",
+                }
+            ),
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
         _assert_prospective(result)
@@ -473,34 +547,48 @@ class TestBuildOverrides(unittest.TestCase):
         req = BuildRequest(
             inventory_path=str(INVENTORY_PATH),
             dry_run=True,
-            overrides=MappingProxyType({
-                "build.nonexistent.thing": "val",
-            }),
+            overrides=MappingProxyType(
+                {
+                    "build.nonexistent.thing": "val",
+                }
+            ),
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.CONFIG, result.exit_kind,
-                         f"expected CONFIG for unsupported override, got {result.exit_kind}")
+        self.assertEqual(
+            ExitKind.CONFIG,
+            result.exit_kind,
+            f"expected CONFIG for unsupported override, got {result.exit_kind}",
+        )
 
     def test_runtime_override_rejected_in_build(self):
         """A runtime-scoped override must not be accepted by build."""
         req = BuildRequest(
             inventory_path=str(INVENTORY_PATH),
             dry_run=True,
-            overrides=MappingProxyType({
-                "runtime.pi-extensions.x.version": "1.0.0",
-            }),
+            overrides=MappingProxyType(
+                {
+                    "runtime.pi-extensions.x.version": "1.0.0",
+                }
+            ),
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.CONFIG, result.exit_kind,
-                         f"expected CONFIG for runtime override, got {result.exit_kind}")
+        self.assertEqual(
+            ExitKind.CONFIG,
+            result.exit_kind,
+            f"expected CONFIG for runtime override, got {result.exit_kind}",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # 11.  Platform tests (RED)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestPlatformSelection(unittest.TestCase):
     """Task 11 — AMD64/ARM64 resolution, command platform matches projection,
@@ -513,7 +601,8 @@ class TestPlatformSelection(unittest.TestCase):
             dry_run=True,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
         _assert_prospective(result)
@@ -525,11 +614,15 @@ class TestPlatformSelection(unittest.TestCase):
             dry_run=True,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         # ARM64 may succeed or fail CONFIG depending on inventory
-        self.assertIn(result.exit_kind, (ExitKind.SUCCESS, ExitKind.CONFIG),
-                      f"unexpected exit: {result.exit_kind}: {result.message}")
+        self.assertIn(
+            result.exit_kind,
+            (ExitKind.SUCCESS, ExitKind.CONFIG),
+            f"unexpected exit: {result.exit_kind}: {result.message}",
+        )
 
     def test_missing_platform_fails_before_diagnosis(self):
         """When inventory lacks the requested platform, fail CONFIG
@@ -545,16 +638,23 @@ class TestPlatformSelection(unittest.TestCase):
             platform="linux-arm64",
             _diagnose_gateway=record_diag,
             _publish_projection=_publish_ok,
-        project_root=Path("/nonexistent/inventory.toml").resolve().parent)
+            project_root=Path("/nonexistent/inventory.toml").resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.CONFIG, result.exit_kind,
-                         f"expected CONFIG, got {result.exit_kind}")
-        self.assertEqual(0, len(diag_called),
-                         "must not call gateway diagnosis on missing inventory")
+        self.assertEqual(
+            ExitKind.CONFIG,
+            result.exit_kind,
+            f"expected CONFIG, got {result.exit_kind}",
+        )
+        self.assertEqual(
+            0, len(diag_called), "must not call gateway diagnosis on missing inventory"
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # 12.  Projection tests (RED)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestProjectionPublication(unittest.TestCase):
     """Task 12 — resolve from validated inventory.build, publish canonical
@@ -578,12 +678,12 @@ class TestProjectionPublication(unittest.TestCase):
             _diagnose_gateway=_diag_reachable,
             _publish_projection=record_publish,
             runner=FakeBuildExecutor(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
         # Publisher must have been called at least once
-        self.assertGreater(len(calls), 0,
-                           "_publish_projection was not called")
+        self.assertGreater(len(calls), 0, "_publish_projection was not called")
 
     def test_publish_result_contains_canonical_path(self):
         """PublishResult must have a non-empty published_path."""
@@ -591,9 +691,11 @@ class TestProjectionPublication(unittest.TestCase):
         self.assertIsInstance(pr.published_path, str)
         self.assertGreater(len(pr.published_path), 0)
 
+
 # ═══════════════════════════════════════════════════════════════════════
 # 13.  Cache / control tests (RED)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestCacheControls(unittest.TestCase):
     """Task 13 — cache, pull, progress, custom tag, UID/GID, context, Dockerfile."""
@@ -605,7 +707,8 @@ class TestCacheControls(unittest.TestCase):
             dry_run=True,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
         _assert_prospective(result)
@@ -617,7 +720,8 @@ class TestCacheControls(unittest.TestCase):
             dry_run=True,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
         _assert_prospective(result)
@@ -629,7 +733,8 @@ class TestCacheControls(unittest.TestCase):
             dry_run=True,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
         _assert_prospective(result)
@@ -641,7 +746,8 @@ class TestCacheControls(unittest.TestCase):
             dry_run=True,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
         _assert_prospective(result)
@@ -654,7 +760,8 @@ class TestCacheControls(unittest.TestCase):
             dry_run=True,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
         _assert_prospective(result)
@@ -667,17 +774,21 @@ class TestCacheControls(unittest.TestCase):
             dry_run=True,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
         _assert_prospective(result)
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # 14–15.  Failure-order tests — zero side effects (RED)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class _RecordingFakes:
     """Records every fake call for zero-side-effect assertions."""
+
     diagnose_calls = 0
     persist_calls = 0
     docker_calls = 0
@@ -699,11 +810,13 @@ class _RecordingFakes:
         _RecordingFakes.docker_calls += 1
         return ProcessResult(argv=argv, return_code=0, stdout="", stderr="")
 
+
 def _reset_recording():
     _RecordingFakes.diagnose_calls = 0
     _RecordingFakes.persist_calls = 0
     _RecordingFakes.docker_calls = 0
     _RecordingFakes.publish_calls = 0
+
 
 class TestFailureOrdering(unittest.TestCase):
     """Tasks 14–15 — every pre-validate failure means zero side effects."""
@@ -713,14 +826,12 @@ class TestFailureOrdering(unittest.TestCase):
         self.fakes = _RecordingFakes()
 
     def _assert_zero(self):
-        self.assertEqual(0, _RecordingFakes.diagnose_calls,
-                         "gateway diagnose must not be called")
-        self.assertEqual(0, _RecordingFakes.persist_calls,
-                         "persist must not be called")
-        self.assertEqual(0, _RecordingFakes.docker_calls,
-                         "docker must not be called")
-        self.assertEqual(0, _RecordingFakes.publish_calls,
-                         "publish must not be called")
+        self.assertEqual(
+            0, _RecordingFakes.diagnose_calls, "gateway diagnose must not be called"
+        )
+        self.assertEqual(0, _RecordingFakes.persist_calls, "persist must not be called")
+        self.assertEqual(0, _RecordingFakes.docker_calls, "docker must not be called")
+        self.assertEqual(0, _RecordingFakes.publish_calls, "publish must not be called")
 
     def test_missing_inventory_returns_config_and_zero_calls(self):
         req = BuildRequest(
@@ -728,10 +839,14 @@ class TestFailureOrdering(unittest.TestCase):
             _diagnose_gateway=self.fakes.diagnose,
             _publish_projection=self.fakes.publish,
             runner=self.fakes,  # type: ignore[arg-type]
-        project_root=Path("/nonexistent/inventory.toml").resolve().parent)
+            project_root=Path("/nonexistent/inventory.toml").resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.CONFIG, result.exit_kind,
-                         f"expected CONFIG, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.CONFIG,
+            result.exit_kind,
+            f"expected CONFIG, got {result.exit_kind}: {result.message}",
+        )
         self._assert_zero()
 
     def test_invalid_toml_returns_config_and_zero_calls(self):
@@ -740,10 +855,14 @@ class TestFailureOrdering(unittest.TestCase):
             _diagnose_gateway=self.fakes.diagnose,
             _publish_projection=self.fakes.publish,
             runner=self.fakes,  # type: ignore[arg-type]
-        project_root=Path("README.md").resolve().parent)
+            project_root=Path("README.md").resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.CONFIG, result.exit_kind,
-                         f"expected CONFIG, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.CONFIG,
+            result.exit_kind,
+            f"expected CONFIG, got {result.exit_kind}: {result.message}",
+        )
         self._assert_zero()
 
     def test_invalid_schema_returns_config_and_zero_calls(self):
@@ -753,10 +872,14 @@ class TestFailureOrdering(unittest.TestCase):
             _diagnose_gateway=self.fakes.diagnose,
             _publish_projection=self.fakes.publish,
             runner=self.fakes,  # type: ignore[arg-type]
-        project_root=Path("pyproject.toml").resolve().parent)
+            project_root=Path("pyproject.toml").resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.CONFIG, result.exit_kind,
-                         f"expected CONFIG, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.CONFIG,
+            result.exit_kind,
+            f"expected CONFIG, got {result.exit_kind}: {result.message}",
+        )
         self._assert_zero()
 
     def test_invalid_override_returns_config_and_zero_calls(self):
@@ -767,11 +890,15 @@ class TestFailureOrdering(unittest.TestCase):
             _diagnose_gateway=self.fakes.diagnose,
             _publish_projection=self.fakes.publish,
             runner=self.fakes,  # type: ignore[arg-type]
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         # Must be CONFIG (invalid override is a configuration error)
-        self.assertEqual(ExitKind.CONFIG, result.exit_kind,
-                         f"expected CONFIG, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.CONFIG,
+            result.exit_kind,
+            f"expected CONFIG, got {result.exit_kind}: {result.message}",
+        )
         self._assert_zero()
 
     def test_projection_resolution_failure_returns_config_and_zero_calls(self):
@@ -782,15 +909,21 @@ class TestFailureOrdering(unittest.TestCase):
             _diagnose_gateway=self.fakes.diagnose,
             _publish_projection=self.fakes.publish,
             runner=self.fakes,  # type: ignore[arg-type]
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.CONFIG, result.exit_kind,
-                         f"expected CONFIG, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.CONFIG,
+            result.exit_kind,
+            f"expected CONFIG, got {result.exit_kind}: {result.message}",
+        )
         self._assert_zero()
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # 15a.  Render-validation failures (Stage 9.3 hardening)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestRenderValidationFailures(unittest.TestCase):
     """Invalid render inputs (negative UID/GID, empty tag, etc.)
@@ -807,10 +940,14 @@ class TestRenderValidationFailures(unittest.TestCase):
             _diagnose_gateway=self._bomb_diagnose,
             _publish_projection=self._bomb_publish,
             runner=self._BombRunner(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.CONFIG, result.exit_kind,
-                         f"expected CONFIG, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.CONFIG,
+            result.exit_kind,
+            f"expected CONFIG, got {result.exit_kind}: {result.message}",
+        )
         self.assertIn("dev_uid", result.message or "")
 
     def test_negative_gid_returns_config(self):
@@ -822,10 +959,14 @@ class TestRenderValidationFailures(unittest.TestCase):
             _diagnose_gateway=self._bomb_diagnose,
             _publish_projection=self._bomb_publish,
             runner=self._BombRunner(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.CONFIG, result.exit_kind,
-                         f"expected CONFIG, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.CONFIG,
+            result.exit_kind,
+            f"expected CONFIG, got {result.exit_kind}: {result.message}",
+        )
         self.assertIn("dev_gid", result.message or "")
 
     def test_negative_uid_without_dry_run_still_config(self):
@@ -841,7 +982,8 @@ class TestRenderValidationFailures(unittest.TestCase):
             _diagnose_gateway=self._bomb_diagnose,
             _publish_projection=self._bomb_publish,
             runner=self._BombRunner(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertEqual(ExitKind.CONFIG, result.exit_kind)
         # No build_args rendered
@@ -859,10 +1001,14 @@ class TestRenderValidationFailures(unittest.TestCase):
             _diagnose_gateway=self._bomb_diagnose,
             _publish_projection=self._bomb_publish,
             runner=self._BombRunner(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.CONFIG, result.exit_kind,
-                         f"expected CONFIG, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.CONFIG,
+            result.exit_kind,
+            f"expected CONFIG, got {result.exit_kind}: {result.message}",
+        )
         self.assertIn("image_tag", (result.message or "").lower())
 
     def test_empty_context_returns_config(self):
@@ -875,10 +1021,14 @@ class TestRenderValidationFailures(unittest.TestCase):
             _diagnose_gateway=self._bomb_diagnose,
             _publish_projection=self._bomb_publish,
             runner=self._BombRunner(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.CONFIG, result.exit_kind,
-                         f"expected CONFIG, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.CONFIG,
+            result.exit_kind,
+            f"expected CONFIG, got {result.exit_kind}: {result.message}",
+        )
         self.assertIn("build_context", (result.message or "").lower())
 
     # -- bomb injectables (shared) --------------------------------------
@@ -899,9 +1049,11 @@ class TestRenderValidationFailures(unittest.TestCase):
         def run(self, argv: tuple[str, ...]):
             raise RuntimeError("runner must NOT be called for render failure")
 
+
 # ═══════════════════════════════════════════════════════════════════════
 # 16.  Gateway tests (RED)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestBuildGatewayIsolation(unittest.TestCase):
     """Builds are independent of the legacy gateway callback surface."""
@@ -918,25 +1070,30 @@ class TestBuildGatewayIsolation(unittest.TestCase):
             return _persist_fail(*args, **kwargs)
 
         runner = FakeBuildExecutor()
-        result = orchestrate_build(BuildRequest(
-            inventory_path=str(INVENTORY_PATH),
-            confirmed=True,
-            _materialize_artifacts=_materialize_ok,
-            _materialize_pi=fake_pi_materialization,
-            _named_context_supported=lambda: True,
-            _diagnose_gateway=diagnose,
-            _publish_projection=_publish_ok,
-            runner=runner,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent))
+        result = orchestrate_build(
+            BuildRequest(
+                inventory_path=str(INVENTORY_PATH),
+                confirmed=True,
+                _materialize_artifacts=_materialize_ok,
+                _materialize_pi=fake_pi_materialization,
+                _named_context_supported=lambda: True,
+                _diagnose_gateway=diagnose,
+                _publish_projection=_publish_ok,
+                runner=runner,
+                project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+            )
+        )
 
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
         self.assertEqual([], calls)
         self.assertEqual(1, len(runner.calls))
         self.assertFalse(hasattr(result, "resolved_address"))
 
+
 # ═══════════════════════════════════════════════════════════════════════
 # 18–19.  Confirmation / consent (RED)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestConfirmation(unittest.TestCase):
     """Tasks 18–19 — confirmation flag (consent callbacks removed).
@@ -962,6 +1119,7 @@ class TestConfirmation(unittest.TestCase):
 
     class _BombRunner:
         """Runner that explodes if ``.run()`` is ever invoked."""
+
         def run(self, argv: tuple[str, ...]):
             raise RuntimeError("runner must NOT be called when not confirmed")
 
@@ -978,18 +1136,24 @@ class TestConfirmation(unittest.TestCase):
             _diagnose_gateway=self._bomb_diagnose,
             _publish_projection=self._bomb_publish,
             runner=self._BombRunner(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.SUCCESS, result.exit_kind,
-                         f"not-confirmed is SUCCESS not {result.exit_kind}: {result.message}")
-        self.assertIn("not confirmed", (result.message or "").lower(),
-                      "message must indicate build was not confirmed")
-        self.assertIsNone(result.process_result,
-                          "no Docker process must have run")
-        self.assertEqual(len(result.build_args), 0,
-                         "build args must be empty when cancelled")
-        self.assertIsNone(result.publish_result,
-                          "no projection must be published")
+        self.assertEqual(
+            ExitKind.SUCCESS,
+            result.exit_kind,
+            f"not-confirmed is SUCCESS not {result.exit_kind}: {result.message}",
+        )
+        self.assertIn(
+            "not confirmed",
+            (result.message or "").lower(),
+            "message must indicate build was not confirmed",
+        )
+        self.assertIsNone(result.process_result, "no Docker process must have run")
+        self.assertEqual(
+            len(result.build_args), 0, "build args must be empty when cancelled"
+        )
+        self.assertIsNone(result.publish_result, "no projection must be published")
 
     # -- accepted ------------------------------------------------------
 
@@ -1005,7 +1169,8 @@ class TestConfirmation(unittest.TestCase):
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
             runner=docker_runner,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         # Real impl returns SUCCESS with process_result; stub returns OPERATIONAL
         self.assertIsInstance(result, BuildResult)
@@ -1023,23 +1188,29 @@ class TestConfirmation(unittest.TestCase):
                 seq.append("docker")
                 return super().run(argv)
 
-        result = orchestrate_build(BuildRequest(
-            inventory_path=str(INVENTORY_PATH),
-            confirmed=True,
-            _materialize_artifacts=_materialize_ok,
-            _materialize_pi=fake_pi_materialization,
-            _named_context_supported=lambda: True,
-            _diagnose_gateway=lambda **kw: (_ for _ in ()).throw(
-                AssertionError("build must not diagnose gateway")),
-            _publish_projection=publish,
-            runner=RecordingRunner(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent))
+        result = orchestrate_build(
+            BuildRequest(
+                inventory_path=str(INVENTORY_PATH),
+                confirmed=True,
+                _materialize_artifacts=_materialize_ok,
+                _materialize_pi=fake_pi_materialization,
+                _named_context_supported=lambda: True,
+                _diagnose_gateway=lambda **kw: (_ for _ in ()).throw(
+                    AssertionError("build must not diagnose gateway")
+                ),
+                _publish_projection=publish,
+                runner=RecordingRunner(),
+                project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+            )
+        )
         self.assertIsInstance(result, BuildResult)
         self.assertEqual(["publish", "docker"], seq)
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # 20.  Dry-run tests (RED)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestDryRun(unittest.TestCase):
     """Task 20 — complete shell-escaped display, no Docker, no probe
@@ -1064,6 +1235,7 @@ class TestDryRun(unittest.TestCase):
 
     class _BombRunner:
         """Process runner that explodes if its .run() is ever invoked."""
+
         def run(self, argv: tuple[str, ...]):
             raise RuntimeError("process runner must NOT be called during dry-run")
 
@@ -1078,10 +1250,14 @@ class TestDryRun(unittest.TestCase):
             _diagnose_gateway=self._bomb_diagnose,
             _publish_projection=self._bomb_publish,
             runner=self._BombRunner(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.SUCCESS, result.exit_kind,
-                         f"expected SUCCESS, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.SUCCESS,
+            result.exit_kind,
+            f"expected SUCCESS, got {result.exit_kind}: {result.message}",
+        )
         _assert_prospective(result)
 
     # -- gateway probe -------------------------------------------------
@@ -1094,10 +1270,14 @@ class TestDryRun(unittest.TestCase):
             _diagnose_gateway=self._bomb_diagnose,
             _publish_projection=self._bomb_publish,
             runner=self._BombRunner(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.SUCCESS, result.exit_kind,
-                         f"expected SUCCESS, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.SUCCESS,
+            result.exit_kind,
+            f"expected SUCCESS, got {result.exit_kind}: {result.message}",
+        )
         _assert_prospective(result)
 
     # -- persistence ---------------------------------------------------
@@ -1110,10 +1290,14 @@ class TestDryRun(unittest.TestCase):
             _diagnose_gateway=self._bomb_diagnose,
             _publish_projection=self._bomb_publish,
             runner=self._BombRunner(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.SUCCESS, result.exit_kind,
-                         f"expected SUCCESS, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.SUCCESS,
+            result.exit_kind,
+            f"expected SUCCESS, got {result.exit_kind}: {result.message}",
+        )
 
     # -- publication ---------------------------------------------------
 
@@ -1125,10 +1309,14 @@ class TestDryRun(unittest.TestCase):
             _diagnose_gateway=self._bomb_diagnose,
             _publish_projection=self._bomb_publish,
             runner=self._BombRunner(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.SUCCESS, result.exit_kind,
-                         f"expected SUCCESS, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.SUCCESS,
+            result.exit_kind,
+            f"expected SUCCESS, got {result.exit_kind}: {result.message}",
+        )
 
     # -- Docker process ------------------------------------------------
 
@@ -1140,12 +1328,15 @@ class TestDryRun(unittest.TestCase):
             _diagnose_gateway=self._bomb_diagnose,
             _publish_projection=self._bomb_publish,
             runner=self._BombRunner(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.SUCCESS, result.exit_kind,
-                         f"expected SUCCESS, got {result.exit_kind}: {result.message}")
-        self.assertIsNone(result.process_result,
-                          "dry-run must not execute Docker")
+        self.assertEqual(
+            ExitKind.SUCCESS,
+            result.exit_kind,
+            f"expected SUCCESS, got {result.exit_kind}: {result.message}",
+        )
+        self.assertIsNone(result.process_result, "dry-run must not execute Docker")
 
     # -- build vector completeness -------------------------------------
 
@@ -1156,10 +1347,14 @@ class TestDryRun(unittest.TestCase):
             dry_run=True,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.SUCCESS, result.exit_kind,
-                         f"expected SUCCESS, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.SUCCESS,
+            result.exit_kind,
+            f"expected SUCCESS, got {result.exit_kind}: {result.message}",
+        )
         _assert_prospective(result)
 
     # -- source mutation -----------------------------------------------
@@ -1171,14 +1366,20 @@ class TestDryRun(unittest.TestCase):
             dry_run=True,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.SUCCESS, result.exit_kind,
-                         f"expected SUCCESS, got {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            ExitKind.SUCCESS,
+            result.exit_kind,
+            f"expected SUCCESS, got {result.exit_kind}: {result.message}",
+        )
+
 
 # ═══════════════════════════════════════════════════════════════════════
 # 21.  Direct execution — tuple, shell=False (RED)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestDirectExecution(unittest.TestCase):
     """Task 21 — runner receives exact tuple, shell=False, display string
@@ -1196,13 +1397,13 @@ class TestDirectExecution(unittest.TestCase):
             runner=runner,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertIsInstance(result, BuildResult)
         if runner.calls:
             cmd = runner.calls[0]
-            self.assertIsInstance(cmd, tuple,
-                                  "runner must receive tuple, not string")
+            self.assertIsInstance(cmd, tuple, "runner must receive tuple, not string")
 
     def test_runner_command_starts_with_docker(self):
         runner = FakeBuildExecutor()
@@ -1215,16 +1416,19 @@ class TestDirectExecution(unittest.TestCase):
             runner=runner,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertIsInstance(result, BuildResult)
         if runner.calls:
             cmd = runner.calls[0]
             self.assertEqual("docker", cmd[0])
 
+
 # ═══════════════════════════════════════════════════════════════════════
 # 22.  Subprocess outcome (RED)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestSubprocessOutcomes(unittest.TestCase):
     """Task 22 — zero=success, nonzero=operational failure, stderr bounded,
@@ -1241,12 +1445,15 @@ class TestSubprocessOutcomes(unittest.TestCase):
             runner=runner,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.SUCCESS, result.exit_kind,
-                         f"expected SUCCESS, got {result.exit_kind}")
-        self.assertIsNotNone(result.process_result,
-                             "process_result must be present")
+        self.assertEqual(
+            ExitKind.SUCCESS,
+            result.exit_kind,
+            f"expected SUCCESS, got {result.exit_kind}",
+        )
+        self.assertIsNotNone(result.process_result, "process_result must be present")
         # When present, must match the runner's return code
         self.assertEqual(0, result.process_result.return_code)
 
@@ -1261,10 +1468,14 @@ class TestSubprocessOutcomes(unittest.TestCase):
             runner=runner,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
-        self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind,
-                         f"expected OPERATIONAL, got {result.exit_kind}")
+        self.assertEqual(
+            ExitKind.OPERATIONAL,
+            result.exit_kind,
+            f"expected OPERATIONAL, got {result.exit_kind}",
+        )
         self.assertIsNotNone(result.process_result)
         self.assertEqual(1, result.process_result.return_code)
 
@@ -1279,16 +1490,19 @@ class TestSubprocessOutcomes(unittest.TestCase):
             runner=runner,
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
         self.assertIsNotNone(result.process_result)
         # Message should surface stderr content or exit code
         self.assertIn("build error", result.message or "")
 
+
 # ═══════════════════════════════════════════════════════════════════════
 # 23a.  Boundary failure tests — Stage 9.3 hardening
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestBuildBoundaryFailures(unittest.TestCase):
     """Diagnosis, publication, and runner exceptions must produce
@@ -1298,20 +1512,24 @@ class TestBuildBoundaryFailures(unittest.TestCase):
 
     def test_diagnosis_exception_is_not_a_build_failure(self):
         """A build never invokes the legacy diagnosis callback."""
+
         def broken_diagnose(**kw):
             raise RuntimeError("Docker socket unreachable")
 
         runner = FakeBuildExecutor()
-        result = orchestrate_build(BuildRequest(
-            inventory_path=str(INVENTORY_PATH),
-            confirmed=True,
-            _materialize_artifacts=_materialize_ok,
-            _materialize_pi=fake_pi_materialization,
-            _named_context_supported=lambda: True,
-            _diagnose_gateway=broken_diagnose,
-            _publish_projection=_publish_ok,
-            runner=runner,
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent))
+        result = orchestrate_build(
+            BuildRequest(
+                inventory_path=str(INVENTORY_PATH),
+                confirmed=True,
+                _materialize_artifacts=_materialize_ok,
+                _materialize_pi=fake_pi_materialization,
+                _named_context_supported=lambda: True,
+                _diagnose_gateway=broken_diagnose,
+                _publish_projection=_publish_ok,
+                runner=runner,
+                project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+            )
+        )
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
         self.assertEqual(1, len(runner.calls))
 
@@ -1320,6 +1538,7 @@ class TestBuildBoundaryFailures(unittest.TestCase):
     def test_publish_error_returns_operational(self):
         """``PublishError`` raised by the injectable must produce
         OPERATIONAL with the detail embedded."""
+
         def broken_publish(projection, *, repo_root=None):
             raise PublishError(detail="disk full")
 
@@ -1332,7 +1551,8 @@ class TestBuildBoundaryFailures(unittest.TestCase):
             _diagnose_gateway=_diag_reachable,
             _publish_projection=broken_publish,
             runner=FakeBuildExecutor(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
         self.assertIn("disk full", result.message or "")
@@ -1342,6 +1562,7 @@ class TestBuildBoundaryFailures(unittest.TestCase):
     def test_publish_generic_exception_returns_operational(self):
         """A generic exception during publication must also produce
         OPERATIONAL (OS-level failures, etc.)."""
+
         def broken_publish(projection, *, repo_root=None):
             raise IOError("permission denied")
 
@@ -1354,7 +1575,8 @@ class TestBuildBoundaryFailures(unittest.TestCase):
             _diagnose_gateway=_diag_reachable,
             _publish_projection=broken_publish,
             runner=FakeBuildExecutor(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
         self.assertIn("permission denied", result.message or "")
@@ -1365,6 +1587,7 @@ class TestBuildBoundaryFailures(unittest.TestCase):
     def test_runner_file_not_found_error(self):
         """``FileNotFoundError`` (docker binary missing) must produce
         OPERATIONAL."""
+
         class MissingDockerRunner:
             def run(self, argv: tuple[str, ...]):
                 raise FileNotFoundError("No such file: 'docker'")
@@ -1378,7 +1601,8 @@ class TestBuildBoundaryFailures(unittest.TestCase):
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
             runner=MissingDockerRunner(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
         self.assertIn("not found", result.message or "")
@@ -1386,6 +1610,7 @@ class TestBuildBoundaryFailures(unittest.TestCase):
 
     def test_runner_permission_error(self):
         """``PermissionError`` (OSError subclass) must produce OPERATIONAL."""
+
         class DeniedDockerRunner:
             def run(self, argv: tuple[str, ...]):
                 raise PermissionError("docker: permission denied")
@@ -1399,15 +1624,18 @@ class TestBuildBoundaryFailures(unittest.TestCase):
             _diagnose_gateway=_diag_reachable,
             _publish_projection=_publish_ok,
             runner=DeniedDockerRunner(),
-        project_root=Path(str(INVENTORY_PATH)).resolve().parent)
+            project_root=Path(str(INVENTORY_PATH)).resolve().parent,
+        )
         result = orchestrate_build(req)
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
         self.assertIn("permission denied", result.message or "")
         self.assertIsNone(result.process_result)
 
+
 # ═══════════════════════════════════════════════════════════════════════
 # Stage 9.3 — materialization boundary
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestMaterializationBoundary(unittest.TestCase):
     """Task 3.3 — materialization or integrity failure prevents Docker,
@@ -1440,7 +1668,8 @@ class TestMaterializationBoundary(unittest.TestCase):
             _transport_factory=transport_factory,
             _named_context_supported=lambda: True,
             _publish_projection=publish,
-        project_root=Path(str(self.inventory)).resolve().parent)
+            project_root=Path(str(self.inventory)).resolve().parent,
+        )
 
     def test_sdk_sink_is_threaded_to_the_injected_pi_materializer(self):
         from types import SimpleNamespace
@@ -1449,9 +1678,7 @@ class TestMaterializationBoundary(unittest.TestCase):
 
         seen: dict[str, object] = {}
 
-        def materialize(
-            projection, *, event_sink=None, sdk_event_sink=None, **kwargs
-        ):
+        def materialize(projection, *, event_sink=None, sdk_event_sink=None, **kwargs):
             seen["event_sink"] = event_sink
             seen["sdk_event_sink"] = sdk_event_sink
             return fake_pi_materialization()
@@ -1504,20 +1731,30 @@ class TestMaterializationBoundary(unittest.TestCase):
                 snapshot[rel] = ("file", path.stat().st_mode & 0o777, path.read_bytes())
         return snapshot
 
-    def test_materialization_failure_prevents_docker_and_leaves_no_committed_reference(self):
+    def test_materialization_failure_prevents_docker_and_leaves_no_committed_reference(
+        self,
+    ):
         class Docker:
             def run(self, argv):
-                raise AssertionError("Docker must not run after a materialization failure")
+                raise AssertionError(
+                    "Docker must not run after a materialization failure"
+                )
 
         def fail_materialize(*args, **kwargs):
             raise MaterializationError("integrity check failed for artifact 'uv'")
 
         def fail_publish(*args, **kwargs):
-            raise AssertionError("projection must not be published after materialization failure")
+            raise AssertionError(
+                "projection must not be published after materialization failure"
+            )
 
-        result = orchestrate_build(self._request(
-            materialize=fail_materialize, publish=fail_publish, runner=Docker(),
-        ))
+        result = orchestrate_build(
+            self._request(
+                materialize=fail_materialize,
+                publish=fail_publish,
+                runner=Docker(),
+            )
+        )
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
         self.assertIsNone(result.publish_result)
         self.assertIsNone(result.process_result)
@@ -1542,18 +1779,21 @@ class TestMaterializationBoundary(unittest.TestCase):
             calls["release"] += 1
             return real_release(lock)
 
-        with patch(
-            "docker.versioning.build_orchestration.cleanup_artifact_snapshot",
-            side_effect=cleanup_exc,
-        ), patch.object(
-            ConstructorProjectBuildLock, "release", recording_release
+        with (
+            patch(
+                "docker.versioning.build_orchestration.cleanup_artifact_snapshot",
+                side_effect=cleanup_exc,
+            ),
+            patch.object(ConstructorProjectBuildLock, "release", recording_release),
         ):
             with self.assertRaises(type(cleanup_exc)) as ctx:
-                orchestrate_build(self._request(
-                    materialize=fail_materialize,
-                    publish=lambda *_a, **_k: PublishResult("/tmp/unexpected"),
-                    runner=FakeBuildExecutor(),
-                ))
+                orchestrate_build(
+                    self._request(
+                        materialize=fail_materialize,
+                        publish=lambda *_a, **_k: PublishResult("/tmp/unexpected"),
+                        runner=FakeBuildExecutor(),
+                    )
+                )
         self.assertIs(ctx.exception, cleanup_exc)
         self.assertEqual(1, calls["release"])
         with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache):
@@ -1584,18 +1824,21 @@ class TestMaterializationBoundary(unittest.TestCase):
             real_release(lock)
             raise release_error
 
-        with patch(
-            "docker.versioning.build_orchestration.cleanup_artifact_snapshot",
-            side_effect=interruption,
-        ), patch.object(
-            ConstructorProjectBuildLock, "release", release_then_fail
+        with (
+            patch(
+                "docker.versioning.build_orchestration.cleanup_artifact_snapshot",
+                side_effect=interruption,
+            ),
+            patch.object(ConstructorProjectBuildLock, "release", release_then_fail),
         ):
             with self.assertRaises(KeyboardInterrupt) as ctx:
-                orchestrate_build(self._request(
-                    materialize=fail_materialize,
-                    publish=lambda *_a, **_k: PublishResult("/tmp/unexpected"),
-                    runner=FakeBuildExecutor(),
-                ))
+                orchestrate_build(
+                    self._request(
+                        materialize=fail_materialize,
+                        publish=lambda *_a, **_k: PublishResult("/tmp/unexpected"),
+                        runner=FakeBuildExecutor(),
+                    )
+                )
         self.assertIs(ctx.exception, interruption)
         self.assertIn(
             release_error, getattr(interruption, "_transaction_secondary", [])
@@ -1618,7 +1861,9 @@ class TestMaterializationBoundary(unittest.TestCase):
         # Compute the selected namespace path without creating it, so the
         # pre-build cache snapshot can exclude exactly that subtree.
         selected_namespace = resolve_project_state(
-            self.repo, cache_root=self.cache, create=False,
+            self.repo,
+            cache_root=self.cache,
+            create=False,
         ).namespace
 
         # Prepare the deterministic cache-root scaffolding and a second project
@@ -1628,13 +1873,18 @@ class TestMaterializationBoundary(unittest.TestCase):
         other = self.base / "other-proj"
         other.mkdir()
         other_paths = prepare_build_cache(other, cache_root=self.cache)
-        (other_paths.persistent_root / "committed-build.json").write_text('{"blobs": []}')
-        (other_paths.persistent_root / "sentinel.txt").write_text("other-namespace-content")
+        (other_paths.persistent_root / "committed-build.json").write_text(
+            '{"blobs": []}'
+        )
+        (other_paths.persistent_root / "sentinel.txt").write_text(
+            "other-namespace-content"
+        )
 
         project_before = self._tree_snapshot(self.repo)
         cache_before = self._tree_snapshot(self.cache, exclude=selected_namespace)
 
         effects = []
+
         class Docker:
             def run(self, argv):
                 effects.append("docker")
@@ -1646,17 +1896,22 @@ class TestMaterializationBoundary(unittest.TestCase):
 
         class MismatchingTransport:
             """Streams bytes that never match any reviewed SHA-256 digest."""
+
             def __init__(self, policy):
                 self.policy = policy
+
             def stream(self, url):
                 yield b"not-the-reviewed-artifact-bytes"
 
         # No `_materialize_artifacts` injection: this exercises the real
         # `materialize_build_artifacts` -> `materialize_artifact` path.
-        result = orchestrate_build(self._request(
-            publish=fail_publish, runner=Docker(),
-            transport_factory=MismatchingTransport,
-        ))
+        result = orchestrate_build(
+            self._request(
+                publish=fail_publish,
+                runner=Docker(),
+                transport_factory=MismatchingTransport,
+            )
+        )
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
         self.assertIn("integrity check failed", result.message or "")
         self.assertEqual([], effects)
@@ -1666,16 +1921,21 @@ class TestMaterializationBoundary(unittest.TestCase):
         selected_state = resolve_project_state(self.repo, cache_root=self.cache)
         # Focused failure assertions: nothing invalid, temporary, or committed
         # remains for the failed artifact/build.
-        self.assertEqual([], list((selected_state.build_artifacts_root / "blobs").rglob("*.blob")))
+        self.assertEqual(
+            [], list((selected_state.build_artifacts_root / "blobs").rglob("*.blob"))
+        )
         self.assertEqual([], list(self.cache.rglob(".materialize-*")))
-        self.assertFalse((selected_state.build_artifacts_root / "committed-build.json").exists())
+        self.assertFalse(
+            (selected_state.build_artifacts_root / "committed-build.json").exists()
+        )
 
         # The entire cache outside the selected namespace is byte-for-byte
         # unchanged: no new/deleted paths, modified contents, changed modes, or
         # changed symlink targets anywhere else (including the other project's
         # namespace).
         self.assertEqual(
-            cache_before, self._tree_snapshot(self.cache, exclude=selected_namespace),
+            cache_before,
+            self._tree_snapshot(self.cache, exclude=selected_namespace),
         )
         # The complete constructor project is unchanged, including every file's
         # contents and mode.
@@ -1685,19 +1945,29 @@ class TestMaterializationBoundary(unittest.TestCase):
         identities = set()
         paths = []
         for data in (b"prior-live-one", b"prior-live-two"):
-            identity = DigestIdentity.from_hex("sha256", hashlib.sha256(data).hexdigest())
+            identity = DigestIdentity.from_hex(
+                "sha256", hashlib.sha256(data).hexdigest()
+            )
             identities.add(identity)
-            paths.append(publish_verified_blob(
-                identity, data, constructor_project_root=self.repo, cache_root=self.cache,
-            ))
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+            paths.append(
+                publish_verified_blob(
+                    identity,
+                    data,
+                    constructor_project_root=self.repo,
+                    cache_root=self.cache,
+                )
+            )
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             commit_build_set(self.repo, identities, lock=lock, cache_root=self.cache)
         return identities, paths
 
     def _assert_prior_live_set(self, identities, paths):
         state = prepare_build_cache(self.repo, cache_root=self.cache)
         generations = sorted(
-            entry.name for entry in state.persistent_root.iterdir()
+            entry.name
+            for entry in state.persistent_root.iterdir()
             if entry.name.startswith("committed-build-")
         )
         committed = json.loads((state.persistent_root / generations[-1]).read_text())
@@ -1712,9 +1982,12 @@ class TestMaterializationBoundary(unittest.TestCase):
             paths = _materialize_ok(*args, **kwargs)
             recorded.extend(paths)
             return paths
+
         return materialize
 
-    def _assert_interruption_releases_lock_and_preserves_prior_set(self, request, old_ids, old_paths):
+    def _assert_interruption_releases_lock_and_preserves_prior_set(
+        self, request, old_ids, old_paths
+    ):
         with self.assertRaises(KeyboardInterrupt):
             orchestrate_build(request)
         self._assert_prior_live_set(old_ids, old_paths)
@@ -1774,7 +2047,9 @@ class TestMaterializationBoundary(unittest.TestCase):
         # A release failure on an otherwise successful build is surfaced as an
         # operational result rather than escaping from the cleanup finally.
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
-        self.assertIn("failed to release constructor-project build lock", result.message)
+        self.assertIn(
+            "failed to release constructor-project build lock", result.message
+        )
         self.assertIn(str(release_error), result.message)
 
     def test_materialization_failure_with_lock_release_failure_surfaces_both(self):
@@ -1849,11 +2124,14 @@ class TestMaterializationBoundary(unittest.TestCase):
             publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
             runner=FakeBuildExecutor(),
         )
-        with patch(
-            "docker.versioning.build_orchestration.cleanup_artifact_snapshot",
-            side_effect=failing_cleanup,
-        ), patch.object(
-            ConstructorProjectBuildLock, "release", side_effect=release_error
+        with (
+            patch(
+                "docker.versioning.build_orchestration.cleanup_artifact_snapshot",
+                side_effect=failing_cleanup,
+            ),
+            patch.object(
+                ConstructorProjectBuildLock, "release", side_effect=release_error
+            ),
         ):
             result = orchestrate_build(request)
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
@@ -1928,7 +2206,9 @@ class TestMaterializationBoundary(unittest.TestCase):
             publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
             runner=FakeBuildExecutor(),
         )
-        self._assert_interruption_releases_lock_and_preserves_prior_set(request, old_ids, old_paths)
+        self._assert_interruption_releases_lock_and_preserves_prior_set(
+            request, old_ids, old_paths
+        )
 
     def test_pi_materialization_interruption_releases_lock_and_keeps_blobs(self):
         old_ids, old_paths = self._seed_prior_live_set()
@@ -1938,50 +2218,80 @@ class TestMaterializationBoundary(unittest.TestCase):
             publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
             runner=FakeBuildExecutor(),
         )
-        object.__setattr__(request, "_materialize_pi", lambda *_a, **_k: (_ for _ in ()).throw(KeyboardInterrupt()))
-        self._assert_interruption_releases_lock_and_preserves_prior_set(request, old_ids, old_paths)
+        object.__setattr__(
+            request,
+            "_materialize_pi",
+            lambda *_a, **_k: (_ for _ in ()).throw(KeyboardInterrupt()),
+        )
+        self._assert_interruption_releases_lock_and_preserves_prior_set(
+            request, old_ids, old_paths
+        )
         self.assertTrue(materialized and all(path.exists() for path in materialized))
 
     def test_snapshot_creation_interruption_releases_lock_and_cleans_snapshot(self):
         old_ids, old_paths = self._seed_prior_live_set()
         materialized = []
+
         def interrupting_snapshot(*_a, **_k):
             raise KeyboardInterrupt()
-        with patch("docker.versioning.build_orchestration.create_artifact_snapshot", side_effect=interrupting_snapshot):
+
+        with patch(
+            "docker.versioning.build_orchestration.create_artifact_snapshot",
+            side_effect=interrupting_snapshot,
+        ):
             request = self._request(
                 materialize=self._recording_materializer(materialized),
                 publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
                 runner=FakeBuildExecutor(),
             )
-            self._assert_interruption_releases_lock_and_preserves_prior_set(request, old_ids, old_paths)
+            self._assert_interruption_releases_lock_and_preserves_prior_set(
+                request, old_ids, old_paths
+            )
         self.assertTrue(materialized and all(path.exists() for path in materialized))
 
     def test_docker_failure_preserves_prior_set_and_reusable_new_blobs(self):
         old_ids, old_paths = self._seed_prior_live_set()
         materialized = []
+
         class Docker:
             def run(self, argv):
-                return ProcessResult(argv=argv, return_code=9, stdout="", stderr="failed")
-        result = orchestrate_build(self._request(
-            materialize=self._recording_materializer(materialized),
-            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"), runner=Docker(),
-        ))
+                return ProcessResult(
+                    argv=argv, return_code=9, stdout="", stderr="failed"
+                )
+
+        result = orchestrate_build(
+            self._request(
+                materialize=self._recording_materializer(materialized),
+                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                runner=Docker(),
+            )
+        )
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
         self._assert_prior_live_set(old_ids, old_paths)
         self.assertTrue(materialized)
-        self.assertTrue(all(path.exists() and (path.stat().st_mode & 0o777) == 0o444 for path in materialized))
+        self.assertTrue(
+            all(
+                path.exists() and (path.stat().st_mode & 0o777) == 0o444
+                for path in materialized
+            )
+        )
 
     def test_signal_interruption_preserves_prior_set_and_reusable_new_blobs(self):
         old_ids, old_paths = self._seed_prior_live_set()
         materialized = []
+
         class Docker:
             def run(self, argv):
                 raise KeyboardInterrupt()
+
         with self.assertRaises(KeyboardInterrupt):
-            orchestrate_build(self._request(
-                materialize=self._recording_materializer(materialized),
-                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"), runner=Docker(),
-            ))
+            orchestrate_build(
+                self._request(
+                    materialize=self._recording_materializer(materialized),
+                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                    runner=Docker(),
+                )
+            )
         self._assert_prior_live_set(old_ids, old_paths)
         self.assertTrue(materialized)
         self.assertTrue(all(path.exists() for path in materialized))
@@ -1993,11 +2303,13 @@ class TestMaterializationBoundary(unittest.TestCase):
             "docker.versioning.build_orchestration.create_artifact_snapshot",
             side_effect=SnapshotError("snapshot failed"),
         ):
-            result = orchestrate_build(self._request(
-                materialize=self._recording_materializer(materialized),
-                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-                runner=FakeBuildExecutor(),
-            ))
+            result = orchestrate_build(
+                self._request(
+                    materialize=self._recording_materializer(materialized),
+                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                    runner=FakeBuildExecutor(),
+                )
+            )
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
         self._assert_prior_live_set(old_ids, old_paths)
         self.assertTrue(materialized)
@@ -2006,14 +2318,19 @@ class TestMaterializationBoundary(unittest.TestCase):
     def test_commit_revalidation_failure_preserves_prior_set_and_new_blobs(self):
         old_ids, old_paths = self._seed_prior_live_set()
         materialized = []
+
         class Docker:
             def run(self, argv):
                 materialized[0].chmod(0o644)
                 return ProcessResult(argv=argv, return_code=0, stdout="", stderr="")
-        result = orchestrate_build(self._request(
-            materialize=self._recording_materializer(materialized),
-            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"), runner=Docker(),
-        ))
+
+        result = orchestrate_build(
+            self._request(
+                materialize=self._recording_materializer(materialized),
+                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                runner=Docker(),
+            )
+        )
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
         self._assert_prior_live_set(old_ids, old_paths)
         self.assertTrue(all(path.exists() for path in materialized))
@@ -2021,18 +2338,22 @@ class TestMaterializationBoundary(unittest.TestCase):
     def test_snapshot_cleanup_failure_prevents_commit_and_preserves_blobs(self):
         old_ids, old_paths = self._seed_prior_live_set()
         materialized = []
+
         def fail_cleanup(snapshot):
             if snapshot is not None:
                 raise SnapshotError("snapshot cleanup failed")
+
         with patch(
             "docker.versioning.build_orchestration.cleanup_artifact_snapshot",
             side_effect=fail_cleanup,
         ):
-            result = orchestrate_build(self._request(
-                materialize=self._recording_materializer(materialized),
-                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-                runner=FakeBuildExecutor(),
-            ))
+            result = orchestrate_build(
+                self._request(
+                    materialize=self._recording_materializer(materialized),
+                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                    runner=FakeBuildExecutor(),
+                )
+            )
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
         self._assert_prior_live_set(old_ids, old_paths)
         self.assertTrue(materialized)
@@ -2041,12 +2362,19 @@ class TestMaterializationBoundary(unittest.TestCase):
     def test_cancelled_build_preserves_prior_set_and_reusable_uncommitted_blob(self):
         old_ids, old_paths = self._seed_prior_live_set()
         pending_data = b"already-verified-uncommitted"
-        pending_id = DigestIdentity.from_hex("sha256", hashlib.sha256(pending_data).hexdigest())
+        pending_id = DigestIdentity.from_hex(
+            "sha256", hashlib.sha256(pending_data).hexdigest()
+        )
         pending_path = publish_verified_blob(
-            pending_id, pending_data, constructor_project_root=self.repo, cache_root=self.cache,
+            pending_id,
+            pending_data,
+            constructor_project_root=self.repo,
+            cache_root=self.cache,
         )
         request = self._request(
-            materialize=lambda *_a, **_k: (_ for _ in ()).throw(AssertionError("must not materialize")),
+            materialize=lambda *_a, **_k: (_ for _ in ()).throw(
+                AssertionError("must not materialize")
+            ),
             publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
             runner=FakeBuildExecutor(),
         )
@@ -2062,26 +2390,35 @@ class TestMaterializationBoundary(unittest.TestCase):
         payloads = dict(_TEST_ARTIFACT_BYTES)
         selections = list(_test_selected_artifacts(None))
         calls: list[str] = []
+
         class Transport:
             def stream(self, url):
                 calls.append(url)
                 name = url.rsplit("/", 1)[-1]
                 yield payloads[name]
+
         transport = Transport()
 
         def run(selected, returncode=0):
-            with patch(
-                "docker.versioning.build_orchestration.select_build_artifacts",
-                return_value=tuple(selected),
-            ), patch.object(
-                materialization_module, "select_build_artifacts", return_value=tuple(selected),
+            with (
+                patch(
+                    "docker.versioning.build_orchestration.select_build_artifacts",
+                    return_value=tuple(selected),
+                ),
+                patch.object(
+                    materialization_module,
+                    "select_build_artifacts",
+                    return_value=tuple(selected),
+                ),
             ):
-                return orchestrate_build(self._request(
-                    materialize=materialization_module.materialize_build_artifacts,
-                    transport_factory=lambda _policy: transport,
-                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-                    runner=FakeBuildExecutor(returncode=returncode),
-                ))
+                return orchestrate_build(
+                    self._request(
+                        materialize=materialization_module.materialize_build_artifacts,
+                        transport_factory=lambda _policy: transport,
+                        publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                        runner=FakeBuildExecutor(returncode=returncode),
+                    )
+                )
 
         self.assertEqual(ExitKind.SUCCESS, run(selections).exit_kind)
         self.assertEqual(4, len(calls))
@@ -2091,8 +2428,11 @@ class TestMaterializationBoundary(unittest.TestCase):
 
         payloads["rtk"] = b"changed-rtk"
         changed_rtk = SelectedBuildArtifact(
-            name="rtk", url="https://test.invalid/rtk",
-            identity=DigestIdentity.from_hex("sha256", hashlib.sha256(payloads["rtk"]).hexdigest()),
+            name="rtk",
+            url="https://test.invalid/rtk",
+            identity=DigestIdentity.from_hex(
+                "sha256", hashlib.sha256(payloads["rtk"]).hexdigest()
+            ),
         )
         changed = [changed_rtk if item.name == "rtk" else item for item in selections]
         calls.clear()
@@ -2101,8 +2441,11 @@ class TestMaterializationBoundary(unittest.TestCase):
 
         payloads["fd"] = b"failed-build-fd"
         changed_fd = SelectedBuildArtifact(
-            name="fd", url="https://test.invalid/fd",
-            identity=DigestIdentity.from_hex("sha256", hashlib.sha256(payloads["fd"]).hexdigest()),
+            name="fd",
+            url="https://test.invalid/fd",
+            identity=DigestIdentity.from_hex(
+                "sha256", hashlib.sha256(payloads["fd"]).hexdigest()
+            ),
         )
         failed_set = [changed_fd if item.name == "fd" else item for item in changed]
         calls.clear()
@@ -2110,38 +2453,62 @@ class TestMaterializationBoundary(unittest.TestCase):
         self.assertEqual(["https://test.invalid/fd"], calls)
         calls.clear()
         self.assertEqual(ExitKind.SUCCESS, run(failed_set).exit_kind)
-        self.assertEqual([], calls, "failed-build download must be reusable within its TTL")
+        self.assertEqual(
+            [], calls, "failed-build download must be reusable within its TTL"
+        )
 
     def test_expired_uncommitted_blob_is_removed_and_reacquired(self):
         from docker.versioning import build_materialization as materialization_module
 
         data = b"expired-input"
         selected = SelectedBuildArtifact(
-            name="expired", url="https://test.invalid/expired",
-            identity=DigestIdentity.from_hex("sha256", hashlib.sha256(data).hexdigest()),
+            name="expired",
+            url="https://test.invalid/expired",
+            identity=DigestIdentity.from_hex(
+                "sha256", hashlib.sha256(data).hexdigest()
+            ),
         )
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             path = publish_uncommitted_blob(
-                selected.identity, data, constructor_project_root=self.repo, cache_root=self.cache,
-                lock=lock, verified_at=1,
+                selected.identity,
+                data,
+                constructor_project_root=self.repo,
+                cache_root=self.cache,
+                lock=lock,
+                verified_at=1,
             )
         calls = []
+
         class Transport:
             def stream(self, url):
                 calls.append(url)
                 yield data
-        with patch(
-            "docker.versioning.build_orchestration.select_build_artifacts",
-            return_value=(selected,),
-        ), patch.object(
-            materialization_module, "select_build_artifacts", return_value=(selected,),
-        ), patch("docker.versioning.build_cache.time.time", return_value=UNCOMMITTED_TTL_SECONDS + 2):
-            result = orchestrate_build(self._request(
-                materialize=materialization_module.materialize_build_artifacts,
-                transport_factory=lambda _policy: Transport(),
-                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-                runner=FakeBuildExecutor(),
-            ))
+
+        with (
+            patch(
+                "docker.versioning.build_orchestration.select_build_artifacts",
+                return_value=(selected,),
+            ),
+            patch.object(
+                materialization_module,
+                "select_build_artifacts",
+                return_value=(selected,),
+            ),
+            patch(
+                "docker.versioning.build_cache.time.time",
+                return_value=UNCOMMITTED_TTL_SECONDS + 2,
+            ),
+        ):
+            result = orchestrate_build(
+                self._request(
+                    materialize=materialization_module.materialize_build_artifacts,
+                    transport_factory=lambda _policy: Transport(),
+                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                    runner=FakeBuildExecutor(),
+                )
+            )
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
         self.assertEqual([selected.url], calls)
         self.assertTrue(path.exists())
@@ -2150,18 +2517,24 @@ class TestMaterializationBoundary(unittest.TestCase):
         materialized = []
         image_files = {}
         container_files = {}
+
         class Docker:
             def run(self, argv):
                 # Model the Docker/BuildKit import boundary: the resulting
                 # image and an existing container own copies, not host paths.
-                image_files.update({path.name: path.read_bytes() for path in materialized})
+                image_files.update(
+                    {path.name: path.read_bytes() for path in materialized}
+                )
                 container_files.update(image_files)
                 return ProcessResult(argv=argv, return_code=0, stdout="", stderr="")
 
-        result = orchestrate_build(self._request(
-            materialize=self._recording_materializer(materialized),
-            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"), runner=Docker(),
-        ))
+        result = orchestrate_build(
+            self._request(
+                materialize=self._recording_materializer(materialized),
+                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                runner=Docker(),
+            )
+        )
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
         self.assertNotIn("--label", result.build_args)
         self.assertTrue(image_files)
@@ -2169,7 +2542,8 @@ class TestMaterializationBoundary(unittest.TestCase):
             path.unlink()
         self.assertTrue(all(not path.exists() for path in materialized))
         self.assertEqual(
-            sorted(_TEST_ARTIFACT_BYTES.values()), sorted(image_files.values()),
+            sorted(_TEST_ARTIFACT_BYTES.values()),
+            sorted(image_files.values()),
             "existing image must retain imported artifact bytes",
         )
         self.assertEqual(image_files, container_files)
@@ -2184,27 +2558,54 @@ class TestMaterializationBoundary(unittest.TestCase):
         old_paths = []
         old_identities = set()
         for data in (b"superseded-one", b"superseded-two"):
-            identity = DigestIdentity.from_hex("sha256", hashlib.sha256(data).hexdigest())
+            identity = DigestIdentity.from_hex(
+                "sha256", hashlib.sha256(data).hexdigest()
+            )
             old_identities.add(identity)
-            old_paths.append(publish_verified_blob(identity, data, constructor_project_root=self.repo, cache_root=self.cache))
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
-            commit_build_set(self.repo, old_identities, lock=lock, cache_root=self.cache)
+            old_paths.append(
+                publish_verified_blob(
+                    identity,
+                    data,
+                    constructor_project_root=self.repo,
+                    cache_root=self.cache,
+                )
+            )
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
+            commit_build_set(
+                self.repo, old_identities, lock=lock, cache_root=self.cache
+            )
 
         other = self.base / "other-project"
         other.mkdir()
         other_data = b"other-project-input"
-        other_identity = DigestIdentity.from_hex("sha256", hashlib.sha256(other_data).hexdigest())
-        other_path = publish_verified_blob(other_identity, other_data, constructor_project_root=other, cache_root=self.cache)
-        with acquire_constructor_project_build_lock(other, cache_root=self.cache) as lock:
+        other_identity = DigestIdentity.from_hex(
+            "sha256", hashlib.sha256(other_data).hexdigest()
+        )
+        other_path = publish_verified_blob(
+            other_identity,
+            other_data,
+            constructor_project_root=other,
+            cache_root=self.cache,
+        )
+        with acquire_constructor_project_build_lock(
+            other, cache_root=self.cache
+        ) as lock:
             commit_build_set(other, {other_identity}, lock=lock, cache_root=self.cache)
         other_state = resolve_project_state(other, cache_root=self.cache)
         other_snapshot = self._tree_snapshot(other_state.build_artifacts_root)
 
         runtime_sentinel = runtime_artifacts_child(self.cache) / "sentinel"
         versioning_sentinel = versioning_child(self.cache) / "sentinel"
-        runtime_sentinel.parent.mkdir(); versioning_sentinel.parent.mkdir()
-        runtime_sentinel.write_bytes(b"runtime"); versioning_sentinel.write_bytes(b"versioning")
-        global_snapshot = {path: (path.read_bytes(), path.stat().st_mode) for path in (runtime_sentinel, versioning_sentinel)}
+        runtime_sentinel.parent.mkdir()
+        versioning_sentinel.parent.mkdir()
+        runtime_sentinel.write_bytes(b"runtime")
+        versioning_sentinel.write_bytes(b"versioning")
+        global_snapshot = {
+            path: (path.read_bytes(), path.stat().st_mode)
+            for path in (runtime_sentinel, versioning_sentinel)
+        }
         alias = self.base / "repo-alias"
         alias.symlink_to(self.repo, target_is_directory=True)
 
@@ -2212,6 +2613,7 @@ class TestMaterializationBoundary(unittest.TestCase):
         canonical_state = resolve_project_state(self.repo, cache_root=self.cache)
         self.assertEqual(canonical_state.namespace, selected_state.namespace)
         materialized_paths: list[Path] = []
+
         def materialize_and_record(*args, **kwargs):
             paths = _materialize_ok(*args, **kwargs)
             materialized_paths.extend(paths)
@@ -2219,26 +2621,38 @@ class TestMaterializationBoundary(unittest.TestCase):
 
         docker_calls: list[tuple[str, ...]] = []
         case = self
+
         class Docker:
             def run(self, argv):
                 # Commit/GC is a post-Docker concern: the prior live set must
                 # remain authoritative while Docker is running.
                 case.assertTrue(all(path.exists() for path in old_paths))
-                committed = json.loads((
-                    selected_state.build_artifacts_root
-                    / sorted(
-                        entry.name for entry in selected_state.build_artifacts_root.iterdir()
-                        if entry.name.startswith("committed-build-")
-                    )[-1]
-                ).read_text())
-                case.assertEqual(sorted(f"sha256:{item.hex_digest()}" for item in old_identities), committed["blobs"])
+                committed = json.loads(
+                    (
+                        selected_state.build_artifacts_root
+                        / sorted(
+                            entry.name
+                            for entry in selected_state.build_artifacts_root.iterdir()
+                            if entry.name.startswith("committed-build-")
+                        )[-1]
+                    ).read_text()
+                )
+                case.assertEqual(
+                    sorted(f"sha256:{item.hex_digest()}" for item in old_identities),
+                    committed["blobs"],
+                )
                 docker_calls.append(argv)
                 return ProcessResult(argv=argv, return_code=0, stdout="", stderr="")
 
-        request = self._request(materialize=materialize_and_record, publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"), runner=Docker())
+        request = self._request(
+            materialize=materialize_and_record,
+            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+            runner=Docker(),
+        )
         object.__setattr__(request, "repo_root", str(alias))
         from docker.versioning import build_cache as build_cache_module
         from docker.versioning import project_state as project_state_module
+
         protected_roots = (
             runtime_artifacts_child(self.cache).resolve(),
             versioning_child(self.cache).resolve(),
@@ -2255,9 +2669,11 @@ class TestMaterializationBoundary(unittest.TestCase):
         def record_project_state(path, *args, **kwargs):
             project_accesses.append(Path(path).resolve(strict=True))
             return real_resolve_project_state(path, *args, **kwargs)
+
         def record_build_cache(path, *args, **kwargs):
             build_cache_accesses.append(Path(path).resolve(strict=True))
             return real_open_build_cache_state(path, *args, **kwargs)
+
         def record_os_open(path, flags, mode=0o777, *, dir_fd=None):
             raw_path = Path(path)
             if raw_path.is_absolute():
@@ -2270,7 +2686,9 @@ class TestMaterializationBoundary(unittest.TestCase):
             fd = real_os_open(path, flags, mode, dir_fd=dir_fd)
             if flags & os.O_DIRECTORY:
                 directory_fds[fd] = resolved
-            if any(resolved == root or root in resolved.parents for root in protected_roots):
+            if any(
+                resolved == root or root in resolved.parents for root in protected_roots
+            ):
                 global_cache_accesses.append(("os.open", resolved))
             return fd
 
@@ -2280,9 +2698,19 @@ class TestMaterializationBoundary(unittest.TestCase):
             finally:
                 directory_fds.pop(fd, None)
 
-        with patch("docker.versioning.build_orchestration.resolve_project_state", side_effect=record_project_state), patch.object(
-            build_cache_module, "open_build_cache_state", side_effect=record_build_cache
-        ), patch("os.open", side_effect=record_os_open), patch("os.close", side_effect=record_os_close):
+        with (
+            patch(
+                "docker.versioning.build_orchestration.resolve_project_state",
+                side_effect=record_project_state,
+            ),
+            patch.object(
+                build_cache_module,
+                "open_build_cache_state",
+                side_effect=record_build_cache,
+            ),
+            patch("os.open", side_effect=record_os_open),
+            patch("os.close", side_effect=record_os_close),
+        ):
             result = orchestrate_build(request)
 
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
@@ -2290,25 +2718,52 @@ class TestMaterializationBoundary(unittest.TestCase):
         self.assertTrue(all(path == self.repo.resolve() for path in project_accesses))
         self.assertNotIn(other.resolve(), project_accesses)
         self.assertTrue(build_cache_accesses)
-        self.assertTrue(all(path == self.repo.resolve() for path in build_cache_accesses))
+        self.assertTrue(
+            all(path == self.repo.resolve() for path in build_cache_accesses)
+        )
         self.assertNotIn(other.resolve(), build_cache_accesses)
-        self.assertEqual([], global_cache_accesses, f"unexpected global cache access: {global_cache_accesses}")
+        self.assertEqual(
+            [],
+            global_cache_accesses,
+            f"unexpected global cache access: {global_cache_accesses}",
+        )
         self.assertEqual(1, len(docker_calls))
         self.assertEqual(4, len(materialized_paths))
         self.assertTrue(all(path.exists() for path in materialized_paths))
-        self.assertEqual(other_snapshot, self._tree_snapshot(other_state.build_artifacts_root))
-        self.assertEqual(global_snapshot, {path: (path.read_bytes(), path.stat().st_mode) for path in global_snapshot})
+        self.assertEqual(
+            other_snapshot, self._tree_snapshot(other_state.build_artifacts_root)
+        )
+        self.assertEqual(
+            global_snapshot,
+            {
+                path: (path.read_bytes(), path.stat().st_mode)
+                for path in global_snapshot
+            },
+        )
         self.assertTrue(all(not path.exists() for path in old_paths))
         selected = _test_selected_artifacts(None)
-        committed = json.loads((
-            selected_state.build_artifacts_root
-            / sorted(
-                entry.name for entry in selected_state.build_artifacts_root.iterdir()
-                if entry.name.startswith("committed-build-")
-            )[-1]
-        ).read_text())
-        self.assertEqual(sorted(f"sha256:{item.identity.hex_digest()}" for item in selected), committed["blobs"])
-        self.assertTrue(old_identities.isdisjoint({DigestIdentity.from_hex(*item.split(":", 1)) for item in committed["blobs"]}))
+        committed = json.loads(
+            (
+                selected_state.build_artifacts_root
+                / sorted(
+                    entry.name
+                    for entry in selected_state.build_artifacts_root.iterdir()
+                    if entry.name.startswith("committed-build-")
+                )[-1]
+            ).read_text()
+        )
+        self.assertEqual(
+            sorted(f"sha256:{item.identity.hex_digest()}" for item in selected),
+            committed["blobs"],
+        )
+        self.assertTrue(
+            old_identities.isdisjoint(
+                {
+                    DigestIdentity.from_hex(*item.split(":", 1))
+                    for item in committed["blobs"]
+                }
+            )
+        )
 
     # Task 5 — optional materializer keywords are forwarded independently.
 
@@ -2324,13 +2779,21 @@ class TestMaterializationBoundary(unittest.TestCase):
         seen: dict[str, object] = {}
 
         def materialize(
-            projection, *, constructor_project_root, cache_root=None,
-            project_state=None, transport=None, lock=None, event_sink=None,
+            projection,
+            *,
+            constructor_project_root,
+            cache_root=None,
+            project_state=None,
+            transport=None,
+            lock=None,
+            event_sink=None,
         ):
             seen["event_sink"] = event_sink
             return publish_digest_valid_artifacts(
-                projection, constructor_project_root=constructor_project_root,
-                cache_root=cache_root, project_state=project_state,
+                projection,
+                constructor_project_root=constructor_project_root,
+                cache_root=cache_root,
+                project_state=project_state,
             )
 
         sink = lambda event: None
@@ -2344,13 +2807,20 @@ class TestMaterializationBoundary(unittest.TestCase):
         seen: dict[str, object] = {}
 
         def materialize(
-            projection, *, constructor_project_root, cache_root=None,
-            project_state=None, transport=None, lock=None,
+            projection,
+            *,
+            constructor_project_root,
+            cache_root=None,
+            project_state=None,
+            transport=None,
+            lock=None,
         ):
             seen["called"] = True
             return publish_digest_valid_artifacts(
-                projection, constructor_project_root=constructor_project_root,
-                cache_root=cache_root, project_state=project_state,
+                projection,
+                constructor_project_root=constructor_project_root,
+                cache_root=cache_root,
+                project_state=project_state,
             )
 
         result = orchestrate_build(self._keyword_request(materialize))
@@ -2361,15 +2831,23 @@ class TestMaterializationBoundary(unittest.TestCase):
         seen: dict[str, object] = {}
 
         def materialize(
-            projection, *, constructor_project_root, cache_root=None,
-            project_state=None, transport=None, lock=None, event_sink=None,
+            projection,
+            *,
+            constructor_project_root,
+            cache_root=None,
+            project_state=None,
+            transport=None,
+            lock=None,
+            event_sink=None,
             failure_secrets=(),
         ):
             seen["event_sink"] = event_sink
             seen["failure_secrets"] = failure_secrets
             return publish_digest_valid_artifacts(
-                projection, constructor_project_root=constructor_project_root,
-                cache_root=cache_root, project_state=project_state,
+                projection,
+                constructor_project_root=constructor_project_root,
+                cache_root=cache_root,
+                project_state=project_state,
             )
 
         sink = lambda event: None
@@ -2384,14 +2862,20 @@ class TestMaterializationBoundary(unittest.TestCase):
         seen: dict[str, object] = {}
 
         def materialize(
-            projection, *, constructor_project_root, cache_root=None,
-            project_state=None, **kwargs,
+            projection,
+            *,
+            constructor_project_root,
+            cache_root=None,
+            project_state=None,
+            **kwargs,
         ):
             seen["event_sink"] = kwargs.get("event_sink", "<missing>")
             seen["failure_secrets"] = kwargs.get("failure_secrets", "<missing>")
             return publish_digest_valid_artifacts(
-                projection, constructor_project_root=constructor_project_root,
-                cache_root=cache_root, project_state=project_state,
+                projection,
+                constructor_project_root=constructor_project_root,
+                cache_root=cache_root,
+                project_state=project_state,
             )
 
         sink = lambda event: None
@@ -2434,7 +2918,8 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
             _materialize_pi=fake_pi_materialization,
             _named_context_supported=lambda: True,
             _publish_projection=publish,
-            project_root=Path(str(self.inventory)).resolve().parent)
+            project_root=Path(str(self.inventory)).resolve().parent,
+        )
 
     def _identity(self, payload):
         return DigestIdentity.from_hex("sha256", hashlib.sha256(payload).hexdigest())
@@ -2446,7 +2931,10 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
         paths = prepare_build_cache(self.repo, cache_root=self.cache)
         old = self._identity(b"unsafe-candidate")
         publish_verified_blob(
-            old, b"unsafe-candidate", constructor_project_root=self.repo, cache_root=self.cache
+            old,
+            b"unsafe-candidate",
+            constructor_project_root=self.repo,
+            cache_root=self.cache,
         )
         blob = build_blob_path(paths.blobs_root, old)
         blob.unlink()
@@ -2461,9 +2949,15 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
 
     def test_recovery_aggregate_reports_every_failure_and_blocks_build(self):
         failures = (
-            CleanupFailure("sha256:first.blob", OSError(errno.EIO, "first unlink failed")),
-            CleanupFailure("sha256:second.json", OSError(errno.EACCES, "second unlink failed")),
-            CleanupFailure("blobs/sha256", OSError(errno.ENOSPC, "blob directory sync failed")),
+            CleanupFailure(
+                "sha256:first.blob", OSError(errno.EIO, "first unlink failed")
+            ),
+            CleanupFailure(
+                "sha256:second.json", OSError(errno.EACCES, "second unlink failed")
+            ),
+            CleanupFailure(
+                "blobs/sha256", OSError(errno.ENOSPC, "blob directory sync failed")
+            ),
         )
         error = BuildCleanupError(
             "superseded cleanup failed for 3 step(s)", failures=failures
@@ -2473,11 +2967,13 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
             "docker.versioning.build_orchestration.recover_build_generations",
             side_effect=error,
         ):
-            result = orchestrate_build(self._request(
-                materialize=lambda *_a, **_k: calls.append("materialize"),
-                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-                runner=FakeBuildExecutor(),
-            ))
+            result = orchestrate_build(
+                self._request(
+                    materialize=lambda *_a, **_k: calls.append("materialize"),
+                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                    runner=FakeBuildExecutor(),
+                )
+            )
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
         self.assertEqual([], calls)
         self.assertIn("superseded cleanup failed for 3 step(s)", result.message)
@@ -2485,6 +2981,7 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
             self.assertIn(failure.target, result.message)
             self.assertIn(str(failure.error), result.message)
         from docker.constructor_cli import _EXIT_CODES
+
         self.assertEqual(4, _EXIT_CODES[result.exit_kind])
         self.assertIsNotNone(result.host_failure)
 
@@ -2501,11 +2998,13 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
                 calls.append("docker")
                 raise AssertionError("Docker must not run before recovery")
 
-        result = orchestrate_build(self._request(
-            materialize=materialize,
-            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-            runner=Docker(),
-        ))
+        result = orchestrate_build(
+            self._request(
+                materialize=materialize,
+                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                runner=Docker(),
+            )
+        )
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
         self.assertEqual([], calls)
         # Fails closed: the unsafe candidate and its symlink target are preserved.
@@ -2515,6 +3014,7 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
     def test_blob_verification_failure_has_no_post_publication_claim(self):
         boom = OSError(errno.EIO, "injected published blob verification failure")
         from docker.versioning import build_cache as build_cache_module
+
         real_verify = build_cache_module._verify_published_blob
         state = {"docker_succeeded": False}
 
@@ -2534,11 +3034,13 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
             "docker.versioning.build_cache._verify_published_blob",
             side_effect=fail_commit_verification,
         ):
-            result = orchestrate_build(self._request(
-                materialize=_materialize_ok,
-                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-                runner=runner,
-            ))
+            result = orchestrate_build(
+                self._request(
+                    materialize=_materialize_ok,
+                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                    runner=runner,
+                )
+            )
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
         self.assertEqual(0, result.process_result.return_code)
         self.assertIn("failed to commit successful build artifacts", result.message)
@@ -2553,11 +3055,13 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
             "docker.versioning.build_generations.publish_generation",
             side_effect=boom,
         ):
-            result = orchestrate_build(self._request(
-                materialize=_materialize_ok,
-                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-                runner=runner,
-            ))
+            result = orchestrate_build(
+                self._request(
+                    materialize=_materialize_ok,
+                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                    runner=runner,
+                )
+            )
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
         self.assertEqual(0, result.process_result.return_code)
         self.assertIn("failed to commit successful build artifacts", result.message)
@@ -2569,24 +3073,35 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
         paths = prepare_build_cache(self.repo, cache_root=self.cache)
         old = self._identity(b"aggregate-prior")
         publish_verified_blob(
-            old, b"aggregate-prior", constructor_project_root=self.repo,
+            old,
+            b"aggregate-prior",
+            constructor_project_root=self.repo,
             cache_root=self.cache,
         )
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             mark_uncommitted_blob(
                 old, self.repo, lock=lock, verified_at=0, cache_root=self.cache
             )
             commit_build_set(self.repo, {old}, lock=lock, cache_root=self.cache)
 
         failures = (
-            CleanupFailure("sha256:first.blob", OSError(errno.EIO, "first candidate failed")),
-            CleanupFailure("sha256:second.json", OSError(errno.EACCES, "second candidate failed")),
-            CleanupFailure("markers", OSError(errno.ENOSPC, "marker directory sync failed")),
+            CleanupFailure(
+                "sha256:first.blob", OSError(errno.EIO, "first candidate failed")
+            ),
+            CleanupFailure(
+                "sha256:second.json", OSError(errno.EACCES, "second candidate failed")
+            ),
+            CleanupFailure(
+                "markers", OSError(errno.ENOSPC, "marker directory sync failed")
+            ),
         )
         error = BuildCleanupError(
             "superseded cleanup failed for 3 step(s)", failures=failures
         )
         from docker.versioning import build_cleanup as build_cleanup_module
+
         real_cleanup = build_cleanup_module.cleanup_superseded
 
         def fail_post_commit(ops, storage, inventory, *, lock):
@@ -2599,11 +3114,13 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
             "docker.versioning.build_cleanup.cleanup_superseded",
             side_effect=fail_post_commit,
         ):
-            result = orchestrate_build(self._request(
-                materialize=_materialize_ok,
-                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-                runner=runner,
-            ))
+            result = orchestrate_build(
+                self._request(
+                    materialize=_materialize_ok,
+                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                    runner=runner,
+                )
+            )
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
         self.assertEqual(0, result.process_result.return_code)
         self.assertEqual("/tmp/effective.toml", result.publish_result.published_path)
@@ -2616,26 +3133,37 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
             self.assertIn(failure.target, result.message)
             self.assertIn(str(failure.error), result.message)
         generations = [
-            entry for entry in paths.persistent_root.iterdir()
+            entry
+            for entry in paths.persistent_root.iterdir()
             if entry.name.startswith("committed-build-")
         ]
         self.assertEqual(2, len(generations))
         self.assertTrue(build_blob_path(paths.blobs_root, old).exists())
         from docker.constructor_cli import _EXIT_CODES
+
         self.assertEqual(4, _EXIT_CODES[result.exit_kind])
 
     def test_post_commit_reconciliation_and_release_failures_preserve_result(self):
         paths = prepare_build_cache(self.repo, cache_root=self.cache)
         old = self._identity(b"prior-committed")
         publish_verified_blob(
-            old, b"prior-committed", constructor_project_root=self.repo, cache_root=self.cache
+            old,
+            b"prior-committed",
+            constructor_project_root=self.repo,
+            cache_root=self.cache,
         )
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
-            mark_uncommitted_blob(old, self.repo, lock=lock, verified_at=0, cache_root=self.cache)
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
+            mark_uncommitted_blob(
+                old, self.repo, lock=lock, verified_at=0, cache_root=self.cache
+            )
             commit_build_set(self.repo, {old}, lock=lock, cache_root=self.cache)
 
         def failing_reconciliation(*_args, **_kwargs):
-            raise BuildCleanupError("authoritative-generation marker reconciliation failed")
+            raise BuildCleanupError(
+                "authoritative-generation marker reconciliation failed"
+            )
 
         from docker.versioning import build_cleanup as build_cleanup_module
 
@@ -2652,17 +3180,22 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
 
         runner = FakeBuildExecutor()
         release_error = OSError(errno.EIO, "injected lock release failure")
-        with patch(
-            "docker.versioning.build_cleanup.reconcile_authoritative_markers",
-            side_effect=flaky_reconciliation,
-        ), patch.object(
-            ConstructorProjectBuildLock, "release", side_effect=release_error
+        with (
+            patch(
+                "docker.versioning.build_cleanup.reconcile_authoritative_markers",
+                side_effect=flaky_reconciliation,
+            ),
+            patch.object(
+                ConstructorProjectBuildLock, "release", side_effect=release_error
+            ),
         ):
-            result = orchestrate_build(self._request(
-                materialize=_materialize_ok,
-                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-                runner=runner,
-            ))
+            result = orchestrate_build(
+                self._request(
+                    materialize=_materialize_ok,
+                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                    runner=runner,
+                )
+            )
         # The image was built and is not rolled back, but the post-commit
         # cleanup failure is operational and preserves the predecessor.
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
@@ -2670,7 +3203,8 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
         self.assertIsNotNone(result.process_result)
         self.assertEqual(0, result.process_result.return_code)
         generations = sorted(
-            entry.name for entry in paths.persistent_root.iterdir()
+            entry.name
+            for entry in paths.persistent_root.iterdir()
             if entry.name.startswith("committed-build-")
         )
         self.assertEqual(2, len(generations))
@@ -2680,7 +3214,9 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
         self.assertIn("cleanup or marker reconciliation failed", result.message)
         self.assertIn("Recovery is required", result.message)
         self.assertIn("retried on the next build", result.message)
-        self.assertIn("authoritative-generation marker reconciliation failed", result.message)
+        self.assertIn(
+            "authoritative-generation marker reconciliation failed", result.message
+        )
         self.assertIn(str(release_error), result.message)
         self.assertEqual("/tmp/effective.toml", result.publish_result.published_path)
         self.assertTrue(result.build_args)
@@ -2692,10 +3228,14 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
         paths = prepare_build_cache(self.repo, cache_root=self.cache)
         old = self._identity(b"storage-open-prior")
         publish_verified_blob(
-            old, b"storage-open-prior", constructor_project_root=self.repo,
+            old,
+            b"storage-open-prior",
+            constructor_project_root=self.repo,
             cache_root=self.cache,
         )
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             mark_uncommitted_blob(
                 old, self.repo, lock=lock, verified_at=0, cache_root=self.cache
             )
@@ -2706,7 +3246,8 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
 
         def failing_post_commit_open(lock):
             generations = [
-                name for name in os.listdir(lock.generation_directory.fd)
+                name
+                for name in os.listdir(lock.generation_directory.fd)
                 if name.startswith("committed-build-")
             ]
             if len(generations) == 2:
@@ -2717,11 +3258,13 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
         with patch.object(
             ConstructorProjectBuildLock, "open_storage", failing_post_commit_open
         ):
-            result = orchestrate_build(self._request(
-                materialize=_materialize_ok,
-                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-                runner=runner,
-            ))
+            result = orchestrate_build(
+                self._request(
+                    materialize=_materialize_ok,
+                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                    runner=runner,
+                )
+            )
 
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
         self.assertEqual(4, _EXIT_CODES[result.exit_kind])
@@ -2732,7 +3275,8 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
         self.assertEqual(0, result.process_result.return_code)
         self.assertEqual("/tmp/effective.toml", result.publish_result.published_path)
         generations = sorted(
-            entry for entry in paths.persistent_root.iterdir()
+            entry
+            for entry in paths.persistent_root.iterdir()
             if entry.name.startswith("committed-build-")
         )
         self.assertEqual(2, len(generations))
@@ -2746,10 +3290,14 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
         paths = prepare_build_cache(self.repo, cache_root=self.cache)
         old = self._identity(b"unsafe-storage-prior")
         publish_verified_blob(
-            old, b"unsafe-storage-prior", constructor_project_root=self.repo,
+            old,
+            b"unsafe-storage-prior",
+            constructor_project_root=self.repo,
             cache_root=self.cache,
         )
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             mark_uncommitted_blob(
                 old, self.repo, lock=lock, verified_at=0, cache_root=self.cache
             )
@@ -2760,7 +3308,8 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
 
         def failing_post_commit_open(lock):
             generations = [
-                name for name in os.listdir(lock.generation_directory.fd)
+                name
+                for name in os.listdir(lock.generation_directory.fd)
                 if name.startswith("committed-build-")
             ]
             if len(generations) == 2:
@@ -2771,11 +3320,13 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
         with patch.object(
             ConstructorProjectBuildLock, "open_storage", failing_post_commit_open
         ):
-            result = orchestrate_build(self._request(
-                materialize=_materialize_ok,
-                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-                runner=runner,
-            ))
+            result = orchestrate_build(
+                self._request(
+                    materialize=_materialize_ok,
+                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                    runner=runner,
+                )
+            )
 
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
         self.assertEqual(4, _EXIT_CODES[result.exit_kind])
@@ -2784,7 +3335,8 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
         self.assertIn("Recovery is required", result.message)
         self.assertIn(str(boom), result.message)
         generations = sorted(
-            entry for entry in paths.persistent_root.iterdir()
+            entry
+            for entry in paths.persistent_root.iterdir()
             if entry.name.startswith("committed-build-")
         )
         self.assertEqual(2, len(generations))
@@ -2798,10 +3350,14 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
         paths = prepare_build_cache(self.repo, cache_root=self.cache)
         old = self._identity(b"storage-close-prior")
         publish_verified_blob(
-            old, b"storage-close-prior", constructor_project_root=self.repo,
+            old,
+            b"storage-close-prior",
+            constructor_project_root=self.repo,
             cache_root=self.cache,
         )
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             mark_uncommitted_blob(
                 old, self.repo, lock=lock, verified_at=0, cache_root=self.cache
             )
@@ -2822,14 +3378,17 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
 
         runner = FakeBuildExecutor()
         with patch.object(
-            build_cache_module._BuildStorageHandle, "__exit__",
+            build_cache_module._BuildStorageHandle,
+            "__exit__",
             failing_post_commit_close,
         ):
-            result = orchestrate_build(self._request(
-                materialize=_materialize_ok,
-                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-                runner=runner,
-            ))
+            result = orchestrate_build(
+                self._request(
+                    materialize=_materialize_ok,
+                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                    runner=runner,
+                )
+            )
 
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind, result.message)
         self.assertIn("newest build generation remains committed", result.message)
@@ -2838,7 +3397,8 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
         self.assertEqual(1, len(runner.calls))
         self.assertEqual(0, result.process_result.return_code)
         generations = [
-            entry for entry in paths.persistent_root.iterdir()
+            entry
+            for entry in paths.persistent_root.iterdir()
             if entry.name.startswith("committed-build-")
         ]
         self.assertEqual(1, len(generations))
@@ -2853,7 +3413,8 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
 
         def interrupting_post_commit_open(lock):
             generations = [
-                name for name in os.listdir(lock.generation_directory.fd)
+                name
+                for name in os.listdir(lock.generation_directory.fd)
                 if name.startswith("committed-build-")
             ]
             if generations:
@@ -2864,15 +3425,22 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
             release_calls.append(lock)
             return real_release(lock)
 
-        with patch.object(
-            ConstructorProjectBuildLock, "open_storage", interrupting_post_commit_open
-        ), patch.object(ConstructorProjectBuildLock, "release", recording_release):
+        with (
+            patch.object(
+                ConstructorProjectBuildLock,
+                "open_storage",
+                interrupting_post_commit_open,
+            ),
+            patch.object(ConstructorProjectBuildLock, "release", recording_release),
+        ):
             with self.assertRaises(KeyboardInterrupt) as ctx:
-                orchestrate_build(self._request(
-                    materialize=_materialize_ok,
-                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-                    runner=FakeBuildExecutor(),
-                ))
+                orchestrate_build(
+                    self._request(
+                        materialize=_materialize_ok,
+                        publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                        runner=FakeBuildExecutor(),
+                    )
+                )
         self.assertIs(ctx.exception, interrupt)
         self.assertEqual(1, len(release_calls))
         with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache):
@@ -2885,11 +3453,13 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
             side_effect=KeyboardInterrupt(),
         ):
             with self.assertRaises(KeyboardInterrupt):
-                orchestrate_build(self._request(
-                    materialize=lambda *_a, **_k: calls.append("materialize"),
-                    publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-                    runner=FakeBuildExecutor(),
-                ))
+                orchestrate_build(
+                    self._request(
+                        materialize=lambda *_a, **_k: calls.append("materialize"),
+                        publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                        runner=FakeBuildExecutor(),
+                    )
+                )
         # Interruption passes through unchanged and no build side effect ran.
         self.assertEqual([], calls)
         with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache):
@@ -2899,23 +3469,35 @@ class TestGenerationRecoveryBoundary(unittest.TestCase):
         paths = prepare_build_cache(self.repo, cache_root=self.cache)
         old = self._identity(b"stable-prior")
         publish_verified_blob(
-            old, b"stable-prior", constructor_project_root=self.repo, cache_root=self.cache
+            old,
+            b"stable-prior",
+            constructor_project_root=self.repo,
+            cache_root=self.cache,
         )
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
-            mark_uncommitted_blob(old, self.repo, lock=lock, verified_at=0, cache_root=self.cache)
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
+            mark_uncommitted_blob(
+                old, self.repo, lock=lock, verified_at=0, cache_root=self.cache
+            )
             commit_build_set(self.repo, {old}, lock=lock, cache_root=self.cache)
-        result = orchestrate_build(self._request(
-            materialize=_materialize_ok,
-            publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
-            runner=FakeBuildExecutor(),
-        ))
+        result = orchestrate_build(
+            self._request(
+                materialize=_materialize_ok,
+                publish=lambda *_a, **_k: PublishResult("/tmp/effective.toml"),
+                runner=FakeBuildExecutor(),
+            )
+        )
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
         generations = sorted(
-            entry.name for entry in paths.persistent_root.iterdir()
+            entry.name
+            for entry in paths.persistent_root.iterdir()
             if entry.name.startswith("committed-build-")
         )
         self.assertEqual(1, len(generations))
-        committed = json.loads((paths.persistent_root / generations[0]).read_text())["blobs"]
+        committed = json.loads((paths.persistent_root / generations[0]).read_text())[
+            "blobs"
+        ]
         self.assertNotIn(f"sha256:{old.hex_digest()}", committed)
         self.assertFalse(build_blob_path(paths.blobs_root, old).exists())
 
@@ -2977,10 +3559,12 @@ class TestPiMaterializationBoundary(unittest.TestCase):
             _transport_factory=transport_factory,
             _named_context_supported=lambda: True,
             _publish_projection=publish,
-        project_root=Path(str(self.inventory)).resolve().parent)
+            project_root=Path(str(self.inventory)).resolve().parent,
+        )
 
-    def _run_and_assert(self, *, materialize_pi, message_substr,
-                        transport_factory=None):
+    def _run_and_assert(
+        self, *, materialize_pi, message_substr, transport_factory=None
+    ):
         publish_calls: list[object] = []
 
         def publish(projection, *, repo_root=None):
@@ -2988,10 +3572,14 @@ class TestPiMaterializationBoundary(unittest.TestCase):
             return PublishResult(published_path="/tmp/effective.toml")
 
         runner = FakeBuildExecutor()
-        result = orchestrate_build(self._request(
-            publish=publish, runner=runner, materialize_pi=materialize_pi,
-            transport_factory=transport_factory,
-        ))
+        result = orchestrate_build(
+            self._request(
+                publish=publish,
+                runner=runner,
+                materialize_pi=materialize_pi,
+                transport_factory=transport_factory,
+            )
+        )
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
         self.assertIn(message_substr, result.message or "")
         self.assertIsNone(result.publish_result)
@@ -3011,6 +3599,7 @@ class TestPiMaterializationBoundary(unittest.TestCase):
     def test_release_acquisition_failure_is_operational(self):
         """A real ``materialize_pi`` acquisition/checksum failure (bad release
         transport bytes) surfaces as OPERATIONAL without Docker/publication."""
+
         class BadPiReleaseTransport:
             def __init__(self, policy):
                 self.policy = policy
@@ -3155,7 +3744,8 @@ class TestPiSnapshotAdmissionFailure(unittest.TestCase):
             _transport_factory=no_network_transport_factory,
             _named_context_supported=lambda: True,
             _publish_projection=publish,
-        project_root=Path(str(self.inventory)).resolve().parent)
+            project_root=Path(str(self.inventory)).resolve().parent,
+        )
 
     def test_snapshot_admission_failure_is_operational(self):
         publish_calls: list[object] = []
@@ -3181,6 +3771,7 @@ class TestPiSnapshotAdmissionFailure(unittest.TestCase):
 # Stage 9.4 — public API tests
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestPublicDoctorAPI(unittest.TestCase):
     """``diagnose_doctor`` and ``repair_rootless`` public functions."""
 
@@ -3193,13 +3784,15 @@ class TestPublicDoctorAPI(unittest.TestCase):
         result = repair_rootless(consent=True)
         self.assertIsInstance(result, DoctorResult)
         # May succeed, fail operationally, or return POLICY for rootful
-        self.assertIn(result.exit_kind,
-                       (ExitKind.SUCCESS, ExitKind.OPERATIONAL, ExitKind.POLICY))
+        self.assertIn(
+            result.exit_kind, (ExitKind.SUCCESS, ExitKind.OPERATIONAL, ExitKind.POLICY)
+        )
 
     def test_repair_rootless_without_consent_does_not_apply(self) -> None:
         result = repair_rootless(consent=False)
         self.assertIsInstance(result, DoctorResult)
         self.assertFalse(result.repair_applied)
+
 
 if __name__ == "__main__":
     unittest.main()

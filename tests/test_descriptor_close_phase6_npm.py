@@ -8,6 +8,7 @@ there was no explicit terminal ownership record, so the migration contract
 ``OwnedDescriptor``) is the RED part.  Characterization of bytes, mode, and
 publication visibility remains passing.
 """
+
 from __future__ import annotations
 
 import os

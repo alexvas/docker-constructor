@@ -15,6 +15,7 @@ policy, or touches transport, Docker, or the filesystem.  Session keys and
 fingerprints never enter rendered text, retained tails, failures, evidence,
 persistence, or policy identity.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -119,7 +120,9 @@ class DiagnosticIdentity:
         if not isinstance(self.stream, HostDiagnosticStream):
             raise TypeError("stream must be a HostDiagnosticStream member")
         if not isinstance(self.classification, HostDiagnosticClassification):
-            raise TypeError("classification must be a HostDiagnosticClassification member")
+            raise TypeError(
+                "classification must be a HostDiagnosticClassification member"
+            )
         if not isinstance(self.text, str):
             raise TypeError("diagnostic identity text must be a string")
         require_approved_url_fingerprints(self.url_fingerprints)

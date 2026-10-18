@@ -4,6 +4,7 @@ The caller retains opening, parsing and error-mapping policy. Prepare the sole
 release authority before invoking its opener; never enter the native stream
 context manager or independently own the underlying descriptor.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable, Generator
@@ -18,7 +19,7 @@ class _Closeable(Protocol):
 
 
 class _FileRelease[T: _Closeable]:
-    __slots__ = ('stream',)
+    __slots__ = ("stream",)
 
     def __init__(self) -> None:
         self.stream: T | None = None

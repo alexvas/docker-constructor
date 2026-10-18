@@ -105,6 +105,7 @@ markers are not validated hostname or fingerprint facts.  Classification says
 nothing about URL validity.  This module performs no detection, decoding or
 validation and nothing here is serialized.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -209,9 +210,7 @@ class DiagnosticCandidate:
             raise ValueError("start must be a non-negative raw character index")
         if self.end is not None:
             if isinstance(self.end, bool) or not isinstance(self.end, int):
-                raise TypeError(
-                    "end must be an integer raw character index or None"
-                )
+                raise TypeError("end must be an integer raw character index or None")
             if self.end <= self.start:
                 raise ValueError(
                     "end must be exclusive and strictly greater than start"
@@ -245,9 +244,7 @@ class SecretCoverage:
         if isinstance(self.end, bool) or not isinstance(self.end, int):
             raise TypeError("end must be an integer raw character index")
         if self.end <= self.start:
-            raise ValueError(
-                "end must be exclusive and strictly greater than start"
-            )
+            raise ValueError("end must be exclusive and strictly greater than start")
 
 
 @dataclass(frozen=True, slots=True)
@@ -296,9 +293,7 @@ class RecognitionResult:
             or not isinstance(self.retain_from, int)
             or self.retain_from < 0
         ):
-            raise ValueError(
-                "NEED_MORE requires a non-negative raw retain_from index"
-            )
+            raise ValueError("NEED_MORE requires a non-negative raw retain_from index")
 
     @classmethod
     def no_match(cls) -> "RecognitionResult":

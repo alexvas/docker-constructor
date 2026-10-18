@@ -24,6 +24,7 @@ The helpers below assemble fresh per-test project documents in temporary
 directories.  They are simple test-data assemblers, not schema validators
 or replicas of production algorithms.
 """
+
 from __future__ import annotations
 
 import base64
@@ -107,7 +108,9 @@ def rewrite_artifact_integrities(
 
     def _render(url: str) -> str:
         integrity = resolved.get(url) or artifact_integrity(
-            url, algorithm=algorithm, prefix=prefix,
+            url,
+            algorithm=algorithm,
+            prefix=prefix,
         )
         return f'url = "{url}"\nintegrity = "{integrity}"'
 
@@ -142,10 +145,7 @@ def remove_extension(text: str, name: str) -> str:
         match = _EXTENSION_HEADER.match(lines[i].strip())
         if match is not None and match.group("name") == name:
             removed = True
-            if (
-                out
-                and out[-1].strip() == f"# --- pi-extensions.{name} ---"
-            ):
+            if out and out[-1].strip() == f"# --- pi-extensions.{name} ---":
                 out.pop()
             i += 1
             pending: list[str] = []
@@ -169,7 +169,7 @@ def remove_extension(text: str, name: str) -> str:
     return "".join(out)
 
 
-_DOTTED_EXTENSION_TEMPLATE = '''
+_DOTTED_EXTENSION_TEMPLATE = """
 
 # --- pi-extensions.{name} ---
 [runtime.pi-extensions."{name}"]
@@ -194,7 +194,7 @@ scheme = "numeric"
 
 [runtime.pi-extensions."{name}".validation]
 metadata_file = "package.json"
-'''
+"""
 
 
 def with_dotted_extension(

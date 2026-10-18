@@ -54,7 +54,8 @@ class LockedNpmError(Exception):
         object.__setattr__(
             self,
             "summary",
-            summary or (
+            summary
+            or (
                 "locked npm assembly timed out"
                 if reason == "assembly_timeout"
                 else "locked npm assembly failed"

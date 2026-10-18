@@ -5,6 +5,7 @@ timestamps, bounded stdout/stderr, image inspection, checksums,
 redaction, failure handling, and a human-readable index — all through
 injected fake process runners and clocks without Docker.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -25,6 +26,7 @@ from docker.versioning.evidence import (
 # ═══════════════════════════════════════════════════════════════════════
 # Fake boundaries
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class _FakeClock:
     """Deterministic clock that returns pre-programmed epoch values."""
@@ -55,7 +57,10 @@ class _RecordingRunner:
         self.calls.append(tuple(argv))
         if self._idx >= len(self.responses):
             return ProcessResult(
-                argv=tuple(argv), return_code=0, stdout="", stderr="",
+                argv=tuple(argv),
+                return_code=0,
+                stdout="",
+                stderr="",
             )
         rc, out, err = self.responses[self._idx]
         self._idx += 1
@@ -71,8 +76,10 @@ class _FailingRunner:
 
     def run(self, argv: Sequence[str]) -> ProcessResult:
         return ProcessResult(
-            argv=tuple(argv), return_code=self._exit_code,
-            stdout="", stderr=self._stderr,
+            argv=tuple(argv),
+            return_code=self._exit_code,
+            stdout="",
+            stderr=self._stderr,
         )
 
 
@@ -131,8 +138,10 @@ class TestCollectEvidenceStub(unittest.TestCase):
         """Gate test — collect_evidence is now live (no longer a stub)."""
         runner = _RecordingRunner()
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner,
-            clock=_clock(), image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=_clock(),
+            image=_IMAGE,
         )
         self.assertIsInstance(bundle, EvidenceBundle)
 
@@ -178,9 +187,14 @@ class TestEvidenceCommandModel(unittest.TestCase):
 
     def test_immutable(self) -> None:
         cmd = EvidenceCommand(
-            argv=("cmd",), return_code=0, timestamp_epoch=_T0,
-            duration_seconds=1.0, stdout_file="o", stderr_file="e",
-            stdout_sha256="a", stderr_sha256="b",
+            argv=("cmd",),
+            return_code=0,
+            timestamp_epoch=_T0,
+            duration_seconds=1.0,
+            stdout_file="o",
+            stderr_file="e",
+            stdout_sha256="a",
+            stderr_sha256="b",
         )
         with self.assertRaises(Exception):
             cmd.argv = ("other",)  # type: ignore[misc]
@@ -197,14 +211,22 @@ class TestEvidenceBundleModel(unittest.TestCase):
     def test_fields(self) -> None:
         out = Path("/tmp/bundle")
         cmd = EvidenceCommand(
-            argv=("cmd",), return_code=0, timestamp_epoch=_T0,
-            duration_seconds=0.5, stdout_file="o.log", stderr_file="e.log",
-            stdout_sha256="sha", stderr_sha256="sha",
+            argv=("cmd",),
+            return_code=0,
+            timestamp_epoch=_T0,
+            duration_seconds=0.5,
+            stdout_file="o.log",
+            stderr_file="e.log",
+            stdout_sha256="sha",
+            stderr_sha256="sha",
         )
         note = EvidenceNote(key="image", detail="ok")
         bundle = EvidenceBundle(
-            commands=(cmd,), notes=(note,), output_dir=out,
-            index_path=out / "index.txt", dry_run=False,
+            commands=(cmd,),
+            notes=(note,),
+            output_dir=out,
+            index_path=out / "index.txt",
+            dry_run=False,
         )
         self.assertEqual((cmd,), bundle.commands)
         self.assertEqual((note,), bundle.notes)
@@ -226,7 +248,10 @@ class TestCommandRecording(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "ok\n", "")])
         clk = _clock(0.5, 0.1)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         self.assertEqual(1, len(bundle.commands))
         self.assertEqual(("docker", "inspect", _IMAGE), bundle.commands[0].argv)
@@ -236,7 +261,10 @@ class TestCommandRecording(unittest.TestCase):
         runner = _RecordingRunner(responses=[(2, "", "fatal\n")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         self.assertEqual(2, bundle.commands[0].return_code)
 
@@ -245,7 +273,10 @@ class TestCommandRecording(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "", "")])
         clk = _clock(0.5, 0.1)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         self.assertGreaterEqual(bundle.commands[0].duration_seconds, 0.0)
 
@@ -254,7 +285,10 @@ class TestCommandRecording(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "", "")])
         clk = _clock(3.0, 0.1)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         self.assertEqual(_T0, bundle.commands[0].timestamp_epoch)
 
@@ -263,7 +297,10 @@ class TestCommandRecording(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "", "")])
         clk = _clock(0.75)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         self.assertAlmostEqual(0.75, bundle.commands[0].duration_seconds, delta=0.001)
 
@@ -272,7 +309,10 @@ class TestCommandRecording(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "", ""), (0, "", "")])
         clk = _clock(1.0, 2.0, 3.0, 4.0)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
             commands=[("cmd1",), ("cmd2",)],
         )
         self.assertEqual(2, len(bundle.commands))
@@ -294,7 +334,10 @@ class TestBoundedOutput(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "hello world\n", "")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         cmd = bundle.commands[0]
         self.assertIsNotNone(cmd.stdout_file)
@@ -306,7 +349,10 @@ class TestBoundedOutput(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "", "warning\n")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         cmd = bundle.commands[0]
         self.assertIsNotNone(cmd.stderr_file)
@@ -319,7 +365,10 @@ class TestBoundedOutput(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "data\n", "err\n")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         cmd = bundle.commands[0]
         self.assertEqual(hashlib.sha256(b"data\n").hexdigest(), cmd.stdout_sha256)
@@ -330,7 +379,10 @@ class TestBoundedOutput(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "", "")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         cmd = bundle.commands[0]
         empty_hash = hashlib.sha256(b"").hexdigest()
@@ -355,8 +407,11 @@ class TestOutputTruncation(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, oversized, "")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, max_output_bytes=self._BOUND,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            max_output_bytes=self._BOUND,
         )
         cmd = bundle.commands[0]
         self.assertIsNotNone(cmd.stdout_file)
@@ -369,8 +424,11 @@ class TestOutputTruncation(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "", oversized)])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, max_output_bytes=self._BOUND,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            max_output_bytes=self._BOUND,
         )
         cmd = bundle.commands[0]
         self.assertIsNotNone(cmd.stderr_file)
@@ -385,8 +443,11 @@ class TestOutputTruncation(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, oversized, "")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, max_output_bytes=bound,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            max_output_bytes=bound,
         )
         cmd = bundle.commands[0]
         self.assertTrue(cmd.stdout_truncated)
@@ -400,8 +461,11 @@ class TestOutputTruncation(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "", oversized)])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, max_output_bytes=bound,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            max_output_bytes=bound,
         )
         cmd = bundle.commands[0]
         self.assertTrue(cmd.stderr_truncated)
@@ -414,8 +478,11 @@ class TestOutputTruncation(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, small, small)])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, max_output_bytes=4096,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            max_output_bytes=4096,
         )
         cmd = bundle.commands[0]
         self.assertFalse(cmd.stdout_truncated)
@@ -435,8 +502,11 @@ class TestOutputTruncation(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, big_out, big_err)])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, max_output_bytes=bound,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            max_output_bytes=bound,
         )
         cmd = bundle.commands[0]
         self.assertTrue(cmd.stdout_truncated)
@@ -457,13 +527,18 @@ class TestOutputTruncation(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, oversized, "")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, max_output_bytes=bound,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            max_output_bytes=bound,
         )
         cmd = bundle.commands[0]
         out_path = bundle.output_dir / cmd.stdout_file  # type: ignore[arg-type]
         truncated_content = out_path.read_text()
-        self.assertEqual(hashlib.sha256(truncated_content.encode()).hexdigest(), cmd.stdout_sha256)
+        self.assertEqual(
+            hashlib.sha256(truncated_content.encode()).hexdigest(), cmd.stdout_sha256
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -478,7 +553,10 @@ class TestImageInspection(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, '{"Id":"sha256:abc"}', "")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
             commands=[("docker", "inspect", _IMAGE)],
         )
         inspect_argv = runner.calls[0]
@@ -486,12 +564,17 @@ class TestImageInspection(unittest.TestCase):
         self.assertIn(_IMAGE, inspect_argv)
 
     def test_image_id_recorded_as_note(self) -> None:
-        runner = _RecordingRunner(responses=[
-            (0, '[{"Id":"sha256:deadbeef"}]', ""),
-        ])
+        runner = _RecordingRunner(
+            responses=[
+                (0, '[{"Id":"sha256:deadbeef"}]', ""),
+            ]
+        )
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
             commands=[("docker", "inspect", _IMAGE), ("echo", "hi")],
         )
         self.assertTrue(any(n.key == "image-inspect" for n in bundle.notes))
@@ -503,7 +586,10 @@ class TestImageInspection(unittest.TestCase):
         runner = _RecordingRunner(responses=[(1, "", "no such image")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
             commands=[("docker", "inspect", _IMAGE)],
         )
         self.assertTrue(any(n.key == "image-inspect" for n in bundle.notes))
@@ -518,10 +604,15 @@ class TestBundleChecksums(unittest.TestCase):
     """The overall bundle is checksummed for integrity verification."""
 
     def test_every_command_has_stdout_and_stderr_checksum(self) -> None:
-        runner = _RecordingRunner(responses=[(0, "alpha", "beta"), (0, "gamma", "delta")])
+        runner = _RecordingRunner(
+            responses=[(0, "alpha", "beta"), (0, "gamma", "delta")]
+        )
         clk = _clock(0.1, 0.2, 0.0, 0.3)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         for cmd in bundle.commands:
             self.assertIsNotNone(cmd.stdout_sha256)
@@ -532,8 +623,11 @@ class TestBundleChecksums(unittest.TestCase):
         runner = _RecordingRunner(responses=[])
         clk = _clock(0.0)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, dry_run=True,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            dry_run=True,
         )
         for cmd in bundle.commands:
             self.assertIsNone(cmd.stdout_sha256)
@@ -553,9 +647,15 @@ class TestRedaction(unittest.TestCase):
     executed."""
 
     _SECRET_CMD: tuple[str, ...] = (
-        "docker", "run", "-e", "SECRET_TOKEN=s3cret!",
-        "-v", "/home/dev/project:/home/dev/work",
-        _IMAGE, "sleep", "infinity",
+        "docker",
+        "run",
+        "-e",
+        "SECRET_TOKEN=s3cret!",
+        "-v",
+        "/home/dev/project:/home/dev/work",
+        _IMAGE,
+        "sleep",
+        "infinity",
     )
 
     def test_env_value_scrubbed_from_recorded_argv(self) -> None:
@@ -566,8 +666,11 @@ class TestRedaction(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "", "")])
         clk = _clock(0.1, 0.2, 0.0, 0.1)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, commands=[self._SECRET_CMD],
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            commands=[self._SECRET_CMD],
         )
         # 1. The runner was called with the raw secret.
         original = runner.calls[0]
@@ -586,17 +689,24 @@ class TestRedaction(unittest.TestCase):
         """Host filesystem paths (``-v /host:...``) are preserved
         verbatim while neighbouring ``-e`` values are redacted."""
         cmd_with_path = (
-            "docker", "run",
-            "-e", "ANOTHER_TOKEN=passw0rd",
-            "-v", "/tmp/my-project:/home/dev/work",
-            "-e", "DEBUG=1",
+            "docker",
+            "run",
+            "-e",
+            "ANOTHER_TOKEN=passw0rd",
+            "-v",
+            "/tmp/my-project:/home/dev/work",
+            "-e",
+            "DEBUG=1",
             _IMAGE,
         )
         runner = _RecordingRunner(responses=[(0, "", "")])
         clk = _clock(0.1, 0.2, 0.0, 0.1)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, commands=[cmd_with_path],
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            commands=[cmd_with_path],
         )
         recorded = bundle.commands[0]
         argv_joined = " ".join(recorded.argv)
@@ -620,8 +730,11 @@ class TestRedaction(unittest.TestCase):
         )
         clk = _clock(0.1, 0.2, 0.0, 0.1)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, commands=[cmd],
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            commands=[cmd],
         )
         self.assertGreaterEqual(len(bundle.commands), 1)
         recorded = bundle.commands[0]
@@ -646,7 +759,10 @@ class TestFailureHandling(unittest.TestCase):
         runner = _RecordingRunner(responses=[(1, "", "build failed"), (0, "ok", "")])
         clk = _clock(0.1, 0.2, 0.0, 0.3)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
             commands=[("docker", "inspect", _IMAGE), ("c1",)],
         )
         self.assertEqual(2, len(bundle.commands))
@@ -654,12 +770,19 @@ class TestFailureHandling(unittest.TestCase):
         self.assertTrue(any(c.return_code == 0 for c in bundle.commands))
 
     def test_all_commands_run_even_after_failures(self) -> None:
-        runner = _RecordingRunner(responses=[
-            (1, "", "fail 1"), (2, "", "fail 2"), (0, "final ok", ""),
-        ])
+        runner = _RecordingRunner(
+            responses=[
+                (1, "", "fail 1"),
+                (2, "", "fail 2"),
+                (0, "final ok", ""),
+            ]
+        )
         clk = _clock(0.1, 0.2, 0.0, 0.3, 0.0, 0.1)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
             commands=[("f1",), ("f2",), ("ok",)],
         )
         self.assertEqual(3, len(bundle.commands))
@@ -672,8 +795,11 @@ class TestFailureHandling(unittest.TestCase):
         runner = _TimeoutRunner(stdout=partial_out, stderr="timed out\n")
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, commands=[("slow-cmd",)],
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            commands=[("slow-cmd",)],
         )
         self.assertEqual(1, len(bundle.commands))
         cmd = bundle.commands[0]
@@ -688,8 +814,11 @@ class TestFailureHandling(unittest.TestCase):
         runner = _ExecErrorRunner(message="No such file or directory")
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, commands=[("nonexistent",)],
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            commands=[("nonexistent",)],
         )
         self.assertEqual(1, len(bundle.commands))
         cmd = bundle.commands[0]
@@ -701,25 +830,33 @@ class TestFailureHandling(unittest.TestCase):
     def test_collection_continues_after_timeout(self) -> None:
         """A timeout on one command does not prevent subsequent
         commands from running."""
+
         # First command times out, second succeeds.
         class _Mixed:
             def __init__(self):
                 self.calls: list[tuple[str, ...]] = []
                 self._count = 0
+
             def run(self, argv: Sequence[str]) -> ProcessResult:
                 self.calls.append(tuple(argv))
                 self._count += 1
                 if self._count == 1:
                     raise TimeoutError("", "timeout", tuple(argv))
                 return ProcessResult(
-                    argv=tuple(argv), return_code=0,
-                    stdout="recovered", stderr="",
+                    argv=tuple(argv),
+                    return_code=0,
+                    stdout="recovered",
+                    stderr="",
                 )
+
         runner = _Mixed()
         clk = _clock(0.1, 0.2, 0.0, 0.3)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, commands=[("slow-cmd",), ("fast-cmd",)],
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            commands=[("slow-cmd",), ("fast-cmd",)],
         )
         self.assertEqual(2, len(bundle.commands))
         self.assertEqual(124, bundle.commands[0].return_code)
@@ -728,24 +865,32 @@ class TestFailureHandling(unittest.TestCase):
     def test_collection_continues_after_exec_error(self) -> None:
         """An exec error on one command does not prevent subsequent
         commands from running."""
+
         class _Mixed:
             def __init__(self):
                 self.calls: list[tuple[str, ...]] = []
                 self._count = 0
+
             def run(self, argv: Sequence[str]) -> ProcessResult:
                 self.calls.append(tuple(argv))
                 self._count += 1
                 if self._count == 1:
                     raise OSError("command not found")
                 return ProcessResult(
-                    argv=tuple(argv), return_code=0,
-                    stdout="recovered", stderr="",
+                    argv=tuple(argv),
+                    return_code=0,
+                    stdout="recovered",
+                    stderr="",
                 )
+
         runner = _Mixed()
         clk = _clock(0.1, 0.2, 0.0, 0.3)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, commands=[("bad-cmd",), ("good-cmd",)],
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            commands=[("bad-cmd",), ("good-cmd",)],
         )
         self.assertEqual(2, len(bundle.commands))
         self.assertEqual(126, bundle.commands[0].return_code)
@@ -765,8 +910,11 @@ class TestDryRun(unittest.TestCase):
         runner = _RecordingRunner(responses=[])
         clk = _clock(0.0)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, dry_run=True,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            dry_run=True,
         )
         self.assertEqual(0, len(runner.calls))
         self.assertTrue(bundle.dry_run)
@@ -775,8 +923,11 @@ class TestDryRun(unittest.TestCase):
         runner = _RecordingRunner(responses=[])
         clk = _clock(0.0)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, dry_run=True,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            dry_run=True,
         )
         for cmd in bundle.commands:
             self.assertTrue(cmd.skipped)
@@ -787,8 +938,11 @@ class TestDryRun(unittest.TestCase):
         runner = _RecordingRunner(responses=[])
         clk = _clock(0.0)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk,
-            image=_IMAGE, dry_run=True,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
+            dry_run=True,
         )
         for cmd in bundle.commands:
             self.assertEqual(_T0, cmd.timestamp_epoch)
@@ -809,7 +963,10 @@ class TestHumanReadableIndex(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "", "")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         self.assertTrue(bundle.index_path.is_file())
         # index_path must live under output_dir
@@ -820,7 +977,10 @@ class TestHumanReadableIndex(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "", "")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         index_text = bundle.index_path.read_text()
         self.assertIn(_IMAGE, index_text)
@@ -831,7 +991,10 @@ class TestHumanReadableIndex(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "", "")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         index_text = bundle.index_path.read_text()
         # The epoch value or a human-readable rendering must appear.
@@ -846,7 +1009,10 @@ class TestHumanReadableIndex(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "ok1", ""), (1, "", "fail")])
         clk = _clock(0.1, 0.2, 0.0, 0.3)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
             commands=[("c1",), ("c2",)],
         )
         index_text = bundle.index_path.read_text()
@@ -864,13 +1030,18 @@ class TestHumanReadableIndex(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "", ""), (1, "", "err")])
         clk = _clock(0.1, 0.2, 0.0, 0.3)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         index_text = bundle.index_path.read_text().lower()
         # At least one of these status words must appear.
         self.assertTrue(
-            "fail" in index_text or "pass" in index_text
-            or "success" in index_text or "error" in index_text,
+            "fail" in index_text
+            or "pass" in index_text
+            or "success" in index_text
+            or "error" in index_text,
             f"no pass/fail indicator in index:\n{index_text}",
         )
 
@@ -880,23 +1051,33 @@ class TestHumanReadableIndex(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "data", "")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         index_text = bundle.index_path.read_text()
         # A hash-like hex string (at least 32 chars) must appear.
         self.assertTrue(
-            any(len(token) >= 32 and all(c in "0123456789abcdef" for c in token.lower())
-                for token in index_text.split()),
+            any(
+                len(token) >= 32 and all(c in "0123456789abcdef" for c in token.lower())
+                for token in index_text.split()
+            ),
             f"no hash-like token in index:\n{index_text}",
         )
 
     def test_index_references_stdout_stderr_paths(self) -> None:
         """The index references the captured stdout/stderr files so a
         human can navigate to them."""
-        runner = _RecordingRunner(responses=[(0, "alpha", "beta"), (0, "gamma", "delta")])
+        runner = _RecordingRunner(
+            responses=[(0, "alpha", "beta"), (0, "gamma", "delta")]
+        )
         clk = _clock(0.1, 0.2, 0.0, 0.3)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         index_text = bundle.index_path.read_text()
         for cmd in bundle.commands:
@@ -918,7 +1099,10 @@ class TestStaticNotes(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "", "")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         self.assertTrue(any(n.key == "host-metadata" for n in bundle.notes))
 
@@ -926,7 +1110,10 @@ class TestStaticNotes(unittest.TestCase):
         runner = _RecordingRunner(responses=[(0, "", "")])
         clk = _clock(0.1, 0.2)
         bundle = collect_evidence(
-            output_dir=Path(_tmp_dir()), runner=runner, clock=clk, image=_IMAGE,
+            output_dir=Path(_tmp_dir()),
+            runner=runner,
+            clock=clk,
+            image=_IMAGE,
         )
         self.assertTrue(any(n.key == "git-sha" for n in bundle.notes))
 

@@ -1,4 +1,5 @@
 """Host-side selection and streaming materialization of reviewed build artifacts."""
+
 from __future__ import annotations
 
 import hashlib
@@ -18,17 +19,27 @@ from docker.filesystem.operations import DescriptorOps, PosixDescriptorOps
 from docker.transactions.cleanup import CleanupFailures
 from docker.versioning.activity_monitor import HostActivityMonitor
 from docker.versioning.build_cache import (
-    BLOB_EXTENSION, BuildCacheError, ConstructorProjectBuildLock, build_blob_path,
-    mark_uncommitted_blob, prepare_build_cache,
+    BLOB_EXTENSION,
+    BuildCacheError,
+    ConstructorProjectBuildLock,
+    build_blob_path,
+    mark_uncommitted_blob,
+    prepare_build_cache,
 )
 from docker.versioning.diagnostic_projection import (
-    DiagnosticLogicalResource, DiagnosticResourceKind,
+    DiagnosticLogicalResource,
+    DiagnosticResourceKind,
     project_host_acquisition_failure,
 )
 from docker.versioning.digest_identity import DigestIdentity
 from docker.versioning.host_progress import (
-    HostEventSink, HostPhase, HostStep, HostStepEvent, HostStepState,
-    attach_host_failure, emit,
+    HostEventSink,
+    HostPhase,
+    HostStep,
+    HostStepEvent,
+    HostStepState,
+    attach_host_failure,
+    emit,
 )
 from docker.versioning.project_state import ProjectState
 from docker.versioning.model import EffectiveBuildProjection
@@ -57,16 +68,22 @@ class StreamingTransport(Protocol):
 
 class UrllibStreamingTransport:
     """One host HTTP policy implementation; response bodies are never buffered."""
+
     def __init__(self, policy: HostNetworkPolicy = HostNetworkPolicy()) -> None:
         handlers: list[urllib.request.BaseHandler] = []
         if policy.proxy_url is not None:
-            handlers.append(urllib.request.ProxyHandler({
-                "http": policy.proxy_url, "https": policy.proxy_url,
-            }))
+            handlers.append(
+                urllib.request.ProxyHandler(
+                    {
+                        "http": policy.proxy_url,
+                        "https": policy.proxy_url,
+                    }
+                )
+            )
         if policy.ca_bundle is not None:
             try:
                 context = ssl.create_default_context(cafile=os.fspath(policy.ca_bundle))
-            except (OSError, ssl.SSLError):
+            except OSError, ssl.SSLError:
                 raise MaterializationError(
                     "host artifact transport configuration failed"
                 ) from None
@@ -87,7 +104,9 @@ class UrllibStreamingTransport:
             ) from exc
 
 
-def select_build_artifacts(projection: EffectiveBuildProjection) -> tuple[SelectedBuildArtifact, ...]:
+def select_build_artifacts(
+    projection: EffectiveBuildProjection,
+) -> tuple[SelectedBuildArtifact, ...]:
     """Select exactly the four effective artifacts supported by this change."""
     if projection.platform != "linux-amd64":
         raise MaterializationError(
@@ -100,12 +119,18 @@ def select_build_artifacts(projection: EffectiveBuildProjection) -> tuple[Select
         ("fd", projection.fd.artifact),
     )
     try:
-        return tuple(SelectedBuildArtifact(
-            name=name, url=artifact.url,
-            identity=DigestIdentity.from_hex("sha256", artifact.sha256),
-        ) for name, artifact in values)
+        return tuple(
+            SelectedBuildArtifact(
+                name=name,
+                url=artifact.url,
+                identity=DigestIdentity.from_hex("sha256", artifact.sha256),
+            )
+            for name, artifact in values
+        )
     except (TypeError, ValueError) as exc:
-        raise MaterializationError(f"invalid reviewed build-artifact digest: {exc}") from None
+        raise MaterializationError(
+            f"invalid reviewed build-artifact digest: {exc}"
+        ) from None
 
 
 def _verify_hit(path: Path, identity: DigestIdentity) -> bool:
@@ -114,11 +139,13 @@ def _verify_hit(path: Path, identity: DigestIdentity) -> bool:
         if not stat.S_ISREG(st.st_mode) or stat.S_IMODE(st.st_mode) != 0o444:
             return False
         digest = hashlib.new(identity.algorithm)
-        with owned_file(lambda: path.open("rb"), label="cached artifact verification") as source:
+        with owned_file(
+            lambda: path.open("rb"), label="cached artifact verification"
+        ) as source:
             while chunk := source.read(1024 * 1024):
                 digest.update(chunk)
         return digest.digest() == identity.digest_bytes
-    except (FileNotFoundError, OSError):
+    except FileNotFoundError, OSError:
         return False
 
 
@@ -145,9 +172,13 @@ def _remove_owned_entry(name: str) -> None:
 
 
 def materialize_artifact(
-    selected: SelectedBuildArtifact, *, constructor_project_root: str | Path,
-    transport: StreamingTransport, cache_root: str | Path | None = None,
-    project_state: ProjectState | None = None, lock: ConstructorProjectBuildLock | None = None,
+    selected: SelectedBuildArtifact,
+    *,
+    constructor_project_root: str | Path,
+    transport: StreamingTransport,
+    cache_root: str | Path | None = None,
+    project_state: ProjectState | None = None,
+    lock: ConstructorProjectBuildLock | None = None,
     progress: Callable[[int], object] | None = None,
     on_cache_hit: Callable[[], None] | None = None,
 ) -> Path:
@@ -157,14 +188,18 @@ def materialize_artifact(
     existing streaming boundary yields; it is never called for a verified
     cache hit. ``on_cache_hit`` reports verified reuse without adding a request.
     """
-    paths = prepare_build_cache(constructor_project_root, cache_root=cache_root, project_state=project_state)
+    paths = prepare_build_cache(
+        constructor_project_root, cache_root=cache_root, project_state=project_state
+    )
     destination = build_blob_path(paths.blobs_root, selected.identity)
     if _verify_hit(destination, selected.identity):
         if on_cache_hit is not None:
             on_cache_hit()
         return destination
     if destination.exists() or destination.is_symlink():
-        raise MaterializationError(f"unsafe or corrupt cached artifact {selected.name!r}")
+        raise MaterializationError(
+            f"unsafe or corrupt cached artifact {selected.name!r}"
+        )
 
     destination.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     fd, temporary_name = tempfile.mkstemp(prefix=".materialize-", dir=paths.tmp_root)
@@ -173,7 +208,8 @@ def materialize_artifact(
     # protected, so an initialization failure can neither leak the descriptor
     # nor leave the temporary entry behind.
     output_owner = OwnedDescriptor(
-        cast(DescriptorOps, PosixDescriptorOps()), fd,
+        cast(DescriptorOps, PosixDescriptorOps()),
+        fd,
         label=f"materialize temporary {temporary_name}",
     )
     temporary: Path | None = None
@@ -232,12 +268,17 @@ def materialize_artifact(
         if lock is not None:
             try:
                 mark_uncommitted_blob(
-                    selected.identity, constructor_project_root, lock=lock,
-                    cache_root=cache_root, project_state=project_state,
+                    selected.identity,
+                    constructor_project_root,
+                    lock=lock,
+                    cache_root=cache_root,
+                    project_state=project_state,
                 )
             except BaseException as primary:
                 failures = CleanupFailures(primary)
-                failures.run(lambda: _remove_owned_leaf(destination), ordinary=(OSError,))
+                failures.run(
+                    lambda: _remove_owned_leaf(destination), ordinary=(OSError,)
+                )
                 result = failures.complete()
                 if result is not None:
                     raise result
@@ -273,9 +314,13 @@ def materialize_artifact(
 
 
 def materialize_build_artifacts(
-    projection: EffectiveBuildProjection, *, constructor_project_root: str | Path,
-    transport: StreamingTransport, cache_root: str | Path | None = None,
-    project_state: ProjectState | None = None, lock: ConstructorProjectBuildLock | None = None,
+    projection: EffectiveBuildProjection,
+    *,
+    constructor_project_root: str | Path,
+    transport: StreamingTransport,
+    cache_root: str | Path | None = None,
+    project_state: ProjectState | None = None,
+    lock: ConstructorProjectBuildLock | None = None,
     event_sink: HostEventSink | None = None,
     monitor_factory: Callable[[str], HostActivityMonitor] | None = None,
     failure_secrets: Sequence[str] = (),
@@ -297,7 +342,8 @@ def materialize_build_artifacts(
             DiagnosticLogicalResource(
                 DiagnosticResourceKind.REVIEWED_ARTIFACT, selected.name
             )
-            if observed else None
+            if observed
+            else None
         )
         logical_name: str | None = resource.name if resource is not None else None
         monitor: HostActivityMonitor | None = None
@@ -318,21 +364,31 @@ def materialize_build_artifacts(
             emit(
                 event_sink,
                 HostStepEvent(
-                    HostPhase.RELEASE_ACQUISITION, HostStep.CACHE_REUSE,
-                    HostStepState.SUCCEEDED, False, name,
+                    HostPhase.RELEASE_ACQUISITION,
+                    HostStep.CACHE_REUSE,
+                    HostStepState.SUCCEEDED,
+                    False,
+                    name,
                 ),
             )
 
         try:
-            results.append(materialize_artifact(
-                selected, constructor_project_root=constructor_project_root,
-                transport=transport, cache_root=cache_root,
-                project_state=project_state, lock=lock,
-                progress=(
-                    monitor.record_transport_progress if monitor is not None else None
-                ),
-                on_cache_hit=on_cache_hit,
-            ))
+            results.append(
+                materialize_artifact(
+                    selected,
+                    constructor_project_root=constructor_project_root,
+                    transport=transport,
+                    cache_root=cache_root,
+                    project_state=project_state,
+                    lock=lock,
+                    progress=(
+                        monitor.record_transport_progress
+                        if monitor is not None
+                        else None
+                    ),
+                    on_cache_hit=on_cache_hit,
+                )
+            )
         except BaseException as exc:
             failure_resource = resource or DiagnosticLogicalResource(
                 DiagnosticResourceKind.REVIEWED_ARTIFACT, selected.name

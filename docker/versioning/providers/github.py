@@ -3,6 +3,7 @@
 Queries https://api.github.com/repos/<repo>/releases for latest stable release
 with required platform assets and published checksums.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,15 +22,11 @@ from ..model import (
 from ..semver import SemanticVersion, parse
 
 # Strip v-prefix for semver parsing
-_SEMVER_TAG_RE = re.compile(
-    r"^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-.*)?$"
-)
+_SEMVER_TAG_RE = re.compile(r"^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-.*)?$")
 
 # Match checksum lines: <64 hex>  <filename>  (from SHA256SUMS-style files)
 # or <64 hex> *<filename> (binary mode)
-_CHECKSUM_LINE_RE = re.compile(
-    r"^([0-9a-fA-F]{64})\s+[*\s]?(.+?)\s*$"
-)
+_CHECKSUM_LINE_RE = re.compile(r"^([0-9a-fA-F]{64})\s+[*\s]?(.+?)\s*$")
 
 # Recognise asset names that are checksum files
 _CHKSUM_ASSET_RE = re.compile(
@@ -48,7 +45,7 @@ _CHECKSUM_NEAR_ASSET_RE_TEMPLATE = re.escape
 
 def _strip_prefix(tag: str, prefix: str) -> str:
     if prefix and tag.startswith(prefix):
-        return tag[len(prefix):]
+        return tag[len(prefix) :]
     return tag
 
 
@@ -281,7 +278,7 @@ def _resolve_asset_companion_checksum(
         # Companion name: starts with asset_name, ends with .sha256 / .sha256sum
         if not name.startswith(asset_name):
             continue
-        suffix = name[len(asset_name):]
+        suffix = name[len(asset_name) :]
         if not _COMPANION_RE.match(suffix):
             continue
 
@@ -365,9 +362,7 @@ class GitHubReleaseProvider:
 
         if resp.status in (403, 429):
             return ProviderResult(
-                unavailable_reason=(
-                    f"GitHub API rate-limited (HTTP {resp.status})"
-                )
+                unavailable_reason=(f"GitHub API rate-limited (HTTP {resp.status})")
             )
         if resp.status != 200:
             return ProviderResult(
@@ -389,13 +384,12 @@ class GitHubReleaseProvider:
         best_tag, best_rel = _best_release(data, prefix, stable_only)
         if best_tag is None or best_rel is None:
             return ProviderResult(
-                skipped_reason=(
-                    f"GitHub API: no suitable releases for {repo}"
-                )
+                skipped_reason=(f"GitHub API: no suitable releases for {repo}")
             )
 
         current = target.current
         from ..model import _validate_utc_rfc3339
+
         raw_published_at = best_rel.get("published_at")
         published_at = _validate_utc_rfc3339(
             raw_published_at if isinstance(raw_published_at, str) else None
@@ -430,10 +424,11 @@ class GitHubReleaseProvider:
         release_body = best_rel.get("body", "")
         body_text = release_body if isinstance(release_body, str) else ""
         raw_assets = best_rel.get("assets")
-        assets_list: list[dict[str, object]] = [
-            a for a in raw_assets
-            if isinstance(a, dict)
-        ] if isinstance(raw_assets, list) else []
+        assets_list: list[dict[str, object]] = (
+            [a for a in raw_assets if isinstance(a, dict)]
+            if isinstance(raw_assets, list)
+            else []
+        )
         checksum_map = _resolve_checksums(assets_list, context)
 
         def _get_checksum(asset_name: str, asset: dict[str, object]) -> Optional[str]:
@@ -443,7 +438,9 @@ class GitHubReleaseProvider:
                 return digest
             # 1. Asset-level companion file
             digest = _resolve_asset_companion_checksum(
-                asset_name, assets_list, context,
+                asset_name,
+                assets_list,
+                context,
             )
             if digest is not None:
                 return digest
@@ -460,9 +457,7 @@ class GitHubReleaseProvider:
             if current_art is None:
                 continue
 
-            asset = _find_asset(
-                best_rel, current_art.url, current, best_tag, prefix
-            )
+            asset = _find_asset(best_rel, current_art.url, current, best_tag, prefix)
             if asset is None:
                 continue
 

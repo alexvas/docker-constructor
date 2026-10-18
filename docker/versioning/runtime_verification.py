@@ -82,6 +82,7 @@ injected *runner*.  The effective runtime projection is read from the
 host only — it is NEVER mounted or passed into the container as part
 of verification.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -148,6 +149,7 @@ class ProcessRunner(Protocol):
 @dataclass(frozen=True)
 class RuntimeCheck:
     """A single runtime-property observation."""
+
     key: str
     """Unique check key (e.g. ``"projection.identity"``)."""
     ok: bool
@@ -172,6 +174,7 @@ class RuntimeCheck:
 @dataclass(frozen=True)
 class RuntimeVerificationResult:
     """Complete result of a runtime verification pass."""
+
     container: str
     checks: tuple[RuntimeCheck, ...]
     all_ok: bool
@@ -186,7 +189,8 @@ class RuntimeVerificationResult:
 @dataclass(frozen=True)
 class VerifyRuntimeRequest:
     """Request to verify a running container against host-side runtime
-expectations."""
+    expectations."""
+
     container: str
     """Container name or ID to inspect via ``docker exec``."""
     runtime_projection_path: Path
@@ -269,42 +273,63 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
         """Run ``docker exec <container> ...``."""
         return runner.run(("docker", "exec", container, *cmd))
 
-    def _add(key: str, ok: bool, detail: str,
-             result: ProcessOutcome | None = None,
-             *, redact_output: bool = False) -> None:
-        checks.append(RuntimeCheck(
-            key=key, ok=ok, detail=detail,
-            command=result.argv if result is not None else None,
-            exit_code=result.return_code if result is not None else None,
-            raw_stdout=(
-                None if result is None or redact_output else result.stdout
-            ),
-            raw_stderr=(
-                None if result is None or redact_output else result.stderr
-            ),
-        ))
+    def _add(
+        key: str,
+        ok: bool,
+        detail: str,
+        result: ProcessOutcome | None = None,
+        *,
+        redact_output: bool = False,
+    ) -> None:
+        checks.append(
+            RuntimeCheck(
+                key=key,
+                ok=ok,
+                detail=detail,
+                command=result.argv if result is not None else None,
+                exit_code=result.return_code if result is not None else None,
+                raw_stdout=(None if result is None or redact_output else result.stdout),
+                raw_stderr=(None if result is None or redact_output else result.stderr),
+            )
+        )
 
     # ── projection.identity ──────────────────────────────────────────
     r = _exec(("sha256sum", "/run/pi-cli/docker-constructor.runtime.toml"))
     if r.return_code != 0:
-        _add("projection.identity", False,
-             f"sha256sum failed (exit {r.return_code}): {r.stderr.strip()}", r)
+        _add(
+            "projection.identity",
+            False,
+            f"sha256sum failed (exit {r.return_code}): {r.stderr.strip()}",
+            r,
+        )
     else:
         parts = r.stdout.strip().split()
         container_hash = parts[0] if parts else ""
         if container_hash == host_hash:
-            _add("projection.identity", True,
-                 f"projection hash {host_hash} matches host", r)
+            _add(
+                "projection.identity",
+                True,
+                f"projection hash {host_hash} matches host",
+                r,
+            )
         else:
-            _add("projection.identity", False,
-                 f"hash mismatch: container={container_hash[:12]}…"
-                 f" host={host_hash[:12]}…", r)
+            _add(
+                "projection.identity",
+                False,
+                f"hash mismatch: container={container_hash[:12]}…"
+                f" host={host_hash[:12]}…",
+                r,
+            )
 
     # ── projection.readonly ──────────────────────────────────────────
     r = _exec(("grep", "docker-constructor.runtime.toml", "/proc/mounts"))
     if r.return_code != 0:
-        _add("projection.readonly", False,
-             "runtime projection not found in /proc/mounts", r)
+        _add(
+            "projection.readonly",
+            False,
+            "runtime projection not found in /proc/mounts",
+            r,
+        )
     else:
         mount_line = r.stdout.strip()
         # Mount options are comma-separated in the 4th field.
@@ -314,25 +339,45 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
             if len(tokens) >= 4:
                 opts = tokens[3].split(",")  # e.g. ro,nosuid,nodev,relatime
                 if "ro" in opts:
-                    rw = _exec(("test", "-w",
-                                "/run/pi-cli/docker-constructor.runtime.toml"))
+                    rw = _exec(
+                        ("test", "-w", "/run/pi-cli/docker-constructor.runtime.toml")
+                    )
                     if rw.return_code != 0:
-                        _add("projection.readonly", True,
-                             "runtime projection is read-only"
-                             " (ro mount + not writable)", rw)
+                        _add(
+                            "projection.readonly",
+                            True,
+                            "runtime projection is read-only (ro mount + not writable)",
+                            rw,
+                        )
                     else:
-                        _add("projection.readonly", False,
-                             "mount claims ro but file is writable", rw)
+                        _add(
+                            "projection.readonly",
+                            False,
+                            "mount claims ro but file is writable",
+                            rw,
+                        )
                 else:
-                    _add("projection.readonly", False,
-                         f"runtime projection mount is not ro"
-                         f" (options: {','.join(opts)})", r)
+                    _add(
+                        "projection.readonly",
+                        False,
+                        f"runtime projection mount is not ro"
+                        f" (options: {','.join(opts)})",
+                        r,
+                    )
             else:
-                _add("projection.readonly", False,
-                     f"unexpected /proc/mounts format: {mount_line[:120]}", r)
+                _add(
+                    "projection.readonly",
+                    False,
+                    f"unexpected /proc/mounts format: {mount_line[:120]}",
+                    r,
+                )
         else:
-            _add("projection.readonly", False,
-                 "empty /proc/mounts line for projection", r)
+            _add(
+                "projection.readonly",
+                False,
+                "empty /proc/mounts line for projection",
+                r,
+            )
 
     # ── extensions.results ───────────────────────────────────────────
     extensions = proj_data.get("extensions", {})
@@ -343,21 +388,29 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
         pkg_json_path = f"/home/dev/.pi/agent/npm/node_modules/{pkg_name}/package.json"
         r = _exec(("cat", pkg_json_path))
         if r.return_code != 0:
-            _add("extensions.results", False,
-                 f"{pkg_name}: package.json not found", r)
+            _add("extensions.results", False, f"{pkg_name}: package.json not found", r)
         else:
             try:
                 import json as _json
+
                 pkg = _json.loads(r.stdout)
                 actual_ver = pkg.get("version", "")
             except Exception:
                 actual_ver = ""
             if actual_ver == expected_ver:
-                _add("extensions.results", True,
-                     f"{pkg_name} v{expected_ver} installed", r)
+                _add(
+                    "extensions.results",
+                    True,
+                    f"{pkg_name} v{expected_ver} installed",
+                    r,
+                )
             else:
-                _add("extensions.results", False,
-                     f"{pkg_name}: expected v{expected_ver}, got v{actual_ver}", r)
+                _add(
+                    "extensions.results",
+                    False,
+                    f"{pkg_name}: expected v{expected_ver}, got v{actual_ver}",
+                    r,
+                )
 
     # ── workspaces.present ─────────────────────────────────────────────
     for i, p in enumerate(pp, start=1):
@@ -365,24 +418,40 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
         # Directory accessible
         r = _exec(("test", "-d", sp))
         if r.return_code != 0:
-            _add("workspaces.present", False,
-                 f"WORKSPACE_PATH_{i} ({sp}) is not an accessible directory", r)
+            _add(
+                "workspaces.present",
+                False,
+                f"WORKSPACE_PATH_{i} ({sp}) is not an accessible directory",
+                r,
+            )
         else:
             # Env var exact value
             r_env = _exec(("printenv", f"WORKSPACE_PATH_{i}"))
             actual = r_env.stdout.strip() if r_env.return_code == 0 else ""
             if actual == sp:
-                _add("workspaces.present", True,
-                     f"WORKSPACE_PATH_{i}={sp} (dir present)", r_env)
+                _add(
+                    "workspaces.present",
+                    True,
+                    f"WORKSPACE_PATH_{i}={sp} (dir present)",
+                    r_env,
+                )
             else:
-                _add("workspaces.present", False,
-                     f"WORKSPACE_PATH_{i}: expected {sp!r}, got {actual!r}", r_env)
+                _add(
+                    "workspaces.present",
+                    False,
+                    f"WORKSPACE_PATH_{i}: expected {sp!r}, got {actual!r}",
+                    r_env,
+                )
     # Guard: no unexpected next entry
     guard_key = f"WORKSPACE_PATH_{len(pp) + 1}"
     r_guard = _exec(("printenv", guard_key))
     if r_guard.return_code == 0:
-        _add("workspaces.present", False,
-             f"unexpected {guard_key}={r_guard.stdout.strip()!r}", r_guard)
+        _add(
+            "workspaces.present",
+            False,
+            f"unexpected {guard_key}={r_guard.stdout.strip()!r}",
+            r_guard,
+        )
 
     # ── working.directory ────────────────────────────────────────────
     if pp:
@@ -390,14 +459,21 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
         wd = r.stdout.strip() if r.return_code == 0 else ""
         expected_wd = str(pp[0])
         if wd == expected_wd:
-            _add("working.directory", True,
-                 f"working directory is WORKSPACE_PATH_1 ({wd})", r)
+            _add(
+                "working.directory",
+                True,
+                f"working directory is WORKSPACE_PATH_1 ({wd})",
+                r,
+            )
         else:
-            _add("working.directory", False,
-                 f"working directory: expected {expected_wd!r}, got {wd!r}", r)
+            _add(
+                "working.directory",
+                False,
+                f"working directory: expected {expected_wd!r}, got {wd!r}",
+                r,
+            )
     else:
-        _add("working.directory", True,
-             "no workspace paths — nothing to verify")
+        _add("working.directory", True, "no workspace paths — nothing to verify")
 
     # ── ownership.dev ────────────────────────────────────────────────
     # Pi home
@@ -406,19 +482,25 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
     if owner == "dev:dev":
         _add("ownership.dev", True, f"{pi_home} owned by dev:dev", r)
     else:
-        _add("ownership.dev", False,
-             f"{pi_home} owned by {owner!r}, expected dev:dev", r)
+        _add(
+            "ownership.dev", False, f"{pi_home} owned by {owner!r}, expected dev:dev", r
+        )
     # Workspace paths
     for i, p in enumerate(pp, start=1):
         sp = str(p)
         r = _exec(("stat", "-c", "%U:%G", sp))
         p_owner = r.stdout.strip() if r.return_code == 0 else ""
         if p_owner == "dev:dev":
-            _add("ownership.dev", True,
-                 f"WORKSPACE_PATH_{i} ({sp}) owned by dev:dev", r)
+            _add(
+                "ownership.dev", True, f"WORKSPACE_PATH_{i} ({sp}) owned by dev:dev", r
+            )
         else:
-            _add("ownership.dev", False,
-                 f"WORKSPACE_PATH_{i} ({sp}) owned by {p_owner!r}, expected dev:dev", r)
+            _add(
+                "ownership.dev",
+                False,
+                f"WORKSPACE_PATH_{i} ({sp}) owned by {p_owner!r}, expected dev:dev",
+                r,
+            )
 
     # ── pi-home.setup ─────────────────────────────────────────────────
     r = _exec(("test", "-d", pi_home))
@@ -427,11 +509,9 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
     else:
         rw = _exec(("test", "-w", pi_home))
         if rw.return_code == 0:
-            _add("pi-home.setup", True,
-                 f"{pi_home} exists and is writable", rw)
+            _add("pi-home.setup", True, f"{pi_home} exists and is writable", rw)
         else:
-            _add("pi-home.setup", False,
-                 f"{pi_home} exists but is not writable", rw)
+            _add("pi-home.setup", False, f"{pi_home} exists but is not writable", rw)
 
     # ── host-access checks ───────────────────────────────────────────
     ha = request.host_access
@@ -441,63 +521,94 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
         # gateway.mapping
         r = _exec(("getent", "hosts", "host.docker.internal"))
         if r.return_code != 0:
-            _add("gateway.mapping", False,
-                 f"host.docker.internal resolution failed", r)
+            _add("gateway.mapping", False, f"host.docker.internal resolution failed", r)
         else:
             resolved = r.stdout.strip().split()[0] if r.stdout.strip() else ""
             if resolved == expected_addr:
-                _add("gateway.mapping", True,
-                     f"host.docker.internal → {resolved}", r)
+                _add("gateway.mapping", True, f"host.docker.internal → {resolved}", r)
             else:
-                _add("gateway.mapping", False,
-                     f"host.docker.internal → {resolved!r}, expected"
-                     f" {expected_addr!r}", r)
+                _add(
+                    "gateway.mapping",
+                    False,
+                    f"host.docker.internal → {resolved!r}, expected {expected_addr!r}",
+                    r,
+                )
         # host-access.address
         r = _exec(("printenv", "HOST_ACCESS_ADDRESS"))
         if r.return_code != 0:
-            _add("host-access.address", False,
-                 f"HOST_ACCESS_ADDRESS is not set", r)
+            _add("host-access.address", False, f"HOST_ACCESS_ADDRESS is not set", r)
         else:
             actual = r.stdout.strip()
             if actual == expected_addr:
-                _add("host-access.address", True,
-                     f"HOST_ACCESS_ADDRESS={actual}", r)
+                _add("host-access.address", True, f"HOST_ACCESS_ADDRESS={actual}", r)
             else:
-                _add("host-access.address", False,
-                     f"HOST_ACCESS_ADDRESS={actual!r}, expected {expected_addr!r}", r)
+                _add(
+                    "host-access.address",
+                    False,
+                    f"HOST_ACCESS_ADDRESS={actual!r}, expected {expected_addr!r}",
+                    r,
+                )
         # host-access.proxy-port (only when policy declares a port)
         if ha.proxy_port is not None:
             expected_port = str(ha.proxy_port)
             r = _exec(("printenv", "HOST_PROXY_PORT"))
             if r.return_code != 0:
-                _add("host-access.proxy-port", False,
-                     f"HOST_PROXY_PORT is not set (expected {expected_port})", r)
+                _add(
+                    "host-access.proxy-port",
+                    False,
+                    f"HOST_PROXY_PORT is not set (expected {expected_port})",
+                    r,
+                )
             else:
                 actual_port = r.stdout.strip()
                 if actual_port == expected_port:
-                    _add("host-access.proxy-port", True,
-                         f"HOST_PROXY_PORT={actual_port}", r)
+                    _add(
+                        "host-access.proxy-port",
+                        True,
+                        f"HOST_PROXY_PORT={actual_port}",
+                        r,
+                    )
                 else:
-                    _add("host-access.proxy-port", False,
-                         f"HOST_PROXY_PORT={actual_port!r}, expected {expected_port!r}", r)
+                    _add(
+                        "host-access.proxy-port",
+                        False,
+                        f"HOST_PROXY_PORT={actual_port!r}, expected {expected_port!r}",
+                        r,
+                    )
     elif ha is None:
         # 4.7: Disabled — variables must not be present
         r = _exec(("printenv", "HOST_ACCESS_ADDRESS"))
         if r.return_code == 0 and r.stdout.strip():
-            _add("host-access.address", False,
-                 f"HOST_ACCESS_ADDRESS is set ({r.stdout.strip()!r})"
-                 f" but host access is disabled", r)
+            _add(
+                "host-access.address",
+                False,
+                f"HOST_ACCESS_ADDRESS is set ({r.stdout.strip()!r})"
+                f" but host access is disabled",
+                r,
+            )
         else:
-            _add("host-access.address", True,
-                 "HOST_ACCESS_ADDRESS is not set (disabled)", r)
+            _add(
+                "host-access.address",
+                True,
+                "HOST_ACCESS_ADDRESS is not set (disabled)",
+                r,
+            )
         r = _exec(("printenv", "HOST_PROXY_PORT"))
         if r.return_code == 0 and r.stdout.strip():
-            _add("host-access.proxy-port", False,
-                 f"HOST_PROXY_PORT is set ({r.stdout.strip()!r})"
-                 f" but host access is disabled", r)
+            _add(
+                "host-access.proxy-port",
+                False,
+                f"HOST_PROXY_PORT is set ({r.stdout.strip()!r})"
+                f" but host access is disabled",
+                r,
+            )
         else:
-            _add("host-access.proxy-port", True,
-                 "HOST_PROXY_PORT is not set (disabled)", r)
+            _add(
+                "host-access.proxy-port",
+                True,
+                "HOST_PROXY_PORT is not set (disabled)",
+                r,
+            )
 
     # ── corporate-trust.mount ──────────────────────────────────────
     if request.corporate_trust_enabled:
@@ -507,32 +618,53 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
             if line.strip():
                 opts_raw = line.strip()
         if r.return_code != 0 or not opts_raw:
-            _add("corporate-trust.mount", False,
-                 f"system CA bundle not mounted at {_SYSTEM_CA_BUNDLE}", r)
+            _add(
+                "corporate-trust.mount",
+                False,
+                f"system CA bundle not mounted at {_SYSTEM_CA_BUNDLE}",
+                r,
+            )
         else:
             opts = opts_raw.split(",")
             if "ro" in opts:
                 rw = _exec(("test", "-w", _SYSTEM_CA_BUNDLE))
                 if rw.return_code != 0:
-                    _add("corporate-trust.mount", True,
-                         "system CA bundle mounted read-only"
-                         " (ro mount + not writable)", rw)
+                    _add(
+                        "corporate-trust.mount",
+                        True,
+                        "system CA bundle mounted read-only (ro mount + not writable)",
+                        rw,
+                    )
                 else:
-                    _add("corporate-trust.mount", False,
-                         "mount claims ro but file is writable", rw)
+                    _add(
+                        "corporate-trust.mount",
+                        False,
+                        "mount claims ro but file is writable",
+                        rw,
+                    )
             else:
-                _add("corporate-trust.mount", False,
-                     f"system CA bundle mount is not ro"
-                     f" (options: {opts_raw})", r)
+                _add(
+                    "corporate-trust.mount",
+                    False,
+                    f"system CA bundle mount is not ro (options: {opts_raw})",
+                    r,
+                )
     else:
         r = _exec(_MOUNTS_PROBE)
         if r.return_code == 0 and r.stdout.strip():
-            _add("corporate-trust.mount", False,
-                 "system CA bundle mount present but corporate trust "
-                 "disabled", r)
+            _add(
+                "corporate-trust.mount",
+                False,
+                "system CA bundle mount present but corporate trust disabled",
+                r,
+            )
         else:
-            _add("corporate-trust.mount", True,
-                 "corporate trust disabled; no system CA bundle mount", r)
+            _add(
+                "corporate-trust.mount",
+                True,
+                "corporate trust disabled; no system CA bundle mount",
+                r,
+            )
 
     # ── corporate-trust.environment ───────────────────────────────
     # When corporate trust is enabled, every in-scope launched container
@@ -556,30 +688,47 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
             if actual.endswith("\n"):
                 actual = actual[:-1]
             if actual == expected:
-                _add("corporate-trust.environment", True,
-                     f"{name}={actual}", r)
+                _add("corporate-trust.environment", True, f"{name}={actual}", r)
             elif not actual:
                 # Fail-closed diagnostic: name only the fixed variable and
                 # the fixed expected path, never the observed value.
-                _add("corporate-trust.environment", False,
-                     f"{name} is not set (expected {expected})", r,
-                     redact_output=True)
+                _add(
+                    "corporate-trust.environment",
+                    False,
+                    f"{name} is not set (expected {expected})",
+                    r,
+                    redact_output=True,
+                )
             else:
-                _add("corporate-trust.environment", False,
-                     f"{name} does not equal expected {expected}", r,
-                     redact_output=True)
+                _add(
+                    "corporate-trust.environment",
+                    False,
+                    f"{name} does not equal expected {expected}",
+                    r,
+                    redact_output=True,
+                )
 
     # ── proxy.environment ──────────────────────────────────────────
     if request.proxy_url is not None:
-        for name in ("HTTP_PROXY", "http_proxy", "HTTPS_PROXY",
-                     "https_proxy", "ALL_PROXY", "all_proxy"):
+        for name in (
+            "HTTP_PROXY",
+            "http_proxy",
+            "HTTPS_PROXY",
+            "https_proxy",
+            "ALL_PROXY",
+            "all_proxy",
+        ):
             r = _exec(("printenv", name))
             actual = r.stdout.strip() if r.return_code == 0 else ""
             if actual == request.proxy_url:
                 _add("proxy.environment", True, f"{name}={actual}", r)
             else:
-                _add("proxy.environment", False,
-                     f"{name}: expected {request.proxy_url!r}, got {actual!r}", r)
+                _add(
+                    "proxy.environment",
+                    False,
+                    f"{name}: expected {request.proxy_url!r}, got {actual!r}",
+                    r,
+                )
         for name in ("NO_PROXY", "no_proxy"):
             r = _exec(("printenv", name))
             actual = r.stdout.strip() if r.return_code == 0 else ""
@@ -587,28 +736,42 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
                 if actual == request.proxy_no_proxy:
                     _add("proxy.environment", True, f"{name}={actual}", r)
                 else:
-                    _add("proxy.environment", False,
-                         f"{name}: expected {request.proxy_no_proxy!r}, "
-                         f"got {actual!r}", r)
+                    _add(
+                        "proxy.environment",
+                        False,
+                        f"{name}: expected {request.proxy_no_proxy!r}, got {actual!r}",
+                        r,
+                    )
             elif actual:
-                _add("proxy.environment", False,
-                     f"{name} is set ({actual!r}) but no bypass list "
-                     f"configured", r)
+                _add(
+                    "proxy.environment",
+                    False,
+                    f"{name} is set ({actual!r}) but no bypass list configured",
+                    r,
+                )
             else:
-                _add("proxy.environment", True,
-                     f"{name} unset (no bypass list)", r)
+                _add("proxy.environment", True, f"{name} unset (no bypass list)", r)
     else:
-        for name in ("HTTP_PROXY", "http_proxy", "HTTPS_PROXY",
-                     "https_proxy", "ALL_PROXY", "all_proxy",
-                     "NO_PROXY", "no_proxy"):
+        for name in (
+            "HTTP_PROXY",
+            "http_proxy",
+            "HTTPS_PROXY",
+            "https_proxy",
+            "ALL_PROXY",
+            "all_proxy",
+            "NO_PROXY",
+            "no_proxy",
+        ):
             r = _exec(("printenv", name))
             if r.return_code == 0 and r.stdout.strip():
-                _add("proxy.environment", False,
-                     f"{name} is set ({r.stdout.strip()!r}) but proxy is "
-                     f"disabled", r)
+                _add(
+                    "proxy.environment",
+                    False,
+                    f"{name} is set ({r.stdout.strip()!r}) but proxy is disabled",
+                    r,
+                )
             else:
-                _add("proxy.environment", True,
-                     f"{name} is not set (disabled)", r)
+                _add("proxy.environment", True, f"{name} is not set (disabled)", r)
 
     # ── forbidden.paths ──────────────────────────────────────────────
     forbidden = (
@@ -618,11 +781,9 @@ def verify_runtime(request: VerifyRuntimeRequest) -> RuntimeVerificationResult:
     for fp in forbidden:
         r = _exec(("test", "-f", fp))
         if r.return_code == 0:
-            _add("forbidden.paths", False,
-                 f"forbidden path present: {fp}", r)
+            _add("forbidden.paths", False, f"forbidden path present: {fp}", r)
         else:
-            _add("forbidden.paths", True,
-                 f"forbidden path absent: {fp}", r)
+            _add("forbidden.paths", True, f"forbidden path absent: {fp}", r)
 
     # ── Assemble ─────────────────────────────────────────────────────
     all_ok = all(c.ok for c in checks) and len(errors) == 0

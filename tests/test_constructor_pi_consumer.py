@@ -7,6 +7,7 @@ consumer-created launcher's safe relative target, exact contents, non-writable
 executable mode, and containment through complete symlink resolution are
 verified before admission; dangling or escaping targets are rejected.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -78,7 +79,8 @@ class TestLauncherPlan(unittest.TestCase):
         meta = select_pi_metadata(_validated(), package=_PACKAGE)
         plan = plan_launcher(meta, environment_root=_tree())
         self.assertEqual(
-            plan.target, f"{_LOCK_PATH}/{_BIN_TARGET}",
+            plan.target,
+            f"{_LOCK_PATH}/{_BIN_TARGET}",
         )
         self.assertIn(_BIN_TARGET, plan.contents.decode())
         self.assertIn(f"../{_LOCK_PATH}/{_BIN_TARGET}", plan.contents.decode())
@@ -97,6 +99,7 @@ class TestLauncherPlan(unittest.TestCase):
     def test_missing_pi_bin_rejected(self):
         meta = select_pi_metadata(_validated(), package=_PACKAGE)
         from dataclasses import replace
+
         no_pi = replace(meta, bin=())
         with self.assertRaises(PiConsumerError):
             plan_launcher(no_pi, environment_root=_tree())
@@ -171,7 +174,9 @@ class TestLauncherEvidence(unittest.TestCase):
         self.assertEqual(body["mode"], 0o555)
         self.assertEqual(body["target"], f"{_LOCK_PATH}/{_BIN_TARGET}")
         self.assertEqual(body["containment"], True)
-        self.assertEqual(body["contents_sha256"], hashlib.sha256(plan.contents).hexdigest())
+        self.assertEqual(
+            body["contents_sha256"], hashlib.sha256(plan.contents).hexdigest()
+        )
 
 
 class TestParseLauncherEvidence(unittest.TestCase):
@@ -193,7 +198,8 @@ class TestParseLauncherEvidence(unittest.TestCase):
         parsed = parse_launcher_evidence(evidence.data)
         self.assertEqual(parsed.launcher_path, LAUNCHER_PATH)
         self.assertEqual(
-            parsed.contents_sha256, hashlib.sha256(plan.contents).hexdigest(),
+            parsed.contents_sha256,
+            hashlib.sha256(plan.contents).hexdigest(),
         )
         self.assertEqual(parsed.mode, LAUNCHER_MODE)
         self.assertEqual(parsed.target, plan.target)
@@ -267,7 +273,9 @@ class TestValidateLauncherEvidence(unittest.TestCase):
         plan = plan_launcher(meta, environment_root=root)
         evidence = launcher_evidence(plan)
         result = validate_launcher_evidence(
-            evidence.data, launcher_contents=plan.contents, environment_root=root,
+            evidence.data,
+            launcher_contents=plan.contents,
+            environment_root=root,
         )
         self.assertEqual(result.digest, evidence.digest)
 
@@ -290,7 +298,9 @@ class TestValidateLauncherEvidence(unittest.TestCase):
         evidence = launcher_evidence(plan)
         with self.assertRaises(PiConsumerError) as ctx:
             validate_launcher_evidence(
-                evidence.data, launcher_contents=b"#!/bin/sh\n", environment_root=root,
+                evidence.data,
+                launcher_contents=b"#!/bin/sh\n",
+                environment_root=root,
             )
         self.assertIn("contents do not match", str(ctx.exception))
 
@@ -300,13 +310,15 @@ class TestValidateLauncherEvidence(unittest.TestCase):
         meta = select_pi_metadata(_validated(), package=_PACKAGE)
         root = _tree()
         plan = plan_launcher(meta, environment_root=root)
-        arbitrary = b"#!/bin/sh\nexec node /tmp/elsewhere \"$@\"\n"
+        arbitrary = b'#!/bin/sh\nexec node /tmp/elsewhere "$@"\n'
         body = json.loads(launcher_evidence(plan).data)
         body["contents_sha256"] = hashlib.sha256(arbitrary).hexdigest()
         data = json.dumps(body, sort_keys=True, separators=(",", ":")).encode()
         with self.assertRaises(PiConsumerError) as ctx:
             validate_launcher_evidence(
-                data, launcher_contents=arbitrary, environment_root=root,
+                data,
+                launcher_contents=arbitrary,
+                environment_root=root,
             )
         self.assertIn("not the canonical script", str(ctx.exception))
 

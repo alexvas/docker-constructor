@@ -1,4 +1,5 @@
 """Test SemanticVersion parsing and ordering."""
+
 from __future__ import annotations
 
 import unittest

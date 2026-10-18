@@ -15,6 +15,7 @@ local-companion contract for ``[corporate-trust]`` and ``[network.proxy]``:
 Run this module before tasks 1.5-1.10 and expect failures until that
 boundary exists.
 """
+
 from __future__ import annotations
 
 import os
@@ -101,7 +102,9 @@ def _recording_run_executor(effects: list[str]):
     from docker.launcher import ProcessResult
 
     class _Exec:
-        def run(self, argv: tuple[str, ...], *, interactive: bool = False) -> ProcessResult:
+        def run(
+            self, argv: tuple[str, ...], *, interactive: bool = False
+        ) -> ProcessResult:
             effects.append("docker-execution")
             return ProcessResult(argv=argv, return_code=0, stdout="", stderr="")
 
@@ -193,7 +196,9 @@ class TestCorporateTrustLocalRed(_LocalTest):
     def test_corporate_trust_enabled_must_be_boolean(self) -> None:
         for value in ('"true"', "1", '"yes"', "0"):
             with self.subTest(value=value):
-                with self.assertRaisesRegex(InventoryError, r"corporate-trust\.enabled"):
+                with self.assertRaisesRegex(
+                    InventoryError, r"corporate-trust\.enabled"
+                ):
                     load_local_config(
                         self.local(f"[corporate-trust]\nenabled = {value}\n")
                     )
@@ -226,7 +231,9 @@ class TestCompanionResolutionRed(_LocalTest):
             Path("/path/docker-constructor.local.toml"),
         )
 
-    def test_corporate_trust_loads_from_companion_beside_canonical_inventory(self) -> None:
+    def test_corporate_trust_loads_from_companion_beside_canonical_inventory(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as root:
             root_path = Path(root)
             inventory = root_path / "docker-constructor.toml"
@@ -371,9 +378,7 @@ class TestCorporateTrustBundleRed(_LocalTest):
 
         with tempfile.TemporaryDirectory() as root:
             path = Path(root) / "corporate-ca-bundle.crt"
-            path.write_text(
-                _VALID_PEM.rsplit("-----END CERTIFICATE-----", 1)[0]
-            )
+            path.write_text(_VALID_PEM.rsplit("-----END CERTIFICATE-----", 1)[0])
             with self.assertRaisesRegex(InventoryError, r"unmatched|PEM|certificate"):
                 validate_corporate_trust_bundle(path)
 
@@ -407,8 +412,7 @@ class TestCorporateTrustBundleRed(_LocalTest):
         with tempfile.TemporaryDirectory() as root:
             path = Path(root) / "corporate-ca-bundle.crt"
             path.write_text(
-                "-----BEGIN CERTIFICATE-----aGVsbG8="
-                "-----END CERTIFICATE-----\n"
+                "-----BEGIN CERTIFICATE-----aGVsbG8=-----END CERTIFICATE-----\n"
             )
             with self.assertRaisesRegex(InventoryError, r"PEM|certificate"):
                 validate_corporate_trust_bundle(path)
@@ -445,7 +449,8 @@ class TestCorporateTrustBundleRed(_LocalTest):
                         "-----END CERTIFICATE-----\n"
                     )
                     with self.assertRaisesRegex(
-                        InventoryError, r"Base64|control|certificate",
+                        InventoryError,
+                        r"Base64|control|certificate",
                     ):
                         validate_corporate_trust_bundle(path)
 
@@ -463,7 +468,8 @@ class TestCorporateTrustBundleRed(_LocalTest):
                     path = Path(root) / "corporate-ca-bundle.crt"
                     path.write_text(f"{control}\n{_VALID_PEM}")
                     with self.assertRaisesRegex(
-                        InventoryError, r"control|PEM|certificate",
+                        InventoryError,
+                        r"control|PEM|certificate",
                     ):
                         validate_corporate_trust_bundle(path)
 
@@ -489,7 +495,10 @@ class TestCorporateTrustBundleRed(_LocalTest):
         from unittest import mock
 
         from docker.launcher import WorkspaceSelection, RunRequest, orchestrate_run
-        from docker.versioning.build_orchestration import BuildRequest, orchestrate_build
+        from docker.versioning.build_orchestration import (
+            BuildRequest,
+            orchestrate_build,
+        )
         from docker.versioning.dispatch_types import ExitKind
 
         with tempfile.TemporaryDirectory() as root:
@@ -509,13 +518,16 @@ class TestCorporateTrustBundleRed(_LocalTest):
 
             effects: list[str] = []
 
-            build = orchestrate_build(BuildRequest(
-                inventory_path=str(inventory),
-                repo_root=str(repository), project_root=str(workspace),
-                confirmed=False,
-                dry_run=True,
-                runner=_recording_build_executor(effects),
-            ))
+            build = orchestrate_build(
+                BuildRequest(
+                    inventory_path=str(inventory),
+                    repo_root=str(repository),
+                    project_root=str(workspace),
+                    confirmed=False,
+                    dry_run=True,
+                    runner=_recording_build_executor(effects),
+                )
+            )
             self.assertEqual(ExitKind.SUCCESS, build.exit_kind, build.message)
             self.assertEqual([], effects)
 
@@ -523,18 +535,21 @@ class TestCorporateTrustBundleRed(_LocalTest):
                 "docker.networking.diagnose_gateway",
                 _record_diagnose(effects),
             ):
-                run = orchestrate_run(RunRequest(
-                    inventory_path=str(inventory),
-                    repo_root=str(repository), project_root=str(workspace),
-                    image="pi-cli-pi:latest",
-                    selection=WorkspaceSelection(workspace="/work/project"),
-                    pi_home_host="/home/user/.pi",
-                    dry_run=True,
-                    executor=_recording_run_executor(effects),
-                    inspector=_recording_inspector(effects),
-                    _create_projection=_record_projection(effects),
-                    _artifact_fetcher=_record_artifact_fetch(effects),
-                ))
+                run = orchestrate_run(
+                    RunRequest(
+                        inventory_path=str(inventory),
+                        repo_root=str(repository),
+                        project_root=str(workspace),
+                        image="pi-cli-pi:latest",
+                        selection=WorkspaceSelection(workspace="/work/project"),
+                        pi_home_host="/home/user/.pi",
+                        dry_run=True,
+                        executor=_recording_run_executor(effects),
+                        inspector=_recording_inspector(effects),
+                        _create_projection=_record_projection(effects),
+                        _artifact_fetcher=_record_artifact_fetch(effects),
+                    )
+                )
             self.assertEqual(ExitKind.SUCCESS, run.exit_kind, run.message)
             self.assertNotIn("gateway-diagnosis", effects)
 
@@ -563,14 +578,17 @@ class TestCorporateTrustBundleRed(_LocalTest):
                 effects.append("projection-publication")
                 return PublishResult(published_path="/tmp/effective.toml")
 
-            result = orchestrate_build(BuildRequest(
-                inventory_path=str(inventory),
-                repo_root=str(root_path), project_root=str(root_path),
-                confirmed=True,
-                dry_run=False,
-                runner=_recording_build_executor(effects),
-                _publish_projection=record_publish,
-            ))
+            result = orchestrate_build(
+                BuildRequest(
+                    inventory_path=str(inventory),
+                    repo_root=str(root_path),
+                    project_root=str(root_path),
+                    confirmed=True,
+                    dry_run=False,
+                    runner=_recording_build_executor(effects),
+                    _publish_projection=record_publish,
+                )
+            )
 
             self.assertEqual(ExitKind.CONFIG, result.exit_kind)
             self.assertIn("corporate-ca-bundle.crt", result.message or "")
@@ -604,18 +622,21 @@ class TestCorporateTrustBundleRed(_LocalTest):
                     _record_diagnose(effects),
                 ),
             ):
-                result = orchestrate_run(RunRequest(
-                    inventory_path=str(inventory),
-                    repo_root=str(root_path), project_root=str(root_path),
-                    image="pi-cli-pi:latest",
-                    selection=WorkspaceSelection(workspace="/work/project"),
-                    pi_home_host="/home/user/.pi",
-                    dry_run=False,
-                    executor=_recording_run_executor(effects),
-                    inspector=_recording_inspector(effects),
-                    _create_projection=_record_projection(effects),
-                    _artifact_fetcher=_record_artifact_fetch(effects),
-                ))
+                result = orchestrate_run(
+                    RunRequest(
+                        inventory_path=str(inventory),
+                        repo_root=str(root_path),
+                        project_root=str(root_path),
+                        image="pi-cli-pi:latest",
+                        selection=WorkspaceSelection(workspace="/work/project"),
+                        pi_home_host="/home/user/.pi",
+                        dry_run=False,
+                        executor=_recording_run_executor(effects),
+                        inspector=_recording_inspector(effects),
+                        _create_projection=_record_projection(effects),
+                        _artifact_fetcher=_record_artifact_fetch(effects),
+                    )
+                )
 
             self.assertEqual(ExitKind.CONFIG, result.exit_kind)
             self.assertIn("corporate-ca-bundle.crt", result.message or "")
@@ -651,17 +672,20 @@ class TestCorporateTrustBundleRed(_LocalTest):
                     _record_diagnose(effects),
                 ),
             ):
-                result = orchestrate_run(RunRequest(
-                    inventory_path=str(inventory),
-                    image="pi-cli-pi:latest",
-                    selection=WorkspaceSelection(workspace="/work/project"),
-                    pi_home_host="/home/user/.pi",
-                    dry_run=True,
-                    executor=_recording_run_executor(effects),
-                    inspector=_recording_inspector(effects),
-                    _create_projection=_record_projection(effects),
-                    _artifact_fetcher=_record_artifact_fetch(effects),
-                project_root=Path(str(inventory)).resolve().parent))
+                result = orchestrate_run(
+                    RunRequest(
+                        inventory_path=str(inventory),
+                        image="pi-cli-pi:latest",
+                        selection=WorkspaceSelection(workspace="/work/project"),
+                        pi_home_host="/home/user/.pi",
+                        dry_run=True,
+                        executor=_recording_run_executor(effects),
+                        inspector=_recording_inspector(effects),
+                        _create_projection=_record_projection(effects),
+                        _artifact_fetcher=_record_artifact_fetch(effects),
+                        project_root=Path(str(inventory)).resolve().parent,
+                    )
+                )
 
             self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
 
@@ -690,13 +714,16 @@ class TestCorporateTrustBundleRed(_LocalTest):
                 effects.append("projection-publication")
                 return PublishResult(published_path="/tmp/effective.toml")
 
-            result = orchestrate_build(BuildRequest(
-                inventory_path=str(inventory),
-                confirmed=True,
-                dry_run=True,
-                runner=_recording_build_executor(effects),
-                _publish_projection=record_publish,
-            project_root=Path(str(inventory)).resolve().parent))
+            result = orchestrate_build(
+                BuildRequest(
+                    inventory_path=str(inventory),
+                    confirmed=True,
+                    dry_run=True,
+                    runner=_recording_build_executor(effects),
+                    _publish_projection=record_publish,
+                    project_root=Path(str(inventory)).resolve().parent,
+                )
+            )
 
             self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
             self.assertEqual([], effects)
@@ -724,14 +751,17 @@ class TestLocalCompanionFailClosedCommandsRed(_LocalTest):
 
         inventory = root / "inventory.toml"
         inventory.write_text(_CANONICAL)
-        result = orchestrate_build(BuildRequest(
-            inventory_path=str(inventory),
-            repo_root=str(root), project_root=str(root),
-            confirmed=True,
-            dry_run=False,
-            runner=_recording_build_executor(effects),
-            _publish_projection=record_publish,
-        ))
+        result = orchestrate_build(
+            BuildRequest(
+                inventory_path=str(inventory),
+                repo_root=str(root),
+                project_root=str(root),
+                confirmed=True,
+                dry_run=False,
+                runner=_recording_build_executor(effects),
+                _publish_projection=record_publish,
+            )
+        )
         self.assertEqual(ExitKind.CONFIG, result.exit_kind, result.message)
         return result.message or ""
 
@@ -753,18 +783,21 @@ class TestLocalCompanionFailClosedCommandsRed(_LocalTest):
                 _record_diagnose(effects),
             ),
         ):
-            result = orchestrate_run(RunRequest(
-                inventory_path=str(inventory),
-                repo_root=str(root), project_root=str(root),
-                image="pi-cli-pi:latest",
-                selection=WorkspaceSelection(workspace="/work/project"),
-                pi_home_host="/home/user/.pi",
-                dry_run=False,
-                executor=_recording_run_executor(effects),
-                inspector=_recording_inspector(effects),
-                _create_projection=_record_projection(effects),
-                _artifact_fetcher=_record_artifact_fetch(effects),
-            ))
+            result = orchestrate_run(
+                RunRequest(
+                    inventory_path=str(inventory),
+                    repo_root=str(root),
+                    project_root=str(root),
+                    image="pi-cli-pi:latest",
+                    selection=WorkspaceSelection(workspace="/work/project"),
+                    pi_home_host="/home/user/.pi",
+                    dry_run=False,
+                    executor=_recording_run_executor(effects),
+                    inspector=_recording_inspector(effects),
+                    _create_projection=_record_projection(effects),
+                    _artifact_fetcher=_record_artifact_fetch(effects),
+                )
+            )
         self.assertEqual(ExitKind.CONFIG, result.exit_kind, result.message)
         return result.message or ""
 
@@ -775,13 +808,15 @@ class TestLocalCompanionFailClosedCommandsRed(_LocalTest):
 
             build_effects: list[str] = []
             self.assertRegex(
-                self._build_message(root_path, build_effects), regex,
+                self._build_message(root_path, build_effects),
+                regex,
             )
             self.assertEqual([], build_effects)
 
             run_effects: list[str] = []
             self.assertRegex(
-                self._run_message(root_path, run_effects), regex,
+                self._run_message(root_path, run_effects),
+                regex,
             )
             self.assertEqual([], run_effects)
 
@@ -794,7 +829,10 @@ class TestLocalCompanionFailClosedCommandsRed(_LocalTest):
     def test_invalid_host_access_fails_build_and_run(self) -> None:
         for companion, regex in (
             ('[host-access]\nunknown = "x"\n', r"local\.host-access\.unknown"),
-            ('[host-access]\naddress = "not an address"\n', r"local\.host-access\.address"),
+            (
+                '[host-access]\naddress = "not an address"\n',
+                r"local\.host-access\.address",
+            ),
         ):
             with self.subTest(companion=companion):
                 self._assert_both_paths_config(companion, regex)
@@ -831,7 +869,7 @@ class TestNetworkProxyLocalRed(_LocalTest):
     def test_proxy_accepts_explicit_no_proxy(self) -> None:
         local = load_local_config(
             self.local(
-                '[network.proxy]\n'
+                "[network.proxy]\n"
                 'url = "http://proxy.corp.example:3128"\n'
                 'no_proxy = "localhost,.corp.example"\n'
             )
@@ -861,7 +899,9 @@ class TestNetworkProxyLocalRed(_LocalTest):
     def test_proxy_rejects_fragments(self) -> None:
         with self.assertRaisesRegex(InventoryError, r"network\.proxy\.url"):
             load_local_config(
-                self.local('[network.proxy]\nurl = "http://proxy.corp.example:3128/#frag"\n')
+                self.local(
+                    '[network.proxy]\nurl = "http://proxy.corp.example:3128/#frag"\n'
+                )
             )
 
     def test_proxy_rejects_query_strings(self) -> None:
@@ -930,12 +970,17 @@ class TestNetworkProxyLocalRed(_LocalTest):
                     load_local_config(self.local(f'[network.proxy]\nurl = "{url}"\n'))
 
     def test_proxy_rejects_unknown_keys(self) -> None:
-        for key in ('username = "u"', 'password = "p"', 'credential = "c"', "port = 3128"):
+        for key in (
+            'username = "u"',
+            'password = "p"',
+            'credential = "c"',
+            "port = 3128",
+        ):
             with self.subTest(key=key):
                 with self.assertRaisesRegex(InventoryError, r"network\.proxy\."):
                     load_local_config(
                         self.local(
-                            '[network.proxy]\n'
+                            "[network.proxy]\n"
                             'url = "http://proxy.corp.example:3128"\n'
                             f"{key}\n"
                         )
@@ -948,10 +993,12 @@ class TestNetworkProxyLocalRed(_LocalTest):
     def test_proxy_rejects_invalid_no_proxy_values(self) -> None:
         for value in ("42", "true", '["localhost"]'):
             with self.subTest(value=value):
-                with self.assertRaisesRegex(InventoryError, r"network\.proxy\.no_proxy"):
+                with self.assertRaisesRegex(
+                    InventoryError, r"network\.proxy\.no_proxy"
+                ):
                     load_local_config(
                         self.local(
-                            '[network.proxy]\n'
+                            "[network.proxy]\n"
                             'url = "http://proxy.corp.example:3128"\n'
                             f"no_proxy = {value}\n"
                         )
@@ -961,7 +1008,9 @@ class TestNetworkProxyLocalRed(_LocalTest):
 class TestCorporateNetworkRegressionRed(_LocalTest):
     """Task 1.4: proxy/host-access independence through the run path."""
 
-    def test_valid_external_proxy_without_host_access_renders_no_host_mapping(self) -> None:
+    def test_valid_external_proxy_without_host_access_renders_no_host_mapping(
+        self,
+    ) -> None:
         from unittest import mock
 
         from docker.launcher import WorkspaceSelection, RunRequest, orchestrate_run
@@ -980,17 +1029,20 @@ class TestCorporateNetworkRegressionRed(_LocalTest):
                 "docker.networking.diagnose_gateway",
                 _record_diagnose(effects),
             ):
-                result = orchestrate_run(RunRequest(
-                    inventory_path=str(inventory),
-                    image="pi-cli-pi:latest",
-                    selection=WorkspaceSelection(workspace="/work/project"),
-                    pi_home_host="/home/user/.pi",
-                    dry_run=True,
-                    executor=_recording_run_executor(effects),
-                    inspector=_recording_inspector(effects),
-                    _create_projection=_record_projection(effects),
-                    _artifact_fetcher=_record_artifact_fetch(effects),
-                project_root=Path(str(inventory)).resolve().parent))
+                result = orchestrate_run(
+                    RunRequest(
+                        inventory_path=str(inventory),
+                        image="pi-cli-pi:latest",
+                        selection=WorkspaceSelection(workspace="/work/project"),
+                        pi_home_host="/home/user/.pi",
+                        dry_run=True,
+                        executor=_recording_run_executor(effects),
+                        inspector=_recording_inspector(effects),
+                        _create_projection=_record_projection(effects),
+                        _artifact_fetcher=_record_artifact_fetch(effects),
+                        project_root=Path(str(inventory)).resolve().parent,
+                    )
+                )
 
             self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
             for forbidden in ("--add-host", "HOST_ACCESS_ADDRESS=", "HOST_PROXY_PORT="):
@@ -1028,23 +1080,28 @@ class TestCorporateNetworkRegressionRed(_LocalTest):
                     _record_diagnose(effects),
                 ),
             ):
-                result = orchestrate_run(RunRequest(
-                    inventory_path=str(inventory),
-                    image="pi-cli-pi:latest",
-                    selection=WorkspaceSelection(workspace="/work/project"),
-                    pi_home_host="/home/user/.pi",
-                    dry_run=False,
-                    executor=_recording_run_executor(effects),
-                    inspector=_recording_inspector(effects),
-                    _create_projection=_record_projection(effects),
-                    _artifact_fetcher=_record_artifact_fetch(effects),
-                project_root=Path(str(inventory)).resolve().parent))
+                result = orchestrate_run(
+                    RunRequest(
+                        inventory_path=str(inventory),
+                        image="pi-cli-pi:latest",
+                        selection=WorkspaceSelection(workspace="/work/project"),
+                        pi_home_host="/home/user/.pi",
+                        dry_run=False,
+                        executor=_recording_run_executor(effects),
+                        inspector=_recording_inspector(effects),
+                        _create_projection=_record_projection(effects),
+                        _artifact_fetcher=_record_artifact_fetch(effects),
+                        project_root=Path(str(inventory)).resolve().parent,
+                    )
+                )
 
             self.assertEqual(ExitKind.CONFIG, result.exit_kind)
             self.assertIn("network.proxy.url", result.message or "")
             self.assertEqual([], effects)
 
-    def test_absent_corporate_settings_preserve_existing_host_access_vector(self) -> None:
+    def test_absent_corporate_settings_preserve_existing_host_access_vector(
+        self,
+    ) -> None:
         from unittest import mock
 
         from docker.launcher import WorkspaceSelection, RunRequest, orchestrate_run
@@ -1067,17 +1124,20 @@ class TestCorporateNetworkRegressionRed(_LocalTest):
                 "docker.networking.diagnose_gateway",
                 _record_diagnose(effects),
             ):
-                result = orchestrate_run(RunRequest(
-                    inventory_path=str(inventory),
-                    image="pi-cli-pi:latest",
-                    selection=WorkspaceSelection(workspace="/work/project"),
-                    pi_home_host="/home/user/.pi",
-                    dry_run=True,
-                    executor=_recording_run_executor(effects),
-                    inspector=_recording_inspector(effects),
-                    _create_projection=_record_projection(effects),
-                    _artifact_fetcher=_record_artifact_fetch(effects),
-                project_root=Path(str(inventory)).resolve().parent))
+                result = orchestrate_run(
+                    RunRequest(
+                        inventory_path=str(inventory),
+                        image="pi-cli-pi:latest",
+                        selection=WorkspaceSelection(workspace="/work/project"),
+                        pi_home_host="/home/user/.pi",
+                        dry_run=True,
+                        executor=_recording_run_executor(effects),
+                        inspector=_recording_inspector(effects),
+                        _create_projection=_record_projection(effects),
+                        _artifact_fetcher=_record_artifact_fetch(effects),
+                        project_root=Path(str(inventory)).resolve().parent,
+                    )
+                )
 
             self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
             self.assertIn("host.docker.internal:192.0.2.10", result.run_args)

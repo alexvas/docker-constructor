@@ -110,14 +110,18 @@ class TestNoConsumerLeakage(unittest.TestCase):
             f.name for f in dataclasses.fields(evidence_module.AssemblerEvidence)
         }
         forbidden = (
-            "launcher", "extension", "settings", "build_context",
-            "cli_guard", "consumer", "runtime", "pi",
+            "launcher",
+            "extension",
+            "settings",
+            "build_context",
+            "cli_guard",
+            "consumer",
+            "runtime",
+            "pi",
         )
         for name in result_fields | evidence_fields:
             lowered = name.lower()
-            self.assertFalse(
-                any(word in lowered for word in forbidden), name
-            )
+            self.assertFalse(any(word in lowered for word in forbidden), name)
 
 
 if __name__ == "__main__":

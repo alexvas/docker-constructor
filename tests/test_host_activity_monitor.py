@@ -27,6 +27,7 @@ Heartbeat facts are wording-neutral by construction: the closed field set
 contains only closed members, whole-second monotonic integers, and booleans, so
 no fact can claim process or network inactivity.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -178,17 +179,11 @@ class _RecordingSink:
 
     def heartbeats(self) -> list[HostHeartbeatEvent]:
         return [
-            event
-            for event in self.events()
-            if isinstance(event, HostHeartbeatEvent)
+            event for event in self.events() if isinstance(event, HostHeartbeatEvent)
         ]
 
     def step_events(self) -> list[HostStepEvent]:
-        return [
-            event
-            for event in self.events()
-            if isinstance(event, HostStepEvent)
-        ]
+        return [event for event in self.events() if isinstance(event, HostStepEvent)]
 
     def terminal_events(self) -> list[HostStepEvent]:
         return [
@@ -530,9 +525,7 @@ class TestHeartbeatCadence(_MonitorTestCase):
             with self.subTest(observed=observed):
                 deadline = _next_heartbeat_deadline(3.0, observed)
                 self.assertGreater(deadline, observed)
-                self.assertLessEqual(
-                    deadline - observed, HEARTBEAT_INTERVAL_SECONDS
-                )
+                self.assertLessEqual(deadline - observed, HEARTBEAT_INTERVAL_SECONDS)
                 self.assertAlmostEqual(
                     0.0, (deadline - 3.0) % HEARTBEAT_INTERVAL_SECONDS
                 )
@@ -565,9 +558,7 @@ class TestDiagnosticSilence(_MonitorTestCase):
             expects_diagnostic_stream=False,
         )
         beats = harness.pump(121)
-        self.assertTrue(
-            all(beat.diagnostic_silence_seconds is None for beat in beats)
-        )
+        self.assertTrue(all(beat.diagnostic_silence_seconds is None for beat in beats))
         harness.monitor.record_diagnostic()
         beat = harness.heartbeat()
         self.assertIsNone(beat.diagnostic_silence_seconds)
@@ -575,20 +566,14 @@ class TestDiagnosticSilence(_MonitorTestCase):
     def test_expected_stream_heartbeats_declare_the_applicability_flag(self):
         applicable = self.make()
         self.assertTrue(
-            all(
-                beat.expects_diagnostic_stream
-                for beat in applicable.pump(3)
-            )
+            all(beat.expects_diagnostic_stream for beat in applicable.pump(3))
         )
         inapplicable = self.make(
             step=HostStep.ARTIFACT_ACQUISITION,
             expects_diagnostic_stream=False,
         )
         self.assertTrue(
-            all(
-                not beat.expects_diagnostic_stream
-                for beat in inapplicable.pump(3)
-            )
+            all(not beat.expects_diagnostic_stream for beat in inapplicable.pump(3))
         )
 
 

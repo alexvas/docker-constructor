@@ -6,6 +6,7 @@ contracts pin construction validation, the live/transferred/release-attempted
 state machine, irreversible at-most-once release, explicit detach, and Phase 1
 cleanup precedence at the context-manager boundary.
 """
+
 from __future__ import annotations
 
 import ast
@@ -111,14 +112,18 @@ class _RecordingOps:
             raise error
 
 
-def _owned(ops: _RecordingOps, fd: int = _LIVE_FD, label: str = "entry") -> OwnedDescriptor:
+def _owned(
+    ops: _RecordingOps, fd: int = _LIVE_FD, label: str = "entry"
+) -> OwnedDescriptor:
     return OwnedDescriptor(ops, fd, label=label)
 
 
 class DescriptorErrorMessageTests(unittest.TestCase):
     def test_retains_stage_message_and_cause(self) -> None:
         cause = OSError(errno.ENOENT, "missing")
-        error = DescriptorError("validate-descriptor", "descriptor rejected", cause=cause)
+        error = DescriptorError(
+            "validate-descriptor", "descriptor rejected", cause=cause
+        )
         self.assertEqual(error.stage, "validate-descriptor")
         self.assertEqual(str(error), "descriptor rejected")
         self.assertIs(error.cause, cause)
@@ -133,7 +138,9 @@ class DescriptorErrorMessageTests(unittest.TestCase):
 class UnsafeDescriptorErrorMessageTests(unittest.TestCase):
     def test_inherits_the_descriptor_error_constructor_unchanged(self) -> None:
         cause = OSError(errno.ELOOP, "loop")
-        error = UnsafeDescriptorError("validate-descriptor", "not a directory", cause=cause)
+        error = UnsafeDescriptorError(
+            "validate-descriptor", "not a directory", cause=cause
+        )
         self.assertIsInstance(error, DescriptorError)
         self.assertEqual(error.stage, "validate-descriptor")
         self.assertEqual(str(error), "not a directory")
@@ -369,7 +376,11 @@ class DescriptorSignatureTests(unittest.TestCase):
         self.assertEqual(_params(OwnedDescriptor.__init__), expected)
 
     def test_owned_descriptor_lifecycle_methods_are_exact(self) -> None:
-        for method in (OwnedDescriptor.close, OwnedDescriptor.detach, OwnedDescriptor.__enter__):
+        for method in (
+            OwnedDescriptor.close,
+            OwnedDescriptor.detach,
+            OwnedDescriptor.__enter__,
+        ):
             with self.subTest(method=method.__name__):
                 self.assertEqual(_params(method), [("self", _POK, _EMPTY)])
 
@@ -421,8 +432,12 @@ class FoundationAuthorityBoundaryTests(unittest.TestCase):
                 if isinstance(node, ast.Import):
                     for alias in node.names:
                         with self.subTest(module=filename, imported=alias.name):
-                            self.assertIn(alias.name.split(".")[0], sys.stdlib_module_names)
-                elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                            self.assertIn(
+                                alias.name.split(".")[0], sys.stdlib_module_names
+                            )
+                elif (
+                    isinstance(node, ast.ImportFrom) and node.level == 0 and node.module
+                ):
                     module = node.module
                     top = module.split(".")[0]
                     with self.subTest(module=filename, imported=module):
@@ -433,7 +448,8 @@ class FoundationAuthorityBoundaryTests(unittest.TestCase):
                         )
                         for forbidden in _FORBIDDEN_DOMAIN_MODULES:
                             self.assertFalse(
-                                module == forbidden or module.startswith(forbidden + ".")
+                                module == forbidden
+                                or module.startswith(forbidden + ".")
                             )
 
     def test_no_path_derivation_durability_locking_or_domain_authority(self) -> None:
@@ -455,7 +471,9 @@ class FoundationAuthorityBoundaryTests(unittest.TestCase):
                         continue
                     func = call.func
                     if isinstance(func, ast.Name) and func.id == node.name:
-                        self.fail(f"{filename}:{node.name} recurses through a bare name")
+                        self.fail(
+                            f"{filename}:{node.name} recurses through a bare name"
+                        )
                     if (
                         isinstance(func, ast.Attribute)
                         and func.attr == node.name

@@ -18,19 +18,25 @@ class TestConstructorProjectResolver(unittest.TestCase):
     def test_defaults_to_physical_cwd(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
-            self.assertEqual(root.resolve(), resolve_constructor_project(None, cwd=root).root)
+            self.assertEqual(
+                root.resolve(), resolve_constructor_project(None, cwd=root).root
+            )
 
     def test_resolves_relative_selection_from_cwd(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             cwd = Path(raw)
             selected = cwd / "child"
             selected.mkdir()
-            self.assertEqual(selected.resolve(), resolve_constructor_project("child", cwd=cwd).root)
+            self.assertEqual(
+                selected.resolve(), resolve_constructor_project("child", cwd=cwd).root
+            )
 
     def test_accepts_absolute_selection(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             selected = Path(raw)
-            self.assertEqual(selected.resolve(), resolve_constructor_project(selected).root)
+            self.assertEqual(
+                selected.resolve(), resolve_constructor_project(selected).root
+            )
 
     def test_normalizes_directory_symlink(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -60,7 +66,9 @@ class TestConstructorProjectResolver(unittest.TestCase):
             cwd = Path(raw)
             project = resolve_constructor_project(None, cwd=cwd)
             self.assertEqual(cwd.resolve(), project.root)
-            self.assertNotEqual(Path(constructor_cli.__file__).resolve().parent.parent, project.root)
+            self.assertNotEqual(
+                Path(constructor_cli.__file__).resolve().parent.parent, project.root
+            )
 
 
 class TestConstructorProjectPaths(unittest.TestCase):
@@ -69,7 +77,9 @@ class TestConstructorProjectPaths(unittest.TestCase):
             project = resolve_constructor_project(Path(raw))
             root = Path(raw).resolve()
             self.assertEqual(root / "docker-constructor.toml", project.inventory)
-            self.assertEqual(root / "docker-constructor.local.toml", project.local_config)
+            self.assertEqual(
+                root / "docker-constructor.local.toml", project.local_config
+            )
             self.assertEqual(root / "Dockerfile", project.dockerfile)
             self.assertEqual(root / ".env", project.dotenv)
             self.assertEqual(root / ".docker-local", project.local_inputs)
@@ -99,7 +109,9 @@ class TestConstructorProjectParserAndDispatch(unittest.TestCase):
             known_project = ConstructorProject(root)
 
             class Dispatcher:
-                def execute(self, command: str, request: constructor_cli.CommandRequest):
+                def execute(
+                    self, command: str, request: constructor_cli.CommandRequest
+                ):
                     calls.append(request.constructor_project)
                     os.chdir(Path.home())
                     self.assert_project(request.constructor_project)

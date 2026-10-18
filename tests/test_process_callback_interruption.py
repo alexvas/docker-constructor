@@ -1,4 +1,5 @@
 """6BC.5 RED: first-delivery reporter interruption and cleanup precedence."""
+
 from unittest import mock
 
 import pytest
@@ -10,7 +11,9 @@ from tests.test_process_stream_outcomes import Child, enums, launch
 @pytest.mark.parametrize("source", ["callback", "reporter", "fallback"])
 @pytest.mark.parametrize("kind", [KeyboardInterrupt, SystemExit, GeneratorExit])
 @pytest.mark.parametrize("callback_kind", ["chunk", "end"])
-def test_first_delivery_interruption_preserves_identity_and_independent_cleanup(source, kind, callback_kind):
+def test_first_delivery_interruption_preserves_identity_and_independent_cleanup(
+    source, kind, callback_kind
+):
     stream, _ = enums()
     first, later = kind("first"), SystemExit("later")
     close_error = OSError("independent close")
@@ -46,15 +49,24 @@ def test_first_delivery_interruption_preserves_identity_and_independent_cleanup(
 
     owner = launch(child, reporter=report)
     try:
-        with mock.patch.object(process, "_fallback_callback_diagnostic", create=True,
-                               side_effect=[first, later]):
+        with mock.patch.object(
+            process,
+            "_fallback_callback_diagnostic",
+            create=True,
+            side_effect=[first, later],
+        ):
             with pytest.raises(kind) as caught:
-                owner.stream(callback if callback_kind == "chunk" else lambda *a: None, on_stream_end=end)
+                owner.stream(
+                    callback if callback_kind == "chunk" else lambda *a: None,
+                    on_stream_end=end,
+                )
         assert caught.value is first
         assert len(ends) == 2 and set(ends) == set(stream)
         status = owner.cleanup_status
         assert status.failures[0].error is first
-        assert status.failures[0].phase.name == ("CALLBACK" if source == "callback" else "REPORTER")
+        assert status.failures[0].phase.name == (
+            "CALLBACK" if source == "callback" else "REPORTER"
+        )
         assert not hasattr(first, "process_result")
         assert any(f.error is close_error for f in status.failures)
         assert child.stdout.close_attempts == child.stderr.close_attempts == 1

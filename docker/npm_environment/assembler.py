@@ -143,9 +143,9 @@ def npm_policy() -> dict:
 
 def npm_policy_digest() -> str:
     """Return the SHA-256 hex digest of the canonical npm policy."""
-    payload = json.dumps(
-        npm_policy(), sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+    payload = json.dumps(npm_policy(), sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
     return hashlib.sha256(payload).hexdigest()
 
 

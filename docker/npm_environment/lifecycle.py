@@ -3,13 +3,20 @@
 This adapter decodes bounded values and retains the established domain outcome
 shape. It owns no raw child/pipes, independent readers, supervisor or reap loop.
 """
+
 from __future__ import annotations
 
 import subprocess
 from dataclasses import dataclass, field
 from typing import Sequence
 
-from docker.process import CleanupIncomplete, FailureInfo, FailureKind, FailurePhase, OwnedProcess
+from docker.process import (
+    CleanupIncomplete,
+    FailureInfo,
+    FailureKind,
+    FailurePhase,
+    OwnedProcess,
+)
 
 _CAPTURE_TAIL_BYTES = 64 * 1024
 
@@ -30,14 +37,19 @@ class LifecycleOutcome:
 
 
 def _label_final_reap(failure: FailureInfo, policy: LifecyclePolicy) -> None:
-    if (failure.kind is FailureKind.ORDINARY and failure.phase is FailurePhase.WAIT
-            and type(failure.error) is subprocess.TimeoutExpired):
+    if (
+        failure.kind is FailureKind.ORDINARY
+        and failure.phase is FailurePhase.WAIT
+        and type(failure.error) is subprocess.TimeoutExpired
+    ):
         # Initial terminate-wait expiry is a normal transition. Poll/wait-only
         # observation expiry is not an ordinary WAIT failure. This declared
         # combination identifies final reap in the supported local plan.
         # Preserve the exact error/kind and existing domain client detail.
-        failure.error.cmd = (f"{policy.process_label} did not exit after SIGKILL "
-                             f"within {policy.grace_seconds:g}s")
+        failure.error.cmd = (
+            f"{policy.process_label} did not exit after SIGKILL "
+            f"within {policy.grace_seconds:g}s"
+        )
 
 
 @dataclass(frozen=True)
@@ -49,12 +61,15 @@ class _CapturedOperation:
     failures: tuple[FailureInfo, ...]
 
 
-def _run_captured(argv: Sequence[str], *, policy: LifecyclePolicy) -> _CapturedOperation:
+def _run_captured(
+    argv: Sequence[str], *, policy: LifecyclePolicy
+) -> _CapturedOperation:
     owner: OwnedProcess | None = None
     outcome = LifecycleOutcome()
     try:
         owner = OwnedProcess.launch(
-            tuple(argv), factory=subprocess.Popen,
+            tuple(argv),
+            factory=subprocess.Popen,
             deadline_seconds=policy.grace_seconds,
             grace_seconds=2 * policy.grace_seconds,
             capture_limit=policy.captured_output_bytes,
@@ -68,7 +83,11 @@ def _run_captured(argv: Sequence[str], *, policy: LifecyclePolicy) -> _CapturedO
             owner = handle
             failures = handle.cleanup_status.failures
         else:
-            kind = FailureKind.ORDINARY if isinstance(exc, OSError) else FailureKind.UNEXPECTED
+            kind = (
+                FailureKind.ORDINARY
+                if isinstance(exc, OSError)
+                else FailureKind.UNEXPECTED
+            )
             failures = (FailureInfo(exc, kind, FailurePhase.SETUP),)
         outcome.errors.extend(failure.error for failure in failures)
         return _CapturedOperation(owner, outcome, failures)
@@ -86,10 +105,14 @@ def _run_captured(argv: Sequence[str], *, policy: LifecyclePolicy) -> _CapturedO
     for failure in failures:
         _label_final_reap(failure, policy)
     outcome.errors.extend(failure.error for failure in failures)
-    if not result.lifecycle.complete and not any(isinstance(error, CleanupIncomplete) for error in outcome.errors):
+    if not result.lifecycle.complete and not any(
+        isinstance(error, CleanupIncomplete) for error in outcome.errors
+    ):
         incomplete = CleanupIncomplete(owner)
         outcome.errors.append(incomplete)
-        failures += (FailureInfo(incomplete, FailureKind.ORDINARY, FailurePhase.COORDINATION),)
+        failures += (
+            FailureInfo(incomplete, FailureKind.ORDINARY, FailurePhase.COORDINATION),
+        )
     return _CapturedOperation(owner, outcome, failures)
 
 

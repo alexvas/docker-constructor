@@ -35,7 +35,11 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from docker.versioning.semver import SemanticVersion, SemverError, parse as _parse_version
+from docker.versioning.semver import (
+    SemanticVersion,
+    SemverError,
+    parse as _parse_version,
+)
 
 
 class NpmRangeError(ValueError):
@@ -96,10 +100,14 @@ class NpmRange:
                 allowed = False
                 for bound in branch:
                     bv = bound.version
-                    if bv is not None and bv.prerelease and (
-                        bv.major == version.major
-                        and bv.minor == version.minor
-                        and bv.patch == version.patch
+                    if (
+                        bv is not None
+                        and bv.prerelease
+                        and (
+                            bv.major == version.major
+                            and bv.minor == version.minor
+                            and bv.patch == version.patch
+                        )
                     ):
                         allowed = True
                         break
@@ -136,7 +144,9 @@ def _strip_build(text: str) -> str:
     return _BUILD_RE.sub("", text)
 
 
-def _parse_xparts(token: str) -> tuple[str, str | None, str | None, str | None, str | None]:
+def _parse_xparts(
+    token: str,
+) -> tuple[str, str | None, str | None, str | None, str | None]:
     """Split one X-range token into ``(gtlt, M, m, p, prerelease)``.
 
     Each of ``M``/``m``/``p`` is a digit string, ``"x"``/``"X"``/``"*"``, or
@@ -148,7 +158,7 @@ def _parse_xparts(token: str) -> tuple[str, str | None, str | None, str | None, 
     op_match = _OP_RE.match(token)
     if op_match:
         gtlt = op_match.group(1)
-        rest = token[op_match.end():].strip()
+        rest = token[op_match.end() :].strip()
 
     base, sep, pre = rest.partition("-")
     if sep and not pre:
@@ -168,7 +178,9 @@ def _parse_xparts(token: str) -> tuple[str, str | None, str | None, str | None, 
 # ── desugaring (mirrors node-semver) ───────────────────────────────────
 
 
-def _replace_caret(gtlt: str, M: str | None, m: str | None, p: str | None, pr: str | None) -> str:
+def _replace_caret(
+    gtlt: str, M: str | None, m: str | None, p: str | None, pr: str | None
+) -> str:
     if gtlt:
         return ""  # caret must be the whole token (no operator)
     if M is None or _is_x(M):
@@ -192,7 +204,9 @@ def _replace_caret(gtlt: str, M: str | None, m: str | None, p: str | None, pr: s
     return f">={M}.{m}.{p} <{int(M) + 1}.0.0-0"
 
 
-def _replace_tilde(gtlt: str, M: str | None, m: str | None, p: str | None, pr: str | None) -> str:
+def _replace_tilde(
+    gtlt: str, M: str | None, m: str | None, p: str | None, pr: str | None
+) -> str:
     if gtlt:
         return ""
     if M is None or _is_x(M):
@@ -207,7 +221,12 @@ def _replace_tilde(gtlt: str, M: str | None, m: str | None, p: str | None, pr: s
 
 
 def _replace_xrange(
-    gtlt: str, M: str | None, m: str | None, p: str | None, pr: str | None, original: str
+    gtlt: str,
+    M: str | None,
+    m: str | None,
+    p: str | None,
+    pr: str | None,
+    original: str,
 ) -> str:
     xM = _is_x(M)
     xm = xM or _is_x(m)

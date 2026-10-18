@@ -11,6 +11,7 @@ These tests pin:
 * the repository canonical ``docker-constructor.toml`` carries the matching
   visual header immediately before every replaceable block.
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -79,11 +80,7 @@ _OWNER_VERSIONS = {
 
 
 def _outdated(path: str, current: str, candidate: str) -> UpdateResult:
-    kind = (
-        UpdateKind.REVISION
-        if path.endswith("oh-my-zsh")
-        else UpdateKind.VERSION
-    )
+    kind = UpdateKind.REVISION if path.endswith("oh-my-zsh") else UpdateKind.VERSION
     return UpdateResult(
         path=path,
         provider="test",
@@ -171,16 +168,15 @@ class TestFragmentVisualHeaders(unittest.TestCase):
             with self.subTest(owner=owner):
                 fragment = serialize_replacement_block(owner, block)
                 self.assertTrue(
-                    fragment.startswith(
-                        f"# --- {CANONICAL_OWNERS[owner]} ---\n"
-                    ),
+                    fragment.startswith(f"# --- {CANONICAL_OWNERS[owner]} ---\n"),
                     fragment,
                 )
                 # Full canonical TOML table path is retained.
                 self.assertIn(f"[{owner}]\n", fragment)
                 # The shortened display path never becomes a table header.
                 self.assertNotIn(
-                    f"[{CANONICAL_OWNERS[owner]}]\n", fragment,
+                    f"[{CANONICAL_OWNERS[owner]}]\n",
+                    fragment,
                 )
 
     def test_combined_render_headers_delimit_blocks(self) -> None:
@@ -193,11 +189,11 @@ class TestFragmentVisualHeaders(unittest.TestCase):
         # Build block precedes runtime block (inventory order); each header
         # sits immediately before its complete canonical block.
         self.assertIn(
-            "# --- base.node ---\n[build.stages.base.node]\n", text,
+            "# --- base.node ---\n[build.stages.base.node]\n",
+            text,
         )
         self.assertIn(
-            "# --- pi-extensions.pi-read ---\n"
-            '[runtime.pi-extensions.pi-read]\n',
+            "# --- pi-extensions.pi-read ---\n[runtime.pi-extensions.pi-read]\n",
             text,
         )
 
@@ -222,14 +218,20 @@ class TestVisualCommentsAreDisplayOnly(unittest.TestCase):
         self.assertEqual(raw_base, raw_alt)
         validate_inventory(raw_alt)  # must not raise
 
-        results = [_outdated("build.stages.base.node", "24-trixie-slim", "25-trixie-slim")]
+        results = [
+            _outdated("build.stages.base.node", "24-trixie-slim", "25-trixie-slim")
+        ]
         inv_base = validate_inventory(raw_base)
         inv_alt = validate_inventory(raw_alt)
         text_base = render_replacement_fragments(
-            raw_base, build_update_targets(inv_base), results,
+            raw_base,
+            build_update_targets(inv_base),
+            results,
         )
         text_alt = render_replacement_fragments(
-            raw_alt, build_update_targets(inv_alt), results,
+            raw_alt,
+            build_update_targets(inv_alt),
+            results,
         )
         # Fragment construction is comment-independent.
         self.assertEqual(text_base, text_alt)

@@ -83,7 +83,10 @@ class MountedBlobReader(Protocol):
     """
 
     def open_verified(
-        self, *, artifact_id: str, integrity: str,
+        self,
+        *,
+        artifact_id: str,
+        integrity: str,
     ) -> bytes:
         """Open, verify, and return the blob identified by
         *artifact_id* and *integrity*.
@@ -137,7 +140,10 @@ class RuntimeArtifactReader:
         )
 
     def open_verified(
-        self, *, artifact_id: str, integrity: str,
+        self,
+        *,
+        artifact_id: str,
+        integrity: str,
     ) -> bytes:
         """Open, verify, and return the blob at the fixed root.
 
@@ -283,9 +289,7 @@ class RuntimeArtifactReader:
             # ``InstallError`` and the CLI/result path report a controlled
             # installation failure.  Active operation failures and
             # process-control interruptions never enter this branch.
-            raise InstallError(
-                f"cannot close artifact at {_path}: {exc}"
-            ) from exc
+            raise InstallError(f"cannot close artifact at {_path}: {exc}") from exc
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -324,9 +328,7 @@ def _reject_path_traversal(value: str, *, field_name: str) -> None:
         raise exc(f"{field_name} must not be absolute: {value!r}")
 
     if "\\" in value:
-        raise exc(
-            f"{field_name} must not contain backslashes: {value!r}"
-        )
+        raise exc(f"{field_name} must not contain backslashes: {value!r}")
 
     segments = value.split("/")
     for seg in segments:
@@ -336,17 +338,13 @@ def _reject_path_traversal(value: str, *, field_name: str) -> None:
                 f"(leading/trailing/double slash): {value!r}"
             )
         if seg in (".", ".."):
-            raise exc(
-                f"{field_name} contains reserved path segment "
-                f"{seg!r}: {value!r}"
-            )
+            raise exc(f"{field_name} contains reserved path segment {seg!r}: {value!r}")
 
     # Final: normalized path must remain beneath its logical root.
     normalized = os.path.normpath(value)
     if normalized.startswith("..") or os.path.isabs(normalized):
         raise exc(
-            f"{field_name} normalizes to escape root "
-            f"({value!r} → {normalized!r})"
+            f"{field_name} normalizes to escape root ({value!r} → {normalized!r})"
         )
 
 
@@ -357,38 +355,39 @@ def _reject_path_traversal(value: str, *, field_name: str) -> None:
 
 class InstallStatus(enum.Enum):
     """Per-extension outcome."""
-    OK = "ok"                       # installed and verified
+
+    OK = "ok"  # installed and verified
     ALREADY_INSTALLED = "already_installed"  # no-op, already present
-    FAILED = "failed"               # installation or verification failed
-    PLANNED = "planned"             # dry-run: would install or reinstall
+    FAILED = "failed"  # installation or verification failed
+    PLANNED = "planned"  # dry-run: would install or reinstall
 
 
 @dataclass(frozen=True)
 class ExtensionResult:
     """Structured outcome for a single Pi extension."""
+
     package: str
     version: str
     status: InstallStatus
-    detail: str | None = None       # error detail when status == FAILED
+    detail: str | None = None  # error detail when status == FAILED
 
 
 @dataclass(frozen=True)
 class InstallResult:
     """Structured outcome of :func:`install_extensions`."""
+
     results: tuple[ExtensionResult, ...]
     dry_run: bool = False
 
     @property
     def ok(self) -> bool:
-        return all(
-            r.status != InstallStatus.FAILED
-            for r in self.results
-        )
+        return all(r.status != InstallStatus.FAILED for r in self.results)
 
 
 @dataclass(frozen=True)
 class ProjectionEntry:
     """A single extension entry read from the runtime projection."""
+
     package: str
     version: str
     artifact_id: str
@@ -406,18 +405,14 @@ class ProjectionEntry:
             raise ProjectionError("package name must not be empty")
         if pkg.startswith("@"):
             if not re.fullmatch(_SAFE_SCOPED_RE, pkg, re.VERBOSE):
-                raise ProjectionError(
-                    f"invalid scoped package name: {pkg!r}"
-                )
+                raise ProjectionError(f"invalid scoped package name: {pkg!r}")
         else:
             if "/" in pkg:
                 raise ProjectionError(
                     f"unscoped package name must not contain '/': {pkg!r}"
                 )
             if not re.fullmatch(_SAFE_PACKAGE_RE, pkg, re.VERBOSE):
-                raise ProjectionError(
-                    f"invalid package name: {pkg!r}"
-                )
+                raise ProjectionError(f"invalid package name: {pkg!r}")
 
         # -- version ---------------------------------------------------
         ver = self.version
@@ -425,6 +420,7 @@ class ProjectionEntry:
             SemverError,
             validate as _validate_semver,
         )
+
         try:
             _validate_semver(ver)
         except SemverError as exc:
@@ -451,12 +447,12 @@ class ProjectionEntry:
         # -- artifact_integrity ----------------------------------------
         integ = self.artifact_integrity
         m = re.fullmatch(
-            r"(sha(?:256|384|512))-(.+)", integ,
+            r"(sha(?:256|384|512))-(.+)",
+            integ,
         )
         if not m:
             raise ProjectionError(
-                f"artifact integrity must be 'shaNNN-<base64>': "
-                f"{integ!r}"
+                f"artifact integrity must be 'shaNNN-<base64>': {integ!r}"
             )
         try:
             digest = base64.b64decode(m.group(2), validate=True)
@@ -503,8 +499,7 @@ _SAFE_SCOPED_RE = r"""\A
 class MountChecker(Protocol):
     """Verify that *path* is a mount point."""
 
-    def is_mount(self, path: str) -> bool:
-        ...
+    def is_mount(self, path: str) -> bool: ...
 
 
 class PackageInstaller(Protocol):
@@ -518,8 +513,7 @@ class PackageInstaller(Protocol):
     Returns ``None`` on success or raises :class:`InstallError`.
     """
 
-    def install(self, *, package: str, artifact_bytes: bytes) -> None:
-        ...
+    def install(self, *, package: str, artifact_bytes: bytes) -> None: ...
 
 
 class MetadataReader(Protocol):
@@ -538,8 +532,9 @@ class MetadataReader(Protocol):
             and never trigger a download.
     """
 
-    def read(self, *, pi_home: str, metadata_file: str, package: str) -> dict[str, object]:
-        ...
+    def read(
+        self, *, pi_home: str, metadata_file: str, package: str
+    ) -> dict[str, object]: ...
 
 
 class PrivilegeContext(Protocol):
@@ -600,6 +595,7 @@ class InstallContext:
                 comparison unreliable.
                 """
                 import subprocess
+
                 result = subprocess.run(
                     ["mountpoint", "-q", "--", path],
                     capture_output=True,
@@ -631,8 +627,11 @@ class InstallContext:
                 pass.
                 """
                 target_dir = os.path.join(
-                    _FIXED_PI_HOME, "agent", "npm",
-                    "node_modules", package,
+                    _FIXED_PI_HOME,
+                    "agent",
+                    "npm",
+                    "node_modules",
+                    package,
                 )
                 os.makedirs(target_dir, exist_ok=True)
                 try:
@@ -650,9 +649,7 @@ class InstallContext:
                             member.name = parts[1]
                             tf.extract(member, target_dir, filter="data")
                 except (tarfile.TarError, OSError) as exc:
-                    raise InstallError(
-                        f"failed to extract {package!r}: {exc}"
-                    ) from exc
+                    raise InstallError(f"failed to extract {package!r}: {exc}") from exc
 
         return _RealPackageInstaller()
 
@@ -677,29 +674,31 @@ class InstallContext:
                 or permission failures.
                 """
                 npm_root = os.path.join(
-                    pi_home, "agent", "npm", "node_modules",
+                    pi_home,
+                    "agent",
+                    "npm",
+                    "node_modules",
                 )
                 pkg_dir = os.path.join(npm_root, package)
                 meta_path = os.path.join(pkg_dir, metadata_file)
                 try:
-                    with owned_file(lambda: open(meta_path, "rb"), label="installed package metadata") as fh:
+                    with owned_file(
+                        lambda: open(meta_path, "rb"),
+                        label="installed package metadata",
+                    ) as fh:
                         raw = json.loads(fh.read())
                 except FileNotFoundError:
                     raise MetadataNotFoundError(
                         f"metadata not found for {package!r} at {meta_path!r}"
                     ) from None
                 except json.JSONDecodeError as exc:
-                    raise InstallError(
-                        f"invalid JSON in {meta_path!r}: {exc}"
-                    ) from exc
+                    raise InstallError(f"invalid JSON in {meta_path!r}: {exc}") from exc
                 except PermissionError as exc:
                     raise InstallError(
                         f"permission denied reading {meta_path!r}: {exc}"
                     ) from exc
                 except OSError as exc:
-                    raise InstallError(
-                        f"failed to read {meta_path!r}: {exc}"
-                    ) from exc
+                    raise InstallError(f"failed to read {meta_path!r}: {exc}") from exc
                 if not isinstance(raw, dict):
                     raise InstallError(
                         f"metadata at {meta_path!r} is not a JSON object"
@@ -721,9 +720,7 @@ class InstallContext:
                 try:
                     pw = pwd.getpwuid(os.getuid())
                 except KeyError:
-                    raise InstallError(
-                        f"current uid {os.getuid()} has no passwd entry"
-                    )
+                    raise InstallError(f"current uid {os.getuid()} has no passwd entry")
                 if pw.pw_name != expected:
                     raise InstallError(
                         f"running as {pw.pw_name!r}, must be {expected!r}"
@@ -735,13 +732,12 @@ class InstallContext:
                 try:
                     st_result = os.lstat(path)
                 except OSError as exc:
-                    raise InstallError(
-                        f"cannot stat {path!r}: {exc}"
-                    ) from exc
+                    raise InstallError(f"cannot stat {path!r}: {exc}") from exc
 
                 user, _, group = expected_owner.partition(":")
 
                 import grp
+
                 try:
                     owner_name = pwd.getpwuid(st_result.st_uid).pw_name
                 except KeyError:
@@ -754,8 +750,7 @@ class InstallContext:
                 actual = f"{owner_name}:{group_name}"
                 if actual != expected_owner:
                     raise InstallError(
-                        f"{path!r} is owned by {actual!r}, "
-                        f"expected {expected_owner!r}"
+                        f"{path!r} is owned by {actual!r}, expected {expected_owner!r}"
                     )
 
         return _RealPrivilegeContext()
@@ -801,6 +796,7 @@ class IntegrityError(InstallError):
         expected:  Hex-encoded expected digest.
         actual:    Hex-encoded actual digest.
     """
+
     def __init__(
         self,
         message: str,
@@ -865,24 +861,19 @@ def read_projection(path: str) -> list[ProjectionEntry]:
     except FileNotFoundError:
         raise ProjectionError(f"projection file not found: {path!r}") from None
     except Exception as exc:
-        raise ProjectionError(
-            f"failed to parse projection TOML: {exc}"
-        ) from None
+        raise ProjectionError(f"failed to parse projection TOML: {exc}") from None
 
     # ── closed schema: root table ─────────────────────────────────
     allowed_root = {"extensions"}
     unknown_root = set(raw) - allowed_root
     if unknown_root:
         raise ProjectionError(
-            f"unknown top-level key(s) in runtime projection: "
-            f"{sorted(unknown_root)!r}"
+            f"unknown top-level key(s) in runtime projection: {sorted(unknown_root)!r}"
         )
 
     ext_table = raw.get("extensions")
     if not isinstance(ext_table, dict):
-        raise ProjectionError(
-            "[extensions] must be a TOML table"
-        )
+        raise ProjectionError("[extensions] must be a TOML table")
     ext_table = raw["extensions"]
 
     # ── allowed per-extension and per-artifact keys ────────────────
@@ -892,7 +883,10 @@ def read_projection(path: str) -> list[ProjectionEntry]:
     # projections, but never allow both representations in one entry.
     flat_artifact_fields = {"artifact_id", "integrity"}
     allowed_ext = {
-        "package", "version", "metadata_file", "artifact",
+        "package",
+        "version",
+        "metadata_file",
+        "artifact",
         *flat_artifact_fields,
     }
     allowed_artifact = flat_artifact_fields
@@ -900,15 +894,12 @@ def read_projection(path: str) -> list[ProjectionEntry]:
     entries: list[ProjectionEntry] = []
     for ext_name, ext_val in ext_table.items():
         if not isinstance(ext_val, dict):
-            raise ProjectionError(
-                f"[extensions.{ext_name!s}] must be a TOML table"
-            )
+            raise ProjectionError(f"[extensions.{ext_name!s}] must be a TOML table")
 
         unknown_ext = set(ext_val) - allowed_ext
         if unknown_ext:
             raise ProjectionError(
-                f"[extensions.{ext_name!s}]: unknown key(s) "
-                f"{sorted(unknown_ext)!r}"
+                f"[extensions.{ext_name!s}]: unknown key(s) {sorted(unknown_ext)!r}"
             )
 
         # ── validate selected artifact representation ─────────────
@@ -949,20 +940,28 @@ def read_projection(path: str) -> list[ProjectionEntry]:
             # silently coercing ints, floats, etc. would mask TOML
             # authoring mistakes.
             pkg = _require_str(
-                ext_val["package"], section, "package",
+                ext_val["package"],
+                section,
+                "package",
             )
             ver = _require_str(
-                ext_val["version"], section, "version",
+                ext_val["version"],
+                section,
+                "version",
             )
             meta = _require_str(
-                ext_val["metadata_file"], section, "metadata_file",
+                ext_val["metadata_file"],
+                section,
+                "metadata_file",
             )
             art_id = _require_str(
-                artifact_raw["artifact_id"], section,
+                artifact_raw["artifact_id"],
+                section,
                 f"{artifact_prefix}artifact_id",
             )
             integrity = _require_str(
-                artifact_raw["integrity"], section,
+                artifact_raw["integrity"],
+                section,
                 f"{artifact_prefix}integrity",
             )
 
@@ -986,8 +985,7 @@ def read_projection(path: str) -> list[ProjectionEntry]:
     for i in range(1, len(entries)):
         if entries[i].package == entries[i - 1].package:
             raise ProjectionError(
-                f"duplicate package in projection: "
-                f"{entries[i].package!r}"
+                f"duplicate package in projection: {entries[i].package!r}"
             )
 
     return entries
@@ -1031,9 +1029,7 @@ def install_extensions(
 
     # ── 1. Mount check + user identity ───────────────────────
     if not ctx.mount_check.is_mount(pi_home):
-        raise InstallError(
-            f"pi-home is not a mount point: {pi_home!r}"
-        )
+        raise InstallError(f"pi-home is not a mount point: {pi_home!r}")
     ctx.privilege.verify_user("dev")
 
     if dry_run:
@@ -1047,11 +1043,13 @@ def install_extensions(
                 )
             except MetadataNotFoundError:
                 # Package genuinely absent — would install fresh.
-                planned.append(ExtensionResult(
-                    package=e.package,
-                    version=e.version,
-                    status=InstallStatus.PLANNED,
-                ))
+                planned.append(
+                    ExtensionResult(
+                        package=e.package,
+                        version=e.version,
+                        status=InstallStatus.PLANNED,
+                    )
+                )
                 continue
             except InstallError:
                 # Read/parse/permission failure — surface without
@@ -1064,28 +1062,35 @@ def install_extensions(
                 # Name + version match — validate ownership before
                 # reporting ALREADY_INSTALLED.
                 metadata_path = _npm_metadata_path(
-                    pi_home, e.package, e.metadata_file,
+                    pi_home,
+                    e.package,
+                    e.metadata_file,
                 )
                 try:
                     ctx.privilege.validate_owner(
-                        metadata_path, "dev:dev",
+                        metadata_path,
+                        "dev:dev",
                     )
                 except InstallError as exc:
                     raise InstallError(
                         f"owner validation failed for {e.package}: {exc}"
                     ) from exc
-                planned.append(ExtensionResult(
-                    package=e.package,
-                    version=e.version,
-                    status=InstallStatus.ALREADY_INSTALLED,
-                ))
+                planned.append(
+                    ExtensionResult(
+                        package=e.package,
+                        version=e.version,
+                        status=InstallStatus.ALREADY_INSTALLED,
+                    )
+                )
             else:
                 # Name/version mismatch — would reinstall.
-                planned.append(ExtensionResult(
-                    package=e.package,
-                    version=e.version,
-                    status=InstallStatus.PLANNED,
-                ))
+                planned.append(
+                    ExtensionResult(
+                        package=e.package,
+                        version=e.version,
+                        status=InstallStatus.PLANNED,
+                    )
+                )
         return InstallResult(results=tuple(planned), dry_run=True)
 
     # ── 2. Install each extension via mounted blob reader ────
@@ -1094,12 +1099,14 @@ def install_extensions(
             result = _install_one(ctx, entry, pi_home)
             results.append(result)
         except InstallError as exc:
-            results.append(ExtensionResult(
-                package=entry.package,
-                version=entry.version,
-                status=InstallStatus.FAILED,
-                detail=f"[{entry.package}@{entry.version}] {exc}",
-            ))
+            results.append(
+                ExtensionResult(
+                    package=entry.package,
+                    version=entry.version,
+                    status=InstallStatus.FAILED,
+                    detail=f"[{entry.package}@{entry.version}] {exc}",
+                )
+            )
             # First failure stops subsequent mutations
             break
 
@@ -1131,7 +1138,9 @@ def _install_one(
         pkg_version = installed.get("version")
         if pkg_name == entry.package and pkg_version == entry.version:
             metadata_path = _npm_metadata_path(
-                pi_home, entry.package, entry.metadata_file,
+                pi_home,
+                entry.package,
+                entry.metadata_file,
             )
             try:
                 ctx.privilege.validate_owner(metadata_path, "dev:dev")
@@ -1189,7 +1198,9 @@ def _install_one(
 
     # ── 2e. Owner validation ─────────────────────────────────────
     metadata_path = _npm_metadata_path(
-        pi_home, entry.package, entry.metadata_file,
+        pi_home,
+        entry.package,
+        entry.metadata_file,
     )
     try:
         ctx.privilege.validate_owner(metadata_path, "dev:dev")
@@ -1208,8 +1219,14 @@ def _install_one(
 def _npm_metadata_path(pi_home: str, package: str, metadata_file: str) -> str:
     """Resolve the installed metadata path in the Pi CLI npm layout."""
     import os
+
     return os.path.join(
-        pi_home, "agent", "npm", "node_modules", package, metadata_file,
+        pi_home,
+        "agent",
+        "npm",
+        "node_modules",
+        package,
+        metadata_file,
     )
 
 
@@ -1297,16 +1314,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if result.dry_run:
         ok_count = sum(
-            1 for r in result.results
-            if r.status == InstallStatus.ALREADY_INSTALLED
+            1 for r in result.results if r.status == InstallStatus.ALREADY_INSTALLED
         )
-        planned = sum(
-            1 for r in result.results
-            if r.status == InstallStatus.PLANNED
-        )
+        planned = sum(1 for r in result.results if r.status == InstallStatus.PLANNED)
         print(
-            f"Dry-run: {ok_count} already installed, "
-            f"{planned} would be installed",
+            f"Dry-run: {ok_count} already installed, {planned} would be installed",
         )
         return _EXIT_OK if result.ok else _EXIT_INSTALL
 

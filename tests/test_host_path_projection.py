@@ -15,6 +15,7 @@ The fact is produced by the projector only.  Binding it into a selected live
 or retained representation is Phase 6 work; here it must stay internal and
 bounded.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -68,8 +69,7 @@ class TestSafeHostPathProjection(unittest.TestCase):
 
     def test_normalized_hostname_and_canonical_encoded_path(self):
         facts = _facts(
-            "npm http fetch GET 200 "
-            "https://ExAmPlE.com:8443/A/b%2Fc?q=1#frag 15ms"
+            "npm http fetch GET 200 https://ExAmPlE.com:8443/A/b%2Fc?q=1#frag 15ms"
         )
         self.assertEqual(1, len(facts))
         self.assertEqual("example.com", facts[0].hostname)
@@ -85,9 +85,7 @@ class TestSafeHostPathProjection(unittest.TestCase):
             [SafeHostPath("registry.npmjs.org", "/@scope/pkg/-/pkg-1.0.0.tgz")],
             list(facts),
         )
-        self.assertEqual(
-            "registry.npmjs.org/@scope/pkg/-/pkg-1.0.0.tgz", facts[0].text
-        )
+        self.assertEqual("registry.npmjs.org/@scope/pkg/-/pkg-1.0.0.tgz", facts[0].text)
 
     def test_facts_are_ordered_and_deduplicated_within_the_window(self):
         text = (
@@ -111,9 +109,13 @@ class TestSafeHostPathProjection(unittest.TestCase):
         for url, expected in cases.items():
             with self.subTest(url=url):
                 facts = _facts(f"see {url} now")
-                self.assertEqual((expected[0], expected[1]), (
-                    facts[0].hostname, facts[0].path,
-                ))
+                self.assertEqual(
+                    (expected[0], expected[1]),
+                    (
+                        facts[0].hostname,
+                        facts[0].path,
+                    ),
+                )
 
     def test_authority_only_url_has_a_root_path(self):
         facts = _facts("see https://example.com now")
@@ -174,9 +176,7 @@ class TestNormalizedUrlHostHelper(unittest.TestCase):
     def test_encoded_host_uses_the_validated_decoded_layer(self):
         url = "https://%65xample.com/x"
         self.assertEqual("example.com", normalized_url_host(url))
-        self.assertEqual(
-            [SafeHostPath("example.com", "/x")], list(_facts(url))
-        )
+        self.assertEqual([SafeHostPath("example.com", "/x")], list(_facts(url)))
 
     def test_supported_host_forms_still_normalize(self):
         cases = {
@@ -202,8 +202,7 @@ class TestConfidentialityPreserved(unittest.TestCase):
 
     def test_every_url_component_stays_excluded_from_text_and_path(self):
         text = (
-            "download https://alice:s3cr3t@ExAmPlE.com:8443/a/b"
-            "?q=1&sig=dead#frag retry"
+            "download https://alice:s3cr3t@ExAmPlE.com:8443/a/b?q=1&sig=dead#frag retry"
         )
         safe, hostnames = sanitize_diagnostic_text(text, secrets=("s3cr3t",))
         self.assertEqual("download <redacted> retry", safe)
@@ -293,9 +292,7 @@ class TestHostPathBoundaries(unittest.TestCase):
                 self.assertTrue(facts[0].path.isascii())
                 self.assertNotIn(sample, facts[0].path)
                 self.assertNotIn(sample, facts[0].text)
-                expected = "".join(
-                    f"%{byte:02X}" for byte in sample.encode("utf-8")
-                )
+                expected = "".join(f"%{byte:02X}" for byte in sample.encode("utf-8"))
                 self.assertIn(expected, facts[0].path)
 
     def test_rendered_host_path_has_no_active_unicode_controls(self):
@@ -305,10 +302,7 @@ class TestHostPathBoundaries(unittest.TestCase):
         for rendered in (facts[0].path, facts[0].text):
             self.assertTrue(rendered.isascii())
             self.assertFalse(
-                any(
-                    unicodedata.category(character)[0] == "C"
-                    for character in rendered
-                )
+                any(unicodedata.category(character)[0] == "C" for character in rendered)
             )
 
     def test_safe_host_path_rejects_active_non_ascii_paths(self):
@@ -329,17 +323,13 @@ class TestHostPathBoundaries(unittest.TestCase):
         self.assertNotIn("%zz", facts[0].text)
 
     def test_secret_bearing_path_falls_back_but_keeps_the_safe_host(self):
-        facts = _facts(
-            "see https://example.com/s3cr3t/v1 now", secrets=("s3cr3t",)
-        )
+        facts = _facts("see https://example.com/s3cr3t/v1 now", secrets=("s3cr3t",))
         self.assertEqual("example.com", facts[0].hostname)
         self.assertEqual(REDACTED_PATH_MARKER, facts[0].path)
         self.assertNotIn("s3cr3t", facts[0].text)
 
     def test_encoded_secret_bearing_path_falls_back(self):
-        facts = _facts(
-            "see https://example.com/%73ecret/v1 now", secrets=("secret",)
-        )
+        facts = _facts("see https://example.com/%73ecret/v1 now", secrets=("secret",))
         self.assertEqual(REDACTED_PATH_MARKER, facts[0].path)
 
     def test_canonicalization_cannot_create_a_secret(self):
@@ -347,9 +337,7 @@ class TestHostPathBoundaries(unittest.TestCase):
         # registered secret that appears in neither the original path nor any
         # percent-decoded layer.  Confidentiality is rechecked after canonical
         # form, so the path fails closed while the safe host stays visible.
-        facts = _facts(
-            "see https://example.com/sec/x/../ret now", secrets=("sec/ret",)
-        )
+        facts = _facts("see https://example.com/sec/x/../ret now", secrets=("sec/ret",))
         self.assertEqual("example.com", facts[0].hostname)
         self.assertEqual(REDACTED_PATH_MARKER, facts[0].path)
         self.assertEqual("example.com/<redacted-path>", facts[0].text)
@@ -359,9 +347,7 @@ class TestHostPathBoundaries(unittest.TestCase):
         # The original-path check is retained: ``/sec/ret/x/..`` canonicalizes
         # to ``/sec/ret`` only by removing a segment, but the registered secret
         # is already visible in the original path and must still redact.
-        facts = _facts(
-            "see https://example.com/sec/ret/x/.. now", secrets=("sec/ret",)
-        )
+        facts = _facts("see https://example.com/sec/ret/x/.. now", secrets=("sec/ret",))
         self.assertEqual("example.com", facts[0].hostname)
         self.assertEqual(REDACTED_PATH_MARKER, facts[0].path)
         self.assertNotIn("sec/ret", facts[0].text)
@@ -372,7 +358,10 @@ class TestHostPathBoundaries(unittest.TestCase):
 
     def test_incomplete_url_token_yields_no_host_path_fact(self):
         projector = DiagnosticProjector()
-        self.assertEqual("see <redacted>", "".join(projector.feed_text("see https://example.com/a%2")))
+        self.assertEqual(
+            "see <redacted>",
+            "".join(projector.feed_text("see https://example.com/a%2")),
+        )
         self.assertEqual((), projector.finish())
         self.assertEqual((), projector.host_paths)
 
@@ -453,11 +442,7 @@ class TestInternalOnlyBoundary(unittest.TestCase):
 
     def test_collected_chunks_carry_no_host_path_payload(self):
         stream = NpmDiagnosticStream("stdout")
-        chunks = list(
-            stream.feed_bytes(
-                b"GET https://registry.example.com/a/b 15ms\n"
-            )
-        )
+        chunks = list(stream.feed_bytes(b"GET https://registry.example.com/a/b 15ms\n"))
         chunks.extend(stream.finish())
         for chunk in chunks:
             self.assertFalse(hasattr(chunk, "host_paths"))

@@ -94,20 +94,36 @@ _TOP_LEVEL_FIELDS = frozenset(
 
 _MANIFEST_NODE_FIELDS = frozenset(
     {
-        "name", "version",
-        "dependencies", "devDependencies", "optionalDependencies",
-        "peerDependencies", "peerDependenciesMeta",
-        "engines", "license", "funding", "deprecated",
+        "name",
+        "version",
+        "dependencies",
+        "devDependencies",
+        "optionalDependencies",
+        "peerDependencies",
+        "peerDependenciesMeta",
+        "engines",
+        "license",
+        "funding",
+        "deprecated",
     }
 )
 
 _PACKAGE_STRUCTURAL_FIELDS = frozenset(
     {
-        "name", "version", "resolved", "integrity",
-        "dependencies", "optionalDependencies",
-        "peerDependencies", "peerDependenciesMeta",
-        "dev", "optional", "peer", "hasInstallScript",
-        "os", "cpu",
+        "name",
+        "version",
+        "resolved",
+        "integrity",
+        "dependencies",
+        "optionalDependencies",
+        "peerDependencies",
+        "peerDependenciesMeta",
+        "dev",
+        "optional",
+        "peer",
+        "hasInstallScript",
+        "os",
+        "cpu",
     }
 )
 
@@ -117,10 +133,18 @@ _PACKAGE_STRUCTURAL_FIELDS = frozenset(
 # They remain separate closed sets so the 1.7 introspection can enumerate
 # the three roles independently.
 _REVIEWED_ROOT_NODE_FIELDS = _PACKAGE_STRUCTURAL_FIELDS | {
-    "bin", "engines", "license", "funding", "deprecated",
+    "bin",
+    "engines",
+    "license",
+    "funding",
+    "deprecated",
 }
 _TRANSITIVE_NODE_FIELDS = _PACKAGE_STRUCTURAL_FIELDS | {
-    "bin", "engines", "license", "funding", "deprecated",
+    "bin",
+    "engines",
+    "license",
+    "funding",
+    "deprecated",
 }
 
 # Fields that denote unsupported npm source/layout features and are
@@ -138,8 +162,7 @@ def _split_platform(platform: str) -> tuple[str, str]:
     if not _PLATFORM_RE.match(platform):
         raise LockedNpmError(
             "invalid_platform",
-            f"platform must be an os-arch token like 'linux-x64', "
-            f"got {platform!r}",
+            f"platform must be an os-arch token like 'linux-x64', got {platform!r}",
         )
     os_name, _, arch = platform.partition("-")
     return os_name, arch
@@ -192,12 +215,7 @@ def _parse_path(path: str) -> tuple[str, str]:
     """
     if path == "":
         return "", ""
-    if (
-        path.startswith("/")
-        or path.endswith("/")
-        or "//" in path
-        or "\\" in path
-    ):
+    if path.startswith("/") or path.endswith("/") or "//" in path or "\\" in path:
         raise LockedNpmError("unsafe_path", f"unsafe lock path {path!r}")
     segments = path.split("/")
     if segments[0] != "node_modules":
@@ -266,7 +284,9 @@ def _parse_dep_map(value: object, path: str, field: str) -> tuple[tuple[str, str
     return tuple(sorted(pairs))
 
 
-def _parse_platform_list(value: object, path: str, field: str) -> tuple[str, ...] | None:
+def _parse_platform_list(
+    value: object, path: str, field: str
+) -> tuple[str, ...] | None:
     if value is None:
         return None
     entries = [value] if isinstance(value, str) else value
@@ -292,9 +312,7 @@ def _parse_platform_list(value: object, path: str, field: str) -> tuple[str, ...
 # ── node parsing ───────────────────────────────────────────────────────
 
 
-def _parse_peer_meta(
-    value: object, path: str, peer_names: set[str]
-) -> tuple[str, ...]:
+def _parse_peer_meta(value: object, path: str, peer_names: set[str]) -> tuple[str, ...]:
     """Parse ``peerDependenciesMeta`` into the sorted optional-peer names.
 
     npm accepts ``peerDependenciesMeta`` entries that do not correspond to a
@@ -398,8 +416,7 @@ def _validate_engines(value: object, path: str) -> str | None:
     except NpmRangeError as exc:
         raise LockedNpmError(
             "invalid_engine_range",
-            f"engines.node at {path or '<root>'} has unsupported range "
-            f"{node_range!r}",
+            f"engines.node at {path or '<root>'} has unsupported range {node_range!r}",
         ) from exc
     return node_range
 
@@ -438,11 +455,7 @@ def _validate_bin_target(target: str, path: str) -> None:
     components.  Transitive ``bin`` is shape-validated only and never
     reaches this check.
     """
-    if (
-        "\\" in target
-        or target.startswith("/")
-        or _BIN_WINDOWS_DRIVE_RE.match(target)
-    ):
+    if "\\" in target or target.startswith("/") or _BIN_WINDOWS_DRIVE_RE.match(target):
         raise LockedNpmError(
             "unsafe_executable_path",
             f"reviewed-root bin target {target!r} at {path!r} is not a "
@@ -476,12 +489,9 @@ def _validate_funding_object(value: Mapping[str, object], path: str) -> None:
     if "url" not in value or not isinstance(value["url"], str) or not value["url"]:
         raise LockedNpmError(
             "malformed_lockfile",
-            f"funding object at {path or '<root>'} requires a non-empty "
-            f"string 'url'",
+            f"funding object at {path or '<root>'} requires a non-empty string 'url'",
         )
-    if "type" in value and (
-        not isinstance(value["type"], str) or not value["type"]
-    ):
+    if "type" in value and (not isinstance(value["type"], str) or not value["type"]):
         raise LockedNpmError(
             "malformed_lockfile",
             f"funding 'type' at {path or '<root>'} must be a non-empty string",
@@ -518,8 +528,7 @@ def _validate_funding(value: object, path: str) -> None:
             else:
                 raise LockedNpmError(
                     "malformed_lockfile",
-                    f"funding entry at {path or '<root>'} must be a string "
-                    f"or object",
+                    f"funding entry at {path or '<root>'} must be a string or object",
                 )
         return
     raise LockedNpmError(
@@ -582,7 +591,9 @@ def _parse_node(
             node.get("optionalDependencies"), path, "optionalDependencies"
         )
         dev_deps = _parse_dep_map(node.get("devDependencies"), path, "devDependencies")
-        peer_deps = _parse_dep_map(node.get("peerDependencies"), path, "peerDependencies")
+        peer_deps = _parse_dep_map(
+            node.get("peerDependencies"), path, "peerDependencies"
+        )
         optional_peers = _parse_peer_meta(
             node.get("peerDependenciesMeta"), path, {n for n, _ in peer_deps}
         )
@@ -725,7 +736,8 @@ def _canonical_roots(roots: Sequence[RootSpec]) -> tuple[RootSpec, ...]:
             _validate_semver(root.version)
         except SemverError as exc:
             raise LockedNpmError(
-                "invalid_version", f"root {root.name!r} has invalid version {root.version!r}"
+                "invalid_version",
+                f"root {root.name!r} has invalid version {root.version!r}",
             ) from exc
         if root.name in seen:
             raise LockedNpmError("duplicate_root", f"duplicate root {root.name!r}")
@@ -752,9 +764,7 @@ def _resolve(
 ) -> LockPackage | None:
     for directory in _ancestor_dirs(parent_path):
         candidate = (
-            f"{directory}/node_modules/{name}"
-            if directory
-            else f"node_modules/{name}"
+            f"{directory}/node_modules/{name}" if directory else f"node_modules/{name}"
         )
         if candidate in pkg_map:
             return pkg_map[candidate]
@@ -781,9 +791,7 @@ def _resolve_peer(
     parent = _parent_dir(declaring_path)
     for directory in _ancestor_dirs(parent):
         candidate = (
-            f"{directory}/node_modules/{name}"
-            if directory
-            else f"node_modules/{name}"
+            f"{directory}/node_modules/{name}" if directory else f"node_modules/{name}"
         )
         if candidate in pkg_map:
             return pkg_map[candidate]
@@ -819,8 +827,7 @@ def _edges(node: LockPackage) -> tuple[tuple[str, str, bool, str], ...]:
     ]
     if node.path == "":
         edges.extend(
-            (name, rng, False, "devDependency")
-            for (name, rng) in node.dev_dependencies
+            (name, rng, False, "devDependency") for (name, rng) in node.dev_dependencies
         )
     edges.extend(
         (name, rng, True, "optionalDependency")
@@ -1053,9 +1060,13 @@ def parse_lockfile(
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise LockedNpmError("malformed_lockfile", "package-lock.json is not valid JSON") from exc
+        raise LockedNpmError(
+            "malformed_lockfile", "package-lock.json is not valid JSON"
+        ) from exc
     if not isinstance(data, Mapping):
-        raise LockedNpmError("malformed_lockfile", "package-lock.json must be an object")
+        raise LockedNpmError(
+            "malformed_lockfile", "package-lock.json must be an object"
+        )
 
     unknown_top = sorted(set(data) - set(_TOP_LEVEL_FIELDS))
     if unknown_top:
@@ -1073,7 +1084,9 @@ def parse_lockfile(
 
     packages_raw = data.get("packages")
     if not isinstance(packages_raw, Mapping):
-        raise LockedNpmError("missing_packages", "package-lock.json is missing 'packages'")
+        raise LockedNpmError(
+            "missing_packages", "package-lock.json is missing 'packages'"
+        )
 
     canonical_roots = _canonical_roots(roots)
 
@@ -1082,11 +1095,15 @@ def parse_lockfile(
         if not isinstance(path, str):
             raise LockedNpmError("malformed_lockfile", "packages keys must be strings")
         if not isinstance(node, Mapping):
-            raise LockedNpmError("malformed_lockfile", f"package node {path!r} must be an object")
+            raise LockedNpmError(
+                "malformed_lockfile", f"package node {path!r} must be an object"
+            )
         parsed[path] = _parse_node(path, node, os_name, arch)
 
     if "" not in parsed:
-        raise LockedNpmError("malformed_lockfile", "lockfile is missing the root node ('' key)")
+        raise LockedNpmError(
+            "malformed_lockfile", "lockfile is missing the root node ('' key)"
+        )
 
     pkg_map: dict[str, LockPackage] = {path: p.package for path, p in parsed.items()}
     root = pkg_map[""]

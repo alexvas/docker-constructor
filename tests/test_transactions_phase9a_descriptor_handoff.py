@@ -16,6 +16,7 @@ by call order, then assert that:
 * ordinary, unexpected, and process-control failures follow the accumulator's
   precedence contract (primary authoritative, cleanup failures secondary).
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -135,7 +136,9 @@ class BuildCacheRelativeDirTests(DescriptorHandoffAssertions, unittest.TestCase)
             finally:
                 os.close(ns_fd)
 
-    def test_ordinary_parent_close_failure_releases_child_without_retrying_parent(self) -> None:
+    def test_ordinary_parent_close_failure_releases_child_without_retrying_parent(
+        self,
+    ) -> None:
         fault = OSError(errno.EIO, "parent close failed")
         with tempfile.TemporaryDirectory() as td:
             ns_fd = os.open(td, os.O_RDONLY | os.O_DIRECTORY)
@@ -184,11 +187,15 @@ class BuildCacheRelativeDirTests(DescriptorHandoffAssertions, unittest.TestCase)
             finally:
                 os.close(ns_fd)
 
-    def test_fchmod_interruption_releases_child_and_parent_and_stays_authoritative(self) -> None:
+    def test_fchmod_interruption_releases_child_and_parent_and_stays_authoritative(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as td:
             ns_fd = os.open(td, os.O_RDONLY | os.O_DIRECTORY)
             try:
-                with _instrumented(None, fchmod={"side_effect": KeyboardInterrupt()}) as instr:
+                with _instrumented(
+                    None, fchmod={"side_effect": KeyboardInterrupt()}
+                ) as instr:
                     with self.assertRaises(KeyboardInterrupt):
                         build_cache._open_relative_dir(ns_fd, ("a",), create=True)
                 parent_fd, child_fd = instr.opened[0], instr.opened[1]
@@ -196,7 +203,9 @@ class BuildCacheRelativeDirTests(DescriptorHandoffAssertions, unittest.TestCase)
             finally:
                 os.close(ns_fd)
 
-    def test_parent_close_interruption_releases_child_without_retrying_parent(self) -> None:
+    def test_parent_close_interruption_releases_child_without_retrying_parent(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as td:
             ns_fd = os.open(td, os.O_RDONLY | os.O_DIRECTORY)
             try:
@@ -228,7 +237,9 @@ class BuildCacheRelativeDirTests(DescriptorHandoffAssertions, unittest.TestCase)
             try:
                 with _instrumented({0: fault}) as instr:
                     with self.assertRaises(OSError) as ctx:
-                        build_cache._open_relative_dir(ns_fd, ("missing",), create=False)
+                        build_cache._open_relative_dir(
+                            ns_fd, ("missing",), create=False
+                        )
                 self.assertIs(ctx.exception, fault)
                 # The retained descriptor is closed once and never retried.
                 self.assertEqual(instr.calls, instr.opened)
@@ -251,7 +262,9 @@ class ArtifactCacheDirectoryChainTests(DescriptorHandoffAssertions, unittest.Tes
             finally:
                 os.close(fd)
 
-    def test_ordinary_parent_close_failure_releases_child_without_retrying_parent(self) -> None:
+    def test_ordinary_parent_close_failure_releases_child_without_retrying_parent(
+        self,
+    ) -> None:
         fault = OSError(errno.EIO, "parent close failed")
         with tempfile.TemporaryDirectory() as td:
             target = Path(td) / "a" / "b"
@@ -287,7 +300,9 @@ class ArtifactCacheDirectoryChainTests(DescriptorHandoffAssertions, unittest.Tes
             self.assertIs(ctx.exception, fault)
             self.assert_parent_then_child(instr)
 
-    def test_parent_close_interruption_releases_child_and_stays_authoritative(self) -> None:
+    def test_parent_close_interruption_releases_child_and_stays_authoritative(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as td:
             target = Path(td) / "a" / "b"
             with _instrumented({0: KeyboardInterrupt()}) as instr:

@@ -26,6 +26,7 @@ view up to three passes for the scheme and up to four for the separator, then
 search for a supported scheme immediately followed by ``://``); the production
 recognizer never imports it and never materialises a decoded view.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -94,9 +95,7 @@ def _multi_layer(text: str, depth: int) -> tuple[str, list[tuple[int, int]]]:
 def _ascii_fold(text: str) -> str:
     """ASCII-lowercase *text* without changing its length."""
     return "".join(
-        chr(ord(character) + 32)
-        if "A" <= character <= "Z"
-        else character
+        chr(ord(character) + 32) if "A" <= character <= "Z" else character
         for character in text
     )
 
@@ -248,9 +247,7 @@ class SupportedSchemeTests(_RecognizerCase):
         ):
             with self.subTest(scheme=scheme):
                 result = self.recognize(f"{scheme}://internal.example/private")
-                self.assertIs(
-                    RecognitionKind.NO_MATCH, result.kind
-                )
+                self.assertIs(RecognitionKind.NO_MATCH, result.kind)
 
     def test_arbitrarily_long_unknown_scheme_is_not_detected(self):
         scheme = "custom" + "x" * 4096
@@ -540,8 +537,7 @@ class DifferentialCorpusTests(_RecognizerCase):
         if expected is None:
             if result.kind is RecognitionKind.MATCH:
                 self.fail(
-                    f"oracle found no candidate in {text!r} but got "
-                    f"{result.candidate}"
+                    f"oracle found no candidate in {text!r} but got {result.candidate}"
                 )
         else:
             self.assertIs(
@@ -599,9 +595,7 @@ class LiteralSecretTests(_RecognizerCase):
     """Task 2.3 -- literal secret selection and cross-terminator coverage."""
 
     def test_literal_secret_outside_a_url_is_reported(self):
-        _result, matches = self.recognize_secrets(
-            "before TOKEN after", ("TOKEN",)
-        )
+        _result, matches = self.recognize_secrets("before TOKEN after", ("TOKEN",))
         self.assertEqual(1, len(matches))
         match = matches[0]
         self.assertEqual(0, match.pattern_index)
@@ -613,9 +607,7 @@ class LiteralSecretTests(_RecognizerCase):
         _result, matches = self.recognize_secrets(text, ("password done",))
         self.assertEqual(1, len(matches))
         self.assertEqual(0, matches[0].depth)
-        self.assertEqual(
-            "password done", text[matches[0].start : matches[0].end]
-        )
+        self.assertEqual("password done", text[matches[0].start : matches[0].end])
 
     def test_literal_secret_with_a_space_is_not_rejected(self):
         _result, matches = self.recognize_secrets(
@@ -627,9 +619,7 @@ class LiteralSecretTests(_RecognizerCase):
         text = "plain https://host/schemehttps tail"
         _result, matches = self.recognize_secrets(text, ("schemehttps",))
         self.assertEqual(1, len(matches))
-        self.assertEqual(
-            "schemehttps", text[matches[0].start : matches[0].end]
-        )
+        self.assertEqual("schemehttps", text[matches[0].start : matches[0].end])
 
     def test_secret_selects_leftmost_longest(self):
         module = self.recognizer()
@@ -661,9 +651,7 @@ class UrlDecodedSecretTests(_RecognizerCase):
         self.assertEqual(1, len(matches))
         match = matches[0]
         self.assertEqual(1, match.depth)
-        self.assertEqual(
-            "%54%4f%4b%45%4e", text[match.start : match.end]
-        )
+        self.assertEqual("%54%4f%4b%45%4e", text[match.start : match.end])
 
     def test_secret_found_at_two_decoded_depths_is_reported_once(self):
         text = "https://host/%2554%254f%254b%2545%254e/private"
@@ -756,9 +744,7 @@ class WorkStateRegressionTests(_RecognizerCase):
         self.assertEqual(4000, large.chars)
         self.assertGreater(small.emissions, 0)
         self.assertGreater(large.emissions, 0)
-        self.assertLessEqual(
-            large.layer_char_visits, 2 * small.layer_char_visits + 8
-        )
+        self.assertLessEqual(large.layer_char_visits, 2 * small.layer_char_visits + 8)
         self.assertLessEqual(large.emissions, 2 * small.emissions + 8)
         self.assertLessEqual(large.atoms, 2 * small.atoms + 8)
 
@@ -766,9 +752,7 @@ class WorkStateRegressionTests(_RecognizerCase):
         module = self.recognizer()
         _, small = module.recognize_with_stats("ab " * 1000)
         _, large = module.recognize_with_stats("ab " * 2000)
-        self.assertLessEqual(
-            large.layer_char_visits, 2 * small.layer_char_visits + 8
-        )
+        self.assertLessEqual(large.layer_char_visits, 2 * small.layer_char_visits + 8)
         self.assertLessEqual(large.atoms, 2 * small.atoms + 8)
 
     def test_pending_and_queue_state_is_bounded_for_long_tokens(self):
@@ -783,9 +767,7 @@ class WorkStateRegressionTests(_RecognizerCase):
         module = self.recognizer()
         for count in (1, 100, 5000):
             with self.subTest(count=count):
-                result, stats = module.recognize_with_stats(
-                    "https://h " * count
-                )
+                result, stats = module.recognize_with_stats("https://h " * count)
                 self.assertIs(RecognitionKind.MATCH, result.kind)
                 self.assertLessEqual(stats.peak_retained_matches, 1)
 
@@ -861,14 +843,10 @@ class SecretRetentionWorkTests(_RecognizerCase):
         small = run(50)
         large = run(100)
         self.assertGreater(small.transitions, 0)
-        self.assertLessEqual(
-            large.layer_char_visits, 2 * small.layer_char_visits + 8
-        )
+        self.assertLessEqual(large.layer_char_visits, 2 * small.layer_char_visits + 8)
         self.assertLessEqual(large.emissions, 2 * small.emissions + 8)
         self.assertLessEqual(large.transitions, 2 * small.transitions + 8)
-        self.assertLessEqual(
-            large.secret_emissions, 2 * small.secret_emissions + 8
-        )
+        self.assertLessEqual(large.secret_emissions, 2 * small.secret_emissions + 8)
 
     def test_speculative_pruning_work_is_linear_for_long_url_paths(self):
         module = self.recognizer()
@@ -915,13 +893,9 @@ class SecretRetentionWorkTests(_RecognizerCase):
         before = recognizer.stats.speculative_record_visits
         self.assertGreater(before, 0)
         recognizer.consume(recognizer.consumed)
-        self.assertGreaterEqual(
-            recognizer.stats.speculative_record_visits, before
-        )
+        self.assertGreaterEqual(recognizer.stats.speculative_record_visits, before)
         recognizer.feed("https://host/%54OKEN ")
-        self.assertGreater(
-            recognizer.stats.speculative_record_visits, before
-        )
+        self.assertGreater(recognizer.stats.speculative_record_visits, before)
 
 
 class CommittedDecoderEmissionTests(_RecognizerCase):
@@ -951,8 +925,9 @@ class CommittedDecoderEmissionTests(_RecognizerCase):
             inc.consume(cut)
             inc.finalize()
             expected = {(13, 14, 1)} if cut == 13 else set()
-            self.assertEqual(expected, {(m.start, m.end, m.depth)
-                                        for m in inc.decoded_secrets()})
+            self.assertEqual(
+                expected, {(m.start, m.end, m.depth) for m in inc.decoded_secrets()}
+            )
             self.assertEqual(14, inc.stats.chars)
             inc.consume(14)
             self.assertEqual((), inc.decoded_secrets())
@@ -967,12 +942,17 @@ class CommittedDecoderEmissionTests(_RecognizerCase):
             for character in suffix:
                 inc.feed(character)
             inc.finalize()
-            self.assertEqual({(13, 15, 1, 1)},
-                             {(m.start, m.end, m.depth, m.pattern_index)
-                              for m in inc.decoded_secrets()})
+            self.assertEqual(
+                {(13, 15, 1, 1)},
+                {
+                    (m.start, m.end, m.depth, m.pattern_index)
+                    for m in inc.decoded_secrets()
+                },
+            )
             self.assertEqual(14 + len(suffix), inc.stats.chars)
-            self.assertGreaterEqual(inc.stats.speculative_record_visits,
-                                    before.speculative_record_visits)
+            self.assertGreaterEqual(
+                inc.stats.speculative_record_visits, before.speculative_record_visits
+            )
             inc.consume(15)
             self.assertEqual((), inc.decoded_secrets())
 
@@ -983,8 +963,9 @@ class CommittedDecoderEmissionTests(_RecognizerCase):
         inc.consume(14)
         inc.feed("25")
         inc.finalize()
-        self.assertEqual({(13, 16, 1)},
-                         {(m.start, m.end, m.depth) for m in inc.decoded_secrets()})
+        self.assertEqual(
+            {(13, 16, 1)}, {(m.start, m.end, m.depth) for m in inc.decoded_secrets()}
+        )
         inc.consume(16)
         self.assertEqual((), inc.decoded_secrets())
         self.assertEqual(16, inc.stats.chars)
@@ -996,11 +977,15 @@ class PendingTransducerSecretTests(_RecognizerCase):
     def test_batch_pending_transducer_preserves_complete_raw_coverage(self):
         module = self.recognizer()
         for ending in ("", " "):
-            result, matches = module.recognize_with_secrets("%%25368ttps://host" + ending, ("%",))
+            result, matches = module.recognize_with_secrets(
+                "%%25368ttps://host" + ending, ("%",)
+            )
             self.assertIs(RecognitionKind.MATCH, result.kind)
             self.assertEqual(0, result.candidate.start)
-            self.assertEqual({(0, 1, 0), (1, 2, 0), (1, 4, 1)},
-                             {(m.start, m.end, m.depth) for m in matches})
+            self.assertEqual(
+                {(0, 1, 0), (1, 2, 0), (1, 4, 1)},
+                {(m.start, m.end, m.depth) for m in matches},
+            )
 
     def test_every_split_pending_transducer_preserves_decoded_coverage(self):
         module = self.recognizer()
@@ -1011,10 +996,14 @@ class PendingTransducerSecretTests(_RecognizerCase):
             inc.feed(text[split:])
             inc.finalize()
             self.assertEqual(0, inc.result(text).candidate.start)
-            self.assertEqual({(0, 1, 1), (1, 4, 1)},
-                             {(m.start, m.end, m.depth) for m in inc.decoded_secrets()})
-            self.assertEqual({(0, 1, 0), (1, 2, 0)},
-                             {(m.start, m.end, m.depth) for m in inc.literal_secrets()})
+            self.assertEqual(
+                {(0, 1, 1), (1, 4, 1)},
+                {(m.start, m.end, m.depth) for m in inc.decoded_secrets()},
+            )
+            self.assertEqual(
+                {(0, 1, 0), (1, 2, 0)},
+                {(m.start, m.end, m.depth) for m in inc.literal_secrets()},
+            )
 
     def test_pending_speculation_state_and_work_are_bounded(self):
         module = self.recognizer()
@@ -1030,8 +1019,12 @@ class PendingTransducerSecretTests(_RecognizerCase):
             self.assertEqual((), inc.decoded_secrets())
             stats = inc.stats
             self.assertLessEqual(stats.peak_pending_chars, 2)
-            work.append(stats.layer_char_visits + stats.speculative_record_visits
-                        + stats.secret_ordering_work + stats.secret_record_transfers)
+            work.append(
+                stats.layer_char_visits
+                + stats.speculative_record_visits
+                + stats.secret_ordering_work
+                + stats.secret_record_transfers
+            )
         self.assertLessEqual(work[1], 2 * work[0] + 64)
 
 
@@ -1040,9 +1033,14 @@ class CappedPrefixAndLongTokenTests(_RecognizerCase):
 
     def test_four_pass_scheme_prefixes_are_not_retained(self):
         module = self.recognizer()
-        for text in ("%25252568", "%25252568t", "h%25252574",
-                     "%25252568%25252574", "ht%25252574",
-                     "%25252568%25252574%25252574%25252570"):
+        for text in (
+            "%25252568",
+            "%25252568t",
+            "h%25252574",
+            "%25252568%25252574",
+            "ht%25252574",
+            "%25252568%25252574%25252574%25252570",
+        ):
             with self.subTest(text=text):
                 self.assertIs(RecognitionKind.NO_MATCH, module.recognize(text).kind)
                 for split in range(len(text) + 1):
@@ -1054,8 +1052,14 @@ class CappedPrefixAndLongTokenTests(_RecognizerCase):
 
     def test_incomplete_four_pass_scheme_escapes_are_not_retained(self):
         module = self.recognizer()
-        for text in ("%252525", "%2525256", "h%252525", "h%2525256",
-                     "https%2525256", "https%2525253A%2525253"):
+        for text in (
+            "%252525",
+            "%2525256",
+            "h%252525",
+            "h%2525256",
+            "https%2525256",
+            "https%2525253A%2525253",
+        ):
             with self.subTest(text=text):
                 self.assertIs(RecognitionKind.NO_MATCH, module.recognize(text).kind)
                 for split in range(len(text) + 1):
@@ -1064,13 +1068,17 @@ class CappedPrefixAndLongTokenTests(_RecognizerCase):
                     inc.feed(text[split:])
                     self.assertIs(RecognitionKind.NO_MATCH, inc.result(text).kind)
                 later = text + "!https"
-                self.assertEqual(len(text) + 1,
-                                 module.recognize(later).retain_from)
+                self.assertEqual(len(text) + 1, module.recognize(later).retain_from)
 
     def test_pending_four_pass_separator_escapes_retain_permitted_scheme(self):
         module = self.recognizer()
-        for suffix in ("%252525", "%2525253", "%2525253A%252525",
-                       "%2525253A%2525252", "%2525253A%2525252F%2525252"):
+        for suffix in (
+            "%252525",
+            "%2525253",
+            "%2525253A%252525",
+            "%2525253A%2525252",
+            "%2525253A%2525252F%2525252",
+        ):
             text = "h%252574tps" + suffix
             with self.subTest(text=text):
                 result = module.recognize(text, offset=11)
@@ -1112,18 +1120,31 @@ class CappedPrefixAndLongTokenTests(_RecognizerCase):
             unit = "%61" if encoded else "a"
             prefix = "https://host/"
             text = prefix + unit * size
-            expected = {(len(prefix) + i * len(unit),
-                         len(prefix) + (i + len(secret)) * len(unit), j)
-                        for j, secret in enumerate(secrets)
-                        for i in range(size - len(secret) + 1)}
+            expected = {
+                (
+                    len(prefix) + i * len(unit),
+                    len(prefix) + (i + len(secret)) * len(unit),
+                    j,
+                )
+                for j, secret in enumerate(secrets)
+                for i in range(size - len(secret) + 1)
+            }
             # Batch path includes finalization, with and without a terminator.
             for ending_index, ending in enumerate(("", " ")):
-                _, matches, stats = module.recognize_with_secrets_and_stats(text + ending, secrets)
-                self.assertEqual(expected, {(m.start, m.end, m.pattern_index) for m in matches})
-                self.assertLessEqual(stats.secret_ordering_work, 20 * size * len(secrets))
+                _, matches, stats = module.recognize_with_secrets_and_stats(
+                    text + ending, secrets
+                )
+                self.assertEqual(
+                    expected, {(m.start, m.end, m.pattern_index) for m in matches}
+                )
+                self.assertLessEqual(
+                    stats.secret_ordering_work, 20 * size * len(secrets)
+                )
                 batch_totals[ending_index].append(
-                    stats.secret_ordering_work + stats.secret_record_transfers
-                    + stats.speculative_record_visits)
+                    stats.secret_ordering_work
+                    + stats.secret_record_transfers
+                    + stats.speculative_record_visits
+                )
 
             inc = module.IncrementalRecognizer(secrets)
             for character in text:
@@ -1136,14 +1157,24 @@ class CappedPrefixAndLongTokenTests(_RecognizerCase):
             matches = inc.decoded_secrets() if encoded else inc.literal_secrets()
             if consume:
                 expected = {record for record in expected if record[1] > len(text) - 1}
-            self.assertEqual(expected, {(m.start, m.end, m.pattern_index) for m in matches})
+            self.assertEqual(
+                expected, {(m.start, m.end, m.pattern_index) for m in matches}
+            )
             before = inc.stats
             inc.consume(inc.consumed)
             after = inc.stats
-            self.assertGreaterEqual(after.secret_ordering_work, before.secret_ordering_work)
-            self.assertEqual(before.secret_record_transfers, after.secret_record_transfers)
-            totals.append(after.speculative_record_visits + after.secret_ordering_work
-                          + after.secret_record_transfers + after.candidate_retirement_visits)
+            self.assertGreaterEqual(
+                after.secret_ordering_work, before.secret_ordering_work
+            )
+            self.assertEqual(
+                before.secret_record_transfers, after.secret_record_transfers
+            )
+            totals.append(
+                after.speculative_record_visits
+                + after.secret_ordering_work
+                + after.secret_record_transfers
+                + after.candidate_retirement_visits
+            )
         self.assertLessEqual(totals[1], 2 * totals[0] + 64)
         for work in batch_totals:
             self.assertLessEqual(work[1], 2 * work[0] + 64)
@@ -1190,7 +1221,9 @@ class FinalizationWorkTests(_RecognizerCase):
         ]
 
     def _assert_coverage(self, reps: int, matches) -> None:
-        self.assertEqual(self._expected_spans(reps), [(m.start, m.end) for m in matches])
+        self.assertEqual(
+            self._expected_spans(reps), [(m.start, m.end) for m in matches]
+        )
         self.assertEqual([1] * reps, [m.depth for m in matches])
 
     def test_batch_finalization_work_is_linear(self):
@@ -1204,9 +1237,7 @@ class FinalizationWorkTests(_RecognizerCase):
                 )
                 self.assertIs(RecognitionKind.MATCH, result.kind)
                 self._assert_coverage(reps, matches)
-                work.append(
-                    stats.secret_record_transfers + stats.secret_ordering_work
-                )
+                work.append(stats.secret_record_transfers + stats.secret_ordering_work)
         self.assertGreater(work[0], 0)
         self.assertLessEqual(work[1], 2 * work[0] + 16)
 
@@ -1298,9 +1329,7 @@ class AdversarialCoverageWorkTests(_RecognizerCase):
         self.assertEqual(len(small_matches) * 2, len(large_matches))
         self.assertEqual(
             [(match.start, match.end, match.depth) for match in small_matches],
-            sorted(
-                (match.start, match.end, match.depth) for match in small_matches
-            ),
+            sorted((match.start, match.end, match.depth) for match in small_matches),
         )
         self.assertEqual(
             [(match.start, match.end) for match in small_matches],
@@ -1310,12 +1339,8 @@ class AdversarialCoverageWorkTests(_RecognizerCase):
             large.speculative_record_visits,
             2 * small.speculative_record_visits + 16,
         )
-        self.assertLessEqual(
-            large.boundary_chars, 2 * small.boundary_chars + 16
-        )
-        self.assertLessEqual(
-            large.coverage_checks, 2 * small.coverage_checks + 16
-        )
+        self.assertLessEqual(large.boundary_chars, 2 * small.boundary_chars + 16)
+        self.assertLessEqual(large.coverage_checks, 2 * small.coverage_checks + 16)
 
 
 class SourceRangeProvenanceTests(_RecognizerCase):
@@ -1363,9 +1388,7 @@ class SourceRangeProvenanceTests(_RecognizerCase):
         )
 
     def test_decoded_escape_spans_all_three_raw_characters(self):
-        self.assertEqual(
-            [("A", 0, 3, True)], self._single_layer_emissions("%41")
-        )
+        self.assertEqual([("A", 0, 3, True)], self._single_layer_emissions("%41"))
 
     def test_malformed_and_incomplete_escapes_preserve_literal_ranges(self):
         self.assertEqual(

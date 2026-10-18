@@ -6,6 +6,7 @@ and reserves the typed ``DESTINATION_EXISTS`` outcome for the final commit.
 Temporary allocation tries a fresh private name at most three times; a
 temporary ``EEXIST`` is never surfaced as destination contention.
 """
+
 from __future__ import annotations
 
 import errno
@@ -55,7 +56,9 @@ class AtomicNoClobberTests(unittest.TestCase):
         self.ops.hooks["linkat"] = before_link
         self.contracts.atomic_no_clobber(self.directory, "entry", b"payload", 0o640)
         self.assertEqual(observed, [0o640])
-        self.assertEqual(stat.S_IMODE(os.stat(os.path.join(self.root, "entry")).st_mode), 0o640)
+        self.assertEqual(
+            stat.S_IMODE(os.stat(os.path.join(self.root, "entry")).st_mode), 0o640
+        )
 
     def test_partial_writes_still_publish_complete_bytes(self) -> None:
         self.ops.partial_writes = 2
@@ -67,7 +70,9 @@ class AtomicNoClobberTests(unittest.TestCase):
         with open(os.path.join(self.root, "entry"), "wb") as stream:
             stream.write(b"original")
         with self.assertRaises(DestinationExists) as ctx:
-            self.contracts.atomic_no_clobber(self.directory, "entry", b"replacement", 0o600)
+            self.contracts.atomic_no_clobber(
+                self.directory, "entry", b"replacement", 0o600
+            )
         self.assertEqual(ctx.exception.name, "entry")
         with open(os.path.join(self.root, "entry"), "rb") as stream:
             self.assertEqual(stream.read(), b"original")
@@ -105,9 +110,8 @@ class TemporaryAllocationTests(unittest.TestCase):
         self.addCleanup(self.ops.failures.clear)
 
     def test_each_collision_chooses_a_fresh_name(self) -> None:
-        self.ops.failures["openat"] = (
-            lambda count: FileExistsError(errno.EEXIST, "injected collision")
-            if count == 1 else None
+        self.ops.failures["openat"] = lambda count: (
+            FileExistsError(errno.EEXIST, "injected collision") if count == 1 else None
         )
         self.contracts.atomic_no_clobber(self.directory, "entry", b"payload", 0o600)
         names = self.ops.names("openat")
@@ -115,9 +119,8 @@ class TemporaryAllocationTests(unittest.TestCase):
         self.assertNotEqual(names[0], names[1])
 
     def test_three_failed_attempts_are_an_allocation_failure(self) -> None:
-        self.ops.failures["openat"] = (
-            lambda count: FileExistsError(errno.EEXIST, "injected collision")
-            if count <= 3 else None
+        self.ops.failures["openat"] = lambda count: (
+            FileExistsError(errno.EEXIST, "injected collision") if count <= 3 else None
         )
         with self.assertRaises(TransactionError) as ctx:
             self.contracts.atomic_no_clobber(self.directory, "entry", b"payload", 0o600)
@@ -133,9 +136,8 @@ class TemporaryAllocationTests(unittest.TestCase):
         marker = os.path.join(self.root, "occupied", "keep")
         with open(marker, "wb") as stream:
             stream.write(b"untouched")
-        self.ops.failures["openat"] = (
-            lambda count: FileExistsError(errno.EEXIST, "injected collision")
-            if count == 1 else None
+        self.ops.failures["openat"] = lambda count: (
+            FileExistsError(errno.EEXIST, "injected collision") if count == 1 else None
         )
         self.contracts.atomic_no_clobber(self.directory, "entry", b"payload", 0o600)
         with open(marker, "rb") as stream:
@@ -143,9 +145,8 @@ class TemporaryAllocationTests(unittest.TestCase):
         self.assertNotIn("read", self.ops.order)
 
     def test_temporary_collision_is_not_destination_exists(self) -> None:
-        self.ops.failures["openat"] = (
-            lambda count: FileExistsError(errno.EEXIST, "injected collision")
-            if count <= 3 else None
+        self.ops.failures["openat"] = lambda count: (
+            FileExistsError(errno.EEXIST, "injected collision") if count <= 3 else None
         )
         try:
             self.contracts.atomic_no_clobber(self.directory, "entry", b"payload", 0o600)
@@ -210,9 +211,8 @@ class TemporaryCleanupRetryTests(unittest.TestCase):
         self.addCleanup(self.ops.failures.clear)
 
     def test_first_temporary_unlink_failure_is_retried_and_succeeds(self) -> None:
-        self.ops.failures["unlinkat"] = (
-            lambda count: OSError(errno.EIO, "injected unlink")
-            if count == 1 else None
+        self.ops.failures["unlinkat"] = lambda count: (
+            OSError(errno.EIO, "injected unlink") if count == 1 else None
         )
         with self.assertRaises(TransactionError) as ctx:
             self.contracts.atomic_no_clobber(self.directory, "entry", b"payload", 0o600)
@@ -230,7 +230,10 @@ class TemporaryCleanupRetryTests(unittest.TestCase):
         self.assertEqual(ctx.exception.stage, STAGE_COMMIT)
         self.assertIs(ctx.exception.cause, cause)
         self.assertEqual(len(ctx.exception.secondary), 1)
-        self.assertEqual(temporary_entries(self.root), [os.path.basename(self.ops.names("openat")[0])])
+        self.assertEqual(
+            temporary_entries(self.root),
+            [os.path.basename(self.ops.names("openat")[0])],
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover

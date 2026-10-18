@@ -16,6 +16,7 @@ is being handled and assert the four contract behaviors:
 * a locally failing operation preserves its own primary and attaches ordinary
   cleanup failures to it.
 """
+
 from __future__ import annotations
 
 import errno
@@ -64,7 +65,9 @@ class _AmbientPrimaryTestCase(unittest.TestCase):
         )
         self.assertNotIn("__notes__", vars(exc))
 
-    def assert_secondary(self, primary: BaseException, secondary: BaseException) -> None:
+    def assert_secondary(
+        self, primary: BaseException, secondary: BaseException
+    ) -> None:
         attached = getattr(primary, _SECONDARY_SLOT, None)
         self.assertIsInstance(attached, list)
         self.assertIn(secondary, attached)
@@ -90,9 +93,7 @@ class FsyncDirAmbientPrimaryTests(_AmbientPrimaryTestCase):
             close_exc = OSError(errno.EIO, "close failed")
 
             def operation() -> None:
-                with mock.patch.object(
-                    publication.os, "close", side_effect=close_exc
-                ):
+                with mock.patch.object(publication.os, "close", side_effect=close_exc):
                     publication._fsync_dir(td)
 
             caller_exc, outcome = _run_inside_handler(operation)
@@ -128,10 +129,9 @@ class FsyncDirAmbientPrimaryTests(_AmbientPrimaryTestCase):
             close_exc = OSError(errno.EIO, "close failed")
 
             def operation() -> None:
-                with mock.patch.object(
-                    publication.os, "fsync", side_effect=op_exc
-                ), mock.patch.object(
-                    publication.os, "close", side_effect=close_exc
+                with (
+                    mock.patch.object(publication.os, "fsync", side_effect=op_exc),
+                    mock.patch.object(publication.os, "close", side_effect=close_exc),
                 ):
                     publication._fsync_dir(td)
 
@@ -150,9 +150,7 @@ class DurableWriteAmbientPrimaryTests(_AmbientPrimaryTestCase):
             close_exc = OSError(errno.EIO, "close failed")
 
             def operation() -> None:
-                with mock.patch.object(
-                    publication.os, "close", side_effect=close_exc
-                ):
+                with mock.patch.object(publication.os, "close", side_effect=close_exc):
                     publication._durable_write(target, b"payload")
 
             caller_exc, outcome = _run_inside_handler(operation)
@@ -166,10 +164,9 @@ class DurableWriteAmbientPrimaryTests(_AmbientPrimaryTestCase):
             close_exc = OSError(errno.EIO, "close failed")
 
             def operation() -> None:
-                with mock.patch.object(
-                    publication.os, "write", side_effect=op_exc
-                ), mock.patch.object(
-                    publication.os, "close", side_effect=close_exc
+                with (
+                    mock.patch.object(publication.os, "write", side_effect=op_exc),
+                    mock.patch.object(publication.os, "close", side_effect=close_exc),
                 ):
                     publication._durable_write(target, b"payload")
 
@@ -183,9 +180,7 @@ class ReadMetadataAmbientPrimaryTests(_AmbientPrimaryTestCase):
     """``project_state._read_metadata`` — ``finally`` close of a read descriptor."""
 
     def _namespace(self, data: bytes) -> int:
-        namespace_fd = os.open(
-            self.tmp.name, os.O_RDONLY | os.O_DIRECTORY
-        )
+        namespace_fd = os.open(self.tmp.name, os.O_RDONLY | os.O_DIRECTORY)
         file_fd = os.open(
             "project.json",
             os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
@@ -229,10 +224,9 @@ class ReadMetadataAmbientPrimaryTests(_AmbientPrimaryTestCase):
             close_exc = OSError(errno.EIO, "close failed")
 
             def operation() -> None:
-                with mock.patch.object(
-                    project_state.os, "fstat", side_effect=op_exc
-                ), mock.patch.object(
-                    project_state.os, "close", side_effect=close_exc
+                with (
+                    mock.patch.object(project_state.os, "fstat", side_effect=op_exc),
+                    mock.patch.object(project_state.os, "close", side_effect=close_exc),
                 ):
                     project_state._read_metadata(namespace_fd, expected, "label")
 
@@ -253,10 +247,9 @@ class BuildCacheExceptionHandlerPrimaryTests(_AmbientPrimaryTestCase):
             close_exc = OSError(errno.EIO, "close failed")
 
             def operation() -> None:
-                with mock.patch.object(
-                    build_cache.os, "fstat", side_effect=op_exc
-                ), mock.patch.object(
-                    build_cache.os, "close", side_effect=close_exc
+                with (
+                    mock.patch.object(build_cache.os, "fstat", side_effect=op_exc),
+                    mock.patch.object(build_cache.os, "close", side_effect=close_exc),
                 ):
                     build_cache._open_namespace_fd(Path(td))
 
@@ -288,9 +281,7 @@ class BuildSnapshotHardLinkAmbientPrimaryTests(_AmbientPrimaryTestCase):
         close_exc = OSError(errno.EIO, "close failed")
 
         def operation() -> None:
-            with mock.patch.object(
-                build_snapshot.os, "close", side_effect=close_exc
-            ):
+            with mock.patch.object(build_snapshot.os, "close", side_effect=close_exc):
                 build_snapshot._validate_hard_link_destination(
                     "dest", self.dir_fd, self.source_stat, self.expected
                 )
@@ -299,13 +290,13 @@ class BuildSnapshotHardLinkAmbientPrimaryTests(_AmbientPrimaryTestCase):
         self.assertIs(outcome.get("raised"), close_exc)
         self.assert_untouched(caller_exc)
 
-    def test_local_validation_failure_preserves_primary_and_attaches_close(self) -> None:
+    def test_local_validation_failure_preserves_primary_and_attaches_close(
+        self,
+    ) -> None:
         close_exc = OSError(errno.EIO, "close failed")
 
         def operation() -> None:
-            with mock.patch.object(
-                build_snapshot.os, "close", side_effect=close_exc
-            ):
+            with mock.patch.object(build_snapshot.os, "close", side_effect=close_exc):
                 build_snapshot._validate_hard_link_destination(
                     "dest", self.dir_fd, self.source_stat, "0" * 64
                 )
@@ -348,9 +339,7 @@ class MaterializeArtifactAmbientPrimaryTests(_AmbientPrimaryTestCase):
                 return real_unlink(name, *args, **kwargs)
 
             def operation():
-                with mock.patch.object(
-                    build_materialization.os, "unlink", fake_unlink
-                ):
+                with mock.patch.object(build_materialization.os, "unlink", fake_unlink):
                     return build_materialization.materialize_artifact(
                         selected,
                         constructor_project_root=td,
@@ -375,9 +364,7 @@ class NestedScopeAmbientPrimaryTests(_AmbientPrimaryTestCase):
         self.cache_root = os.path.join(self.tmp.name, "cache")
         algorithm_dir = os.path.join(self.cache_root, identity.algorithm)
         os.makedirs(algorithm_dir, mode=0o700)
-        blob_path = os.path.join(
-            algorithm_dir, f"{identity.runtime_safe_digest()}.tgz"
-        )
+        blob_path = os.path.join(algorithm_dir, f"{identity.runtime_safe_digest()}.tgz")
         with open(blob_path, "wb") as stream:
             stream.write(self.payload)
         os.chmod(blob_path, 0o444)
@@ -392,7 +379,9 @@ class NestedScopeAmbientPrimaryTests(_AmbientPrimaryTestCase):
         self.assertNotIn("raised", outcome)
         self.assert_untouched(caller_exc)
 
-    def test_each_nested_close_is_attempted_once_and_leaves_caller_untouched(self) -> None:
+    def test_each_nested_close_is_attempted_once_and_leaves_caller_untouched(
+        self,
+    ) -> None:
         close, calls = _distinct_close_faults()
         with mock.patch.object(artifact_cache.os, "close", side_effect=close):
             caller_exc, outcome = _run_inside_handler(

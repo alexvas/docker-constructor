@@ -15,6 +15,7 @@ These tests pin the build-domain cleanup/recovery surface added by Phase 4:
 
 The module under test does not exist until the Phase 4 GREEN tasks.
 """
+
 from __future__ import annotations
 
 import errno
@@ -64,7 +65,9 @@ def identity(payload: bytes) -> DigestIdentity:
 
 
 def identity_alg(algorithm: str, payload: bytes) -> DigestIdentity:
-    return DigestIdentity.from_hex(algorithm, hashlib.new(algorithm, payload).hexdigest())
+    return DigestIdentity.from_hex(
+        algorithm, hashlib.new(algorithm, payload).hexdigest()
+    )
 
 
 class RecordingOps(InjectedOps):
@@ -124,7 +127,9 @@ class RecordingOps(InjectedOps):
     def fd_for(self, name: str) -> int:
         matches = [fd for _, entry, fd in self.opened if entry == name]
         if len(matches) != 1:
-            raise AssertionError(f"expected exactly one open of {name!r}, got {matches}")
+            raise AssertionError(
+                f"expected exactly one open of {name!r}, got {matches}"
+            )
         return matches[0]
 
 
@@ -328,12 +333,16 @@ class MarkerReconciliationTests(_CleanupTestCase):
         # synchronized once.
         self.assertEqual(self.ops.counts.get("unlinkat", 0), 0)
 
-    def test_marker_unlink_failure_is_aggregated_and_recovery_still_fsyncs(self) -> None:
+    def test_marker_unlink_failure_is_aggregated_and_recovery_still_fsyncs(
+        self,
+    ) -> None:
         first = identity(b"first")
         second = identity(b"second")
         self.add_marker(first)
         self.add_marker(second)
-        self.fail_unlink_for(marker_name(first), OSError(errno.EIO, "injected marker failure"))
+        self.fail_unlink_for(
+            marker_name(first), OSError(errno.EIO, "injected marker failure")
+        )
         current = BuildGeneration(
             1,
             format_generation_name(1),
@@ -341,7 +350,9 @@ class MarkerReconciliationTests(_CleanupTestCase):
         )
         self.ops.reset()
         with self.assertRaises(BuildCleanupError) as ctx:
-            reconcile_authoritative_markers(self.ops, self.storage, current, lock=self.lock)
+            reconcile_authoritative_markers(
+                self.ops, self.storage, current, lock=self.lock
+            )
         self.assertEqual(len(ctx.exception.failures), 1)
         self.assertTrue(self.marker_path(first).exists())
         self.assertFalse(self.marker_path(second).exists())
@@ -360,7 +371,9 @@ class MarkerReconciliationTests(_CleanupTestCase):
         )
         self.ops.reset()
         with self.assertRaises(BuildCleanupError) as ctx:
-            reconcile_authoritative_markers(self.ops, self.storage, current, lock=self.lock)
+            reconcile_authoritative_markers(
+                self.ops, self.storage, current, lock=self.lock
+            )
         self.assertEqual(len(ctx.exception.failures), 1)
         self.assertFalse(self.marker_path(blob).exists())
 
@@ -370,7 +383,9 @@ class MarkerReconciliationTests(_CleanupTestCase):
         )
         self.lock.close()
         with self.assertRaises(CapabilityError):
-            reconcile_authoritative_markers(self.ops, self.storage, current, lock=self.lock)
+            reconcile_authoritative_markers(
+                self.ops, self.storage, current, lock=self.lock
+            )
 
     def test_unsafe_authoritative_marker_is_preserved(self) -> None:
         blob = identity(b"authoritative")
@@ -502,7 +517,9 @@ class SupersededCleanupTests(_CleanupTestCase):
         inventory = self._two_generation_state([a, b, c], [])
         for blob in (a, b, c):
             self.add_marker(blob)
-        self.fail_unlink_for(blob_name(a), OSError(errno.EACCES, "injected blob failure"))
+        self.fail_unlink_for(
+            blob_name(a), OSError(errno.EACCES, "injected blob failure")
+        )
         self.ops.reset()
         with self.assertRaises(BuildCleanupError) as ctx:
             cleanup_superseded(self.ops, self.storage, inventory, lock=self.lock)
@@ -530,7 +547,9 @@ class SupersededCleanupTests(_CleanupTestCase):
         self.assertEqual(len(ctx.exception.failures), 2)
         self.assertTrue((self.root / format_generation_name(1)).exists())
 
-    def test_marker_directory_post_batch_fsync_failure_retains_predecessor(self) -> None:
+    def test_marker_directory_post_batch_fsync_failure_retains_predecessor(
+        self,
+    ) -> None:
         blob = identity_alg("sha256", b"only")
         inventory = self._two_generation_state([blob], [])
         self.add_marker(blob)
@@ -620,7 +639,9 @@ class SupersededCleanupTests(_CleanupTestCase):
         self.assertTrue(self.blob_path(blob).exists())
         self.assertTrue((self.root / format_generation_name(1)).exists())
 
-    def test_predecessor_is_removed_only_after_candidate_batches_are_durable(self) -> None:
+    def test_predecessor_is_removed_only_after_candidate_batches_are_durable(
+        self,
+    ) -> None:
         blob = identity_alg("sha256", b"only")
         inventory = self._two_generation_state([blob], [])
         predecessor = format_generation_name(1)
@@ -636,7 +657,9 @@ class SupersededCleanupTests(_CleanupTestCase):
         # fsync precedes the predecessor unlink; the generation-directory
         # fsync that completes the predecessor removal follows it.
         candidate_fsyncs = [
-            index for index, (name, _args) in enumerate(self.ops.calls) if name == "fsync"
+            index
+            for index, (name, _args) in enumerate(self.ops.calls)
+            if name == "fsync"
         ]
         self.assertGreaterEqual(len(candidate_fsyncs), 2)
         for index in candidate_fsyncs[:-1]:
@@ -656,7 +679,9 @@ class SupersededCleanupTests(_CleanupTestCase):
         self.assertFalse((self.root / format_generation_name(1)).exists())
         self.assertTrue((self.root / format_generation_name(2)).exists())
 
-    def test_generation_directory_fsync_failure_after_unlink_reports_failure(self) -> None:
+    def test_generation_directory_fsync_failure_after_unlink_reports_failure(
+        self,
+    ) -> None:
         blob = identity_alg("sha256", b"only")
         inventory = self._two_generation_state([blob], [])
         predecessor = format_generation_name(1)
@@ -899,9 +924,7 @@ class UnsafeLeafTests(_CleanupTestCase):
             cleanup_superseded(self.ops, self.storage, inventory, lock=self.lock)
         self.assertEqual(len(ctx.exception.failures), 1)
         self.assertTrue(self.blob_path(blob).exists())
-        self.assertEqual(
-            stat.S_IMODE(os.stat(self.blob_path(blob)).st_mode), 0o600
-        )
+        self.assertEqual(stat.S_IMODE(os.stat(self.blob_path(blob)).st_mode), 0o600)
         self.assertTrue(self.marker_path(blob).exists())
         self._assert_failed_closed()
 
@@ -967,9 +990,7 @@ class UnsafeLeafTests(_CleanupTestCase):
             cleanup_superseded(self.ops, self.storage, inventory, lock=self.lock)
         self.assertEqual(len(ctx.exception.failures), 1)
         self.assertTrue(self.marker_path(blob).exists())
-        self.assertEqual(
-            stat.S_IMODE(os.stat(self.marker_path(blob)).st_mode), 0o666
-        )
+        self.assertEqual(stat.S_IMODE(os.stat(self.marker_path(blob)).st_mode), 0o666)
         self._assert_failed_closed()
 
     def test_unsafe_leaf_does_not_block_other_candidates_or_spawn_fsyncs(self) -> None:
@@ -1158,7 +1179,9 @@ class RecoveryTests(_CleanupTestCase):
         self.assertTrue(self.blob_path(previous_only).exists())
         self.assertTrue((self.root / format_generation_name(1)).exists())
 
-    def test_recovery_requires_generation_sync_before_accepting_one_generation(self) -> None:
+    def test_recovery_requires_generation_sync_before_accepting_one_generation(
+        self,
+    ) -> None:
         current = identity(b"current")
         self.add_blob(current)
         self.write_generation(1, [current])
@@ -1216,7 +1239,9 @@ class RecoveryTests(_CleanupTestCase):
         self.assertTrue((self.root / format_generation_name(2)).exists())
         self.assertTrue(self.blob_path(current_only).exists())
 
-    def test_one_generation_state_after_failed_generation_fsync_preserves_current(self) -> None:
+    def test_one_generation_state_after_failed_generation_fsync_preserves_current(
+        self,
+    ) -> None:
         current_only = identity(b"current")
         self.add_blob(current_only)
         self.write_generation(1, [current_only])
@@ -1252,7 +1277,9 @@ class CleanupInterruptionTests(_CleanupTestCase):
         self.write_generation(1, previous_blobs)
         self.write_generation(2, current_blobs)
 
-    def test_interruption_during_candidate_unlink_leaves_recoverable_state(self) -> None:
+    def test_interruption_during_candidate_unlink_leaves_recoverable_state(
+        self,
+    ) -> None:
         previous_only = identity(b"previous")
         self._state([previous_only], [identity(b"current")])
         cancellation = _Cancellation()
@@ -1266,7 +1293,9 @@ class CleanupInterruptionTests(_CleanupTestCase):
         recover_generations(self.ops, self.storage, lock=self.lock)
         self.assertFalse((self.root / format_generation_name(1)).exists())
 
-    def test_interruption_during_predecessor_unlink_leaves_recoverable_state(self) -> None:
+    def test_interruption_during_predecessor_unlink_leaves_recoverable_state(
+        self,
+    ) -> None:
         previous_only = identity(b"previous")
         self._state([previous_only], [identity(b"current")])
         cancellation = _Cancellation()
@@ -1303,16 +1332,16 @@ class CleanupInterruptionTests(_CleanupTestCase):
         self.assertIs(ctx.exception, cancellation)
         self.assertTrue((self.root / format_generation_name(1)).exists())
 
-    def test_interruption_during_candidate_directory_fsync_leaves_predecessor(self) -> None:
+    def test_interruption_during_candidate_directory_fsync_leaves_predecessor(
+        self,
+    ) -> None:
         previous_only = identity_alg("sha256", b"previous")
         self._state([previous_only], [identity(b"current")])
         cancellation = _Cancellation()
         # Fsync call 1 is the generation-directory discovery sync; call 2 is
         # authoritative-marker reconciliation; call 3 is the affected
         # candidate blob directory.
-        self.ops.failures["fsync"] = lambda count: (
-            cancellation if count == 3 else None
-        )
+        self.ops.failures["fsync"] = lambda count: cancellation if count == 3 else None
         with self.assertRaises(_Cancellation) as ctx:
             recover_generations(self.ops, self.storage, lock=self.lock)
         self.assertIs(ctx.exception, cancellation)

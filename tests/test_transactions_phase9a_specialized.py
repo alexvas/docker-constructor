@@ -6,6 +6,7 @@ staging cleanup treat ``FileNotFoundError`` as idempotent absence only inside
 a domain action that declares it, while permission, I/O, unexpected defects,
 and interruptions remain observable and never skip later independent cleanup.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -54,7 +55,9 @@ def _snapshot_pairs(root):
                 SelectedBuildArtifact(
                     name,
                     "https://not-exposed.invalid/",
-                    DigestIdentity.from_hex("sha256", hashlib.sha256(payload).hexdigest()),
+                    DigestIdentity.from_hex(
+                        "sha256", hashlib.sha256(payload).hexdigest()
+                    ),
                 ),
                 blob,
             )
@@ -106,7 +109,9 @@ def _staging_instruments(record, *, staging_open_fault=None, staging_close_fault
         return result
 
     with contextlib.ExitStack() as stack:
-        stack.enter_context(patch.object(build_snapshot.tempfile, "mkdtemp", fake_mkdtemp))
+        stack.enter_context(
+            patch.object(build_snapshot.tempfile, "mkdtemp", fake_mkdtemp)
+        )
         stack.enter_context(patch.object(build_snapshot.os, "open", fake_open))
         stack.enter_context(patch.object(build_snapshot.os, "close", fake_close))
         try:
@@ -129,7 +134,9 @@ class RemoveOwnedLeafTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             target = Path(td) / "entry"
             target.write_bytes(b"x")
-            with patch.object(Path, "unlink", side_effect=PermissionError(errno.EACCES, "no")):
+            with patch.object(
+                Path, "unlink", side_effect=PermissionError(errno.EACCES, "no")
+            ):
                 with self.assertRaises(PermissionError):
                     _remove_owned_leaf(target)
 
@@ -153,10 +160,13 @@ class BuildMaterializationCleanupTests(unittest.TestCase):
                     raise PermissionError(errno.EACCES, "injected blob unlink")
                 return real_unlink(self, *args, **kwargs)
 
-            with patch(
-                "docker.versioning.build_materialization._verify_hit",
-                return_value=False,
-            ), patch.object(Path, "unlink", fake_unlink):
+            with (
+                patch(
+                    "docker.versioning.build_materialization._verify_hit",
+                    return_value=False,
+                ),
+                patch.object(Path, "unlink", fake_unlink),
+            ):
                 with self.assertRaises(MaterializationError) as ctx:
                     materialize_artifact(
                         self._selected(),
@@ -200,7 +210,12 @@ class BuildMaterializationCleanupTests(unittest.TestCase):
 class SnapshotConstructionCleanupTests(unittest.TestCase):
     def _pairs(self, root: Path):
         result = []
-        for name, payload in (("rustup", b"r"), ("uv", b"u"), ("rtk", b"t"), ("fd", b"f")):
+        for name, payload in (
+            ("rustup", b"r"),
+            ("uv", b"u"),
+            ("rtk", b"t"),
+            ("fd", b"f"),
+        ):
             blob = root / f"{name}.blob"
             blob.write_bytes(payload)
             blob.chmod(0o444)
@@ -209,7 +224,9 @@ class SnapshotConstructionCleanupTests(unittest.TestCase):
                     SelectedBuildArtifact(
                         name,
                         "https://not-exposed.invalid/",
-                        DigestIdentity.from_hex("sha256", hashlib.sha256(payload).hexdigest()),
+                        DigestIdentity.from_hex(
+                            "sha256", hashlib.sha256(payload).hexdigest()
+                        ),
                     ),
                     blob,
                 )
@@ -221,12 +238,15 @@ class SnapshotConstructionCleanupTests(unittest.TestCase):
             root = Path(td)
             pairs = self._pairs(root)
             cleanup_failure = SnapshotError("injected cleanup failure")
-            with patch(
-                "docker.versioning.build_snapshot.validate_host_owner_traversal",
-                side_effect=RuntimeError("traversal failed"),
-            ), patch(
-                "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
-                side_effect=cleanup_failure,
+            with (
+                patch(
+                    "docker.versioning.build_snapshot.validate_host_owner_traversal",
+                    side_effect=RuntimeError("traversal failed"),
+                ),
+                patch(
+                    "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
+                    side_effect=cleanup_failure,
+                ),
             ):
                 with self.assertRaises(RuntimeError) as ctx:
                     create_artifact_snapshot(
@@ -242,12 +262,15 @@ class SnapshotConstructionCleanupTests(unittest.TestCase):
             root = Path(td)
             pairs = self._pairs(root)
             cleanup_failure = PermissionError(errno.EACCES, "injected cleanup")
-            with patch(
-                "docker.versioning.build_snapshot.validate_host_owner_traversal",
-                side_effect=KeyboardInterrupt("construction interrupted"),
-            ), patch(
-                "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
-                side_effect=cleanup_failure,
+            with (
+                patch(
+                    "docker.versioning.build_snapshot.validate_host_owner_traversal",
+                    side_effect=KeyboardInterrupt("construction interrupted"),
+                ),
+                patch(
+                    "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
+                    side_effect=cleanup_failure,
+                ),
             ):
                 with self.assertRaises(KeyboardInterrupt) as ctx:
                     create_artifact_snapshot(
@@ -263,7 +286,12 @@ class SnapshotDescriptorCloseTests(unittest.TestCase):
 
     def _pairs(self, root: Path):
         result = []
-        for name, payload in (("rustup", b"r"), ("uv", b"u"), ("rtk", b"t"), ("fd", b"f")):
+        for name, payload in (
+            ("rustup", b"r"),
+            ("uv", b"u"),
+            ("rtk", b"t"),
+            ("fd", b"f"),
+        ):
             blob = root / f"{name}.blob"
             blob.write_bytes(payload)
             blob.chmod(0o444)
@@ -272,7 +300,9 @@ class SnapshotDescriptorCloseTests(unittest.TestCase):
                     SelectedBuildArtifact(
                         name,
                         "https://not-exposed.invalid/",
-                        DigestIdentity.from_hex("sha256", hashlib.sha256(payload).hexdigest()),
+                        DigestIdentity.from_hex(
+                            "sha256", hashlib.sha256(payload).hexdigest()
+                        ),
                     ),
                     blob,
                 )
@@ -319,9 +349,14 @@ class SnapshotDescriptorCloseTests(unittest.TestCase):
             pairs = self._pairs(root)
             record: dict[str, object] = {}
             mkdtemp_patch, open_patch, close_patch = self._close_failure_patches(record)
-            with mkdtemp_patch, open_patch, close_patch, patch(
-                "docker.versioning.build_snapshot.validate_host_owner_traversal",
-                side_effect=RuntimeError("traversal failed"),
+            with (
+                mkdtemp_patch,
+                open_patch,
+                close_patch,
+                patch(
+                    "docker.versioning.build_snapshot.validate_host_owner_traversal",
+                    side_effect=RuntimeError("traversal failed"),
+                ),
             ):
                 with self.assertRaises(RuntimeError) as ctx:
                     create_artifact_snapshot(
@@ -344,9 +379,14 @@ class SnapshotDescriptorCloseTests(unittest.TestCase):
                 "blob_paths": {os.fspath(blob) for _, blob in pairs},
             }
             mkdtemp_patch, open_patch, close_patch = self._close_failure_patches(record)
-            with mkdtemp_patch, open_patch, close_patch, patch(
-                "docker.versioning.build_snapshot._validate_hard_link_destination",
-                side_effect=RuntimeError("destination validation failed"),
+            with (
+                mkdtemp_patch,
+                open_patch,
+                close_patch,
+                patch(
+                    "docker.versioning.build_snapshot._validate_hard_link_destination",
+                    side_effect=RuntimeError("destination validation failed"),
+                ),
             ):
                 with self.assertRaises(RuntimeError) as ctx:
                     create_artifact_snapshot(
@@ -372,16 +412,21 @@ class SnapshotStagingOpenCleanupTests(unittest.TestCase):
             constructor_project_root=root,
         )
 
-    def test_open_failure_with_ordinary_cleanup_failure_keeps_domain_error(self) -> None:
+    def test_open_failure_with_ordinary_cleanup_failure_keeps_domain_error(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             pairs = _snapshot_pairs(root)
             record: dict[str, object] = {}
             open_fault = PermissionError(errno.EACCES, "staging open denied")
             cleanup_failure = SnapshotError("injected ordinary cleanup failure")
-            with _staging_instruments(record, staging_open_fault=open_fault), patch(
-                "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
-                side_effect=cleanup_failure,
+            with (
+                _staging_instruments(record, staging_open_fault=open_fault),
+                patch(
+                    "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
+                    side_effect=cleanup_failure,
+                ),
             ):
                 with self.assertRaises(SnapshotError) as ctx:
                     self._create(root, pairs)
@@ -396,9 +441,12 @@ class SnapshotStagingOpenCleanupTests(unittest.TestCase):
             record: dict[str, object] = {}
             open_fault = PermissionError(errno.EACCES, "staging open denied")
             defect = RuntimeError("unexpected cleanup defect")
-            with _staging_instruments(record, staging_open_fault=open_fault), patch(
-                "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
-                side_effect=defect,
+            with (
+                _staging_instruments(record, staging_open_fault=open_fault),
+                patch(
+                    "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
+                    side_effect=defect,
+                ),
             ):
                 with self.assertRaises(RuntimeError) as ctx:
                     self._create(root, pairs)
@@ -416,9 +464,12 @@ class SnapshotStagingOpenCleanupTests(unittest.TestCase):
             record: dict[str, object] = {}
             open_fault = PermissionError(errno.EACCES, "staging open denied")
             interruption = KeyboardInterrupt("cleanup interrupted")
-            with _staging_instruments(record, staging_open_fault=open_fault), patch(
-                "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
-                side_effect=interruption,
+            with (
+                _staging_instruments(record, staging_open_fault=open_fault),
+                patch(
+                    "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
+                    side_effect=interruption,
+                ),
             ):
                 with self.assertRaises(KeyboardInterrupt) as ctx:
                     self._create(root, pairs)
@@ -439,19 +490,25 @@ class SnapshotCleanupPrecedenceTests(unittest.TestCase):
             constructor_project_root=root,
         )
 
-    def test_programmer_defect_during_construction_cleanup_is_authoritative(self) -> None:
+    def test_programmer_defect_during_construction_cleanup_is_authoritative(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             pairs = _snapshot_pairs(root)
             record: dict[str, object] = {}
             construction_failure = SnapshotError("construction failed")
             defect = RuntimeError("cleanup programmer defect")
-            with _staging_instruments(record), patch(
-                "docker.versioning.build_snapshot.validate_host_owner_traversal",
-                side_effect=construction_failure,
-            ), patch(
-                "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
-                side_effect=defect,
+            with (
+                _staging_instruments(record),
+                patch(
+                    "docker.versioning.build_snapshot.validate_host_owner_traversal",
+                    side_effect=construction_failure,
+                ),
+                patch(
+                    "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
+                    side_effect=defect,
+                ),
             ):
                 with self.assertRaises(RuntimeError) as ctx:
                     self._create(root, pairs)
@@ -459,7 +516,9 @@ class SnapshotCleanupPrecedenceTests(unittest.TestCase):
         self.assertIn(construction_failure, _secondary_of(defect))
         self.assertEqual(record["close_attempts"], 1)
 
-    def test_tree_cleanup_interruption_precedes_staging_close_interruption(self) -> None:
+    def test_tree_cleanup_interruption_precedes_staging_close_interruption(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             pairs = _snapshot_pairs(root)
@@ -467,14 +526,19 @@ class SnapshotCleanupPrecedenceTests(unittest.TestCase):
             construction_failure = SnapshotError("construction failed")
             cleanup_interruption = KeyboardInterrupt("tree cleanup interrupted")
             close_interruption = SystemExit("staging close interrupted")
-            with _staging_instruments(
-                record, staging_close_fault=lambda attempt: close_interruption,
-            ), patch(
-                "docker.versioning.build_snapshot.validate_host_owner_traversal",
-                side_effect=construction_failure,
-            ), patch(
-                "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
-                side_effect=cleanup_interruption,
+            with (
+                _staging_instruments(
+                    record,
+                    staging_close_fault=lambda attempt: close_interruption,
+                ),
+                patch(
+                    "docker.versioning.build_snapshot.validate_host_owner_traversal",
+                    side_effect=construction_failure,
+                ),
+                patch(
+                    "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
+                    side_effect=cleanup_interruption,
+                ),
             ):
                 with self.assertRaises(KeyboardInterrupt) as ctx:
                     self._create(root, pairs)
@@ -492,14 +556,19 @@ class SnapshotCleanupPrecedenceTests(unittest.TestCase):
             construction_failure = SnapshotError("construction failed")
             cleanup_failure = OSError(errno.EIO, "tree cleanup failed")
             close_failure = OSError(errno.EBUSY, "staging close failed")
-            with _staging_instruments(
-                record, staging_close_fault=lambda attempt: close_failure,
-            ), patch(
-                "docker.versioning.build_snapshot.validate_host_owner_traversal",
-                side_effect=construction_failure,
-            ), patch(
-                "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
-                side_effect=cleanup_failure,
+            with (
+                _staging_instruments(
+                    record,
+                    staging_close_fault=lambda attempt: close_failure,
+                ),
+                patch(
+                    "docker.versioning.build_snapshot.validate_host_owner_traversal",
+                    side_effect=construction_failure,
+                ),
+                patch(
+                    "docker.versioning.build_snapshot.cleanup_artifact_snapshot",
+                    side_effect=cleanup_failure,
+                ),
             ):
                 with self.assertRaises(SnapshotError) as ctx:
                     self._create(root, pairs)

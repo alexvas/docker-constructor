@@ -10,8 +10,6 @@ from docker.versioning.model import (
 )
 
 
-
-
 # ═══════════════════════════════════════════════════════════════════════
 # Task 4.1 — Replace downloadable URL with canonical mounted-artifact identity
 # ═══════════════════════════════════════════════════════════════════════
@@ -128,9 +126,7 @@ class TestNarrowedProjectionDTO(unittest.TestCase):
     def test_artifact_field_rejected(self) -> None:
         """RED — the old artifact=NpmArtifact(...) keyword is no
         longer accepted on the narrowed entry."""
-        valid_url = (
-            "https://registry.npmjs.org/@scope/pkg/-/pkg-1.0.0.tgz"
-        )
+        valid_url = "https://registry.npmjs.org/@scope/pkg/-/pkg-1.0.0.tgz"
         with self.assertRaises(TypeError):
             EffectivePiExtensionEntry(
                 package="@scope/pkg",
@@ -291,9 +287,7 @@ class TestClosedSchemaRejection(unittest.TestCase):
         """RED — the entry MUST NOT dictate its container mount
         target; that is the renderer's responsibility."""
         with self.assertRaises(TypeError):
-            self._entry(
-                container_target="/run/pi-cli/runtime-artifacts/sha512/abc.tgz"
-            )
+            self._entry(container_target="/run/pi-cli/runtime-artifacts/sha512/abc.tgz")
 
     # ── reject source / update / override / validation / catalog ─
 

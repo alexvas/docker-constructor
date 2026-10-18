@@ -46,14 +46,18 @@ def _finish(failures, primary):
 def _with_owned(paths, action, *, ops=None):
     ops = PosixDescriptorOps() if ops is None else ops
     # Prepare all labels/arguments before any acquisition.
-    prepared = [(str(path), flags | os.O_CLOEXEC | os.O_NOFOLLOW,
-                 f"evidence file {path}") for path, flags in paths]
+    prepared = [
+        (str(path), flags | os.O_CLOEXEC | os.O_NOFOLLOW, f"evidence file {path}")
+        for path, flags in paths
+    ]
     owners = [None] * len(prepared)
     primary = None
     result = None
     try:
         for index, (path, flags, label) in enumerate(prepared):
-            owners[index] = OwnedDescriptor(ops, ops.openat(None, path, flags, 0o600), label=label)
+            owners[index] = OwnedDescriptor(
+                ops, ops.openat(None, path, flags, 0o600), label=label
+            )
         result = action(owners)
     except BaseException as error:
         primary = error
@@ -71,6 +75,7 @@ def _read_text(path, *, encoding="utf-8", errors="strict", ops=None):
         while chunk := os.read(owners[0].fd, 65536):
             chunks.append(chunk)
         return b"".join(chunks).decode(encoding, errors)
+
     return _with_owned([(path, os.O_RDONLY)], read, ops=ops)
 
 
@@ -84,6 +89,7 @@ def _write_text(path, text, *, ops=None):
             if count <= 0:
                 raise OSError("evidence write made no progress")
             remaining = remaining[count:]
+
     _with_owned([(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)], write, ops=ops)
 
 
@@ -104,9 +110,12 @@ def next_delay(base: float, remaining: float, jitter: float) -> float:
 
 def filters(pid: int, operation: str) -> list[str]:
     return [
-        "--filter", f"label={MANAGED}=true",
-        "--filter", f"label={PID}={pid}",
-        "--filter", f"label={OPERATION}={operation}",
+        "--filter",
+        f"label={MANAGED}=true",
+        "--filter",
+        f"label={PID}={pid}",
+        "--filter",
+        f"label={OPERATION}={operation}",
     ]
 
 
@@ -137,9 +146,12 @@ class Evidence:
 
     def labels(self, operation: str) -> list[str]:
         return [
-            "--label", f"{MANAGED}=true",
-            "--label", f"{PID}={self.pid}",
-            "--label", f"{OPERATION}={operation}",
+            "--label",
+            f"{MANAGED}=true",
+            "--label",
+            f"{PID}={self.pid}",
+            "--label",
+            f"{OPERATION}={operation}",
         ]
 
     def run(self, *args: str) -> dict:
@@ -154,11 +166,16 @@ class Evidence:
         primary = None
         try:
             completed = _with_owned(
-                [(out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC),
-                 (err, os.O_WRONLY | os.O_CREAT | os.O_TRUNC)],
+                [
+                    (out, os.O_WRONLY | os.O_CREAT | os.O_TRUNC),
+                    (err, os.O_WRONLY | os.O_CREAT | os.O_TRUNC),
+                ],
                 lambda owners: subprocess.run(
-                    record["argv"], stdout=owners[0].fd, stderr=owners[1].fd,
-                    timeout=self.timeout, check=False,
+                    record["argv"],
+                    stdout=owners[0].fd,
+                    stderr=owners[1].fd,
+                    timeout=self.timeout,
+                    check=False,
                 ),
             )
             record["returncode"] = completed.returncode
@@ -167,19 +184,28 @@ class Evidence:
             record.update(returncode=None, error=repr(error))
         record["duration_seconds"] = time.monotonic() - start
         if primary is not None:
-            record["secondary"] = [repr(error) for error in getattr(primary, "_transaction_secondary", [])]
+            record["secondary"] = [
+                repr(error) for error in getattr(primary, "_transaction_secondary", [])
+            ]
         failures = CleanupFailures(primary)
-        failures.run(lambda: _write_text(
-            self.root / f"{index:03d}.json", json.dumps(record, indent=2) + "\n"
-        ), ordinary=(OSError,))
+        failures.run(
+            lambda: _write_text(
+                self.root / f"{index:03d}.json", json.dumps(record, indent=2) + "\n"
+            ),
+            ordinary=(OSError,),
+        )
         try:
             _finish(failures, primary)
         except BaseException as authoritative:
             # Expected command failures retain their identity and close diagnostics;
             # a defect/interruption from independent evidence publication still wins.
-            if authoritative is not primary or not isinstance(primary, (OSError, subprocess.TimeoutExpired)):
+            if authoritative is not primary or not isinstance(
+                primary, (OSError, subprocess.TimeoutExpired)
+            ):
                 raise
-            record["secondary"] = [repr(error) for error in getattr(primary, "_transaction_secondary", [])]
+            record["secondary"] = [
+                repr(error) for error in getattr(primary, "_transaction_secondary", [])
+            ]
         return record
 
     def text(self, record: dict, channel: str = "stdout") -> str:
@@ -195,8 +221,12 @@ class Evidence:
 
     def create(self, operation: str) -> str:
         record = self.run(
-            "create", "--pull=never", *self.labels(operation),
-            self.image, "sleep", "30",
+            "create",
+            "--pull=never",
+            *self.labels(operation),
+            self.image,
+            "sleep",
+            "30",
         )
         self.success(record)
         identity = self.text(record)
@@ -212,10 +242,14 @@ class Evidence:
         )
 
     def discover(self, operation: str) -> list[str]:
-        record = self.run("ps", "-a", "--no-trunc", "--quiet", *filters(self.pid, operation))
+        record = self.run(
+            "ps", "-a", "--no-trunc", "--quiet", *filters(self.pid, operation)
+        )
         self.success(record)
         values = self.text(record).splitlines()
-        self.require(all(valid_id(value) for value in values), "discovery returned only full IDs")
+        self.require(
+            all(valid_id(value) for value in values), "discovery returned only full IDs"
+        )
         return values
 
     def probe(self, races: int) -> None:
@@ -229,7 +263,9 @@ class Evidence:
         self.success(self.run("start", identity))
         running = self.run("inspect", "--format", "{{.State.Running}}", identity)
         self.success(running)
-        self.require(self.text(running) == "true", "stop-before-start permits later start")
+        self.require(
+            self.text(running) == "true", "stop-before-start permits later start"
+        )
         self.success(self.run("rm", "-f", identity))
         self.absent(identity)
 
@@ -256,11 +292,15 @@ class Evidence:
             start_result = start.result()
             self.success(remove.result())
             self.require(
-                start_result["returncode"] == 0 or (
+                start_result["returncode"] == 0
+                or (
                     start_result["returncode"] not in (None, 0)
-                    and any(message in self.text(start_result, "stderr").lower()
-                            for message in ("no such", "marked for removal"))
-                ), "racing start succeeded or was rejected by removal",
+                    and any(
+                        message in self.text(start_result, "stderr").lower()
+                        for message in ("no such", "marked for removal")
+                    )
+                ),
+                "racing start succeeded or was rejected by removal",
             )
             self.absent(identity)
         # Races are sampled; neither outcome nor zero transient execution is promised.
@@ -269,8 +309,16 @@ class Evidence:
         cidfile = self.root / "container.cid"
         deadline = time.monotonic() + 10.0
         attached = self.threads.submit(
-            self.run, "run", "--pull=never", "--rm", "--cidfile", str(cidfile),
-            *self.labels(operation), self.image, "sleep", "30",
+            self.run,
+            "run",
+            "--pull=never",
+            "--rm",
+            "--cidfile",
+            str(cidfile),
+            *self.labels(operation),
+            self.image,
+            "sleep",
+            "30",
         )
         polls = []
         base = 0.010
@@ -282,17 +330,23 @@ class Evidence:
                 if getattr(error, "_transaction_secondary", []):
                     raise
                 value = ""
-            polls.append({"monotonic": time.monotonic(), "complete_id": valid_id(value)})
+            polls.append(
+                {"monotonic": time.monotonic(), "complete_id": valid_id(value)}
+            )
             if valid_id(value):
                 identity = value
                 break
-            delay = next_delay(base, deadline - time.monotonic(), random.uniform(0.9, 1.1))
+            delay = next_delay(
+                base, deadline - time.monotonic(), random.uniform(0.9, 1.1)
+            )
             time.sleep(delay)
             base *= 2
         _write_text(self.root / "cid-polls.json", json.dumps(polls, indent=2) + "\n")
         primary = None
         try:
-            self.require(valid_id(identity), "attached run published CID within 10 seconds")
+            self.require(
+                valid_id(identity), "attached run published CID within 10 seconds"
+            )
             self.success(self.run("stop", "--time", "1", identity))
             self.success(self.run("rm", "-f", identity))
             # Cancellation may cause nonzero run exit; preserve, do not reinterpret it.
@@ -302,7 +356,10 @@ class Evidence:
 
         def finish_attached():
             attached_result = attached.result()
-            self.require(attached_result["returncode"] is not None, "attached CLI finalized")
+            self.require(
+                attached_result["returncode"] is not None, "attached CLI finalized"
+            )
+
         failures.run(finish_attached, ordinary=(OSError, EvidenceFailure))
         _finish(failures, primary)
         self.absent(identity)
@@ -313,10 +370,14 @@ class Evidence:
         target = self.create(wanted)
         unrelated = self.create(other)
         found = self.discover(wanted)
-        self.require(target in found and unrelated not in found, "exact labels isolate recovery")
+        self.require(
+            target in found and unrelated not in found, "exact labels isolate recovery"
+        )
         for identity in found:
             self.success(self.run("rm", "-f", identity))
-        self.require(not self.discover(wanted), "scoped recovery is empty after removal")
+        self.require(
+            not self.discover(wanted), "scoped recovery is empty after removal"
+        )
         self.success(self.run("inspect", unrelated))
 
     def cleanup(self) -> list[str]:
@@ -331,19 +392,33 @@ class Evidence:
             targets = self.discover(operation)
             releases = CleanupFailures(None)
             for identity in targets:
-                releases.run(lambda identity=identity: self.success(self.run("rm", "-f", identity)),
-                             ordinary=(OSError, EvidenceFailure))
-            releases.run(lambda: self.require(not self.discover(operation),
-                                             "final operation sweep is empty"),
-                         ordinary=(OSError, EvidenceFailure))
+                releases.run(
+                    lambda identity=identity: self.success(
+                        self.run("rm", "-f", identity)
+                    ),
+                    ordinary=(OSError, EvidenceFailure),
+                )
+            releases.run(
+                lambda: self.require(
+                    not self.discover(operation), "final operation sweep is empty"
+                ),
+                ordinary=(OSError, EvidenceFailure),
+            )
             _finish(releases, None)
 
         for operation in self.operations:
-            failures.run(lambda operation=operation: clean_operation(operation),
-                         ordinary=(OSError, EvidenceFailure))
-        self.cleanup_failures = [repr(error) for error in (
-            *failures.ordinary_failures, *failures.unexpected, *failures.interruptions
-        )]
+            failures.run(
+                lambda operation=operation: clean_operation(operation),
+                ordinary=(OSError, EvidenceFailure),
+            )
+        self.cleanup_failures = [
+            repr(error)
+            for error in (
+                *failures.ordinary_failures,
+                *failures.unexpected,
+                *failures.interruptions,
+            )
+        ]
         _finish(failures, None)
         return self.cleanup_failures
 
@@ -351,12 +426,18 @@ class Evidence:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--image", default="busybox:1.36", help="preloaded image with sleep")
+    parser.add_argument(
+        "--image", default="busybox:1.36", help="preloaded image with sleep"
+    )
     parser.add_argument("--docker", default="docker")
     parser.add_argument("--command-timeout", type=float, default=20.0)
     parser.add_argument("--races", type=int, default=5)
     args = parser.parse_args()
-    if not math.isfinite(args.command_timeout) or args.command_timeout <= 0 or not 1 <= args.races <= 100:
+    if (
+        not math.isfinite(args.command_timeout)
+        or args.command_timeout <= 0
+        or not 1 <= args.races <= 100
+    ):
         parser.error("finite positive command timeout and 1..100 races required")
     root = args.output.resolve()
     root.mkdir(mode=0o700, parents=True, exist_ok=False)
@@ -372,20 +453,31 @@ def main() -> int:
         _finish(failures, primary)
     except BaseException as failure:
         primary = failure
-    status = 0 if primary is None else (130 if isinstance(primary, KeyboardInterrupt) else 1)
+    status = (
+        0 if primary is None else (130 if isinstance(primary, KeyboardInterrupt) else 1)
+    )
     summary = {
-        "exit_status": status, "error": repr(primary) if primary is not None else None,
+        "exit_status": status,
+        "error": repr(primary) if primary is not None else None,
         "cleanup_failures": evidence.cleanup_failures,
-        "secondary": [repr(error) for error in getattr(primary, "_transaction_secondary", [])],
-        "controller_pid": evidence.pid, "token": evidence.token,
-        "operations": evidence.operations, "checks": evidence.checks,
+        "secondary": [
+            repr(error) for error in getattr(primary, "_transaction_secondary", [])
+        ],
+        "controller_pid": evidence.pid,
+        "token": evidence.token,
+        "operations": evidence.operations,
+        "checks": evidence.checks,
         "commands": sorted(evidence.commands, key=lambda command: command["index"]),
         "scope": "Docker protocol probes, not wrapper acceptance or daemon-create latency injection",
         "limitations": "A lost/ongoing daemon create may outlive the client; empty discovery alone cannot prove settlement. Race outcomes are sampled.",
     }
     publication = CleanupFailures(primary)
-    publication.run(lambda: _write_text(root / "summary.json", json.dumps(summary, indent=2) + "\n"),
-                    ordinary=(OSError,))
+    publication.run(
+        lambda: _write_text(
+            root / "summary.json", json.dumps(summary, indent=2) + "\n"
+        ),
+        ordinary=(OSError,),
+    )
     try:
         _finish(publication, primary)
     except BaseException as failure:

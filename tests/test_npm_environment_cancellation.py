@@ -124,7 +124,10 @@ class TestCancellationAndCleanup(unittest.TestCase):
 
     def _staging_workspaces(self, cache_root: Path) -> list[Path]:
         staging_parent = (
-            cache_root / "npm-environments" / "assembler" / _assembler().digest
+            cache_root
+            / "npm-environments"
+            / "assembler"
+            / _assembler().digest
             / "staging"
         )
         if not staging_parent.exists():
@@ -144,8 +147,11 @@ class TestCancellationAndCleanup(unittest.TestCase):
         # The cleanup argv targets the same container name docker run used.
         run_call = next(c for c in executor.calls if c[1] == "run")
         name = run_call[run_call.index("--name") + 1]
-        self.assertTrue(any(c[:3] == ("docker", "rm", "-f") and c[3] == name
-                            for c in executor.calls))
+        self.assertTrue(
+            any(
+                c[:3] == ("docker", "rm", "-f") and c[3] == name for c in executor.calls
+            )
+        )
 
     def test_executor_exception_cleans_staging(self):
         executor = RecordingExecutor(_value_error_on_run)
@@ -163,6 +169,7 @@ class TestCancellationAndCleanup(unittest.TestCase):
     def test_nonzero_exit_cleans_staging(self):
         def nonzero(argv):
             return ProcessResult(argv, 1, "", "boom")
+
         executor = RecordingExecutor(nonzero)
         cache_root = self._cache_root()
         with self.assertRaises(LockedNpmError):

@@ -6,6 +6,7 @@ applicable ``.dockerignore`` excludes it.  These tests drive the production
 external and explicit contexts, that the host-only ``docker-constructor.toml``
 and ``docker-constructor.local.toml`` cannot enter Docker's context.
 """
+
 from __future__ import annotations
 
 import errno
@@ -78,8 +79,10 @@ class _CapturingRunner:
         if self.on_call is not None:
             self.on_call(tuple(argv))
         return ProcessResult(
-            argv=tuple(argv), return_code=self.return_code,
-            stdout="", stderr="" if self.return_code == 0 else "build error",
+            argv=tuple(argv),
+            return_code=self.return_code,
+            stdout="",
+            stderr="" if self.return_code == 0 else "build error",
         )
 
 
@@ -169,7 +172,9 @@ class _ConfinementHarness(unittest.TestCase):
             repo_root=str(project),
             project_root=str(project),
             context=str(project) if context is None else context,
-            dockerfile=str(project / "Dockerfile") if dockerfile is None else dockerfile,
+            dockerfile=str(project / "Dockerfile")
+            if dockerfile is None
+            else dockerfile,
             confirmed=True,
             runner=runner,
             _materialize_artifacts=materialize,
@@ -277,9 +282,7 @@ class TestNestedAndOutsideContexts(_ConfinementHarness):
         self.assertIn("project/docker-constructor.toml", observed["rules"])
         self.assertIn("project/docker-constructor.local.toml", observed["rules"])
         self.assertTrue(
-            _docker_ignored(
-                observed["rules"], "project/docker-constructor.local.toml"
-            )
+            _docker_ignored(observed["rules"], "project/docker-constructor.local.toml")
         )
         self._assert_context_is_last(argv, str(self.base))
 
@@ -615,9 +618,7 @@ class TestTransactionCleanup(_ConfinementHarness):
     def test_confinement_removed_after_docker_failure(self) -> None:
         project = self._make_project(relative="project")
         holder: dict = {}
-        result = self._orchestrate(
-            project, runner=self._capture(holder, return_code=1)
-        )
+        result = self._orchestrate(project, runner=self._capture(holder, return_code=1))
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
         self.assertFalse(holder["dir"].exists())
 
@@ -633,7 +634,9 @@ class TestTransactionCleanup(_ConfinementHarness):
 
         result = self._orchestrate(
             project,
-            runner=_CapturingRunner(on_call=lambda argv: holder.setdefault("calls", []).append(argv)),
+            runner=_CapturingRunner(
+                on_call=lambda argv: holder.setdefault("calls", []).append(argv)
+            ),
             materialize=fail_materialize,
         )
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
@@ -787,6 +790,7 @@ class TestUnitPlanning(unittest.TestCase):
 # Phase 2 — private build-context write lifecycle (tasks 2.4 and 2.5)
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _fd_owner_path(fd: int) -> str | None:
     """Return the normalized path an open descriptor refers to, or ``None``."""
     try:
@@ -832,7 +836,8 @@ class TestWritePrivateLifecycle(unittest.TestCase):
         self.target = os.path.normpath(str(self.path))
 
     def _fail_close(
-        self, error: BaseException,
+        self,
+        error: BaseException,
     ) -> tuple[object, list[int]]:
         real_close = os.close
         attempts: list[int] = []
@@ -850,8 +855,12 @@ class TestWritePrivateLifecycle(unittest.TestCase):
         write_error = OSError(errno.EIO, "injected write failure")
         close_error = OSError(errno.EIO, "injected close failure")
         fake_close, attempts = self._fail_close(close_error)
-        with mock.patch("os.write", side_effect=write_error), mock.patch(
-            "os.close", side_effect=fake_close,
+        with (
+            mock.patch("os.write", side_effect=write_error),
+            mock.patch(
+                "os.close",
+                side_effect=fake_close,
+            ),
         ):
             with self.assertRaises(OSError) as ctx:
                 _write_private(self.path, b"payload")
@@ -862,8 +871,12 @@ class TestWritePrivateLifecycle(unittest.TestCase):
     def test_short_write_primary_over_close(self) -> None:
         close_error = OSError(errno.EIO, "injected close failure")
         fake_close, attempts = self._fail_close(close_error)
-        with mock.patch("os.write", return_value=0), mock.patch(
-            "os.close", side_effect=fake_close,
+        with (
+            mock.patch("os.write", return_value=0),
+            mock.patch(
+                "os.close",
+                side_effect=fake_close,
+            ),
         ):
             with self.assertRaises(ConfinementError) as ctx:
                 _write_private(self.path, b"payload")
@@ -902,9 +915,14 @@ class TestWritePrivateLifecycle(unittest.TestCase):
                 super().__init__(*args, **kwargs)
                 created.append(self)
 
-        with mock.patch.object(
-            confinement_module, "OwnedDescriptor", _RecordingOwner,
-        ), mock.patch("os.close", side_effect=fake_close):
+        with (
+            mock.patch.object(
+                confinement_module,
+                "OwnedDescriptor",
+                _RecordingOwner,
+            ),
+            mock.patch("os.close", side_effect=fake_close),
+        ):
             with self.assertRaises(OSError):
                 _write_private(self.path, b"payload")
         self.assertEqual(len(created), 1)

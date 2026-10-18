@@ -1,4 +1,5 @@
 """Domain-owned parsing for local host presentation configuration."""
+
 from __future__ import annotations
 
 from .errors import InventoryError

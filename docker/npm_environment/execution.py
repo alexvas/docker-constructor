@@ -32,8 +32,18 @@ from typing import Callable, Protocol, Sequence
 
 from docker.filesystem.descriptors import OwnedDescriptor
 from docker.filesystem.operations import PosixDescriptorOps
-from docker.process import (ActionResult, FailureInfo, FailureKind, FailurePhase, OwnedProcess,
-                            ProcessStream, StopContext, StopPolicy, StopStage, StreamOutcome)
+from docker.process import (
+    ActionResult,
+    FailureInfo,
+    FailureKind,
+    FailurePhase,
+    OwnedProcess,
+    ProcessStream,
+    StopContext,
+    StopPolicy,
+    StopStage,
+    StreamOutcome,
+)
 from docker.versioning.model import NetworkUrlDisplay
 
 from .assembler import (
@@ -89,6 +99,7 @@ from .streaming import (
 #: boundary (never converted into a structured assembler failure).
 _CONTROL_FLOW_EXCEPTIONS = (KeyboardInterrupt, SystemExit, GeneratorExit)
 
+
 def redact(text: str, secrets: Sequence[str]) -> str:
     """Replace every non-empty *secret* in *text* with ``<redacted>``.
 
@@ -99,9 +110,7 @@ def redact(text: str, secrets: Sequence[str]) -> str:
     return redact_text(text, secrets)
 
 
-def redact_docker_argv(
-    argv: Sequence[str], secrets: Sequence[str]
-) -> tuple[str, ...]:
+def redact_docker_argv(argv: Sequence[str], secrets: Sequence[str]) -> tuple[str, ...]:
     """Return a display-safe copy of *argv* with every secret redacted."""
     return tuple(redact(token, secrets) for token in argv)
 
@@ -141,14 +150,24 @@ class _StreamingCleanupOutcome:
 
 def _mask_cleanup_urls(detail: str) -> str:
     return default_tail_projector(NetworkUrlDisplay.REDACTED)(
-        detail, (), tail_bytes=READER_FAILURE_DETAIL_BYTES)
+        detail, (), tail_bytes=READER_FAILURE_DETAIL_BYTES
+    )
 
 
-_FAILURE_SUBJECTS = {None: "process", ProcessStream.STDOUT: "stdout", ProcessStream.STDERR: "stderr"}
+_FAILURE_SUBJECTS = {
+    None: "process",
+    ProcessStream.STDOUT: "stdout",
+    ProcessStream.STDERR: "stderr",
+}
 _FAILURE_OPERATIONS = {
-    FailurePhase.SETUP: "setup", FailurePhase.READ: "read", FailurePhase.JOIN: "join",
-    FailurePhase.RELEASE: "release", FailurePhase.WAIT: "wait", FailurePhase.ACTION: "action",
-    FailurePhase.CALLBACK: "callback", FailurePhase.REPORTER: "reporter",
+    FailurePhase.SETUP: "setup",
+    FailurePhase.READ: "read",
+    FailurePhase.JOIN: "join",
+    FailurePhase.RELEASE: "release",
+    FailurePhase.WAIT: "wait",
+    FailurePhase.ACTION: "action",
+    FailurePhase.CALLBACK: "callback",
+    FailurePhase.REPORTER: "reporter",
     FailurePhase.COORDINATION: "coordination",
 }
 
@@ -171,7 +190,9 @@ class _ContainerRemovalAction:
         self.owner: OwnedProcess | None = None
         self.helper_policy: LifecyclePolicy | None = None
         self.failures: tuple[FailureInfo, ...] = ()
-        self.thread = threading.Thread(target=self._work, name="npm-removal-action", daemon=True)
+        self.thread = threading.Thread(
+            target=self._work, name="npm-removal-action", daemon=True
+        )
 
     def prepare(self):
         try:
@@ -204,8 +225,11 @@ class _ContainerRemovalAction:
             status = self.owner.cleanup_status
             complete = complete and status.complete
             known = {(id(f.error), f.kind) for f in failures}
-            failures.extend(FailureInfo(f.error, f.kind, FailurePhase.ACTION) for f in status.failures
-                            if (id(f.error), f.kind) not in known)
+            failures.extend(
+                FailureInfo(f.error, f.kind, FailurePhase.ACTION)
+                for f in status.failures
+                if (id(f.error), f.kind) not in known
+            )
         return ActionResult(done, complete, tuple(failures))
 
     def _work(self):
@@ -221,15 +245,25 @@ class _ContainerRemovalAction:
             remaining = context.deadline - time.monotonic()
             if remaining <= 0:
                 raise TimeoutError("container removal stage expired")
-            self.helper_policy = LifecyclePolicy(min(self.grace, remaining / 3), process_label="docker rm -f client")
-            operation = _run_captured(("docker", "rm", "-f", self.name), policy=self.helper_policy)
+            self.helper_policy = LifecyclePolicy(
+                min(self.grace, remaining / 3), process_label="docker rm -f client"
+            )
+            operation = _run_captured(
+                ("docker", "rm", "-f", self.name), policy=self.helper_policy
+            )
             self.owner = operation.owner
-            transferred = tuple(FailureInfo(f.error, f.kind, FailurePhase.ACTION) for f in operation.failures)
+            transferred = tuple(
+                FailureInfo(f.error, f.kind, FailurePhase.ACTION)
+                for f in operation.failures
+            )
             known = {id(f.error) for f in transferred}
             # _removal_errors creates an ordinary domain error for a nonzero
             # non-absent exit; returned helper classifications remain intact.
-            domain_errors = tuple(FailureInfo(error, FailureKind.ORDINARY, FailurePhase.ACTION)
-                                  for error in _removal_errors(operation.outcome) if id(error) not in known)
+            domain_errors = tuple(
+                FailureInfo(error, FailureKind.ORDINARY, FailurePhase.ACTION)
+                for error in _removal_errors(operation.outcome)
+                if id(error) not in known
+            )
             self.failures = transferred + domain_errors
         except BaseException as exc:
             handle = getattr(exc, "cleanup", None)
@@ -239,13 +273,20 @@ class _ContainerRemovalAction:
                 if self.helper_policy is not None:
                     for failure in helper_failures:
                         _label_final_reap(failure, self.helper_policy)
-                self.failures = tuple(FailureInfo(f.error, f.kind, FailurePhase.ACTION)
-                                      for f in helper_failures)
+                self.failures = tuple(
+                    FailureInfo(f.error, f.kind, FailurePhase.ACTION)
+                    for f in helper_failures
+                )
             if not any(f.error is exc for f in self.failures):
                 # This exception was raised at this action's own boundary,
                 # rather than transported as an unclassified helper result.
-                kind = (FailureKind.INTERRUPTION if not isinstance(exc, Exception) else
-                        FailureKind.ORDINARY if isinstance(exc, OSError) else FailureKind.UNEXPECTED)
+                kind = (
+                    FailureKind.INTERRUPTION
+                    if not isinstance(exc, Exception)
+                    else FailureKind.ORDINARY
+                    if isinstance(exc, OSError)
+                    else FailureKind.UNEXPECTED
+                )
                 self.failures += (FailureInfo(exc, kind, FailurePhase.ACTION),)
         finally:
             self.done.set()
@@ -259,9 +300,7 @@ class RunExecutor(Protocol):
         ...
 
 
-def _default_container_user(
-    uid: int | None, gid: int | None
-) -> tuple[int, int]:
+def _default_container_user(uid: int | None, gid: int | None) -> tuple[int, int]:
     """Return the invoking process UID/GID for unspecified identities."""
     return (os.getuid() if uid is None else uid, os.getgid() if gid is None else gid)
 
@@ -370,7 +409,9 @@ def _timeout_error(
         detail,
         summary=summary,
         diagnostic_tail=tail,
-        diagnostic_stream=("stderr" if stderr_tail else "stdout" if stdout_tail else None),
+        diagnostic_stream=(
+            "stderr" if stderr_tail else "stdout" if stdout_tail else None
+        ),
     )
 
 
@@ -436,32 +477,45 @@ class DockerRunExecutor:
         on_launched: Callable[[], None] | None = None,
     ) -> ProcessResult:
         """Collect domain diagnostics while one generic owner controls cleanup."""
-        if network_url_display is not None and not isinstance(network_url_display, NetworkUrlDisplay):
+        if network_url_display is not None and not isinstance(
+            network_url_display, NetworkUrlDisplay
+        ):
             raise ValueError("network_url_display must be a NetworkUrlDisplay")
         collector = None
         owner = None
         capture = StreamingCapture("", "", None)
 
         def report(error, *, stream, callback_kind):
-            detail = _render_close_failure(error, secrets, tail_projector=tail_projector)
+            detail = _render_close_failure(
+                error, secrets, tail_projector=tail_projector
+            )
             # URL masking is required even without a caller-supplied projector.
             detail = _mask_cleanup_urls(detail)
-            logging.getLogger(__name__).warning("%s %s callback failed: %s", stream.name, callback_kind, detail)
+            logging.getLogger(__name__).warning(
+                "%s %s callback failed: %s", stream.name, callback_kind, detail
+            )
 
         def launched():
             nonlocal collector
             if on_launched is not None:
                 on_launched()
-            collector = _DiagnosticCollector(secrets=secrets, sink=sink, stream_factory=stream_factory)
+            collector = _DiagnosticCollector(
+                secrets=secrets, sink=sink, stream_factory=stream_factory
+            )
 
         def chunk(stream, data):
             if collector is not None:
-                collector.feed(STREAM_STDOUT if stream is ProcessStream.STDOUT else STREAM_STDERR, data)
+                collector.feed(
+                    STREAM_STDOUT if stream is ProcessStream.STDOUT else STREAM_STDERR,
+                    data,
+                )
 
         def end(stream, outcome):
             if collector is not None:
-                collector.end(STREAM_STDOUT if stream is ProcessStream.STDOUT else STREAM_STDERR,
-                              abort=outcome is not StreamOutcome.EOF)
+                collector.end(
+                    STREAM_STDOUT if stream is ProcessStream.STDOUT else STREAM_STDERR,
+                    abort=outcome is not StreamOutcome.EOF,
+                )
 
         def fail(error, failures, *, timed_out=False, complete=True):
             for failure in failures:
@@ -469,15 +523,33 @@ class DockerRunExecutor:
             selected = failures[0] if failures else None
             if not isinstance(error, Exception):
                 raised = error
-            elif timed_out and deadline_seconds is not None and (selected is None or selected.kind is FailureKind.ORDINARY):
-                raised = _timeout_error(deadline_seconds, stdout=capture.stdout_tail,
-                                        stderr=capture.stderr_tail, truncation_notice=capture.truncation_notice)
+            elif (
+                timed_out
+                and deadline_seconds is not None
+                and (selected is None or selected.kind is FailureKind.ORDINARY)
+            ):
+                raised = _timeout_error(
+                    deadline_seconds,
+                    stdout=capture.stdout_tail,
+                    stderr=capture.stderr_tail,
+                    truncation_notice=capture.truncation_notice,
+                )
             elif selected is not None and selected.phase is FailurePhase.READ:
-                tag = STREAM_STDOUT if selected.stream is ProcessStream.STDOUT else STREAM_STDERR
-                detail = _mask_cleanup_urls(_render_close_failure(error, secrets, tail_projector=tail_projector))
-                raised = StreamReaderFailure(tag, type(error).__name__, detail, TRUNCATION_NOTICE)
+                tag = (
+                    STREAM_STDOUT
+                    if selected.stream is ProcessStream.STDOUT
+                    else STREAM_STDERR
+                )
+                detail = _mask_cleanup_urls(
+                    _render_close_failure(error, secrets, tail_projector=tail_projector)
+                )
+                raised = StreamReaderFailure(
+                    tag, type(error).__name__, detail, TRUNCATION_NOTICE
+                )
             else:
-                message = _mask_cleanup_urls(_render_close_failure(error, secrets, tail_projector=tail_projector))
+                message = _mask_cleanup_urls(
+                    _render_close_failure(error, secrets, tail_projector=tail_projector)
+                )
                 raised = error
                 if message != str(error):
                     if selected is not None and selected.kind is FailureKind.UNEXPECTED:
@@ -485,10 +557,21 @@ class DockerRunExecutor:
                         # needs masking. Result records freeze references, not
                         # exception internals; domain sanitization owns text.
                         if isinstance(error, OSError) and error.strerror is not None:
-                            project = tail_projector if tail_projector is not None else redact_tail
+                            project = (
+                                tail_projector
+                                if tail_projector is not None
+                                else redact_tail
+                            )
+
                             def safe(value):
-                                return _mask_cleanup_urls(project(str(value), secrets,
-                                    tail_bytes=READER_FAILURE_DETAIL_BYTES // 3))
+                                return _mask_cleanup_urls(
+                                    project(
+                                        str(value),
+                                        secrets,
+                                        tail_bytes=READER_FAILURE_DETAIL_BYTES // 3,
+                                    )
+                                )
+
                             error.strerror = safe(error.strerror)
                             for attribute in ("filename", "filename2"):
                                 value = getattr(error, attribute, None)
@@ -502,18 +585,34 @@ class DockerRunExecutor:
                             raised = type(error)(message)
                         except Exception:
                             raised = RuntimeError(message)
-            original_notes = tuple(getattr(error, "__notes__", ())) if not failures else ()
+            original_notes = (
+                tuple(getattr(error, "__notes__", ())) if not failures else ()
+            )
             raised.__notes__ = []
             project = tail_projector if tail_projector is not None else redact_tail
             for note in original_notes:
-                raised.add_note(_mask_cleanup_urls(project(str(note), secrets,
-                                                          tail_bytes=READER_FAILURE_DETAIL_BYTES)))
+                raised.add_note(
+                    _mask_cleanup_urls(
+                        project(
+                            str(note), secrets, tail_bytes=READER_FAILURE_DETAIL_BYTES
+                        )
+                    )
+                )
             for failure in failures:
                 if failure.kind is FailureKind.INTERRUPTION:
                     continue
-                if failure.error is not error or isinstance(raised, AssemblyTimeoutError):
-                    raised.add_note(_process_cleanup_prefix(failure) + ": " + _mask_cleanup_urls(
-                        _render_close_failure(failure.error, secrets, tail_projector=tail_projector)))
+                if failure.error is not error or isinstance(
+                    raised, AssemblyTimeoutError
+                ):
+                    raised.add_note(
+                        _process_cleanup_prefix(failure)
+                        + ": "
+                        + _mask_cleanup_urls(
+                            _render_close_failure(
+                                failure.error, secrets, tail_projector=tail_projector
+                            )
+                        )
+                    )
             if not complete:
                 raised.add_note("local process cleanup incomplete")
                 if isinstance(owner, OwnedProcess):
@@ -525,13 +624,20 @@ class DockerRunExecutor:
             raise raised from None
 
         action = _ContainerRemovalAction(container_name, grace_seconds, cleanup_outcome)
-        policy = StopPolicy((StopStage(3 * grace_seconds, action, local_stop_before=True),),
-                            3 * grace_seconds)
+        policy = StopPolicy(
+            (StopStage(3 * grace_seconds, action, local_stop_before=True),),
+            3 * grace_seconds,
+        )
         try:
-            owner = OwnedProcess.launch(argv, factory=subprocess.Popen,
-                                        deadline_seconds=deadline_seconds,
-                                        grace_seconds=_streaming_cleanup_budget(grace_seconds),
-                                        stop_policy=policy, reporter=report, on_launched=launched)
+            owner = OwnedProcess.launch(
+                argv,
+                factory=subprocess.Popen,
+                deadline_seconds=deadline_seconds,
+                grace_seconds=_streaming_cleanup_budget(grace_seconds),
+                stop_policy=policy,
+                reporter=report,
+                on_launched=launched,
+            )
             result = owner.stream(chunk, on_stream_end=end)
         except BaseException as exc:
             if collector is not None:
@@ -545,22 +651,38 @@ class DockerRunExecutor:
                     object.__setattr__(exc, "cleanup", handle)
                 except BaseException:
                     pass  # Preserve the actual interruption over context attachment.
-            fail(exc, status.failures if status is not None else (),
-                 complete=status.complete if status is not None else True)
+            fail(
+                exc,
+                status.failures if status is not None else (),
+                complete=status.complete if status is not None else True,
+            )
         if collector is not None:
             capture = collector.finish()
         if result.lifecycle.failures:
-            fail(result.lifecycle.failures[0].error, result.lifecycle.failures,
-                 timed_out=result.timed_out, complete=result.lifecycle.complete)
+            fail(
+                result.lifecycle.failures[0].error,
+                result.lifecycle.failures,
+                timed_out=result.timed_out,
+                complete=result.lifecycle.complete,
+            )
         if result.timed_out:
             assert deadline_seconds is not None
-            timeout = _timeout_error(deadline_seconds, stdout=capture.stdout_tail,
-                                     stderr=capture.stderr_tail, truncation_notice=capture.truncation_notice)
+            timeout = _timeout_error(
+                deadline_seconds,
+                stdout=capture.stdout_tail,
+                stderr=capture.stderr_tail,
+                truncation_notice=capture.truncation_notice,
+            )
             _attach_retained_capture(timeout, capture)
             raise timeout
         assert result.returncode is not None
-        return ProcessResult(argv, result.returncode, capture.stdout_tail, capture.stderr_tail,
-                             truncation_notice=capture.truncation_notice)
+        return ProcessResult(
+            argv,
+            result.returncode,
+            capture.stdout_tail,
+            capture.stderr_tail,
+            truncation_notice=capture.truncation_notice,
+        )
 
     def resolve_user(self, uid: int | None, gid: int | None) -> tuple[int, int]:
         """Resolve the numeric container identity for the invoking host user.
@@ -796,8 +918,7 @@ def _attach_cleanup_notes(
     """Attach every cleanup failure as a note on the primary exception."""
     for failure in failures:
         exc.add_note(
-            f"cleanup failure ({failure.operation}): "
-            f"{failure.reason}: {failure.detail}"
+            f"cleanup failure ({failure.operation}): {failure.reason}: {failure.detail}"
         )
 
 
@@ -848,7 +969,7 @@ def _streaming_kwargs(
     kwargs: dict = {"secrets": secrets, "sink": sink}
     try:
         params = inspect.signature(runner).parameters
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return kwargs
     if "deadline_seconds" in params:
         kwargs["deadline_seconds"] = ASSEMBLY_TOTAL_TIMEOUT_SECONDS
@@ -918,9 +1039,7 @@ def assemble(
     # wins; otherwise the selected local representation is built here so the
     # one retained tail and every failure detail are mode-consistent.
     if stream_factory is None:
-        stream_factory = default_stream_factory(
-            effective_secrets, network_url_display
-        )
+        stream_factory = default_stream_factory(effective_secrets, network_url_display)
     if tail_projector is None:
         tail_projector = default_tail_projector(network_url_display)
 
@@ -977,9 +1096,7 @@ def assemble(
             executor_failure_cleanup: OwnedProcess | None = None
             truncation_notice: str | None = None
             streaming_runner = getattr(executor, "run_streaming", None)
-            project = (
-                tail_projector if tail_projector is not None else redact_tail
-            )
+            project = tail_projector if tail_projector is not None else redact_tail
             try:
                 if streaming_runner is not None:
                     streaming_kwargs = _streaming_kwargs(
@@ -1029,11 +1146,11 @@ def assemble(
                     effective_secrets,
                 )
                 executor_failure_tail = getattr(exc, "diagnostic_tail", "")
-                executor_failure_stream = getattr(
-                    exc, "diagnostic_stream", None
+                executor_failure_stream = getattr(exc, "diagnostic_stream", None)
+                executor_failure_notes = tuple(
+                    project(str(note), effective_secrets)
+                    for note in getattr(exc, "__notes__", ())[:32]
                 )
-                executor_failure_notes = tuple(project(str(note), effective_secrets)
-                                               for note in getattr(exc, "__notes__", ())[:32])
                 executor_failure_capture = _attached_retained_capture(exc)
                 handle = getattr(exc, "cleanup", None)
                 if isinstance(handle, OwnedProcess):

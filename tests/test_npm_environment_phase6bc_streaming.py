@@ -1,4 +1,5 @@
 """Phase 6BC RED: domain collection delegates ownership without raw replay."""
+
 import functools
 import subprocess
 import sys
@@ -12,8 +13,12 @@ from docker.process import OwnedProcess
 from docker.npm_environment import execution, publication
 from docker.npm_environment.execution import DockerRunExecutor
 from docker.npm_environment.streaming import (
-    REDACTED, RETAINED_CAPTURE_ATTR, STREAM_STDOUT, STREAM_STDERR,
-    READER_FAILURE_DETAIL_BYTES, RedactingStream,
+    REDACTED,
+    RETAINED_CAPTURE_ATTR,
+    STREAM_STDOUT,
+    STREAM_STDERR,
+    READER_FAILURE_DETAIL_BYTES,
+    RedactingStream,
 )
 from tests.test_process_failure_snapshot import Child
 from tests.test_process_stream_outcomes import Child as OutcomeChild, Pipe
@@ -27,7 +32,9 @@ def test_reader_oserror_projection_must_not_disguise_join_oserror_defect(join_de
 
     reader_error = OSError("reader operation failed")
     join_error = OSError("join operation failed")
-    child = OutcomeChild(stdout=Pipe([b"stdout"], error=reader_error), stderr=Pipe([b"stderr"]))
+    child = OutcomeChild(
+        stdout=Pipe([b"stdout"], error=reader_error), stderr=Pipe([b"stderr"])
+    )
     original_join = OwnedProcess._join_reader
     original_supervisor = OwnedProcess._start_supervisor
     owners = []
@@ -45,11 +52,13 @@ def test_reader_oserror_projection_must_not_disguise_join_oserror_defect(join_de
         original_join(owner, index, timeout)
 
     try:
-        with mock.patch.object(execution.subprocess, "Popen", return_value=child), \
-             mock.patch.object(OwnedProcess, "_start_supervisor", supervise), \
-             mock.patch.object(OwnedProcess, "_join_reader", join):
+        with (
+            mock.patch.object(execution.subprocess, "Popen", return_value=child),
+            mock.patch.object(OwnedProcess, "_start_supervisor", supervise),
+            mock.patch.object(OwnedProcess, "_join_reader", join),
+        ):
             with pytest.raises(Exception) as caught:
-                DockerRunExecutor().run_streaming(("client",), grace_seconds=.1)
+                DockerRunExecutor().run_streaming(("client",), grace_seconds=0.1)
         assert len(owners) == 1
         status = owners[0].cleanup_status
         assert status.failures[0].error is (join_error if join_defect else reader_error)
@@ -69,7 +78,9 @@ def test_reader_oserror_projection_must_not_disguise_join_oserror_defect(join_de
 
 
 @pytest.mark.parametrize("source", ["release", "join"])
-def test_timeout_projection_preserves_unexpected_join_authority_but_not_ordinary_release(source):
+def test_timeout_projection_preserves_unexpected_join_authority_but_not_ordinary_release(
+    source,
+):
     from docker.npm_environment.errors import AssemblyTimeoutError
     from tests.test_npm_environment_phase3_deadline import _DeadlineProc, _DeadlinePipe
 
@@ -100,12 +111,20 @@ def test_timeout_projection_preserves_unexpected_join_authority_but_not_ordinary
             raise error
 
     try:
-        with mock.patch.object(execution.subprocess, "Popen", return_value=child), \
-             mock.patch.object(OwnedProcess, "_start_supervisor", supervise), \
-             mock.patch.object(OwnedProcess, "_join_reader", join), \
-             mock.patch.object(OwnedProcess, "stream", autospec=True, side_effect=stream):
-            with pytest.raises(AssemblyTimeoutError if source == "release" else OSError) as caught:
-                DockerRunExecutor().run_streaming(("client",), deadline_seconds=.02, grace_seconds=.1)
+        with (
+            mock.patch.object(execution.subprocess, "Popen", return_value=child),
+            mock.patch.object(OwnedProcess, "_start_supervisor", supervise),
+            mock.patch.object(OwnedProcess, "_join_reader", join),
+            mock.patch.object(
+                OwnedProcess, "stream", autospec=True, side_effect=stream
+            ),
+        ):
+            with pytest.raises(
+                AssemblyTimeoutError if source == "release" else OSError
+            ) as caught:
+                DockerRunExecutor().run_streaming(
+                    ("client",), deadline_seconds=0.02, grace_seconds=0.1
+                )
         assert len(owners) == 1
         assert owners[0].cleanup_status.failures[0].error is error
         assert len(snapshots) == 1 and snapshots[0].timed_out
@@ -134,28 +153,39 @@ def test_streaming_delegates_once_and_preserves_domain_output_and_launch_callbac
         return owner
 
     def stream(owner, *args, **kwargs):
-        assert callable(kwargs.get("on_stream_end")), "independent finalization needs retained outcomes"
+        assert callable(kwargs.get("on_stream_end")), (
+            "independent finalization needs retained outcomes"
+        )
         return original_stream(owner, *args, **kwargs)
 
     callback = mock.Mock()
-    with mock.patch("docker.npm_environment.execution.subprocess.Popen", return_value=child), \
-         mock.patch.object(OwnedProcess, "launch", side_effect=launch), \
-         mock.patch.object(OwnedProcess, "stream", autospec=True, side_effect=stream) as collect:
+    with (
+        mock.patch(
+            "docker.npm_environment.execution.subprocess.Popen", return_value=child
+        ),
+        mock.patch.object(OwnedProcess, "launch", side_effect=launch),
+        mock.patch.object(
+            OwnedProcess, "stream", autospec=True, side_effect=stream
+        ) as collect,
+    ):
         result = DockerRunExecutor().run_streaming(
-            ("client",), secrets=("retained",), grace_seconds=.1, on_launched=callback)
+            ("client",), secrets=("retained",), grace_seconds=0.1, on_launched=callback
+        )
     assert len(owners) == 1 and collect.call_count == 1
     assert collect.call_args.args[0] is owners[0]
     assert result.argv == ("client",) and result.return_code == 7
     assert (result.stdout, result.stderr) == ("<redacted> stdout", "<redacted> stderr")
     callback.assert_called_once_with()
-    assert owners[0].wait_cleanup(.1).complete
+    assert owners[0].wait_cleanup(0.1).complete
     assert child.stdout.attempts == child.stderr.attempts == 1
 
 
 def test_clean_stdout_eof_then_stderr_failure_finalizes_independently_without_raw_replay():
     clean, stderr_fed, release = (threading.Event() for _ in range(3))
     read_error = OSError("https://private.invalid/" + "token" * 2000)
-    child = OutcomeChild(stdout=Pipe([b"to"]), stderr=Pipe([b"to"], gate=release, error=read_error))
+    child = OutcomeChild(
+        stdout=Pipe([b"to"]), stderr=Pipe([b"to"], gate=release, error=read_error)
+    )
     streams, finishes, chunks, raised, snapshots = {}, [], [], [], []
     original = OwnedProcess.stream
 
@@ -189,15 +219,25 @@ def test_clean_stdout_eof_then_stderr_failure_finalizes_independently_without_ra
     def run():
         try:
             DockerRunExecutor().run_streaming(
-                ("client",), secrets=("token",), sink=chunks.append,
-                stream_factory=make, grace_seconds=.1)
+                ("client",),
+                secrets=("token",),
+                sink=chunks.append,
+                stream_factory=make,
+                grace_seconds=0.1,
+            )
         except BaseException as exc:
             raised.append(exc)
 
     worker = threading.Thread(target=run, name="test-domain-independent-eof")
     try:
-        with mock.patch("docker.npm_environment.execution.subprocess.Popen", return_value=child), \
-             mock.patch.object(OwnedProcess, "stream", autospec=True, side_effect=stream) as collect:
+        with (
+            mock.patch(
+                "docker.npm_environment.execution.subprocess.Popen", return_value=child
+            ),
+            mock.patch.object(
+                OwnedProcess, "stream", autospec=True, side_effect=stream
+            ) as collect,
+        ):
             worker.start()
             assert clean.wait(1), "clean stdout must finalize before sibling failure"
             assert stderr_fed.wait(1), "prefix must be assigned before abort"
@@ -210,17 +250,33 @@ def test_clean_stdout_eof_then_stderr_failure_finalizes_independently_without_ra
             retained = getattr(raised[0], RETAINED_CAPTURE_ATTR)
             assert (retained.stdout_tail, retained.stderr_tail) == ("to", REDACTED)
             assert [(chunk.stream, chunk.text) for chunk in chunks] == [
-                (STREAM_STDOUT, "to"), (STREAM_STDERR, REDACTED)]
+                (STREAM_STDOUT, "to"),
+                (STREAM_STDERR, REDACTED),
+            ]
             public = str(raised[0]) + "\n".join(getattr(raised[0], "__notes__", ()))
-            assert "token" not in public and "private.invalid" not in public and "https://" not in public
+            assert (
+                "token" not in public
+                and "private.invalid" not in public
+                and "https://" not in public
+            )
             assert len(str(raised[0]).encode()) <= READER_FAILURE_DETAIL_BYTES + 512
             assert collect.call_count == 1 and len(snapshots) == 1
             assert snapshots[0].stdout == b"to" and snapshots[0].stderr == b"to"
             assert child.stdout.close_attempts == child.stderr.close_attempts == 1
-            before = (tuple(chunks), tuple(finishes), retained.stdout_tail, retained.stderr_tail)
+            before = (
+                tuple(chunks),
+                tuple(finishes),
+                retained.stdout_tail,
+                retained.stderr_tail,
+            )
             # No collector resubscription/raw tail projection is needed to
             # finish the adapter; delivery has already finalized both streams.
-            assert before == (tuple(chunks), tuple(finishes), retained.stdout_tail, retained.stderr_tail)
+            assert before == (
+                tuple(chunks),
+                tuple(finishes),
+                retained.stdout_tail,
+                retained.stderr_tail,
+            )
     finally:
         release.set()
         if worker.ident is not None:
@@ -277,15 +333,23 @@ def test_incomplete_streaming_keeps_abort_safe_tails_and_sanitized_delivered_not
         return value
 
     try:
-        with mock.patch.object(OwnedProcess, "_read_chunk", read), \
-             mock.patch.object(OwnedProcess, "_start_supervisor", supervise), \
-             mock.patch.object(OwnedProcess, "stream", autospec=True, side_effect=stream), \
-             mock.patch.object(OwnedStream, "close", close):
+        with (
+            mock.patch.object(OwnedProcess, "_read_chunk", read),
+            mock.patch.object(OwnedProcess, "_start_supervisor", supervise),
+            mock.patch.object(
+                OwnedProcess, "stream", autospec=True, side_effect=stream
+            ),
+            mock.patch.object(OwnedStream, "close", close),
+        ):
             with pytest.raises(Exception) as caught:
                 DockerRunExecutor().run_streaming(
                     (sys.executable, "-c", "import time; time.sleep(30)"),
-                    secrets=("token",), stream_factory=DomainStream, sink=chunks.append,
-                    grace_seconds=.05, deadline_seconds=.05)
+                    secrets=("token",),
+                    stream_factory=DomainStream,
+                    sink=chunks.append,
+                    grace_seconds=0.05,
+                    deadline_seconds=0.05,
+                )
             assert len(owners) == len(snapshots) == 1
             owner, snapshot = owners[0], snapshots[0]
             assert not owner.cleanup_status.complete and not snapshot.lifecycle.complete
@@ -293,9 +357,15 @@ def test_incomplete_streaming_keeps_abort_safe_tails_and_sanitized_delivered_not
             error = caught.value
             retained = getattr(error, RETAINED_CAPTURE_ATTR)
             assert retained.stdout_tail == REDACTED
-            assert [(chunk.stream, chunk.text) for chunk in chunks] == [(STREAM_STDOUT, REDACTED)]
+            assert [(chunk.stream, chunk.text) for chunk in chunks] == [
+                (STREAM_STDOUT, REDACTED)
+            ]
             public = str(error) + "\n".join(getattr(error, "__notes__", ()))
-            assert "token" not in public and "https://" not in public and ".invalid" not in public
+            assert (
+                "token" not in public
+                and "https://" not in public
+                and ".invalid" not in public
+            )
             assert "incomplete" in public.lower()
             notes, delivered = tuple(getattr(error, "__notes__", ())), tuple(chunks)
             release.set()
@@ -312,7 +382,9 @@ def test_incomplete_streaming_keeps_abort_safe_tails_and_sanitized_delivered_not
 
 
 @pytest.mark.parametrize("assembly", [False, True])
-def test_local_failure_does_not_skip_removal_or_staging_cleanup_and_notes_are_safe(tmp_path, assembly, request):
+def test_local_failure_does_not_skip_removal_or_staging_cleanup_and_notes_are_safe(
+    tmp_path, assembly, request
+):
     primary = ValueError("domain operation")
     terminate_error = OSError("https://private.invalid/" + "token" * 2000)
     helper_close = OSError("https://helper.invalid/" + "token" * 2000)
@@ -376,7 +448,7 @@ def test_local_failure_does_not_skip_removal_or_staging_cleanup_and_notes_are_sa
                 fail_launch()
 
             kwargs["on_launched"] = fail_after_launch
-            kwargs["grace_seconds"] = .1
+            kwargs["grace_seconds"] = 0.1
             kwargs["cleanup_outcome"] = cleanup
             return super().run_streaming(argv, **kwargs)
 
@@ -386,17 +458,32 @@ def test_local_failure_does_not_skip_removal_or_staging_cleanup_and_notes_are_sa
 
     cache_root = tmp_path / "cache"
     cache_root.mkdir()
-    with mock.patch.object(execution.subprocess, "Popen", side_effect=factory), \
-         mock.patch.object(execution.subprocess, "run", side_effect=run):
-        with pytest.raises(execution.LockedNpmError if assembly else ValueError) as caught:
+    with (
+        mock.patch.object(execution.subprocess, "Popen", side_effect=factory),
+        mock.patch.object(execution.subprocess, "run", side_effect=run),
+    ):
+        with pytest.raises(
+            execution.LockedNpmError if assembly else ValueError
+        ) as caught:
             if assembly:
-                execution.assemble(validated=_validated(), assembler=_assembler(),
-                                   cache_root=cache_root, executor=Executor(),
-                                   secrets=("token",), uid=1000, gid=1000)
+                execution.assemble(
+                    validated=_validated(),
+                    assembler=_assembler(),
+                    cache_root=cache_root,
+                    executor=Executor(),
+                    secrets=("token",),
+                    uid=1000,
+                    gid=1000,
+                )
             else:
                 DockerRunExecutor().run_streaming(
-                    ("client",), container_name="named-container", secrets=("token",),
-                    on_launched=fail_launch, grace_seconds=.1, cleanup_outcome=cleanup)
+                    ("client",),
+                    container_name="named-container",
+                    secrets=("token",),
+                    on_launched=fail_launch,
+                    grace_seconds=0.1,
+                    cleanup_outcome=cleanup,
+                )
     if assembly:
         assert caught.value.reason == "executor_failure"
         assert caught.value.__cause__ is None
@@ -407,21 +494,38 @@ def test_local_failure_does_not_skip_removal_or_staging_cleanup_and_notes_are_sa
     assert main.stdout.attempts == main.stderr.attempts == 1
     assert helper.stdout.attempts == helper.stderr.attempts == 1
     public = str(primary) + "\n".join(getattr(primary, "__notes__", ()))
-    assert "token" not in public and "https://" not in public and ".invalid" not in public
-    assert all(len(note.encode()) <= READER_FAILURE_DETAIL_BYTES + 512 for note in getattr(primary, "__notes__", ()))
+    assert (
+        "token" not in public and "https://" not in public and ".invalid" not in public
+    )
+    assert all(
+        len(note.encode()) <= READER_FAILURE_DETAIL_BYTES + 512
+        for note in getattr(primary, "__notes__", ())
+    )
     assert getattr(primary, "__notes__", ())
     if assembly:
-        assert tuple(getattr(caught.value, "__notes__", ())) == tuple(getattr(primary, "__notes__", ()))
+        assert tuple(getattr(caught.value, "__notes__", ())) == tuple(
+            getattr(primary, "__notes__", ())
+        )
         rendered = str(caught.value) + "\n".join(getattr(caught.value, "__notes__", ()))
-        assert "token" not in rendered and "https://" not in rendered and ".invalid" not in rendered
-        namespace = publication.prepare_assembler_namespace(cache_root, _assembler().digest)
+        assert (
+            "token" not in rendered
+            and "https://" not in rendered
+            and ".invalid" not in rendered
+        )
+        namespace = publication.prepare_assembler_namespace(
+            cache_root, _assembler().digest
+        )
         assert list(namespace.staging.iterdir()) == []
         assert namespace.npm_cache.exists() and list(namespace.outputs.iterdir()) == []
 
 
 @pytest.mark.parametrize("streaming", [False, True])
-@pytest.mark.parametrize("kind", [KeyboardInterrupt, SystemExit, GeneratorExit, BaseException])
-def test_assembly_preserves_every_control_flow_family_and_cleans_staging(tmp_path, streaming, kind):
+@pytest.mark.parametrize(
+    "kind", [KeyboardInterrupt, SystemExit, GeneratorExit, BaseException]
+)
+def test_assembly_preserves_every_control_flow_family_and_cleans_staging(
+    tmp_path, streaming, kind
+):
     error = kind("control flow")
     calls = []
 
@@ -434,23 +538,36 @@ def test_assembly_preserves_every_control_flow_family_and_cleans_staging(tmp_pat
 
     executor = Executor()
     if streaming:
+
         def run_streaming(argv, *, on_launched=None, **kwargs):
             calls.append(argv)
             on_launched()
             raise error
+
         executor.run_streaming = run_streaming
     cache_root = tmp_path / "cache"
     cache_root.mkdir()
     with pytest.raises(BaseException) as caught:
-        execution.assemble(validated=_validated(), assembler=_assembler(), cache_root=cache_root,
-                           executor=executor, uid=1000, gid=1000)
+        execution.assemble(
+            validated=_validated(),
+            assembler=_assembler(),
+            cache_root=cache_root,
+            executor=executor,
+            uid=1000,
+            gid=1000,
+        )
     assert caught.value is error and not hasattr(error, "process_result")
     assert sum(argv[1] == "rm" for argv in calls) == 1
     namespace = publication.prepare_assembler_namespace(cache_root, _assembler().digest)
-    assert list(namespace.staging.iterdir()) == [] and list(namespace.outputs.iterdir()) == []
+    assert (
+        list(namespace.staging.iterdir()) == []
+        and list(namespace.outputs.iterdir()) == []
+    )
 
 
-def test_domain_end_failure_is_safely_reported_without_retention_retry_or_read_reclassification(caplog):
+def test_domain_end_failure_is_safely_reported_without_retention_retry_or_read_reclassification(
+    caplog,
+):
     child = Child()
     error = ValueError("domain finish https://private.invalid/" + "token" * 2000)
     results, attempts = [], []
@@ -471,12 +588,24 @@ def test_domain_end_failure_is_safely_reported_without_retention_retry_or_read_r
         results.append(result)
         return result
 
-    with caplog.at_level("WARNING"), \
-         mock.patch("docker.npm_environment.execution.subprocess.Popen", return_value=child), \
-         mock.patch("docker.npm_environment.streaming.collect_streams", side_effect=AssertionError("legacy collector used")), \
-         mock.patch.object(OwnedProcess, "stream", autospec=True, side_effect=stream):
+    with (
+        caplog.at_level("WARNING"),
+        mock.patch(
+            "docker.npm_environment.execution.subprocess.Popen", return_value=child
+        ),
+        mock.patch(
+            "docker.npm_environment.streaming.collect_streams",
+            side_effect=AssertionError("legacy collector used"),
+        ),
+        mock.patch.object(OwnedProcess, "stream", autospec=True, side_effect=stream),
+    ):
         try:
-            DockerRunExecutor().run_streaming(("client",), secrets=("token",), stream_factory=DomainStream, grace_seconds=.1)
+            DockerRunExecutor().run_streaming(
+                ("client",),
+                secrets=("token",),
+                stream_factory=DomainStream,
+                grace_seconds=0.1,
+            )
         except Exception:
             # The adapter may map a domain finalization error through its
             # existing channel; generic end callbacks must still be isolated.
@@ -484,9 +613,22 @@ def test_domain_end_failure_is_safely_reported_without_retention_retry_or_read_r
     assert len(results) == 1
     assert not hasattr(results[0], "callback_errors")
     assert len(caplog.records) == 2
-    assert all(record.exc_info is None and record.stack_info is None for record in caplog.records)
-    assert "token" not in caplog.text and "https://" not in caplog.text and ".invalid" not in caplog.text
-    assert all(len(record.getMessage().encode()) <= READER_FAILURE_DETAIL_BYTES + 512 for record in caplog.records)
-    assert len(attempts) == 2 and set(attempts) == {(STREAM_STDOUT, False), (STREAM_STDERR, False)}
+    assert all(
+        record.exc_info is None and record.stack_info is None
+        for record in caplog.records
+    )
+    assert (
+        "token" not in caplog.text
+        and "https://" not in caplog.text
+        and ".invalid" not in caplog.text
+    )
+    assert all(
+        len(record.getMessage().encode()) <= READER_FAILURE_DETAIL_BYTES + 512
+        for record in caplog.records
+    )
+    assert len(attempts) == 2 and set(attempts) == {
+        (STREAM_STDOUT, False),
+        (STREAM_STDERR, False),
+    }
     assert all(terminal.name == "EOF" for _, terminal in results[0].stream_outcomes)
     assert child.stdout.attempts == child.stderr.attempts == 1

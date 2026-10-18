@@ -7,6 +7,7 @@ secret redaction before boundary-safe URL sanitization with bounded pending
 state and fixed fail-closed markers, separates normalized hostname facts, and
 projects deterministic bounded exception-type chains.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -150,9 +151,18 @@ class TestLogicalResourceContext(unittest.TestCase):
             (DiagnosticResourceKind.ASSEMBLER_CONTAINER, "npm-assembler-../../x"),
             (DiagnosticResourceKind.ASSEMBLER_CONTAINER, "npm-assembler-XYZ"),
             (DiagnosticResourceKind.ASSEMBLER_CONTAINER, "npm-assembler-a"),
-            (DiagnosticResourceKind.ASSEMBLER_CONTAINER, "npm-assembler-0123456789abcde"),
-            (DiagnosticResourceKind.ASSEMBLER_CONTAINER, "npm-assembler-0123456789abcdef0"),
-            (DiagnosticResourceKind.ASSEMBLER_CONTAINER, "npm-assembler-0123456789ABCDEF"),
+            (
+                DiagnosticResourceKind.ASSEMBLER_CONTAINER,
+                "npm-assembler-0123456789abcde",
+            ),
+            (
+                DiagnosticResourceKind.ASSEMBLER_CONTAINER,
+                "npm-assembler-0123456789abcdef0",
+            ),
+            (
+                DiagnosticResourceKind.ASSEMBLER_CONTAINER,
+                "npm-assembler-0123456789ABCDEF",
+            ),
             (DiagnosticResourceKind.ASSEMBLER_CONTAINER, "some-container"),
         )
         for kind, name in rejected:
@@ -183,7 +193,9 @@ class TestLogicalResourceContext(unittest.TestCase):
 
 class TestStructuredHostProjection(unittest.TestCase):
     def test_removes_every_url_component_and_separates_normalized_host(self):
-        text = "download https://alice:s3cr3t@ExAmPlE.com:8443/a/b?q=1&sig=dead#frag retry"
+        text = (
+            "download https://alice:s3cr3t@ExAmPlE.com:8443/a/b?q=1&sig=dead#frag retry"
+        )
         diagnostic = _project(text, secrets=("s3cr3t",))
         self.assertEqual("download <redacted> retry", diagnostic.text)
         self.assertEqual(("example.com",), diagnostic.hostnames)
@@ -431,8 +443,13 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
         ):
             with self.subTest(unresolved=text):
                 safe, hostnames = sanitize_diagnostic_text(text)
-                expected = ("see <redacted>" if "://" in text else
-                            text if text == "see git/" else f"see {INCOMPLETE_TOKEN_MARKER}")
+                expected = (
+                    "see <redacted>"
+                    if "://" in text
+                    else text
+                    if text == "see git/"
+                    else f"see {INCOMPLETE_TOKEN_MARKER}"
+                )
                 self.assertEqual(expected, safe)
                 self.assertEqual((), hostnames)
 
@@ -488,7 +505,9 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
         self.assertEqual((), hostnames)
 
     def test_encoded_delimiters_inside_a_url_are_removed(self):
-        safe, hostnames = sanitize_diagnostic_text("GET https://h.example/a%0Ab%0D%0Ac ok")
+        safe, hostnames = sanitize_diagnostic_text(
+            "GET https://h.example/a%0Ab%0D%0Ac ok"
+        )
         self.assertEqual("GET <redacted> ok", safe)
         self.assertEqual(("h.example",), hostnames)
 
@@ -516,7 +535,16 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
             "GET https:/%2Falice%3Asecret%40example.com:8443/path done",
             "GET https:%2F%2Falice%3Asecret%40example.com:8443/path done",
         )
-        leaked = ("alice", "secret", "example.com", "8443", "path", "q=1", "sig", "dead")
+        leaked = (
+            "alice",
+            "secret",
+            "example.com",
+            "8443",
+            "path",
+            "q=1",
+            "sig",
+            "dead",
+        )
         for text in cases:
             with self.subTest(text=text):
                 safe, hostnames = sanitize_diagnostic_text(text, secrets=("secret",))
@@ -585,7 +613,15 @@ class TestBoundarySafeUrlSanitization(unittest.TestCase):
                 joined = "".join(out)
                 self.assertEqual("GET <redacted> done", joined)
                 self.assertEqual(("example.com",), projector.hostnames)
-                for token in ("alice", "secret", "example.com", "8443", "/p", "q=1", "frag"):
+                for token in (
+                    "alice",
+                    "secret",
+                    "example.com",
+                    "8443",
+                    "/p",
+                    "q=1",
+                    "frag",
+                ):
                     self.assertNotIn(token, joined)
 
     def test_encoded_scheme_split_by_characters(self):
@@ -975,7 +1011,12 @@ class TestCanonicalHostSuppression(unittest.TestCase):
         self._assert_suppressed(
             "https://xn--bcher-kva.example:8080",
             "retry https://B\u00dcCHER.EXAMPLE:8080/path next",
-            ("xn--bcher-kva.example", "B\u00dcCHER.EXAMPLE", "b\u00fccher.example", "8080"),
+            (
+                "xn--bcher-kva.example",
+                "B\u00dcCHER.EXAMPLE",
+                "b\u00fccher.example",
+                "8080",
+            ),
         )
         self._assert_suppressed(
             "https://B\u00dcCHER.EXAMPLE:8080",
@@ -1023,9 +1064,7 @@ class TestCanonicalHostSuppression(unittest.TestCase):
     def test_fully_and_nested_encoded_url_secrets_suppress_the_host_fact(self):
         encoded = "retry https://proxy.example:8080/path next"
         leaked = ("%3A%2F%2F", "%253A%252F%252F", "proxy.example", "8080", "path")
-        self._assert_suppressed(
-            "https%3A%2F%2Fproxy.example%3A8080", encoded, leaked
-        )
+        self._assert_suppressed("https%3A%2F%2Fproxy.example%3A8080", encoded, leaked)
         self._assert_suppressed(
             "https%253A%252F%252Fproxy.example%253A8080", encoded, leaked
         )
@@ -1063,7 +1102,10 @@ class TestCanonicalHostSuppression(unittest.TestCase):
     def test_unrelated_source_url_still_records_its_hostname_with_encoded_secrets(self):
         safe, hostnames = sanitize_diagnostic_text(
             "see https://source.example/path next",
-            secrets=("https://%70roxy.example:8080", "https://b%C3%BCcher.example:8080"),
+            secrets=(
+                "https://%70roxy.example:8080",
+                "https://b%C3%BCcher.example:8080",
+            ),
         )
         self.assertEqual("see <redacted> next", safe)
         self.assertEqual(("source.example",), hostnames)
@@ -1252,8 +1294,7 @@ class TestConsumableFacts(unittest.TestCase):
         projector = DiagnosticProjector(url_identity=identity)
         list(
             projector.feed_text(
-                "a https://a.example/one https://b.example/two "
-                "https://a.example/one"
+                "a https://a.example/one https://b.example/two https://a.example/one"
             )
         )
         list(projector.finish())

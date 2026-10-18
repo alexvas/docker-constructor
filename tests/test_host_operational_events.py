@@ -6,6 +6,7 @@ union that leaves the existing ``HostPhaseEvent`` lifecycle untouched, plus a
 prompt-returning bounded non-blocking facade enqueue boundary that performs no
 presentation work while ``GuardedHostEventSink`` serialization is held.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -76,15 +77,31 @@ class TestOperationalEventConstruction(unittest.TestCase):
         self.assertEqual(HostStepState.STARTED, event.state)
         self.assertIs(True, event.expects_diagnostic_stream)
         with self.assertRaises(TypeError):
-            HostStepEvent("locked_assembly", HostStep.NPM_EXECUTION, HostStepState.STARTED, True)  # type: ignore[arg-type]
+            HostStepEvent(
+                "locked_assembly", HostStep.NPM_EXECUTION, HostStepState.STARTED, True
+            )  # type: ignore[arg-type]
         with self.assertRaises(TypeError):
-            HostStepEvent(HostPhase.LOCKED_ASSEMBLY, "npm_execution", HostStepState.STARTED, True)  # type: ignore[arg-type]
+            HostStepEvent(
+                HostPhase.LOCKED_ASSEMBLY, "npm_execution", HostStepState.STARTED, True
+            )  # type: ignore[arg-type]
         with self.assertRaises(TypeError):
-            HostStepEvent(HostPhase.LOCKED_ASSEMBLY, HostStep.NPM_EXECUTION, "started", True)  # type: ignore[arg-type]
+            HostStepEvent(
+                HostPhase.LOCKED_ASSEMBLY, HostStep.NPM_EXECUTION, "started", True
+            )  # type: ignore[arg-type]
         with self.assertRaises(TypeError):
-            HostStepEvent(HostPhase.LOCKED_ASSEMBLY, HostStep.NPM_EXECUTION, HostStepState.STARTED, "yes")  # type: ignore[arg-type]
+            HostStepEvent(
+                HostPhase.LOCKED_ASSEMBLY,
+                HostStep.NPM_EXECUTION,
+                HostStepState.STARTED,
+                "yes",
+            )  # type: ignore[arg-type]
         with self.assertRaises(TypeError):
-            HostStepEvent(HostPhase.LOCKED_ASSEMBLY, HostStep.NPM_EXECUTION, HostStepState.STARTED, 1)  # type: ignore[arg-type]
+            HostStepEvent(
+                HostPhase.LOCKED_ASSEMBLY,
+                HostStep.NPM_EXECUTION,
+                HostStepState.STARTED,
+                1,
+            )  # type: ignore[arg-type]
         with self.assertRaises(dataclasses.FrozenInstanceError):
             event.state = HostStepState.FAILED  # type: ignore[misc]
 
@@ -94,13 +111,18 @@ class TestOperationalEventConstruction(unittest.TestCase):
         for name in approved:
             with self.subTest(name=name):
                 step = HostStepEvent(
-                    HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION,
-                    HostStepState.STARTED, False, name,
+                    HostPhase.RELEASE_ACQUISITION,
+                    HostStep.ARTIFACT_ACQUISITION,
+                    HostStepState.STARTED,
+                    False,
+                    name,
                 )
                 self.assertEqual(name, step.logical_resource)
                 progress = HostTransportProgressEvent(
-                    HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION,
-                    1, name,
+                    HostPhase.RELEASE_ACQUISITION,
+                    HostStep.ARTIFACT_ACQUISITION,
+                    1,
+                    name,
                 )
                 self.assertEqual(name, progress.logical_resource)
 
@@ -116,13 +138,19 @@ class TestOperationalEventConstruction(unittest.TestCase):
         ):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 HostStepEvent(
-                    HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION,
-                    HostStepState.STARTED, False, value,
+                    HostPhase.RELEASE_ACQUISITION,
+                    HostStep.ARTIFACT_ACQUISITION,
+                    HostStepState.STARTED,
+                    False,
+                    value,
                 )
         with self.assertRaises(TypeError):
             HostStepEvent(
-                HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION,
-                HostStepState.STARTED, False, 5,  # type: ignore[arg-type]
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.ARTIFACT_ACQUISITION,
+                HostStepState.STARTED,
+                False,
+                5,  # type: ignore[arg-type]
             )
 
     def test_transport_progress_rejects_arbitrary_logical_resource_values(self):
@@ -136,13 +164,17 @@ class TestOperationalEventConstruction(unittest.TestCase):
         ):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 HostTransportProgressEvent(
-                    HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION,
-                    1, value,
+                    HostPhase.RELEASE_ACQUISITION,
+                    HostStep.ARTIFACT_ACQUISITION,
+                    1,
+                    value,
                 )
         with self.assertRaises(TypeError):
             HostTransportProgressEvent(
-                HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION,
-                1, object(),  # type: ignore[arg-type]
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.ARTIFACT_ACQUISITION,
+                1,
+                object(),  # type: ignore[arg-type]
             )
 
     def test_structured_diagnostic_rejects_arbitrary_logical_resource(self):
@@ -153,12 +185,16 @@ class TestOperationalEventConstruction(unittest.TestCase):
 
     def test_none_logical_resource_remains_valid_for_non_asset_steps(self):
         step = HostStepEvent(
-            HostPhase.LOCKED_ASSEMBLY, HostStep.NPM_EXECUTION,
-            HostStepState.STARTED, True,
+            HostPhase.LOCKED_ASSEMBLY,
+            HostStep.NPM_EXECUTION,
+            HostStepState.STARTED,
+            True,
         )
         self.assertIsNone(step.logical_resource)
         progress = HostTransportProgressEvent(
-            HostPhase.LOCKED_ASSEMBLY, HostStep.NPM_EXECUTION, 0,
+            HostPhase.LOCKED_ASSEMBLY,
+            HostStep.NPM_EXECUTION,
+            0,
         )
         self.assertIsNone(progress.logical_resource)
         self.assertIsNone(_structured_diagnostic().logical_resource)
@@ -199,7 +235,10 @@ class TestOperationalEventConstruction(unittest.TestCase):
         with_stream = _heartbeat(elapsed_seconds=125, diagnostic_silence_seconds=120)
         self.assertEqual(120, with_stream.diagnostic_silence_seconds)
         for negative_or_subsecond in (-1, 0.5, True, "120"):
-            with self.subTest(silence=negative_or_subsecond), self.assertRaises(TypeError):
+            with (
+                self.subTest(silence=negative_or_subsecond),
+                self.assertRaises(TypeError),
+            ):
                 _heartbeat(diagnostic_silence_seconds=negative_or_subsecond)
 
     def test_heartbeat_last_activity_jointly_absent_or_valid(self):
@@ -293,7 +332,8 @@ class TestLifecycleCompatibility(unittest.TestCase):
         started = HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.STARTED)
         failed = HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.FAILED)
         self.assertEqual(
-            {"phase", "state"}, {field.name for field in dataclasses.fields(HostPhaseEvent)}
+            {"phase", "state"},
+            {field.name for field in dataclasses.fields(HostPhaseEvent)},
         )
         operational = (
             _step_event(),
@@ -305,8 +345,10 @@ class TestLifecycleCompatibility(unittest.TestCase):
         for event in (started, *operational, failed):
             sink(event)
         lifecycle = [event for event in delivered if isinstance(event, HostPhaseEvent)]
-        self.assertEqual([HostPhaseState.STARTED, HostPhaseState.FAILED],
-                         [event.state for event in lifecycle])
+        self.assertEqual(
+            [HostPhaseState.STARTED, HostPhaseState.FAILED],
+            [event.state for event in lifecycle],
+        )
         self.assertEqual(HostPhase.LOCKED_ASSEMBLY, lifecycle[0].phase)
         self.assertIsNot(type(operational[0]), type(started))
         self.assertEqual(HostPhaseState.STARTED, started.state)
@@ -393,9 +435,6 @@ class TestFailureIsolatedSerializedDelivery(unittest.TestCase):
             raise RuntimeError("presentation failed")
 
         emit(unguarded_raising, _step_event())
-
-
-
 
 
 if __name__ == "__main__":

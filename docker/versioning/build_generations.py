@@ -28,6 +28,7 @@ modifies or replaces an existing generation.  ``committed-build.json`` is the
 legacy mutable name and is outside this namespace: discovery neither inspects
 nor adopts nor deletes it.
 """
+
 from __future__ import annotations
 
 import enum
@@ -179,7 +180,9 @@ class BuildManifest:
             raise BuildGenerationError("manifest blobs must be a tuple")
         for blob in self.blobs:
             if not isinstance(blob, DigestIdentity):
-                raise BuildGenerationError("manifest blobs must be DigestIdentity values")
+                raise BuildGenerationError(
+                    "manifest blobs must be DigestIdentity values"
+                )
         keys = [canonical_blob_key(blob) for blob in self.blobs]
         if len(set(keys)) != len(keys):
             raise BuildGenerationError("manifest contains duplicate blob identities")
@@ -197,7 +200,9 @@ class BuildManifest:
             ) from exc
         for blob in values:
             if not isinstance(blob, DigestIdentity):
-                raise BuildGenerationError("manifest blobs must be DigestIdentity values")
+                raise BuildGenerationError(
+                    "manifest blobs must be DigestIdentity values"
+                )
         return cls(tuple(sorted(set(values), key=canonical_blob_key)))
 
     @property
@@ -206,9 +211,7 @@ class BuildManifest:
 
     def encode(self) -> bytes:
         """Return deterministic canonical JSON bytes for this manifest."""
-        return _encode_json(
-            {"version": MANIFEST_VERSION, "blobs": list(self.keys)}
-        )
+        return _encode_json({"version": MANIFEST_VERSION, "blobs": list(self.keys)})
 
     @classmethod
     def decode(cls, data: bytes | bytearray | memoryview) -> "BuildManifest":
@@ -306,9 +309,7 @@ def _read_generation(
     name: str,
 ) -> BuildManifest:
     try:
-        data = contracts.validated_read(
-            directory, name, allowed_mode=GENERATION_MODE
-        )
+        data = contracts.validated_read(directory, name, allowed_mode=GENERATION_MODE)
     except TransactionError as exc:
         raise BuildGenerationError(f"unsafe build generation entry: {name!r}") from exc
     try:
@@ -331,7 +332,9 @@ def inspect_generations(
     try:
         names = os.listdir(directory.fd)
     except OSError as exc:
-        raise BuildGenerationError("cannot list the build generation directory") from exc
+        raise BuildGenerationError(
+            "cannot list the build generation directory"
+        ) from exc
     generations: list[BuildGeneration] = []
     for name in sorted(names):
         if name == LEGACY_MANIFEST_NAME:
@@ -434,9 +437,7 @@ def publish_generation(
             directory, name, manifest.encode(), GENERATION_MODE
         )
     except TransactionError as exc:
-        raise BuildGenerationError(
-            f"cannot publish build generation {name!r}"
-        ) from exc
+        raise BuildGenerationError(f"cannot publish build generation {name!r}") from exc
     return BuildGeneration(next_number, name, manifest)
 
 

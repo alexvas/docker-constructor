@@ -69,16 +69,13 @@ _PROXY_URL_NAMES = (
 
 _PROXY_BYPASS_NAMES = ("NO_PROXY", "no_proxy")
 
-_VALID_BUNDLE = (
-    "-----BEGIN CERTIFICATE-----\n"
-    "AQIDBAU=\n"
-    "-----END CERTIFICATE-----\n"
-)
+_VALID_BUNDLE = "-----BEGIN CERTIFICATE-----\nAQIDBAU=\n-----END CERTIFICATE-----\n"
 
 
 # ---------------------------------------------------------------------------
 # Render-level helpers
 # ---------------------------------------------------------------------------
+
 
 def _render(
     *,
@@ -88,20 +85,22 @@ def _render(
     host_access: RunHostAccess | None = None,
 ) -> tuple[str, ...]:
     """Render a minimal run vector with the Phase 3 corporate inputs."""
-    return render_run_vector(RunRenderInputs(
-        image="pi-cli-pi:latest",
-        container_name="pi-1",
-        projection_host_path="/tmp/.docker-generated/runtime/projection.toml",
-        projection_container_path="/run/pi-cli/docker-constructor.runtime.toml",
-        pi_home_host="/home/user/.pi",
-        workspace="/work/project",
-        corporate_trust_bundle=corporate_trust_bundle,
-        proxy_url=proxy_url,
-        proxy_no_proxy=proxy_no_proxy,
-        host_access=(
-            host_access if host_access is not None else RunHostAccess.disabled()
-        ),
-    ))
+    return render_run_vector(
+        RunRenderInputs(
+            image="pi-cli-pi:latest",
+            container_name="pi-1",
+            projection_host_path="/tmp/.docker-generated/runtime/projection.toml",
+            projection_container_path="/run/pi-cli/docker-constructor.runtime.toml",
+            pi_home_host="/home/user/.pi",
+            workspace="/work/project",
+            corporate_trust_bundle=corporate_trust_bundle,
+            proxy_url=proxy_url,
+            proxy_no_proxy=proxy_no_proxy,
+            host_access=(
+                host_access if host_access is not None else RunHostAccess.disabled()
+            ),
+        )
+    )
 
 
 def _collect_mounts(args: tuple[str, ...]) -> list[dict[str, str]]:
@@ -161,6 +160,7 @@ def _collect_env_assignments(args: tuple[str, ...]) -> list[tuple[str, str]]:
 # Orchestration-level helpers
 # ---------------------------------------------------------------------------
 
+
 def _bomb_executor(effects: list[str]):
     class _Exec:
         def run(self, argv: tuple[str, ...], *, interactive: bool = False):
@@ -210,9 +210,7 @@ class _RunOrchestrationRed(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             root_path = Path(root)
             inventory = root_path / "inventory.toml"
-            inventory.write_text(
-                _CANONICAL + (inventory_policy or "")
-            )
+            inventory.write_text(_CANONICAL + (inventory_policy or ""))
             if companion is not None:
                 (root_path / "docker-constructor.local.toml").write_text(companion)
             if bundle is not None:
@@ -220,18 +218,21 @@ class _RunOrchestrationRed(unittest.TestCase):
                 bundle_dir.mkdir()
                 (bundle_dir / "corporate-ca-bundle.crt").write_text(bundle)
             effects: list[str] = []
-            result = orchestrate_run(RunRequest(
-                inventory_path=str(inventory),
-                image="pi-cli-pi:latest",
-                selection=WorkspaceSelection(workspace="/work/project"),
-                pi_home_host="/home/user/.pi",
-                repo_root=str(root_path), project_root=str(root_path),
-                dry_run=True,
-                executor=_bomb_executor(effects),
-                inspector=_bomb_inspector(effects),
-                _create_projection=_bomb_projection(effects),
-                _artifact_fetcher=_bomb_artifact(effects),
-            ))
+            result = orchestrate_run(
+                RunRequest(
+                    inventory_path=str(inventory),
+                    image="pi-cli-pi:latest",
+                    selection=WorkspaceSelection(workspace="/work/project"),
+                    pi_home_host="/home/user/.pi",
+                    repo_root=str(root_path),
+                    project_root=str(root_path),
+                    dry_run=True,
+                    executor=_bomb_executor(effects),
+                    inspector=_bomb_inspector(effects),
+                    _create_projection=_bomb_projection(effects),
+                    _artifact_fetcher=_bomb_artifact(effects),
+                )
+            )
             self.assertEqual([], effects)
             return result
 
@@ -240,14 +241,13 @@ class _RunOrchestrationRed(unittest.TestCase):
 # 3.1  Trust mount run-vector contract
 # ---------------------------------------------------------------------------
 
+
 class TestRunVectorTrustMountRed(unittest.TestCase):
     """Task 3.1: enabled bundle mounted read-only; disabled → no mount."""
 
     def test_enabled_trust_mounts_bundle_readonly_at_system_path(self) -> None:
         args = _render(
-            corporate_trust_bundle=(
-                "/repo/.docker-local/corporate-ca-bundle.crt"
-            ),
+            corporate_trust_bundle=("/repo/.docker-local/corporate-ca-bundle.crt"),
         )
         mounts = _collect_mounts(args)
         mount = _find_mount(mounts, dst=_SYSTEM_CA_BUNDLE)
@@ -257,8 +257,7 @@ class TestRunVectorTrustMountRed(unittest.TestCase):
             mount["src"],
             "/repo/.docker-local/corporate-ca-bundle.crt",
         )
-        self.assertIn("readonly", mount,
-                      "corporate trust mount must be read-only")
+        self.assertIn("readonly", mount, "corporate trust mount must be read-only")
 
     def test_disabled_trust_emits_no_system_bundle_mount(self) -> None:
         args = _render()
@@ -289,7 +288,9 @@ class TestTrustMountOrchestrationRed(_RunOrchestrationRed):
             with self.subTest(companion=companion):
                 result = self.run_with_local(companion)
                 self.assertEqual(
-                    ExitKind.SUCCESS, result.exit_kind, result.message,
+                    ExitKind.SUCCESS,
+                    result.exit_kind,
+                    result.message,
                 )
                 mounts = _collect_mounts(result.run_args)
                 self.assertIsNone(
@@ -302,6 +303,7 @@ class TestTrustMountOrchestrationRed(_RunOrchestrationRed):
 # 2.x  Client CA environment run-vector contract (this change)
 # ---------------------------------------------------------------------------
 
+
 class TestRunVectorClientCaEnvironmentRed(unittest.TestCase):
     """Tasks 2.1–2.4 and 2.12: enabled client CA environment propagation."""
 
@@ -309,15 +311,14 @@ class TestRunVectorClientCaEnvironmentRed(unittest.TestCase):
         self,
     ) -> None:
         args = _render(
-            corporate_trust_bundle=(
-                "/repo/.docker-local/corporate-ca-bundle.crt"
-            ),
+            corporate_trust_bundle=("/repo/.docker-local/corporate-ca-bundle.crt"),
         )
         assignments = _collect_env_assignments(args)
         for name in _CLIENT_CA_NAMES:
             matches = [value for key, value in assignments if key == name]
             self.assertEqual(
-                matches, [_SYSTEM_CA_BUNDLE],
+                matches,
+                [_SYSTEM_CA_BUNDLE],
                 f"{name}: expected exactly one fixed-path assignment, got {matches}",
             )
 
@@ -330,8 +331,7 @@ class TestRunVectorClientCaEnvironmentRed(unittest.TestCase):
         self.assertIsNotNone(mount, "missing corporate trust mount")
         self.assertEqual(mount["type"], "bind")
         self.assertEqual(mount["src"], bundle)
-        self.assertIn("readonly", mount,
-                      "corporate trust mount must be read-only")
+        self.assertIn("readonly", mount, "corporate trust mount must be read-only")
         assignments = _collect_env_assignments(args)
         for name in _CLIENT_CA_NAMES:
             self.assertEqual(
@@ -347,7 +347,8 @@ class TestRunVectorClientCaEnvironmentRed(unittest.TestCase):
         assignments = _collect_env_assignments(args)
         for name in _CLIENT_CA_NAMES:
             self.assertEqual(
-                [v for k, v in assignments if k == name], [],
+                [v for k, v in assignments if k == name],
+                [],
                 f"{name} must be absent and never emitted empty",
             )
 
@@ -390,7 +391,8 @@ class TestRunVectorClientCaEnvironmentRed(unittest.TestCase):
     def test_host_access_only_does_not_activate_client_ca_mapping(self) -> None:
         args = _render(
             host_access=RunHostAccess(
-                address="192.0.2.10", mode="external-address",
+                address="192.0.2.10",
+                mode="external-address",
             ),
         )
         env = _collect_env(args)
@@ -428,18 +430,23 @@ class TestRunVectorClientCaOrchestrationRed(_RunOrchestrationRed):
             with self.subTest(companion=companion):
                 result = self.run_with_local(companion)
                 self.assertEqual(
-                    ExitKind.SUCCESS, result.exit_kind, result.message,
+                    ExitKind.SUCCESS,
+                    result.exit_kind,
+                    result.message,
                 )
                 assignments = _collect_env_assignments(result.run_args)
                 for name in _CLIENT_CA_NAMES:
                     self.assertEqual(
-                        [v for k, v in assignments if k == name], [], name,
+                        [v for k, v in assignments if k == name],
+                        [],
+                        name,
                     )
 
 
 # ---------------------------------------------------------------------------
 # 2.14  Constructor runtime launch entry-point audit
 # ---------------------------------------------------------------------------
+
 
 class TestConstructorRunEntryPointAudit(unittest.TestCase):
     """Task 2.14: every constructor ``docker run`` builder is enumerated.
@@ -466,7 +473,8 @@ class TestConstructorRunEntryPointAudit(unittest.TestCase):
             if pattern.search(path.read_text(encoding="utf-8")):
                 found.add(str(path.relative_to(_REPO_ROOT)))
         self.assertEqual(
-            found, self._AUDITED_RUN_BUILDERS,
+            found,
+            self._AUDITED_RUN_BUILDERS,
             "a constructor ``docker run`` entry point changed; re-audit the "
             "runtime client CA contract for every enumerated path",
         )
@@ -480,8 +488,10 @@ class TestConstructorRunEntryPointAudit(unittest.TestCase):
             def run(self, argv):
                 calls.append(tuple(argv))
                 return _ProcessResult(
-                    argv=tuple(argv), return_code=0,
-                    stdout="PROBE_OK\n", stderr="",
+                    argv=tuple(argv),
+                    return_code=0,
+                    stdout="PROBE_OK\n",
+                    stderr="",
                 )
 
         probe_gateway("10.0.2.2", 9999, "OK_1", _runner=_Runner())
@@ -505,8 +515,10 @@ class TestConstructorRunEntryPointAudit(unittest.TestCase):
             def run(self, argv):
                 calls.append(tuple(argv))
                 return _ProcessResult(
-                    argv=tuple(argv), return_code=0,
-                    stdout="", stderr="",
+                    argv=tuple(argv),
+                    return_code=0,
+                    stdout="",
+                    stderr="",
                 )
 
         with tempfile.TemporaryDirectory() as root:
@@ -525,11 +537,13 @@ class TestConstructorRunEntryPointAudit(unittest.TestCase):
                 '[openspec]\nversion = "v0.15.0"\n'
                 '[oh-my-zsh]\nrevision = "abc1234"\n'
             )
-            verify_build(VerifyBuildRequest(
-                image="test-img:1",
-                effective_projection_path=proj,
-                runner=_Runner(),
-            ))
+            verify_build(
+                VerifyBuildRequest(
+                    image="test-img:1",
+                    effective_projection_path=proj,
+                    runner=_Runner(),
+                )
+            )
         self.assertTrue(calls, "build verification must launch containers")
         for argv in calls:
             self.assertNotIn("--env", argv)
@@ -542,6 +556,7 @@ class TestConstructorRunEntryPointAudit(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # 3.2  Proxy environment run-vector contract
 # ---------------------------------------------------------------------------
+
 
 class TestRunVectorProxyEnvRed(unittest.TestCase):
     """Task 3.2: proxy variables under every standard name; explicit-only
@@ -557,8 +572,9 @@ class TestRunVectorProxyEnvRed(unittest.TestCase):
                 f"missing or wrong value for {name}",
             )
         for name in _PROXY_BYPASS_NAMES:
-            self.assertNotIn(name, env,
-                             f"{name} must be omitted without an explicit list")
+            self.assertNotIn(
+                name, env, f"{name} must be omitted without an explicit list"
+            )
 
     def test_no_proxy_emitted_only_when_explicitly_configured(self) -> None:
         configured = _render(
@@ -585,6 +601,7 @@ class TestRunVectorProxyEnvRed(unittest.TestCase):
 # 3.3  Proxy host-access independence
 # ---------------------------------------------------------------------------
 
+
 class TestProxyHostAccessIndependenceRed(_RunOrchestrationRed):
     """Task 3.3: proxies never require or alter host access."""
 
@@ -595,7 +612,8 @@ class TestProxyHostAccessIndependenceRed(_RunOrchestrationRed):
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
         env = _collect_env(result.run_args)
         self.assertEqual(
-            "http://proxy.corp.example:3128", env.get("HTTP_PROXY"),
+            "http://proxy.corp.example:3128",
+            env.get("HTTP_PROXY"),
         )
         self.assertNotIn("--add-host", result.run_args)
         self.assertNotIn("HOST_ACCESS_ADDRESS", env)
@@ -617,9 +635,7 @@ class TestProxyHostAccessIndependenceRed(_RunOrchestrationRed):
             '[host-access]\naddress = "192.0.2.10"\n'
             '[network.proxy]\nurl = "http://proxy.corp.example:3128"\n',
             inventory_policy=(
-                '[runtime.host-access]\n'
-                'enabled = true\n'
-                'mode = "external-address"\n'
+                '[runtime.host-access]\nenabled = true\nmode = "external-address"\n'
             ),
         )
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
@@ -629,13 +645,15 @@ class TestProxyHostAccessIndependenceRed(_RunOrchestrationRed):
         self.assertEqual("192.0.2.10", env.get("HOST_ACCESS_ADDRESS"))
         # The proxy contract is layered independently alongside it.
         self.assertEqual(
-            "http://proxy.corp.example:3128", env.get("HTTPS_PROXY"),
+            "http://proxy.corp.example:3128",
+            env.get("HTTPS_PROXY"),
         )
 
 
 # ---------------------------------------------------------------------------
 # 3.4  Runtime verification / diagnostics contract
 # ---------------------------------------------------------------------------
+
 
 class _ContractRunner:
     """Answers the trust/proxy contract probes for a configured or
@@ -661,17 +679,20 @@ class _ContractRunner:
         self.calls: list[tuple[str, ...]] = []
         if configured:
             self._handlers: dict[tuple[str, ...], tuple[int, str, str]] = {
-                _MOUNTS_PROBE:
-                    (0, "ro,relatime\n", ""),
+                _MOUNTS_PROBE: (0, "ro,relatime\n", ""),
                 ("test", "-w", _SYSTEM_CA_BUNDLE): (1, "", ""),
             }
             for name in _PROXY_URL_NAMES:
                 self._handlers[("printenv", name)] = (
-                    0, "http://proxy.corp.example:3128\n", "",
+                    0,
+                    "http://proxy.corp.example:3128\n",
+                    "",
                 )
             for name in _PROXY_BYPASS_NAMES:
                 self._handlers[("printenv", name)] = (
-                    0, "localhost,.corp.example\n", "",
+                    0,
+                    "localhost,.corp.example\n",
+                    "",
                 )
         else:
             self._handlers = {
@@ -688,8 +709,7 @@ class _ContractRunner:
         cmd = t[3:]
         if cmd in self._handlers:
             rc, out, err = self._handlers[cmd]
-            return _ProcessResult(argv=t, return_code=rc,
-                                  stdout=out, stderr=err)
+            return _ProcessResult(argv=t, return_code=rc, stdout=out, stderr=err)
         return _ProcessResult(argv=t, return_code=0, stdout="", stderr="")
 
 
@@ -716,26 +736,27 @@ class TestRuntimeVerificationContractRed(unittest.TestCase):
             VerifyRuntimeRequest,
             verify_runtime,
         )
+
         with tempfile.TemporaryDirectory() as root:
             proj = Path(root) / "projection.toml"
             proj.write_text("[extensions]\n")
             if runner is None:
                 runner = _ContractRunner(
-                    configured=(
-                        corporate_trust_enabled or proxy_url is not None
-                    ),
+                    configured=(corporate_trust_enabled or proxy_url is not None),
                 )
-            result = verify_runtime(VerifyRuntimeRequest(
-                container="pi-cli-pi-1",
-                runtime_projection_path=proj,
-                workspace_paths=(Path("/work/project"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                runner=runner,
-                host_access=None,
-                corporate_trust_enabled=corporate_trust_enabled,
-                proxy_url=proxy_url,
-                proxy_no_proxy=proxy_no_proxy,
-            ))
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container="pi-cli-pi-1",
+                    runtime_projection_path=proj,
+                    workspace_paths=(Path("/work/project"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    runner=runner,
+                    host_access=None,
+                    corporate_trust_enabled=corporate_trust_enabled,
+                    proxy_url=proxy_url,
+                    proxy_no_proxy=proxy_no_proxy,
+                )
+            )
             return result, runner
 
     def test_verify_runtime_reports_enabled_trust_and_proxy_contract(self) -> None:
@@ -778,9 +799,7 @@ class TestRuntimeVerificationContractRed(unittest.TestCase):
                 },
             ),
         )
-        trust = next(
-            c for c in result.checks if c.key == "corporate-trust.mount"
-        )
+        trust = next(c for c in result.checks if c.key == "corporate-trust.mount")
         self.assertFalse(trust.ok, trust.detail)
 
     def test_disabled_proxy_rejects_injected_proxy_variables(self) -> None:
@@ -791,17 +810,20 @@ class TestRuntimeVerificationContractRed(unittest.TestCase):
             runner=_ContractRunner(
                 configured=False,
                 overrides={
-                    ("printenv", "HTTP_PROXY"):
-                        (0, "http://proxy.corp.example:3128\n", ""),
+                    ("printenv", "HTTP_PROXY"): (
+                        0,
+                        "http://proxy.corp.example:3128\n",
+                        "",
+                    ),
                 },
             ),
         )
-        proxy = next(
-            c for c in result.checks if c.key == "proxy.environment"
-        )
+        proxy = next(c for c in result.checks if c.key == "proxy.environment")
         self.assertFalse(proxy.ok, proxy.detail)
 
-    def test_verification_never_dumps_environment_or_claims_daemon_coverage(self) -> None:
+    def test_verification_never_dumps_environment_or_claims_daemon_coverage(
+        self,
+    ) -> None:
         # Disabled contract — the guard must hold for the existing verifier
         # and remain true once trust/proxy probes are added.
         result, runner = self._verify(
@@ -814,20 +836,19 @@ class TestRuntimeVerificationContractRed(unittest.TestCase):
         for argv in runner.calls:
             # Every command must be a targeted ``docker exec``.
             self.assertEqual(
-                argv[:2], ("docker", "exec"),
+                argv[:2],
+                ("docker", "exec"),
                 f"verification must use docker exec, got {argv}",
             )
             self.assertEqual(argv[2], container)
             cmd = argv[3:]
             # No bare environment dumps.
-            self.assertNotEqual(cmd, ("printenv",),
-                                f"bare printenv dump: {argv}")
+            self.assertNotEqual(cmd, ("printenv",), f"bare printenv dump: {argv}")
             self.assertNotEqual(cmd, ("env",), f"bare env dump: {argv}")
             self.assertNotEqual(cmd[:1], ("env",), f"env command: {argv}")
             # Every printenv must be keyed with exactly one variable name.
             if cmd and cmd[0] == "printenv":
-                self.assertEqual(len(cmd), 2,
-                                 f"printenv must be keyed, got {argv}")
+                self.assertEqual(len(cmd), 2, f"printenv must be keyed, got {argv}")
 
 
 class TestMountsProbeExactDestination(unittest.TestCase):
@@ -841,7 +862,8 @@ class TestMountsProbeExactDestination(unittest.TestCase):
             fixture.write_text(mounts)
             return subprocess.run(
                 ["awk", _MOUNTS_PROBE[1], str(fixture)],
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
             )
 
     def test_probe_ignores_unrelated_mounts_containing_the_filename(self) -> None:

@@ -4,6 +4,7 @@ These tests intentionally precede the Phase 1 implementation.  They define the
 public configuration boundary; run this module before the GREEN tasks and expect
 failures until that boundary exists.
 """
+
 from __future__ import annotations
 
 import os
@@ -17,7 +18,11 @@ from docker.versioning.configuration_document_validation import (
     ConfigurationDocumentError,
     DocumentRole,
 )
-from docker.versioning.effective import resolve_build_projection, resolve_runtime, to_plain_data
+from docker.versioning.effective import (
+    resolve_build_projection,
+    resolve_runtime,
+    to_plain_data,
+)
 from docker.versioning.rendering import serialize_effective_build
 
 
@@ -25,7 +30,9 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 _CANONICAL = (_REPO_ROOT / "docker-constructor.toml").read_text()
 
 
-def _write_toml(content: str, *, directory: Path | None = None, name: str | None = None) -> Path:
+def _write_toml(
+    content: str, *, directory: Path | None = None, name: str | None = None
+) -> Path:
     if directory is not None:
         path = directory / (name or "inventory.toml")
         path.write_text(content)
@@ -84,7 +91,9 @@ class _InventoryTest(unittest.TestCase):
     ) -> Path:
         # Fixtures own these optional sections so future canonical policy or
         # comments cannot change what a test case exercises.
-        content = _remove_table(_remove_table(_CANONICAL, "runtime.host-access"), "cache")
+        content = _remove_table(
+            _remove_table(_CANONICAL, "runtime.host-access"), "cache"
+        )
         if cache is not None:
             content = _set_table(content, "cache", cache)
         content += "\n" + extra
@@ -106,9 +115,9 @@ class TestReviewedHostAccessPolicyRed(_InventoryTest):
         self.assertFalse(inventory.runtime.host_access.enabled)
 
     def test_disabled_policy_is_accepted_without_mode_or_proxy_port(self) -> None:
-        policy = load_inventory(self.inventory(
-            "[runtime.host-access]\nenabled = false\n"
-        )).runtime.host_access
+        policy = load_inventory(
+            self.inventory("[runtime.host-access]\nenabled = false\n")
+        ).runtime.host_access
         self.assertFalse(policy.enabled)
         self.assertIsNone(policy.mode)
         self.assertIsNone(policy.proxy_port)
@@ -119,9 +128,11 @@ class TestReviewedHostAccessPolicyRed(_InventoryTest):
                 with self.assertRaisesRegex(
                     InventoryError, r"runtime\.host-access\.(mode|proxy-port)"
                 ):
-                    load_inventory(self.inventory(
-                        "[runtime.host-access]\nenabled = false\n" + setting
-                    ))
+                    load_inventory(
+                        self.inventory(
+                            "[runtime.host-access]\nenabled = false\n" + setting
+                        )
+                    )
 
     def test_enabled_policy_requires_supported_mode(self) -> None:
         for mode in ("", "host-gateway", "docker", "external"):
@@ -129,42 +140,55 @@ class TestReviewedHostAccessPolicyRed(_InventoryTest):
             if mode:
                 extra += f'mode = "{mode}"\n'
             with self.subTest(mode=mode):
-                with self.assertRaisesRegex(InventoryError, r"runtime\.host-access\.mode"):
+                with self.assertRaisesRegex(
+                    InventoryError, r"runtime\.host-access\.mode"
+                ):
                     load_inventory(self.inventory(extra))
 
-    def test_enabled_policy_allows_omitted_proxy_port_and_rejects_unknown_keys(self) -> None:
+    def test_enabled_policy_allows_omitted_proxy_port_and_rejects_unknown_keys(
+        self,
+    ) -> None:
         for mode in ("docker-gateway", "external-address"):
             with self.subTest(mode=mode):
-                policy = load_inventory(self.inventory(
-                    "[runtime.host-access]\nenabled = true\n"
-                    f'mode = "{mode}"\n'
-                )).runtime.host_access
+                policy = load_inventory(
+                    self.inventory(
+                        f'[runtime.host-access]\nenabled = true\nmode = "{mode}"\n'
+                    )
+                ).runtime.host_access
                 self.assertTrue(policy.enabled)
                 self.assertEqual(policy.mode, mode)
                 self.assertIsNone(policy.proxy_port)
 
         with self.assertRaisesRegex(InventoryError, r"runtime\.host-access\.unknown"):
-            load_inventory(self.inventory(
-                "[runtime.host-access]\nenabled = true\n"
-                'mode = "docker-gateway"\nunknown = true\n'
-            ))
+            load_inventory(
+                self.inventory(
+                    "[runtime.host-access]\nenabled = true\n"
+                    'mode = "docker-gateway"\nunknown = true\n'
+                )
+            )
 
     def test_enabled_policy_accepts_only_valid_integer_proxy_ports(self) -> None:
         for port in (0, 65536, -1, "true", '"1080"'):
             with self.subTest(port=port):
-                with self.assertRaisesRegex(InventoryError, r"runtime\.host-access\.proxy-port"):
-                    load_inventory(self.inventory(
-                        "[runtime.host-access]\nenabled = true\n"
-                        'mode = "docker-gateway"\n'
-                        f"proxy-port = {port}\n"
-                    ))
+                with self.assertRaisesRegex(
+                    InventoryError, r"runtime\.host-access\.proxy-port"
+                ):
+                    load_inventory(
+                        self.inventory(
+                            "[runtime.host-access]\nenabled = true\n"
+                            'mode = "docker-gateway"\n'
+                            f"proxy-port = {port}\n"
+                        )
+                    )
         for mode in ("docker-gateway", "external-address"):
             for port in (1, 1080, 65535):
                 with self.subTest(mode=mode, port=port):
-                    policy = load_inventory(self.inventory(
-                        "[runtime.host-access]\nenabled = true\n"
-                        f'mode = "{mode}"\nproxy-port = {port}\n'
-                    )).runtime.host_access
+                    policy = load_inventory(
+                        self.inventory(
+                            "[runtime.host-access]\nenabled = true\n"
+                            f'mode = "{mode}"\nproxy-port = {port}\n'
+                        )
+                    ).runtime.host_access
                     self.assertEqual(policy.proxy_port, port)
 
 
@@ -181,8 +205,12 @@ class TestLocalCompanionRed(_InventoryTest):
             Path("/path/docker-constructor.local.toml"),
         )
 
-    def test_custom_inventory_loads_fixed_companion_without_repository_fallback(self) -> None:
-        from docker.versioning.local_project_configuration import load_optional_local_project_configuration as load_local_config_for_inventory
+    def test_custom_inventory_loads_fixed_companion_without_repository_fallback(
+        self,
+    ) -> None:
+        from docker.versioning.local_project_configuration import (
+            load_optional_local_project_configuration as load_local_config_for_inventory,
+        )
 
         with tempfile.TemporaryDirectory() as root:
             root_path = Path(root)
@@ -190,11 +218,17 @@ class TestLocalCompanionRed(_InventoryTest):
             workspace = root_path / "workspace"
             repository.mkdir()
             workspace.mkdir()
-            _write_toml('[cache]\ndir = "/repository-fallback"\n',
-                        directory=repository, name="docker-constructor.local.toml")
+            _write_toml(
+                '[cache]\ndir = "/repository-fallback"\n',
+                directory=repository,
+                name="docker-constructor.local.toml",
+            )
             inventory = self.inventory(directory=workspace, name="custom.toml")
-            _write_toml('[cache]\ndir = "/custom-local"\n',
-                        directory=workspace, name="docker-constructor.local.toml")
+            _write_toml(
+                '[cache]\ndir = "/custom-local"\n',
+                directory=workspace,
+                name="docker-constructor.local.toml",
+            )
 
             # The production default inventory root is an authoritative
             # boundary, not the process CWD.  The fixed-companion loader
@@ -217,35 +251,45 @@ class TestLocalCompanionRed(_InventoryTest):
         self.assertIsNone(absent.cache.dir)
 
     def test_closed_local_schema_and_values(self) -> None:
-        from docker.versioning.local_project_configuration import load_local_project_configuration as load_local_config
+        from docker.versioning.local_project_configuration import (
+            load_local_project_configuration as load_local_config,
+        )
 
-        valid = self.local('[host-access]\naddress = "10.0.2.2"\n[cache]\ndir = "/tmp/cache"\n')
+        valid = self.local(
+            '[host-access]\naddress = "10.0.2.2"\n[cache]\ndir = "/tmp/cache"\n'
+        )
         local = load_local_config(valid)
         self.assertEqual(local.host_access.address, "10.0.2.2")
         self.assertEqual(local.cache.dir, "/tmp/cache")
 
         ipv6 = self.local('[host-access]\naddress = "2001:db8::1"\n')
         self.assertEqual(
-            load_local_config(ipv6, host_access_mode="external-address").host_access.address,
+            load_local_config(
+                ipv6, host_access_mode="external-address"
+            ).host_access.address,
             "2001:db8::1",
         )
 
         invalid = (
             "not toml = [",
             "[unknown]\nvalue = true",
-            "[host-access]\nunknown = \"x\"",
-            "[cache]\nunknown = \"x\"",
+            '[host-access]\nunknown = "x"',
+            '[cache]\nunknown = "x"',
             "[cache]\ndir = 42",
             '[host-access]\naddress = "not an address"',
         )
         for content in invalid:
             with self.subTest(content=content):
                 path = self.local(content)
-                with self.assertRaisesRegex(InventoryError, r"(host-access|cache|local)"):
+                with self.assertRaisesRegex(
+                    InventoryError, r"(host-access|cache|local)"
+                ):
                     load_local_config(path)
 
     def test_local_validation_errors_name_the_exact_path_and_recovery(self) -> None:
-        from docker.versioning.local_project_configuration import load_local_project_configuration as load_local_config
+        from docker.versioning.local_project_configuration import (
+            load_local_project_configuration as load_local_config,
+        )
 
         cases = (
             ("[host-access]\nfoo = true\n", "local.host-access.foo"),
@@ -265,7 +309,9 @@ class TestLocalCompanionRed(_InventoryTest):
                 self.assertEqual(path, error.field)
 
     def test_external_address_rejects_host_gateway_token(self) -> None:
-        from docker.versioning.local_project_configuration import load_local_project_configuration as load_local_config
+        from docker.versioning.local_project_configuration import (
+            load_local_project_configuration as load_local_config,
+        )
 
         path = self.local('[host-access]\naddress = "host-gateway"\n')
         with self.assertRaisesRegex(InventoryError, r"host-access\.address"):
@@ -281,10 +327,12 @@ class TestCacheAndProjectionRed(_InventoryTest):
         self.assertNotIn("/reviewed", str(raised.exception))
 
         from docker.versioning.cache_storage import resolve_local_root
-        from docker.versioning.local_project_configuration import load_local_project_configuration as load_local_config
+        from docker.versioning.local_project_configuration import (
+            load_local_project_configuration as load_local_config,
+        )
 
         reviewed = load_inventory(self.inventory(cache="ttl = 123"))
-        local_cfg = load_local_config(self.local("[cache]\ndir = \"/local-cache\"\n"))
+        local_cfg = load_local_config(self.local('[cache]\ndir = "/local-cache"\n'))
 
         # Directory is machine-local; TTL stays reviewed policy.
         self.assertEqual(local_cfg.cache.dir, "/local-cache")
@@ -299,21 +347,27 @@ class TestCacheAndProjectionRed(_InventoryTest):
         self.assertEqual(root, Path("/local-cache"))
 
     def test_host_and_local_state_never_enter_dependency_projections(self) -> None:
-        from docker.versioning.local_project_configuration import load_optional_local_project_configuration as load_local_config_for_inventory
+        from docker.versioning.local_project_configuration import (
+            load_optional_local_project_configuration as load_local_config_for_inventory,
+        )
 
         with tempfile.TemporaryDirectory() as directory:
             directory_path = Path(directory)
             inventory_path = self.inventory(
                 "[runtime.host-access]\nenabled = true\n"
                 'mode = "external-address"\nproxy-port = 45678\n',
-                directory=directory_path, name="custom.toml",
+                directory=directory_path,
+                name="custom.toml",
             )
             inventory = load_inventory(inventory_path)
             companion = _write_toml(
                 '[host-access]\naddress = "192.0.2.10"\n[cache]\ndir = "/local-cache"\n',
-                directory=directory_path, name="docker-constructor.local.toml",
+                directory=directory_path,
+                name="docker-constructor.local.toml",
             )
-            self.assertEqual(companion, inventory_path.with_name("docker-constructor.local.toml"))
+            self.assertEqual(
+                companion, inventory_path.with_name("docker-constructor.local.toml")
+            )
             local = load_local_config_for_inventory(
                 inventory_path, host_access_mode="external-address"
             )
@@ -328,8 +382,12 @@ class TestCacheAndProjectionRed(_InventoryTest):
         runtime_values = _flatten(runtime_data)
         build_values = _flatten(build_data)
         for forbidden in (
-            "host_access", "host-access", "192.0.2.10", "/local-cache",
-            45678, "docker-constructor.local.toml",
+            "host_access",
+            "host-access",
+            "192.0.2.10",
+            "/local-cache",
+            45678,
+            "docker-constructor.local.toml",
         ):
             with self.subTest(forbidden=forbidden):
                 self.assertNotIn(forbidden, runtime_values)

@@ -37,6 +37,7 @@ def _load_default() -> Inventory:
 # 4.1.1 Default resolution (no overrides)
 # ---------------------------------------------------------------------------
 
+
 class TestDefaultBuildProjection(unittest.TestCase):
     """Resolution without overrides preserves all canonical build selections."""
 
@@ -65,7 +66,9 @@ class TestDefaultBuildProjection(unittest.TestCase):
         """Rustup bootstrap URL and sha256 for linux-amd64 survive resolution."""
         projection = resolve_build_projection(self.build, {})
         rustup = self.inventory.stages.toolchain.rust.rustup.get("linux-amd64")
-        self.assertIsNotNone(rustup, "linux-amd64 rustup artifact missing from inventory")
+        self.assertIsNotNone(
+            rustup, "linux-amd64 rustup artifact missing from inventory"
+        )
         self.assertEqual(projection.rust.rustup.url, rustup.url)
         self.assertEqual(projection.rust.rustup.sha256, rustup.sha256)
 
@@ -143,8 +146,9 @@ class TestDefaultBuildProjection(unittest.TestCase):
         pdict = dataclasses.asdict(projection)
         serialized = flatten_keys(pdict)
         for key in serialized:
-            self.assertNotIn("update", key.lower().split("."),
-                             f"update metadata leaked at {key}")
+            self.assertNotIn(
+                "update", key.lower().split("."), f"update metadata leaked at {key}"
+            )
 
     def test_no_override_policy_in_projection(self):
         """Override policy must not leak into the projection."""
@@ -152,13 +156,15 @@ class TestDefaultBuildProjection(unittest.TestCase):
         pdict = dataclasses.asdict(projection)
         serialized = flatten_keys(pdict)
         for key in serialized:
-            self.assertNotIn("override", key.lower().split("."),
-                             f"override policy leaked at {key}")
+            self.assertNotIn(
+                "override", key.lower().split("."), f"override policy leaked at {key}"
+            )
 
 
 # ---------------------------------------------------------------------------
 # 4.1.2 Python override handling
 # ---------------------------------------------------------------------------
+
 
 class TestPythonOverride(unittest.TestCase):
     """Supported Python override: X.Y.Z numeric, constraint-enforced."""
@@ -238,6 +244,7 @@ class TestPythonOverride(unittest.TestCase):
 # 4.1.3 Override path validation
 # ---------------------------------------------------------------------------
 
+
 class TestOverridePathValidation(unittest.TestCase):
     """Unknown override paths and duplicates are rejected with canonical paths."""
 
@@ -292,6 +299,7 @@ class TestOverridePathValidation(unittest.TestCase):
 # 4.1.4 Platform artifact survival
 # ---------------------------------------------------------------------------
 
+
 class TestPlatformArtifacts(unittest.TestCase):
     """All required platform artifacts survive resolution."""
 
@@ -339,6 +347,7 @@ class TestPlatformArtifacts(unittest.TestCase):
 # 4.1.5 Artifact URL / version consistency
 # ---------------------------------------------------------------------------
 
+
 class TestArtifactVersionConsistency(unittest.TestCase):
     """Selected artifact URLs must match the effective version."""
 
@@ -366,6 +375,7 @@ class TestArtifactVersionConsistency(unittest.TestCase):
 # 4.1.6 Deterministic projection ordering
 # ---------------------------------------------------------------------------
 
+
 class TestDeterministicProjection(unittest.TestCase):
     """Equivalent inputs always produce identical projection values."""
 
@@ -381,17 +391,20 @@ class TestDeterministicProjection(unittest.TestCase):
 
     def test_identical_overrides_produce_identical_projections(self):
         a = resolve_build_projection(
-            self.build, {"build.stages.toolchain.python.version": "3.14.7"},
+            self.build,
+            {"build.stages.toolchain.python.version": "3.14.7"},
         )
         b = resolve_build_projection(
-            self.build, {"build.stages.toolchain.python.version": "3.14.7"},
+            self.build,
+            {"build.stages.toolchain.python.version": "3.14.7"},
         )
         self.assertEqual(_projection_tuple(a), _projection_tuple(b))
 
     def test_different_overrides_differ(self):
         a = resolve_build_projection(self.build, {})
         b = resolve_build_projection(
-            self.build, {"build.stages.toolchain.python.version": "3.14.6"},
+            self.build,
+            {"build.stages.toolchain.python.version": "3.14.6"},
         )
         self.assertNotEqual(a.python_version, b.python_version)
 
@@ -412,6 +425,7 @@ class TestArm64Platform(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from tests.versioning.support.inventory_builder import minimal_toml, write_toml
+
         toml = minimal_toml()
         cls._toml_path = write_toml(toml)
         cls.inventory = load_inventory(cls._toml_path)
@@ -455,6 +469,7 @@ class TestUnsupportedPlatform(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         from tests.versioning.support.inventory_builder import minimal_toml, write_toml
+
         toml = minimal_toml()
         cls._toml_path = write_toml(toml)
         cls.inventory = load_inventory(cls._toml_path)
@@ -466,9 +481,7 @@ class TestUnsupportedPlatform(unittest.TestCase):
 
     def test_unsupported_platform_rejected(self):
         with self.assertRaises(EffectiveConfigError) as ctx:
-            resolve_build_projection(
-                self.build, {}, platform="windows-amd64"
-            )
+            resolve_build_projection(self.build, {}, platform="windows-amd64")
         self.assertIn("Unsupported platform", str(ctx.exception))
 
     def test_empty_platform_rejected(self):
@@ -477,9 +490,7 @@ class TestUnsupportedPlatform(unittest.TestCase):
 
     def test_arm32_rejected(self):
         with self.assertRaises(EffectiveConfigError):
-            resolve_build_projection(
-                self.build, {}, platform="linux-arm32"
-            )
+            resolve_build_projection(self.build, {}, platform="linux-arm32")
 
 
 class TestMissingPlatformArtifact(unittest.TestCase):
@@ -489,9 +500,7 @@ class TestMissingPlatformArtifact(unittest.TestCase):
         """An inventory without arm64 artifacts fails for ARM64 resolution."""
         inv = _load_default()  # Real inventory: only linux-amd64
         with self.assertRaises(EffectiveConfigError) as ctx:
-            resolve_build_projection(
-                inv.build, {}, platform="linux-arm64"
-            )
+            resolve_build_projection(inv.build, {}, platform="linux-arm64")
         self.assertIn("No artifact for platform", str(ctx.exception))
         self.assertIn("linux-arm64", str(ctx.exception))
 
@@ -506,16 +515,14 @@ import dataclasses
 def _projection_tuple(p) -> tuple:
     """Convert a projection to a hashable tuple for comparison."""
     return tuple(
-        (f.name, _to_hashable(getattr(p, f.name)))
-        for f in dataclasses.fields(p)
+        (f.name, _to_hashable(getattr(p, f.name))) for f in dataclasses.fields(p)
     )
 
 
 def _to_hashable(v):
     if dataclasses.is_dataclass(v) and not isinstance(v, type):
         return tuple(
-            (f.name, _to_hashable(getattr(v, f.name)))
-            for f in dataclasses.fields(v)
+            (f.name, _to_hashable(getattr(v, f.name))) for f in dataclasses.fields(v)
         )
     if isinstance(v, (list, tuple)):
         return tuple(_to_hashable(x) for x in v)
@@ -525,77 +532,107 @@ def _to_hashable(v):
 def _copy_build(build: BuildInventory) -> BuildInventory:
     """Deep-copy a BuildInventory by round-tripping through asdict/rebuild."""
     # dataclasses.asdict produces a recursive dict; rebuild manually
-    from docker.versioning.model import Stages, BaseStage, NodeEntry, ToolchainStage, \
-        RustEntry, UvEntry, PythonEntry, TyEntry, RtkPrebuiltStage, PrebuiltToolEntry, \
-        FdPrebuiltStage, PiToolsStage, PiToolEntry, NpmToolEntry, OpenSpecToolsStage, \
-        RuntimeStage, OhMyZshEntry
+    from docker.versioning.model import (
+        Stages,
+        BaseStage,
+        NodeEntry,
+        ToolchainStage,
+        RustEntry,
+        UvEntry,
+        PythonEntry,
+        TyEntry,
+        RtkPrebuiltStage,
+        PrebuiltToolEntry,
+        FdPrebuiltStage,
+        PiToolsStage,
+        PiToolEntry,
+        NpmToolEntry,
+        OpenSpecToolsStage,
+        RuntimeStage,
+        OhMyZshEntry,
+    )
+
     s = build.stages
-    return BuildInventory(stages=Stages(
-        base=BaseStage(node=NodeEntry(
-            tag=s.base.node.tag,
-            digest=s.base.node.digest,
-            node_version=s.base.node.node_version,
-            npm_version=s.base.node.npm_version,
-            source=s.base.node.source,
-            update=s.base.node.update,
-        )),
-        toolchain=ToolchainStage(
-            rust=RustEntry(
-                version=s.toolchain.rust.version,
-                profile=s.toolchain.rust.profile,
-                components=s.toolchain.rust.components,
-                source=s.toolchain.rust.source,
-                rustup_source=s.toolchain.rust.rustup_source,
-                rustup_update=s.toolchain.rust.rustup_update,
-                rustup=s.toolchain.rust.rustup,
-                update=s.toolchain.rust.update,
+    return BuildInventory(
+        stages=Stages(
+            base=BaseStage(
+                node=NodeEntry(
+                    tag=s.base.node.tag,
+                    digest=s.base.node.digest,
+                    node_version=s.base.node.node_version,
+                    npm_version=s.base.node.npm_version,
+                    source=s.base.node.source,
+                    update=s.base.node.update,
+                )
             ),
-            uv=UvEntry(
-                version=s.toolchain.uv.version,
-                source=s.toolchain.uv.source,
-                artifacts=s.toolchain.uv.artifacts,
-                update=s.toolchain.uv.update,
+            toolchain=ToolchainStage(
+                rust=RustEntry(
+                    version=s.toolchain.rust.version,
+                    profile=s.toolchain.rust.profile,
+                    components=s.toolchain.rust.components,
+                    source=s.toolchain.rust.source,
+                    rustup_source=s.toolchain.rust.rustup_source,
+                    rustup_update=s.toolchain.rust.rustup_update,
+                    rustup=s.toolchain.rust.rustup,
+                    update=s.toolchain.rust.update,
+                ),
+                uv=UvEntry(
+                    version=s.toolchain.uv.version,
+                    source=s.toolchain.uv.source,
+                    artifacts=s.toolchain.uv.artifacts,
+                    update=s.toolchain.uv.update,
+                ),
+                python=PythonEntry(
+                    version=s.toolchain.python.version,
+                    source=s.toolchain.python.source,
+                    update=s.toolchain.python.update,
+                    override=s.toolchain.python.override,
+                ),
+                ty=TyEntry(
+                    version=s.toolchain.ty.version,
+                    source=s.toolchain.ty.source,
+                    update=s.toolchain.ty.update,
+                ),
             ),
-            python=PythonEntry(
-                version=s.toolchain.python.version,
-                source=s.toolchain.python.source,
-                update=s.toolchain.python.update,
-                override=s.toolchain.python.override,
+            rtk_prebuilt=RtkPrebuiltStage(
+                rtk=PrebuiltToolEntry(
+                    version=s.rtk_prebuilt.rtk.version,
+                    source=s.rtk_prebuilt.rtk.source,
+                    artifacts=s.rtk_prebuilt.rtk.artifacts,
+                    update=s.rtk_prebuilt.rtk.update,
+                )
             ),
-            ty=TyEntry(
-                version=s.toolchain.ty.version,
-                source=s.toolchain.ty.source,
-                update=s.toolchain.ty.update,
+            fd_prebuilt=FdPrebuiltStage(
+                fd=PrebuiltToolEntry(
+                    version=s.fd_prebuilt.fd.version,
+                    source=s.fd_prebuilt.fd.source,
+                    artifacts=s.fd_prebuilt.fd.artifacts,
+                    update=s.fd_prebuilt.fd.update,
+                )
             ),
-        ),
-        rtk_prebuilt=RtkPrebuiltStage(rtk=PrebuiltToolEntry(
-            version=s.rtk_prebuilt.rtk.version,
-            source=s.rtk_prebuilt.rtk.source,
-            artifacts=s.rtk_prebuilt.rtk.artifacts,
-            update=s.rtk_prebuilt.rtk.update,
-        )),
-        fd_prebuilt=FdPrebuiltStage(fd=PrebuiltToolEntry(
-            version=s.fd_prebuilt.fd.version,
-            source=s.fd_prebuilt.fd.source,
-            artifacts=s.fd_prebuilt.fd.artifacts,
-            update=s.fd_prebuilt.fd.update,
-        )),
-        pi_tools=PiToolsStage(pi=PiToolEntry(
-            version=s.pi_tools.pi.version,
-            source=s.pi_tools.pi.source,
-            update=s.pi_tools.pi.update,
-        )),
-        openspec_tools=OpenSpecToolsStage(openspec=NpmToolEntry(
-            version=s.openspec_tools.openspec.version,
-            source=s.openspec_tools.openspec.source,
-            update=s.openspec_tools.openspec.update,
-        )),
-        runtime=RuntimeStage(oh_my_zsh=OhMyZshEntry(
-            revision=s.runtime.oh_my_zsh.revision,
-            source=s.runtime.oh_my_zsh.source,
-            update=s.runtime.oh_my_zsh.update,
-        )),
-    ))
+            pi_tools=PiToolsStage(
+                pi=PiToolEntry(
+                    version=s.pi_tools.pi.version,
+                    source=s.pi_tools.pi.source,
+                    update=s.pi_tools.pi.update,
+                )
+            ),
+            openspec_tools=OpenSpecToolsStage(
+                openspec=NpmToolEntry(
+                    version=s.openspec_tools.openspec.version,
+                    source=s.openspec_tools.openspec.source,
+                    update=s.openspec_tools.openspec.update,
+                )
+            ),
+            runtime=RuntimeStage(
+                oh_my_zsh=OhMyZshEntry(
+                    revision=s.runtime.oh_my_zsh.revision,
+                    source=s.runtime.oh_my_zsh.source,
+                    update=s.runtime.oh_my_zsh.update,
+                )
+            ),
+        )
+    )
 
 
 def flatten_keys(o, prefix="") -> list:
@@ -603,7 +640,11 @@ def flatten_keys(o, prefix="") -> list:
     result = []
     if dataclasses.is_dataclass(o) and not isinstance(o, type):
         for f in dataclasses.fields(o):
-            result.extend(flatten_keys(getattr(o, f.name), f"{prefix}.{f.name}" if prefix else f.name))
+            result.extend(
+                flatten_keys(
+                    getattr(o, f.name), f"{prefix}.{f.name}" if prefix else f.name
+                )
+            )
     elif isinstance(o, Mapping):
         for k, v in o.items():
             result.extend(flatten_keys(v, f"{prefix}.{k}" if prefix else k))

@@ -10,6 +10,7 @@ to end without a Docker daemon, network, or clock dependency.
 The external :class:`HostStructuredDiagnostic` DTO is asserted to stay
 URL-free and path-free in every mode.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -71,8 +72,7 @@ RESEARCH_URL = (
     "npm-http-research-fixture-1.0.0.tgz"
 )
 RESEARCH_SAFE = (
-    "registry.npmjs.org/npm-http-research-fixture/-/"
-    "npm-http-research-fixture-1.0.0.tgz"
+    "registry.npmjs.org/npm-http-research-fixture/-/npm-http-research-fixture-1.0.0.tgz"
 )
 OTHER_URL = "https://registry.npmjs.org/other-pkg/-/other-pkg-2.0.0.tgz"
 OTHER_SAFE = "registry.npmjs.org/other-pkg/-/other-pkg-2.0.0.tgz"
@@ -112,9 +112,7 @@ def _collect(
     secrets: tuple[str, ...] = (),
 ) -> tuple[list[StreamChunk], str]:
     """Run the production collector and return finalized chunks plus the tail."""
-    stream = NpmDiagnosticStream(
-        "stdout", secrets, network_url_display=display
-    )
+    stream = NpmDiagnosticStream("stdout", secrets, network_url_display=display)
     chunks: list[StreamChunk] = []
     for line in lines:
         chunks.extend(stream.feed_bytes((line + "\n").encode("utf-8")))
@@ -122,12 +120,11 @@ def _collect(
     return [chunk for chunk in chunks if chunk.finalized], stream.tail()
 
 
-def _envelopes(lines: list[str], display: NetworkUrlDisplay) -> list[HostDiagnosticEnvelope]:
+def _envelopes(
+    lines: list[str], display: NetworkUrlDisplay
+) -> list[HostDiagnosticEnvelope]:
     chunks, _tail = _collect(lines, display)
-    return [
-        presentation_envelope_for(chunk, logical_resource=None)
-        for chunk in chunks
-    ]
+    return [presentation_envelope_for(chunk, logical_resource=None) for chunk in chunks]
 
 
 class RecordingRenderer:
@@ -187,9 +184,7 @@ def _state(
     mode: HostPresentationMode,
     display: NetworkUrlDisplay,
 ) -> HostPresentationState:
-    return HostPresentationState(
-        renderer, mode=mode, network_url_display=display
-    )
+    return HostPresentationState(renderer, mode=mode, network_url_display=display)
 
 
 def _session(
@@ -242,7 +237,9 @@ class TestRealOutputIntegrationMatrix(unittest.TestCase):
             # The external-safe projection is URL-free.
             self.assertNotIn(RESEARCH_URL, chunk.text)
         renderer = RecordingRenderer()
-        state = _state(renderer, HostPresentationMode.INTERACTIVE, NetworkUrlDisplay.REDACTED)
+        state = _state(
+            renderer, HostPresentationMode.INTERACTIVE, NetworkUrlDisplay.REDACTED
+        )
         for index, chunk in enumerate(chunks):
             state.admit_diagnostic(
                 presentation_envelope_for(chunk, logical_resource=None),
@@ -270,7 +267,9 @@ class TestRealOutputIntegrationMatrix(unittest.TestCase):
         self.assertEqual(HOST_PATH_CANON, chunks[1].fetch_text)
         self.assertIn(OTHER_SAFE, chunks[2].fetch_text or "")
         renderer = RecordingRenderer()
-        state = _state(renderer, HostPresentationMode.INTERACTIVE, NetworkUrlDisplay.HOST_PATH)
+        state = _state(
+            renderer, HostPresentationMode.INTERACTIVE, NetworkUrlDisplay.HOST_PATH
+        )
         for index, chunk in enumerate(chunks):
             state.admit_diagnostic(
                 presentation_envelope_for(chunk, logical_resource=None),
@@ -286,10 +285,10 @@ class TestRealOutputIntegrationMatrix(unittest.TestCase):
     def test_host_path_canonical_bypasses_legacy_bracketed_hostname_attachment(self):
         chunks, _tail = _collect([_fetch_line(latency=15)], NetworkUrlDisplay.HOST_PATH)
         renderer = RecordingRenderer()
-        state = _state(renderer, HostPresentationMode.INTERACTIVE, NetworkUrlDisplay.HOST_PATH)
-        envelope = presentation_envelope_for(
-            chunks[0], logical_resource=None
+        state = _state(
+            renderer, HostPresentationMode.INTERACTIVE, NetworkUrlDisplay.HOST_PATH
         )
+        envelope = presentation_envelope_for(chunks[0], logical_resource=None)
         # Even when the collector observed the hostname, a recognized fetch
         # keeps the canonical hostname/path line and never appends the legacy
         # bracketed form.
@@ -308,7 +307,9 @@ class TestRealOutputIntegrationMatrix(unittest.TestCase):
             self.assertIn(RESEARCH_URL, chunk.local_text or "")
             self.assertIn("ms", chunk.local_text or "")
         renderer = RecordingRenderer()
-        state = _state(renderer, HostPresentationMode.INTERACTIVE, NetworkUrlDisplay.EXACT)
+        state = _state(
+            renderer, HostPresentationMode.INTERACTIVE, NetworkUrlDisplay.EXACT
+        )
         for index, chunk in enumerate(chunks):
             state.admit_diagnostic(
                 presentation_envelope_for(chunk, logical_resource=None),
@@ -416,11 +417,11 @@ class TestHighVolumeAcceptance(unittest.TestCase):
 
     def test_redacted_interactive_counts_a_large_group(self):
         total = 400
-        lines = [
-            _fetch_line(latency=10 + (index % 50)) for index in range(total)
-        ]
+        lines = [_fetch_line(latency=10 + (index % 50)) for index in range(total)]
         renderer = RecordingRenderer()
-        state = _state(renderer, HostPresentationMode.INTERACTIVE, NetworkUrlDisplay.REDACTED)
+        state = _state(
+            renderer, HostPresentationMode.INTERACTIVE, NetworkUrlDisplay.REDACTED
+        )
         for index, envelope in enumerate(_envelopes(lines, NetworkUrlDisplay.REDACTED)):
             state.admit_diagnostic(envelope, now=index * 0.001)
         self.assertEqual(
@@ -453,7 +454,9 @@ class TestHighVolumeAcceptance(unittest.TestCase):
         lines += [(OTHER_URL, index) for index in range(150)]
         raw = [_fetch_line(url, latency=10 + index % 40) for url, index in lines]
         renderer = RecordingRenderer()
-        state = _state(renderer, HostPresentationMode.INTERACTIVE, NetworkUrlDisplay.HOST_PATH)
+        state = _state(
+            renderer, HostPresentationMode.INTERACTIVE, NetworkUrlDisplay.HOST_PATH
+        )
         for index, envelope in enumerate(_envelopes(raw, NetworkUrlDisplay.HOST_PATH)):
             state.admit_diagnostic(envelope, now=index * 0.001)
         slots = renderer.slot_texts()
@@ -465,7 +468,9 @@ class TestHighVolumeAcceptance(unittest.TestCase):
         total = 300
         lines = [_fetch_line(latency=10 + (index % 50)) for index in range(total)]
         renderer = RecordingRenderer()
-        state = _state(renderer, HostPresentationMode.INTERACTIVE, NetworkUrlDisplay.EXACT)
+        state = _state(
+            renderer, HostPresentationMode.INTERACTIVE, NetworkUrlDisplay.EXACT
+        )
         for index, envelope in enumerate(_envelopes(lines, NetworkUrlDisplay.EXACT)):
             state.admit_diagnostic(envelope, now=index * 0.001)
         self.assertEqual(total, len(renderer.finalize_texts()))
@@ -476,10 +481,7 @@ class TestHighVolumeAcceptance(unittest.TestCase):
     def test_exactly_one_selected_and_bounded_retained_tail(self):
         for display in ALL_MODES:
             with self.subTest(display=display):
-                lines = [
-                    _fetch_line(latency=10 + (index % 50))
-                    for index in range(500)
-                ]
+                lines = [_fetch_line(latency=10 + (index % 50)) for index in range(500)]
                 chunks, tail = _collect(lines, display)
                 self.assertTrue(tail)
                 self.assertLessEqual(len(tail.encode("utf-8")), TAIL_BYTES)
@@ -544,11 +546,15 @@ class TestModeSaturationOrdering(unittest.TestCase):
         mailbox = PresentationMailbox()
         # Fill and drain, then drop far more than the counter limit.
         for _ in range(TELEMETRY_CAPACITY):
-            mailbox.admit_telemetry(_diagnostic_envelope("filler", NetworkUrlDisplay.REDACTED))
+            mailbox.admit_telemetry(
+                _diagnostic_envelope("filler", NetworkUrlDisplay.REDACTED)
+            )
         while mailbox.take(timeout=0.0) is not None:
             pass
         for _ in range(OMISSION_COUNTER_LIMIT + TELEMETRY_CAPACITY + 5):
-            mailbox.admit_telemetry(_diagnostic_envelope("x", NetworkUrlDisplay.REDACTED))
+            mailbox.admit_telemetry(
+                _diagnostic_envelope("x", NetworkUrlDisplay.REDACTED)
+            )
         notice = mailbox.take_omission_notice(sequence=None)
         self.assertIsNotNone(notice)
         self.assertIn("at least", notice)
@@ -561,20 +567,12 @@ class TestRendererFailureIsolation(unittest.TestCase):
         for display in ALL_MODES:
             with self.subTest(display=display):
                 renderer = RecordingRenderer(fail_on="durable")
-                session = _session(
-                    renderer, HostPresentationMode.LINES, display
-                )
-                combined = _envelopes(
-                    [_fetch_line(latency=15)], display
-                )
-                self.assertTrue(
-                    session.sink.admit_diagnostic(combined[0])
-                )
+                session = _session(renderer, HostPresentationMode.LINES, display)
+                combined = _envelopes([_fetch_line(latency=15)], display)
+                self.assertTrue(session.sink.admit_diagnostic(combined[0]))
                 self.assertTrue(
                     session.sink.admit_diagnostic(
-                        _diagnostic_envelope(
-                            "later diagnostic", display
-                        )
+                        _diagnostic_envelope("later diagnostic", display)
                     )
                 )
                 self.assertTrue(session.shutdown())
@@ -659,9 +657,7 @@ class TestCloseDrainOrdering(unittest.TestCase):
         # diagnostic output appears (only the terminal-region reset may run).
         final_index = renderer.calls.index(("durable", "final report"))
         later = renderer.calls[final_index + 1 :]
-        self.assertFalse(
-            any(call[0] in ("durable", "finalize") for call in later)
-        )
+        self.assertFalse(any(call[0] in ("durable", "finalize") for call in later))
 
     def test_actor_is_reused_across_step_terminals(self):
         renderer = RecordingRenderer()
@@ -690,7 +686,9 @@ class TestPresentationIsolation(unittest.TestCase):
     def test_admission_never_waits_for_capacity(self):
         mailbox = PresentationMailbox()
         for _ in range(TELEMETRY_CAPACITY):
-            mailbox.admit_telemetry(_diagnostic_envelope("filler", NetworkUrlDisplay.REDACTED))
+            mailbox.admit_telemetry(
+                _diagnostic_envelope("filler", NetworkUrlDisplay.REDACTED)
+            )
         started = time.monotonic()
         for index in range(1000):
             mailbox.admit_telemetry(
@@ -700,7 +698,9 @@ class TestPresentationIsolation(unittest.TestCase):
 
     def test_renderer_failure_leaves_dto_and_tail_independent(self):
         renderer = RecordingRenderer(fail_on="durable")
-        session = _session(renderer, HostPresentationMode.LINES, NetworkUrlDisplay.EXACT)
+        session = _session(
+            renderer, HostPresentationMode.LINES, NetworkUrlDisplay.EXACT
+        )
         chunks, tail = _collect([_fetch_line(latency=15)], NetworkUrlDisplay.EXACT)
         dto = structured_diagnostic_for(chunks[0], logical_resource=None)
         self.assertIn(RESEARCH_URL, tail)
@@ -718,7 +718,9 @@ class TestPresentationIsolation(unittest.TestCase):
         chunks, tail = _collect(lines, NetworkUrlDisplay.HOST_PATH)
         mailbox = PresentationMailbox()
         for _ in range(TELEMETRY_CAPACITY):
-            mailbox.admit_telemetry(_diagnostic_envelope("filler", NetworkUrlDisplay.HOST_PATH))
+            mailbox.admit_telemetry(
+                _diagnostic_envelope("filler", NetworkUrlDisplay.HOST_PATH)
+            )
         for chunk in chunks:
             mailbox.admit_telemetry(
                 presentation_envelope_for(chunk, logical_resource=None)
@@ -852,9 +854,7 @@ class TestPresentationIsolation(unittest.TestCase):
         self.assertEqual(expected, internal.envelopes[0].text)
         self.assertNotIn("/path", internal.envelopes[0].text)
         structured = [
-            event
-            for event in sdk_events
-            if isinstance(event, HostStructuredDiagnostic)
+            event for event in sdk_events if isinstance(event, HostStructuredDiagnostic)
         ]
         self.assertEqual(1, len(structured))
         self.assertEqual("hello <redacted>", structured[0].text)
@@ -942,7 +942,9 @@ class TestFinalizedDiagnosticRouting(unittest.TestCase):
         self.assertFalse(hasattr(dto, "presentation_text"))
         self.assertFalse(hasattr(dto, "local_text"))
 
-    def test_all_policies_simultaneously_fan_out_selected_local_and_safe_sdk_output(self):
+    def test_all_policies_simultaneously_fan_out_selected_local_and_safe_sdk_output(
+        self,
+    ):
         source_url = (
             "https://user:password@registry.npmjs.org/"
             "npm-http-research-fixture/-/npm-http-research-fixture-1.0.0.tgz"
@@ -1147,10 +1149,7 @@ class TestCommittedPrefixRouting(unittest.TestCase):
     internal actor only; an SDK sink can never observe a provisional prefix.
     """
 
-    _URL = (
-        "https://user:secret@registry.example.com:8443"
-        "/pkg/-/pkg-1.0.0.tgz?q=1#frag"
-    )
+    _URL = "https://user:secret@registry.example.com:8443/pkg/-/pkg-1.0.0.tgz?q=1#frag"
     _LINE = f"npm error network GET {_URL} failed"
     _HOST_PATH = "registry.example.com/pkg/-/pkg-1.0.0.tgz"
 
@@ -1161,9 +1160,7 @@ class TestCommittedPrefixRouting(unittest.TestCase):
     )
 
     def _prefix_line(self, display):
-        stream = NpmDiagnosticStream(
-            "stdout", ("secret",), network_url_display=display
-        )
+        stream = NpmDiagnosticStream("stdout", ("secret",), network_url_display=display)
         chunks = list(stream.feed_bytes(self._LINE.encode()))
         return stream, chunks
 
@@ -1190,9 +1187,7 @@ class TestCommittedPrefixRouting(unittest.TestCase):
                 mailbox = PresentationMailbox()
                 adapter = HostEventEnqueueAdapter(mailbox)
                 renderer = RecordingRenderer()
-                state = _state(
-                    renderer, HostPresentationMode.INTERACTIVE, display
-                )
+                state = _state(renderer, HostPresentationMode.INTERACTIVE, display)
                 local = self._route_prefixes(chunks, adapter)
                 _drain_into(mailbox, state)
                 self.assertIn(expected, "\n".join(renderer.slot_texts()))
@@ -1212,9 +1207,7 @@ class TestCommittedPrefixRouting(unittest.TestCase):
                 # prefix is live internally.
                 self.assertEqual([], sdk_events)
                 finalized = [
-                    chunk
-                    for chunk in stream.feed_bytes(b"\n")
-                    if chunk.finalized
+                    chunk for chunk in stream.feed_bytes(b"\n") if chunk.finalized
                 ]
                 self.assertEqual(1, len(finalized))
                 route_finalized_diagnostic(
@@ -1241,9 +1234,7 @@ class TestCommittedPrefixRouting(unittest.TestCase):
                 state = _state(renderer, HostPresentationMode.LINES, display)
                 self._route_prefixes(chunks, adapter)
                 finalized = [
-                    chunk
-                    for chunk in stream.feed_bytes(b"\n")
-                    if chunk.finalized
+                    chunk for chunk in stream.feed_bytes(b"\n") if chunk.finalized
                 ]
                 self.assertEqual(1, len(finalized))
                 route_finalized_diagnostic(
@@ -1263,9 +1254,7 @@ class TestCommittedPrefixRouting(unittest.TestCase):
         mailbox = PresentationMailbox()
         adapter = HostEventEnqueueAdapter(mailbox)
         _stream, chunks = self._prefix_line(NetworkUrlDisplay.HOST_PATH)
-        chunk = next(
-            chunk for chunk in chunks if chunk.local_text is not None
-        )
+        chunk = next(chunk for chunk in chunks if chunk.local_text is not None)
         started = time.monotonic()
         for index in range(2000):
             route_committed_prefix(
@@ -1321,9 +1310,7 @@ class TestFetchCanonicalizationSecretSafety(unittest.TestCase):
             ):
                 with self.subTest(display=display, mode=mode):
                     chunk, _tail = self._collect_unsafe(display)
-                    envelope = presentation_envelope_for(
-                        chunk, logical_resource=None
-                    )
+                    envelope = presentation_envelope_for(chunk, logical_resource=None)
                     renderer = RecordingRenderer()
                     state = _state(renderer, mode, display)
                     state.admit_diagnostic(envelope, now=0.0)

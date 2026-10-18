@@ -7,6 +7,7 @@ The source must declare a ``checksum_url`` pointing to an authoritative
 ``sha256sum``-format file.  The provider never downloads the full artifact
 body — it only fetches the lightweight checksum file.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

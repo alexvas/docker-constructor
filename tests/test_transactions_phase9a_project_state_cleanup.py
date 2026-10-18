@@ -12,6 +12,7 @@ Covers the descriptor-ownership and primary-preservation contract of
   ancestor cleanup instead of being lost behind a stale primary;
 - every independent release is attempted exactly once.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -63,14 +64,17 @@ class _Recorder:
 
     @contextlib.contextmanager
     def installed(self):
-        with mock.patch.object(
-            project_state_module,
-            "_open_private_dir_at",
-            side_effect=self._open,
-        ), mock.patch.object(
-            project_state_module.os,
-            "close",
-            side_effect=self._close,
+        with (
+            mock.patch.object(
+                project_state_module,
+                "_open_private_dir_at",
+                side_effect=self._open,
+            ),
+            mock.patch.object(
+                project_state_module.os,
+                "close",
+                side_effect=self._close,
+            ),
         ):
             yield self
 
@@ -93,7 +97,8 @@ class _ProjectStateCase(unittest.TestCase):
         os.chmod(self.cache, 0o700)
         self.identity = _project_identity(self.project.resolve())
         self.namespace = (
-            self.cache / "projects"
+            self.cache
+            / "projects"
             / f"{_safe_basename(self.project.name)}-{self.identity[:16]}"
         )
 
@@ -133,7 +138,9 @@ class _ProjectStateCase(unittest.TestCase):
 
 
 class MissingAncestorCleanupTests(_ProjectStateCase):
-    def test_missing_namespace_preserves_domain_error_with_close_secondary(self) -> None:
+    def test_missing_namespace_preserves_domain_error_with_close_secondary(
+        self,
+    ) -> None:
         self._prepare_projects()  # namespace directory deliberately absent
         state = self._state()
         recorder = _Recorder()
@@ -151,7 +158,9 @@ class MissingAncestorCleanupTests(_ProjectStateCase):
         self.assertEqual(recorder.attempts(_PROJECTS), 1)
         self.assertEqual(recorder.attempts(_ROOT), 1)
 
-    def test_missing_projects_preserves_domain_error_with_root_close_secondary(self) -> None:
+    def test_missing_projects_preserves_domain_error_with_root_close_secondary(
+        self,
+    ) -> None:
         state = self._state()  # neither projects nor namespace exists
         recorder = _Recorder()
         close_error = OSError(errno.EIO, "root close failed")
@@ -209,7 +218,9 @@ class NamespaceInterruptionPrecedenceTests(_ProjectStateCase):
         self._prepare_namespace()
         return self._state()
 
-    def test_namespace_close_interruption_authoritative_over_ancestor_cleanup(self) -> None:
+    def test_namespace_close_interruption_authoritative_over_ancestor_cleanup(
+        self,
+    ) -> None:
         state = self._failing_state()
         recorder = _Recorder()
         interruption = KeyboardInterrupt()
@@ -224,10 +235,15 @@ class NamespaceInterruptionPrecedenceTests(_ProjectStateCase):
         self.assertEqual(recorder.attempts(_ROOT), 1)
         # The displaced domain error is preserved as a secondary diagnostic.
         self.assertTrue(
-            any(isinstance(item, ProjectStateError) for item in self._secondary(interruption))
+            any(
+                isinstance(item, ProjectStateError)
+                for item in self._secondary(interruption)
+            )
         )
 
-    def test_first_namespace_interruption_precedes_later_root_interruption(self) -> None:
+    def test_first_namespace_interruption_precedes_later_root_interruption(
+        self,
+    ) -> None:
         state = self._failing_state()
         recorder = _Recorder()
         namespace_interruption = KeyboardInterrupt()
@@ -269,7 +285,9 @@ class SharedOwnerDelegationTests(_ProjectStateCase):
     shared-owner delegation that is RED before the Phase 6 migration.
     """
 
-    def test_successful_validation_delegates_every_release_to_shared_owners(self) -> None:
+    def test_successful_validation_delegates_every_release_to_shared_owners(
+        self,
+    ) -> None:
         self._prepare_namespace()
         self._write_metadata()
         state = self._state()

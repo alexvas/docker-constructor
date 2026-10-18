@@ -4,6 +4,7 @@ Test links name the qualified test function in their Markdown title.  The
 checker resolves that name in the target module's AST instead of binding a
 line number, so harmless formatting or added test code cannot stale a guide.
 """
+
 from __future__ import annotations
 
 import ast
@@ -14,8 +15,11 @@ from urllib.parse import unquote, urlsplit
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-GUIDES = {"process-lifecycle.md": 6, "npm-environment-assembler.md": 6,
-          "filesystem-lifecycle.md": 1}
+GUIDES = {
+    "process-lifecycle.md": 6,
+    "npm-environment-assembler.md": 6,
+    "filesystem-lifecycle.md": 1,
+}
 LINK = re.compile(r'\[([^\]]+)\]\(([^\s)]+)(?:\s+"([^"]+)")?\)')
 
 
@@ -51,13 +55,17 @@ def _check_local_link(guide: Path, url: str, symbol: str | None) -> None:
     assert target.is_relative_to(ROOT), f"link escapes repository: {url}"
     if target.is_dir():
         assert (target / "README.md").is_file(), f"directory link needs a README: {url}"
-        assert not parsed.fragment and symbol is None, f"directory cannot name a test: {url}"
+        assert not parsed.fragment and symbol is None, (
+            f"directory cannot name a test: {url}"
+        )
         return
     assert target.is_file(), f"missing link target: {url}"
     if target.is_relative_to(ROOT / "tests"):
         assert target.name.startswith("test_") and target.suffix == ".py", url
         assert not parsed.fragment, f"test link uses a layout-bound line anchor: {url}"
-        assert symbol, f"test link needs its qualified name in the Markdown title: {url}"
+        assert symbol, (
+            f"test link needs its qualified name in the Markdown title: {url}"
+        )
         definitions = _test_definitions(target.read_text(encoding="utf-8"))
         _resolve_test(definitions, symbol, url)
     else:
@@ -87,28 +95,41 @@ def test_guide_names_a_test_without_a_line_anchor():
     )
 
 
-@pytest.mark.parametrize("url,symbol", [
-    ("../tests/test_missing_lifecycle_example.py", "test_missing"),
-    ("../../outside-repository.py", "test_missing"),
-    ("../tests/test_process_single_collection.py", "test_renamed"),
-    ("../tests/test_process_single_collection.py", None),
-    ("../tests/test_process_single_collection.py#L63", "test_reject_repeated_and_mixed_collection_without_work"),
-    ("../tests/test_process_single_collection.py#L0", "test_reject_repeated_and_mixed_collection_without_work"),
-    ("../tests/test_process_single_collection.py#L63", None),
-    ("process-lifecycle.md#missing-heading", None),
-    ("../tests/enforcement/", "test_missing"),
-])
+@pytest.mark.parametrize(
+    "url,symbol",
+    [
+        ("../tests/test_missing_lifecycle_example.py", "test_missing"),
+        ("../../outside-repository.py", "test_missing"),
+        ("../tests/test_process_single_collection.py", "test_renamed"),
+        ("../tests/test_process_single_collection.py", None),
+        (
+            "../tests/test_process_single_collection.py#L63",
+            "test_reject_repeated_and_mixed_collection_without_work",
+        ),
+        (
+            "../tests/test_process_single_collection.py#L0",
+            "test_reject_repeated_and_mixed_collection_without_work",
+        ),
+        ("../tests/test_process_single_collection.py#L63", None),
+        ("process-lifecycle.md#missing-heading", None),
+        ("../tests/enforcement/", "test_missing"),
+    ],
+)
 def test_broken_or_misdirected_guide_links_are_rejected(url, symbol):
     with pytest.raises(AssertionError):
         _check_local_link(ROOT / "docs/process-lifecycle.md", url, symbol)
 
 
 def test_enforcement_directory_link_resolves():
-    _check_local_link(ROOT / "docs/filesystem-lifecycle.md", "../tests/enforcement/", None)
+    _check_local_link(
+        ROOT / "docs/filesystem-lifecycle.md", "../tests/enforcement/", None
+    )
 
 
 def test_test_definition_lookup_handles_class_methods_but_not_nested_helpers():
-    source = "class Examples:\n    def test_method(self):\n        def test_helper(): pass\n"
+    source = (
+        "class Examples:\n    def test_method(self):\n        def test_helper(): pass\n"
+    )
     assert _test_definitions(source) == {"Examples.test_method": [2]}
 
 

@@ -1,4 +1,5 @@
 """Phase 9 regressions for independent retained context and terminal layout."""
+
 from __future__ import annotations
 
 import io
@@ -12,7 +13,10 @@ from docker.versioning.build_orchestration import BuildResult, _host_failure_con
 from docker.versioning.constructor_project import ConstructorProject
 from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.host_progress import HostDiagnosticStream, HostPhase, HostStep
-from docker.versioning.host_presentation import TerminalHostRenderer, format_failure_report
+from docker.versioning.host_presentation import (
+    TerminalHostRenderer,
+    format_failure_report,
+)
 
 
 class TestRetainedFailureContext(unittest.TestCase):
@@ -32,13 +36,21 @@ class TestRetainedFailureContext(unittest.TestCase):
 
     def test_exit_and_timeout_use_the_same_repeat_warning(self) -> None:
         for error, text in (
-            (_exit_failure(1, stderr="npm ERR! retained", stdout=""), "npm ERR! retained"),
-            (_timeout_error(1800, stderr="npm timeout retained"), "npm timeout retained"),
+            (
+                _exit_failure(1, stderr="npm ERR! retained", stdout=""),
+                "npm ERR! retained",
+            ),
+            (
+                _timeout_error(1800, stderr="npm timeout retained"),
+                "npm timeout retained",
+            ),
         ):
             with self.subTest(error=type(error).__name__):
                 rendered = self._render(error)
                 self.assertEqual(1, rendered.count(text))
-                self.assertIn("Retained diagnostics (may repeat live output):", rendered)
+                self.assertIn(
+                    "Retained diagnostics (may repeat live output):", rendered
+                )
 
     def test_complete_tail_is_independent_of_prior_live_output(self) -> None:
         tail = "progress 1\nprogress 2\nfinal error"
@@ -104,7 +116,9 @@ class TestLiveFinalReportOwnership(unittest.TestCase):
             self.shutdown_calls += 1
             return self.shutdown_result
 
-    def test_live_actor_owns_final_report_and_generic_message_is_suppressed(self) -> None:
+    def test_live_actor_owns_final_report_and_generic_message_is_suppressed(
+        self,
+    ) -> None:
         from docker.constructor_cli import CommandRequest, _real_dispatcher
 
         error = _exit_failure(1, stderr="npm ERR! actor tail", stdout="")
@@ -135,7 +149,9 @@ class TestLiveFinalReportOwnership(unittest.TestCase):
         self.assertIn("npm ERR! actor tail", session.reports[0])
         self.assertGreaterEqual(session.shutdown_calls, 1)
 
-    def test_failed_live_report_admission_is_not_retried_by_generic_writer(self) -> None:
+    def test_failed_live_report_admission_is_not_retried_by_generic_writer(
+        self,
+    ) -> None:
         from docker.constructor_cli import CommandRequest, _real_dispatcher
 
         error = _exit_failure(1, stderr="not retried", stdout="")
@@ -234,8 +250,13 @@ class TestLiveFinalReportOwnership(unittest.TestCase):
         self.assertIsInstance(converted.data, dict)
         self.assertIn("host_failure", converted.data)
         stdout, stderr = _render(
-            "build", converted, fmt="json", color="never", verbose=False,
-            stdout_is_tty=False, stderr_is_tty=False,
+            "build",
+            converted,
+            fmt="json",
+            color="never",
+            verbose=False,
+            stdout_is_tty=False,
+            stderr_is_tty=False,
         )
         payload = json.loads(stdout)
         self.assertEqual("json retained tail", payload["data"]["host_failure"]["tail"])

@@ -6,6 +6,7 @@ the single ``docker/docker-constructor.py`` facade.  These RED tests
 document the removal contract: every scan MUST fail until the
 referenced files and documentation are updated in 13.3–13.5.
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -62,41 +63,45 @@ _PY_SCAN_ROOTS = [
 ]
 
 # Files are excluded **in their entirety**
-_PY_EXCLUDED = {
-}
+_PY_EXCLUDED = {}
 
 # Files with line-level allowlists (contextual mentions)
-_PY_LINE_ALLOWLIST = frozenset({
-    # Docstring-only mention of what was extracted from
-    "docker/tui.py",
-    # Installer docstring describing what NOT to depend on
-    "docker/runtime_installer.py",
-    # This very test file documents the contract
-    "tests/test_constructor_migration_contract.py",
-    # Assert COMPOSE_FILE/env vars NOT present in rendered output
-    "tests/test_constructor_build_vector.py",
-    "tests/test_constructor_run_vector.py",
-    # OpenSpec artifacts describing the change
-    "openspec/",
-    # Runtime verification correctly asserts these paths must NOT exist
-    "docker/versioning/runtime_verification.py",
-    "tests/test_constructor_runtime_verification.py",
-})
+_PY_LINE_ALLOWLIST = frozenset(
+    {
+        # Docstring-only mention of what was extracted from
+        "docker/tui.py",
+        # Installer docstring describing what NOT to depend on
+        "docker/runtime_installer.py",
+        # This very test file documents the contract
+        "tests/test_constructor_migration_contract.py",
+        # Assert COMPOSE_FILE/env vars NOT present in rendered output
+        "tests/test_constructor_build_vector.py",
+        "tests/test_constructor_run_vector.py",
+        # OpenSpec artifacts describing the change
+        "openspec/",
+        # Runtime verification correctly asserts these paths must NOT exist
+        "docker/versioning/runtime_verification.py",
+        "tests/test_constructor_runtime_verification.py",
+    }
+)
 
 # Entire files excluded from the forbidden-runtime-paths scan because
 # they document the absence contract (assert paths must not exist) or
 # are legacy acceptance evidence.
-_FORBIDDEN_PATHS_EXCLUDED_FILES = frozenset({
-    "docker/versioning/runtime_verification.py",
-    "tests/test_constructor_runtime_verification.py",
-    "tests/test_constructor_acceptance.py",
-    "docker/constructor_cli.py",
-})
+_FORBIDDEN_PATHS_EXCLUDED_FILES = frozenset(
+    {
+        "docker/versioning/runtime_verification.py",
+        "tests/test_constructor_runtime_verification.py",
+        "tests/test_constructor_acceptance.py",
+        "docker/constructor_cli.py",
+    }
+)
 
 
 # ════════════════════════════════════════════════════════════════════
 # Helpers
 # ════════════════════════════════════════════════════════════════════
+
 
 def _py_files() -> dict[str, pathlib.Path]:
     """Return ``{relpath: abspath}`` for every production Python file
@@ -121,9 +126,7 @@ def _py_files() -> dict[str, pathlib.Path]:
 def _lines(path: pathlib.Path) -> list[tuple[int, str]]:
     """Read *path* lines, returning ``[(lineno, text), …]``."""
     try:
-        return list(
-            enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
-        )
+        return list(enumerate(path.read_text(encoding="utf-8").splitlines(), 1))
     except UnicodeDecodeError:
         return []
 
@@ -167,14 +170,11 @@ class TestNoStaleCLIReferences(unittest.TestCase):
                         continue
                     if allowlisted:
                         continue
-                    violations.append(
-                        f"{rel}:{lineno}: {label} — {line.strip()[:100]}"
-                    )
+                    violations.append(f"{rel}:{lineno}: {label} — {line.strip()[:100]}")
         if violations:
             self.fail(
                 "Production files reference old CLI surface — update to "
-                "docker/docker-constructor.py or remove:\n"
-                + "\n".join(violations)
+                "docker/docker-constructor.py or remove:\n" + "\n".join(violations)
             )
 
 
@@ -238,14 +238,11 @@ class TestNoStaleComposeReferences(unittest.TestCase):
                         continue
                     if allowlisted:
                         continue
-                    violations.append(
-                        f"{rel}:{lineno}: {label} — {line.strip()[:100]}"
-                    )
+                    violations.append(f"{rel}:{lineno}: {label} — {line.strip()[:100]}")
         if violations:
             self.fail(
                 "Production files reference Compose or generated fragments — "
-                "replace with direct Docker rendering:\n"
-                + "\n".join(violations)
+                "replace with direct Docker rendering:\n" + "\n".join(violations)
             )
 
 
@@ -284,14 +281,11 @@ class TestNoStaleInfSplitterReferences(unittest.TestCase):
                         continue
                     if allowlisted:
                         continue
-                    violations.append(
-                        f"{rel}:{lineno}: {label} — {line.strip()[:100]}"
-                    )
+                    violations.append(f"{rel}:{lineno}: {label} — {line.strip()[:100]}")
         if violations:
             self.fail(
                 "Production files reference inf-splitter — remove or "
-                "migrate to docker-constructor model:\n"
-                + "\n".join(violations)
+                "migrate to docker-constructor model:\n" + "\n".join(violations)
             )
 
 
@@ -331,9 +325,7 @@ class TestNoSeparatePhaseInventories(unittest.TestCase):
                         continue
                     if allowlisted:
                         continue
-                    violations.append(
-                        f"{rel}:{lineno}: {label} — {line.strip()[:100]}"
-                    )
+                    violations.append(f"{rel}:{lineno}: {label} — {line.strip()[:100]}")
         if violations:
             self.fail(
                 "Production files reference separate phase inventories — "
@@ -385,9 +377,7 @@ class TestNoForbiddenRuntimeConfigurationPaths(unittest.TestCase):
                         continue
                     if allowlisted:
                         continue
-                    violations.append(
-                        f"{rel}:{lineno}: {label} — {line.strip()[:100]}"
-                    )
+                    violations.append(f"{rel}:{lineno}: {label} — {line.strip()[:100]}")
         if violations:
             self.fail(
                 "Production files reference forbidden runtime paths — "
@@ -475,8 +465,7 @@ class TestNoStaleDocumentationReferences(unittest.TestCase):
                     if not m:
                         continue
                     violations.append(
-                        f"{doc_name}:{lineno}: {label} — "
-                        f"{line.strip()[:100]}"
+                        f"{doc_name}:{lineno}: {label} — {line.strip()[:100]}"
                     )
         if violations:
             self.fail(
@@ -526,12 +515,14 @@ _SH_FORBIDDEN: list[tuple[str, re.Pattern[str]]] = [
 ]
 
 # Shell scripts with contextual allowlist lines
-_SH_LINE_ALLOWLIST = frozenset({
-    # entrypoint.sh runs inside the container, so its workspace environment
-    # comments document the launcher contract rather than user-facing CLI.
-    # Only flag references to removed surface names.
-    "docker/entrypoint.sh",
-})
+_SH_LINE_ALLOWLIST = frozenset(
+    {
+        # entrypoint.sh runs inside the container, so its workspace environment
+        # comments document the launcher contract rather than user-facing CLI.
+        # Only flag references to removed surface names.
+        "docker/entrypoint.sh",
+    }
+)
 
 
 def _sh_files() -> dict[str, pathlib.Path]:
@@ -570,10 +561,7 @@ class TestNoStaleShellScriptReferences(unittest.TestCase):
                         # "Compose/launch-pi.py" and "Compose contract"
                         # are historical comments that must be updated.
                         pass
-                    violations.append(
-                        f"{rel}:{lineno}: {label} — "
-                        f"{line.strip()[:100]}"
-                    )
+                    violations.append(f"{rel}:{lineno}: {label} — {line.strip()[:100]}")
         if violations:
             self.fail(
                 "Shell scripts reference removed surface — update to "
@@ -648,10 +636,7 @@ class TestNoStaleMaintainedDocReferences(unittest.TestCase):
                     m = pat.search(line)
                     if not m:
                         continue
-                    violations.append(
-                        f"{rel}:{lineno}: {label} — "
-                        f"{line.strip()[:100]}"
-                    )
+                    violations.append(f"{rel}:{lineno}: {label} — {line.strip()[:100]}")
         if violations:
             self.fail(
                 "Maintained documentation references removed surface:\n"
@@ -762,10 +747,7 @@ class TestNoStaleMainSpecReferences(unittest.TestCase):
                     # language, not stale endorsements.
                     if _is_negative_contract_line(line, m):
                         continue
-                    violations.append(
-                        f"{rel}:{lineno}: {label} — "
-                        f"{line.strip()[:100]}"
-                    )
+                    violations.append(f"{rel}:{lineno}: {label} — {line.strip()[:100]}")
         if violations:
             self.fail(
                 "Main OpenSpec specs reference removed surface — "
@@ -840,10 +822,7 @@ class TestNoStaleConfigReferences(unittest.TestCase):
                     m = pat.search(line)
                     if not m:
                         continue
-                    violations.append(
-                        f"{rel}:{lineno}: {label} — "
-                        f"{line.strip()[:100]}"
-                    )
+                    violations.append(f"{rel}:{lineno}: {label} — {line.strip()[:100]}")
         if violations:
             self.fail(
                 "Maintained configuration files reference removed surface:\n"
@@ -860,20 +839,24 @@ class TestNoStaleConfigReferences(unittest.TestCase):
 # only lines that *execute* an old CLI — mere constants or variable
 # definitions are not flagged.
 
-_OLD_CLI_NAMES: frozenset[str] = frozenset({
-    "versions.py",
-    "build_wrapper.py",
-    "launch-pi.py",
-    "gen-models-json.py",
-})
+_OLD_CLI_NAMES: frozenset[str] = frozenset(
+    {
+        "versions.py",
+        "build_wrapper.py",
+        "launch-pi.py",
+        "gen-models-json.py",
+    }
+)
 
 _FACADE_NAME: str = "docker-constructor.py"
 
 # Shell scripts excluded from the command-contract scan.
-_SH_COMMAND_EXCLUDED = frozenset({
-    # Being removed in 13.4
-    "docker/apply-rootless-port-forward.sh",
-})
+_SH_COMMAND_EXCLUDED = frozenset(
+    {
+        # Being removed in 13.4
+        "docker/apply-rootless-port-forward.sh",
+    }
+)
 
 
 def _has_old_cli_name(s: str) -> str | None:
@@ -894,7 +877,7 @@ def _parse_sh_assignments(
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):
             continue
-        m = re.match(r'^(\w+)=(.+?)(?:\s+#.*)?$', stripped)
+        m = re.match(r"^(\w+)=(.+?)(?:\s+#.*)?$", stripped)
         if m:
             val = m.group(2).strip()
             # Strip exactly one layer of matching quotes
@@ -916,14 +899,10 @@ def _find_sh_executions(
     for lineno, line in lines:
         stripped = line.strip()
         # Skip blanks, comments, shebangs, and function definitions
-        if (
-            not stripped
-            or stripped.startswith("#")
-            or stripped.startswith("#!")
-        ):
+        if not stripped or stripped.startswith("#") or stripped.startswith("#!"):
             continue
         # Skip lines that are purely function definitions
-        if re.match(r'^\w+\(\)\s*\{', stripped):
+        if re.match(r"^\w+\(\)\s*\{", stripped):
             continue
 
         # Merge file-level assignments + this line's inline prefixes
@@ -932,7 +911,8 @@ def _find_sh_executions(
         # Capture inline ``VAR=value `` prefixes (e.g. ``A=1 B=2 cmd``)
         while True:
             m = re.match(
-                r'^(\w+)=("[^"]*"|\'[^\']*\'|\S+)\s+(.*)', cmd_part,
+                r'^(\w+)=("[^"]*"|\'[^\']*\'|\S+)\s+(.*)',
+                cmd_part,
             )
             if not m:
                 break
@@ -956,27 +936,24 @@ def _find_sh_executions(
         # ── Direct command word ──
         first_word = cmd_part.split()[0] if cmd_part.split() else ""
         var_match = re.match(
-            r'^\$\{(\w+)\}$|^\$(\w+)$|^"\$(\w+)"$', first_word,
+            r'^\$\{(\w+)\}$|^\$(\w+)$|^"\$(\w+)"$',
+            first_word,
         )
         if var_match:
             vn = var_match.group(1) or var_match.group(2) or var_match.group(3)
             if vn in local_assign:
                 cli = _has_old_cli_name(local_assign[vn])
                 if cli is not None:
-                    violations.append(
-                        (lineno, f"{cli} via ${vn}", line.strip()[:100])
-                    )
+                    violations.append((lineno, f"{cli} via ${vn}", line.strip()[:100]))
                     continue
         else:
             cli = _has_old_cli_name(first_word)
             if cli is not None:
-                violations.append(
-                    (lineno, f"{cli} as command", line.strip()[:100])
-                )
+                violations.append((lineno, f"{cli} as command", line.strip()[:100]))
                 continue
 
         # ── Interpreter invocation ──
-        m = re.match(r'(python3|python|bash|sh)\s+(.+)', cmd_part)
+        m = re.match(r"(python3|python|bash|sh)\s+(.+)", cmd_part)
         if m:
             rest = m.group(2)
             first_arg = rest.strip().split()[0] if rest.strip() else ""
@@ -987,7 +964,8 @@ def _find_sh_executions(
                 )
                 continue
             vm = re.match(
-                r'^\$\{(\w+)\}$|^\$(\w+)$|^"\$(\w+)"$', first_arg,
+                r'^\$\{(\w+)\}$|^\$(\w+)$|^"\$(\w+)"$',
+                first_arg,
             )
             if vm:
                 vn = vm.group(1) or vm.group(2) or vm.group(3)
@@ -1004,17 +982,25 @@ def _find_sh_executions(
                         continue
 
         # ── Command substitution ``$(...)`` ──
-        for sub in re.finditer(r'\$\((.+?)\)', stripped):
+        for sub in re.finditer(r"\$\((.+?)\)", stripped):
             _check_inner_command(
-                sub.group(1), lineno, "$(...)", local_assign,
-                line, violations,
+                sub.group(1),
+                lineno,
+                "$(...)",
+                local_assign,
+                line,
+                violations,
             )
 
         # ── Backtick substitution `` `...` `` ──
-        for sub in re.finditer(r'`([^`]+)`', stripped):
+        for sub in re.finditer(r"`([^`]+)`", stripped):
             _check_inner_command(
-                sub.group(1), lineno, "`...`", local_assign,
-                line, violations,
+                sub.group(1),
+                lineno,
+                "`...`",
+                local_assign,
+                line,
+                violations,
             )
 
     return violations
@@ -1032,17 +1018,16 @@ def _check_inner_command(
     old-CLI execution."""
     inner = inner.strip()
     # Interpreter inside subshell
-    im = re.match(r'(python3|python|bash|sh)\s+(.+)', inner)
+    im = re.match(r"(python3|python|bash|sh)\s+(.+)", inner)
     if im:
         first_arg = im.group(2).strip().split()[0] if im.group(2).strip() else ""
         cli = _has_old_cli_name(first_arg)
         if cli is not None:
-            violations.append(
-                (lineno, f"{cli} via {ctx} subshell", line.strip()[:100])
-            )
+            violations.append((lineno, f"{cli} via {ctx} subshell", line.strip()[:100]))
             return
         vm2 = re.match(
-            r'^\$\{(\w+)\}$|^\$(\w+)$|^"\$(\w+)"$', first_arg,
+            r'^\$\{(\w+)\}$|^\$(\w+)$|^"\$(\w+)"$',
+            first_arg,
         )
         if vm2:
             vn2 = vm2.group(1) or vm2.group(2) or vm2.group(3)
@@ -1051,8 +1036,7 @@ def _check_inner_command(
                     violations.append(
                         (
                             lineno,
-                            f"{_has_old_cli_name(local_assign[vn2])} "
-                            f"via {ctx} ${vn2}",
+                            f"{_has_old_cli_name(local_assign[vn2])} via {ctx} ${vn2}",
                             line.strip()[:100],
                         )
                     )
@@ -1061,9 +1045,7 @@ def _check_inner_command(
     for word in inner.split():
         cli = _has_old_cli_name(word)
         if cli is not None:
-            violations.append(
-                (lineno, f"{cli} via {ctx} subshell", line.strip()[:100])
-            )
+            violations.append((lineno, f"{cli} via {ctx} subshell", line.strip()[:100]))
             return
 
 
@@ -1080,14 +1062,14 @@ class TestShellScriptsInvokeFacadeNotOldCLIs(unittest.TestCase):
             file_lines = list(_lines(path))
             assignments = _parse_sh_assignments(file_lines)
             for lineno, label, snippet in _find_sh_executions(
-                file_lines, assignments,
+                file_lines,
+                assignments,
             ):
                 violations.append(f"{rel}:{lineno}: {label} — {snippet}")
         if violations:
             self.fail(
                 "Shell scripts invoke removed CLIs — use "
-                "docker/docker-constructor.py instead:\n"
-                + "\n".join(violations)
+                "docker/docker-constructor.py instead:\n" + "\n".join(violations)
             )
 
 
@@ -1179,27 +1161,57 @@ def _iter_assign_targets(
 
 # ── Modules whose methods can launch external processes ──
 _PROCESS_MODULES: dict[str, frozenset[str]] = {
-    "subprocess": frozenset({
-        "run", "call", "check_call", "check_output", "Popen",
-    }),
-    "os": frozenset({
-        "system", "popen",
-        # exec* family — replaces current process
-        "execl", "execle", "execlp", "execlpe",
-        "execv", "execve", "execvp", "execvpe",
-        # spawn* family
-        "spawnl", "spawnle", "spawnlp", "spawnlpe",
-        "spawnv", "spawnve", "spawnvp", "spawnvpe",
-        # posix_spawn* family
-        "posix_spawn", "posix_spawnp",
-    }),
+    "subprocess": frozenset(
+        {
+            "run",
+            "call",
+            "check_call",
+            "check_output",
+            "Popen",
+        }
+    ),
+    "os": frozenset(
+        {
+            "system",
+            "popen",
+            # exec* family — replaces current process
+            "execl",
+            "execle",
+            "execlp",
+            "execlpe",
+            "execv",
+            "execve",
+            "execvp",
+            "execvpe",
+            # spawn* family
+            "spawnl",
+            "spawnle",
+            "spawnlp",
+            "spawnlpe",
+            "spawnv",
+            "spawnve",
+            "spawnvp",
+            "spawnvpe",
+            # posix_spawn* family
+            "posix_spawn",
+            "posix_spawnp",
+        }
+    ),
 }
 
 # Set of os.exec* names whose first argument is the *path*, not argv[0].
-_OS_EXEC_NAMES: frozenset[str] = frozenset({
-    "execl", "execle", "execlp", "execlpe",
-    "execv", "execve", "execvp", "execvpe",
-})
+_OS_EXEC_NAMES: frozenset[str] = frozenset(
+    {
+        "execl",
+        "execle",
+        "execlp",
+        "execlpe",
+        "execv",
+        "execve",
+        "execvp",
+        "execvpe",
+    }
+)
 
 
 def _resolve_call_target(
@@ -1218,7 +1230,8 @@ def _resolve_call_target(
     """
     # Style A: module.method(...) or alias.method(...)
     if isinstance(node.func, _ast.Attribute) and isinstance(
-        node.func.value, _ast.Name,
+        node.func.value,
+        _ast.Name,
     ):
         name = node.func.value.id
         method = node.func.attr
@@ -1267,7 +1280,8 @@ class _SubprocessCLIFinder(_ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_ImportFrom(  # type: ignore[override]
-        self, node: _ast.ImportFrom,
+        self,
+        node: _ast.ImportFrom,
     ) -> None:
         mod = node.module or ""
         if mod not in _PROCESS_MODULES:
@@ -1287,7 +1301,8 @@ class _SubprocessCLIFinder(_ast.NodeVisitor):
     # ── Function-local variable tracking ──
 
     def visit_FunctionDef(  # type: ignore[override]
-        self, node: _ast.FunctionDef,
+        self,
+        node: _ast.FunctionDef,
     ) -> None:
         saved = dict(self._local_vars)
         self._local_vars.clear()
@@ -1305,10 +1320,13 @@ class _SubprocessCLIFinder(_ast.NodeVisitor):
     # ── Call detection ──
 
     def visit_Call(  # type: ignore[override]
-        self, node: _ast.Call,
+        self,
+        node: _ast.Call,
     ) -> None:
         mod, method = _resolve_call_target(
-            node, self._module_aliases, self._direct_imports,
+            node,
+            self._module_aliases,
+            self._direct_imports,
         )
         if mod is not None and method is not None:
             methods = _PROCESS_MODULES.get(mod, frozenset())
@@ -1326,7 +1344,10 @@ class _SubprocessCLIFinder(_ast.NodeVisitor):
     # ── Argument inspection ──
 
     def _check_argv(
-        self, arg: _ast.expr | None, call_name: str, lineno: int,
+        self,
+        arg: _ast.expr | None,
+        call_name: str,
+        lineno: int,
     ) -> bool:
         """Check *arg* for CLI references.  Return ``True`` if a
         violation was recorded."""
@@ -1336,26 +1357,20 @@ class _SubprocessCLIFinder(_ast.NodeVisitor):
         if (s := _extract_string_literal(arg)) is not None:
             name = _contains_any_cli_name(s)
             if name is not None:
-                self.violations.append(
-                    (lineno, f"{call_name}('...{name}...')")
-                )
+                self.violations.append((lineno, f"{call_name}('...{name}...')"))
                 return True
         # Variable name — lookup in local then module-level table
         if isinstance(arg, _ast.Name):
             cli = self._local_vars.get(arg.id) or self._var_values.get(arg.id)
             if cli is not None:
-                self.violations.append(
-                    (lineno, f"{call_name}({arg.id} \u2192 {cli})")
-                )
+                self.violations.append((lineno, f"{call_name}({arg.id} \u2192 {cli})"))
                 return True
         # Extract all strings from the expression (handles str(Path/...))
         strings = _extract_all_strings(arg)
         for s in strings:
             name = _contains_any_cli_name(s)
             if name is not None:
-                self.violations.append(
-                    (lineno, f"{call_name}(...'{name}'...)")
-                )
+                self.violations.append((lineno, f"{call_name}(...'{name}'...)"))
                 return True
         return False
 
@@ -1390,12 +1405,18 @@ class TestSubprocessCLIDetector(unittest.TestCase):
     constants that merely mention CLI names."""
 
     def _check(
-        self, code: str, *, expected: int = 0, label: str = "",
+        self,
+        code: str,
+        *,
+        expected: int = 0,
+        label: str = "",
     ) -> list[tuple[int, str]]:
         """Parse *code* and return violations.
         Fails if the count does not match *expected*."""
         with _tempfile.NamedTemporaryFile(
-            mode="w", suffix=".py", delete=False,
+            mode="w",
+            suffix=".py",
+            delete=False,
         ) as f:
             f.write(_textwrap.dedent(code))
             tmp = pathlib.Path(f.name)
@@ -1639,8 +1660,7 @@ class TestInternalTestsImportNotSubprocess(unittest.TestCase):
         if violations:
             self.fail(
                 "Internal tests must import Python APIs, not invoke "
-                "CLIs via subprocess:\n"
-                + "\n".join(violations)
+                "CLIs via subprocess:\n" + "\n".join(violations)
             )
 
 
@@ -1681,9 +1701,7 @@ class TestDockerfileNoBakedInventory(unittest.TestCase):
         for lineno, line in _lines(dockerfile):
             for label, pat in _DOCKERFILE_BANNED_COPY:
                 if pat.search(line):
-                    violations.append(
-                        f"Dockerfile:{lineno}: {label} — {line.strip()}"
-                    )
+                    violations.append(f"Dockerfile:{lineno}: {label} — {line.strip()}")
         if violations:
             self.fail(
                 "Dockerfile bakes removed artifacts into the runtime image:\n"
@@ -1701,9 +1719,7 @@ class TestShellRuntimeNoStaleInventoryPaths(unittest.TestCase):
             for lineno, line in _lines(path):
                 for label, pat in _SHELL_RUNTIME_BANNED:
                     if pat.search(line):
-                        violations.append(
-                            f"{rel}:{lineno}: {label} — {line.strip()}"
-                        )
+                        violations.append(f"{rel}:{lineno}: {label} — {line.strip()}")
         if violations:
             self.fail(
                 "Shell scripts reference removed baked-in inventory path:\n"
@@ -1746,14 +1762,11 @@ class TestDockerfileNoInstallPiExtensionsWrapper(unittest.TestCase):
         for lineno, line in _lines(dockerfile):
             for label, pat in _INSTALL_PI_EXTENSIONS_DOCKERFILE_BANNED:
                 if pat.search(line):
-                    violations.append(
-                        f"Dockerfile:{lineno}: {label} — {line.strip()}"
-                    )
+                    violations.append(f"Dockerfile:{lineno}: {label} — {line.strip()}")
         if violations:
             self.fail(
                 "Dockerfile still copies the obsolete "
-                "install-pi-extensions.sh wrapper:\n"
-                + "\n".join(violations)
+                "install-pi-extensions.sh wrapper:\n" + "\n".join(violations)
             )
 
 
@@ -1772,14 +1785,11 @@ class TestShellScriptsNoInstallPiExtensionsWrapper(unittest.TestCase):
                     # legitimate — they enforce the removal contract.
                     if "must be absent" in line or "test ! -f" in line:
                         continue
-                    violations.append(
-                        f"{rel}:{lineno}: {label} — {line.strip()}"
-                    )
+                    violations.append(f"{rel}:{lineno}: {label} — {line.strip()}")
         if violations:
             self.fail(
                 "Shell scripts reference the obsolete "
-                "/home/dev/install-pi-extensions.sh path:\n"
-                + "\n".join(violations)
+                "/home/dev/install-pi-extensions.sh path:\n" + "\n".join(violations)
             )
 
 

@@ -8,6 +8,7 @@ contextual failure reports.  Terminal rendering is exercised through a
 recording renderer so the exact ordered call sequence is observable; real
 writes live behind :class:`TerminalHostRenderer`.
 """
+
 from __future__ import annotations
 
 import io
@@ -164,9 +165,7 @@ class TestPresentationSelection(unittest.TestCase):
             ).live_sink
         )
         self.assertFalse(
-            select_presentation(
-                "off", text_output=True, stderr_is_tty=False
-            ).live_sink
+            select_presentation("off", text_output=True, stderr_is_tty=False).live_sink
         )
 
     def test_unknown_mode_is_rejected(self):
@@ -262,8 +261,6 @@ class TestFailureReport(unittest.TestCase):
         self.assertIn("registry.example.com", shown)
 
 
-
-
 class TestOrderedInbox(unittest.TestCase):
     def test_single_fifo_preserves_control_and_telemetry_admission_order(self):
         mailbox = PresentationMailbox(capacity=2, control_capacity=2)
@@ -278,7 +275,9 @@ class TestOrderedInbox(unittest.TestCase):
         self.assertTrue(mailbox.admit_telemetry(first))
         self.assertTrue(mailbox.admit_control(terminal))
         self.assertTrue(mailbox.admit_telemetry(second))
-        self.assertEqual([first, terminal, second], [mailbox.take(0).event for _ in range(3)])
+        self.assertEqual(
+            [first, terminal, second], [mailbox.take(0).event for _ in range(3)]
+        )
 
     def test_diagnostics_cannot_consume_control_capacity(self):
         mailbox = PresentationMailbox(capacity=1, control_capacity=1)
@@ -307,48 +306,162 @@ class TestOrderedInbox(unittest.TestCase):
         from docker.versioning.host_presentation import PresentationFinalReport
 
         def step(
-            phase: HostPhase, name: HostStep, state: HostStepState,
+            phase: HostPhase,
+            name: HostStep,
+            state: HostStepState,
             expects_diagnostic_stream: bool = False,
         ) -> HostStepEvent:
             return HostStepEvent(phase, name, state, expects_diagnostic_stream)
 
         artifact_steps = [
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.STARTED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.CACHE_REUSE, HostStepState.SUCCEEDED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.SUCCEEDED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.STARTED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.CACHE_REUSE, HostStepState.SUCCEEDED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.SUCCEEDED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.STARTED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.CACHE_REUSE, HostStepState.SUCCEEDED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.SUCCEEDED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.STARTED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.CACHE_REUSE, HostStepState.SUCCEEDED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.ARTIFACT_ACQUISITION, HostStepState.SUCCEEDED),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.ARTIFACT_ACQUISITION,
+                HostStepState.STARTED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.CACHE_REUSE,
+                HostStepState.SUCCEEDED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.ARTIFACT_ACQUISITION,
+                HostStepState.SUCCEEDED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.ARTIFACT_ACQUISITION,
+                HostStepState.STARTED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.CACHE_REUSE,
+                HostStepState.SUCCEEDED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.ARTIFACT_ACQUISITION,
+                HostStepState.SUCCEEDED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.ARTIFACT_ACQUISITION,
+                HostStepState.STARTED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.CACHE_REUSE,
+                HostStepState.SUCCEEDED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.ARTIFACT_ACQUISITION,
+                HostStepState.SUCCEEDED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.ARTIFACT_ACQUISITION,
+                HostStepState.STARTED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.CACHE_REUSE,
+                HostStepState.SUCCEEDED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.ARTIFACT_ACQUISITION,
+                HostStepState.SUCCEEDED,
+            ),
         ]
         release_asset_steps = [
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.STARTED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.SUCCEEDED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.STARTED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.SUCCEEDED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.STARTED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.SUCCEEDED),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.RELEASE_ACQUISITION,
+                HostStepState.STARTED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.RELEASE_ACQUISITION,
+                HostStepState.SUCCEEDED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.RELEASE_ACQUISITION,
+                HostStepState.STARTED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.RELEASE_ACQUISITION,
+                HostStepState.SUCCEEDED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.RELEASE_ACQUISITION,
+                HostStepState.STARTED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.RELEASE_ACQUISITION,
+                HostStepState.SUCCEEDED,
+            ),
         ]
         assembly_steps = [
             step(HostPhase.LOCKED_ASSEMBLY, HostStep.LOCK_WAIT, HostStepState.STARTED),
-            step(HostPhase.LOCKED_ASSEMBLY, HostStep.LOCK_WAIT, HostStepState.SUCCEEDED),
-            step(HostPhase.LOCKED_ASSEMBLY, HostStep.CACHE_LOOKUP, HostStepState.STARTED),
-            step(HostPhase.LOCKED_ASSEMBLY, HostStep.CACHE_LOOKUP, HostStepState.SUCCEEDED),
-            step(HostPhase.LOCKED_ASSEMBLY, HostStep.STALE_STAGE_CLEANUP, HostStepState.STARTED),
-            step(HostPhase.LOCKED_ASSEMBLY, HostStep.STALE_STAGE_CLEANUP, HostStepState.SUCCEEDED),
-            step(HostPhase.LOCKED_ASSEMBLY, HostStep.CONTAINER_STARTUP, HostStepState.STARTED),
-            step(HostPhase.LOCKED_ASSEMBLY, HostStep.CONTAINER_STARTUP, HostStepState.SUCCEEDED),
-            step(HostPhase.LOCKED_ASSEMBLY, HostStep.NPM_EXECUTION, HostStepState.STARTED, True),
-            step(HostPhase.LOCKED_ASSEMBLY, HostStep.NPM_EXECUTION, HostStepState.SUCCEEDED, True),
+            step(
+                HostPhase.LOCKED_ASSEMBLY, HostStep.LOCK_WAIT, HostStepState.SUCCEEDED
+            ),
+            step(
+                HostPhase.LOCKED_ASSEMBLY, HostStep.CACHE_LOOKUP, HostStepState.STARTED
+            ),
+            step(
+                HostPhase.LOCKED_ASSEMBLY,
+                HostStep.CACHE_LOOKUP,
+                HostStepState.SUCCEEDED,
+            ),
+            step(
+                HostPhase.LOCKED_ASSEMBLY,
+                HostStep.STALE_STAGE_CLEANUP,
+                HostStepState.STARTED,
+            ),
+            step(
+                HostPhase.LOCKED_ASSEMBLY,
+                HostStep.STALE_STAGE_CLEANUP,
+                HostStepState.SUCCEEDED,
+            ),
+            step(
+                HostPhase.LOCKED_ASSEMBLY,
+                HostStep.CONTAINER_STARTUP,
+                HostStepState.STARTED,
+            ),
+            step(
+                HostPhase.LOCKED_ASSEMBLY,
+                HostStep.CONTAINER_STARTUP,
+                HostStepState.SUCCEEDED,
+            ),
+            step(
+                HostPhase.LOCKED_ASSEMBLY,
+                HostStep.NPM_EXECUTION,
+                HostStepState.STARTED,
+                True,
+            ),
+            step(
+                HostPhase.LOCKED_ASSEMBLY,
+                HostStep.NPM_EXECUTION,
+                HostStepState.SUCCEEDED,
+                True,
+            ),
             step(HostPhase.LOCKED_ASSEMBLY, HostStep.VALIDATION, HostStepState.STARTED),
-            step(HostPhase.LOCKED_ASSEMBLY, HostStep.VALIDATION, HostStepState.SUCCEEDED),
-            step(HostPhase.LOCKED_ASSEMBLY, HostStep.PUBLICATION, HostStepState.STARTED),
-            step(HostPhase.LOCKED_ASSEMBLY, HostStep.PUBLICATION, HostStepState.SUCCEEDED),
+            step(
+                HostPhase.LOCKED_ASSEMBLY, HostStep.VALIDATION, HostStepState.SUCCEEDED
+            ),
+            step(
+                HostPhase.LOCKED_ASSEMBLY, HostStep.PUBLICATION, HostStepState.STARTED
+            ),
+            step(
+                HostPhase.LOCKED_ASSEMBLY, HostStep.PUBLICATION, HostStepState.SUCCEEDED
+            ),
         ]
         success_controls = [
             *artifact_steps,
@@ -370,8 +483,16 @@ class TestOrderedInbox(unittest.TestCase):
         release_failure_controls = [
             *artifact_steps,
             HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.STARTED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.STARTED),
-            step(HostPhase.RELEASE_ACQUISITION, HostStep.RELEASE_ACQUISITION, HostStepState.FAILED),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.RELEASE_ACQUISITION,
+                HostStepState.STARTED,
+            ),
+            step(
+                HostPhase.RELEASE_ACQUISITION,
+                HostStep.RELEASE_ACQUISITION,
+                HostStepState.FAILED,
+            ),
             HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.FAILED),
             PresentationFinalReport("release failure report"),
         ]
@@ -395,9 +516,7 @@ class TestOrderedInbox(unittest.TestCase):
 
     def test_control_hard_limit_aborts_on_1025th(self):
         mailbox = PresentationMailbox(capacity=1)
-        control = HostPhaseEvent(
-            HostPhase.LOCKED_ASSEMBLY, HostPhaseState.STARTED
-        )
+        control = HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.STARTED)
 
         for _ in range(1024):
             self.assertTrue(mailbox.admit_control(control))
@@ -424,11 +543,11 @@ class TestOrderedInbox(unittest.TestCase):
 
         session = HostPresentationSession(
             StalledRenderer(),
-            PresentationPlan(HostPresentationMode.INTERACTIVE, PresentationSelection.LIVE),
+            PresentationPlan(
+                HostPresentationMode.INTERACTIVE, PresentationSelection.LIVE
+            ),
         )
-        control = HostPhaseEvent(
-            HostPhase.LOCKED_ASSEMBLY, HostPhaseState.SUCCEEDED
-        )
+        control = HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.SUCCEEDED)
         actual_result = BuildResult(
             exit_kind=ExitKind.SUCCESS,
             message="actual build result",
@@ -456,11 +575,15 @@ class TestOrderedInbox(unittest.TestCase):
             command_args={"yes": True},
         )
         try:
-            with mock.patch(
-                "docker.versioning.build_orchestration.orchestrate_build",
-                side_effect=exhausted_orchestration,
-            ), mock.patch(
-                "docker.versioning.host_presentation.WORKER_JOIN_SECONDS", 0.01,
+            with (
+                mock.patch(
+                    "docker.versioning.build_orchestration.orchestrate_build",
+                    side_effect=exhausted_orchestration,
+                ),
+                mock.patch(
+                    "docker.versioning.host_presentation.WORKER_JOIN_SECONDS",
+                    0.01,
+                ),
             ):
                 result = _real_dispatcher(
                     "build", request, _host_presentation_factory=lambda _policy: session
@@ -496,17 +619,25 @@ class TestOrderedInbox(unittest.TestCase):
         terminal = HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.SUCCEEDED)
         acquired = threading.Event()
         release = threading.Event()
+
         def holder():
             with mailbox._condition:
                 acquired.set()
                 release.wait(1)
+
         thread = threading.Thread(target=holder)
-        thread.start(); self.assertTrue(acquired.wait(1))
+        thread.start()
+        self.assertTrue(acquired.wait(1))
         result = {}
-        producer = threading.Thread(target=lambda: result.setdefault("ok", mailbox.admit_control(terminal)))
-        producer.start(); time.sleep(0.01)
+        producer = threading.Thread(
+            target=lambda: result.setdefault("ok", mailbox.admit_control(terminal))
+        )
+        producer.start()
+        time.sleep(0.01)
         self.assertTrue(producer.is_alive())
-        release.set(); producer.join(1); thread.join(1)
+        release.set()
+        producer.join(1)
+        thread.join(1)
         self.assertTrue(result["ok"])
         self.assertFalse(mailbox.admission_failed)
 
@@ -574,8 +705,7 @@ class TestCapacityIndependentSessionClose(unittest.TestCase):
         with mock.patch.object(session.mailbox, "try_admit", observe_admission):
             events = (_diagnostic("producer one"), _diagnostic("producer two"))
             producers = [
-                threading.Thread(target=session.sink, args=(event,))
-                for event in events
+                threading.Thread(target=session.sink, args=(event,)) for event in events
             ]
             for producer in producers:
                 producer.start()
@@ -624,11 +754,11 @@ class TestCapacityIndependentSessionClose(unittest.TestCase):
 
         session = HostPresentationSession(
             GatedClearRenderer(),
-            PresentationPlan(HostPresentationMode.INTERACTIVE, PresentationSelection.LIVE),
+            PresentationPlan(
+                HostPresentationMode.INTERACTIVE, PresentationSelection.LIVE
+            ),
         )
-        terminal = HostPhaseEvent(
-            HostPhase.LOCKED_ASSEMBLY, HostPhaseState.SUCCEEDED
-        )
+        terminal = HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.SUCCEEDED)
         try:
             session.sink(terminal)
             self.assertTrue(clear_entered.wait(1))
@@ -653,7 +783,9 @@ class TestCapacityIndependentSessionClose(unittest.TestCase):
         ):
             session = HostPresentationSession(
                 renderer,
-                PresentationPlan(HostPresentationMode.LINES, PresentationSelection.LIVE),
+                PresentationPlan(
+                    HostPresentationMode.LINES, PresentationSelection.LIVE
+                ),
             )
             try:
                 session.sink(_diagnostic("blocked production write"))
@@ -745,11 +877,10 @@ class TestCapacityIndependentSessionClose(unittest.TestCase):
             self.assertFalse(session.shutdown())
             self.assertLess(time.monotonic() - started, 0.05)
 
+
 class TestInteractiveState(unittest.TestCase):
     def _state(self, renderer: RecordingRenderer) -> HostPresentationState:
-        return HostPresentationState(
-            renderer, mode=HostPresentationMode.INTERACTIVE
-        )
+        return HostPresentationState(renderer, mode=HostPresentationMode.INTERACTIVE)
 
     def test_first_diagnostic_is_mutable_only(self):
         renderer = RecordingRenderer()
@@ -766,9 +897,7 @@ class TestInteractiveState(unittest.TestCase):
         # Not durable before the refresh deadline.
         self.assertNotIn("durable", renderer.kinds())
         state.due(now=1.1)
-        self.assertIn(
-            ("slot", "retry (repeated 2 times)"), renderer.calls
-        )
+        self.assertIn(("slot", "retry (repeated 2 times)"), renderer.calls)
         self.assertNotIn("durable", renderer.kinds())
 
     def test_numeric_variant_replaces_slot_without_suffix(self):
@@ -1009,9 +1138,7 @@ class TestLinesState(unittest.TestCase):
         state.admit_diagnostic(_diagnostic("retry"), now=0.1)
         state.due(now=1.1)
         durables = [call[1] for call in renderer.calls if call[0] == "durable"]
-        self.assertEqual(
-            ["retry", "retry (repeated 2 times)"], durables
-        )
+        self.assertEqual(["retry", "retry (repeated 2 times)"], durables)
 
     def test_continuous_repeats_do_not_postpone_the_lines_window(self):
         renderer = RecordingRenderer()
@@ -1037,9 +1164,7 @@ class TestLinesState(unittest.TestCase):
         # and cannot finalize the already-summarized group a second time.
         state.admit_diagnostic(_diagnostic("other"), now=1.2)
         durables = [call[1] for call in renderer.calls if call[0] == "durable"]
-        self.assertEqual(
-            ["retry", "retry (repeated 2 times)", "other"], durables
-        )
+        self.assertEqual(["retry", "retry (repeated 2 times)", "other"], durables)
 
     def test_window_expiry_summary_is_not_replayed_at_terminal_or_shutdown(self):
         renderer = RecordingRenderer()
@@ -1158,16 +1283,12 @@ class TestStreamingListener(unittest.TestCase):
     def test_lines_renderer_emits_no_terminal_escapes(self):
         stream = io.StringIO()
         renderer = TerminalHostRenderer(stream)
-        state = HostPresentationState(
-            renderer, mode=HostPresentationMode.LINES
-        )
+        state = HostPresentationState(renderer, mode=HostPresentationMode.LINES)
         state.observe_heartbeat(_heartbeat(elapsed_seconds=3), now=3.0)
         state.admit_diagnostic(_diagnostic("npm warn one"), now=3.1)
         rendered = stream.getvalue()
         self.assertNotIn("\x1b", rendered)
         self.assertTrue(rendered.endswith("\n"))
-
-
 
 
 class _NeverEmptyMailbox(PresentationMailbox):
@@ -1186,9 +1307,7 @@ class _NeverEmptyMailbox(PresentationMailbox):
     def take(self, timeout: float | None = None) -> AdmittedEvent | None:
         if self._release.is_set():
             return None
-        item = AdmittedEvent(
-            self._sequence, PresentationLane.TELEMETRY, self._event
-        )
+        item = AdmittedEvent(self._sequence, PresentationLane.TELEMETRY, self._event)
         self._sequence += 1
         return item
 
@@ -1242,9 +1361,7 @@ class TestWorkerDeadlineServicing(unittest.TestCase):
 class TestAdmittedDiagnosticEventRendering(unittest.TestCase):
     def test_legacy_typed_diagnostic_is_durable(self):
         renderer = RecordingRenderer()
-        state = HostPresentationState(
-            renderer, mode=HostPresentationMode.INTERACTIVE
-        )
+        state = HostPresentationState(renderer, mode=HostPresentationMode.INTERACTIVE)
         state.observe_diagnostic_event(
             HostDiagnosticEvent(
                 HostPhase.LOCKED_ASSEMBLY,
@@ -1267,14 +1384,16 @@ class TestHostnamePolicy(unittest.TestCase):
         hidden = RecordingRenderer()
         shown = RecordingRenderer()
         HostPresentationState(
-            hidden, mode=HostPresentationMode.LINES, network_url_display=NetworkUrlDisplay.REDACTED
+            hidden,
+            mode=HostPresentationMode.LINES,
+            network_url_display=NetworkUrlDisplay.REDACTED,
         ).admit_diagnostic(diagnostic, now=0.0)
         HostPresentationState(
-            shown, mode=HostPresentationMode.LINES, network_url_display=NetworkUrlDisplay.HOST_PATH
+            shown,
+            mode=HostPresentationMode.LINES,
+            network_url_display=NetworkUrlDisplay.HOST_PATH,
         ).admit_diagnostic(diagnostic, now=0.0)
-        self.assertEqual(
-            [("durable", "npm warn see <redacted>")], hidden.calls
-        )
+        self.assertEqual([("durable", "npm warn see <redacted>")], hidden.calls)
         self.assertEqual(
             [("durable", "npm warn see <redacted> [registry.example.com]")],
             shown.calls,
@@ -1293,7 +1412,9 @@ class TestLinesHostnameFinalization(unittest.TestCase):
         state = HostPresentationState(
             renderer,
             mode=HostPresentationMode.LINES,
-            network_url_display=(NetworkUrlDisplay.HOST_PATH if show else NetworkUrlDisplay.REDACTED),
+            network_url_display=(
+                NetworkUrlDisplay.HOST_PATH if show else NetworkUrlDisplay.REDACTED
+            ),
         )
         diagnostic = _diagnostic("retry", hostnames=self.HOSTS)
         state.admit_diagnostic(diagnostic, now=0.0)
@@ -1301,9 +1422,7 @@ class TestLinesHostnameFinalization(unittest.TestCase):
         if path == "deadline":
             state.due(now=1.2)
         elif path == "different":
-            state.admit_diagnostic(
-                _diagnostic("other", hostnames=self.HOSTS), now=0.2
-            )
+            state.admit_diagnostic(_diagnostic("other", hostnames=self.HOSTS), now=0.2)
         elif path == "terminal":
             state.observe_step(
                 HostStepEvent(
@@ -1350,9 +1469,7 @@ class TestLinesHostnameFinalization(unittest.TestCase):
 
 class TestLinesClassificationCoalescing(unittest.TestCase):
     def _state(self) -> HostPresentationState:
-        return HostPresentationState(
-            self.renderer, mode=HostPresentationMode.LINES
-        )
+        return HostPresentationState(self.renderer, mode=HostPresentationMode.LINES)
 
     def test_warning_classification_does_not_bypass_coalescing(self):
         self.renderer = RecordingRenderer()
@@ -1383,17 +1500,13 @@ class TestLinesClassificationCoalescing(unittest.TestCase):
         state.admit_diagnostic(_diagnostic("retry"), now=0.1)
         state.admit_diagnostic(_diagnostic("other"), now=0.2)
         durables = [call[1] for call in self.renderer.calls if call[0] == "durable"]
-        self.assertEqual(
-            ["retry", "retry (repeated 2 times)", "other"], durables
-        )
+        self.assertEqual(["retry", "retry (repeated 2 times)", "other"], durables)
 
 
 class TestInteractiveUrlIdentity(unittest.TestCase):
     def test_distinct_hidden_urls_do_not_share_a_group(self):
         renderer = RecordingRenderer()
-        state = HostPresentationState(
-            renderer, mode=HostPresentationMode.INTERACTIVE
-        )
+        state = HostPresentationState(renderer, mode=HostPresentationMode.INTERACTIVE)
         first = _diagnostic("fetched <redacted>", url_fingerprints=("a" * 64,))
         second = _diagnostic("fetched <redacted>", url_fingerprints=("b" * 64,))
         state.admit_diagnostic(first, now=0.0)
@@ -1426,7 +1539,6 @@ class TestNoLiveSink(unittest.TestCase):
                 self.assertIsNone(session)
         _assert_no_worker(self)
 
-
     def test_worker_persists_across_step_terminals(self):
         renderer = RecordingRenderer()
         session = HostPresentationSession(
@@ -1444,9 +1556,7 @@ class TestNoLiveSink(unittest.TestCase):
             )
         session.sink(_diagnostic("npm warn after terminal"))
         self.assertTrue(session.shutdown())
-        self.assertIn(
-            ("durable", "npm warn after terminal"), renderer.calls
-        )
+        self.assertIn(("durable", "npm warn after terminal"), renderer.calls)
         _assert_no_worker(self)
 
     def test_prompt_return_under_telemetry_saturation(self):
@@ -1513,9 +1623,7 @@ class TestStructuralFailureAttribution(unittest.TestCase):
         for phase, step in boundaries:
             with self.subTest(step=step):
                 context = self._context(
-                    _attach(
-                        LockedNpmError("timeout", "tail"), phase, step
-                    )
+                    _attach(LockedNpmError("timeout", "tail"), phase, step)
                 )
                 self.assertIs(phase, context.phase)
                 self.assertIs(step, context.step)
@@ -1575,9 +1683,7 @@ class TestStructuralFailureAttribution(unittest.TestCase):
         self.assertIs(HostPhase.RELEASE_ACQUISITION, context.phase)
         self.assertIs(HostStep.ARTIFACT_ACQUISITION, context.step)
         self.assertEqual("", context.tail)
-        rendered = format_failure_report(
-            context.phase, context.step, tail=context.tail
-        )
+        rendered = format_failure_report(context.phase, context.step, tail=context.tail)
         self.assertNotIn("Last diagnostics", rendered)
 
     def test_context_renders_phase_step_and_tail_without_replay(self):
@@ -1607,16 +1713,6 @@ class TestStructuralFailureAttribution(unittest.TestCase):
         self.assertEqual(1, rendered.count("npm tail"))
 
 
-
-
-
-
-
-
-
-
-
-
 class TestFailureBoundaryAttachment(unittest.TestCase):
     """A real boundary attaches its actual active step to the failure."""
 
@@ -1642,9 +1738,7 @@ class TestFailureBoundaryAttachment(unittest.TestCase):
         self.assertIsNotNone(marker)
         self.assertIs(HostPhase.LOCKED_ASSEMBLY, marker.phase)
         self.assertIs(HostStep.NPM_EXECUTION, marker.step)
-        self.assertEqual(
-            "npm-assembler-0123456789abcdef", marker.logical_resource
-        )
+        self.assertEqual("npm-assembler-0123456789abcdef", marker.logical_resource)
 
     def test_container_startup_boundary_is_not_labelled_npm_execution(self):
         from docker.versioning.host_progress import lookup_host_failure
@@ -1674,16 +1768,12 @@ class TestProvisionalPrefixPresentation(unittest.TestCase):
 
     def _interactive(self) -> tuple[RecordingRenderer, HostPresentationState]:
         renderer = RecordingRenderer()
-        state = HostPresentationState(
-            renderer, mode=HostPresentationMode.INTERACTIVE
-        )
+        state = HostPresentationState(renderer, mode=HostPresentationMode.INTERACTIVE)
         return renderer, state
 
     def _lines(self) -> tuple[RecordingRenderer, HostPresentationState]:
         renderer = RecordingRenderer()
-        state = HostPresentationState(
-            renderer, mode=HostPresentationMode.LINES
-        )
+        state = HostPresentationState(renderer, mode=HostPresentationMode.LINES)
         return renderer, state
 
     def test_interactive_prefix_updates_slot_before_boundary(self):
@@ -1714,9 +1804,7 @@ class TestProvisionalPrefixPresentation(unittest.TestCase):
         state.admit_prefix(_prefix("npm warn partial"))
         state.admit_diagnostic(_diagnostic("npm warn partial"), now=0.0)
         state.admit_diagnostic(_diagnostic("other"), now=0.1)
-        finalizes = [
-            call[1] for call in renderer.calls if call[0] == "finalize"
-        ]
+        finalizes = [call[1] for call in renderer.calls if call[0] == "finalize"]
         self.assertEqual(["npm warn partial"], finalizes)
 
     def test_lines_prefix_stays_pending_until_the_record_boundary(self):
@@ -1724,70 +1812,46 @@ class TestProvisionalPrefixPresentation(unittest.TestCase):
         state.admit_prefix(_prefix("npm warn partial"))
         self.assertEqual([], renderer.calls)
         state.admit_diagnostic(_diagnostic("npm warn partial"), now=0.0)
-        durables = [
-            call[1] for call in renderer.calls if call[0] == "durable"
-        ]
+        durables = [call[1] for call in renderer.calls if call[0] == "durable"]
         self.assertEqual(["npm warn partial"], durables)
 
     def test_lines_overflow_marker_becomes_visible_once_at_the_boundary(self):
         renderer, state = self._lines()
         full = "npm warn part" + OVERSIZED_DIAGNOSTIC_MARKER
         state.admit_prefix(_prefix("npm warn part"))
-        state.admit_prefix(
-            _prefix(full, overflowed=True)
-        )
-        durables = [
-            call[1] for call in renderer.calls if call[0] == "durable"
-        ]
+        state.admit_prefix(_prefix(full, overflowed=True))
+        durables = [call[1] for call in renderer.calls if call[0] == "durable"]
         self.assertEqual([full], durables)
         # The record boundary must not write the truncated line again.
-        state.admit_prefix(
-            _prefix(full, overflowed=True, finalized=True)
-        )
-        durables = [
-            call[1] for call in renderer.calls if call[0] == "durable"
-        ]
+        state.admit_prefix(_prefix(full, overflowed=True, finalized=True))
+        durables = [call[1] for call in renderer.calls if call[0] == "durable"]
         self.assertEqual([full], durables)
 
     def test_interactive_overflow_marker_visible_then_finalized_once(self):
         renderer, state = self._interactive()
         full = "npm warn part" + OVERSIZED_DIAGNOSTIC_MARKER
         state.admit_prefix(_prefix("npm warn part"))
-        state.admit_prefix(
-            _prefix(full, overflowed=True)
-        )
+        state.admit_prefix(_prefix(full, overflowed=True))
         slots = [call[1] for call in renderer.calls if call[0] == "slot"]
         self.assertIn(full, slots)
-        state.admit_prefix(
-            _prefix(full, overflowed=True, finalized=True)
-        )
-        finalizes = [
-            call[1] for call in renderer.calls if call[0] == "finalize"
-        ]
+        state.admit_prefix(_prefix(full, overflowed=True, finalized=True))
+        finalizes = [call[1] for call in renderer.calls if call[0] == "finalize"]
         self.assertEqual([full], finalizes)
 
     def test_overflow_lines_are_not_coalesced(self):
         renderer, state = self._lines()
         full = "npm warn part" + OVERSIZED_DIAGNOSTIC_MARKER
         for _ in range(2):
-            state.admit_prefix(
-                _prefix(full, overflowed=True, finalized=True)
-            )
-        durables = [
-            call[1] for call in renderer.calls if call[0] == "durable"
-        ]
+            state.admit_prefix(_prefix(full, overflowed=True, finalized=True))
+        durables = [call[1] for call in renderer.calls if call[0] == "durable"]
         self.assertEqual([full, full], durables)
 
     def test_prefix_for_one_stream_does_not_leak_into_another(self):
         renderer, state = self._interactive()
         state.admit_prefix(_prefix("stdout part"))
-        state.admit_prefix(
-            _prefix("stderr part", stream=HostDiagnosticStream.STDERR)
-        )
+        state.admit_prefix(_prefix("stderr part", stream=HostDiagnosticStream.STDERR))
         state.admit_diagnostic(
-            _diagnostic(
-                "stderr line", stream=HostDiagnosticStream.STDERR
-            ),
+            _diagnostic("stderr line", stream=HostDiagnosticStream.STDERR),
             now=0.0,
         )
         slots = [call[1] for call in renderer.calls if call[0] == "slot"]
@@ -1848,9 +1912,7 @@ class TestPrefixMailboxAdmission(unittest.TestCase):
         self.assertTrue(adapter.admit_prefix(_prefix("one")))
         # A different stream cannot supersede, so this is dropped.
         self.assertFalse(
-            adapter.admit_prefix(
-                _prefix("two", stream=HostDiagnosticStream.STDERR)
-            )
+            adapter.admit_prefix(_prefix("two", stream=HostDiagnosticStream.STDERR))
         )
         mailbox.take(timeout=0.1)
         self.assertIsNone(mailbox.consume_omission_notice())

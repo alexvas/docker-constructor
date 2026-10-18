@@ -38,9 +38,7 @@ def validate(url: str, package: str, version_key: str) -> None:
 
     # -- scheme ----------------------------------------------------
     if parsed.scheme != "https":
-        raise NpmTarballUrlError(
-            f"npm tarball URL must use HTTPS, got {url!r}"
-        )
+        raise NpmTarballUrlError(f"npm tarball URL must use HTTPS, got {url!r}")
 
     # -- host ------------------------------------------------------
     if parsed.netloc != "registry.npmjs.org":
@@ -53,22 +51,16 @@ def validate(url: str, package: str, version_key: str) -> None:
     # Package stem: /@scope/name/-/  or  /name/-/
     expected_stem = f"/{package}/-/"
     if not url_path.startswith(expected_stem):
-        raise NpmTarballUrlError(
-            f"expected npm tarball for {package!r}, got {url!r}"
-        )
+        raise NpmTarballUrlError(f"expected npm tarball for {package!r}, got {url!r}")
 
     # Extract the part after /-/
     _, _, tarball_name = url_path.partition(expected_stem)
     if not tarball_name:
-        raise NpmTarballUrlError(
-            f"missing tarball filename after /-/, got {url!r}"
-        )
+        raise NpmTarballUrlError(f"missing tarball filename after /-/, got {url!r}")
 
     # Tarball must end with .tgz
     if not tarball_name.endswith(".tgz"):
-        raise NpmTarballUrlError(
-            f"expected .tgz tarball, got {tarball_name!r}"
-        )
+        raise NpmTarballUrlError(f"expected .tgz tarball, got {tarball_name!r}")
 
     # Strip build metadata for filename matching
     # (npm tarballs never include it)
@@ -91,6 +83,5 @@ def validate(url: str, package: str, version_key: str) -> None:
     # ?ref=1.2.3
     if parsed.query or parsed.fragment:
         raise NpmTarballUrlError(
-            f"query/fragment not allowed in reviewed artifact URL, "
-            f"got {url!r}"
+            f"query/fragment not allowed in reviewed artifact URL, got {url!r}"
         )

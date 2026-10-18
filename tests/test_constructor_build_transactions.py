@@ -31,7 +31,9 @@ from docker.versioning.build_cache import (
 from docker.versioning.digest_identity import DigestIdentity
 
 
-def _acquire_pristine_lock(checkout: str, start: multiprocessing.Event, results: multiprocessing.Queue) -> None:
+def _acquire_pristine_lock(
+    checkout: str, start: multiprocessing.Event, results: multiprocessing.Queue
+) -> None:
     """Child-process helper for concurrent first-build lock bootstrap."""
     start.wait()
     try:
@@ -70,7 +72,9 @@ class BuildTransactionTest(unittest.TestCase):
         self.checkout.mkdir()
 
     def blob(self, payload: bytes) -> DigestIdentity:
-        identity = DigestIdentity.from_hex("sha256", hashlib.sha256(payload).hexdigest())
+        identity = DigestIdentity.from_hex(
+            "sha256", hashlib.sha256(payload).hexdigest()
+        )
         publish_verified_blob(identity, payload, constructor_project_root=self.checkout)
         return identity
 
@@ -81,7 +85,9 @@ class BuildTransactionTest(unittest.TestCase):
         start = context.Event()
         results = context.Queue()
         workers = [
-            context.Process(target=_acquire_pristine_lock, args=(str(checkout), start, results))
+            context.Process(
+                target=_acquire_pristine_lock, args=(str(checkout), start, results)
+            )
             for _ in range(4)
         ]
         for worker in workers:
@@ -103,10 +109,14 @@ class BuildTransactionTest(unittest.TestCase):
                 "from docker.versioning.build_cache import acquire_constructor_project_build_lock; "
                 f"acquire_constructor_project_build_lock({str(self.checkout)!r})"
             )
-            result = subprocess.run([sys.executable, "-c", command], text=True, capture_output=True)
+            result = subprocess.run(
+                [sys.executable, "-c", command], text=True, capture_output=True
+            )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("active build", result.stderr)
-        self.assertFalse((prepare_build_cache(self.checkout).generated_root / "other").exists())
+        self.assertFalse(
+            (prepare_build_cache(self.checkout).generated_root / "other").exists()
+        )
 
     def test_hard_linked_lock_is_rejected_without_chmodding_link_target(self) -> None:
         cache = Path(self.tmp.name) / "cache"
@@ -117,7 +127,9 @@ class BuildTransactionTest(unittest.TestCase):
         unrelated.chmod(0o644)
         lock_path = paths.persistent_root / "build.lock"
         lock_path.hardlink_to(unrelated)
-        with self.assertRaisesRegex(BuildTransactionError, "unsafe constructor-project build lock"):
+        with self.assertRaisesRegex(
+            BuildTransactionError, "unsafe constructor-project build lock"
+        ):
             acquire_constructor_project_build_lock(self.checkout, cache_root=cache)
         self.assertEqual(0o644, unrelated.stat().st_mode & 0o777)
         self.assertEqual(2, unrelated.stat().st_nlink)
@@ -131,7 +143,9 @@ class BuildTransactionTest(unittest.TestCase):
                 "from docker.versioning.build_cache import acquire_constructor_project_build_lock; "
                 f"acquire_constructor_project_build_lock({str(self.checkout)!r})"
             )
-            result = subprocess.run([sys.executable, "-c", command], text=True, capture_output=True)
+            result = subprocess.run(
+                [sys.executable, "-c", command], text=True, capture_output=True
+            )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("active build", result.stderr)
             self.assertEqual(0o644, lock_path.stat().st_mode & 0o777)
@@ -146,7 +160,9 @@ class BuildTransactionTest(unittest.TestCase):
                 "from docker.versioning.build_cache import acquire_constructor_project_build_lock; "
                 f"acquire_constructor_project_build_lock({str(self.checkout)!r})"
             )
-            result = subprocess.run([sys.executable, "-c", command], text=True, capture_output=True)
+            result = subprocess.run(
+                [sys.executable, "-c", command], text=True, capture_output=True
+            )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("active build", result.stderr)
             self.assertEqual(0o777, paths.persistent_root.stat().st_mode & 0o777)
@@ -186,13 +202,17 @@ class BuildTransactionTest(unittest.TestCase):
             old_path = build_blob_path(paths.blobs_root, old)
             self.assertTrue(old_path.exists())
             commit_build_set(self.checkout, {new}, lock=lock)
-        self.assertEqual([f"sha256:{new.hex_digest()}"], _newest_generation_blobs(paths))
+        self.assertEqual(
+            [f"sha256:{new.hex_digest()}"], _newest_generation_blobs(paths)
+        )
         self.assertFalse(old_path.exists())
         self.assertTrue(build_blob_path(paths.blobs_root, new).exists())
         # A successful cleanup returns to exactly one stable generation.
         self.assertEqual(len(_generation_names(paths)), 1)
 
-    def test_failed_build_keeps_prior_live_set_and_shared_xdg_is_untouched(self) -> None:
+    def test_failed_build_keeps_prior_live_set_and_shared_xdg_is_untouched(
+        self,
+    ) -> None:
         committed, failed = self.blob(b"committed"), self.blob(b"failed")
         xdg = Path(self.tmp.name) / "xdg-runtime-artifact"
         xdg.write_bytes(b"unrelated")
@@ -206,9 +226,13 @@ class BuildTransactionTest(unittest.TestCase):
         self.assertTrue(build_blob_path(paths.blobs_root, failed).exists())
         self.assertEqual(b"unrelated", xdg.read_bytes())
 
-    def test_interrupted_publication_leaves_marker_for_missing_blob_recovery(self) -> None:
+    def test_interrupted_publication_leaves_marker_for_missing_blob_recovery(
+        self,
+    ) -> None:
         payload = b"interrupted-before-publish"
-        identity = DigestIdentity.from_hex("sha256", hashlib.sha256(payload).hexdigest())
+        identity = DigestIdentity.from_hex(
+            "sha256", hashlib.sha256(payload).hexdigest()
+        )
         paths = prepare_build_cache(self.checkout)
         with acquire_constructor_project_build_lock(self.checkout) as lock:
             with mock.patch(
@@ -217,15 +241,27 @@ class BuildTransactionTest(unittest.TestCase):
             ):
                 with self.assertRaises(KeyboardInterrupt):
                     from docker.versioning.build_cache import publish_uncommitted_blob
-                    publish_uncommitted_blob(identity, payload, constructor_project_root=self.checkout, lock=lock)
-            self.assertTrue((paths.markers_root / f"sha256:{identity.hex_digest()}.json").exists())
+
+                    publish_uncommitted_blob(
+                        identity,
+                        payload,
+                        constructor_project_root=self.checkout,
+                        lock=lock,
+                    )
+            self.assertTrue(
+                (paths.markers_root / f"sha256:{identity.hex_digest()}.json").exists()
+            )
             self.assertFalse(build_blob_path(paths.blobs_root, identity).exists())
             maintain_uncommitted_blobs(self.checkout, lock=lock, now=0)
-        self.assertFalse((paths.markers_root / f"sha256:{identity.hex_digest()}.json").exists())
+        self.assertFalse(
+            (paths.markers_root / f"sha256:{identity.hex_digest()}.json").exists()
+        )
 
     def test_interruption_after_publication_retains_expiring_marker(self) -> None:
         payload = b"interrupted-after-publish"
-        identity = DigestIdentity.from_hex("sha256", hashlib.sha256(payload).hexdigest())
+        identity = DigestIdentity.from_hex(
+            "sha256", hashlib.sha256(payload).hexdigest()
+        )
         paths = prepare_build_cache(self.checkout)
         original = publish_verified_blob
 
@@ -240,20 +276,33 @@ class BuildTransactionTest(unittest.TestCase):
             ):
                 with self.assertRaises(KeyboardInterrupt):
                     from docker.versioning.build_cache import publish_uncommitted_blob
+
                     publish_uncommitted_blob(
-                        identity, payload, constructor_project_root=self.checkout, lock=lock, verified_at=100,
+                        identity,
+                        payload,
+                        constructor_project_root=self.checkout,
+                        lock=lock,
+                        verified_at=100,
                     )
             self.assertTrue(build_blob_path(paths.blobs_root, identity).exists())
-            self.assertTrue((paths.markers_root / f"sha256:{identity.hex_digest()}.json").exists())
+            self.assertTrue(
+                (paths.markers_root / f"sha256:{identity.hex_digest()}.json").exists()
+            )
             maintain_uncommitted_blobs(
-                self.checkout, lock=lock, now=100 + UNCOMMITTED_TTL_SECONDS + 1,
+                self.checkout,
+                lock=lock,
+                now=100 + UNCOMMITTED_TTL_SECONDS + 1,
             )
         self.assertFalse(build_blob_path(paths.blobs_root, identity).exists())
-        self.assertFalse((paths.markers_root / f"sha256:{identity.hex_digest()}.json").exists())
+        self.assertFalse(
+            (paths.markers_root / f"sha256:{identity.hex_digest()}.json").exists()
+        )
 
     def test_post_publication_failure_preserves_marker_until_maintenance(self) -> None:
         payload = b"post-publication-failure"
-        identity = DigestIdentity.from_hex("sha256", hashlib.sha256(payload).hexdigest())
+        identity = DigestIdentity.from_hex(
+            "sha256", hashlib.sha256(payload).hexdigest()
+        )
         paths = prepare_build_cache(self.checkout)
         original = publish_verified_blob
 
@@ -266,10 +315,17 @@ class BuildTransactionTest(unittest.TestCase):
                 "docker.versioning.build_cache.publish_verified_blob",
                 side_effect=publish_then_fail,
             ):
-                with self.assertRaisesRegex(RuntimeError, "final verification interrupted"):
+                with self.assertRaisesRegex(
+                    RuntimeError, "final verification interrupted"
+                ):
                     from docker.versioning.build_cache import publish_uncommitted_blob
+
                     publish_uncommitted_blob(
-                        identity, payload, constructor_project_root=self.checkout, lock=lock, verified_at=100,
+                        identity,
+                        payload,
+                        constructor_project_root=self.checkout,
+                        lock=lock,
+                        verified_at=100,
                     )
             marker = paths.markers_root / f"sha256:{identity.hex_digest()}.json"
             self.assertTrue(build_blob_path(paths.blobs_root, identity).exists())
@@ -286,33 +342,61 @@ class BuildTransactionTest(unittest.TestCase):
 
     def test_mismatched_republication_preserves_existing_blob_and_marker(self) -> None:
         payload = b"original-publication"
-        identity = DigestIdentity.from_hex("sha256", hashlib.sha256(payload).hexdigest())
+        identity = DigestIdentity.from_hex(
+            "sha256", hashlib.sha256(payload).hexdigest()
+        )
         paths = prepare_build_cache(self.checkout)
         with acquire_constructor_project_build_lock(self.checkout) as lock:
-            publish_uncommitted_blob(identity, payload, constructor_project_root=self.checkout, lock=lock, verified_at=100)
+            publish_uncommitted_blob(
+                identity,
+                payload,
+                constructor_project_root=self.checkout,
+                lock=lock,
+                verified_at=100,
+            )
         blob = build_blob_path(paths.blobs_root, identity)
         marker = paths.markers_root / f"sha256:{identity.hex_digest()}.json"
         original_blob = blob.read_bytes()
         original_marker = marker.read_bytes()
         with acquire_constructor_project_build_lock(self.checkout) as lock:
             with self.assertRaisesRegex(Exception, "digest mismatch"):
-                publish_uncommitted_blob(identity, b"mismatched", constructor_project_root=self.checkout, lock=lock, verified_at=200)
+                publish_uncommitted_blob(
+                    identity,
+                    b"mismatched",
+                    constructor_project_root=self.checkout,
+                    lock=lock,
+                    verified_at=200,
+                )
         self.assertEqual(original_blob, blob.read_bytes())
         self.assertEqual(original_marker, marker.read_bytes())
 
     def test_transaction_publication_marks_blob_and_failed_blob_expires(self) -> None:
         payload = b"failed-download"
-        identity = DigestIdentity.from_hex("sha256", hashlib.sha256(payload).hexdigest())
+        identity = DigestIdentity.from_hex(
+            "sha256", hashlib.sha256(payload).hexdigest()
+        )
         paths = prepare_build_cache(self.checkout)
         with acquire_constructor_project_build_lock(self.checkout) as lock:
-            publish_uncommitted_blob(identity, payload, constructor_project_root=self.checkout, lock=lock, verified_at=100)
+            publish_uncommitted_blob(
+                identity,
+                payload,
+                constructor_project_root=self.checkout,
+                lock=lock,
+                verified_at=100,
+            )
             self.assertEqual(
                 {"verified_at": 100},
-                json.loads((paths.markers_root / f"sha256:{identity.hex_digest()}.json").read_text()),
+                json.loads(
+                    (
+                        paths.markers_root / f"sha256:{identity.hex_digest()}.json"
+                    ).read_text()
+                ),
             )
             # No commit models a failed/interrupted transaction.
         with acquire_constructor_project_build_lock(self.checkout) as lock:
-            maintain_uncommitted_blobs(self.checkout, lock=lock, now=100 + UNCOMMITTED_TTL_SECONDS + 1)
+            maintain_uncommitted_blobs(
+                self.checkout, lock=lock, now=100 + UNCOMMITTED_TTL_SECONDS + 1
+            )
         self.assertFalse(build_blob_path(paths.blobs_root, identity).exists())
 
     def test_corrupt_stale_marker_never_deletes_committed_blob(self) -> None:
@@ -336,21 +420,31 @@ class BuildTransactionTest(unittest.TestCase):
             mark_uncommitted_blob(committed, self.checkout, lock=lock, verified_at=0)
             commit_build_set(self.checkout, {committed}, lock=lock)
             maintain_uncommitted_blobs(
-                self.checkout, lock=lock, now=100 + UNCOMMITTED_TTL_SECONDS - 1,
+                self.checkout,
+                lock=lock,
+                now=100 + UNCOMMITTED_TTL_SECONDS - 1,
             )
             self.assertTrue(build_blob_path(paths.blobs_root, expired).exists())
             # Exactly 2,592,000 seconds old is NOT expired: the blob survives
             # at the boundary and only expires once it is older than the TTL.
             maintain_uncommitted_blobs(
-                self.checkout, lock=lock, now=100 + UNCOMMITTED_TTL_SECONDS,
+                self.checkout,
+                lock=lock,
+                now=100 + UNCOMMITTED_TTL_SECONDS,
             )
             self.assertTrue(build_blob_path(paths.blobs_root, expired).exists())
-            self.assertTrue((paths.markers_root / f"sha256:{expired.hex_digest()}.json").exists())
+            self.assertTrue(
+                (paths.markers_root / f"sha256:{expired.hex_digest()}.json").exists()
+            )
             maintain_uncommitted_blobs(
-                self.checkout, lock=lock, now=100 + UNCOMMITTED_TTL_SECONDS + 1,
+                self.checkout,
+                lock=lock,
+                now=100 + UNCOMMITTED_TTL_SECONDS + 1,
             )
         self.assertFalse(build_blob_path(paths.blobs_root, expired).exists())
-        self.assertFalse((paths.markers_root / f"sha256:{expired.hex_digest()}.json").exists())
+        self.assertFalse(
+            (paths.markers_root / f"sha256:{expired.hex_digest()}.json").exists()
+        )
         self.assertTrue(build_blob_path(paths.blobs_root, committed).exists())
 
     def test_invalid_commit_blob_preserves_previous_manifest_and_blobs(self) -> None:
@@ -363,9 +457,13 @@ class BuildTransactionTest(unittest.TestCase):
         for case in cases:
             with self.subTest(case=case):
                 payload = f"{case}-commit".encode()
-                candidate = DigestIdentity.from_hex("sha256", hashlib.sha256(payload).hexdigest())
+                candidate = DigestIdentity.from_hex(
+                    "sha256", hashlib.sha256(payload).hexdigest()
+                )
                 if case != "missing":
-                    candidate_path = publish_verified_blob(candidate, payload, constructor_project_root=self.checkout)
+                    candidate_path = publish_verified_blob(
+                        candidate, payload, constructor_project_root=self.checkout
+                    )
                     if case == "altered":
                         candidate_path.chmod(0o644)
                         candidate_path.write_bytes(b"altered")
@@ -376,7 +474,9 @@ class BuildTransactionTest(unittest.TestCase):
                     with self.assertRaises(BuildTransactionError):
                         commit_build_set(self.checkout, {candidate}, lock=lock)
                 self.assertEqual(generations_before, _generation_names(paths))
-                self.assertEqual([f"sha256:{previous.hex_digest()}"], _newest_generation_blobs(paths))
+                self.assertEqual(
+                    [f"sha256:{previous.hex_digest()}"], _newest_generation_blobs(paths)
+                )
                 self.assertTrue(build_blob_path(paths.blobs_root, previous).exists())
 
     def test_corrupt_generation_fails_without_any_deletion(self) -> None:
@@ -399,7 +499,9 @@ class BuildTransactionTest(unittest.TestCase):
                 with acquire_constructor_project_build_lock(self.checkout) as lock:
                     with self.assertRaises(BuildCacheError):
                         commit_build_set(self.checkout, {identity}, lock=lock)
-                self.assertEqual(original, (paths.persistent_root / corrupt_name).read_text())
+                self.assertEqual(
+                    original, (paths.persistent_root / corrupt_name).read_text()
+                )
                 self.assertTrue(outside.exists())
                 self.assertTrue(build_blob_path(paths.blobs_root, identity).exists())
                 (paths.persistent_root / corrupt_name).unlink()
@@ -411,7 +513,10 @@ class BuildTransactionTest(unittest.TestCase):
                 with acquire_constructor_project_build_lock(self.checkout) as lock:
                     with self.assertRaises(BuildCacheError):
                         mark_uncommitted_blob(
-                            identity, self.checkout, lock=lock, verified_at=timestamp,
+                            identity,
+                            self.checkout,
+                            lock=lock,
+                            verified_at=timestamp,
                         )
 
     def test_non_finite_marker_and_clock_values_are_rejected(self) -> None:
@@ -430,8 +535,10 @@ class BuildTransactionTest(unittest.TestCase):
 
         huge_identity = self.blob(b"huge-marker")
         huge_paths = prepare_build_cache(self.checkout)
-        huge_marker = huge_paths.markers_root / f"sha256:{huge_identity.hex_digest()}.json"
-        huge_marker.write_text('{"verified_at":' + '1' + ('0' * 4000) + '}')
+        huge_marker = (
+            huge_paths.markers_root / f"sha256:{huge_identity.hex_digest()}.json"
+        )
+        huge_marker.write_text('{"verified_at":' + "1" + ("0" * 4000) + "}")
         huge_marker.chmod(0o600)
         with acquire_constructor_project_build_lock(self.checkout) as lock:
             maintain_uncommitted_blobs(self.checkout, lock=lock, now=1)
@@ -443,11 +550,17 @@ class BuildTransactionTest(unittest.TestCase):
         for clock in (float("nan"), float("inf"), float("-inf")):
             with self.subTest(clock=clock):
                 with acquire_constructor_project_build_lock(self.checkout) as lock:
-                    mark_uncommitted_blob(identity, self.checkout, lock=lock, verified_at=0)
+                    mark_uncommitted_blob(
+                        identity, self.checkout, lock=lock, verified_at=0
+                    )
                     with self.assertRaises(BuildCacheError):
                         maintain_uncommitted_blobs(self.checkout, lock=lock, now=clock)
                 self.assertTrue(build_blob_path(paths.blobs_root, identity).exists())
-                self.assertTrue((paths.markers_root / f"sha256:{identity.hex_digest()}.json").exists())
+                self.assertTrue(
+                    (
+                        paths.markers_root / f"sha256:{identity.hex_digest()}.json"
+                    ).exists()
+                )
 
     def test_valid_marker_with_missing_or_corrupt_safe_blob_is_removed(self) -> None:
         cases = ("missing", "altered")
@@ -458,7 +571,9 @@ class BuildTransactionTest(unittest.TestCase):
                 paths = prepare_build_cache(self.checkout)
                 blob = build_blob_path(paths.blobs_root, identity)
                 with acquire_constructor_project_build_lock(self.checkout) as lock:
-                    mark_uncommitted_blob(identity, self.checkout, lock=lock, verified_at=0)
+                    mark_uncommitted_blob(
+                        identity, self.checkout, lock=lock, verified_at=0
+                    )
                     if case == "missing":
                         blob.unlink()
                     elif case == "altered":
@@ -467,7 +582,11 @@ class BuildTransactionTest(unittest.TestCase):
                         blob.chmod(0o444)
                     maintain_uncommitted_blobs(self.checkout, lock=lock, now=1)
                 self.assertFalse(blob.exists())
-                self.assertFalse((paths.markers_root / f"sha256:{identity.hex_digest()}.json").exists())
+                self.assertFalse(
+                    (
+                        paths.markers_root / f"sha256:{identity.hex_digest()}.json"
+                    ).exists()
+                )
 
     def test_unsafe_writable_blob_fails_closed(self) -> None:
         identity = self.blob(b"writable-blob")
@@ -515,7 +634,9 @@ class ExternalTransactionIsolationTest(unittest.TestCase):
 
     def blob(self, payload: bytes, *, checkout: Path) -> DigestIdentity:
         identity = self.identity(payload)
-        publish_verified_blob(identity, payload, constructor_project_root=checkout, cache_root=self.cache)
+        publish_verified_blob(
+            identity, payload, constructor_project_root=checkout, cache_root=self.cache
+        )
         return identity
 
     def second_project(self, name: str = "proj") -> Path:
@@ -528,7 +649,9 @@ class ExternalTransactionIsolationTest(unittest.TestCase):
     def test_canonical_alias_contender_is_rejected_under_one_lock(self) -> None:
         alias = self.base / "proj-link"
         alias.symlink_to(self.project, target_is_directory=True)
-        with acquire_constructor_project_build_lock(self.project, cache_root=self.cache):
+        with acquire_constructor_project_build_lock(
+            self.project, cache_root=self.cache
+        ):
             with self.assertRaisesRegex(BuildTransactionError, "active build"):
                 acquire_constructor_project_build_lock(alias, cache_root=self.cache)
         # The alias never created its own namespace or mutated the project.
@@ -542,7 +665,9 @@ class ExternalTransactionIsolationTest(unittest.TestCase):
         relative = os.path.relpath(self.project, self.base)
         with acquire_constructor_project_build_lock(relative, cache_root=self.cache):
             with self.assertRaisesRegex(BuildTransactionError, "active build"):
-                acquire_constructor_project_build_lock(self.project, cache_root=self.cache)
+                acquire_constructor_project_build_lock(
+                    self.project, cache_root=self.cache
+                )
 
     def test_same_basename_projects_hold_independent_locks(self) -> None:
         other = self.second_project()
@@ -550,27 +675,41 @@ class ExternalTransactionIsolationTest(unittest.TestCase):
         self.assertNotEqual(other_paths.namespace_root, self.paths.namespace_root)
         self.assertTrue(other_paths.namespace_root.name.startswith("proj-"))
         # Both namespaces serialize independently.
-        with acquire_constructor_project_build_lock(self.project, cache_root=self.cache):
+        with acquire_constructor_project_build_lock(
+            self.project, cache_root=self.cache
+        ):
             with acquire_constructor_project_build_lock(other, cache_root=self.cache):
                 pass
         with acquire_constructor_project_build_lock(other, cache_root=self.cache):
-            with acquire_constructor_project_build_lock(self.project, cache_root=self.cache):
+            with acquire_constructor_project_build_lock(
+                self.project, cache_root=self.cache
+            ):
                 pass
 
     # ── 2.2 abandoned-snapshot recovery ─────────────────────────────────
 
     def test_recovery_keeps_verified_blobs_uncommitted(self) -> None:
         identity = self.blob(b"reusable-after-recovery", checkout=self.project)
-        with acquire_constructor_project_build_lock(self.project, cache_root=self.cache) as lock:
-            mark_uncommitted_blob(identity, self.project, lock=lock, verified_at=0, cache_root=self.cache)
+        with acquire_constructor_project_build_lock(
+            self.project, cache_root=self.cache
+        ) as lock:
+            mark_uncommitted_blob(
+                identity, self.project, lock=lock, verified_at=0, cache_root=self.cache
+            )
             snapshot = self.paths.generated_root / "abandoned"
             snapshot.mkdir()
             (snapshot / "partial").write_text("partial")
             recover_abandoned_snapshots(self.project, lock=lock, cache_root=self.cache)
             self.assertFalse(snapshot.exists())
             self.assertTrue(build_blob_path(self.paths.blobs_root, identity).exists())
-            self.assertTrue((self.paths.markers_root / f"sha256:{identity.hex_digest()}.json").exists())
-            self.assertFalse((self.paths.persistent_root / "committed-build.json").exists())
+            self.assertTrue(
+                (
+                    self.paths.markers_root / f"sha256:{identity.hex_digest()}.json"
+                ).exists()
+            )
+            self.assertFalse(
+                (self.paths.persistent_root / "committed-build.json").exists()
+            )
 
     def test_recovery_ignores_legacy_and_other_namespace_snapshots(self) -> None:
         legacy = self.project / ".docker-cache" / "snapshots" / "legacy-snapshot"
@@ -581,7 +720,9 @@ class ExternalTransactionIsolationTest(unittest.TestCase):
         other_snapshot = other_paths.generated_root / "other-snapshot"
         other_snapshot.mkdir()
         (other_snapshot / "keep.txt").write_text("other")
-        with acquire_constructor_project_build_lock(self.project, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.project, cache_root=self.cache
+        ) as lock:
             recover_abandoned_snapshots(self.project, lock=lock, cache_root=self.cache)
         self.assertEqual((legacy / "keep.txt").read_text(), "legacy")
         self.assertEqual((other_snapshot / "keep.txt").read_text(), "other")
@@ -593,11 +734,21 @@ class ExternalTransactionIsolationTest(unittest.TestCase):
         old_one = self.blob(b"old-one", checkout=self.project)
         old_two = self.blob(b"old-two", checkout=self.project)
         new = self.blob(b"new", checkout=self.project)
-        with acquire_constructor_project_build_lock(self.project, cache_root=self.cache) as lock:
-            mark_uncommitted_blob(old_one, self.project, lock=lock, verified_at=0, cache_root=self.cache)
-            mark_uncommitted_blob(old_two, self.project, lock=lock, verified_at=0, cache_root=self.cache)
-            commit_build_set(self.project, {old_one, old_two}, lock=lock, cache_root=self.cache)
-            mark_uncommitted_blob(new, self.project, lock=lock, verified_at=0, cache_root=self.cache)
+        with acquire_constructor_project_build_lock(
+            self.project, cache_root=self.cache
+        ) as lock:
+            mark_uncommitted_blob(
+                old_one, self.project, lock=lock, verified_at=0, cache_root=self.cache
+            )
+            mark_uncommitted_blob(
+                old_two, self.project, lock=lock, verified_at=0, cache_root=self.cache
+            )
+            commit_build_set(
+                self.project, {old_one, old_two}, lock=lock, cache_root=self.cache
+            )
+            mark_uncommitted_blob(
+                new, self.project, lock=lock, verified_at=0, cache_root=self.cache
+            )
             commit_build_set(self.project, {new}, lock=lock, cache_root=self.cache)
         manifest = _newest_generation_blobs(self.paths)
         self.assertEqual(manifest, [f"sha256:{new.hex_digest()}"])
@@ -605,12 +756,18 @@ class ExternalTransactionIsolationTest(unittest.TestCase):
         self.assertFalse(build_blob_path(self.paths.blobs_root, old_two).exists())
         self.assertTrue(build_blob_path(self.paths.blobs_root, new).exists())
 
-    def test_commit_and_gc_leave_other_namespaces_and_global_caches_untouched(self) -> None:
+    def test_commit_and_gc_leave_other_namespaces_and_global_caches_untouched(
+        self,
+    ) -> None:
         other = self.second_project()
         other_paths = prepare_build_cache(other, cache_root=self.cache)
         other_blob = self.blob(b"other-committed", checkout=other)
-        with acquire_constructor_project_build_lock(other, cache_root=self.cache) as lock:
-            mark_uncommitted_blob(other_blob, other, lock=lock, verified_at=0, cache_root=self.cache)
+        with acquire_constructor_project_build_lock(
+            other, cache_root=self.cache
+        ) as lock:
+            mark_uncommitted_blob(
+                other_blob, other, lock=lock, verified_at=0, cache_root=self.cache
+            )
             commit_build_set(other, {other_blob}, lock=lock, cache_root=self.cache)
 
         runtime = self.cache / "runtime-artifacts" / "blobs"
@@ -623,20 +780,42 @@ class ExternalTransactionIsolationTest(unittest.TestCase):
         committed = self.blob(b"committed", checkout=self.project)
         stale = self.blob(b"stale", checkout=self.project)
         replacement = self.blob(b"replacement", checkout=self.project)
-        with acquire_constructor_project_build_lock(self.project, cache_root=self.cache) as lock:
-            mark_uncommitted_blob(committed, self.project, lock=lock, verified_at=0, cache_root=self.cache)
-            commit_build_set(self.project, {committed}, lock=lock, cache_root=self.cache)
-            mark_uncommitted_blob(stale, self.project, lock=lock, verified_at=0, cache_root=self.cache)
-            mark_uncommitted_blob(replacement, self.project, lock=lock, verified_at=0, cache_root=self.cache)
-            commit_build_set(self.project, {replacement}, lock=lock, cache_root=self.cache)
+        with acquire_constructor_project_build_lock(
+            self.project, cache_root=self.cache
+        ) as lock:
+            mark_uncommitted_blob(
+                committed, self.project, lock=lock, verified_at=0, cache_root=self.cache
+            )
+            commit_build_set(
+                self.project, {committed}, lock=lock, cache_root=self.cache
+            )
+            mark_uncommitted_blob(
+                stale, self.project, lock=lock, verified_at=0, cache_root=self.cache
+            )
+            mark_uncommitted_blob(
+                replacement,
+                self.project,
+                lock=lock,
+                verified_at=0,
+                cache_root=self.cache,
+            )
+            commit_build_set(
+                self.project, {replacement}, lock=lock, cache_root=self.cache
+            )
             # At exactly the TTL the uncommitted blob is retained; it is
             # collected only once it is older than the TTL.
             maintain_uncommitted_blobs(
-                self.project, lock=lock, now=UNCOMMITTED_TTL_SECONDS, cache_root=self.cache,
+                self.project,
+                lock=lock,
+                now=UNCOMMITTED_TTL_SECONDS,
+                cache_root=self.cache,
             )
             self.assertTrue(build_blob_path(self.paths.blobs_root, stale).exists())
             maintain_uncommitted_blobs(
-                self.project, lock=lock, now=UNCOMMITTED_TTL_SECONDS + 1, cache_root=self.cache,
+                self.project,
+                lock=lock,
+                now=UNCOMMITTED_TTL_SECONDS + 1,
+                cache_root=self.cache,
             )
             self.assertFalse(build_blob_path(self.paths.blobs_root, stale).exists())
 
@@ -672,11 +851,17 @@ class ExternalTransactionIsolationTest(unittest.TestCase):
         }
 
         identity = self.blob(b"external-transaction", checkout=self.project)
-        with acquire_constructor_project_build_lock(self.project, cache_root=self.cache) as lock:
-            mark_uncommitted_blob(identity, self.project, lock=lock, verified_at=0, cache_root=self.cache)
+        with acquire_constructor_project_build_lock(
+            self.project, cache_root=self.cache
+        ) as lock:
+            mark_uncommitted_blob(
+                identity, self.project, lock=lock, verified_at=0, cache_root=self.cache
+            )
             commit_build_set(self.project, {identity}, lock=lock, cache_root=self.cache)
             recover_abandoned_snapshots(self.project, lock=lock, cache_root=self.cache)
-            maintain_uncommitted_blobs(self.project, lock=lock, now=0, cache_root=self.cache)
+            maintain_uncommitted_blobs(
+                self.project, lock=lock, now=0, cache_root=self.cache
+            )
 
         for path, payload in before.items():
             self.assertTrue(path.exists(), path)

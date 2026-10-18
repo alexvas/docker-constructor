@@ -7,6 +7,7 @@ statements by their AST shape, expressions by their AST shape, and keyword
 lists by their AST shape.  Whitespace, line wrapping and added or removed
 redundant parentheses therefore do not move a mutation target.
 """
+
 from __future__ import annotations
 
 import ast
@@ -105,14 +106,16 @@ def _statement_matches(tree: ast.AST, patterns: list[ast.stmt]) -> list[_Span]:
     )
     matches: list[_Span] = []
     for index in range(len(statements) - len(wanted) + 1):
-        window = statements[index:index + len(wanted)]
-        if [
-            ast.dump(node, include_attributes=False) for node in window
-        ] != wanted:
+        window = statements[index : index + len(wanted)]
+        if [ast.dump(node, include_attributes=False) for node in window] != wanted:
             continue
         matches.append(
-            (window[0].lineno, window[0].col_offset,
-             window[-1].end_lineno, window[-1].end_col_offset)
+            (
+                window[0].lineno,
+                window[0].col_offset,
+                window[-1].end_lineno,
+                window[-1].end_col_offset,
+            )
         )
     return matches
 
@@ -135,14 +138,18 @@ def _argument_matches(tree: ast.AST, patterns: list[ast.expr]) -> list[_Span]:
             continue
         arguments = node.args
         for index in range(len(arguments) - len(wanted) + 1):
-            window = arguments[index:index + len(wanted)]
+            window = arguments[index : index + len(wanted)]
             if [
                 ast.dump(argument, include_attributes=False) for argument in window
             ] != wanted:
                 continue
             matches.append(
-                (window[0].lineno, window[0].col_offset,
-                 window[-1].end_lineno, window[-1].end_col_offset)
+                (
+                    window[0].lineno,
+                    window[0].col_offset,
+                    window[-1].end_lineno,
+                    window[-1].end_col_offset,
+                )
             )
     return matches
 
@@ -155,14 +162,18 @@ def _keyword_matches(tree: ast.AST, patterns: list[ast.keyword]) -> list[_Span]:
             continue
         keywords = node.keywords
         for index in range(len(keywords) - len(wanted) + 1):
-            window = keywords[index:index + len(wanted)]
+            window = keywords[index : index + len(wanted)]
             if [
                 ast.dump(keyword, include_attributes=False) for keyword in window
             ] != wanted:
                 continue
             matches.append(
-                (window[0].lineno, window[0].col_offset,
-                 window[-1].end_lineno, window[-1].end_col_offset)
+                (
+                    window[0].lineno,
+                    window[0].col_offset,
+                    window[-1].end_lineno,
+                    window[-1].end_col_offset,
+                )
             )
     return matches
 
@@ -218,8 +229,12 @@ def _header_matches(tree: ast.AST, pattern: ast.If | ast.While) -> list[_Span]:
         if ast.dump(node.test, include_attributes=False) != wanted:
             continue
         matches.append(
-            (node.test.lineno, node.test.col_offset,
-             node.test.end_lineno, node.test.end_col_offset)
+            (
+                node.test.lineno,
+                node.test.col_offset,
+                node.test.end_lineno,
+                node.test.end_col_offset,
+            )
         )
     return matches
 
@@ -259,7 +274,9 @@ def _replacement(new: str) -> str:
     return first.lstrip(" \t") + separator + rest
 
 
-def insert_before(source: str, header: str, statement: str, *, unique: bool = True) -> str:
+def insert_before(
+    source: str, header: str, statement: str, *, unique: bool = True
+) -> str:
     """Insert *statement* immediately before the named conditional header."""
     pattern = _header_pattern(header)
     if pattern is None:

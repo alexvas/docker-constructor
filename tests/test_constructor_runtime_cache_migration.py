@@ -1,4 +1,5 @@
 """Phase 5.3: checkout-local runtime-artifact cache migration isolation."""
+
 from __future__ import annotations
 
 import base64
@@ -13,7 +14,12 @@ import tempfile
 import unittest
 from unittest import mock
 
-from docker.launcher import ProcessResult, WorkspaceSelection, RunRequest, orchestrate_run
+from docker.launcher import (
+    ProcessResult,
+    WorkspaceSelection,
+    RunRequest,
+    orchestrate_run,
+)
 
 
 def _snapshot(root: Path) -> dict[str, tuple[bytes | None, int, int]]:
@@ -56,6 +62,7 @@ def _reject_legacy_access(root: Path):
         def guarded(path, *args, **kwargs):
             check(operation, path, kwargs.get("dir_fd"))
             return original(path, *args, **kwargs)
+
         return guarded
 
     def two(operation: str, original):
@@ -63,16 +70,36 @@ def _reject_legacy_access(root: Path):
             check(operation, source, kwargs.get("src_dir_fd"))
             check(operation, destination, kwargs.get("dst_dir_fd"))
             return original(source, destination, *args, **kwargs)
+
         return guarded
 
     with ExitStack() as patches:
-        for name in ("open", "access", "stat", "lstat", "scandir", "listdir", "readlink", "chmod", "unlink", "remove", "mkdir", "rmdir"):
-            patches.enter_context(mock.patch.object(os, name, one(name, getattr(os, name))))
+        for name in (
+            "open",
+            "access",
+            "stat",
+            "lstat",
+            "scandir",
+            "listdir",
+            "readlink",
+            "chmod",
+            "unlink",
+            "remove",
+            "mkdir",
+            "rmdir",
+        ):
+            patches.enter_context(
+                mock.patch.object(os, name, one(name, getattr(os, name)))
+            )
         for name in ("rename", "replace"):
-            patches.enter_context(mock.patch.object(os, name, two(name, getattr(os, name))))
+            patches.enter_context(
+                mock.patch.object(os, name, two(name, getattr(os, name)))
+            )
         patches.enter_context(mock.patch("builtins.open", one("open", builtins.open)))
         for name in ("copy", "copy2", "copyfile"):
-            patches.enter_context(mock.patch.object(shutil, name, two(name, getattr(shutil, name))))
+            patches.enter_context(
+                mock.patch.object(shutil, name, two(name, getattr(shutil, name)))
+            )
         yield accesses
 
 
@@ -87,12 +114,22 @@ class _Inspector:
 
 
 class TestLegacyRuntimeArtifactCacheMigration(unittest.TestCase):
-    def test_phase_5_3_launcher_never_accesses_legacy_runtime_artifact_tree(self) -> None:
+    def test_phase_5_3_launcher_never_accesses_legacy_runtime_artifact_tree(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
-            base, checkout, xdg = Path(directory), Path(directory) / "checkout", Path(directory) / "xdg"
+            base, checkout, xdg = (
+                Path(directory),
+                Path(directory) / "checkout",
+                Path(directory) / "xdg",
+            )
             checkout.mkdir()
             legacy = checkout / ".docker-generated" / "runtime-artifacts"
-            sentinel_contents = {"blobs": b"legacy-blob", "locks": b"legacy-lock", "tmp": b"legacy-tmp"}
+            sentinel_contents = {
+                "blobs": b"legacy-blob",
+                "locks": b"legacy-lock",
+                "tmp": b"legacy-tmp",
+            }
             for child, content in sentinel_contents.items():
                 path = legacy / child / "sentinel"
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -102,16 +139,23 @@ class TestLegacyRuntimeArtifactCacheMigration(unittest.TestCase):
             before = _snapshot(legacy)
 
             inventory = checkout / "docker-constructor.toml"
-            content = (Path(__file__).parents[1] / "docker-constructor.toml").read_text()
+            content = (
+                Path(__file__).parents[1] / "docker-constructor.toml"
+            ).read_text()
+
             def sri(match: re.Match[str]) -> str:
                 url = match.group(1)
-                digest = base64.b64encode(hashlib.sha512(("new:" + url).encode()).digest()).decode()
+                digest = base64.b64encode(
+                    hashlib.sha512(("new:" + url).encode()).digest()
+                ).decode()
                 return f'url = "{url}"\nintegrity = "sha512-{digest}"'
+
             content = re.sub(r'url = "([^"]+)"\nintegrity = "[^"]+"', sri, content)
             content = re.sub(r'integrity = "[^"]+"\nurl = "([^"]+)"', sri, content)
             inventory.write_text(content)
 
             fetched: list[str] = []
+
             def fetch(url: str) -> bytes:
                 fetched.append(url)
                 return ("new:" + url).encode()
@@ -119,14 +163,25 @@ class TestLegacyRuntimeArtifactCacheMigration(unittest.TestCase):
             previous_cwd = os.getcwd()
             os.chdir(checkout)
             try:
-                with mock.patch.dict(os.environ, {"XDG_CACHE_HOME": str(xdg)}, clear=False), \
-                     _reject_legacy_access(legacy) as accesses:
-                    result = orchestrate_run(RunRequest(
-                        inventory_path=str(inventory), image="test-image",
-                        selection=WorkspaceSelection(workspace="/work/project"),
-                        pi_home_host="/home/test/.pi", repo_root=str(checkout),
-                        _artifact_fetcher=fetch, executor=_Executor(), inspector=_Inspector(),
-                    project_root=Path(str(inventory)).resolve().parent))
+                with (
+                    mock.patch.dict(
+                        os.environ, {"XDG_CACHE_HOME": str(xdg)}, clear=False
+                    ),
+                    _reject_legacy_access(legacy) as accesses,
+                ):
+                    result = orchestrate_run(
+                        RunRequest(
+                            inventory_path=str(inventory),
+                            image="test-image",
+                            selection=WorkspaceSelection(workspace="/work/project"),
+                            pi_home_host="/home/test/.pi",
+                            repo_root=str(checkout),
+                            _artifact_fetcher=fetch,
+                            executor=_Executor(),
+                            inspector=_Inspector(),
+                            project_root=Path(str(inventory)).resolve().parent,
+                        )
+                    )
             finally:
                 os.chdir(previous_cwd)
 
@@ -137,7 +192,12 @@ class TestLegacyRuntimeArtifactCacheMigration(unittest.TestCase):
             published = list(new_blobs.rglob("*.tgz"))
             self.assertTrue(fetched)
             self.assertTrue(published)
-            self.assertTrue(all(path.read_bytes() not in sentinel_contents.values() for path in published))
+            self.assertTrue(
+                all(
+                    path.read_bytes() not in sentinel_contents.values()
+                    for path in published
+                )
+            )
             self.assertFalse(any((xdg / "docker-constructor").rglob("sentinel")))
 
 

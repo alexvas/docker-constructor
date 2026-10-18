@@ -87,7 +87,7 @@ _GOLDEN_BYTES = (
     '{"digest":"","gid":4242,"kind":"directory","mode":493,"path":"m","target":"","uid":4242},'
     '{"digest":"","gid":4242,"kind":"symlink","mode":511,"path":"m/link","target":"../a/inner.txt","uid":4242},'
     '{"digest":"594e519ae499312b29433b7dd8a97ff068defcba9755b6d5d00e84c524d67b06","gid":4242,"kind":"file","mode":420,"path":"z.txt","target":"","uid":4242}'
-    ']}'
+    "]}"
 )
 
 
@@ -204,13 +204,10 @@ def _fail_listdir_on(ops: _LedgerOps, target: Path, error: OSError) -> None:
     ops.hooks["listdir"] = _raise_when(lambda fd: _fd_path(fd) == norm, error)
 
 
-def _fail_stat_on(
-    ops: _LedgerOps, parent: Path, name: str, error: OSError
-) -> None:
+def _fail_stat_on(ops: _LedgerOps, parent: Path, name: str, error: OSError) -> None:
     parent_norm = os.path.normpath(str(parent))
     ops.hooks["statat"] = _raise_when(
-        lambda dir_fd, entry, *_: _fd_path(dir_fd) == parent_norm
-        and entry == name,
+        lambda dir_fd, entry, *_: _fd_path(dir_fd) == parent_norm and entry == name,
         error,
     )
 
@@ -564,7 +561,9 @@ class TestTreeTraversalPrecedence(unittest.TestCase):
             tree_module.build_tree_manifest(self.root, ops=ops)
 
         self.assertEqual(ctx.exception.reason, "tree_type_mismatch")
-        self.assertIn("cannot open directory entry 'sub/nested/deeper'", ctx.exception.detail)
+        self.assertIn(
+            "cannot open directory entry 'sub/nested/deeper'", ctx.exception.detail
+        )
         self.assertTrue(_carries_secondary(ctx.exception, close_error))
         self._assert_released_once(ops)
 
@@ -602,9 +601,7 @@ class TestTreeVerificationLifecycle(unittest.TestCase):
     @staticmethod
     def _corrupt_digest(manifest: TreeManifest, path: str) -> TreeManifest:
         entries = tuple(
-            dataclasses.replace(entry, digest="0" * 64)
-            if entry.path == path
-            else entry
+            dataclasses.replace(entry, digest="0" * 64) if entry.path == path else entry
             for entry in manifest.entries
         )
         return dataclasses.replace(
@@ -627,9 +624,7 @@ class TestTreeVerificationLifecycle(unittest.TestCase):
 
         self.assertEqual(ctx.exception.reason, "tree_hash_mismatch")
         self.assertTrue(_carries_secondary(ctx.exception, close_error))
-        self.assertEqual(
-            ops.close_paths.count(os.path.realpath(self.nested)), 1
-        )
+        self.assertEqual(ops.close_paths.count(os.path.realpath(self.nested)), 1)
         self._assert_released_once(ops)
 
     def test_nested_extra_entry_keeps_containing_close_secondary(self) -> None:
@@ -645,9 +640,7 @@ class TestTreeVerificationLifecycle(unittest.TestCase):
 
         self.assertEqual(ctx.exception.reason, "tree_extra_entry")
         self.assertTrue(_carries_secondary(ctx.exception, close_error))
-        self.assertEqual(
-            ops.close_paths.count(os.path.realpath(self.nested)), 1
-        )
+        self.assertEqual(ops.close_paths.count(os.path.realpath(self.nested)), 1)
         self._assert_released_once(ops)
 
 
@@ -661,9 +654,7 @@ class TestTreeRootLifecycle(unittest.TestCase):
         self.root.mkdir()
 
     def _empty_manifest(self) -> TreeManifest:
-        return TreeManifest(
-            entries=(), digest=tree_module.canonical_tree_digest(())
-        )
+        return TreeManifest(entries=(), digest=tree_module.canonical_tree_digest(()))
 
     def test_root_validation_failure_keeps_primary_with_secondary_close(self):
         stat_error = OSError(errno.EIO, "injected root stat failure")
@@ -685,8 +676,9 @@ class TestTreeRootLifecycle(unittest.TestCase):
         # Before the migration the raw root helper closed in a bare
         # ``finally``, so the close error replaced the validation error.  The
         # capability keeps validation primary and the close secondary.
-        with mock.patch("os.fstat", side_effect=fake_fstat), mock.patch(
-            "os.close", side_effect=fake_close
+        with (
+            mock.patch("os.fstat", side_effect=fake_fstat),
+            mock.patch("os.close", side_effect=fake_close),
         ):
             with self.assertRaises(LockedNpmError) as ctx:
                 tree_module.build_tree_manifest(self.root)
@@ -822,9 +814,7 @@ class TestTreeRootLifecycle(unittest.TestCase):
         self.assertTrue(_carries_secondary(ctx.exception, close_error))
         self.assertEqual(ops.double_closes, [])
         self.assertEqual(ops.live, set())
-        self.assertEqual(
-            ops.close_paths.count(os.path.realpath(self.root)), 1
-        )
+        self.assertEqual(ops.close_paths.count(os.path.realpath(self.root)), 1)
 
     def test_escaping_symlink_failure_keeps_primary_with_secondary_root_close(
         self,
@@ -845,9 +835,7 @@ class TestTreeRootLifecycle(unittest.TestCase):
         self.assertTrue(_carries_secondary(ctx.exception, close_error))
         self.assertEqual(ops.double_closes, [])
         self.assertEqual(ops.live, set())
-        self.assertEqual(
-            ops.close_paths.count(os.path.realpath(self.root)), 1
-        )
+        self.assertEqual(ops.close_paths.count(os.path.realpath(self.root)), 1)
 
     def test_regular_file_root_operational_open_failure_keeps_unsafe_wording(
         self,
@@ -922,9 +910,7 @@ class TestTreeRootPathComponents(unittest.TestCase):
                 with self.subTest(supplied=supplied):
                     with self.assertRaises(LockedNpmError) as ctx:
                         tree_module.build_tree_manifest(supplied)
-                    self.assertEqual(
-                        ctx.exception.reason, "unsafe_cache_path"
-                    )
+                    self.assertEqual(ctx.exception.reason, "unsafe_cache_path")
         for supplied in self._bad_absolute():
             with self.subTest(supplied=supplied):
                 with self.assertRaises(LockedNpmError) as ctx:
@@ -938,9 +924,7 @@ class TestTreeRootPathComponents(unittest.TestCase):
                 with self.subTest(supplied=supplied):
                     with self.assertRaises(LockedNpmError) as ctx:
                         tree_module.verify_tree(supplied, manifest)
-                    self.assertEqual(
-                        ctx.exception.reason, "unsafe_cache_path"
-                    )
+                    self.assertEqual(ctx.exception.reason, "unsafe_cache_path")
         for supplied in self._bad_absolute():
             with self.subTest(supplied=supplied):
                 with self.assertRaises(LockedNpmError) as ctx:
@@ -998,9 +982,7 @@ class TestTreePreMigrationCharacterization(_TreeTestCase):
         with self.assertRaises(LockedNpmError) as ctx:
             tree_module.build_tree_manifest(link)
         self.assertEqual(ctx.exception.reason, "unsafe_cache_path")
-        self.assertTrue(
-            ctx.exception.detail.startswith(f"unsafe tree root {link}:")
-        )
+        self.assertTrue(ctx.exception.detail.startswith(f"unsafe tree root {link}:"))
 
     def test_special_entry_mapping_is_pinned(self):
         os.mkfifo(self.root / "pipe")
@@ -1102,9 +1084,10 @@ class TestTreeFileEntryLifecycle(unittest.TestCase):
         close_error = OSError(errno.EIO, "injected file close failure")
         fake_close, attempts = self._fail_file_close(close_error)
 
-        with mock.patch(
-            "os.fstat", side_effect=self._fail_file_fstat(stat_error)
-        ), mock.patch("os.close", side_effect=fake_close):
+        with (
+            mock.patch("os.fstat", side_effect=self._fail_file_fstat(stat_error)),
+            mock.patch("os.close", side_effect=fake_close),
+        ):
             with self.assertRaises(OSError) as ctx:
                 tree_module._hash_file_entry(self.cap, "f", "f")
 
@@ -1130,8 +1113,9 @@ class TestTreeFileEntryLifecycle(unittest.TestCase):
 
         fake_close, attempts = self._fail_file_close(close_error)
 
-        with mock.patch("os.fstat", side_effect=fake_fstat), mock.patch(
-            "os.close", side_effect=fake_close
+        with (
+            mock.patch("os.fstat", side_effect=fake_fstat),
+            mock.patch("os.close", side_effect=fake_close),
         ):
             with self.assertRaises(LockedNpmError) as ctx:
                 tree_module._hash_file_entry(self.cap, "f", "f")
@@ -1149,9 +1133,10 @@ class TestTreeFileEntryLifecycle(unittest.TestCase):
         close_error = OSError(errno.EIO, "injected file close failure")
         fake_close, attempts = self._fail_file_close(close_error)
 
-        with mock.patch(
-            "os.read", side_effect=self._fail_file_read(read_error)
-        ), mock.patch("os.close", side_effect=fake_close):
+        with (
+            mock.patch("os.read", side_effect=self._fail_file_read(read_error)),
+            mock.patch("os.close", side_effect=fake_close),
+        ):
             with self.assertRaises(OSError) as ctx:
                 tree_module._hash_file_entry(self.cap, "f", "f")
 
@@ -1170,9 +1155,10 @@ class TestTreeFileEntryLifecycle(unittest.TestCase):
 
         fake_close, attempts = self._fail_file_close(close_error)
 
-        with mock.patch(
-            "hashlib.sha256", return_value=_FailingHasher()
-        ), mock.patch("os.close", side_effect=fake_close):
+        with (
+            mock.patch("hashlib.sha256", return_value=_FailingHasher()),
+            mock.patch("os.close", side_effect=fake_close),
+        ):
             with self.assertRaises(RuntimeError) as ctx:
                 tree_module._hash_file_entry(self.cap, "f", "f")
 
@@ -1215,9 +1201,10 @@ class TestTreeFileEntryLifecycle(unittest.TestCase):
 
         fake_close, attempts = self._fail_file_close(close_error)
 
-        with mock.patch.object(
-            tree_module, "OwnedDescriptor", _Capturing
-        ), mock.patch("os.close", side_effect=fake_close):
+        with (
+            mock.patch.object(tree_module, "OwnedDescriptor", _Capturing),
+            mock.patch("os.close", side_effect=fake_close),
+        ):
             with self.assertRaises(OSError) as ctx:
                 tree_module._hash_file_entry(self.cap, "f", "f")
             self.assertIs(ctx.exception, close_error)

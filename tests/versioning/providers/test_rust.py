@@ -1,4 +1,5 @@
 """Rust stable channel provider tests."""
+
 from __future__ import annotations
 
 import unittest
@@ -22,8 +23,10 @@ class TestRustProvider(unittest.TestCase):
 
     def _ctx(self):
         return ProviderContext(
-            http=self.http, git=self.git,
-            include_prerelease=False, tokens={},
+            http=self.http,
+            git=self.git,
+            include_prerelease=False,
+            tokens={},
         )
 
     def _target(self, version="1.88.0"):
@@ -90,7 +93,7 @@ version = "{version}"
             "GET",
             "https://static.rust-lang.org/dist/channel-rust-stable.toml",
             status=200,
-            body=b"[pkg]\nnot_version = \"1.0.0\"\n",
+            body=b'[pkg]\nnot_version = "1.0.0"\n',
         )
         result = self.provider.discover(self._target("1.88.0"), self._ctx())
         self.assertIsNotNone(result.unavailable_reason)

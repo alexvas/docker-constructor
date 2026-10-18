@@ -11,7 +11,10 @@ import unittest
 from unittest.mock import patch
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "scripts/collect-docker-cancellation-evidence.py"
+SCRIPT = (
+    Path(__file__).resolve().parents[1]
+    / "scripts/collect-docker-cancellation-evidence.py"
+)
 spec = importlib.util.spec_from_file_location("cancellation_evidence_script", SCRIPT)
 assert spec is not None and spec.loader is not None
 script = importlib.util.module_from_spec(spec)
@@ -33,17 +36,25 @@ class DockerCancellationEvidenceScriptTests(unittest.TestCase):
             script.next_delay(0.01, 10, 1.2)
 
     def test_discovery_requires_all_three_exact_filters(self):
-        self.assertEqual(script.filters(123, "unique-operation"), [
-            "--filter", "label=io.docker-constructor.managed=true",
-            "--filter", "label=io.docker-constructor.controller-pid=123",
-            "--filter", "label=io.docker-constructor.operation-id=unique-operation",
-        ])
+        self.assertEqual(
+            script.filters(123, "unique-operation"),
+            [
+                "--filter",
+                "label=io.docker-constructor.managed=true",
+                "--filter",
+                "label=io.docker-constructor.controller-pid=123",
+                "--filter",
+                "label=io.docker-constructor.operation-id=unique-operation",
+            ],
+        )
 
     def test_missing_docker_records_failure_not_a_simulated_pass(self):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "evidence"
             missing = str(Path(temporary) / "missing-docker")
-            with patch("sys.argv", [str(SCRIPT), "--output", str(output), "--docker", missing]):
+            with patch(
+                "sys.argv", [str(SCRIPT), "--output", str(output), "--docker", missing]
+            ):
                 self.assertEqual(script.main(), 1)
             summary = json.loads((output / "summary.json").read_text())
             self.assertEqual(summary["exit_status"], 1)
@@ -87,7 +98,9 @@ class OwnedEvidenceIOTests(unittest.TestCase):
     def exercise(self, faults, operation=None, repeat=False):
         ops = FaultOps(faults)
         with tempfile.TemporaryDirectory() as temporary:
-            paths = [(Path(temporary) / str(i), os.O_WRONLY | os.O_CREAT) for i in range(2)]
+            paths = [
+                (Path(temporary) / str(i), os.O_WRONLY | os.O_CREAT) for i in range(2)
+            ]
 
             def action(owners):
                 if repeat:
@@ -163,10 +176,14 @@ class OwnedEvidenceIOTests(unittest.TestCase):
 
             with patch.object(ops, "openat", side_effect=acquire):
                 with self.assertRaises(OSError) as caught:
-                    script._with_owned([
-                        (Path(temporary) / "first", os.O_WRONLY | os.O_CREAT),
-                        (Path(temporary) / "second", os.O_WRONLY | os.O_CREAT),
-                    ], lambda owners: None, ops=ops)
+                    script._with_owned(
+                        [
+                            (Path(temporary) / "first", os.O_WRONLY | os.O_CREAT),
+                            (Path(temporary) / "second", os.O_WRONLY | os.O_CREAT),
+                        ],
+                        lambda owners: None,
+                        ops=ops,
+                    )
             self.assertIs(caught.exception, primary)
             self.assertEqual(ops.closed, ops.acquired)
 
@@ -210,8 +227,10 @@ class EvidenceCleanupIntegrationTests(unittest.TestCase):
             primary = KeyboardInterrupt("command")
             publication = OSError("record close")
             try:
-                with patch.object(script.subprocess, "run", side_effect=primary), \
-                     patch.object(script, "_write_text", side_effect=publication):
+                with (
+                    patch.object(script.subprocess, "run", side_effect=primary),
+                    patch.object(script, "_write_text", side_effect=publication),
+                ):
                     with self.assertRaises(KeyboardInterrupt) as caught:
                         evidence.run("version")
                 self.assertIs(caught.exception, primary)
@@ -258,34 +277,50 @@ class EvidenceCleanupIntegrationTests(unittest.TestCase):
                     selected.append(error)
                     raise
 
-            with patch("sys.argv", [str(SCRIPT), "--output", str(output)]), \
-                 patch.object(script.Evidence, "probe", side_effect=primary), \
-                 patch.object(script.Evidence, "cleanup", side_effect=later), \
-                 patch.object(script, "_write_text", side_effect=publication), \
-                 patch.object(script, "_finish", side_effect=observe):
+            with (
+                patch("sys.argv", [str(SCRIPT), "--output", str(output)]),
+                patch.object(script.Evidence, "probe", side_effect=primary),
+                patch.object(script.Evidence, "cleanup", side_effect=later),
+                patch.object(script, "_write_text", side_effect=publication),
+                patch.object(script, "_finish", side_effect=observe),
+            ):
                 self.assertEqual(script.main(), 130)
             self.assertEqual(selected, [primary, primary])
             self.assertIn(later, primary._transaction_secondary)
             self.assertIn(publication, primary._transaction_secondary)
 
     def test_creation_race_red_contract_precedes_group_three_implementation(self):
-        tasks = (SCRIPT.parents[1] / "openspec/changes/add-cooperative-docker-process-wrapper/tasks.md").read_text()
+        tasks = (
+            SCRIPT.parents[1]
+            / "openspec/changes/add-cooperative-docker-process-wrapper/tasks.md"
+        ).read_text()
         group = tasks.split("## 3.", 1)[1].split("## 4.", 1)[0]
         self.assertLess(group.index("3.10 Add policy-level"), group.index("### GREEN"))
-        implementation = next(line for line in group.splitlines() if line.startswith("- [ ] 3.9"))
+        implementation = next(
+            line for line in group.splitlines() if line.startswith("- [ ] 3.9")
+        )
         self.assertIn("3.10", implementation)
         self.assertNotIn("4.8", implementation)
         self.assertIn("creation races in 3.10 before group 4", group)
 
     def test_script_has_no_unowned_file_methods(self):
         import ast
+
         tree = ast.parse(SCRIPT.read_text())
-        self.assertFalse([
-            node for node in ast.walk(tree) if isinstance(node, ast.Call)
-            and ((isinstance(node.func, ast.Attribute)
-                  and node.func.attr in {"open", "read_text", "write_text"})
-                 or (isinstance(node.func, ast.Name) and node.func.id == "open"))
-        ])
+        self.assertFalse(
+            [
+                node
+                for node in ast.walk(tree)
+                if isinstance(node, ast.Call)
+                and (
+                    (
+                        isinstance(node.func, ast.Attribute)
+                        and node.func.attr in {"open", "read_text", "write_text"}
+                    )
+                    or (isinstance(node.func, ast.Name) and node.func.id == "open")
+                )
+            ]
+        )
 
 
 if __name__ == "__main__":

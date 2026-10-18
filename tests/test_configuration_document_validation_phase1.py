@@ -1,4 +1,5 @@
 """Phase 1 contract tests for shared project TOML document validation."""
+
 from __future__ import annotations
 
 import ast
@@ -126,17 +127,22 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
     def test_invalid_role_is_rejected_before_any_parsing(self) -> None:
         path = self._write("docker-constructor.toml", "schema = 1\n")
         for raw in ("other", "local-file", "reviewed-config"):
-            with self.subTest(raw=raw), patch(
-                "docker.versioning.configuration_document_validation.tomllib.loads",
-                wraps=tomllib.loads,
-            ) as loads:
+            with (
+                self.subTest(raw=raw),
+                patch(
+                    "docker.versioning.configuration_document_validation.tomllib.loads",
+                    wraps=tomllib.loads,
+                ) as loads,
+            ):
                 with self.assertRaises(ValueError):
                     DocumentIdentity(raw, path)
                 with self.assertRaises(ValueError):
                     parse_configuration_document(DocumentIdentity(raw, path))
                 self.assertEqual(0, loads.call_count)
 
-    def test_parse_is_called_once_and_malformed_document_returns_no_result(self) -> None:
+    def test_parse_is_called_once_and_malformed_document_returns_no_result(
+        self,
+    ) -> None:
         path = self._write("docker-constructor.toml", "not valid = [\n")
         identity = DocumentIdentity(DocumentRole.REVIEWED, path)
         with patch(
@@ -171,7 +177,9 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
         self.assertNotIn(secret, str(error))
         self.assertNotIn("Invalid value", str(error))
 
-    def test_invalid_encoding_has_no_fabricated_coordinates_or_exception_chain(self) -> None:
+    def test_invalid_encoding_has_no_fabricated_coordinates_or_exception_chain(
+        self,
+    ) -> None:
         path = self._write("docker-constructor.toml", "placeholder")
         path.write_bytes(b"\xff")
         with self.assertRaises(ConfigurationDocumentError) as raised:
@@ -182,7 +190,9 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
         self.assertIsNone(error.__cause__)
         self.assertIsNone(error.__context__)
 
-    def test_schema_error_has_only_document_identity_classification_and_field(self) -> None:
+    def test_schema_error_has_only_document_identity_classification_and_field(
+        self,
+    ) -> None:
         path = self._write("docker-constructor.local.toml", "[cache]\ndir = 42\n")
         error = project_schema_error(
             DocumentIdentity(DocumentRole.LOCAL, path), "cache.dir"
@@ -228,7 +238,9 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
         if published is not None:  # pragma: no cover - guard against a removed check
             self.assertNotIn(_CLASSIFICATION_SECRET, str(published))
 
-    def test_actual_reviewed_and_local_loaders_route_once_with_closed_identity(self) -> None:
+    def test_actual_reviewed_and_local_loaders_route_once_with_closed_identity(
+        self,
+    ) -> None:
         reviewed = self._write("docker-constructor.toml", "schema = 99\n")
         local = reviewed.with_name("docker-constructor.local.toml")
         local.write_text("[cache]\n")
@@ -238,26 +250,35 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
             identities.append(identity)
             return parse_configuration_document(identity)
 
-        with patch.object(
-            inventory, "parse_configuration_document", side_effect=record
-        ), patch.object(
-            local_project_configuration,
-            "parse_configuration_document",
-            side_effect=record,
+        with (
+            patch.object(inventory, "parse_configuration_document", side_effect=record),
+            patch.object(
+                local_project_configuration,
+                "parse_configuration_document",
+                side_effect=record,
+            ),
         ):
             with self.assertRaises(ConfigurationDocumentError):
                 inventory.load_inventory(reviewed)
             local_project_configuration.load_local_project_configuration(local)
         self.assertEqual(
-            [(DocumentRole.REVIEWED, reviewed.resolve()), (DocumentRole.LOCAL, local.resolve())],
+            [
+                (DocumentRole.REVIEWED, reviewed.resolve()),
+                (DocumentRole.LOCAL, local.resolve()),
+            ],
             [(item.role, item.path) for item in identities],
         )
 
-    def test_every_inventory_error_site_declares_structured_field_metadata(self) -> None:
-        source = (Path(__file__).resolve().parents[1] / "docker/versioning/inventory.py").read_text()
+    def test_every_inventory_error_site_declares_structured_field_metadata(
+        self,
+    ) -> None:
+        source = (
+            Path(__file__).resolve().parents[1] / "docker/versioning/inventory.py"
+        ).read_text()
         tree = ast.parse(source)
         missing = [
-            node.lineno for node in ast.walk(tree)
+            node.lineno
+            for node in ast.walk(tree)
             if isinstance(node, ast.Call)
             and isinstance(node.func, ast.Name)
             and node.func.id == "InventoryError"
@@ -266,7 +287,9 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
         self.assertEqual([], missing)
 
     def test_representative_owner_failures_publish_paths_not_values(self) -> None:
-        valid = (Path(__file__).resolve().parents[1] / "docker-constructor.toml").read_text()
+        valid = (
+            Path(__file__).resolve().parents[1] / "docker-constructor.toml"
+        ).read_text()
         reviewed_cases = (
             (valid.replace("schema = 1", "schema = 77", 1), "schema", "77"),
             (valid + "\n[stages.legacy]\nvalue = 1\n", "stages", "legacy"),
@@ -286,14 +309,18 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
         local.write_text("[cache]\ndir = 42\n")
         cases = (
             (
-                inventory.load_inventory, reviewed, DocumentRole.REVIEWED,
+                inventory.load_inventory,
+                reviewed,
+                DocumentRole.REVIEWED,
                 "schema",
                 f"reviewed configuration {reviewed.resolve()}: "
                 "schema_error (schema_error) (field schema)",
                 "unsupported version",
             ),
             (
-                local_project_configuration.load_local_project_configuration, local, DocumentRole.LOCAL,
+                local_project_configuration.load_local_project_configuration,
+                local,
+                DocumentRole.LOCAL,
                 "local.cache.dir",
                 f"local companion configuration {local.resolve()}: "
                 "schema_error (schema_error) (field local.cache.dir)",
@@ -301,7 +328,10 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
             ),
         )
         for loader, path, role, field, rendered, owner_message in cases:
-            with self.subTest(role=role), self.assertRaises(ConfigurationDocumentError) as raised:
+            with (
+                self.subTest(role=role),
+                self.assertRaises(ConfigurationDocumentError) as raised,
+            ):
                 loader(path)
             error = raised.exception
             self.assertEqual(role, error.role)
@@ -342,7 +372,9 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
         self.assertNotIn("Invalid constraint", rendered)
         self.assertNotIn("Constraint must be a non-empty string", rendered)
 
-    def test_contradictory_override_constraint_is_projected_to_typed_field(self) -> None:
+    def test_contradictory_override_constraint_is_projected_to_typed_field(
+        self,
+    ) -> None:
         source = (
             Path(__file__).resolve().parents[1] / "docker-constructor.toml"
         ).read_text()
@@ -370,9 +402,7 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
             Path(__file__).resolve().parents[1] / "docker-constructor.toml"
         ).read_text()
         rejected = "3.14.0"
-        poisoned = source.replace(
-            'version = "3.14.7"', f'version = "{rejected}"', 1
-        )
+        poisoned = source.replace('version = "3.14.7"', f'version = "{rejected}"', 1)
         self.assertNotEqual(source, poisoned)
         path = self._write("docker-constructor.toml", poisoned)
         with self.assertRaises(ConfigurationDocumentError) as raised:
@@ -392,14 +422,14 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
             'secret_value = "' + _MALFORMED_SECRET + '"\nbroken = [\n',
         )
         with self.assertRaises(ConfigurationDocumentError) as raised:
-            parse_configuration_document(
-                DocumentIdentity(DocumentRole.REVIEWED, path)
-            )
+            parse_configuration_document(DocumentIdentity(DocumentRole.REVIEWED, path))
         error = raised.exception
         self.assertEqual("malformed_toml", error.classification)
         self.assertFalse(_error_reaches_secret(error, _MALFORMED_SECRET))
 
-    def test_schema_error_hides_parsed_data_and_closures_from_its_traceback(self) -> None:
+    def test_schema_error_hides_parsed_data_and_closures_from_its_traceback(
+        self,
+    ) -> None:
         path = self._write(
             "docker-constructor.toml",
             (_REPO_ROOT / "docker-constructor.toml")
@@ -422,7 +452,9 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
         reviewed = self._write("docker-constructor.toml", f"secret = {secret}\n")
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
-            status = constructor_cli.main(["--project-directory", str(reviewed.parent), "validate"])
+            status = constructor_cli.main(
+                ["--project-directory", str(reviewed.parent), "validate"]
+            )
         rendered = out.getvalue() + err.getvalue()
         self.assertNotEqual(0, status)
         self.assertIn("malformed_toml", rendered)
@@ -436,13 +468,19 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
         ).read_text()
         cases = (
             (valid_reviewed, "value = [\n", DocumentRole.LOCAL),
-            (valid_reviewed.replace("schema = 1", "schema = 99", 1), "[cache]\n", DocumentRole.REVIEWED),
+            (
+                valid_reviewed.replace("schema = 1", "schema = 99", 1),
+                "[cache]\n",
+                DocumentRole.REVIEWED,
+            ),
             (valid_reviewed, "[cache]\ndir = 42\n", DocumentRole.LOCAL),
         )
         for reviewed_text, local_text, role in cases:
             with self.subTest(role=role):
                 reviewed = self._write("docker-constructor.toml", reviewed_text)
-                reviewed.with_name("docker-constructor.local.toml").write_text(local_text)
+                reviewed.with_name("docker-constructor.local.toml").write_text(
+                    local_text
+                )
                 with patch(
                     "docker.versioning.inventory.validate_configuration_documents",
                     wraps=validate_configuration_documents,
@@ -452,7 +490,9 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
                 self.assertEqual(role, raised.exception.role)
                 self.assertEqual(1, gate.call_count)
 
-    def test_build_planning_gate_blocks_cache_projection_and_docker_inputs(self) -> None:
+    def test_build_planning_gate_blocks_cache_projection_and_docker_inputs(
+        self,
+    ) -> None:
         from docker.versioning.build_orchestration import BuildRequest, plan_build
 
         valid_reviewed = (
@@ -466,24 +506,34 @@ class TestConfigurationDocumentValidation(unittest.TestCase):
         for reviewed_text, local_text in cases:
             with self.subTest(local=local_text):
                 reviewed = self._write("docker-constructor.toml", reviewed_text)
-                reviewed.with_name("docker-constructor.local.toml").write_text(local_text)
+                reviewed.with_name("docker-constructor.local.toml").write_text(
+                    local_text
+                )
                 effects: list[str] = []
                 request = BuildRequest(
-                    inventory_path=str(reviewed), context=str(reviewed.parent),
+                    inventory_path=str(reviewed),
+                    context=str(reviewed.parent),
                     dockerfile=str(reviewed.parent / "Dockerfile"),
                 )
-                with patch(
-                    "docker.versioning.build_orchestration.resolve_effective_root",
-                    side_effect=lambda *_args, **_kwargs: effects.append("cache"),
-                ), patch(
-                    "docker.versioning.build_orchestration.resolve_build_projection",
-                    side_effect=lambda *_args, **_kwargs: effects.append("projection"),
+                with (
+                    patch(
+                        "docker.versioning.build_orchestration.resolve_effective_root",
+                        side_effect=lambda *_args, **_kwargs: effects.append("cache"),
+                    ),
+                    patch(
+                        "docker.versioning.build_orchestration.resolve_build_projection",
+                        side_effect=lambda *_args, **_kwargs: effects.append(
+                            "projection"
+                        ),
+                    ),
                 ):
                     result = plan_build(request)
                 self.assertEqual("config", result.exit_kind.value)
                 self.assertEqual([], effects)
 
-    def test_release_gate_runs_no_owner_or_effect_when_any_document_is_invalid(self) -> None:
+    def test_release_gate_runs_no_owner_or_effect_when_any_document_is_invalid(
+        self,
+    ) -> None:
         reviewed = self._write("docker-constructor.toml", "schema = 1\n")
         local = reviewed.with_name("docker-constructor.local.toml")
         local.write_text("value = [\n")

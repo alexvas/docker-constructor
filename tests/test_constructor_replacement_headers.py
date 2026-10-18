@@ -16,6 +16,7 @@ They exercise the presentation layer only — fragment construction and
 JSON serialization are covered elsewhere and are intentionally
 untouched by this change.
 """
+
 from __future__ import annotations
 
 import re
@@ -28,15 +29,10 @@ _RESET = "\x1b[0m"
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 SECTION_LABEL = (
-    "─── manual replacement blocks "
-    "(review-only — not applied automatically) ───"
+    "─── manual replacement blocks (review-only — not applied automatically) ───"
 )
 
-FRAGMENT_ONE = (
-    "# --- base.node ---\n"
-    "[build.stages.base.node]\n"
-    'tag = "25-trixie-slim"\n'
-)
+FRAGMENT_ONE = '# --- base.node ---\n[build.stages.base.node]\ntag = "25-trixie-slim"\n'
 
 
 def _report(*fragment_text: str) -> str:
@@ -60,7 +56,8 @@ class TestReplacementHeaderDecoration(unittest.TestCase):
 
     def test_header_wrapped_exactly_when_enabled(self) -> None:
         decorated = constructor_cli._decorate_replacement_headers(
-            FRAGMENT_ONE, enabled=True,
+            FRAGMENT_ONE,
+            enabled=True,
         )
         self.assertEqual(
             decorated,
@@ -72,7 +69,8 @@ class TestReplacementHeaderDecoration(unittest.TestCase):
     def test_disabled_decoration_returns_plain_text(self) -> None:
         self.assertEqual(
             constructor_cli._decorate_replacement_headers(
-                FRAGMENT_ONE, enabled=False,
+                FRAGMENT_ONE,
+                enabled=False,
             ),
             FRAGMENT_ONE,
         )
@@ -84,7 +82,8 @@ class TestReplacementHeaderNeighbours(unittest.TestCase):
     def test_adjacent_label_table_and_body_stay_ansi_free(self) -> None:
         plain = _report(FRAGMENT_ONE)
         decorated = constructor_cli._decorate_replacement_headers(
-            plain, enabled=True,
+            plain,
+            enabled=True,
         )
 
         lines = decorated.split("\n")
@@ -107,11 +106,10 @@ class TestReplacementHeaderNeighbours(unittest.TestCase):
     def test_only_header_line_carries_ansi_in_report(self) -> None:
         plain = _report(FRAGMENT_ONE)
         decorated = constructor_cli._decorate_replacement_headers(
-            plain, enabled=True,
+            plain,
+            enabled=True,
         )
-        ansi_lines = [
-            line for line in decorated.split("\n") if _ANSI.search(line)
-        ]
+        ansi_lines = [line for line in decorated.split("\n") if _ANSI.search(line)]
         self.assertEqual(
             ansi_lines,
             [f"{_SGR_90}# --- base.node ---{_RESET}"],
@@ -127,13 +125,14 @@ class TestReplacementHeaderIntrospection(unittest.TestCase):
         'tag = "25-trixie-slim"\n'
         "\n"
         "# --- pi-extensions.pi-read ---\n"
-        '[runtime.pi-extensions.pi-read]\n'
+        "[runtime.pi-extensions.pi-read]\n"
         'version = "0.3.0"\n'
     )
 
     def test_multiple_fragments_each_decorate_independently(self) -> None:
         decorated = constructor_cli._decorate_replacement_headers(
-            self.MULTI, enabled=True,
+            self.MULTI,
+            enabled=True,
         )
         self.assertEqual(
             decorated,
@@ -142,13 +141,14 @@ class TestReplacementHeaderIntrospection(unittest.TestCase):
             'tag = "25-trixie-slim"\n'
             "\n"
             f"{_SGR_90}# --- pi-extensions.pi-read ---{_RESET}\n"
-            '[runtime.pi-extensions.pi-read]\n'
+            "[runtime.pi-extensions.pi-read]\n"
             'version = "0.3.0"\n',
         )
 
     def test_reset_immediately_follows_each_decorated_header(self) -> None:
         decorated = constructor_cli._decorate_replacement_headers(
-            self.MULTI, enabled=True,
+            self.MULTI,
+            enabled=True,
         )
         for line in decorated.split("\n"):
             if not line.startswith(_SGR_90):
@@ -157,35 +157,40 @@ class TestReplacementHeaderIntrospection(unittest.TestCase):
                 line.endswith(_RESET),
                 f"header missing immediate reset: {line!r}",
             )
-            body = line[len(_SGR_90):-len(_RESET)]
+            body = line[len(_SGR_90) : -len(_RESET)]
             self.assertRegex(body, r"^# --- \S+ ---$")
             # No ANSI is allowed inside the header body.
             self.assertIsNone(_ANSI.search(body))
 
     def test_exact_header_matching_rejects_variants(self) -> None:
-        plain = "\n".join([
-            "# --- base.node ---",          # exact → decorated
-            "  # --- base.node ---",        # leading whitespace → plain
-            "# --- base.node --- ",         # trailing whitespace → plain
-            "# --- base.node --- extra",    # trailing content → plain
-            "# ---  ---",                   # empty display path → plain
-            "# ---base.node---",            # missing spaces → plain
-            'title = "# --- base.node ---"',  # inline TOML value → plain
-        ])
+        plain = "\n".join(
+            [
+                "# --- base.node ---",  # exact → decorated
+                "  # --- base.node ---",  # leading whitespace → plain
+                "# --- base.node --- ",  # trailing whitespace → plain
+                "# --- base.node --- extra",  # trailing content → plain
+                "# ---  ---",  # empty display path → plain
+                "# ---base.node---",  # missing spaces → plain
+                'title = "# --- base.node ---"',  # inline TOML value → plain
+            ]
+        )
         decorated = constructor_cli._decorate_replacement_headers(
-            plain, enabled=True,
+            plain,
+            enabled=True,
         )
         self.assertEqual(
             decorated,
-            "\n".join([
-                f"{_SGR_90}# --- base.node ---{_RESET}",
-                "  # --- base.node ---",
-                "# --- base.node --- ",
-                "# --- base.node --- extra",
-                "# ---  ---",
-                "# ---base.node---",
-                'title = "# --- base.node ---"',
-            ]),
+            "\n".join(
+                [
+                    f"{_SGR_90}# --- base.node ---{_RESET}",
+                    "  # --- base.node ---",
+                    "# --- base.node --- ",
+                    "# --- base.node --- extra",
+                    "# ---  ---",
+                    "# ---base.node---",
+                    'title = "# --- base.node ---"',
+                ]
+            ),
         )
 
     def test_section_label_and_toml_stay_plain_with_multiple_fragments(
@@ -193,15 +198,18 @@ class TestReplacementHeaderIntrospection(unittest.TestCase):
     ) -> None:
         plain = _report(self.MULTI)
         decorated = constructor_cli._decorate_replacement_headers(
-            plain, enabled=True,
+            plain,
+            enabled=True,
         )
         self.assertIn(SECTION_LABEL, decorated)
         for line in decorated.split("\n"):
-            if line in (SECTION_LABEL,
-                        "[build.stages.base.node]",
-                        'tag = "25-trixie-slim"',
-                        '[runtime.pi-extensions.pi-read]',
-                        'version = "0.3.0"'):
+            if line in (
+                SECTION_LABEL,
+                "[build.stages.base.node]",
+                'tag = "25-trixie-slim"',
+                "[runtime.pi-extensions.pi-read]",
+                'version = "0.3.0"',
+            ):
                 self.assertIsNone(_ANSI.search(line))
 
 

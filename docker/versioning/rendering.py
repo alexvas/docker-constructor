@@ -3,6 +3,7 @@
 Converts an ``EffectiveConfiguration`` into Compose build arguments and
 a generated TOML inventory file.  No Docker, no network, no subprocess.
 """
+
 from __future__ import annotations
 
 import errno
@@ -122,10 +123,12 @@ def plan_artifact_mounts(
             continue
         seen.add(blob.integrity)
         artifact_id = _derive_artifact_id(blob.integrity)
-        mounts.append(ArtifactMount(
-            host_path=blob.host_path,
-            container_target=f"{_RUNTIME_ARTIFACT_ROOT}/{artifact_id}",
-        ))
+        mounts.append(
+            ArtifactMount(
+                host_path=blob.host_path,
+                container_target=f"{_RUNTIME_ARTIFACT_ROOT}/{artifact_id}",
+            )
+        )
     mounts.sort(key=lambda m: m.container_target)
     return tuple(mounts)
 
@@ -137,6 +140,7 @@ class CacheControls:
     *enabled* is ``True`` to use the default BuildKit cache; ``False``
     adds ``--no-cache`` to the build command.
     """
+
     enabled: bool = True
 
 
@@ -154,11 +158,16 @@ class DerivedEnvironment:
     consumer_launcher_evidence_digest: str
 
     def __post_init__(self) -> None:
-        if not all(isinstance(value, str) and value for value in (
-            self.assembled_output_identity, self.canonical_tree_digest,
-            self.assembler_evidence_digest, self.assembler_evidence_bytes_digest,
-            self.consumer_launcher_evidence_digest,
-        )):
+        if not all(
+            isinstance(value, str) and value
+            for value in (
+                self.assembled_output_identity,
+                self.canonical_tree_digest,
+                self.assembler_evidence_digest,
+                self.assembler_evidence_bytes_digest,
+                self.consumer_launcher_evidence_digest,
+            )
+        ):
             raise ValueError("derived-environment attestation values must be non-empty")
 
 
@@ -186,9 +195,13 @@ class Materialized:
 
     def __post_init__(self) -> None:
         if not is_platform_native_path(self.path):
-            raise ValueError("materialized named context requires an absolute platform-native path")
+            raise ValueError(
+                "materialized named context requires an absolute platform-native path"
+            )
         if not isinstance(self.attestation, (NoDerivedEnvironment, DerivedEnvironment)):
-            raise ValueError("materialized named context has an invalid closed attestation")
+            raise ValueError(
+                "materialized named context has an invalid closed attestation"
+            )
 
 
 @dataclass(frozen=True)
@@ -317,7 +330,9 @@ class RunHostAccess:
                 "resolved IPv4 or IPv6 address"
             )
         if self.proxy_port is not None:
-            if not isinstance(self.proxy_port, int) or not (1 <= self.proxy_port <= 65535):
+            if not isinstance(self.proxy_port, int) or not (
+                1 <= self.proxy_port <= 65535
+            ):
                 raise ValueError(
                     f"proxy_port must be an integer 1–65535, got {self.proxy_port!r}"
                 )
@@ -432,10 +447,12 @@ class RunRenderInputs:
 # ── platform helpers ────────────────────────────────────────────────
 
 # Mapping from internal platform names to Docker platform strings.
-_PLATFORM_MAP: Mapping[str, str] = MappingProxyType({
-    "linux-amd64": "linux/amd64",
-    "linux-arm64": "linux/arm64",
-})
+_PLATFORM_MAP: Mapping[str, str] = MappingProxyType(
+    {
+        "linux-amd64": "linux/amd64",
+        "linux-arm64": "linux/arm64",
+    }
+)
 
 
 def _docker_platform(internal: str) -> str:
@@ -443,9 +460,7 @@ def _docker_platform(internal: str) -> str:
     try:
         return _PLATFORM_MAP[internal]
     except KeyError:
-        raise EffectiveConfigError(
-            f"unknown platform: {internal!r}"
-        )
+        raise EffectiveConfigError(f"unknown platform: {internal!r}")
 
 
 # ── build-arg emission (ordered, no generic traversal) ──────────────
@@ -539,7 +554,8 @@ def _emit_proxy_build_args(args: list[str], inputs: BuildRenderInputs) -> None:
 
 
 def _emit_corporate_trust_build_args(
-    args: list[str], inputs: BuildRenderInputs,
+    args: list[str],
+    inputs: BuildRenderInputs,
 ) -> None:
     """Append corporate-trust build arguments only when trust is enabled.
 
@@ -580,7 +596,9 @@ def _emit_pi_attestation_args(args: list[str], inputs: BuildRenderInputs) -> Non
     if not isinstance(context.attestation, DerivedEnvironment):
         return
     for arg_name, field in _PI_ATTESTATION_ARGS:
-        args.extend(("--build-arg", f"{arg_name}={getattr(context.attestation, field)}"))
+        args.extend(
+            ("--build-arg", f"{arg_name}={getattr(context.attestation, field)}")
+        )
 
 
 # ── validation ──────────────────────────────────────────────────────
@@ -682,7 +700,8 @@ def _validate_run_inputs(inputs: RunRenderInputs) -> None:
     # Projection host path must be under the verified external runtime child
     # and must not be a forbidden file.
     _validate_projection_host_path(
-        inputs.projection_host_path, inputs.project_state_runtime_root,
+        inputs.projection_host_path,
+        inputs.project_state_runtime_root,
     )
 
     # Destination mount collisions: every dst must be unique across
@@ -702,9 +721,7 @@ def _validate_run_inputs(inputs: RunRenderInputs) -> None:
             # Reject missing, symlink, or non-regular *before* realpath so
             # the defined error message surfaces even for missing blobs.
             if not os.path.isabs(mount.host_path):
-                raise ValueError(
-                    "artifact mount source must be canonical and absolute"
-                )
+                raise ValueError("artifact mount source must be canonical and absolute")
             if not os.path.isfile(mount.host_path) or os.path.islink(mount.host_path):
                 raise ValueError(
                     "artifact mount source must be a regular non-symlink file"
@@ -717,16 +734,19 @@ def _validate_run_inputs(inputs: RunRenderInputs) -> None:
                     "artifact mount source must be a regular non-symlink file"
                 )
             if source != mount.host_path:
-                raise ValueError(
-                    "artifact mount source must be canonical and absolute"
-                )
+                raise ValueError("artifact mount source must be canonical and absolute")
         else:
             # Dry-run: no filesystem access — use absolute path directly.
             source = os.path.abspath(mount.host_path)
 
         target = os.path.normpath(mount.container_target)
-        if not target.startswith(artifact_root + "/") or target != mount.container_target:
-            raise ValueError("artifact mount target must be canonical beneath fixed root")
+        if (
+            not target.startswith(artifact_root + "/")
+            or target != mount.container_target
+        ):
+            raise ValueError(
+                "artifact mount target must be canonical beneath fixed root"
+            )
         if source in seen_sources or target in all_dsts or source == target:
             raise ValueError("duplicate or aliased artifact mount")
         seen_sources.add(source)
@@ -750,13 +770,9 @@ def _validate_run_inputs(inputs: RunRenderInputs) -> None:
 
     # Corporate trust mount destination must not collide with any other
     # mount destination (Pi home, projection, projects, or artifacts).
-    if (
-        inputs.corporate_trust_bundle is not None
-        and _SYSTEM_CA_BUNDLE in all_dsts
-    ):
+    if inputs.corporate_trust_bundle is not None and _SYSTEM_CA_BUNDLE in all_dsts:
         raise ValueError(
-            "corporate trust bundle destination collides with another "
-            "mount destination"
+            "corporate trust bundle destination collides with another mount destination"
         )
 
 
@@ -765,7 +781,6 @@ def plan_dry_run_artifact_mounts(
     *,
     cache_root: str,
 ) -> "tuple[ArtifactMount, ...]":
-
     """Build artifact mounts for dry-run display from resolution output.
 
     Derives *host_path* from the explicitly resolved runtime-artifact
@@ -786,29 +801,31 @@ def plan_dry_run_artifact_mounts(
             continue
         seen.add(art.integrity)
         artifact_id = _derive_artifact_id(art.integrity)
-        mounts.append(ArtifactMount(
-            host_path=os.path.abspath(
-                os.path.join(
-                    resolved_root,
-                    artifact_id,
-                )
-            ),
-            container_target=f"{_RUNTIME_ARTIFACT_ROOT}/{artifact_id}",
-        ))
+        mounts.append(
+            ArtifactMount(
+                host_path=os.path.abspath(
+                    os.path.join(
+                        resolved_root,
+                        artifact_id,
+                    )
+                ),
+                container_target=f"{_RUNTIME_ARTIFACT_ROOT}/{artifact_id}",
+            )
+        )
     mounts.sort(key=lambda m: m.container_target)
     return tuple(mounts)
 
 
-def _validate_projection_host_path(host_path: str, runtime_root: str | None = None) -> None:
+def _validate_projection_host_path(
+    host_path: str, runtime_root: str | None = None
+) -> None:
     """Reject projection host paths that are forbidden or outside an
     external project-state ``runtime`` child."""
     import os
 
     # Must be absolute.
     if not host_path.startswith("/"):
-        raise ValueError(
-            f"projection_host_path must be absolute, got {host_path!r}"
-        )
+        raise ValueError(f"projection_host_path must be absolute, got {host_path!r}")
 
     normalized = os.path.normpath(host_path)
     parts = normalized.split(os.sep)
@@ -818,15 +835,22 @@ def _validate_projection_host_path(host_path: str, runtime_root: str | None = No
             f"projection_host_path must name a runtime child, got {host_path!r}"
         )
     # Reject a deceptive legacy substring even for structural callers.
-    if any(".docker-generated" in part and part != ".docker-generated" for part in parts):
+    if any(
+        ".docker-generated" in part and part != ".docker-generated" for part in parts
+    ):
         raise ValueError("projection_host_path contains an unsafe legacy path segment")
     # Only orchestration owns an authoritative namespace descriptor. Direct
     # renderer unit callers remain structural; execution always supplies root.
     if runtime_root is not None:
         root = os.path.normpath(runtime_root)
-        if (".docker-generated" in parts or not os.path.isabs(root)
-                or os.path.commonpath((root, normalized)) != root):
-            raise ValueError("projection_host_path escapes verified external project-state")
+        if (
+            ".docker-generated" in parts
+            or not os.path.isabs(root)
+            or os.path.commonpath((root, normalized)) != root
+        ):
+            raise ValueError(
+                "projection_host_path escapes verified external project-state"
+            )
 
     # Reject effective build projection.
     if "build.effective" in parts[-1]:
@@ -948,7 +972,9 @@ def render_build_vector(inputs: BuildRenderInputs) -> tuple[str, ...]:
     if inputs.pull:
         args.append("--pull")
 
-    args.extend(("--build-context", f"constructor-artifacts={inputs.named_context.path}"))
+    args.extend(
+        ("--build-context", f"constructor-artifacts={inputs.named_context.path}")
+    )
 
     # Build arguments — deterministic order matching the Dockerfile ARGs.
     _emit_build_args(args, inputs.projection)
@@ -1001,7 +1027,8 @@ def render_run_vector(inputs: RunRenderInputs) -> tuple[str, ...]:
     # Mounts — ordered: Pi home, projection, primary workspace, extra workspaces.
     _emit_run_mount(args, "bind", inputs.pi_home_host, _CONTAINER_PI_HOME)
     _emit_run_mount(
-        args, "bind",
+        args,
+        "bind",
         inputs.projection_host_path,
         inputs.projection_container_path,
         readonly=True,
@@ -1011,7 +1038,11 @@ def render_run_vector(inputs: RunRenderInputs) -> tuple[str, ...]:
         _emit_run_mount(args, "bind", p, p)
     for mount in sorted(inputs.artifact_mounts, key=lambda item: item.container_target):
         _emit_run_mount(
-            args, "bind", mount.host_path, mount.container_target, readonly=True,
+            args,
+            "bind",
+            mount.host_path,
+            mount.container_target,
+            readonly=True,
         )
 
     # Corporate trust — read-only system CA bundle mount and the closed
@@ -1019,7 +1050,8 @@ def render_run_vector(inputs: RunRenderInputs) -> tuple[str, ...]:
     # neither, so inherited image client CA values remain untouched.
     if inputs.corporate_trust_bundle is not None:
         _emit_run_mount(
-            args, "bind",
+            args,
+            "bind",
             inputs.corporate_trust_bundle,
             _SYSTEM_CA_BUNDLE,
             readonly=True,
@@ -1039,7 +1071,9 @@ def render_run_vector(inputs: RunRenderInputs) -> tuple[str, ...]:
 
     # Host access — conditionally emitted
     if inputs.host_access.is_enabled:
-        args.extend(("--add-host", f"host.docker.internal:{inputs.host_access.address}"))
+        args.extend(
+            ("--add-host", f"host.docker.internal:{inputs.host_access.address}")
+        )
         args.extend(("--env", f"HOST_ACCESS_ADDRESS={inputs.host_access.address}"))
         if inputs.host_access.proxy_port is not None:
             args.extend(("--env", f"HOST_PROXY_PORT={inputs.host_access.proxy_port}"))
@@ -1057,7 +1091,9 @@ def render_run_vector(inputs: RunRenderInputs) -> tuple[str, ...]:
 
 
 def render_prospective_build_display(
-    inputs: BuildRenderInputs, *, path_semantics: object = os.path,
+    inputs: BuildRenderInputs,
+    *,
+    path_semantics: object = os.path,
 ) -> str:
     """Render an explicitly non-executable, platform-neutral dry-run plan.
 
@@ -1074,28 +1110,54 @@ def render_prospective_build_display(
     if inputs.platform != expected_platform:
         raise EffectiveConfigError("platform mismatch in prospective build plan")
     _validate_build_projection(inputs.projection)
-    if not inputs.image_tag.strip() or not inputs.target_stage.strip() or not inputs.build_context.strip():
+    if (
+        not inputs.image_tag.strip()
+        or not inputs.target_stage.strip()
+        or not inputs.build_context.strip()
+    ):
         raise ValueError("prospective build requires tag, target, and primary context")
-    args = ["docker", "build", "--tag", inputs.image_tag, "--target", inputs.target_stage,
-            "--platform", inputs.platform, "--progress", inputs.progress]
+    args = [
+        "docker",
+        "build",
+        "--tag",
+        inputs.image_tag,
+        "--target",
+        inputs.target_stage,
+        "--platform",
+        inputs.platform,
+        "--progress",
+        inputs.progress,
+    ]
     if inputs.dockerfile is not None:
         args.extend(("--file", inputs.dockerfile))
     if not inputs.cache.enabled:
         args.append("--no-cache")
     if inputs.pull:
         args.append("--pull")
-    args.extend(("--build-context", "constructor-artifacts=<prospective:not-materialized>"))
+    args.extend(
+        ("--build-context", "constructor-artifacts=<prospective:not-materialized>")
+    )
     _emit_build_args(args, inputs.projection)
     _emit_proxy_build_args(args, inputs)
     _emit_corporate_trust_build_args(args, inputs)
     if inputs.dev_uid < 0 or inputs.dev_gid < 0:
         raise ValueError("dev_uid and dev_gid must be >= 0")
-    args.extend(("--build-arg", f"DEV_UID={inputs.dev_uid}", "--build-arg", f"DEV_GID={inputs.dev_gid}"))
+    args.extend(
+        (
+            "--build-arg",
+            f"DEV_UID={inputs.dev_uid}",
+            "--build-arg",
+            f"DEV_GID={inputs.dev_gid}",
+        )
+    )
     args.append(inputs.build_context)
     display = render_command_display(tuple(args))
     # This is presentation metadata, not shell input; retain the required
     # stable token instead of shell-quoting its angle brackets.
-    display = display.replace("'constructor-artifacts=<prospective:not-materialized>'", "constructor-artifacts=<prospective:not-materialized>")
+    display = display.replace(
+        "'constructor-artifacts=<prospective:not-materialized>'",
+        "constructor-artifacts=<prospective:not-materialized>",
+    )
     return "Planned build (not executable)\n" + display
 
 
@@ -1127,9 +1189,7 @@ def render_build_environment(
 
     artifacts_uv = inv.stages.toolchain.uv.artifacts.get(platform)
     if artifacts_uv is None:
-        raise EffectiveConfigError(
-            f"No artifact for platform {platform!r} in uv entry"
-        )
+        raise EffectiveConfigError(f"No artifact for platform {platform!r} in uv entry")
     artifacts_rtk = inv.stages.rtk_prebuilt.rtk.artifacts.get(platform)
     if artifacts_rtk is None:
         raise EffectiveConfigError(
@@ -1137,9 +1197,7 @@ def render_build_environment(
         )
     artifacts_fd = inv.stages.fd_prebuilt.fd.artifacts.get(platform)
     if artifacts_fd is None:
-        raise EffectiveConfigError(
-            f"No artifact for platform {platform!r} in fd entry"
-        )
+        raise EffectiveConfigError(f"No artifact for platform {platform!r} in fd entry")
 
     node = inv.stages.base.node
     registry = node.source.registry.rstrip("/")
@@ -1223,7 +1281,8 @@ def write_effective_inventory(
         dir=str(destination.parent),
     )
     owner = OwnedDescriptor(
-        cast(DescriptorOps, PosixFileOps()), fd,
+        cast(DescriptorOps, PosixFileOps()),
+        fd,
         label=f"effective inventory temporary {tmp_path}",
     )
     fh: TextIO | None = None
@@ -1267,9 +1326,7 @@ def write_effective_inventory(
     os.replace(tmp_path, destination)
 
 
-def _validate_inventory_output(
-    repo_root: Path, relative_path: str
-) -> Path:
+def _validate_inventory_output(repo_root: Path, relative_path: str) -> Path:
     """Validate *relative_path* is safe and return the resolved ``Path``.
 
     Rejects:
@@ -1283,8 +1340,7 @@ def _validate_inventory_output(
     # Reject absolute paths
     if relative_path.startswith("/") or Path(relative_path).is_absolute():
         raise EffectiveInventoryOutputError(
-            f"Effective inventory output must be a relative path, "
-            f"not {relative_path!r}"
+            f"Effective inventory output must be a relative path, not {relative_path!r}"
         )
 
     # Reject traversal
@@ -1367,7 +1423,7 @@ def compose_command(args: Sequence[str]) -> tuple[str, ...]:
 # Deterministic TOML serialization
 # ---------------------------------------------------------------------------
 
-_TOML_BARE_KEY_RE = __import__("re").compile(r'^[A-Za-z0-9_-]+$')
+_TOML_BARE_KEY_RE = __import__("re").compile(r"^[A-Za-z0-9_-]+$")
 
 
 def _toml_key(k: str) -> str:
@@ -1616,20 +1672,39 @@ def validate_effective_build(data: dict[str, object]):
 
     Raises ValueError or EffectiveConfigError on invalid data.
     """
-    from .model import EffectiveBuildProjection, EffectiveNode, EffectiveRust, \
-        EffectiveTool, EffectiveArtifact
+    from .model import (
+        EffectiveBuildProjection,
+        EffectiveNode,
+        EffectiveRust,
+        EffectiveTool,
+        EffectiveArtifact,
+    )
 
     if not isinstance(data, dict):
         raise ValueError("effective build projection must be a dict")
 
-    required = {"platform", "node", "rust", "uv", "python", "ty", "rtk", "fd", "pi", "openspec", "oh-my-zsh"}
+    required = {
+        "platform",
+        "node",
+        "rust",
+        "uv",
+        "python",
+        "ty",
+        "rtk",
+        "fd",
+        "pi",
+        "openspec",
+        "oh-my-zsh",
+    }
     missing = required - set(data.keys())
     if missing:
         raise ValueError(f"missing required sections: {sorted(missing)}")
 
     platform_val = data.get("platform")
     if platform_val not in ("linux-amd64", "linux-arm64"):
-        raise ValueError(f"platform must be 'linux-amd64' or 'linux-arm64', got {platform_val!r}")
+        raise ValueError(
+            f"platform must be 'linux-amd64' or 'linux-arm64', got {platform_val!r}"
+        )
 
     node = data["node"]
     if not isinstance(node, dict) or "image" not in node:
@@ -1684,7 +1759,14 @@ def validate_effective_build(data: dict[str, object]):
         raise ValueError("oh-my-zsh section missing 'revision'")
 
     # Reject runtime / extension keys (platform is allowed as a top-level scalar)
-    forbidden = {"runtime", "pi-extensions", "extensions", "cache", "update", "override"}
+    forbidden = {
+        "runtime",
+        "pi-extensions",
+        "extensions",
+        "cache",
+        "update",
+        "override",
+    }
     for key in data:
         if key in forbidden:
             raise ValueError(f"forbidden key in build projection: {key!r}")
@@ -1839,21 +1921,22 @@ def write_effective_build(
             with validate_project_state(project_state) as validated:
                 namespace_fd = validated.namespace_fd
                 try:
-                    generated_fd = ops.openat(
-                        namespace_fd, "generated", _DIR_FLAGS, 0
-                    )
+                    generated_fd = ops.openat(namespace_fd, "generated", _DIR_FLAGS, 0)
                 except OSError as exc:
                     raise EffectiveInventoryOutputError(
                         f"generated project state child is unsafe or missing: {exc}"
                     ) from exc
                 generated_owner = OwnedDescriptor(
-                    cast(DescriptorOps, ops), generated_fd,
+                    cast(DescriptorOps, ops),
+                    generated_fd,
                     label="generated project state child",
                 )
                 generated_stat = ops.fstat(generated_owner.fd)
-                if (not stat.S_ISDIR(generated_stat.st_mode)
-                        or generated_stat.st_uid != os.geteuid()
-                        or stat.S_IMODE(generated_stat.st_mode) != 0o700):
+                if (
+                    not stat.S_ISDIR(generated_stat.st_mode)
+                    or generated_stat.st_uid != os.geteuid()
+                    or stat.S_IMODE(generated_stat.st_mode) != 0o700
+                ):
                     raise EffectiveInventoryOutputError(
                         "generated project state child must be invoking-user-owned "
                         "and mode 0700"

@@ -2,6 +2,7 @@
 
 No network — delegates all HTTP/git through injected transports.
 """
+
 from __future__ import annotations
 
 import copy
@@ -74,16 +75,18 @@ from .providers.static_url import StaticUrlProvider
 # Default provider registry
 # ---------------------------------------------------------------------------
 
-_DEFAULT_PROVIDERS: Mapping[str, UpdateProvider] = MappingProxyType({
-    "npm": NpmProvider(),
-    "pypi": PyPiProvider(),
-    "github-release": GitHubReleaseProvider(),
-    "rust-channel": RustChannelProvider(),
-    "docker-registry": DockerRegistryProvider(),
-    "git-ref": GitRefProvider(),
-    "uv-python": UvPythonProvider(),
-    "static-url": StaticUrlProvider(),
-})
+_DEFAULT_PROVIDERS: Mapping[str, UpdateProvider] = MappingProxyType(
+    {
+        "npm": NpmProvider(),
+        "pypi": PyPiProvider(),
+        "github-release": GitHubReleaseProvider(),
+        "rust-channel": RustChannelProvider(),
+        "docker-registry": DockerRegistryProvider(),
+        "git-ref": GitRefProvider(),
+        "uv-python": UvPythonProvider(),
+        "static-url": StaticUrlProvider(),
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -93,10 +96,10 @@ _DEFAULT_PROVIDERS: Mapping[str, UpdateProvider] = MappingProxyType({
 
 class Scope(Enum):
     """Target scope for update discovery."""
+
     BUILD = "build"
     RUNTIME = "runtime"
     ALL = "all"
-
 
 
 def build_update_targets(
@@ -112,114 +115,140 @@ def build_update_targets(
 
     # base.node
     node = s.base.node
-    result.append(UpdateTarget(
-        path="build.stages.base.node",
-        current=node.tag,
-        source=node.source,
-        update=node.update,
-        artifacts={},
-    ))
+    result.append(
+        UpdateTarget(
+            path="build.stages.base.node",
+            current=node.tag,
+            source=node.source,
+            update=node.update,
+            artifacts={},
+        )
+    )
 
     # toolchain.rust
-    result.append(UpdateTarget(
-        path="build.stages.toolchain.rust",
-        current=s.toolchain.rust.version,
-        source=s.toolchain.rust.source,
-        update=s.toolchain.rust.update,
-        artifacts={},
-    ))
+    result.append(
+        UpdateTarget(
+            path="build.stages.toolchain.rust",
+            current=s.toolchain.rust.version,
+            source=s.toolchain.rust.source,
+            update=s.toolchain.rust.update,
+            artifacts={},
+        )
+    )
     # toolchain.rust.rustup (static-url bootstrap artifact)
-    result.append(UpdateTarget(
-        path="build.stages.toolchain.rust.rustup",
-        current=s.toolchain.rust.rustup.get("linux-amd64", ArtifactEntry(url="", sha256="")).sha256,
-        source=s.toolchain.rust.rustup_source,
-        update=s.toolchain.rust.rustup_update,
-        artifacts=dict(s.toolchain.rust.rustup),
-    ))
+    result.append(
+        UpdateTarget(
+            path="build.stages.toolchain.rust.rustup",
+            current=s.toolchain.rust.rustup.get(
+                "linux-amd64", ArtifactEntry(url="", sha256="")
+            ).sha256,
+            source=s.toolchain.rust.rustup_source,
+            update=s.toolchain.rust.rustup_update,
+            artifacts=dict(s.toolchain.rust.rustup),
+        )
+    )
 
     # toolchain.uv
-    result.append(UpdateTarget(
-        path="build.stages.toolchain.uv",
-        current=s.toolchain.uv.version,
-        source=s.toolchain.uv.source,
-        update=s.toolchain.uv.update,
-        artifacts=dict(s.toolchain.uv.artifacts),
-    ))
+    result.append(
+        UpdateTarget(
+            path="build.stages.toolchain.uv",
+            current=s.toolchain.uv.version,
+            source=s.toolchain.uv.source,
+            update=s.toolchain.uv.update,
+            artifacts=dict(s.toolchain.uv.artifacts),
+        )
+    )
 
     # toolchain.python
-    result.append(UpdateTarget(
-        path="build.stages.toolchain.python",
-        current=s.toolchain.python.version,
-        source=s.toolchain.python.source,
-        update=s.toolchain.python.update,
-        artifacts={},
-        override=s.toolchain.python.override,
-    ))
+    result.append(
+        UpdateTarget(
+            path="build.stages.toolchain.python",
+            current=s.toolchain.python.version,
+            source=s.toolchain.python.source,
+            update=s.toolchain.python.update,
+            artifacts={},
+            override=s.toolchain.python.override,
+        )
+    )
 
     # toolchain.ty
-    result.append(UpdateTarget(
-        path="build.stages.toolchain.ty",
-        current=s.toolchain.ty.version,
-        source=s.toolchain.ty.source,
-        update=s.toolchain.ty.update,
-        artifacts={},
-    ))
+    result.append(
+        UpdateTarget(
+            path="build.stages.toolchain.ty",
+            current=s.toolchain.ty.version,
+            source=s.toolchain.ty.source,
+            update=s.toolchain.ty.update,
+            artifacts={},
+        )
+    )
 
     # rtk-prebuilt
-    result.append(UpdateTarget(
-        path="build.stages.rtk-prebuilt.rtk",
-        current=s.rtk_prebuilt.rtk.version,
-        source=s.rtk_prebuilt.rtk.source,
-        update=s.rtk_prebuilt.rtk.update,
-        artifacts=dict(s.rtk_prebuilt.rtk.artifacts),
-    ))
+    result.append(
+        UpdateTarget(
+            path="build.stages.rtk-prebuilt.rtk",
+            current=s.rtk_prebuilt.rtk.version,
+            source=s.rtk_prebuilt.rtk.source,
+            update=s.rtk_prebuilt.rtk.update,
+            artifacts=dict(s.rtk_prebuilt.rtk.artifacts),
+        )
+    )
 
     # fd-prebuilt
-    result.append(UpdateTarget(
-        path="build.stages.fd-prebuilt.fd",
-        current=s.fd_prebuilt.fd.version,
-        source=s.fd_prebuilt.fd.source,
-        update=s.fd_prebuilt.fd.update,
-        artifacts=dict(s.fd_prebuilt.fd.artifacts),
-    ))
+    result.append(
+        UpdateTarget(
+            path="build.stages.fd-prebuilt.fd",
+            current=s.fd_prebuilt.fd.version,
+            source=s.fd_prebuilt.fd.source,
+            update=s.fd_prebuilt.fd.update,
+            artifacts=dict(s.fd_prebuilt.fd.artifacts),
+        )
+    )
 
     # pi-tools.pi
-    result.append(UpdateTarget(
-        path="build.stages.pi-tools.pi",
-        current=s.pi_tools.pi.version,
-        source=s.pi_tools.pi.source,
-        update=s.pi_tools.pi.update,
-        artifacts={},
-    ))
+    result.append(
+        UpdateTarget(
+            path="build.stages.pi-tools.pi",
+            current=s.pi_tools.pi.version,
+            source=s.pi_tools.pi.source,
+            update=s.pi_tools.pi.update,
+            artifacts={},
+        )
+    )
 
     # openspec-tools.openspec
-    result.append(UpdateTarget(
-        path="build.stages.openspec-tools.openspec",
-        current=s.openspec_tools.openspec.version,
-        source=s.openspec_tools.openspec.source,
-        update=s.openspec_tools.openspec.update,
-        artifacts={},
-    ))
+    result.append(
+        UpdateTarget(
+            path="build.stages.openspec-tools.openspec",
+            current=s.openspec_tools.openspec.version,
+            source=s.openspec_tools.openspec.source,
+            update=s.openspec_tools.openspec.update,
+            artifacts={},
+        )
+    )
 
     # runtime.oh-my-zsh
-    result.append(UpdateTarget(
-        path="build.stages.runtime.oh-my-zsh",
-        current=s.runtime.oh_my_zsh.revision,
-        source=s.runtime.oh_my_zsh.source,
-        update=s.runtime.oh_my_zsh.update,
-        artifacts={},
-    ))
+    result.append(
+        UpdateTarget(
+            path="build.stages.runtime.oh-my-zsh",
+            current=s.runtime.oh_my_zsh.revision,
+            source=s.runtime.oh_my_zsh.source,
+            update=s.runtime.oh_my_zsh.update,
+            artifacts={},
+        )
+    )
 
     # pi-extensions (sorted by key)
     for name in sorted(inventory.runtime_pi_extensions.keys()):
         ext = inventory.runtime_pi_extensions[name]
-        result.append(UpdateTarget(
-            path=f"runtime.pi-extensions.{name}",
-            current=ext.version,
-            source=ext.source,
-            update=ext.update,
-            artifacts={},
-        ))
+        result.append(
+            UpdateTarget(
+                path=f"runtime.pi-extensions.{name}",
+                current=ext.version,
+                source=ext.source,
+                update=ext.update,
+                artifacts={},
+            )
+        )
 
     return tuple(result)
 
@@ -228,19 +257,21 @@ def build_update_targets(
 # Replacement ownership and raw block evidence
 # ---------------------------------------------------------------------------
 
-_REPLACEMENT_OWNERS: Mapping[str, str] = MappingProxyType({
-    "build.stages.base.node": "build.stages.base.node",
-    "build.stages.toolchain.rust": "build.stages.toolchain.rust",
-    "build.stages.toolchain.rust.rustup": "build.stages.toolchain.rust",
-    "build.stages.toolchain.uv": "build.stages.toolchain.uv",
-    "build.stages.toolchain.python": "build.stages.toolchain.python",
-    "build.stages.toolchain.ty": "build.stages.toolchain.ty",
-    "build.stages.rtk-prebuilt.rtk": "build.stages.rtk-prebuilt.rtk",
-    "build.stages.fd-prebuilt.fd": "build.stages.fd-prebuilt.fd",
-    "build.stages.pi-tools.pi": "build.stages.pi-tools.pi",
-    "build.stages.openspec-tools.openspec": "build.stages.openspec-tools.openspec",
-    "build.stages.runtime.oh-my-zsh": "build.stages.runtime.oh-my-zsh",
-})
+_REPLACEMENT_OWNERS: Mapping[str, str] = MappingProxyType(
+    {
+        "build.stages.base.node": "build.stages.base.node",
+        "build.stages.toolchain.rust": "build.stages.toolchain.rust",
+        "build.stages.toolchain.rust.rustup": "build.stages.toolchain.rust",
+        "build.stages.toolchain.uv": "build.stages.toolchain.uv",
+        "build.stages.toolchain.python": "build.stages.toolchain.python",
+        "build.stages.toolchain.ty": "build.stages.toolchain.ty",
+        "build.stages.rtk-prebuilt.rtk": "build.stages.rtk-prebuilt.rtk",
+        "build.stages.fd-prebuilt.fd": "build.stages.fd-prebuilt.fd",
+        "build.stages.pi-tools.pi": "build.stages.pi-tools.pi",
+        "build.stages.openspec-tools.openspec": "build.stages.openspec-tools.openspec",
+        "build.stages.runtime.oh-my-zsh": "build.stages.runtime.oh-my-zsh",
+    }
+)
 
 
 def replacement_owner(path: str) -> str:
@@ -272,7 +303,7 @@ def path_segments(path: str) -> tuple[str, ...]:
     because their segments never contain dots.
     """
     if path.startswith(_RUNTIME_EXTENSIONS_PREFIX):
-        return ("runtime", "pi-extensions", path[len(_RUNTIME_EXTENSIONS_PREFIX):])
+        return ("runtime", "pi-extensions", path[len(_RUNTIME_EXTENSIONS_PREFIX) :])
     return tuple(path.split("."))
 
 
@@ -345,10 +376,10 @@ def _target_suffix(owner: str, path: str) -> tuple[str, ...]:
         return ()
     if (
         len(target_segments) <= len(owner_segments)
-        or target_segments[:len(owner_segments)] != owner_segments
+        or target_segments[: len(owner_segments)] != owner_segments
     ):
         raise KeyError(f"target {path!r} is not under owner {owner!r}")
-    return target_segments[len(owner_segments):]
+    return target_segments[len(owner_segments) :]
 
 
 def _repoint_rust_manifest(
@@ -415,11 +446,16 @@ def overlay_candidates(
             _overlay_key_path(block, suffix + ("version",), result.candidate)
             if result.provider == "github-release":
                 _overlay_key_path(
-                    block, suffix + ("source", "tag"), result.candidate,
+                    block,
+                    suffix + ("source", "tag"),
+                    result.candidate,
                 )
             elif result.provider == "rust-channel":
                 _repoint_rust_manifest(
-                    block, suffix, target.current, result.candidate,
+                    block,
+                    suffix,
+                    target.current,
+                    result.candidate,
                 )
         elif result.kind == UpdateKind.DIGEST_REFRESH:
             if result.artifacts:
@@ -556,9 +592,7 @@ def _format_toml_value(value: object) -> str:
         return repr(value)
     if isinstance(value, (list, tuple)):
         return "[" + ", ".join(_format_toml_value(v) for v in value) + "]"
-    raise TypeError(
-        f"cannot serialize {type(value).__name__} as TOML: {value!r}"
-    )
+    raise TypeError(f"cannot serialize {type(value).__name__} as TOML: {value!r}")
 
 
 def _format_table_header(segments: Sequence[str]) -> str:
@@ -586,9 +620,7 @@ def _emit_toml_table(
     if scalar_keys:
         lines.append(_format_table_header(segments))
         for key in scalar_keys:
-            lines.append(
-                f"{_format_toml_key(key)} = {_format_toml_value(table[key])}"
-            )
+            lines.append(f"{_format_toml_key(key)} = {_format_toml_value(table[key])}")
 
     for key in table_keys:
         if lines and lines[-1] != "":
@@ -613,7 +645,7 @@ def display_path(path: str) -> str:
     """
     for prefix in ("build.stages.", "runtime."):
         if path.startswith(prefix):
-            return path[len(prefix):]
+            return path[len(prefix) :]
     return path
 
 
@@ -701,7 +733,12 @@ def _classify_candidate(
                 return (UpdateStatus.CURRENT, kind, False, None)
             # If no stored digest, can't compare
             if current_entry_digest is None:
-                return (UpdateStatus.SKIPPED, kind, False, "no stored digest for comparison")
+                return (
+                    UpdateStatus.SKIPPED,
+                    kind,
+                    False,
+                    "no stored digest for comparison",
+                )
             # If candidate matches stored digest, it's current
             if candidate.value == current_entry_digest:
                 return (UpdateStatus.CURRENT, kind, False, None)
@@ -730,30 +767,53 @@ def _classify_candidate(
     # Check override constraint for Python
     if target.override is not None and isinstance(target.source, UvPythonSource):
         from .constraints import parse_numeric_version
+
         try:
             cand_ver = parse_numeric_version(candidate.value)
         except Exception:
-            return (UpdateStatus.INCOMPLETE, kind, False,
-                    f"candidate version {candidate.value!r} is not a valid numeric version")
+            return (
+                UpdateStatus.INCOMPLETE,
+                kind,
+                False,
+                f"candidate version {candidate.value!r} is not a valid numeric version",
+            )
 
         if not target.override.constraint.matches(cand_ver):
-            return (UpdateStatus.INCOMPLETE, kind, False,
-                    f"candidate {candidate.value} does not satisfy {target.override.constraint}")
+            return (
+                UpdateStatus.INCOMPLETE,
+                kind,
+                False,
+                f"candidate {candidate.value} does not satisfy {target.override.constraint}",
+            )
 
     # Check artifact completeness for GitHub releases
-    if isinstance(target.source, GitHubReleaseSource) and isinstance(target.update, GitHubReleaseUpdate):
+    if isinstance(target.source, GitHubReleaseSource) and isinstance(
+        target.update, GitHubReleaseUpdate
+    ):
         required = target.update.required_platforms
         for platform in required:
             art = candidate.artifacts.get(platform) if candidate.artifacts else None
             if art is None:
-                return (UpdateStatus.INCOMPLETE, kind, False,
-                        f"missing required platform artifact: {platform}")
+                return (
+                    UpdateStatus.INCOMPLETE,
+                    kind,
+                    False,
+                    f"missing required platform artifact: {platform}",
+                )
             if not art.url:
-                return (UpdateStatus.INCOMPLETE, kind, False,
-                        f"missing URL for platform artifact: {platform}")
+                return (
+                    UpdateStatus.INCOMPLETE,
+                    kind,
+                    False,
+                    f"missing URL for platform artifact: {platform}",
+                )
             if art.sha256 is None:
-                return (UpdateStatus.INCOMPLETE, kind, False,
-                        f"missing SHA-256 for platform artifact: {platform}")
+                return (
+                    UpdateStatus.INCOMPLETE,
+                    kind,
+                    False,
+                    f"missing SHA-256 for platform artifact: {platform}",
+                )
 
     return (UpdateStatus.OUTDATED, kind, True, None)
 
@@ -768,6 +828,7 @@ class UpdateProgressEvent:
     carries terminal control, rendering, transport, timing, concurrency,
     or serialized-output state.
     """
+
     index: int
     total: int
     path: str
@@ -807,9 +868,7 @@ def check_updates(
         providers = _DEFAULT_PROVIDERS
 
     if not isinstance(scope, Scope):
-        raise TypeError(
-            f"scope must be a Scope, got {type(scope).__name__}"
-        )
+        raise TypeError(f"scope must be a Scope, got {type(scope).__name__}")
 
     targets = build_update_targets(inventory)
 
@@ -828,7 +887,11 @@ def check_updates(
         filtered: list[UpdateTarget] = []
         for t in targets:
             for filt in only:
-                if filt == t.update.provider or t.path == filt or t.path.startswith(filt):
+                if (
+                    filt == t.update.provider
+                    or t.path == filt
+                    or t.path.startswith(filt)
+                ):
                     filtered.append(t)
                     break
         targets = tuple(filtered)
@@ -836,6 +899,7 @@ def check_updates(
             # Gather known paths and provider names for a helpful
             # error message so users can spot typos.
             from .errors import UnknownFilterError
+
             _scoped_paths = sorted({t.path for t in _scoped_targets})
             raise UnknownFilterError(
                 f"--only filter(s) matched nothing: "
@@ -857,108 +921,124 @@ def check_updates(
         # Callback failures are intentionally not caught here: they are
         # observer errors, never provider failures.
         if progress is not None:
-            progress(UpdateProgressEvent(
-                index=idx,
-                total=total,
-                path=target.path,
-                provider=provider_name,
-            ))
+            progress(
+                UpdateProgressEvent(
+                    index=idx,
+                    total=total,
+                    path=target.path,
+                    provider=provider_name,
+                )
+            )
 
         provider = providers.get(provider_name)
 
         if provider is None:
-            results.append(UpdateResult(
-                path=target.path,
-                provider=provider_name,
-                current=target.current,
-                candidate=None,
-                status=UpdateStatus.SKIPPED,
-                kind=UpdateKind.VERSION,
-                applicable=False,
-                reason=f"no provider for {provider_name!r}",
-                artifacts={},
-            ))
+            results.append(
+                UpdateResult(
+                    path=target.path,
+                    provider=provider_name,
+                    current=target.current,
+                    candidate=None,
+                    status=UpdateStatus.SKIPPED,
+                    kind=UpdateKind.VERSION,
+                    applicable=False,
+                    reason=f"no provider for {provider_name!r}",
+                    artifacts={},
+                )
+            )
             continue
 
         # Call provider
         try:
             prov_result = provider.discover(target, context)
         except Exception as exc:
-            results.append(UpdateResult(
-                path=target.path,
-                provider=provider_name,
-                current=target.current,
-                candidate=None,
-                status=UpdateStatus.UNAVAILABLE,
-                kind=UpdateKind.VERSION,
-                applicable=False,
-                reason=str(exc),
-                artifacts={},
-            ))
+            results.append(
+                UpdateResult(
+                    path=target.path,
+                    provider=provider_name,
+                    current=target.current,
+                    candidate=None,
+                    status=UpdateStatus.UNAVAILABLE,
+                    kind=UpdateKind.VERSION,
+                    applicable=False,
+                    reason=str(exc),
+                    artifacts={},
+                )
+            )
             continue
 
         if prov_result.unavailable_reason is not None:
-            results.append(UpdateResult(
-                path=target.path,
-                provider=provider_name,
-                current=target.current,
-                candidate=None,
-                status=UpdateStatus.UNAVAILABLE,
-                kind=UpdateKind.VERSION,
-                applicable=False,
-                reason=prov_result.unavailable_reason,
-                artifacts={},
-            ))
+            results.append(
+                UpdateResult(
+                    path=target.path,
+                    provider=provider_name,
+                    current=target.current,
+                    candidate=None,
+                    status=UpdateStatus.UNAVAILABLE,
+                    kind=UpdateKind.VERSION,
+                    applicable=False,
+                    reason=prov_result.unavailable_reason,
+                    artifacts={},
+                )
+            )
             continue
 
         if prov_result.skipped_reason is not None:
-            results.append(UpdateResult(
-                path=target.path,
-                provider=provider_name,
-                current=target.current,
-                candidate=None,
-                status=UpdateStatus.SKIPPED,
-                kind=UpdateKind.VERSION,
-                applicable=False,
-                reason=prov_result.skipped_reason,
-                artifacts={},
-            ))
+            results.append(
+                UpdateResult(
+                    path=target.path,
+                    provider=provider_name,
+                    current=target.current,
+                    candidate=None,
+                    status=UpdateStatus.SKIPPED,
+                    kind=UpdateKind.VERSION,
+                    applicable=False,
+                    reason=prov_result.skipped_reason,
+                    artifacts={},
+                )
+            )
             continue
 
         candidate = prov_result.candidate
         if candidate is None:
-            results.append(UpdateResult(
-                path=target.path,
-                provider=provider_name,
-                current=target.current,
-                candidate=None,
-                status=UpdateStatus.UNAVAILABLE,
-                kind=UpdateKind.VERSION,
-                applicable=False,
-                reason="provider returned no candidate",
-                artifacts={},
-            ))
+            results.append(
+                UpdateResult(
+                    path=target.path,
+                    provider=provider_name,
+                    current=target.current,
+                    candidate=None,
+                    status=UpdateStatus.UNAVAILABLE,
+                    kind=UpdateKind.VERSION,
+                    applicable=False,
+                    reason="provider returned no candidate",
+                    artifacts={},
+                )
+            )
             continue
 
         # Classify
-        current_entry_digest = node_digest if target.path == "build.stages.base.node" else None
+        current_entry_digest = (
+            node_digest if target.path == "build.stages.base.node" else None
+        )
         status, kind, applicable, reason = _classify_candidate(
             target, candidate, current_entry_digest
         )
 
-        results.append(UpdateResult(
-            path=target.path,
-            provider=provider_name,
-            current=target.current,
-            candidate=candidate.value,
-            status=status,
-            kind=kind,
-            applicable=applicable,
-            reason=reason,
-            artifacts=candidate.artifacts,
-            digest=candidate.digest,
-            published_at=candidate.published_at,
-        ))
+        results.append(
+            UpdateResult(
+                path=target.path,
+                provider=provider_name,
+                current=target.current,
+                candidate=candidate.value,
+                status=status,
+                kind=kind,
+                applicable=applicable,
+                reason=reason,
+                artifacts=candidate.artifacts,
+                digest=candidate.digest,
+                published_at=candidate.published_at,
+            )
+        )
 
     return tuple(results)
 
@@ -966,6 +1046,7 @@ def check_updates(
 # ---------------------------------------------------------------------------
 # Reports
 # ---------------------------------------------------------------------------
+
 
 def render_table(results: Sequence[UpdateResult]) -> str:
     """Render a human-readable ASCII table of update results."""

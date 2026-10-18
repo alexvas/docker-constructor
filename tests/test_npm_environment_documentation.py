@@ -23,9 +23,7 @@ _DOC = _REPO / "docs" / "npm-environment-assembler.md"
 # *and_groups* is a tuple of term-tuples.  A paragraph satisfies the
 # requirement when it contains at least one anchor term AND every and-group
 # has at least one term present in the same paragraph.
-_REQUIREMENTS: tuple[
-    tuple[str, tuple[str, ...], tuple[tuple[str, ...], ...]], ...
-] = (
+_REQUIREMENTS: tuple[tuple[str, tuple[str, ...], tuple[tuple[str, ...], ...]], ...] = (
     (
         "supported lock subset",
         ("package-lock.json", "lockfileVersion"),
@@ -112,8 +110,7 @@ class TestAssemblerDocumentation(unittest.TestCase):
     def test_documentation_file_exists(self) -> None:
         self.assertTrue(
             _DOC.is_file(),
-            f"{_DOC.name} is missing — the assembler contracts must be "
-            "documented",
+            f"{_DOC.name} is missing — the assembler contracts must be documented",
         )
 
     def test_supported_lock_subset_documented(self) -> None:

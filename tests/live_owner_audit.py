@@ -7,6 +7,7 @@ would escape detection.  These helpers enumerate owners directly from the
 parsed TOML using the schema's ownership rules, and expose the production
 enumeration separately so a test can compare the two and detect omissions.
 """
+
 from __future__ import annotations
 
 import tomllib
@@ -79,7 +80,7 @@ def independent_display_path(owner: str) -> str:
     """
     for prefix in ("build.stages.", "runtime."):
         if owner.startswith(prefix):
-            return owner[len(prefix):]
+            return owner[len(prefix) :]
     return owner
 
 

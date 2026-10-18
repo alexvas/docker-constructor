@@ -67,6 +67,7 @@ class _OverflowMarker(str):
     ordinary text.
     """
 
+
 #: Maximum retained bytes for a reader-failure diagnostic.
 READER_FAILURE_DETAIL_BYTES = 4 * 1024
 
@@ -130,7 +131,8 @@ def redact_text(text: str, secrets: Sequence[str]) -> str:
 def _visible_control(text: str) -> str:
     """Render C0/C1 controls as literal, terminal-inert escape notation."""
     return "".join(
-        f"\\x{ord(character):02x}" if ord(character) < 32 or 127 <= ord(character) <= 159
+        f"\\x{ord(character):02x}"
+        if ord(character) < 32 or 127 <= ord(character) <= 159
         else character
         for character in text
     )
@@ -204,9 +206,7 @@ class _Utf8ByteDecoder:
             ):
                 consumed += 1
             if consumed == need:
-                decoded.append(
-                    (buffer[index : index + need].decode("utf-8"), need)
-                )
+                decoded.append((buffer[index : index + need].decode("utf-8"), need))
                 index += need
             elif index + consumed < length:
                 # An invalid continuation byte ends the maximal subpart.
@@ -279,9 +279,7 @@ class TerminalControlNeutralizer:
             return ()
         return self._feed(self._decoder.feed(data))
 
-    def feed_characters(
-        self, characters: Iterable[tuple[str, int]]
-    ) -> tuple[str, ...]:
+    def feed_characters(self, characters: Iterable[tuple[str, int]]) -> tuple[str, ...]:
         """Neutralize already-decoded ``(character, source_bytes)`` pairs."""
         if self._eof:
             raise RuntimeError("neutralizer is already finished")
@@ -490,9 +488,7 @@ class TerminalControlNeutralizer:
                 self._state = "discard_csi"
         elif code in _STRING_INTRODUCERS:
             flush_plain()
-            if self._begin_string(
-                _STRING_INTRODUCERS[code], character, width
-            ):
+            if self._begin_string(_STRING_INTRODUCERS[code], character, width):
                 chunks.append(OVERSIZED_CONTROL_SEQUENCE)
                 self._state = "discard_string"
         elif character in {"\n", "\t"}:
@@ -553,9 +549,7 @@ class TerminalSafeLineFramer:
             raise RuntimeError("framer is already finished")
         if not text:
             return ()
-        pairs = tuple(
-            (character, len(character.encode("utf-8"))) for character in text
-        )
+        pairs = tuple((character, len(character.encode("utf-8"))) for character in text)
         return self._feed(pairs)
 
     def finish(self, *, abort: bool = False) -> tuple[str, ...]:
@@ -720,9 +714,7 @@ class RedactingStream:
             prefix = self._pending[:start]
             if prefix:
                 chunks.append(prefix)
-            committed = self._eof or (
-                len(self._pending) - start >= self._longest
-            )
+            committed = self._eof or (len(self._pending) - start >= self._longest)
             if committed:
                 chunks.append(REDACTED)
                 self._pending = self._pending[end:]
@@ -1108,9 +1100,7 @@ class SinkDispatcher:
             self._queue.put(_SENTINEL, timeout=self._drain_budget)
         except queue.Full:
             self._fail()
-        self._thread.join(
-            timeout=self._drain_budget + self._callback_budget
-        )
+        self._thread.join(timeout=self._drain_budget + self._callback_budget)
         if self._thread.is_alive():
             self._fail()
         return self._truncation_notice
@@ -1137,9 +1127,7 @@ class SinkDispatcher:
                     continue
                 draining = self._draining
                 drain_start = self._drain_start
-            if draining and (
-                self._clock() - drain_start >= self._drain_budget
-            ):
+            if draining and (self._clock() - drain_start >= self._drain_budget):
                 self._fail()
                 self._discard_remaining()
                 return
@@ -1189,9 +1177,7 @@ class SinkDispatcher:
 RETAINED_CAPTURE_ATTR = "retained_capture"
 
 
-def _attach_retained_capture(
-    exc: BaseException, capture: StreamingCapture
-) -> None:
+def _attach_retained_capture(exc: BaseException, capture: StreamingCapture) -> None:
     """Attach the already-selected retained capture to *exc* before raising.
 
     ``diagnostic_tail``/``diagnostic_stream`` mirror the assembler failure
@@ -1228,9 +1214,7 @@ def _redacted_exception_detail(
     notes = getattr(exc, "__notes__", ())
     parts.extend(str(note) for note in notes)
     project = tail_projector if tail_projector is not None else redact_tail
-    return project(
-        "; ".join(parts), secrets, tail_bytes=READER_FAILURE_DETAIL_BYTES
-    )
+    return project("; ".join(parts), secrets, tail_bytes=READER_FAILURE_DETAIL_BYTES)
 
 
 class _DiagnosticCollector:
@@ -1238,15 +1222,27 @@ class _DiagnosticCollector:
 
     def __init__(self, *, secrets=(), sink=None, stream_factory=None):
         self.streams = {
-            tag: stream_factory(tag) if stream_factory is not None else RedactingStream(secrets)
+            tag: stream_factory(tag)
+            if stream_factory is not None
+            else RedactingStream(secrets)
             for tag in (STREAM_STDOUT, STREAM_STDERR)
         }
         self.ended: set[str] = set()
         self.split = sink if isinstance(sink, SplitDiagnosticSink) else None
-        self.direct = (self.split.direct if self.split is not None else
-                       sink if isinstance(sink, _InternalDirectEnqueueSink) else None)
-        target = (self.split.dispatched if self.split is not None else
-                  None if self.direct is not None else sink)
+        self.direct = (
+            self.split.direct
+            if self.split is not None
+            else sink
+            if isinstance(sink, _InternalDirectEnqueueSink)
+            else None
+        )
+        target = (
+            self.split.dispatched
+            if self.split is not None
+            else None
+            if self.direct is not None
+            else sink
+        )
         self.dispatcher = SinkDispatcher(target) if target is not None else None
 
     def _submit(self, tag, chunks):
@@ -1254,7 +1250,9 @@ class _DiagnosticCollector:
             item = chunk if isinstance(chunk, StreamChunk) else StreamChunk(tag, chunk)
             if self.direct is not None:
                 self.direct(item)
-            if self.dispatcher is not None and (self.split is None or self.split.should_dispatch(item)):
+            if self.dispatcher is not None and (
+                self.split is None or self.split.should_dispatch(item)
+            ):
                 self.dispatcher.submit(item)
 
     def feed(self, tag, data):
@@ -1268,8 +1266,11 @@ class _DiagnosticCollector:
 
     def finish(self):
         notice = self.dispatcher.finish() if self.dispatcher is not None else None
-        return StreamingCapture(self.streams[STREAM_STDOUT].tail(),
-                                self.streams[STREAM_STDERR].tail(), notice)
+        return StreamingCapture(
+            self.streams[STREAM_STDOUT].tail(),
+            self.streams[STREAM_STDERR].tail(),
+            notice,
+        )
 
 
 def collect_streams(
@@ -1368,9 +1369,7 @@ def collect_streams(
     # (or paired direct) channel admits on the reader thread and is never
     # wrapped, so external backlog cannot delay, drop, or reorder it.
     dispatcher = (
-        SinkDispatcher(dispatch_target)
-        if dispatch_target is not None
-        else None
+        SinkDispatcher(dispatch_target) if dispatch_target is not None else None
     )
 
     failures: list[StreamReaderFailure] = []

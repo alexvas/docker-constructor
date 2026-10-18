@@ -3,6 +3,7 @@
 Discovers the latest CPython release using the authoritative
 interpreter metadata consumed by uv.
 """
+
 from __future__ import annotations
 
 import json
@@ -18,9 +19,7 @@ from ..model import (
     UpdateTarget,
 )
 
-_CPYTHON_VERSION_RE = re.compile(
-    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$"
-)
+_CPYTHON_VERSION_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 
 # Authoritative CPython releases from python-build-standalone GitHub API
 _UV_PYTHON_RELEASES_URL = (
@@ -71,9 +70,7 @@ class UvPythonProvider:
         try:
             releases = json.loads(resp.body)
         except Exception as exc:
-            return ProviderResult(
-                unavailable_reason=f"uv-python: invalid JSON ({exc})"
-            )
+            return ProviderResult(unavailable_reason=f"uv-python: invalid JSON ({exc})")
 
         if not isinstance(releases, list):
             return ProviderResult(
@@ -107,7 +104,7 @@ class UvPythonProvider:
                 parts = raw.split(".")
                 try:
                     version_tuple = (int(parts[0]), int(parts[1]), int(parts[2]))
-                except (ValueError, IndexError):
+                except ValueError, IndexError:
                     continue
                 if best is None or version_tuple > best:
                     best = version_tuple
@@ -120,6 +117,7 @@ class UvPythonProvider:
             )
 
         from ..model import _validate_utc_rfc3339
+
         published_at = _validate_utc_rfc3339(best_published_at_raw)
 
         current = target.current

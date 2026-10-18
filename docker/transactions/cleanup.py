@@ -5,6 +5,7 @@ lightweight foundation can be reused without loading the aggregate durable
 transaction substrate.  This module re-exports the shared class unchanged;
 callers that imported ``CleanupFailures`` from here keep working.
 """
+
 from __future__ import annotations
 
 from docker.filesystem.cleanup import CleanupFailures

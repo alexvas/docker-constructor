@@ -34,11 +34,7 @@ from docker.versioning.model import (
 )
 
 
-_INT = (
-    "sha512-"
-    + "A" * 86
-    + "=="
-)
+_INT = "sha512-" + "A" * 86 + "=="
 
 
 def _artifact(version: str, pkg: str = "p") -> NpmArtifact:
@@ -116,9 +112,7 @@ class _InMemoryOps:
     def fstat(self, fd):
         is_dir = fd in self._dirs
         mode = (stat.S_IFDIR | 0o700) if is_dir else (stat.S_IFREG | 0o600)
-        return os.stat_result(
-            (mode, 0, 0, 1, os.geteuid(), os.getegid(), 0, 0, 0, 0)
-        )
+        return os.stat_result((mode, 0, 0, 1, os.geteuid(), os.getegid(), 0, 0, 0, 0))
 
     def write(self, fd, data):
         path = self._fds[fd]
@@ -190,6 +184,7 @@ def _make_fake_fs(store: dict[str, bytes], runtime_dir: str):
     # ── open: in-memory BytesIO ──────────────────────────────────
     def _open(path, mode="r"):
         import io
+
         if "w" in mode:
             buf = io.BytesIO()
 
@@ -279,7 +274,7 @@ def _make_fake_fs(store: dict[str, bytes], runtime_dir: str):
         open=_open,
         unlink=_unlink,
         link=_link,
-        fsync=lambda fd: None,   # no-op: in-memory is always synced
+        fsync=lambda fd: None,  # no-op: in-memory is always synced
         mkstemp=_mkstemp,
         chmod=_chmod,
         urandom=_urandom,
@@ -323,9 +318,7 @@ class TestRuntimeLifecycle(unittest.TestCase):
     def setUp(self):
         # Create a private subdirectory under the configured external
         # runtime root so path-safety validation passes.
-        self._tmp = tempfile.mkdtemp(
-            prefix="test-", dir=self._runtime_root_dir
-        )
+        self._tmp = tempfile.mkdtemp(prefix="test-", dir=self._runtime_root_dir)
         self.addCleanup(lambda: _rmtree_safe(self._tmp))
 
     # ── default path generation ────────────────────────────────────
@@ -378,12 +371,14 @@ class TestRuntimeLifecycle(unittest.TestCase):
     def test_empty_projection_round_trips_as_explicit_table(self):
         target = os.path.join(self._tmp, "empty.toml")
         path, content_hash = create_runtime_projection(
-            EffectiveRuntimeProjection(extensions={}), host_path=target,
+            EffectiveRuntimeProjection(extensions={}),
+            host_path=target,
         )
         with open(path, "rb") as stream:
             self.assertEqual(b"[extensions]\n", stream.read())
         self.assertEqual(hashlib.sha256(b"[extensions]\n").hexdigest(), content_hash)
         from docker.runtime_installer import read_projection
+
         self.assertEqual([], read_projection(path))
 
     def test_create_returns_content_hash(self):
@@ -484,12 +479,16 @@ class TestRuntimeLifecycle(unittest.TestCase):
     def test_reordered_dto_produces_same_hash(self):
         """Projection DTOs with different extension insertion order
         must produce identical content hashes."""
-        from docker.versioning.model import EffectivePiExtensionEntry, \
-            EffectiveRuntimeProjection
+        from docker.versioning.model import (
+            EffectivePiExtensionEntry,
+            EffectiveRuntimeProjection,
+        )
 
         pkg = "@example/dto-sorted"
         integrity = "sha512-" + "A" * 86 + "=="
-        artifact_id = "sha512/" + ("A" * 86 + "==").replace("+", "-").replace("/", "_") + ".tgz"
+        artifact_id = (
+            "sha512/" + ("A" * 86 + "==").replace("+", "-").replace("/", "_") + ".tgz"
+        )
 
         ext = EffectivePiExtensionEntry(
             package=pkg,
@@ -639,6 +638,7 @@ class TestRuntimeLifecycle(unittest.TestCase):
         # The file must exist and contain valid TOML.
         self.assertTrue(os.path.isfile(path))
         import tomllib
+
         with open(path, "rb") as fh:
             parsed = tomllib.load(fh)
         # All expected fields are present in flat format.
@@ -653,8 +653,10 @@ class TestRuntimeLifecycle(unittest.TestCase):
     def test_roundtrip_special_characters_in_values(self):
         """Values containing TOML-significant characters must
         round-trip without corruption."""
-        from docker.versioning.model import EffectivePiExtensionEntry, \
-            EffectiveRuntimeProjection
+        from docker.versioning.model import (
+            EffectivePiExtensionEntry,
+            EffectiveRuntimeProjection,
+        )
 
         pkg = "@scope/pkg"
         ver = "2.0.0-beta.1"
@@ -674,24 +676,26 @@ class TestRuntimeLifecycle(unittest.TestCase):
             proj, host_path=os.path.join(self._tmp, "special.toml")
         )
         import tomllib
+
         with open(path, "rb") as fh:
             parsed = tomllib.load(fh)
         self.assertIn("ext", parsed["extensions"])
+        self.assertEqual(parsed["extensions"]["ext"]["package"], pkg)
         self.assertEqual(
-            parsed["extensions"]["ext"]["package"], pkg
-        )
-        self.assertEqual(
-            parsed["extensions"]["ext"]["version"], "2.0.0-beta.1",
+            parsed["extensions"]["ext"]["version"],
+            "2.0.0-beta.1",
         )
         self.assertEqual(
             parsed["extensions"]["ext"]["metadata_file"],
             "nested/path/package.json",
         )
         self.assertEqual(
-            parsed["extensions"]["ext"]["artifact_id"], artifact_id,
+            parsed["extensions"]["ext"]["artifact_id"],
+            artifact_id,
         )
         self.assertEqual(
-            parsed["extensions"]["ext"]["integrity"], integrity,
+            parsed["extensions"]["ext"]["integrity"],
+            integrity,
         )
 
     def test_roundtrip_corrupt_toml_rejected(self):
@@ -703,7 +707,8 @@ class TestRuntimeLifecycle(unittest.TestCase):
         with mock.patch(
             "docker.versioning.effective.tomllib.loads",
             side_effect=tomllib.TOMLDecodeError(
-                msg="injected parse error", doc="garbled", pos=0),
+                msg="injected parse error", doc="garbled", pos=0
+            ),
         ):
             with self.assertRaises(EffectiveConfigError) as ctx:
                 create_runtime_projection(proj, host_path=target)
@@ -721,45 +726,55 @@ class TestRuntimeLifecycle(unittest.TestCase):
             proj, host_path=os.path.join(self._tmp, "flat.toml")
         )
         import tomllib
+
         with open(path, "rb") as fh:
             parsed = tomllib.load(fh)
         for name, ext in proj.extensions.items():
             entry = parsed["extensions"][name]
             # Flat keys, not a nested artifact table.
             self.assertIsInstance(
-                entry.get("artifact_id"), str,
+                entry.get("artifact_id"),
+                str,
                 f"{name}: artifact_id missing or not a string",
             )
             self.assertIsInstance(
-                entry.get("integrity"), str,
+                entry.get("integrity"),
+                str,
                 f"{name}: integrity missing or not a string",
             )
             # No legacy nested artifact key.
             self.assertNotIn(
-                "artifact", entry,
+                "artifact",
+                entry,
                 f"{name}: legacy 'artifact' table must not be present",
             )
             # artifact_id must agree with integrity.
             self.assertEqual(
-                entry["artifact_id"], ext.artifact_id,
+                entry["artifact_id"],
+                ext.artifact_id,
                 f"{name}: artifact_id does not match DTO",
             )
             self.assertEqual(
-                entry["integrity"], ext.integrity,
+                entry["integrity"],
+                ext.integrity,
                 f"{name}: integrity does not match DTO",
             )
 
     def test_serialized_extension_keys_sorted_deterministically(self):
         """Serialized extension keys must be sorted alphabetically
         regardless of DTO insertion order."""
-        from docker.versioning.model import EffectivePiExtensionEntry, \
-            EffectiveRuntimeProjection
+        from docker.versioning.model import (
+            EffectivePiExtensionEntry,
+            EffectiveRuntimeProjection,
+        )
 
         integrity = "sha512-" + "A" * 86 + "=="
         aid = "sha512/" + "A" * 86 + "==.tgz"
         ext = EffectivePiExtensionEntry(
-            package="p", version="1.0.0",
-            artifact_id=aid, integrity=integrity,
+            package="p",
+            version="1.0.0",
+            artifact_id=aid,
+            integrity=integrity,
             metadata_file="package.json",
         )
         # Insert in non-alphabetical order.
@@ -770,73 +785,60 @@ class TestRuntimeLifecycle(unittest.TestCase):
             proj, host_path=os.path.join(self._tmp, "sorted.toml")
         )
         import tomllib
+
         with open(path, "rb") as fh:
             parsed = tomllib.load(fh)
         keys = list(parsed["extensions"])
-        self.assertEqual(keys, sorted(keys),
-                         "extension keys must be sorted alphabetically")
+        self.assertEqual(
+            keys, sorted(keys), "extension keys must be sorted alphabetically"
+        )
 
     def test_duplicate_integrity_preserves_distinct_metadata(self):
         """When two extensions share the same integrity, each
         retains its own package/version/metadata in the serialized
         output."""
-        from docker.versioning.model import EffectivePiExtensionEntry, \
-            EffectiveRuntimeProjection
+        from docker.versioning.model import (
+            EffectivePiExtensionEntry,
+            EffectiveRuntimeProjection,
+        )
 
         integrity = "sha512-" + "A" * 86 + "=="
         aid = "sha512/" + "A" * 86 + "==.tgz"
         ext_a = EffectivePiExtensionEntry(
-            package="@scope/a", version="1.0.0",
-            artifact_id=aid, integrity=integrity,
+            package="@scope/a",
+            version="1.0.0",
+            artifact_id=aid,
+            integrity=integrity,
             metadata_file="package.json",
         )
         ext_b = EffectivePiExtensionEntry(
-            package="@scope/b", version="2.0.0",
-            artifact_id=aid, integrity=integrity,
+            package="@scope/b",
+            version="2.0.0",
+            artifact_id=aid,
+            integrity=integrity,
             metadata_file="other.json",
         )
         proj = EffectiveRuntimeProjection(
             extensions={"a": ext_a, "b": ext_b},
         )
         path, _ = create_runtime_projection(
-            proj, host_path=os.path.join(
-                self._tmp, "dup_integrity.toml"
-            )
+            proj, host_path=os.path.join(self._tmp, "dup_integrity.toml")
         )
         import tomllib
+
         with open(path, "rb") as fh:
             parsed = tomllib.load(fh)
-        self.assertEqual(
-            parsed["extensions"]["a"]["package"], "@scope/a"
-        )
-        self.assertEqual(
-            parsed["extensions"]["a"]["version"], "1.0.0"
-        )
-        self.assertEqual(
-            parsed["extensions"]["a"]["metadata_file"], "package.json"
-        )
-        self.assertEqual(
-            parsed["extensions"]["b"]["package"], "@scope/b"
-        )
-        self.assertEqual(
-            parsed["extensions"]["b"]["version"], "2.0.0"
-        )
-        self.assertEqual(
-            parsed["extensions"]["b"]["metadata_file"], "other.json"
-        )
+        self.assertEqual(parsed["extensions"]["a"]["package"], "@scope/a")
+        self.assertEqual(parsed["extensions"]["a"]["version"], "1.0.0")
+        self.assertEqual(parsed["extensions"]["a"]["metadata_file"], "package.json")
+        self.assertEqual(parsed["extensions"]["b"]["package"], "@scope/b")
+        self.assertEqual(parsed["extensions"]["b"]["version"], "2.0.0")
+        self.assertEqual(parsed["extensions"]["b"]["metadata_file"], "other.json")
         # Both share the same artifact_id and integrity.
-        self.assertEqual(
-            parsed["extensions"]["a"]["artifact_id"], aid
-        )
-        self.assertEqual(
-            parsed["extensions"]["b"]["artifact_id"], aid
-        )
-        self.assertEqual(
-            parsed["extensions"]["a"]["integrity"], integrity
-        )
-        self.assertEqual(
-            parsed["extensions"]["b"]["integrity"], integrity
-        )
+        self.assertEqual(parsed["extensions"]["a"]["artifact_id"], aid)
+        self.assertEqual(parsed["extensions"]["b"]["artifact_id"], aid)
+        self.assertEqual(parsed["extensions"]["a"]["integrity"], integrity)
+        self.assertEqual(parsed["extensions"]["b"]["integrity"], integrity)
 
     # ── fixed mounted-artifact root semantics ──────────────
 
@@ -850,6 +852,7 @@ class TestRuntimeLifecycle(unittest.TestCase):
             proj, host_path=os.path.join(self._tmp, "root_semantics.toml")
         )
         import tomllib
+
         with open(path, "rb") as fh:
             parsed = tomllib.load(fh)
         for name, entry in parsed["extensions"].items():
@@ -860,13 +863,15 @@ class TestRuntimeLifecycle(unittest.TestCase):
                 f"{name}: artifact_id {aid!r} must not be absolute",
             )
             self.assertNotIn(
-                "..", aid,
+                "..",
+                aid,
                 f"{name}: artifact_id {aid!r} must not contain traversal",
             )
             # Canonical form: exactly two segments, ends with .tgz
             segments = aid.split("/")
             self.assertEqual(
-                len(segments), 2,
+                len(segments),
+                2,
                 f"{name}: artifact_id {aid!r} must have exactly two "
                 f"segments (algorithm/digest.tgz)",
             )
@@ -876,7 +881,8 @@ class TestRuntimeLifecycle(unittest.TestCase):
             )
             # Algorithm prefix must be a recognised SRI algorithm.
             self.assertIn(
-                segments[0], ("sha256", "sha384", "sha512"),
+                segments[0],
+                ("sha256", "sha384", "sha512"),
                 f"{name}: artifact_id {aid!r} has unknown algorithm",
             )
 
@@ -911,11 +917,11 @@ class TestRuntimeLifecycle(unittest.TestCase):
         """The generated default path must point to a file that does
         not exist before the atomic write."""
         from docker.versioning.effective import _generate_projection_path
+
         path = _generate_projection_path()
         self.assertFalse(
             os.path.exists(path),
-            f"generated path {path!r} already exists — "
-            f"it was pre-created",
+            f"generated path {path!r} already exists — it was pre-created",
         )
 
     # ── concurrent isolation ───────────────────────────────────────
@@ -1117,7 +1123,8 @@ class TestRuntimeLifecycle(unittest.TestCase):
         store: dict[str, bytes] = {}
         fake = _make_fake_fs(store, runtime_dir=self._tmp)
         h = create_runtime_projection(
-            proj, host_path=os.path.join(self._tmp, "fake1.toml"),
+            proj,
+            host_path=os.path.join(self._tmp, "fake1.toml"),
             _fs=fake,
         )
         self.assertIn(h.path, store)
@@ -1213,14 +1220,19 @@ class TestRuntimeLifecycle(unittest.TestCase):
         # Guard: any call to these real functions is a test failure.
         def _must_not_call(name):
             def fail(*a, **kw):
-                raise AssertionError(f"real {name}() called — fake must not touch host fs")
+                raise AssertionError(
+                    f"real {name}() called — fake must not touch host fs"
+                )
+
             return fail
 
-        with mock.patch("os.open", _must_not_call("os.open")), \
-                mock.patch("os.write", _must_not_call("os.write")), \
-                mock.patch("os.fsync", _must_not_call("os.fsync")), \
-                mock.patch("os.close", _must_not_call("os.close")), \
-                mock.patch("tempfile.mkstemp", _must_not_call("tempfile.mkstemp")):
+        with (
+            mock.patch("os.open", _must_not_call("os.open")),
+            mock.patch("os.write", _must_not_call("os.write")),
+            mock.patch("os.fsync", _must_not_call("os.fsync")),
+            mock.patch("os.close", _must_not_call("os.close")),
+            mock.patch("tempfile.mkstemp", _must_not_call("tempfile.mkstemp")),
+        ):
             h = create_runtime_projection(proj, host_path=target, _fs=fake)
             # Store must contain the projection.
             self.assertIn(target, store)
@@ -1248,12 +1260,14 @@ class TestRuntimeLifecycle(unittest.TestCase):
         non-owner users — container-remapped UIDs cannot read files
         locked at owner-only 0600."""
         import stat
+
         _, proj = resolve_runtime(_runtime(), {})
         target = os.path.join(self._tmp, "world-readable.toml")
         path, _ = create_runtime_projection(proj, host_path=target)
         mode = os.stat(path).st_mode & 0o777
         self.assertEqual(
-            0o444, mode,
+            0o444,
+            mode,
             f"projection mode {oct(mode)} — expected 0o444 "
             f"so container-remapped users can read it",
         )
@@ -1268,12 +1282,14 @@ class TestRuntimeLifecycle(unittest.TestCase):
         The projection must never be left at this restrictive mode
         — this test documents the baseline the code must override."""
         import stat
+
         fd, tmp = tempfile.mkstemp(dir=self._tmp)
         try:
             os.close(fd)
             mode = os.stat(tmp).st_mode & 0o777
             self.assertEqual(
-                0o600, mode,
+                0o600,
+                mode,
                 f"mkstemp creates files at {oct(mode)}, expected 0o600 "
                 f"— this is the baseline the projection must override",
             )
@@ -1309,12 +1325,14 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_valid_data_passes(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         _validate_serialized_projection(self._valid_data())
 
     # ── top-level unknowns ─────────────────────────────────────
 
     def test_rejects_unknown_top_level_key(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
         data["build"] = {}
         with self.assertRaises(EffectiveConfigError) as ctx:
@@ -1324,6 +1342,7 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_rejects_multiple_unknown_top_keys(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
         data["build"] = {}
         data["stages"] = {}
@@ -1334,6 +1353,7 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_rejects_non_dict_extensions(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
         data["extensions"] = "not-a-table"
         with self.assertRaises(EffectiveConfigError) as ctx:
@@ -1342,6 +1362,7 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_accepts_empty_extensions(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
         data["extensions"] = {}
         _validate_serialized_projection(data)
@@ -1350,6 +1371,7 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_rejects_unknown_extension_key(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
         data["extensions"]["pi-read"]["source"] = {"type": "npm"}
         with self.assertRaises(EffectiveConfigError) as ctx:
@@ -1359,6 +1381,7 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_rejects_update_policy_in_extension(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
         data["extensions"]["pi-read"]["update"] = {"provider": "npm"}
         with self.assertRaises(EffectiveConfigError) as ctx:
@@ -1367,6 +1390,7 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_rejects_override_policy_in_extension(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
         data["extensions"]["pi-read"]["override"] = {"constraint": ">=1.0"}
         with self.assertRaises(EffectiveConfigError) as ctx:
@@ -1375,6 +1399,7 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_rejects_artifacts_in_extension(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
         data["extensions"]["pi-read"]["artifacts"] = {}
         with self.assertRaises(EffectiveConfigError) as ctx:
@@ -1387,8 +1412,12 @@ class TestSerializedProjectionValidator(unittest.TestCase):
         """The old nested 'artifact' table is rejected as an unknown
         extension key."""
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
-        data["extensions"]["pi-read"]["artifact"] = {"url": "https://x", "integrity": self._GOOD_INTEGRITY}
+        data["extensions"]["pi-read"]["artifact"] = {
+            "url": "https://x",
+            "integrity": self._GOOD_INTEGRITY,
+        }
         with self.assertRaises(EffectiveConfigError) as ctx:
             _validate_serialized_projection(data)
         self.assertIn("'artifact'", str(ctx.exception))
@@ -1397,6 +1426,7 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_rejects_empty_package(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
         data["extensions"]["pi-read"]["package"] = ""
         with self.assertRaises(EffectiveConfigError) as ctx:
@@ -1405,6 +1435,7 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_rejects_missing_version(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
         del data["extensions"]["pi-read"]["version"]
         with self.assertRaises(EffectiveConfigError) as ctx:
@@ -1414,15 +1445,16 @@ class TestSerializedProjectionValidator(unittest.TestCase):
     # ── integrity validation ───────────────────────────────────
 
     _GOOD_SHA256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-    _GOOD_SHA384 = "sha384-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    _GOOD_SHA384 = (
+        "sha384-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    )
     _GOOD_SHA512 = "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
 
     def test_accepts_sha256_integrity(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
-        data["extensions"]["pi-read"]["integrity"] = (
-            self._GOOD_SHA256
-        )
+        data["extensions"]["pi-read"]["integrity"] = self._GOOD_SHA256
         # artifact_id must agree with the new integrity
         data["extensions"]["pi-read"]["artifact_id"] = (
             "sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=.tgz"
@@ -1431,10 +1463,9 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_accepts_sha384_integrity(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
-        data["extensions"]["pi-read"]["integrity"] = (
-            self._GOOD_SHA384
-        )
+        data["extensions"]["pi-read"]["integrity"] = self._GOOD_SHA384
         data["extensions"]["pi-read"]["artifact_id"] = (
             "sha384/"
             "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
@@ -1444,10 +1475,9 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_accepts_sha512_integrity(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
-        data["extensions"]["pi-read"]["integrity"] = (
-            self._GOOD_SHA512
-        )
+        data["extensions"]["pi-read"]["integrity"] = self._GOOD_SHA512
         data["extensions"]["pi-read"]["artifact_id"] = (
             "sha512/"
             "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
@@ -1457,30 +1487,27 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_rejects_unsupported_algorithm(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
-        data["extensions"]["pi-read"]["integrity"] = (
-            "sha1-" + "A" * 27 + "="
-        )
+        data["extensions"]["pi-read"]["integrity"] = "sha1-" + "A" * 27 + "="
         with self.assertRaises(EffectiveConfigError) as ctx:
             _validate_serialized_projection(data)
         self.assertIn("unsupported algorithm", str(ctx.exception))
 
     def test_rejects_missing_separator(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
-        data["extensions"]["pi-read"]["integrity"] = (
-            "sha512AAAA"
-        )
+        data["extensions"]["pi-read"]["integrity"] = "sha512AAAA"
         with self.assertRaises(EffectiveConfigError) as ctx:
             _validate_serialized_projection(data)
         self.assertIn("alg-base64payload", str(ctx.exception))
 
     def test_rejects_invalid_base64_payload(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
-        data["extensions"]["pi-read"]["integrity"] = (
-            "sha512-" + "!" * 86 + "=="
-        )
+        data["extensions"]["pi-read"]["integrity"] = "sha512-" + "!" * 86 + "=="
         with self.assertRaises(EffectiveConfigError) as ctx:
             _validate_serialized_projection(data)
         self.assertIn("invalid base64", str(ctx.exception))
@@ -1488,12 +1515,11 @@ class TestSerializedProjectionValidator(unittest.TestCase):
     def test_rejects_sha256_with_wrong_digest_length(self):
         from docker.versioning.effective import _validate_serialized_projection
         import base64
+
         # Encode 33 bytes instead of 32 — wrong length for sha256.
         bad = base64.b64encode(b"A" * 33).decode()
         data = self._valid_data()
-        data["extensions"]["pi-read"]["integrity"] = (
-            f"sha256-{bad}"
-        )
+        data["extensions"]["pi-read"]["integrity"] = f"sha256-{bad}"
         with self.assertRaises(EffectiveConfigError) as ctx:
             _validate_serialized_projection(data)
         self.assertIn("digest must be", str(ctx.exception))
@@ -1502,11 +1528,10 @@ class TestSerializedProjectionValidator(unittest.TestCase):
     def test_rejects_sha384_with_wrong_digest_length(self):
         from docker.versioning.effective import _validate_serialized_projection
         import base64
+
         bad = base64.b64encode(b"B" * 47).decode()
         data = self._valid_data()
-        data["extensions"]["pi-read"]["integrity"] = (
-            f"sha384-{bad}"
-        )
+        data["extensions"]["pi-read"]["integrity"] = f"sha384-{bad}"
         with self.assertRaises(EffectiveConfigError) as ctx:
             _validate_serialized_projection(data)
         self.assertIn("48 bytes", str(ctx.exception))
@@ -1514,11 +1539,10 @@ class TestSerializedProjectionValidator(unittest.TestCase):
     def test_rejects_sha512_with_wrong_digest_length(self):
         from docker.versioning.effective import _validate_serialized_projection
         import base64
+
         bad = base64.b64encode(b"C" * 63).decode()
         data = self._valid_data()
-        data["extensions"]["pi-read"]["integrity"] = (
-            f"sha512-{bad}"
-        )
+        data["extensions"]["pi-read"]["integrity"] = f"sha512-{bad}"
         with self.assertRaises(EffectiveConfigError) as ctx:
             _validate_serialized_projection(data)
         self.assertIn("64 bytes", str(ctx.exception))
@@ -1527,6 +1551,7 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_rejects_absolute_metadata_file(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
         data["extensions"]["pi-read"]["metadata_file"] = "/etc/hacked"
         with self.assertRaises(EffectiveConfigError) as ctx:
@@ -1535,16 +1560,16 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_rejects_dot_dot_in_metadata_file(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
-        data["extensions"]["pi-read"]["metadata_file"] = (
-            "../escape/package.json"
-        )
+        data["extensions"]["pi-read"]["metadata_file"] = "../escape/package.json"
         with self.assertRaises(EffectiveConfigError) as ctx:
             _validate_serialized_projection(data)
         self.assertIn("invalid segments", str(ctx.exception))
 
     def test_rejects_empty_metadata_file(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
         data["extensions"]["pi-read"]["metadata_file"] = ""
         with self.assertRaises(EffectiveConfigError) as ctx:
@@ -1555,20 +1580,18 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
     def test_rejects_traversal_in_artifact_id(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
-        data["extensions"]["pi-read"]["artifact_id"] = (
-            "sha512/../../etc/shadow.tgz"
-        )
+        data["extensions"]["pi-read"]["artifact_id"] = "sha512/../../etc/shadow.tgz"
         with self.assertRaises(EffectiveConfigError) as ctx:
             _validate_serialized_projection(data)
         self.assertIn("invalid segments", str(ctx.exception))
 
     def test_rejects_absolute_artifact_id(self):
         from docker.versioning.effective import _validate_serialized_projection
+
         data = self._valid_data()
-        data["extensions"]["pi-read"]["artifact_id"] = (
-            "/sha512/abc.tgz"
-        )
+        data["extensions"]["pi-read"]["artifact_id"] = "/sha512/abc.tgz"
         with self.assertRaises(EffectiveConfigError) as ctx:
             _validate_serialized_projection(data)
         self.assertIn("absolute path", str(ctx.exception))
@@ -1576,6 +1599,7 @@ class TestSerializedProjectionValidator(unittest.TestCase):
 
 def _rmtree_safe(path: str) -> None:
     import shutil
+
     try:
         shutil.rmtree(path)
     except Exception:

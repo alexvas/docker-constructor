@@ -7,6 +7,7 @@ corresponding descriptor-relative ``os`` call and preserves the raised
 domain-neutral and imports only the standard library, so it can be reused
 without loading ``docker.transactions`` or a domain package.
 """
+
 from __future__ import annotations
 
 import os

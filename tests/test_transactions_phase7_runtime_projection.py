@@ -13,6 +13,7 @@ collision mapping, raw non-collision failures, safe-path rejection,
 interruption passthrough, lifecycle cleanup, and the absence of any
 ``fsync``/durability step.
 """
+
 from __future__ import annotations
 
 import base64
@@ -42,7 +43,9 @@ from tests.transactions_test_support import InjectedOps, temporary_entries
 
 _RAW = hashlib.sha512(b"runtime-projection-payload").digest()
 _INTEGRITY = "sha512-" + base64.b64encode(_RAW).decode()
-_ARTIFACT_ID = "sha512/" + _INTEGRITY.split("-", 1)[1].replace("+", "-").replace("/", "_") + ".tgz"
+_ARTIFACT_ID = (
+    "sha512/" + _INTEGRITY.split("-", 1)[1].replace("+", "-").replace("/", "_") + ".tgz"
+)
 
 
 def _projection() -> EffectiveRuntimeProjection:
@@ -128,7 +131,9 @@ class AtomicPublicationTests(_RuntimeProjectionCase):
 
         self.ops.linkat = _record_mode  # type: ignore[method-assign]
         handle = create_runtime_projection(
-            self.projection, host_path=target, _fs=self.fs,
+            self.projection,
+            host_path=target,
+            _fs=self.fs,
         )
         self.assertEqual(handle.path, target)
         with open(target, "rb") as stream:
@@ -140,21 +145,27 @@ class AtomicPublicationTests(_RuntimeProjectionCase):
 
     def test_commits_with_one_atomic_link_not_rename(self) -> None:
         create_runtime_projection(
-            self.projection, host_path=self._target(), _fs=self.fs,
+            self.projection,
+            host_path=self._target(),
+            _fs=self.fs,
         )
         self.assertEqual(self.ops.counts.get("linkat"), 1)
         self.assertNotIn("renameat", self.ops.counts)
 
     def test_makes_no_parent_directory_durability_claim(self) -> None:
         create_runtime_projection(
-            self.projection, host_path=self._target(), _fs=self.fs,
+            self.projection,
+            host_path=self._target(),
+            _fs=self.fs,
         )
         self.assertNotIn("fsync", self.ops.counts)
 
     def test_content_hash_matches_published_bytes(self) -> None:
         target = self._target()
         handle = create_runtime_projection(
-            self.projection, host_path=target, _fs=self.fs,
+            self.projection,
+            host_path=target,
+            _fs=self.fs,
         )
         with open(target, "rb") as stream:
             actual = hashlib.sha256(stream.read()).hexdigest()
@@ -168,7 +179,9 @@ class CollisionTests(_RuntimeProjectionCase):
             stream.write(b"prior-launch")
         with self.assertRaises(EffectiveConfigError) as ctx:
             create_runtime_projection(
-                self.projection, host_path=target, _fs=self.fs,
+                self.projection,
+                host_path=target,
+                _fs=self.fs,
             )
         message = str(ctx.exception)
         self.assertIn(f"runtime projection {target!r} already exists", message)
@@ -185,7 +198,9 @@ class CollisionTests(_RuntimeProjectionCase):
             stream.write(b"prior")
         with self.assertRaises(EffectiveConfigError) as ctx:
             create_runtime_projection(
-                self.projection, host_path=target, _fs=self.fs,
+                self.projection,
+                host_path=target,
+                _fs=self.fs,
             )
         self.assertIsInstance(ctx.exception.__cause__, DestinationExists)
 
@@ -205,7 +220,9 @@ class OperationalFailureTests(_RuntimeProjectionCase):
         self.ops.failures["write"] = error
         with self.assertRaises(EffectiveConfigError) as ctx:
             create_runtime_projection(
-                self.projection, host_path=target, _fs=self.fs,
+                self.projection,
+                host_path=target,
+                _fs=self.fs,
             )
         self._assert_typed_domain_failure(ctx, error)
         self.assertEqual(ctx.exception.__cause__.cause.errno, errno.EIO)
@@ -218,7 +235,9 @@ class OperationalFailureTests(_RuntimeProjectionCase):
         self.ops.failures["linkat"] = error
         with self.assertRaises(EffectiveConfigError) as ctx:
             create_runtime_projection(
-                self.projection, host_path=target, _fs=self.fs,
+                self.projection,
+                host_path=target,
+                _fs=self.fs,
             )
         self._assert_typed_domain_failure(ctx, error)
         self.assertFalse(os.path.exists(target))
@@ -231,7 +250,9 @@ class OperationalFailureTests(_RuntimeProjectionCase):
         target = self._target("open-fail.toml")
         with self.assertRaises(EffectiveConfigError) as ctx:
             create_runtime_projection(
-                self.projection, host_path=target, _fs=fs,
+                self.projection,
+                host_path=target,
+                _fs=fs,
             )
         self._assert_typed_domain_failure(ctx, error)
         self.assertIs(type(ctx.exception.__cause__.cause), PermissionError)
@@ -245,7 +266,9 @@ class OperationalFailureTests(_RuntimeProjectionCase):
         self.ops.failures["fstat"] = error
         with self.assertRaises(EffectiveConfigError) as ctx:
             create_runtime_projection(
-                self.projection, host_path=target, _fs=self.fs,
+                self.projection,
+                host_path=target,
+                _fs=self.fs,
             )
         self._assert_typed_domain_failure(ctx, error)
         self.assertFalse(os.path.exists(target))
@@ -257,7 +280,9 @@ class OperationalFailureTests(_RuntimeProjectionCase):
         self.ops.failures["linkat"] = interrupt
         with self.assertRaises(KeyboardInterrupt) as ctx:
             create_runtime_projection(
-                self.projection, host_path=target, _fs=self.fs,
+                self.projection,
+                host_path=target,
+                _fs=self.fs,
             )
         self.assertIs(ctx.exception, interrupt)
         self.assertFalse(os.path.exists(target))
@@ -273,7 +298,9 @@ class SafePathTests(_RuntimeProjectionCase):
         os.symlink(real, link)
         with self.assertRaises(EffectiveConfigError) as ctx:
             create_runtime_projection(
-                self.projection, host_path=link, _fs=self.fs,
+                self.projection,
+                host_path=link,
+                _fs=self.fs,
             )
         self.assertIn("symlink", str(ctx.exception))
         with open(real, "rb") as stream:
@@ -285,7 +312,9 @@ class SafePathTests(_RuntimeProjectionCase):
         self.addCleanup(os.unlink, outside.name)
         with self.assertRaises(EffectiveConfigError) as ctx:
             create_runtime_projection(
-                self.projection, host_path=outside.name, _fs=self.fs,
+                self.projection,
+                host_path=outside.name,
+                _fs=self.fs,
             )
         self.assertIn("outside", str(ctx.exception))
 
@@ -307,7 +336,9 @@ class SafePathTests(_RuntimeProjectionCase):
         real_target = os.path.join(real_sub, "projection.toml")
         with self.assertRaises(CapabilityError) as ctx:
             create_runtime_projection(
-                self.projection, host_path=target, _fs=self.fs,
+                self.projection,
+                host_path=target,
+                _fs=self.fs,
             )
         # The no-follow safety rejection is the original ``CapabilityError``
         # with the raw platform error reachable through its direct cause.
@@ -323,7 +354,9 @@ class LifecycleTests(_RuntimeProjectionCase):
     def test_context_manager_removes_published_file(self) -> None:
         target = self._target()
         with create_runtime_projection(
-            self.projection, host_path=target, _fs=self.fs,
+            self.projection,
+            host_path=target,
+            _fs=self.fs,
         ) as handle:
             self.assertTrue(os.path.isfile(handle.path))
         self.assertFalse(os.path.exists(target))
@@ -331,7 +364,9 @@ class LifecycleTests(_RuntimeProjectionCase):
     def test_discard_keeps_published_file(self) -> None:
         target = self._target()
         with create_runtime_projection(
-            self.projection, host_path=target, _fs=self.fs,
+            self.projection,
+            host_path=target,
+            _fs=self.fs,
         ) as handle:
             handle.discard()
         self.assertTrue(os.path.isfile(target))

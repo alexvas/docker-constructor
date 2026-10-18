@@ -15,6 +15,7 @@ reconstructing a pathname from an open descriptor.
 These tests pin both the preserved facade surface and the descriptor-based
 publication boundary.
 """
+
 from __future__ import annotations
 
 import base64
@@ -44,7 +45,9 @@ from tests.transactions_test_support import InjectedOps, temporary_entries
 
 _RAW = hashlib.sha512(b"facade-payload").digest()
 _INTEGRITY = "sha512-" + base64.b64encode(_RAW).decode()
-_ARTIFACT_ID = "sha512/" + _INTEGRITY.split("-", 1)[1].replace("+", "-").replace("/", "_") + ".tgz"
+_ARTIFACT_ID = (
+    "sha512/" + _INTEGRITY.split("-", 1)[1].replace("+", "-").replace("/", "_") + ".tgz"
+)
 
 
 def _projection() -> EffectiveRuntimeProjection:
@@ -76,8 +79,17 @@ class PreservedSurfaceTests(_FacadeCase):
         sentinel = object()
         fs = Filesystem(runtime_root=self.boundary)
         for name in (
-            "open", "unlink", "link", "fsync", "mkstemp", "chmod",
-            "urandom", "path", "makedirs", "close_fd", "runtime_root",
+            "open",
+            "unlink",
+            "link",
+            "fsync",
+            "mkstemp",
+            "chmod",
+            "urandom",
+            "path",
+            "makedirs",
+            "close_fd",
+            "runtime_root",
         ):
             self.assertTrue(hasattr(fs, name), f"Filesystem lost seam {name!r}")
         fs.unlink = sentinel
@@ -114,7 +126,9 @@ class PreservedSurfaceTests(_FacadeCase):
     def test_runtime_root_validation_is_retained(self) -> None:
         with self.assertRaises(EffectiveConfigError) as ctx:
             _runtime_root(Filesystem(runtime_root=None))
-        self.assertIn("explicit external project-state runtime root", str(ctx.exception))
+        self.assertIn(
+            "explicit external project-state runtime root", str(ctx.exception)
+        )
         with self.assertRaises(EffectiveConfigError):
             _runtime_root(Filesystem(runtime_root="relative/path"))
 
@@ -160,7 +174,9 @@ class LifecycleOwnershipTests(_FacadeCase):
             unlink=_tracked_unlink,
         )
         handle = create_runtime_projection(
-            self.projection, host_path=target, _fs=fs,
+            self.projection,
+            host_path=target,
+            _fs=fs,
         )
         with handle:
             self.assertTrue(os.path.isfile(target))
@@ -171,7 +187,9 @@ class LifecycleOwnershipTests(_FacadeCase):
         target = os.path.join(self.boundary, "keep.toml")
         fs = Filesystem(runtime_root=self.boundary, ops=InjectedOps())
         handle = create_runtime_projection(
-            self.projection, host_path=target, _fs=fs,
+            self.projection,
+            host_path=target,
+            _fs=fs,
         )
         self.assertIsInstance(handle, RuntimeProjectionHandle)
         handle.discard()
@@ -222,16 +240,20 @@ class DescriptorRelativePublicationTests(_FacadeCase):
         walked: list[str] = []
         for dir_fd, name, *_ in opens[1:]:
             self.assertIsNotNone(
-                dir_fd, "every path component must be opened via dir_fd",
+                dir_fd,
+                "every path component must be opened via dir_fd",
             )
             self.assertNotIn(
-                os.sep, name, "a component name must never be a path",
+                os.sep,
+                name,
+                "a component name must never be a path",
             )
             walked.append(name)
             if name == os.path.basename(self.boundary):
                 break
         self.assertEqual(
-            walked, [part for part in self.boundary.split(os.sep) if part],
+            walked,
+            [part for part in self.boundary.split(os.sep) if part],
         )
 
     def test_no_descriptor_path_is_reconstructed(self) -> None:

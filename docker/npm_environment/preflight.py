@@ -49,11 +49,13 @@ def _parse_install_package(package_bytes: bytes, lockfile) -> dict:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
         raise LockedNpmError(
-            "malformed_package", "install-package.json is not valid JSON",
+            "malformed_package",
+            "install-package.json is not valid JSON",
         ) from exc
     if not isinstance(data, Mapping):
         raise LockedNpmError(
-            "malformed_package", "install-package.json must be an object",
+            "malformed_package",
+            "install-package.json must be an object",
         )
 
     name = data.get("name")

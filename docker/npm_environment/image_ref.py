@@ -62,9 +62,7 @@ def _invalid(reference: object) -> LockedNpmError:
 def _valid_repository_path(name: str) -> bool:
     """Return whether *name* is a valid ``/``-joined repository path."""
     parts = name.split("/")
-    return bool(parts) and all(
-        _REPO_SEGMENT_RE.fullmatch(part) for part in parts
-    )
+    return bool(parts) and all(_REPO_SEGMENT_RE.fullmatch(part) for part in parts)
 
 
 def _valid_port(port: str) -> bool:

@@ -1,4 +1,5 @@
 """Presentation-neutral host materialization events."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -109,9 +110,10 @@ def require_approved_url_fingerprints(value: object) -> None:
     for fingerprint in value:
         if not isinstance(fingerprint, str):
             raise TypeError("url fingerprints must be strings")
-        if len(fingerprint) != URL_FINGERPRINT_LENGTH or not set(
-            fingerprint
-        ) <= URL_FINGERPRINT_ALPHABET:
+        if (
+            len(fingerprint) != URL_FINGERPRINT_LENGTH
+            or not set(fingerprint) <= URL_FINGERPRINT_ALPHABET
+        ):
             raise ValueError(
                 "url fingerprints must be exactly "
                 f"{URL_FINGERPRINT_LENGTH} lowercase hexadecimal characters"
@@ -124,7 +126,9 @@ class HostPhaseEvent:
     state: HostPhaseState
 
     def __post_init__(self) -> None:
-        if not isinstance(self.phase, HostPhase) or not isinstance(self.state, HostPhaseState):
+        if not isinstance(self.phase, HostPhase) or not isinstance(
+            self.state, HostPhaseState
+        ):
             raise TypeError("host phase events require fixed phase and state members")
 
 
@@ -135,8 +139,12 @@ class HostDiagnosticEvent:
     text: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.phase, HostPhase) or not isinstance(self.stream, HostDiagnosticStream):
-            raise TypeError("host diagnostic events require fixed phase and stream members")
+        if not isinstance(self.phase, HostPhase) or not isinstance(
+            self.stream, HostDiagnosticStream
+        ):
+            raise TypeError(
+                "host diagnostic events require fixed phase and stream members"
+            )
         if not isinstance(self.text, str):
             raise TypeError("host diagnostic text must be a string")
 
@@ -216,15 +224,21 @@ class HostHeartbeatEvent:
                 )
         else:
             _require_optional_int(
-                self.diagnostic_silence_seconds, "diagnostic_silence_seconds", minimum=120
+                self.diagnostic_silence_seconds,
+                "diagnostic_silence_seconds",
+                minimum=120,
             )
 
-        if (self.last_activity_kind is None) != (self.last_activity_age_seconds is None):
+        if (self.last_activity_kind is None) != (
+            self.last_activity_age_seconds is None
+        ):
             raise TypeError(
                 "last-activity kind and age must be jointly present or jointly absent"
             )
         if self.last_activity_kind is not None:
-            _require_member(self.last_activity_kind, HostLastActivityKind, "last_activity_kind")
+            _require_member(
+                self.last_activity_kind, HostLastActivityKind, "last_activity_kind"
+            )
             _require_int(
                 self.last_activity_age_seconds, "last_activity_age_seconds", minimum=1
             )
@@ -254,7 +268,9 @@ class HostStructuredDiagnostic:
         _require_member(self.phase, HostPhase, "phase")
         _require_member(self.step, HostStep, "step")
         _require_member(self.stream, HostDiagnosticStream, "stream")
-        _require_member(self.classification, HostDiagnosticClassification, "classification")
+        _require_member(
+            self.classification, HostDiagnosticClassification, "classification"
+        )
         if not isinstance(self.text, str):
             raise TypeError("structured diagnostic text must be a string")
         if not isinstance(self.hostnames, tuple) or not all(
@@ -305,7 +321,9 @@ class HostDiagnosticEnvelope:
         _require_member(self.phase, HostPhase, "phase")
         _require_member(self.step, HostStep, "step")
         _require_member(self.stream, HostDiagnosticStream, "stream")
-        _require_member(self.classification, HostDiagnosticClassification, "classification")
+        _require_member(
+            self.classification, HostDiagnosticClassification, "classification"
+        )
         if not isinstance(self.text, str):
             raise TypeError("envelope text must be a string")
         if not isinstance(self.hostnames, tuple) or not all(
@@ -486,13 +504,11 @@ class _FailureContextRegistry:
 
     def __init__(self) -> None:
         self._lock = Lock()
-        self._contexts: weakref.WeakKeyDictionary[
-            BaseException, HostFailureContext
-        ] = weakref.WeakKeyDictionary()
+        self._contexts: weakref.WeakKeyDictionary[BaseException, HostFailureContext] = (
+            weakref.WeakKeyDictionary()
+        )
 
-    def attach(
-        self, reason: BaseException, context: HostFailureContext
-    ) -> None:
+    def attach(self, reason: BaseException, context: HostFailureContext) -> None:
         if not isinstance(reason, BaseException):
             raise TypeError("reason must be an exception")
         if not isinstance(context, HostFailureContext):
@@ -502,7 +518,7 @@ class _FailureContextRegistry:
         try:
             object.__setattr__(reason, _HOST_FAILURE_CONTEXT_ATTR, context)
             return
-        except (AttributeError, TypeError):
+        except AttributeError, TypeError:
             pass
         with self._lock:
             if reason not in self._contexts:

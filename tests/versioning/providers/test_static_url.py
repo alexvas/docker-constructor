@@ -1,4 +1,5 @@
 """Static-URL provider tests."""
+
 from __future__ import annotations
 
 import unittest
@@ -18,7 +19,9 @@ from tests.versioning.support.fake_http import FakeHttpTransport
 from tests.versioning.support.fake_git import FakeGitTransport
 
 
-_ARTIFACT_URL = "https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init"
+_ARTIFACT_URL = (
+    "https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init"
+)
 _CHECKSUM_URL = _ARTIFACT_URL + ".sha256"
 _STORED_SHA256 = "4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10"
 
@@ -36,8 +39,10 @@ class TestStaticUrlProvider(unittest.TestCase):
 
     def _ctx(self):
         return ProviderContext(
-            http=self.http, git=self.git,
-            include_prerelease=False, tokens={},
+            http=self.http,
+            git=self.git,
+            include_prerelease=False,
+            tokens={},
         )
 
     # ------------------------------------------------------------------
@@ -60,8 +65,9 @@ class TestStaticUrlProvider(unittest.TestCase):
         )
 
     def _set_checksum(self, digest: str):
-        self.http.set("GET", _CHECKSUM_URL, status=200,
-                      body=self._checksum_body(digest))
+        self.http.set(
+            "GET", _CHECKSUM_URL, status=200, body=self._checksum_body(digest)
+        )
 
     # ------------------------------------------------------------------
     # Single platform — published checksum
@@ -114,8 +120,9 @@ class TestStaticUrlProvider(unittest.TestCase):
 
     def test_malformed_no_digest(self):
         """Checksum file has no 64-hex-char digest → unavailable."""
-        self.http.set("GET", _CHECKSUM_URL, status=200,
-                      body=b"not a valid checksum file\n")
+        self.http.set(
+            "GET", _CHECKSUM_URL, status=200, body=b"not a valid checksum file\n"
+        )
         result = self.provider.discover(self._target(), self._ctx())
         self.assertIsNotNone(result.unavailable_reason)
         self.assertIn("fail", result.unavailable_reason.lower())
@@ -139,8 +146,9 @@ class TestStaticUrlProvider(unittest.TestCase):
     def test_uppercase_normalised(self):
         """Uppercase hex digest normalised to lowercase."""
         upper = _STORED_SHA256.upper()
-        self.http.set("GET", _CHECKSUM_URL, status=200,
-                      body=f"{upper}  rustup-init\n".encode())
+        self.http.set(
+            "GET", _CHECKSUM_URL, status=200, body=f"{upper}  rustup-init\n".encode()
+        )
         result = self.provider.discover(self._target(), self._ctx())
         self.assertIsNotNone(result.candidate)
         self.assertEqual(result.candidate.value, _STORED_SHA256)
@@ -175,7 +183,9 @@ class TestStaticUrlProvider(unittest.TestCase):
         target = UpdateTarget(
             path="build.stages.toolchain.rust.rustup",
             current="",
-            source=StaticUrlSource(checksum_url="https://unregistered.example.com/CHECKSUM"),
+            source=StaticUrlSource(
+                checksum_url="https://unregistered.example.com/CHECKSUM"
+            ),
             update=StaticUrlUpdate(stable_only=True),
             artifacts={
                 "linux-amd64": ArtifactEntry(
@@ -373,11 +383,13 @@ class TestStaticUrlMultiArtifactRejection(unittest.TestCase):
 
     def test_multi_artifact_rejected(self):
         import tempfile
+
         with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             f.write(_MULTI_ARTIFACT_TOML)
             f.flush()
             from pathlib import Path
             from docker.versioning.inventory import load_inventory
+
             try:
                 with self.assertRaises(InventoryError) as ctx:
                     load_inventory(Path(f.name))
@@ -387,4 +399,5 @@ class TestStaticUrlMultiArtifactRejection(unittest.TestCase):
                 )
             finally:
                 import os
+
                 os.unlink(f.name)

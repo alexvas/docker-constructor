@@ -22,6 +22,7 @@ The activity object never probes Docker, processes, or the filesystem, never
 claims that npm is currently downloading, and owns no renderer, coalescer, or
 presentation timer.
 """
+
 from __future__ import annotations
 
 import time
@@ -100,9 +101,7 @@ class HostAssemblyActivity:
         )
 
     @contextmanager
-    def step(
-        self, name: str, *, container_name: str | None = None
-    ) -> Generator[None]:
+    def step(self, name: str, *, container_name: str | None = None) -> Generator[None]:
         """Scope one closed locked-assembly step with start/terminal facts."""
         step = HostStep(name)
         expects_diagnostic_stream = step is HostStep.NPM_EXECUTION
@@ -116,9 +115,7 @@ class HostAssemblyActivity:
                 sink=self._sink,
                 clock=self._clock,
                 waiter=(
-                    self._waiter_factory()
-                    if self._waiter_factory is not None
-                    else None
+                    self._waiter_factory() if self._waiter_factory is not None else None
                 ),
                 deadline_seconds=(
                     self._deadline_seconds if expects_diagnostic_stream else None

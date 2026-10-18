@@ -52,7 +52,9 @@ class FlatItem:
 
 
 def build_tree(
-    root: Path, depth: int = 0, max_depth: int = 5,
+    root: Path,
+    depth: int = 0,
+    max_depth: int = 5,
 ) -> list[TreeNode]:
     """Return only subdirectories of *root*, sorted alphabetically."""
     if depth >= max_depth:
@@ -63,9 +65,7 @@ def build_tree(
             if not p.is_dir():
                 continue
             has_subdirs = (
-                any(q.is_dir() for q in p.iterdir())
-                if depth + 1 < max_depth
-                else False
+                any(q.is_dir() for q in p.iterdir()) if depth + 1 < max_depth else False
             )
             entries.append(
                 TreeNode(
@@ -116,7 +116,9 @@ def _item_key(item: FlatItem) -> tuple:
 
 
 def _add_subtree(
-    result: list[FlatItem], node: TreeNode, indent: int,
+    result: list[FlatItem],
+    node: TreeNode,
+    indent: int,
 ) -> None:
     item = FlatItem(kind="tree", label=node.name, indent=indent, node=node)
     result.append(item)
@@ -129,11 +131,7 @@ def _rebuild_flat(source: list[FlatItem]) -> list[FlatItem]:
     result: list[FlatItem] = []
     for item in source:
         result.append(item)
-        if (
-            item.kind == "tree"
-            and item.node is not None
-            and item.node.expanded
-        ):
+        if item.kind == "tree" and item.node is not None and item.node.expanded:
             for child in item.node.children:
                 _add_subtree(result, child, item.indent + 1)
     return result
@@ -188,23 +186,24 @@ def run_tui(
 
     if has_ide:
         for i, proj in enumerate(ide_workspaces):
-            source.append(
-                FlatItem(kind="ide", label="", indent=0, ide_index=i)
-            )
+            source.append(FlatItem(kind="ide", label="", indent=0, ide_index=i))
     if has_ide and has_tree:
-        source.append(
-            FlatItem(kind="separator", label="Открыты в IDE", indent=0)
-        )
+        source.append(FlatItem(kind="separator", label="Открыты в IDE", indent=0))
     if has_tree:
         source.append(
             FlatItem(
-                kind="separator", label="В базовой директории", indent=0,
+                kind="separator",
+                label="В базовой директории",
+                indent=0,
             )
         )
         for node in tree_roots:
             source.append(
                 FlatItem(
-                    kind="tree", label=node.name, indent=0, node=node,
+                    kind="tree",
+                    label=node.name,
+                    indent=0,
+                    node=node,
                 )
             )
 
@@ -249,10 +248,7 @@ def run_tui(
         return result
 
     def _selectable_indices() -> list[int]:
-        return [
-            i for i, item in enumerate(flat_items)
-            if item.kind != "separator"
-        ]
+        return [i for i, item in enumerate(flat_items) if item.kind != "separator"]
 
     def _clamp_cursor() -> None:
         nonlocal cursor
@@ -323,10 +319,7 @@ def run_tui(
             _tui_draw_header(stdscr, num)
 
             # If the very first item is a separator, skip the blank row
-            list_start = (
-                1 if (flat_items and flat_items[0].kind == "separator")
-                else 2
-            )
+            list_start = 1 if (flat_items and flat_items[0].kind == "separator") else 2
             list_height = h - 3
 
             # Ensure viewport keeps cursor visible
@@ -336,7 +329,8 @@ def run_tui(
             extra_set = _current_extra_set()
 
             visible_end = min(
-                len(flat_items), viewport_offset + list_height,
+                len(flat_items),
+                viewport_offset + list_height,
             )
             for vi in range(viewport_offset, visible_end):
                 item = flat_items[vi]
@@ -363,18 +357,14 @@ def run_tui(
                     continue
 
                 # Build display line
-                sel_marker = (
-                    "★" if is_primary else ("✓" if is_extra else " ")
-                )
+                sel_marker = "★" if is_primary else ("✓" if is_extra else " ")
 
                 if item.kind == "ide" and item.ide_index is not None:
                     proj = ide_workspaces[item.ide_index]
                     ide = proj["ideName"]
                     port_str = str(proj["port"])
                     ws_path = (
-                        proj["workspaceFolders"][0]
-                        if proj["workspaceFolders"]
-                        else "?"
+                        proj["workspaceFolders"][0] if proj["workspaceFolders"] else "?"
                     )
                     suffix = f"  :{port_str}  {ide}"
                     prefix = "  "
@@ -382,7 +372,7 @@ def run_tui(
                     if available < 10:
                         available = 10
                     if len(ws_path) > available:
-                        ws_path = "..." + ws_path[-(available - 3):]
+                        ws_path = "..." + ws_path[-(available - 3) :]
                     left = prefix + ws_path
                     right = f"{sel_marker}  {suffix}"
                     right_aligned = (
@@ -390,23 +380,15 @@ def run_tui(
                         if len(left) + len(right) <= w
                         else right
                     )
-                    line = left + right_aligned[len(left):]
+                    line = left + right_aligned[len(left) :]
                 elif item.kind == "tree":
                     indent_str = "    " * item.indent
-                    indicator = (
-                        _tree_indicator(item.node)
-                        if item.node
-                        else "[ ]"
-                    )
+                    indicator = _tree_indicator(item.node) if item.node else "[ ]"
                     left = f"{indent_str}{indicator} {item.label}/"
                     right_marker = f" {sel_marker}"
                     # Pad to right alignment column
                     if len(left) < w - 4:
-                        line = (
-                            left
-                            + " " * (w - 4 - len(left))
-                            + right_marker
-                        )
+                        line = left + " " * (w - 4 - len(left)) + right_marker
                     else:
                         line = left + right_marker
                 else:
@@ -432,7 +414,9 @@ def run_tui(
 
             if status_msg:
                 _tui_status(
-                    stdscr, f"  {status_msg}", COLOR_STATUS,
+                    stdscr,
+                    f"  {status_msg}",
+                    COLOR_STATUS,
                 )
             else:
                 primary_name = "?"
@@ -448,7 +432,8 @@ def run_tui(
                     elif mi.kind == "tree":
                         primary_name = mi.label
                 footer = _selection_status_label(
-                    primary_name, len(extra_keys),
+                    primary_name,
+                    len(extra_keys),
                 )
                 _tui_status(stdscr, footer, COLOR_STATUS)
 
@@ -476,35 +461,20 @@ def run_tui(
                     except ValueError:
                         cursor = sel[0]
             elif key == curses.KEY_RIGHT:
-                item = (
-                    flat_items[cursor]
-                    if cursor < len(flat_items)
-                    else None
-                )
-                if (
-                    item is not None
-                    and item.kind == "tree"
-                    and item.node is not None
-                ):
+                item = flat_items[cursor] if cursor < len(flat_items) else None
+                if item is not None and item.kind == "tree" and item.node is not None:
                     node = item.node
                     if node.has_subdirs and not node.expanded:
                         node.children = build_tree(
-                            node.path, node.depth + 1,
+                            node.path,
+                            node.depth + 1,
                         )
                         node.expanded = True
                         flat_items = _rebuild_flat(source)
                         _clamp_cursor()
             elif key == curses.KEY_LEFT:
-                item = (
-                    flat_items[cursor]
-                    if cursor < len(flat_items)
-                    else None
-                )
-                if (
-                    item is not None
-                    and item.kind == "tree"
-                    and item.node is not None
-                ):
+                item = flat_items[cursor] if cursor < len(flat_items) else None
+                if item is not None and item.kind == "tree" and item.node is not None:
                     node = item.node
                     if node.expanded:
                         # Find descendant range in flat_items
@@ -512,10 +482,7 @@ def run_tui(
                         end_idx = cursor
                         for j in range(cursor + 1, len(flat_items)):
                             fj = flat_items[j]
-                            if (
-                                fj.kind == "tree"
-                                and fj.indent > node.depth
-                            ):
+                            if fj.kind == "tree" and fj.indent > node.depth:
                                 end_idx = j
                             else:
                                 break
@@ -529,11 +496,7 @@ def run_tui(
                                     break
                         _clamp_cursor()
             elif key in (curses.KEY_ENTER, 10, 13):
-                item = (
-                    flat_items[cursor]
-                    if cursor < len(flat_items)
-                    else None
-                )
+                item = flat_items[cursor] if cursor < len(flat_items) else None
                 if item is None or item.kind == "separator":
                     continue
                 now = time.monotonic()
@@ -564,11 +527,7 @@ def run_tui(
                         ]
                         return primary_item, extra_items
             elif key == ord(" "):
-                item = (
-                    flat_items[cursor]
-                    if cursor < len(flat_items)
-                    else None
-                )
+                item = flat_items[cursor] if cursor < len(flat_items) else None
                 if item is None or item.kind == "separator":
                     continue
                 ik = _item_key(item)

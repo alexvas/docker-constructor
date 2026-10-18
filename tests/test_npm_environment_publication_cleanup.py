@@ -51,9 +51,7 @@ def _sri() -> str:
 
 
 def _lock(roots: dict[str, str]) -> bytes:
-    packages = {
-        "": {"name": "root", "version": "1.0.0", "dependencies": dict(roots)}
-    }
+    packages = {"": {"name": "root", "version": "1.0.0", "dependencies": dict(roots)}}
     for name, version in roots.items():
         packages[f"node_modules/{name}"] = {
             "version": version,
@@ -167,7 +165,9 @@ class PublicationCleanupTestCase(unittest.TestCase):
     def _assert_prior_untouched(self, prior) -> None:
         self.assertTrue(prior.environment_root.exists())
         self.assertEqual(
-            (prior.environment_root / "node_modules" / "prior" / "marker.txt").read_bytes(),
+            (
+                prior.environment_root / "node_modules" / "prior" / "marker.txt"
+            ).read_bytes(),
             b"prior-marker",
         )
         self.assertTrue(self.sentinel_staging.exists())

@@ -1,4 +1,5 @@
 """Phase 4 workspace-oriented host-interface contracts."""
+
 from __future__ import annotations
 
 import argparse
@@ -9,17 +10,30 @@ from pathlib import Path
 from unittest.mock import patch
 
 from docker.constructor_cli import _build_parser, _read_env_key
-from docker.launcher import NoWorkspaceError, WorkspaceSelection, resolve_workspace_selection
+from docker.launcher import (
+    NoWorkspaceError,
+    WorkspaceSelection,
+    resolve_workspace_selection,
+)
 from docker.versioning.rendering import RunRenderInputs
 
 
 class WorkspaceCliTests(unittest.TestCase):
     def test_workspace_options_and_removed_aliases(self) -> None:
         parser = _build_parser()
-        args = parser.parse_args([
-            "run", "-w", "/work/main", "--extra-workspace", "/work/extra",
-            "--extra-workspace", "/work/other", "--workspace-root", "/work",
-        ])
+        args = parser.parse_args(
+            [
+                "run",
+                "-w",
+                "/work/main",
+                "--extra-workspace",
+                "/work/extra",
+                "--extra-workspace",
+                "/work/other",
+                "--workspace-root",
+                "/work",
+            ]
+        )
         self.assertEqual(args.workspace, "/work/main")
         self.assertEqual(args.extra_workspaces, ["/work/extra", "/work/other"])
         self.assertEqual(args.workspace_root, "/work")
@@ -40,7 +54,8 @@ class WorkspaceSelectionTests(unittest.TestCase):
             os.chdir(root)
             try:
                 relative_selection = resolve_workspace_selection(
-                    workspace=".", extra_workspaces=("target",),
+                    workspace=".",
+                    extra_workspaces=("target",),
                 )
             finally:
                 os.chdir(original_cwd)
@@ -48,13 +63,15 @@ class WorkspaceSelectionTests(unittest.TestCase):
             self.assertEqual(relative_selection.extra_workspaces, (str(target),))
 
             selection = resolve_workspace_selection(
-                workspace=str(link), extra_workspaces=(str(target),),
+                workspace=str(link),
+                extra_workspaces=(str(target),),
             )
             self.assertEqual(selection.workspace, os.path.abspath(link))
             self.assertEqual(selection.extra_workspaces, (os.path.abspath(target),))
             with self.assertRaises(ValueError):
                 resolve_workspace_selection(
-                    workspace=str(target), extra_workspaces=(str(target),),
+                    workspace=str(target),
+                    extra_workspaces=(str(target),),
                 )
 
         class Selector:
@@ -62,7 +79,9 @@ class WorkspaceSelectionTests(unittest.TestCase):
                 return WorkspaceSelection("/tui", ("/tui-extra",))
 
         selected = resolve_workspace_selection(
-            workspace="/cli", extra_workspaces=("/extra",), tui=True,
+            workspace="/cli",
+            extra_workspaces=("/extra",),
+            tui=True,
             selector=Selector(),
         )
         self.assertEqual(selected, WorkspaceSelection("/cli", ("/extra",)))
@@ -93,14 +112,17 @@ class WorkspaceTuiTests(unittest.TestCase):
         self.assertNotIn("main:", label)
         self.assertNotIn("additional", label)
 
-    def test_run_tui_selects_primary_and_extra_and_scrolls_both_directions(self) -> None:
+    def test_run_tui_selects_primary_and_extra_and_scrolls_both_directions(
+        self,
+    ) -> None:
         import docker.tui
         from docker.tui import TreeNode, run_tui
 
         class FakeScreen:
             def __init__(self) -> None:
                 self._keys = [
-                    docker.tui.curses.KEY_DOWN, ord(" "),
+                    docker.tui.curses.KEY_DOWN,
+                    ord(" "),
                     *[docker.tui.curses.KEY_DOWN] * 6,
                     *[docker.tui.curses.KEY_UP] * 5,
                     docker.tui.curses.KEY_F5,
@@ -128,12 +150,16 @@ class WorkspaceTuiTests(unittest.TestCase):
 
         screen = FakeScreen()
         roots = [TreeNode(Path(f"/work/node-{i}"), f"node-{i}") for i in range(8)]
-        with patch.object(docker.tui.curses, "wrapper", side_effect=lambda draw: draw(screen)), \
-             patch.object(docker.tui.curses, "curs_set"), \
-             patch.object(docker.tui.curses, "start_color"), \
-             patch.object(docker.tui.curses, "use_default_colors"), \
-             patch.object(docker.tui.curses, "init_pair"), \
-             patch.object(docker.tui.curses, "color_pair", return_value=0):
+        with (
+            patch.object(
+                docker.tui.curses, "wrapper", side_effect=lambda draw: draw(screen)
+            ),
+            patch.object(docker.tui.curses, "curs_set"),
+            patch.object(docker.tui.curses, "start_color"),
+            patch.object(docker.tui.curses, "use_default_colors"),
+            patch.object(docker.tui.curses, "init_pair"),
+            patch.object(docker.tui.curses, "color_pair", return_value=0),
+        ):
             primary, extras = run_tui([], roots)
 
         self.assertEqual(primary.node.path, Path("/work/node-0"))
@@ -149,12 +175,20 @@ class WorkspaceTuiTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            primary = FlatItem("tree", "primary", node=TreeNode(root / "primary", "primary"))
+            primary = FlatItem(
+                "tree", "primary", node=TreeNode(root / "primary", "primary")
+            )
             extra = FlatItem("tree", "extra", node=TreeNode(root / "extra", "extra"))
-            with patch.object(docker.tui, "build_tree", return_value=[primary.node, extra.node]), \
-                 patch.object(docker.tui, "run_tui", return_value=(primary, [extra])):
+            with (
+                patch.object(
+                    docker.tui, "build_tree", return_value=[primary.node, extra.node]
+                ),
+                patch.object(docker.tui, "run_tui", return_value=(primary, [extra])),
+            ):
                 selection = _tui_workspace_selector(str(root)).select()
-        self.assertEqual(selection, WorkspaceSelection(str(root / "primary"), (str(root / "extra"),)))
+        self.assertEqual(
+            selection, WorkspaceSelection(str(root / "primary"), (str(root / "extra"),))
+        )
 
     def test_tui_selector_lexically_absolutizes_relative_tree_paths(self) -> None:
         from docker.constructor_cli import _tui_workspace_selector
@@ -163,8 +197,12 @@ class WorkspaceTuiTests(unittest.TestCase):
 
         primary = FlatItem("tree", "primary", node=TreeNode(Path("link"), "primary"))
         extra = FlatItem("tree", "extra", node=TreeNode(Path("extra"), "extra"))
-        with patch.object(docker.tui, "build_tree", return_value=[primary.node, extra.node]), \
-             patch.object(docker.tui, "run_tui", return_value=(primary, [extra])):
+        with (
+            patch.object(
+                docker.tui, "build_tree", return_value=[primary.node, extra.node]
+            ),
+            patch.object(docker.tui, "run_tui", return_value=(primary, [extra])),
+        ):
             selection = _tui_workspace_selector(".").select()
 
         self.assertEqual(selection.workspace, os.path.abspath("link"))
@@ -174,9 +212,12 @@ class WorkspaceTuiTests(unittest.TestCase):
 class WorkspaceDtoTests(unittest.TestCase):
     def test_render_inputs_expose_workspace_fields(self) -> None:
         inputs = RunRenderInputs(
-            image="image", container_name="pi-1", projection_host_path="/tmp/p",
+            image="image",
+            container_name="pi-1",
+            projection_host_path="/tmp/p",
             projection_container_path="/run/pi-cli/docker-constructor.runtime.toml",
-            pi_home_host="/tmp/pi", workspace="/work/main",
+            pi_home_host="/tmp/pi",
+            workspace="/work/main",
             extra_workspaces=("/work/extra",),
         )
         self.assertEqual(inputs.workspace, "/work/main")

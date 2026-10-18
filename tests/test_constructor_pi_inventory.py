@@ -7,6 +7,7 @@ package ``@earendil-works/pi-coding-agent`` with ``release_repository =
 of missing, malformed, or unknown metadata, and tool versions never inferred
 from the image tag.
 """
+
 from __future__ import annotations
 
 import sys
@@ -36,7 +37,9 @@ _REPO = _THIS_DIR.parent
 _FIXTURE_PI_VERSION = "0.85.1"
 _FIXTURE_NODE_VERSION = "24.18.0"
 _FIXTURE_NPM_VERSION = "11.16.0"
-_FIXTURE_DIGEST = "sha256:ae91dcc111a68c9d2d81ff2a17bda61be126426176fde6fe7d08ab13b7f50573"
+_FIXTURE_DIGEST = (
+    "sha256:ae91dcc111a68c9d2d81ff2a17bda61be126426176fde6fe7d08ab13b7f50573"
+)
 
 
 def _load_text(text: str):
@@ -80,13 +83,15 @@ class TestStableNodeVersions(unittest.TestCase):
 
     def test_node_version_never_inferred_from_tag(self):
         # A floating tag cannot change the reviewed tool versions.
-        content = minimal_toml(**{
-            "build.stages.base.node.source": (
-                'type = "docker-registry"\n'
-                'registry = "docker.io"\n'
-                'repository = "library/node"\n'
-            ),
-        })
+        content = minimal_toml(
+            **{
+                "build.stages.base.node.source": (
+                    'type = "docker-registry"\n'
+                    'registry = "docker.io"\n'
+                    'repository = "library/node"\n'
+                ),
+            }
+        )
         content = content.replace('tag = "24-trixie-slim"', 'tag = "24-trixie-slim"')
         path = write_toml(content)
         inv = load_inventory(path)
@@ -170,9 +175,11 @@ class TestReviewedNodeSchemaRejection(unittest.TestCase):
         self.assertIn("node_version", str(ctx.exception))
 
     def test_unknown_node_metadata_rejected(self):
-        content = minimal_toml(**{
-            "base.node.node_version": 'node_version = "24.18.0"\nnode_flavor = "slim"',
-        })
+        content = minimal_toml(
+            **{
+                "base.node.node_version": 'node_version = "24.18.0"\nnode_flavor = "slim"',
+            }
+        )
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(write_toml(content))
         self.assertIn("node_flavor", str(ctx.exception))
@@ -197,7 +204,9 @@ class TestStablePiReleaseContract(unittest.TestCase):
     def test_stable_fixture_effective_projection_carries_pi_release(self):
         inv = load_inventory(stable_inventory_path())
         projection = resolve_build_projection(inv.build, {}, platform="linux-amd64")
-        self.assertEqual(projection.pi_release.package, "@earendil-works/pi-coding-agent")
+        self.assertEqual(
+            projection.pi_release.package, "@earendil-works/pi-coding-agent"
+        )
         self.assertEqual(projection.pi_release.release_repository, "earendil-works/pi")
         self.assertEqual(projection.pi_release.release_tag_prefix, "v")
 
@@ -221,57 +230,67 @@ class TestReviewedPiReleaseContract(unittest.TestCase):
     def test_effective_projection_carries_pi_release(self):
         inv = load_inventory(_REPO / "docker-constructor.toml")
         projection = resolve_build_projection(inv.build, {}, platform="linux-amd64")
-        self.assertEqual(projection.pi_release.package, "@earendil-works/pi-coding-agent")
+        self.assertEqual(
+            projection.pi_release.package, "@earendil-works/pi-coding-agent"
+        )
         self.assertEqual(projection.pi_release.release_repository, "earendil-works/pi")
         self.assertEqual(projection.pi_release.release_tag_prefix, "v")
 
     def test_missing_release_repository_rejected(self):
-        content = minimal_toml(**{
-            "build.stages.pi-tools.pi.source": (
-                'type = "pi-release"\n'
-                'package = "@earendil-works/pi-coding-agent"\n'
-                'release_tag_prefix = "v"\n'
-            ),
-        })
+        content = minimal_toml(
+            **{
+                "build.stages.pi-tools.pi.source": (
+                    'type = "pi-release"\n'
+                    'package = "@earendil-works/pi-coding-agent"\n'
+                    'release_tag_prefix = "v"\n'
+                ),
+            }
+        )
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(write_toml(content))
         self.assertIn("release_repository", str(ctx.exception))
 
     def test_missing_release_tag_prefix_rejected(self):
-        content = minimal_toml(**{
-            "build.stages.pi-tools.pi.source": (
-                'type = "pi-release"\n'
-                'package = "@earendil-works/pi-coding-agent"\n'
-                'release_repository = "earendil-works/pi"\n'
-            ),
-        })
+        content = minimal_toml(
+            **{
+                "build.stages.pi-tools.pi.source": (
+                    'type = "pi-release"\n'
+                    'package = "@earendil-works/pi-coding-agent"\n'
+                    'release_repository = "earendil-works/pi"\n'
+                ),
+            }
+        )
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(write_toml(content))
         self.assertIn("release_tag_prefix", str(ctx.exception))
 
     def test_plain_npm_source_type_rejected_for_pi(self):
-        content = minimal_toml(**{
-            "build.stages.pi-tools.pi.source": (
-                'type = "npm"\n'
-                'package = "@earendil-works/pi-coding-agent"\n'
-                'release_repository = "earendil-works/pi"\n'
-                'release_tag_prefix = "v"\n'
-            ),
-        })
+        content = minimal_toml(
+            **{
+                "build.stages.pi-tools.pi.source": (
+                    'type = "npm"\n'
+                    'package = "@earendil-works/pi-coding-agent"\n'
+                    'release_repository = "earendil-works/pi"\n'
+                    'release_tag_prefix = "v"\n'
+                ),
+            }
+        )
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(write_toml(content))
         self.assertEqual("build.stages.pi-tools.pi.source.type", ctx.exception.field)
 
     def test_unknown_pi_source_metadata_rejected(self):
-        content = minimal_toml(**{
-            "build.stages.pi-tools.pi.source": (
-                'type = "pi-release"\n'
-                'package = "@earendil-works/pi-coding-agent"\n'
-                'release_repository = "earendil-works/pi"\n'
-                'release_tag_prefix = "v"\n'
-                'binary_archive = "pi-linux-x64.tar.gz"\n'
-            ),
-        })
+        content = minimal_toml(
+            **{
+                "build.stages.pi-tools.pi.source": (
+                    'type = "pi-release"\n'
+                    'package = "@earendil-works/pi-coding-agent"\n'
+                    'release_repository = "earendil-works/pi"\n'
+                    'release_tag_prefix = "v"\n'
+                    'binary_archive = "pi-linux-x64.tar.gz"\n'
+                ),
+            }
+        )
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(write_toml(content))
         self.assertIn("binary_archive", str(ctx.exception))

@@ -108,18 +108,15 @@ class TestCanonicalCachePaths(unittest.TestCase):
     def test_sha384_and_sha512_supported_with_distinct_paths(self) -> None:
         mod = _identity_module()
         data = b"wide-digests"
-        sha384 = mod.DigestIdentity(
-            "sha384", hashlib.sha384(data).digest()
-        )
-        sha512 = mod.DigestIdentity(
-            "sha512", hashlib.sha512(data).digest()
-        )
+        sha384 = mod.DigestIdentity("sha384", hashlib.sha384(data).digest())
+        sha512 = mod.DigestIdentity("sha512", hashlib.sha512(data).digest())
         self.assertEqual(
             sha384.cache_path("/root", extension=".blob"),
             os.path.join("/root", "sha384", hashlib.sha384(data).hexdigest() + ".blob"),
         )
         self.assertNotEqual(
-            sha384.cache_path("/root"), sha512.cache_path("/root"),
+            sha384.cache_path("/root"),
+            sha512.cache_path("/root"),
         )
 
 
@@ -201,7 +198,12 @@ class TestUnsupportedAlgorithms(unittest.TestCase):
 
     def test_hex_unsupported_algorithms_rejected(self) -> None:
         mod = _identity_module()
-        for algorithm, hex_len in (("sha1", 40), ("md5", 32), ("sha224", 56), ("sha512/256", 64)):
+        for algorithm, hex_len in (
+            ("sha1", 40),
+            ("md5", 32),
+            ("sha224", 56),
+            ("sha512/256", 64),
+        ):
             with self.subTest(algorithm=algorithm):
                 with self.assertRaises(mod.DigestIdentityError):
                     mod.DigestIdentity.from_hex(algorithm, "a" * hex_len)

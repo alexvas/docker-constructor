@@ -9,6 +9,7 @@ All containers exposed after validation are immutable:
 - artifact maps become types.MappingProxyType
 - extension maps become types.MappingProxyType
 """
+
 from __future__ import annotations
 
 import base64
@@ -38,6 +39,7 @@ class InvalidArtifactKey(ValueError):
 # Override policy
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class OverridePolicy:
     constraint: Constraint
@@ -49,6 +51,7 @@ class OverridePolicy:
 # Artifact
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class ArtifactEntry:
     url: str
@@ -58,6 +61,7 @@ class ArtifactEntry:
 # ---------------------------------------------------------------------------
 # Source metadata (provider-specific)
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class GitHubReleaseSource:
@@ -77,6 +81,7 @@ class PiReleaseSource:
     """Reviewed Pi release contract: npm package identity plus the exact
     GitHub release repository and tag prefix used to derive immutable
     release-asset URLs (``SHA256SUMS`` and the two installation files)."""
+
     package: str
     release_repository: str
     release_tag_prefix: str
@@ -123,6 +128,7 @@ class StaticUrlSource:
     file.  The per-platform artifact URLs and digests live in the parent
     entry's ``artifacts`` table (e.g. ``rustup.artifacts.linux-amd64``).
     """
+
     checksum_url: str
     type: str = "static-url"
 
@@ -130,6 +136,7 @@ class StaticUrlSource:
 # ---------------------------------------------------------------------------
 # Update metadata (provider-specific)
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class GitHubReleaseUpdate:
@@ -183,6 +190,7 @@ class StaticUrlUpdate:
     """Update contract for version-independent static URLs — the artifact
     is content-addressed (SHA-256), and a provider can detect drift by
     re-downloading and comparing the digest."""
+
     stable_only: bool = True
     provider: str = "static-url"
 
@@ -190,6 +198,7 @@ class StaticUrlUpdate:
 # ---------------------------------------------------------------------------
 # Entry types
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class NodeEntry:
@@ -271,13 +280,14 @@ def _validate_artifact_key(key: str, ext_name: str) -> None:
         _validate_semver(key)
     except SemverError as exc:
         raise InvalidArtifactKey(
-            f"PiExtensionEntry({ext_name!r}): artifact key {key!r} "
-            f"{exc}"
+            f"PiExtensionEntry({ext_name!r}): artifact key {key!r} {exc}"
         ) from exc
 
 
 def _validate_npm_tarball_url(
-    url: str, package: str, version_key: str,
+    url: str,
+    package: str,
+    version_key: str,
 ) -> None:
     """Validate *url* is an exact npm registry tarball for *package*.
 
@@ -314,10 +324,24 @@ def _validate_runtime_projection(projection: object) -> None:
         "metadata_file": str,
     }
     disallowed = [
-        "source", "update", "override", "validation", "artifacts",
-        "build", "stages", "platform", "node", "rust", "uv",
-        "python_version", "ty_version", "rtk", "fd",
-        "pi_version", "openspec_version", "oh_my_zsh_revision",
+        "source",
+        "update",
+        "override",
+        "validation",
+        "artifacts",
+        "build",
+        "stages",
+        "platform",
+        "node",
+        "rust",
+        "uv",
+        "python_version",
+        "ty_version",
+        "rtk",
+        "fd",
+        "pi_version",
+        "openspec_version",
+        "oh_my_zsh_revision",
     ]
 
     def _reject_disallowed_fields(obj: object, prefix: str) -> None:
@@ -325,9 +349,7 @@ def _validate_runtime_projection(projection: object) -> None:
             return
         for f in fields(obj):
             if f.name in disallowed:
-                raise ValueError(
-                    f"{prefix}.{f.name}: disallowed in runtime projection"
-                )
+                raise ValueError(f"{prefix}.{f.name}: disallowed in runtime projection")
             if f.name not in allowed:
                 raise ValueError(
                     f"{prefix}.{f.name}: unrecognized field in runtime projection"
@@ -335,9 +357,7 @@ def _validate_runtime_projection(projection: object) -> None:
             val = getattr(obj, f.name)
             if isinstance(val, dict):
                 for sub_k, sub_v in val.items():
-                    _reject_disallowed_fields(
-                        sub_v, f"{prefix}.{f.name}.{sub_k}"
-                    )
+                    _reject_disallowed_fields(sub_v, f"{prefix}.{f.name}.{sub_k}")
 
     _reject_disallowed_fields(projection, "")
 
@@ -345,6 +365,7 @@ def _validate_runtime_projection(projection: object) -> None:
 @dataclass(frozen=True)
 class NpmArtifact:
     """Reviewed npm-dist artifact with integrity verification."""
+
     url: str
     integrity: str
 
@@ -352,6 +373,7 @@ class NpmArtifact:
 @dataclass(frozen=True)
 class RuntimeValidation:
     """Host-side validation metadata for runtime extension packages."""
+
     metadata_file: str
 
     def __post_init__(self) -> None:
@@ -414,9 +436,11 @@ class PiExtensionEntry:
 # Effective build projection (Stage 4)
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class EffectiveArtifact:
     """Resolved platform artifact with URL and checksum."""
+
     url: str
     sha256: str
 
@@ -425,6 +449,7 @@ class EffectiveArtifact:
 class EffectiveNode:
     """Resolved base image reference plus caller-owned reviewed tool
     versions (never inferred from the image tag)."""
+
     image: str
     node_version: str
     npm_version: str
@@ -433,6 +458,7 @@ class EffectiveNode:
 @dataclass(frozen=True)
 class EffectivePiRelease:
     """Resolved Pi release-source selection for host assembly."""
+
     package: str
     release_repository: str
     release_tag_prefix: str
@@ -441,6 +467,7 @@ class EffectivePiRelease:
 @dataclass(frozen=True)
 class EffectiveRust:
     """Resolved Rust toolchain selection."""
+
     version: str
     profile: str
     components: tuple[str, ...]
@@ -450,6 +477,7 @@ class EffectiveRust:
 @dataclass(frozen=True)
 class EffectiveTool:
     """Resolved tool with version and mandatory platform artifact."""
+
     version: str
     artifact: EffectiveArtifact
 
@@ -457,6 +485,7 @@ class EffectiveTool:
 @dataclass(frozen=True)
 class EffectiveBuildProjection:
     """Host-only effective build projection after override application."""
+
     platform: str
     node: EffectiveNode
     rust: EffectiveRust
@@ -486,6 +515,7 @@ class EffectivePiExtensionEntry:
     SRI string.  The two fields MUST agree: the algorithm prefix
     and decoded digest bytes must match.
     """
+
     package: str
     version: str
     artifact_id: str
@@ -495,16 +525,13 @@ class EffectivePiExtensionEntry:
     def __post_init__(self) -> None:
         # 1. Validate metadata_file is safe (carried forward from
         #    the old RuntimeValidation check).
-        _require_safe_metadata_path("EffectivePiExtensionEntry",
-                                    self.metadata_file)
+        _require_safe_metadata_path("EffectivePiExtensionEntry", self.metadata_file)
 
         # 2. Validate artifact_id: must be a safe relative path.
-        _require_safe_artifact_id("EffectivePiExtensionEntry",
-                                  self.artifact_id)
+        _require_safe_artifact_id("EffectivePiExtensionEntry", self.artifact_id)
 
         # 3. Validate integrity is a well-formed SRI string.
-        _require_well_formed_integrity("EffectivePiExtensionEntry",
-                                       self.integrity)
+        _require_well_formed_integrity("EffectivePiExtensionEntry", self.integrity)
 
         # 4. Derive the canonical artifact_id from the integrity and
         #    verify they agree.
@@ -537,16 +564,12 @@ def _require_well_formed_integrity(source: str, value: str) -> None:
         )
     algo, b64 = value.split("-", 1)
     if algo not in _SRI_ALGORITHMS:
-        raise ValueError(
-            f"{source}.integrity: unknown algorithm {algo!r}"
-        )
+        raise ValueError(f"{source}.integrity: unknown algorithm {algo!r}")
     expected_len = _SRI_ALGORITHMS[algo]
     try:
         raw = base64.b64decode(b64, validate=True)
     except Exception as exc:
-        raise ValueError(
-            f"{source}.integrity: invalid base64 payload: {exc}"
-        ) from None
+        raise ValueError(f"{source}.integrity: invalid base64 payload: {exc}") from None
     if len(raw) != expected_len:
         raise ValueError(
             f"{source}.integrity: expected {expected_len} bytes "
@@ -565,8 +588,7 @@ def _require_safe_artifact_id(source: str, value: str) -> None:
     segments = value.split("/")
     if ".." in segments or "" in segments:
         raise ValueError(
-            f"{source}.artifact_id: {value!r} contains path traversal "
-            f"or empty segments"
+            f"{source}.artifact_id: {value!r} contains path traversal or empty segments"
         )
 
 
@@ -590,12 +612,14 @@ class EffectiveRuntimeProjection:
     contain build entries, update providers, override policy,
     source metadata, or unselected artifacts.
     """
+
     extensions: Mapping[str, EffectivePiExtensionEntry]
 
     def __post_init__(self) -> None:
         _validate_runtime_projection(self)
         object.__setattr__(
-            self, "extensions",
+            self,
+            "extensions",
             MappingProxyType(dict(self.extensions)),
         )
 
@@ -603,6 +627,7 @@ class EffectiveRuntimeProjection:
 # --------------------------------------------------------------------------
 # Stages
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class BaseStage:
@@ -656,6 +681,7 @@ class Stages:
 @dataclass(frozen=True)
 class HostAccessPolicy:
     """Reviewed, immutable runtime host-access policy."""
+
     enabled: bool = False
     mode: str | None = None
     proxy_port: int | None = None
@@ -664,24 +690,28 @@ class HostAccessPolicy:
 @dataclass(frozen=True)
 class LocalHostAccess:
     """Machine-local host address; never an inventory overlay."""
+
     address: str | None = None
 
 
 @dataclass(frozen=True)
 class LocalCacheConfig:
     """Machine-local cache directory; never reviewed policy."""
+
     dir: str | None = None
 
 
 @dataclass(frozen=True)
 class LocalCorporateTrust:
     """Machine-local corporate trust intent; never an inventory overlay."""
+
     enabled: bool = False
 
 
 @dataclass(frozen=True)
 class LocalNetworkProxy:
     """Machine-local credential-free proxy; never an inventory overlay."""
+
     url: str | None = None
     no_proxy: str | None = None
 
@@ -697,6 +727,7 @@ class NetworkUrlDisplay(StrEnum):
 @dataclass(frozen=True)
 class LocalOutputPolicy:
     """Host-only facade presentation policy from local ``[output]``."""
+
     host_heartbeat: str = "interactive"
     network_url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED
 
@@ -704,6 +735,7 @@ class LocalOutputPolicy:
 @dataclass(frozen=True)
 class LocalConfig:
     """Closed local companion state."""
+
     host_access: LocalHostAccess = LocalHostAccess()
     cache: LocalCacheConfig = LocalCacheConfig()
     corporate_trust: LocalCorporateTrust = LocalCorporateTrust()
@@ -720,6 +752,7 @@ class BuildLocalInputs:
     ``[output]`` presentation policy (``host_heartbeat`` /
     ``network_url_display``), which is retained by the facade.
     """
+
     corporate_trust_enabled: bool = False
     cache_dir: str | None = None
     network_proxy_url: str | None = None
@@ -739,6 +772,7 @@ class BuildLocalInputs:
 @dataclass(frozen=True)
 class CacheConfig:
     """Reviewed portable cache policy from docker-constructor.toml."""
+
     ttl: int | None = None
     """Default TTL in seconds (positive integer)."""
 
@@ -746,6 +780,7 @@ class CacheConfig:
 @dataclass(frozen=True)
 class BuildInventory:
     """Immutable container for build-phase dependencies."""
+
     stages: Stages
 
     def __post_init__(self):
@@ -762,6 +797,7 @@ class BuildInventory:
 @dataclass(frozen=True)
 class RuntimeInventory:
     """Immutable container for runtime dependencies and launch policy."""
+
     pi_extensions: Mapping[str, PiExtensionEntry]
     host_access: HostAccessPolicy = HostAccessPolicy()
 
@@ -770,7 +806,8 @@ class RuntimeInventory:
         # Never trust an incoming MappingProxyType backed by a still-
         # reachable mutable dict.
         object.__setattr__(
-            self, "pi_extensions",
+            self,
+            "pi_extensions",
             MappingProxyType(dict(self.pi_extensions)),
         )
 
@@ -796,7 +833,8 @@ class Inventory:
         # (bypassing load_inventory) cannot expose mutable state.
         # Uses the same logic as RuntimeInventory.__post_init__.
         object.__setattr__(
-            self, "runtime_pi_extensions",
+            self,
+            "runtime_pi_extensions",
             MappingProxyType(dict(self.runtime_pi_extensions)),
         )
 
@@ -973,6 +1011,7 @@ class UpdateResult:
     def to_dict(self) -> dict[str, object]:
         """Return a deterministic JSON-serializable dict."""
         import json
+
         result: dict[str, object] = {
             "applicable": self.applicable,
             "candidate": self.candidate,
@@ -1009,6 +1048,7 @@ class UpdateMetadata(Protocol):
 @dataclass(frozen=True)
 class UpdateTarget:
     """A single entry ready for update discovery."""
+
     path: str
     current: str
     source: object  # SourceMetadata subclass

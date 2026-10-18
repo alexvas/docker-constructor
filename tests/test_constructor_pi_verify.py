@@ -6,6 +6,7 @@ Dockerfile verification fails for changed files, a substituted tree with the
 original evidence, a tampered evidence body, a tampered output identity, and
 escaping or dangling symlinks.  No Docker daemon or network is involved.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -168,7 +169,9 @@ class _Scenario:
         )
         self.evidence_digest = evidence_body_digest(body)
         self.output_identity = compute_assembled_output_identity(
-            input_identity, self.tree_digest, self.evidence_digest,
+            input_identity,
+            self.tree_digest,
+            self.evidence_digest,
         ).digest
         self.assembler_evidence = AssemblerEvidence(
             output_identity=self.output_identity,
@@ -273,9 +276,7 @@ class TestVerifyPiScript(unittest.TestCase):
 
     def test_modified_evidence_body_with_unchanged_digest_fields_fails(self) -> None:
         scenario = self._scenario()
-        evidence = json.loads(
-            serialize_evidence(scenario.assembler_evidence).decode()
-        )
+        evidence = json.loads(serialize_evidence(scenario.assembler_evidence).decode())
         # Tamper with a body field while leaving the top-level digest fields
         # (evidence_digest/output_identity/tree_digest) unchanged.
         evidence["body"]["npm_policy_flags"].append("--tampered")
@@ -291,9 +292,7 @@ class TestVerifyPiScript(unittest.TestCase):
 
     def test_modified_output_identity_fails(self) -> None:
         scenario = self._scenario()
-        evidence = json.loads(
-            serialize_evidence(scenario.assembler_evidence).decode()
-        )
+        evidence = json.loads(serialize_evidence(scenario.assembler_evidence).decode())
         evidence["output_identity"] = "f" * 64
         evidence_path = scenario.evidence_dir / "pi-assembler-evidence.json"
         evidence_path.write_text(

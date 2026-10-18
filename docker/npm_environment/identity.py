@@ -178,14 +178,17 @@ def compute_assembler_input_identity(
     # Re-verify the supplied assembler identity: its components must hash to
     # its claimed digest.  This rejects a stale or forged ``digest`` before
     # it can contribute to the input-identity payload.
-    if _assembler_digest(
-        image_digest=assembler.image_digest,
-        node_version=assembler.node_version,
-        npm_version=assembler.npm_version,
-        script_digest=assembler.script_digest,
-        policy_digest=assembler.policy_digest,
-        platform=assembler.platform,
-    ) != assembler.digest:
+    if (
+        _assembler_digest(
+            image_digest=assembler.image_digest,
+            node_version=assembler.node_version,
+            npm_version=assembler.npm_version,
+            script_digest=assembler.script_digest,
+            policy_digest=assembler.policy_digest,
+            platform=assembler.platform,
+        )
+        != assembler.digest
+    ):
         raise LockedNpmError(
             "assembler_identity_mismatch",
             "the assembler components do not match its digest",
@@ -199,7 +202,8 @@ def compute_assembler_input_identity(
         )
     package_digest = (
         _sha256_hex(validated.package_bytes)
-        if validated.package_bytes is not None else None
+        if validated.package_bytes is not None
+        else None
     )
     if package_digest != validated.package_digest:
         raise LockedNpmError(

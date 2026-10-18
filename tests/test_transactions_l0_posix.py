@@ -5,6 +5,7 @@ preserve the raised ``OSError`` subclass, ``errno``, and chaining inputs
 unchanged.  A short write is completed by :meth:`PosixFileOps.write_all`
 and a zero-byte write is an I/O failure.
 """
+
 from __future__ import annotations
 
 import errno
@@ -145,7 +146,9 @@ class RealDelegationTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.ops = PosixFileOps()
-        self.dir_fd = os.open(self.tmp.name, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        self.dir_fd = os.open(
+            self.tmp.name, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+        )
 
     def tearDown(self) -> None:
         os.close(self.dir_fd)
@@ -216,9 +219,7 @@ class KeywordCompatibilityTests(unittest.TestCase):
         path = os.path.join(self.tmp.name, "entry")
         with open(path, "wb") as stream:
             stream.write(b"x")
-        info = self.ops.statat(
-            dir_fd=self.dir_fd, name="entry", follow_symlinks=False
-        )
+        info = self.ops.statat(dir_fd=self.dir_fd, name="entry", follow_symlinks=False)
         self.assertTrue(stat.S_ISREG(info.st_mode))
 
     def test_rmdirat_accepts_dir_fd_keyword(self) -> None:

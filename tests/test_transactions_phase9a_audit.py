@@ -5,6 +5,7 @@ exception-identity behavior of the audited cleanup sites after migration.
 The two named intentional hardenings are ``locking._release_descriptor`` and
 ``regular._discard``.
 """
+
 from __future__ import annotations
 
 import errno
@@ -41,7 +42,9 @@ class ReleaseDescriptorTests(unittest.TestCase):
         self.addCleanup(self.ops.failures.clear)
         self.fd = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY)
 
-    def test_original_non_exception_primary_survives_ordinary_close_failure(self) -> None:
+    def test_original_non_exception_primary_survives_ordinary_close_failure(
+        self,
+    ) -> None:
         primary = _Cancellation("original interruption")
         close_failure = OSError(errno.EIO, "close failed")
         self.ops.failures["close"] = close_failure
@@ -51,7 +54,9 @@ class ReleaseDescriptorTests(unittest.TestCase):
         self.assertEqual(_secondary_of(primary), [close_failure])
         self.assertEqual(self.ops.counts["close"], 1)
 
-    def test_original_non_exception_primary_survives_later_cleanup_interruption(self) -> None:
+    def test_original_non_exception_primary_survives_later_cleanup_interruption(
+        self,
+    ) -> None:
         primary = _Cancellation("original interruption")
         later = _Cancellation("later interruption")
         self.ops.failures["flock"] = later
@@ -63,7 +68,9 @@ class ReleaseDescriptorTests(unittest.TestCase):
         # raised a process-control interruption.
         self.assertEqual(self.ops.counts["close"], 1)
 
-    def test_original_non_exception_primary_survives_unexpected_close_defect(self) -> None:
+    def test_original_non_exception_primary_survives_unexpected_close_defect(
+        self,
+    ) -> None:
         primary = _Cancellation("original interruption")
         defect = RuntimeError("programmer defect")
         self.ops.failures["close"] = defect
@@ -72,7 +79,9 @@ class ReleaseDescriptorTests(unittest.TestCase):
         self.assertIs(ctx.exception, primary)
         self.assertEqual(_secondary_of(primary), [defect])
 
-    def test_original_exception_primary_is_displaced_by_cleanup_interruption(self) -> None:
+    def test_original_exception_primary_is_displaced_by_cleanup_interruption(
+        self,
+    ) -> None:
         primary = ValueError("original exception")
         interruption = _Cancellation("cleanup interruption")
         self.ops.failures["flock"] = interruption

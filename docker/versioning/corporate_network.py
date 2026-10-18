@@ -12,6 +12,7 @@ The parsers operate on an already-parsed TOML table. They perform no file I/O
 and never parse TOML themselves; the aggregate local companion boundary owns
 resolution, the single parse, and error projection.
 """
+
 from __future__ import annotations
 
 import urllib.parse

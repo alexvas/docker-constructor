@@ -8,6 +8,7 @@ walking, and release state to
 pre-transfer validation leaves the caller-owned descriptor open and never
 issues a close.
 """
+
 from __future__ import annotations
 
 import ast
@@ -260,9 +261,7 @@ class DirectoryOwnershipAstTests(unittest.TestCase):
     def test_foundation_owns_release_state_and_secure_walk(self) -> None:
         source = _source("docker/filesystem/descriptors.py")
         tree = ast.parse(source)
-        classes = {
-            node.name for node in tree.body if isinstance(node, ast.ClassDef)
-        }
+        classes = {node.name for node in tree.body if isinstance(node, ast.ClassDef)}
         self.assertIn("OwnedDescriptor", classes)
         self.assertIn("DirectoryDescriptor", classes)
         self.assertIn("_RELEASED", source)
@@ -616,7 +615,9 @@ class MappedCauseRegressionTests(unittest.TestCase):
         self.assertNotIn("<directory-capability>", str(ctx.exception))
         self.assertIsNone(ctx.exception.__cause__)
 
-    def test_non_string_label_foreign_owner_message_uses_transaction_label(self) -> None:
+    def test_non_string_label_foreign_owner_message_uses_transaction_label(
+        self,
+    ) -> None:
         target = self._make_directory()
         self._fail_owner(target)
         label = Path("label")
@@ -666,8 +667,8 @@ class CleanupDiagnosticCarryTests(unittest.TestCase):
         # Descent closes one descriptor per non-leaf component; the next
         # close is the adopted leaf released by the failed validation.
         leaf_close = len(components)
-        self.ops.failures["close"] = (
-            lambda count: close_error if count == leaf_close else None
+        self.ops.failures["close"] = lambda count: (
+            close_error if count == leaf_close else None
         )
         with self.assertRaises(CapabilityError) as ctx:
             DirectoryCapability.from_secure_path(self.ops, target)
@@ -688,8 +689,8 @@ class CleanupDiagnosticCarryTests(unittest.TestCase):
         self.ops.fstat_override = lambda info: os.stat_result(values)
         close_error = OSError(errno.EIO, "injected leaf close")
         leaf_close = len(components)
-        self.ops.failures["close"] = (
-            lambda count: close_error if count == leaf_close else None
+        self.ops.failures["close"] = lambda count: (
+            close_error if count == leaf_close else None
         )
         with self.assertRaises(CapabilityError) as ctx:
             DirectoryCapability.from_secure_path(self.ops, target)
@@ -705,15 +706,15 @@ class CleanupDiagnosticCarryTests(unittest.TestCase):
     def test_ordinary_open_failure_carries_parent_close_failure(self) -> None:
         target, components = self._target()
         open_error = OSError(errno.ENOENT, "injected open")
-        self.ops.failures["openat"] = (
-            lambda count: open_error if count == len(components) + 1 else None
+        self.ops.failures["openat"] = lambda count: (
+            open_error if count == len(components) + 1 else None
         )
         close_error = OSError(errno.EIO, "injected parent close")
         # The retained parent is the last descriptor released after the failed
         # leaf open, following one descent close per intermediate component.
         parent_close = len(components)
-        self.ops.failures["close"] = (
-            lambda count: close_error if count == parent_close else None
+        self.ops.failures["close"] = lambda count: (
+            close_error if count == parent_close else None
         )
         with self.assertRaises(TransactionError) as ctx:
             DirectoryCapability.from_secure_path(self.ops, target)
@@ -730,13 +731,13 @@ class CleanupDiagnosticCarryTests(unittest.TestCase):
     def test_eloop_open_failure_carries_parent_close_failure(self) -> None:
         target, components = self._target()
         open_error = OSError(errno.ELOOP, "injected symlink rejection")
-        self.ops.failures["openat"] = (
-            lambda count: open_error if count == len(components) + 1 else None
+        self.ops.failures["openat"] = lambda count: (
+            open_error if count == len(components) + 1 else None
         )
         close_error = OSError(errno.EIO, "injected parent close")
         parent_close = len(components)
-        self.ops.failures["close"] = (
-            lambda count: close_error if count == parent_close else None
+        self.ops.failures["close"] = lambda count: (
+            close_error if count == parent_close else None
         )
         with self.assertRaises(CapabilityError) as ctx:
             DirectoryCapability.from_secure_path(self.ops, target)
@@ -861,7 +862,7 @@ class NonStringLabelCompatibilityTests(unittest.TestCase):
                     capability = DirectoryCapability.from_secure_path(
                         self.ops, self.tmp.name, label=label
                     )
-                except (CapabilityError, DescriptorError):
+                except CapabilityError, DescriptorError:
                     # A rejection is only tolerable if it leaked nothing; then
                     # fail, because the normalized label must construct.
                     for fd in set(self._opened):
@@ -886,6 +887,8 @@ class NonStringLabelCompatibilityTests(unittest.TestCase):
                     os.fstat(leaf_fd)
                 with self.assertRaises(CapabilityError):
                     _ = capability.fd
+
+
 class SecurePathValidationStatFailureTests(unittest.TestCase):
     """``from_secure_path`` restores the raw stat-failure contract.
 
@@ -932,9 +935,7 @@ class SecurePathValidationStatFailureTests(unittest.TestCase):
         self.assertEqual(
             self.ops.counts.get("openat", 0), self.ops.counts.get("close", 0)
         )
-        leaf_fd = next(
-            args[0] for name, args in self.ops.calls if name == "fstat"
-        )
+        leaf_fd = next(args[0] for name, args in self.ops.calls if name == "fstat")
         self.assertIn(leaf_fd, self._close_attempts())
 
     def test_fstat_failure_keeps_close_failure_as_secondary(self) -> None:
@@ -953,9 +954,7 @@ class SecurePathValidationStatFailureTests(unittest.TestCase):
         self.assertEqual(
             self.ops.counts.get("openat", 0), self.ops.counts.get("close", 0)
         )
-        leaf_fd = next(
-            args[0] for name, args in self.ops.calls if name == "fstat"
-        )
+        leaf_fd = next(args[0] for name, args in self.ops.calls if name == "fstat")
         self.assertIn(leaf_fd, self._close_attempts())
 
 

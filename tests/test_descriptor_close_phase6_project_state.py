@@ -8,6 +8,7 @@ there was no shared terminal owner, so the migration contract
 (terminal-before-close + tracked transfer + at-most-once) is the RED part.
 ``ValidatedProjectState`` already owned its retained namespace descriptor.
 """
+
 from __future__ import annotations
 
 import errno
@@ -46,7 +47,8 @@ class _ProjectStateCase(unittest.TestCase):
         os.chmod(self.cache, 0o700)
         self.identity = _project_identity(self.project.resolve())
         self.namespace = (
-            self.cache / "projects"
+            self.cache
+            / "projects"
             / f"{_safe_basename(self.project.name)}-{self.identity[:16]}"
         )
 
@@ -80,15 +82,15 @@ class _ProjectStateCase(unittest.TestCase):
         os.chmod(target, 0o600)
 
     def _open_namespace_fd(self) -> int:
-        return _open_private_dir_at(
-            None, os.fspath(self.namespace), label="namespace")
+        return _open_private_dir_at(None, os.fspath(self.namespace), label="namespace")
 
 
 class PrivateDirectoryOwnershipTests(_ProjectStateCase):
     def test_success_transfers_live_descriptor_to_the_caller(self) -> None:
         with recording(project_state_module) as rec:
             fd = _open_private_dir_at(
-                None, os.fspath(self.cache), label=f"cache root {self.cache}")
+                None, os.fspath(self.cache), label=f"cache root {self.cache}"
+            )
         try:
             self.assertTrue(stat.S_ISDIR(os.fstat(fd).st_mode))
         finally:
@@ -101,12 +103,11 @@ class PrivateDirectoryOwnershipTests(_ProjectStateCase):
     def test_stat_failure_releases_through_shared_owner(self) -> None:
         fault = OSError(errno.EIO, "injected fstat")
         with recording(project_state_module) as rec:
-            with mock.patch.object(
-                project_state_module.os, "fstat", side_effect=fault
-            ):
+            with mock.patch.object(project_state_module.os, "fstat", side_effect=fault):
                 with self.assertRaises(ProjectStateError):
                     _open_private_dir_at(
-                        None, os.fspath(self.cache), label=f"cache root {self.cache}")
+                        None, os.fspath(self.cache), label=f"cache root {self.cache}"
+                    )
         rec.assert_terminal_and_at_most_once(self)
 
     def test_unsafe_mode_releases_through_shared_owner(self) -> None:
@@ -114,18 +115,18 @@ class PrivateDirectoryOwnershipTests(_ProjectStateCase):
         with recording(project_state_module) as rec:
             with self.assertRaises(ProjectStateError):
                 _open_private_dir_at(
-                    None, os.fspath(self.cache), label=f"cache root {self.cache}")
+                    None, os.fspath(self.cache), label=f"cache root {self.cache}"
+                )
         rec.assert_terminal_and_at_most_once(self)
 
     def test_stat_interruption_releases_through_shared_owner(self) -> None:
         fault = KeyboardInterrupt("injected fstat interruption")
         with recording(project_state_module) as rec:
-            with mock.patch.object(
-                project_state_module.os, "fstat", side_effect=fault
-            ):
+            with mock.patch.object(project_state_module.os, "fstat", side_effect=fault):
                 with self.assertRaises(KeyboardInterrupt) as caught:
                     _open_private_dir_at(
-                        None, os.fspath(self.cache), label=f"cache root {self.cache}")
+                        None, os.fspath(self.cache), label=f"cache root {self.cache}"
+                    )
         self.assertIs(caught.exception, fault)
         self.assertEqual(len(rec.close_calls), 1)
         rec.assert_terminal_and_at_most_once(self)
@@ -133,12 +134,11 @@ class PrivateDirectoryOwnershipTests(_ProjectStateCase):
     def test_stat_unexpected_defect_releases_through_shared_owner(self) -> None:
         fault = RuntimeError("injected fstat defect")
         with recording(project_state_module) as rec:
-            with mock.patch.object(
-                project_state_module.os, "fstat", side_effect=fault
-            ):
+            with mock.patch.object(project_state_module.os, "fstat", side_effect=fault):
                 with self.assertRaises(RuntimeError) as caught:
                     _open_private_dir_at(
-                        None, os.fspath(self.cache), label=f"cache root {self.cache}")
+                        None, os.fspath(self.cache), label=f"cache root {self.cache}"
+                    )
         self.assertIs(caught.exception, fault)
         self.assertEqual(len(rec.close_calls), 1)
         rec.assert_terminal_and_at_most_once(self)
@@ -147,12 +147,11 @@ class PrivateDirectoryOwnershipTests(_ProjectStateCase):
         fault = KeyboardInterrupt("injected fstat interruption")
         close_fault = OSError(errno.EIO, "injected close")
         with recording(project_state_module, close_faults=[close_fault]) as rec:
-            with mock.patch.object(
-                project_state_module.os, "fstat", side_effect=fault
-            ):
+            with mock.patch.object(project_state_module.os, "fstat", side_effect=fault):
                 with self.assertRaises(KeyboardInterrupt) as caught:
                     _open_private_dir_at(
-                        None, os.fspath(self.cache), label=f"cache root {self.cache}")
+                        None, os.fspath(self.cache), label=f"cache root {self.cache}"
+                    )
         self.assertIs(caught.exception, fault)
         self.assertIn(close_fault, secondary_diagnostics(caught.exception))
         rec.assert_terminal_and_at_most_once(self)
@@ -161,12 +160,11 @@ class PrivateDirectoryOwnershipTests(_ProjectStateCase):
         fault = RuntimeError("injected fstat defect")
         close_fault = OSError(errno.EIO, "injected close")
         with recording(project_state_module, close_faults=[close_fault]) as rec:
-            with mock.patch.object(
-                project_state_module.os, "fstat", side_effect=fault
-            ):
+            with mock.patch.object(project_state_module.os, "fstat", side_effect=fault):
                 with self.assertRaises(RuntimeError) as caught:
                     _open_private_dir_at(
-                        None, os.fspath(self.cache), label=f"cache root {self.cache}")
+                        None, os.fspath(self.cache), label=f"cache root {self.cache}"
+                    )
         self.assertIs(caught.exception, fault)
         self.assertIn(close_fault, secondary_diagnostics(caught.exception))
         rec.assert_terminal_and_at_most_once(self)
@@ -216,7 +214,8 @@ class ResolveProjectStateOwnershipTests(_ProjectStateCase):
     def test_create_true_releases_every_owner(self) -> None:
         with recording(project_state_module) as rec:
             state = resolve_project_state(
-                self.project, cache_root=self.cache, create=True)
+                self.project, cache_root=self.cache, create=True
+            )
         rec.assert_terminal_and_at_most_once(self)
         self.assertEqual(state.namespace, self.namespace)
         self.assertTrue((self.namespace / "build-artifacts").is_dir())
@@ -225,7 +224,8 @@ class ResolveProjectStateOwnershipTests(_ProjectStateCase):
     def test_create_false_early_return_releases_owners(self) -> None:
         with recording(project_state_module) as rec:
             state = resolve_project_state(
-                self.project, cache_root=self.cache, create=False)
+                self.project, cache_root=self.cache, create=False
+            )
         rec.assert_terminal_and_at_most_once(self)
         self.assertEqual(state.namespace, self.namespace)
         self.assertEqual(len(rec.owners), 2)  # transient + caller root owner
@@ -234,7 +234,8 @@ class ResolveProjectStateOwnershipTests(_ProjectStateCase):
         missing = self.base / "absent"
         with recording(project_state_module) as rec:
             state = resolve_project_state(
-                self.project, cache_root=missing, create=False)
+                self.project, cache_root=missing, create=False
+            )
         self.assertEqual(state.cache_root, missing)
         self.assertEqual(rec.owners, [])
 
@@ -250,15 +251,16 @@ class ResolveProjectStateOwnershipTests(_ProjectStateCase):
 
         with recording(project_state_module, close_fault=fault) as rec:
             with self.assertRaises(ProjectStateError) as caught:
-                resolve_project_state(
-                    self.project, cache_root=self.cache, create=True)
+                resolve_project_state(self.project, cache_root=self.cache, create=True)
         self.assertIn("metadata", str(caught.exception))
         self.assertIn(close_fault, secondary_diagnostics(caught.exception))
         rec.assert_terminal_and_at_most_once(self)
 
 
 class ValidateProjectStateSharedOwnerTests(_ProjectStateCase):
-    def test_successful_validation_releases_ancestors_and_transfers_namespace(self) -> None:
+    def test_successful_validation_releases_ancestors_and_transfers_namespace(
+        self,
+    ) -> None:
         self._prepare_namespace()
         self._write_metadata()
         state = self._state()
@@ -404,8 +406,7 @@ class EnsurePrivateDirectoryOwnershipTests(_ProjectStateCase):
         # ``_open_private_dir_at``; its single owner is detached (not
         # released), leaving the returned descriptor live.
         owners = [
-            owner for owner in rec.owners
-            if owner.label == "private directory existing"
+            owner for owner in rec.owners if owner.label == "private directory existing"
         ]
         self.assertEqual(len(owners), 1)
         self.assertFalse(owners[0].released)

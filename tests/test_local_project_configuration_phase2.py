@@ -1,4 +1,5 @@
 """Phase 2 contract tests for the local aggregate configuration boundary."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -15,7 +16,12 @@ from docker.versioning.configuration_document_validation import (
     DocumentErrorClassification,
     DocumentRole,
 )
-from docker.versioning import build_output, cache_storage, corporate_network, host_access
+from docker.versioning import (
+    build_output,
+    cache_storage,
+    corporate_network,
+    host_access,
+)
 from docker.versioning import inventory
 from docker.versioning import local_project_configuration as local_aggregate
 from docker.versioning.errors import InventoryError
@@ -38,16 +44,16 @@ from docker.versioning.model import (
 )
 
 _ALL_TABLES = (
-    '[host-access]\n'
+    "[host-access]\n"
     'address = "10.0.2.2"\n'
-    '\n'
-    '[cache]\n'
+    "\n"
+    "[cache]\n"
     'dir = "/var/tmp/cache"\n'
-    '\n'
-    '[corporate-trust]\n'
-    'enabled = true\n'
-    '\n'
-    '[network.proxy]\n'
+    "\n"
+    "[corporate-trust]\n"
+    "enabled = true\n"
+    "\n"
+    "[network.proxy]\n"
     'url = "http://proxy.internal:3128"\n'
     'no_proxy = "localhost,127.0.0.1"\n'
 )
@@ -127,10 +133,12 @@ class TestFixedLocalCompanionResolution(_LocalTest):
     def test_resolution_exposes_no_custom_lookup_option(self) -> None:
         parameters = inspect.signature(resolve_local_companion_path).parameters
         self.assertEqual(list(parameters), ["inventory_path"])
-        self.assertFalse(any(
-            kind is inspect.Parameter.VAR_KEYWORD
-            for kind in (p.kind for p in parameters.values())
-        ))
+        self.assertFalse(
+            any(
+                kind is inspect.Parameter.VAR_KEYWORD
+                for kind in (p.kind for p in parameters.values())
+            )
+        )
 
 
 class TestSingleParsedDocumentPerTransaction(_LocalTest):
@@ -150,7 +158,9 @@ class TestSingleParsedDocumentPerTransaction(_LocalTest):
     def test_domain_parsers_never_reopen_the_document(self) -> None:
         raw = tomllib.loads(_ALL_TABLES)
         with patch.object(
-            Path, "read_bytes", side_effect=AssertionError("domain parser reopened the file")
+            Path,
+            "read_bytes",
+            side_effect=AssertionError("domain parser reopened the file"),
         ):
             local = validate_local_document(raw)
         self.assertEqual("/var/tmp/cache", local.cache.dir)
@@ -211,7 +221,10 @@ class TestOwnerSchemaDiagnosticsRetainDocumentIdentity(_LocalTest):
             ('[cache]\naddress = "10.0.2.2"\n', "local.cache.address"),
             ("[host-access]\ncache = 1\n", "local.host-access.cache"),
             ("[network.proxy]\nfoo = 1\n", "local.network.proxy.foo"),
-            ('[corporate-trust]\npath = "/etc/ssl/custom.crt"\n', "local.corporate-trust.path"),
+            (
+                '[corporate-trust]\npath = "/etc/ssl/custom.crt"\n',
+                "local.corporate-trust.path",
+            ),
         )
         for body, field in cases:
             with self.subTest(field=field):
@@ -220,7 +233,9 @@ class TestOwnerSchemaDiagnosticsRetainDocumentIdentity(_LocalTest):
                 self.assertEqual(field, error.field)
                 self.assertIs(DocumentRole.LOCAL, error.role)
                 self.assertEqual(companion.resolve(), error.path)
-                self.assertIs(DocumentErrorClassification.SCHEMA_ERROR, error.classification)
+                self.assertIs(
+                    DocumentErrorClassification.SCHEMA_ERROR, error.classification
+                )
 
     def test_domain_invalid_values_keep_path_and_field_without_the_value(self) -> None:
         secret = "rejected-proxy-secret-4b1e"
@@ -334,8 +349,10 @@ class TestAbsentCompanionDefaults(_LocalTest):
             project.mkdir()
             inventory_path = project / "docker-constructor.toml"
             inventory_path.write_text("")
-            (outer_root / LOCAL_COMPANION_BASENAME).write_text("[cache]\ndir = \"/ancestor\"\n")
-            (project / "custom.local.toml").write_text("[cache]\ndir = \"/custom\"\n")
+            (outer_root / LOCAL_COMPANION_BASENAME).write_text(
+                '[cache]\ndir = "/ancestor"\n'
+            )
+            (project / "custom.local.toml").write_text('[cache]\ndir = "/custom"\n')
 
             local = load_optional_local_project_configuration(inventory_path)
 

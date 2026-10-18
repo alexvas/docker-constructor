@@ -9,6 +9,7 @@ concurrent winner; the caller reopens and verifies the winner's exact bytes,
 so an unsafe or mismatched entry is still rejected with the existing
 ``ProjectStateError`` diagnostic.
 """
+
 from __future__ import annotations
 
 import errno
@@ -133,9 +134,7 @@ class ProjectMetadataPublicationTests(_ProjectMetadataCase):
         self.ops.failures["openat"] = FileExistsError(errno.EEXIST, "collision")
         with self.assertRaises(ProjectStateError) as ctx:
             _publish_metadata(self.namespace_fd, self.expected, _LABEL)
-        self.assertIn(
-            "cannot publish project identity metadata", str(ctx.exception)
-        )
+        self.assertIn("cannot publish project identity metadata", str(ctx.exception))
         cause = ctx.exception.__cause__
         self.assertIsInstance(cause, TransactionError)
         self.assertEqual(cause.stage, STAGE_ALLOCATE)
@@ -332,9 +331,7 @@ class NamespaceCloseMaskingTests(_ProjectMetadataCase):
                     recorded["fd"] = validated.namespace_fd
         # The interruption is neither attached as secondary nor converted.
         self.assertIs(ctx.exception, interruption)
-        self.assertEqual(
-            list(getattr(interruption, "_transaction_secondary", [])), []
-        )
+        self.assertEqual(list(getattr(interruption, "_transaction_secondary", [])), [])
         self.assertEqual(recorded.get("attempts"), 1)
 
 
@@ -366,6 +363,7 @@ class PublicationCapabilityBoundaryTests(_ProjectMetadataCase):
 # ═══════════════════════════════════════════════════════════════════════
 # Phase 3 — ValidatedProjectState namespace lifecycle (tasks 3.3 and 3.6)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def _namespace_fd_path(fd: int) -> str | None:
     try:
@@ -405,7 +403,8 @@ class ValidatedProjectStateOwnershipTests(unittest.TestCase):
         return os.open(self.namespace, _DIR_FLAGS)
 
     def _record_close(
-        self, error: BaseException | None = None,
+        self,
+        error: BaseException | None = None,
     ) -> tuple[object, list[int]]:
         real_close = os.close
         attempts: list[int] = []
@@ -428,7 +427,9 @@ class ValidatedProjectStateOwnershipTests(unittest.TestCase):
         self.assertEqual(validated.namespace_fd, fd)
         fake_close, attempts = self._record_close()
         with mock.patch.object(
-            project_state_module.os, "close", side_effect=fake_close,
+            project_state_module.os,
+            "close",
+            side_effect=fake_close,
         ):
             validated.close()
             validated.close()
@@ -439,7 +440,9 @@ class ValidatedProjectStateOwnershipTests(unittest.TestCase):
         close_error = OSError(errno.EIO, "injected namespace close")
         fake_close, attempts = self._record_close(close_error)
         with mock.patch.object(
-            project_state_module.os, "close", side_effect=fake_close,
+            project_state_module.os,
+            "close",
+            side_effect=fake_close,
         ):
             with self.assertRaises(OSError) as ctx:
                 with project_state_module.ValidatedProjectState(self.state, fd):
@@ -453,7 +456,9 @@ class ValidatedProjectStateOwnershipTests(unittest.TestCase):
         close_error = OSError(errno.EIO, "injected namespace close")
         fake_close, attempts = self._record_close(close_error)
         with mock.patch.object(
-            project_state_module.os, "close", side_effect=fake_close,
+            project_state_module.os,
+            "close",
+            side_effect=fake_close,
         ):
             with self.assertRaises(OSError) as ctx:
                 with project_state_module.ValidatedProjectState(self.state, fd):
@@ -468,7 +473,9 @@ class ValidatedProjectStateOwnershipTests(unittest.TestCase):
         interruption = KeyboardInterrupt()
         fake_close, attempts = self._record_close(interruption)
         with mock.patch.object(
-            project_state_module.os, "close", side_effect=fake_close,
+            project_state_module.os,
+            "close",
+            side_effect=fake_close,
         ):
             with self.assertRaises(KeyboardInterrupt) as ctx:
                 with project_state_module.ValidatedProjectState(self.state, fd):
@@ -488,10 +495,17 @@ class ValidatedProjectStateOwnershipTests(unittest.TestCase):
                 super().__init__(*args, **kwargs)
                 created.append(self)
 
-        with mock.patch.object(
-            project_state_module, "OwnedDescriptor", _RecordingOwner,
-        ), mock.patch.object(
-            project_state_module.os, "close", side_effect=fake_close,
+        with (
+            mock.patch.object(
+                project_state_module,
+                "OwnedDescriptor",
+                _RecordingOwner,
+            ),
+            mock.patch.object(
+                project_state_module.os,
+                "close",
+                side_effect=fake_close,
+            ),
         ):
             with self.assertRaises(OSError):
                 with project_state_module.ValidatedProjectState(self.state, fd):

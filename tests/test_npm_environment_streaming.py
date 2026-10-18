@@ -313,9 +313,9 @@ class TestUtf8ByteDecoderDifferential(unittest.TestCase):
     @staticmethod
     def _custom(data: bytes) -> str:
         decoder = _Utf8ByteDecoder()
-        return "".join(
-            character for character, _ in decoder.feed(data)
-        ) + "".join(character for character, _ in decoder.finish())
+        return "".join(character for character, _ in decoder.feed(data)) + "".join(
+            character for character, _ in decoder.finish()
+        )
 
     def test_known_malformed_classes_match_python(self):
         cases = (
@@ -367,18 +367,12 @@ class TestUtf8ByteDecoderDifferential(unittest.TestCase):
             self.assertEqual(expected, self._custom(data), data)
             for split in range(len(data) + 1):
                 decoder = _Utf8ByteDecoder()
-                left = "".join(
-                    character for character, _ in decoder.feed(data[:split])
-                )
+                left = "".join(character for character, _ in decoder.feed(data[:split]))
                 right = "".join(
                     character for character, _ in decoder.feed(data[split:])
                 )
-                tail = "".join(
-                    character for character, _ in decoder.finish()
-                )
-                self.assertEqual(
-                    expected, left + right + tail, (data, split)
-                )
+                tail = "".join(character for character, _ in decoder.finish())
+                self.assertEqual(expected, left + right + tail, (data, split))
 
 
 class TestRedactingStream(unittest.TestCase):
@@ -638,9 +632,7 @@ class TestTerminalControlNeutralizer(unittest.TestCase):
                     _visible_control(exact.decode("utf-8")),
                     self._neutralize((exact,)),
                 )
-                self.assertEqual(
-                    OVERSIZED_CONTROL_SEQUENCE, self._neutralize((over,))
-                )
+                self.assertEqual(OVERSIZED_CONTROL_SEQUENCE, self._neutralize((over,)))
 
     def test_bel_terminates_osc_only(self):
         st = b"\x1b\\"
@@ -669,9 +661,7 @@ class TestTerminalControlNeutralizer(unittest.TestCase):
                     _visible_control(
                         (introducer + b"payload\x07" + st + b"after").decode()
                     ),
-                    self._neutralize(
-                        (introducer + b"payload\x07" + st + b"after",)
-                    ),
+                    self._neutralize((introducer + b"payload\x07" + st + b"after",)),
                 )
 
     def test_tiny_limit_introducer_fails_closed(self):
@@ -694,13 +684,7 @@ class TestTerminalControlNeutralizer(unittest.TestCase):
         )
         for introducer, terminator in forms:
             content = b"1" if introducer.endswith(b"[") else b"x"
-            data = (
-                b"before"
-                + introducer
-                + content * limit
-                + terminator
-                + b"after"
-            )
+            data = b"before" + introducer + content * limit + terminator + b"after"
             with self.subTest(introducer=introducer, terminator=terminator):
                 output = self._neutralize((data,))
                 self.assertEqual(1, output.count(OVERSIZED_CONTROL_SEQUENCE))
@@ -849,9 +833,7 @@ def _joined_text(chunks) -> str:
 def _finalized(chunks) -> list[StreamChunk]:
     """Return only finalized complete-line events from *chunks*."""
     return [
-        chunk
-        for chunk in chunks
-        if isinstance(chunk, StreamChunk) and chunk.finalized
+        chunk for chunk in chunks if isinstance(chunk, StreamChunk) and chunk.finalized
     ]
 
 
@@ -888,12 +870,8 @@ class TestTerminalNeutralizationLineFraming(unittest.TestCase):
         finalized = _finalized(chunks)
         self.assertEqual(1, len(finalized))
         # The committed prefix is delivered and exactly one marker is appended.
-        self.assertTrue(
-            finalized[0].text.startswith(content[:limit].decode("ascii"))
-        )
-        self.assertTrue(
-            finalized[0].text.endswith(OVERSIZED_DIAGNOSTIC_MARKER)
-        )
+        self.assertTrue(finalized[0].text.startswith(content[:limit].decode("ascii")))
+        self.assertTrue(finalized[0].text.endswith(OVERSIZED_DIAGNOSTIC_MARKER))
         self.assertEqual(0, stream.pending_line_bytes)
 
     def test_overflow_drains_then_recovers_on_next_line(self):
@@ -1001,9 +979,7 @@ class TestCommittedPrefixStreaming(unittest.TestCase):
 
     def test_shared_framer_emits_prefix_without_newline(self):
         framer = TerminalSafeLineFramer()
-        self.assertEqual(
-            "".join(framer.feed_bytes(b"partial line")), "partial line"
-        )
+        self.assertEqual("".join(framer.feed_bytes(b"partial line")), "partial line")
         self.assertEqual(framer.pending_line_bytes, len(b"partial line"))
         self.assertEqual(framer.finish(), ())
 
@@ -1038,15 +1014,11 @@ class TestCommittedPrefixStreaming(unittest.TestCase):
                 # are already observable on the live/tail channel.
                 before = self._prefixes(stream.feed_bytes(oversized))
                 self.assertIn(prefix[:8].decode("ascii"), before)
-                self.assertEqual(
-                    before.count(OVERSIZED_DIAGNOSTIC_MARKER), 1
-                )
+                self.assertEqual(before.count(OVERSIZED_DIAGNOSTIC_MARKER), 1)
                 self.assertNotIn("DISCARDED", before)
                 stream.finish()
                 # Stream termination never adds a second marker.
-                self.assertEqual(
-                    stream.tail().count(OVERSIZED_DIAGNOSTIC_MARKER), 1
-                )
+                self.assertEqual(stream.tail().count(OVERSIZED_DIAGNOSTIC_MARKER), 1)
                 self.assertNotIn("DISCARDED", stream.tail())
 
     def test_newline_preserves_record_boundary_and_recovers_both_paths(self):
@@ -1060,9 +1032,7 @@ class TestCommittedPrefixStreaming(unittest.TestCase):
             with self.subTest(factory=factory):
                 stream = factory()
                 emitted = self._prefixes(stream.feed_bytes(payload))
-                self.assertEqual(
-                    emitted.count(OVERSIZED_DIAGNOSTIC_MARKER), 1
-                )
+                self.assertEqual(emitted.count(OVERSIZED_DIAGNOSTIC_MARKER), 1)
                 self.assertNotIn("DISCARDED", emitted)
                 self.assertIn("recovered line", emitted)
                 tail = stream.tail()
@@ -1070,9 +1040,7 @@ class TestCommittedPrefixStreaming(unittest.TestCase):
                 # The newline is preserved as the record boundary for both
                 # the discarded record and the recovered one.
                 self.assertEqual(tail.count("\n"), 2)
-                self.assertEqual(
-                    tail.count(OVERSIZED_DIAGNOSTIC_MARKER), 1
-                )
+                self.assertEqual(tail.count(OVERSIZED_DIAGNOSTIC_MARKER), 1)
                 self.assertNotIn("DISCARDED", tail)
 
     def test_exactly_at_limit_is_delivered_through_both_paths(self):
@@ -1092,13 +1060,9 @@ class TestCommittedPrefixStreaming(unittest.TestCase):
                 self.assertNotIn(OVERSIZED_DIAGNOSTIC_MARKER, before)
                 stream.feed_bytes(b"\n")
                 stream.finish()
-                self.assertNotIn(
-                    OVERSIZED_DIAGNOSTIC_MARKER, stream.tail()
-                )
+                self.assertNotIn(OVERSIZED_DIAGNOSTIC_MARKER, stream.tail())
                 # The retained tail stays within its fixed byte bound.
-                self.assertLessEqual(
-                    len(stream.tail().encode("utf-8")), TAIL_BYTES
-                )
+                self.assertLessEqual(len(stream.tail().encode("utf-8")), TAIL_BYTES)
 
     def test_overflow_discards_pending_control_sequence(self):
         # A pending control string at the tail of the line must be discarded
@@ -1211,9 +1175,7 @@ class TestDefaultCollectorFailurePaths(unittest.TestCase):
         received: list[StreamChunk] = []
         abort_event = threading.Event()
         capture = collect_streams(
-            stdout_read=_ScriptedReader(
-                [b"partial\x1b]"], on_first=abort_event.set
-            ),
+            stdout_read=_ScriptedReader([b"partial\x1b]"], on_first=abort_event.set),
             stderr_read=_ScriptedReader([]),
             sink=received.append,
             abort_event=abort_event,
@@ -1272,9 +1234,7 @@ class TestDefaultCollectorFailurePaths(unittest.TestCase):
         oversized = prefix + b"S" * 100 + b"\n"
         with self.assertRaises(StreamReaderFailure) as ctx:
             collect_streams(
-                stdout_read=_ScriptedReader(
-                    [oversized], error=RuntimeError("boom")
-                ),
+                stdout_read=_ScriptedReader([oversized], error=RuntimeError("boom")),
                 stderr_read=_ScriptedReader([]),
                 sink=received.append,
             )
@@ -1298,12 +1258,8 @@ class TestDefaultCollectorFailurePaths(unittest.TestCase):
                 stderr_read=_ScriptedReader([b"ok\x1b]st\x07\n"]),
                 sink=received.append,
             )
-        stdout_text = "".join(
-            c.text for c in received if c.stream == STREAM_STDOUT
-        )
-        stderr_text = "".join(
-            c.text for c in received if c.stream == STREAM_STDERR
-        )
+        stdout_text = "".join(c.text for c in received if c.stream == STREAM_STDOUT)
+        stderr_text = "".join(c.text for c in received if c.stream == STREAM_STDERR)
         self._assert_no_raw_controls(self, stdout_text)
         self._assert_no_raw_controls(self, stderr_text)
         self.assertIn(r"\x1b[31m", stdout_text)
@@ -1334,9 +1290,7 @@ class _TextRecordingRenderer:
     def durable(self, text: str) -> None:
         self.texts.append(text)
 
-    def finalize_diagnostic(
-        self, text: str, *, restore_status: str | None
-    ) -> None:
+    def finalize_diagnostic(self, text: str, *, restore_status: str | None) -> None:
         self.texts.append(text)
 
 
@@ -1405,15 +1359,12 @@ class TestTerminalNeutralizationRouteAudit(unittest.TestCase):
 
     def test_committed_prefix_uses_the_selected_representation(self):
         url = (
-            "https://user:secret@registry.example.com:8443"
-            "/pkg/-/pkg-1.0.0.tgz?q=1#frag"
+            "https://user:secret@registry.example.com:8443/pkg/-/pkg-1.0.0.tgz?q=1#frag"
         )
         line = f"npm error network GET {url} failed"
         expectations = {
             NetworkUrlDisplay.REDACTED: "<redacted>",
-            NetworkUrlDisplay.HOST_PATH: (
-                "registry.example.com/pkg/-/pkg-1.0.0.tgz"
-            ),
+            NetworkUrlDisplay.HOST_PATH: ("registry.example.com/pkg/-/pkg-1.0.0.tgz"),
             NetworkUrlDisplay.EXACT: url,
         }
         for display, expected in expectations.items():
@@ -1443,9 +1394,7 @@ class TestTerminalNeutralizationRouteAudit(unittest.TestCase):
                 self.assertNotIn("registry.example.com", prefix_safe)
 
     def test_oversized_and_incomplete_markers_reach_real_output(self):
-        received, capture = self._collect(
-            [self.OVERSIZED, b"npm \x1b]unterminated"]
-        )
+        received, capture = self._collect([self.OVERSIZED, b"npm \x1b]unterminated"])
         text = _joined_text(received) + capture.stdout_tail
         self.assertIn(OVERSIZED_CONTROL_SEQUENCE, text)
         self.assertIn(INCOMPLETE_CONTROL_SEQUENCE, text)
@@ -1584,9 +1533,7 @@ class TestTerminalNeutralizationRouteAudit(unittest.TestCase):
 
     def test_default_collector_oversized_control_and_line_markers(self):
         oversized_line = (
-            b"head " * (DIAGNOSTIC_LINE_LIMIT_BYTES // 5)
-            + b"discard-me" * 100
-            + b"\n"
+            b"head " * (DIAGNOSTIC_LINE_LIMIT_BYTES // 5) + b"discard-me" * 100 + b"\n"
         )
         received, capture = self._collect_default(
             [self.OVERSIZED, oversized_line, b"recovered line\n"]
@@ -1731,15 +1678,11 @@ class TestCollectStreams(unittest.TestCase):
         )
         stopper.join(5.0)
         self.assertTrue(received)
-        prefix_text = "".join(
-            chunk.text for chunk in received if not chunk.finalized
-        )
+        prefix_text = "".join(chunk.text for chunk in received if not chunk.finalized)
         self.assertIn("npm warn no newline here", prefix_text)
         self.assertIn("npm warn no newline here", capture.stdout_tail)
         # The complete line is finalized separately and never rewrites the tail.
-        self.assertEqual(
-            capture.stdout_tail, "npm warn no newline here "
-        )
+        self.assertEqual(capture.stdout_tail, "npm warn no newline here ")
 
     def test_serialized_sink_invoked_on_one_thread(self):
         ids: list[int] = []
@@ -1774,9 +1717,7 @@ class TestCollectStreams(unittest.TestCase):
             requested.append(n)
             return b""
 
-        capture = collect_streams(
-            stdout_read=read_stdout, stderr_read=read_stderr
-        )
+        capture = collect_streams(stdout_read=read_stdout, stderr_read=read_stderr)
         self.assertTrue(requested)
         self.assertTrue(all(n <= READ_CHUNK_BYTES for n in requested))
         self.assertEqual(capture.stdout_tail, "")
@@ -1945,9 +1886,7 @@ class TestSinkDispatcher(unittest.TestCase):
         self.assertEqual(notice, TRUNCATION_NOTICE)
         self.assertFalse(dispatcher.is_alive())
         # Delivered chunks are a contiguous accepted-order prefix.
-        self.assertEqual(
-            delivered, [str(i) for i in range(len(delivered))]
-        )
+        self.assertEqual(delivered, [str(i) for i in range(len(delivered))])
 
     def test_raising_sink_disables_delivery_with_one_notice(self):
         delivered: list[str] = []
@@ -1995,9 +1934,7 @@ class TestSinkDispatcher(unittest.TestCase):
             time.sleep(0.15)
             delivered.append(chunk.text)
 
-        dispatcher = SinkDispatcher(
-            sink, callback_budget=0.05, drain_budget=2.0
-        )
+        dispatcher = SinkDispatcher(sink, callback_budget=0.05, drain_budget=2.0)
         self.assertTrue(dispatcher.submit(StreamChunk(STREAM_STDOUT, "a")))
         self.assertTrue(dispatcher.submit(StreamChunk(STREAM_STDOUT, "b")))
         notice = dispatcher.finish()
@@ -2014,13 +1951,9 @@ class TestSinkDispatcher(unittest.TestCase):
 
         # A compliant sink (50 ms << 1 s callback budget) but a tight drain
         # budget: draining 64 chunks at 50 ms each exceeds 0.2 s.
-        dispatcher = SinkDispatcher(
-            sink, callback_budget=1.0, drain_budget=0.2
-        )
+        dispatcher = SinkDispatcher(sink, callback_budget=1.0, drain_budget=0.2)
         for i in range(SINK_QUEUE_CAPACITY):
-            self.assertTrue(
-                dispatcher.submit(StreamChunk(STREAM_STDOUT, str(i)))
-            )
+            self.assertTrue(dispatcher.submit(StreamChunk(STREAM_STDOUT, str(i))))
         notice = dispatcher.finish()
         self.assertEqual(notice, TRUNCATION_NOTICE)
         self.assertFalse(dispatcher.is_alive())
@@ -2046,9 +1979,7 @@ class TestSinkDispatcher(unittest.TestCase):
         dispatcher = SinkDispatcher(lambda c: delivered.append(c.text))
         self.assertIsNone(dispatcher.finish())
         # Acceptance is closed: the submission is refused, not enqueued.
-        self.assertFalse(
-            dispatcher.submit(StreamChunk(STREAM_STDOUT, "late"))
-        )
+        self.assertFalse(dispatcher.submit(StreamChunk(STREAM_STDOUT, "late")))
         self.assertNotIn("late", delivered)
         self.assertEqual(dispatcher.truncation_notice(), TRUNCATION_NOTICE)
 
@@ -2059,15 +1990,11 @@ class TestSinkDispatcher(unittest.TestCase):
         def sink(chunk: StreamChunk) -> None:
             delivered.append(chunk.text)
 
-        dispatcher = SinkDispatcher(
-            sink, queue_capacity=8, queue_factory=lambda n: q
-        )
+        dispatcher = SinkDispatcher(sink, queue_capacity=8, queue_factory=lambda n: q)
         result: dict[str, bool] = {}
 
         def do_submit() -> None:
-            result["accepted"] = dispatcher.submit(
-                StreamChunk(STREAM_STDOUT, "race")
-            )
+            result["accepted"] = dispatcher.submit(StreamChunk(STREAM_STDOUT, "race"))
 
         submit_thread = threading.Thread(target=do_submit)
         submit_thread.start()
@@ -2131,8 +2058,7 @@ class TestSinkDispatcher(unittest.TestCase):
                 finish_returned.set()
 
             submitters = [
-                threading.Thread(target=submit_one, args=(i,))
-                for i in range(per_round)
+                threading.Thread(target=submit_one, args=(i,)) for i in range(per_round)
             ]
             finisher = threading.Thread(target=do_finish)
             for t in submitters:
@@ -2203,16 +2129,14 @@ class TestSplitDiagnosticSink(unittest.TestCase):
             STREAM_STDOUT, "partial ", finalized=False, local_text="partial "
         )
         finalized = StreamChunk(
-            STREAM_STDOUT, "partial line", finalized=True,
+            STREAM_STDOUT,
+            "partial line",
+            finalized=True,
             local_text="partial line",
         )
         sink = SplitDiagnosticSink(
-            lambda chunk: direct.append(
-                (chunk, threading.current_thread().name)
-            ),
-            lambda chunk: dispatched.append(
-                (chunk, threading.current_thread().name)
-            ),
+            lambda chunk: direct.append((chunk, threading.current_thread().name)),
+            lambda chunk: dispatched.append((chunk, threading.current_thread().name)),
         )
         self._collect(sink, [prefix, finalized])
         # Every chunk is admitted directly, on the reader thread.
@@ -2220,28 +2144,20 @@ class TestSplitDiagnosticSink(unittest.TestCase):
         self.assertEqual({name for _, name in direct}, {"npm-stdout-reader"})
         # Only the finalized record reaches the dispatcher, on its own thread.
         self.assertEqual([chunk for chunk, _ in dispatched], [finalized])
-        self.assertEqual(
-            {name for _, name in dispatched}, {"npm-sink-dispatcher"}
-        )
+        self.assertEqual({name for _, name in dispatched}, {"npm-sink-dispatcher"})
         _assert_no_workers(self)
 
     def test_provisional_prefix_never_enters_the_dispatcher_queue(self):
         dispatched: list[StreamChunk] = []
-        sink = SplitDiagnosticSink(
-            lambda _chunk: None, dispatched.append
-        )
-        prefix = StreamChunk(
-            STREAM_STDOUT, "p", finalized=False, local_text="p"
-        )
+        sink = SplitDiagnosticSink(lambda _chunk: None, dispatched.append)
+        prefix = StreamChunk(STREAM_STDOUT, "p", finalized=False, local_text="p")
         self._collect(sink, [prefix])
         self.assertEqual([], dispatched)
 
     def test_no_direct_channel_still_dispatches_only_finalized(self):
         dispatched: list[StreamChunk] = []
         sink = SplitDiagnosticSink(None, dispatched.append)
-        prefix = StreamChunk(
-            STREAM_STDOUT, "p", finalized=False, local_text="p"
-        )
+        prefix = StreamChunk(STREAM_STDOUT, "p", finalized=False, local_text="p")
         finalized = StreamChunk(STREAM_STDOUT, "p q", finalized=True)
         self._collect(sink, [prefix, finalized])
         self.assertEqual([finalized], dispatched)
@@ -2406,8 +2322,14 @@ class _CloseTrackingProc:
     def __init__(self, stdout_pipe, stderr_pipe) -> None:
         self.stdout = stdout_pipe
         self.stderr = stderr_pipe
-        normal_eof = not any((stdout_pipe._fail_read, stdout_pipe._block,
-                              stderr_pipe._fail_read, stderr_pipe._block))
+        normal_eof = not any(
+            (
+                stdout_pipe._fail_read,
+                stdout_pipe._block,
+                stderr_pipe._fail_read,
+                stderr_pipe._block,
+            )
+        )
         self.returncode: int | None = 0 if normal_eof else None
         self.reaped = False
         self._exited = threading.Event()
@@ -2543,9 +2465,7 @@ class TestReaderFailure(unittest.TestCase):
             )
         detail = ctx.exception.detail
         self.assertNotIn(secret, detail)
-        self.assertLessEqual(
-            len(detail.encode("utf-8")), READER_FAILURE_DETAIL_BYTES
-        )
+        self.assertLessEqual(len(detail.encode("utf-8")), READER_FAILURE_DETAIL_BYTES)
 
     def test_run_streaming_reader_failure_unblocks_blocked_sibling(self):
         import docker.npm_environment.execution as execution_module
@@ -2566,9 +2486,7 @@ class TestReaderFailure(unittest.TestCase):
             except BaseException as exc:  # pragma: no cover - test aid
                 result["error"] = exc
 
-        with mock.patch.object(
-            execution_module.subprocess, "Popen", return_value=fake
-        ):
+        with mock.patch.object(execution_module.subprocess, "Popen", return_value=fake):
             thread = threading.Thread(target=run, name="test-run-streaming")
             thread.start()
             thread.join(5.0)
@@ -2592,7 +2510,9 @@ class TestReaderFailure(unittest.TestCase):
         from tests.test_npm_environment_phase4_lifecycle import _observed_children
 
         with _observed_children() as children:
-            owner = OwnedProcess.launch((sys.executable, "-c", "import time; time.sleep(30)"), grace_seconds=5)
+            owner = OwnedProcess.launch(
+                (sys.executable, "-c", "import time; time.sleep(30)"), grace_seconds=5
+            )
         try:
             self.assertTrue(owner.shutdown().complete)
             self.assertIsNotNone(owner.returncode)
@@ -2772,17 +2692,11 @@ class TestReaderFailure(unittest.TestCase):
             except BaseException as exc:  # pragma: no cover - test aid
                 result["error"] = exc
 
-        with mock.patch.object(
-            execution_module.subprocess, "Popen", return_value=proc
-        ):
-            thread = threading.Thread(
-                target=run, name="test-run-streaming-close"
-            )
+        with mock.patch.object(execution_module.subprocess, "Popen", return_value=proc):
+            thread = threading.Thread(target=run, name="test-run-streaming-close")
             thread.start()
             thread.join(5.0)
-        self.assertFalse(
-            thread.is_alive(), "run_streaming hung during pipe cleanup"
-        )
+        self.assertFalse(thread.is_alive(), "run_streaming hung during pipe cleanup")
 
         exc = result.get("error")
         self.assertIsInstance(exc, StreamReaderFailure)
@@ -2823,17 +2737,13 @@ class TestReaderFailure(unittest.TestCase):
             except BaseException as exc:  # pragma: no cover - test aid
                 result["error"] = exc
 
-        with mock.patch.object(
-            execution_module.subprocess, "Popen", return_value=proc
-        ):
+        with mock.patch.object(execution_module.subprocess, "Popen", return_value=proc):
             thread = threading.Thread(
                 target=run, name="test-run-streaming-close-normal"
             )
             thread.start()
             thread.join(5.0)
-        self.assertFalse(
-            thread.is_alive(), "run_streaming hung during cleanup"
-        )
+        self.assertFalse(thread.is_alive(), "run_streaming hung during cleanup")
 
         exc = result.get("error")
         # The deferred close failure surfaces, with the secret redacted.
@@ -2873,26 +2783,18 @@ class TestReaderFailure(unittest.TestCase):
             except BaseException as exc:  # pragma: no cover - test aid
                 result["error"] = exc
 
-        with mock.patch.object(
-            execution_module.subprocess, "Popen", return_value=proc
-        ):
-            thread = threading.Thread(
-                target=run, name="test-run-streaming-reader-url"
-            )
+        with mock.patch.object(execution_module.subprocess, "Popen", return_value=proc):
+            thread = threading.Thread(target=run, name="test-run-streaming-reader-url")
             thread.start()
             thread.join(5.0)
-        self.assertFalse(
-            thread.is_alive(), "run_streaming hung during cleanup"
-        )
+        self.assertFalse(thread.is_alive(), "run_streaming hung during cleanup")
 
         exc = result.get("error")
         # The structured reader failure stays primary; the URL-bearing close
         # failure is only bounded secondary context.
         self.assertIsInstance(exc, StreamReaderFailure)
         assert isinstance(exc, StreamReaderFailure)
-        rendered = "\n".join(
-            [str(exc), exc.detail, *getattr(exc, "__notes__", ())]
-        )
+        rendered = "\n".join([str(exc), exc.detail, *getattr(exc, "__notes__", ())])
         self.assertEqual(rendered.count("stdout release failed:"), 1)
         self.assertIn(REDACTED, rendered)
         for fragment in (
@@ -2931,17 +2833,11 @@ class TestReaderFailure(unittest.TestCase):
             except BaseException as exc:  # pragma: no cover - test aid
                 result["error"] = exc
 
-        with mock.patch.object(
-            execution_module.subprocess, "Popen", return_value=proc
-        ):
-            thread = threading.Thread(
-                target=run, name="test-run-streaming-close-url"
-            )
+        with mock.patch.object(execution_module.subprocess, "Popen", return_value=proc):
+            thread = threading.Thread(target=run, name="test-run-streaming-close-url")
             thread.start()
             thread.join(5.0)
-        self.assertFalse(
-            thread.is_alive(), "run_streaming hung during cleanup"
-        )
+        self.assertFalse(thread.is_alive(), "run_streaming hung during cleanup")
 
         exc = result.get("error")
         self.assertIsInstance(exc, OSError)
@@ -3081,9 +2977,7 @@ class TestAssembleIntegration(unittest.TestCase):
         return root
 
     def test_injected_executor_without_sink_remains_usable(self):
-        executor = _StreamingExecutor(
-            stdout=b"installed\n", stderr=b"warn\n"
-        )
+        executor = _StreamingExecutor(stdout=b"installed\n", stderr=b"warn\n")
         result = assemble(
             validated=_validated(),
             assembler=_assembler(),
@@ -3100,9 +2994,7 @@ class TestAssembleIntegration(unittest.TestCase):
         def sink(chunk: StreamChunk) -> None:
             received.append(chunk)
 
-        executor = _StreamingExecutor(
-            stdout=b"built with SUPERSECRET\n", stderr=b""
-        )
+        executor = _StreamingExecutor(stdout=b"built with SUPERSECRET\n", stderr=b"")
         result = assemble(
             validated=_validated(),
             assembler=_assembler(),

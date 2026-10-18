@@ -21,6 +21,7 @@ not exercise directly:
 Each regression here is referenced by exactly one inventory entry (or, for a
 tree of branches, by the scenario entry that names it).
 """
+
 from __future__ import annotations
 
 import os
@@ -60,7 +61,9 @@ class _CacheLayoutTestCase(unittest.TestCase):
 class TestNoFollowInspectionOfExistingSelectedRoot(_CacheLayoutTestCase):
     """The selected root is inspected without following a symlink."""
 
-    def test_dangling_symlink_selected_root_rejected_without_creating_target(self) -> None:
+    def test_dangling_symlink_selected_root_rejected_without_creating_target(
+        self,
+    ) -> None:
         target = self.base / "missing-target"
         link = self.base / "link"
         link.symlink_to(target, target_is_directory=True)
@@ -104,7 +107,9 @@ class TestDangerousRootDiagnostics(unittest.TestCase):
     XDG = "/xdg/cache"
     HOME = Path("/home/testuser")
 
-    def test_dangerous_root_diagnostics_name_cache_dir_and_require_dedicated(self) -> None:
+    def test_dangerous_root_diagnostics_name_cache_dir_and_require_dedicated(
+        self,
+    ) -> None:
         for value in (str(self.HOME), "/", "/xdg"):
             with self.subTest(value=value):
                 with self.assertRaises(cache_storage.CacheStorageError) as raised:
@@ -132,9 +137,7 @@ class TestReviewedStateIsolation(unittest.TestCase):
                 self.assertEqual(f"local.{table}", raised.exception.field)
 
     def test_local_companion_does_not_change_reviewed_projection(self) -> None:
-        canonical = (_REPO_ROOT / "docker-constructor.toml").read_text(
-            encoding="utf-8"
-        )
+        canonical = (_REPO_ROOT / "docker-constructor.toml").read_text(encoding="utf-8")
         with tempfile.TemporaryDirectory(prefix="reviewed-isolation-") as tmp:
             root = Path(tmp)
             inventory_path = root / "docker-constructor.toml"
@@ -172,9 +175,7 @@ class TestCorporateNetworkIndependence(unittest.TestCase):
             )
         )
         self.assertTrue(local.corporate_trust.enabled)
-        self.assertEqual(
-            "http://proxy.example.test:8080", local.network_proxy.url
-        )
+        self.assertEqual("http://proxy.example.test:8080", local.network_proxy.url)
         self.assertIsNone(local.host_access.address)
 
 
@@ -221,7 +222,9 @@ class TestLocalCacheRootWithoutHostAccess(unittest.TestCase):
         )
         return inventory_path, configured
 
-    def test_configured_local_cache_root_is_used_with_host_access_disabled(self) -> None:
+    def test_configured_local_cache_root_is_used_with_host_access_disabled(
+        self,
+    ) -> None:
         from docker.versioning.build_orchestration import BuildRequest, plan_build
         from docker.versioning.dispatch_types import ExitKind
         from docker.versioning.transports import build_transports

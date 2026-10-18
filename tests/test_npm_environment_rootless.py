@@ -149,9 +149,7 @@ class TestIsRootlessDocker(unittest.TestCase):
 class TestDockerRunExecutorResolveUser(unittest.TestCase):
     def test_explicit_uid_gid_win(self):
         executor = DockerRunExecutor()
-        with mock.patch.object(
-            execution_module.subprocess, "run"
-        ) as run:
+        with mock.patch.object(execution_module.subprocess, "run") as run:
             self.assertEqual(executor.resolve_user(123, 456), (123, 456))
         run.assert_not_called()
 
@@ -224,9 +222,7 @@ class TestAssembleUsesExecutorResolution(unittest.TestCase):
 
     def test_no_hook_falls_back_to_host_identity(self):
         executor = _PlainExecutor()
-        self.assertEqual(
-            _run_user(executor), f"{os.getuid()}:{os.getgid()}"
-        )
+        self.assertEqual(_run_user(executor), f"{os.getuid()}:{os.getgid()}")
         # The fallback never probes Docker, so only the run argv is issued.
         self.assertEqual(len(executor.calls), 1)
 
@@ -247,10 +243,11 @@ class TestRealExecutorEndToEnd(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         cache_root = Path(tmp.name) / "cache"
         cache_root.mkdir()
-        with mock.patch.object(
-            execution_module.subprocess, "run", side_effect=fake_run
-        ), mock.patch.object(
-            execution_module.subprocess, "Popen", side_effect=fake_popen
+        with (
+            mock.patch.object(execution_module.subprocess, "run", side_effect=fake_run),
+            mock.patch.object(
+                execution_module.subprocess, "Popen", side_effect=fake_popen
+            ),
         ):
             result = assemble(
                 validated=_validated(),

@@ -41,8 +41,7 @@ def validate_credential_free_proxy_url(url: str) -> None:
         raise _invalid_proxy(f"malformed proxy URL {url!r}") from exc
     if parsed.scheme not in _ALLOWED_PROXY_SCHEMES:
         raise _invalid_proxy(
-            f"unsupported proxy scheme {parsed.scheme!r}; "
-            "use http, socks5, or socks5h"
+            f"unsupported proxy scheme {parsed.scheme!r}; use http, socks5, or socks5h"
         )
     if parsed.username is not None or parsed.password is not None:
         raise _invalid_proxy(

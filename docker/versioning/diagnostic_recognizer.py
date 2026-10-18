@@ -106,6 +106,7 @@ decoder pending units and every supported URL prefix that overlaps the commit.
 Committed text never resurfaces as a candidate, secret or prefix, and a commit
 never re-feeds retained input.
 """
+
 from __future__ import annotations
 
 from collections import deque, namedtuple
@@ -697,9 +698,12 @@ class _LayerMatcher:
             # edge (':' is 3A, '/' is 2F).
             nibble = _fold(buf[1][0]) if len(buf) > 1 else None
             starts = [
-                start for start, node in self._active
-                if any(symbol in node and (nibble is None or nibble == hex_first)
-                       for symbol, hex_first in ((":", "3"), ("/", "2")))
+                start
+                for start, node in self._active
+                if any(
+                    symbol in node and (nibble is None or nibble == hex_first)
+                    for symbol, hex_first in ((":", "3"), ("/", "2"))
+                )
             ]
             return min(starts) if starts else None
         starts = [start for start, node in self._active if node]
@@ -715,7 +719,6 @@ class _LayerMatcher:
             character, source_start, source_end = self._buf.pop(0)
             self._atom(character, source_start, source_end, False)
         return pending_start
-
 
 
 class _SecretObserver:
@@ -799,7 +802,9 @@ class _SecretObserver:
         if retained > self._stats.peak_retained_secrets:
             self._stats.peak_retained_secrets = retained
 
-    def prefix_start(self, minimum_start: int | None = None, include_start: int | None = None) -> int | None:
+    def prefix_start(
+        self, minimum_start: int | None = None, include_start: int | None = None
+    ) -> int | None:
         """Earliest source of a still-extendable secret, even across commits.
 
         Node lengths are registration-owned. Failure traversal here is bounded
@@ -811,8 +816,11 @@ class _SecretObserver:
             self._stats.speculative_record_visits += 1
             if automaton._goto[node]:
                 span = self._spans.get(self._fed - self._prefix_lengths[node])
-                if span is not None and (minimum_start is None or
-                    span[0] >= minimum_start or span[0] == include_start):
+                if span is not None and (
+                    minimum_start is None
+                    or span[0] >= minimum_start
+                    or span[0] == include_start
+                ):
                     return span[0]
             node = automaton._fail[node]
         return None
@@ -876,7 +884,9 @@ class _SecretObserver:
         The watermark also filters later decoder emissions, without resetting
         the cursor or discarding provenance needed by crossing matches.
         """
-        self._committed = offset if self._committed is None else max(self._committed, offset)
+        self._committed = (
+            offset if self._committed is None else max(self._committed, offset)
+        )
         for bucket in (self._matches, *self._speculative):
             self._stats.speculative_record_visits += 1
             while bucket:
@@ -920,8 +930,7 @@ class _Pipeline:
             automaton = AhoCorasick(secrets)
             self._literal = _SecretObserver(automaton, stats, 0)
             self._decoded = [
-                _SecretObserver(automaton, stats, depth)
-                for depth in range(1, _LAYERS)
+                _SecretObserver(automaton, stats, depth) for depth in range(1, _LAYERS)
             ]
 
     def _sink_for(self, layer: int):
@@ -1002,7 +1011,9 @@ class _Pipeline:
         for transducer in self._transducers:
             if transducer._pending:
                 pending_start = transducer._pending[0][1]
-                frontier = pending_start if frontier is None else min(frontier, pending_start)
+                frontier = (
+                    pending_start if frontier is None else min(frontier, pending_start)
+                )
         for observer in self._decoded:
             observer.retain_from(frontier)
 
@@ -1342,9 +1353,7 @@ class IncrementalRecognizer:
     def __init__(self, secrets: tuple[str, ...] = ()) -> None:
         self._secrets = tuple(secrets)
         self._stats = _MutableStats()
-        self._pipeline = _Pipeline(
-            self._stats, incremental=True, secrets=self._secrets
-        )
+        self._pipeline = _Pipeline(self._stats, incremental=True, secrets=self._secrets)
         self._committed = 0
         self._consumed = 0
 
@@ -1419,15 +1428,23 @@ class IncrementalRecognizer:
             return self._committed
         return max(start, self._committed)
 
-    def secret_prefix_start(self, *, decoded: bool = False,
-                            minimum_start: int | None = None,
-                            include_start: int | None = None) -> int | None:
+    def secret_prefix_start(
+        self,
+        *,
+        decoded: bool = False,
+        minimum_start: int | None = None,
+        include_start: int | None = None,
+    ) -> int | None:
         """Unsettled secret coverage start, preserving crossing continuations."""
         observers = list(self._pipeline._decoded) if decoded else []
         if self._pipeline._literal is not None:
             observers.append(self._pipeline._literal)
-        starts = [start for observer in observers
-                  if (start := observer.prefix_start(minimum_start, include_start)) is not None]
+        starts = [
+            start
+            for observer in observers
+            if (start := observer.prefix_start(minimum_start, include_start))
+            is not None
+        ]
         return min(starts) if starts else None
 
     @property

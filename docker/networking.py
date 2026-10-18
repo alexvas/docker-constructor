@@ -35,7 +35,9 @@ from docker.filesystem.streams import OwnedStream
 # ---------------------------------------------------------------------------
 
 _DEFAULT_PROBE_IMAGE = "alpine:3.20"
-_DEFAULT_OVERRIDE_SRC = Path(__file__).resolve().parent / "rootless-docker.override.conf"
+_DEFAULT_OVERRIDE_SRC = (
+    Path(__file__).resolve().parent / "rootless-docker.override.conf"
+)
 # Dest is resolved through Filesystem.home at call time so tests can
 # inject a fake home directory without touching the real filesystem.
 _OVERRIDE_DEST_REL = Path(".config/systemd/user/docker.service.d/override.conf")
@@ -48,12 +50,14 @@ _OVERRIDE_DEST_REL = Path(".config/systemd/user/docker.service.d/override.conf")
 
 class DockerMode(enum.Enum):
     """Docker daemon operational mode."""
+
     ROOTFUL = "rootful"
     ROOTLESS = "rootless"
 
 
 class OverrideState(enum.Enum):
     """Current state of the rootless-override destination file."""
+
     ABSENT = "absent"
     MATCHING = "matching"
     DIFFERENT = "different"
@@ -139,6 +143,7 @@ class RootlessOverridePlan:
 @dataclass(frozen=True)
 class FilesystemOperation:
     """A single filesystem step in an override plan."""
+
     kind: str
     path: Path
     source_path: Optional[Path] = None
@@ -147,6 +152,7 @@ class FilesystemOperation:
 @dataclass(frozen=True)
 class ServiceOperation:
     """A single service-control step in an override plan."""
+
     kind: str
     unit: Optional[str] = None
 
@@ -168,6 +174,7 @@ class OverrideFailure:
     ``persistence_applied`` is ``True`` when the override file was
     successfully written before a subsequent service operation failed.
     """
+
     operation: str
     path_or_command: str
     detail: str
@@ -177,6 +184,7 @@ class OverrideFailure:
 @dataclass(frozen=True)
 class PersistenceResult:
     """Result of persisting a host-access address to the local companion."""
+
     path: Path
     address: str
     written: bool
@@ -237,14 +245,16 @@ class ServiceController:
     def daemon_reload(self) -> None:
         proc = self._runner.run(["systemctl", "--user", "daemon-reload"])
         if proc.return_code != 0:
-            raise RuntimeError(f"daemon-reload failed (rc={proc.return_code}): "
-                               f"{proc.stderr[:200]}")
+            raise RuntimeError(
+                f"daemon-reload failed (rc={proc.return_code}): {proc.stderr[:200]}"
+            )
 
     def restart(self, unit: str) -> None:
         proc = self._runner.run(["systemctl", "--user", "restart", unit])
         if proc.return_code != 0:
-            raise RuntimeError(f"restart {unit} failed (rc={proc.return_code}): "
-                               f"{proc.stderr[:200]}")
+            raise RuntimeError(
+                f"restart {unit} failed (rc={proc.return_code}): {proc.stderr[:200]}"
+            )
 
 
 class SystemClock:
@@ -284,6 +294,7 @@ class ProcessResult:
     returns them so every caller (detection, probing, LAN-IP) can be
     tested with determistic outcomes.
     """
+
     argv: tuple[str, ...]
     return_code: int
     stdout: str
@@ -301,7 +312,10 @@ class ProcessRunner:
     def run(self, argv: list[str]) -> ProcessResult:
         """Execute *argv* and return a structured result."""
         proc = subprocess.run(
-            argv, text=True, capture_output=True, check=False,
+            argv,
+            text=True,
+            capture_output=True,
+            check=False,
         )
         return ProcessResult(
             argv=tuple(argv),
@@ -365,7 +379,9 @@ class HostProbeServer:
             listener.server = http.server.ThreadingHTTPServer(("0.0.0.0", 0), _Handler)
             self._httpd = listener.server
             self.port = int(self._httpd.server_address[1])
-            self._thread = threading.Thread(target=self._httpd.serve_forever, daemon=True)
+            self._thread = threading.Thread(
+                target=self._httpd.serve_forever, daemon=True
+            )
             self._thread.start()
             self._thread_started = True
             return self.port
@@ -417,7 +433,9 @@ def detect_docker_mode(
     except FileNotFoundError:
         raise DockerDetectionError("docker not found on PATH")
     if proc.return_code != 0:
-        detail = proc.stderr.strip() or proc.stdout.strip() or f"exit {proc.return_code}"
+        detail = (
+            proc.stderr.strip() or proc.stdout.strip() or f"exit {proc.return_code}"
+        )
         raise DockerDetectionError(detail)
     if "rootless" in proc.stdout.lower():
         return DockerMode.ROOTLESS
@@ -439,14 +457,14 @@ def detect_lan_ip(
         out = proc.stdout.strip()
         if out:
             return out.split()[0]
-    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+    except subprocess.CalledProcessError, FileNotFoundError, OSError:
         pass
     try:
         proc = runner.run(["ip", "-4", "route", "show", "default"])
         m = re.search(r"\bsrc\s+(\d+\.\d+\.\d+\.\d+)\b", proc.stdout)
         if m:
             return m.group(1)
-    except (FileNotFoundError, OSError):
+    except FileNotFoundError, OSError:
         pass
     return None
 
@@ -472,7 +490,9 @@ def plan_rootless_override(
     mode = _mode or DockerMode.ROOTLESS
     fs = _fs or Filesystem()
     src = _override_src if _override_src is not None else _DEFAULT_OVERRIDE_SRC
-    dest = _override_dest if _override_dest is not None else fs.home / _OVERRIDE_DEST_REL
+    dest = (
+        _override_dest if _override_dest is not None else fs.home / _OVERRIDE_DEST_REL
+    )
 
     state: OverrideState
     filesystem_ops: tuple[FilesystemOperation, ...]
@@ -646,19 +666,20 @@ def candidate_gateways(
 _PROBE_SCRIPT = (
     "getent hosts host.docker.internal | awk '{print $1}' | head -1 | "
     "while read ip; do echo RESOLVED_IP=$ip; done; "
-    'body=$(wget -qO- --timeout=_TIMEOUT_ http://host.docker.internal:_PORT_ 2>/dev/null) && '
+    "body=$(wget -qO- --timeout=_TIMEOUT_ http://host.docker.internal:_PORT_ 2>/dev/null) && "
     'echo "$body" | grep -qx "_TOKEN_" && echo PROBE_OK'
 )
 
 # Tokens must be alphanumeric + dots/hyphens/underscores only — no quotes,
 # semicolons, newlines, or shell metacharacters that could escape the
 # double-quoted grep expression in _PROBE_SCRIPT.
-_UNSAFE_TOKEN_CHARS = re.compile(r'[^A-Za-z0-9._-]')
+_UNSAFE_TOKEN_CHARS = re.compile(r"[^A-Za-z0-9._-]")
 
 # PROBE_OK must appear as a standalone line (not embedded in other text).
-_PROBE_OK_LINE = re.compile(r'(?m)^PROBE_OK$')
+_PROBE_OK_LINE = re.compile(r"(?m)^PROBE_OK$")
 
 # Gateway values must be "host-gateway" or a valid IPv4/IPv6 address.
+
 
 def probe_gateway(
     candidate: str,
@@ -679,29 +700,43 @@ def probe_gateway(
     if not candidate:
         return ProbeResult(candidate, False, None, "empty candidate")
     if not isinstance(probe_port, int) or probe_port < 1 or probe_port > 65535:
-        return ProbeResult(candidate, False, None,
-                           f"invalid probe port: {probe_port}")
+        return ProbeResult(candidate, False, None, f"invalid probe port: {probe_port}")
     if not token or not token.strip():
         return ProbeResult(candidate, False, None, "empty probe token")
     if _UNSAFE_TOKEN_CHARS.search(token):
-        return ProbeResult(candidate, False, None,
-                           f"token contains unsafe characters: {token!r}")
+        return ProbeResult(
+            candidate, False, None, f"token contains unsafe characters: {token!r}"
+        )
     # probe_timeout must be a plain int (not bool), 1–300 seconds.
     if isinstance(probe_timeout, bool) or not isinstance(probe_timeout, int):
-        return ProbeResult(candidate, False, None,
-                           f"probe_timeout must be int, got {type(probe_timeout).__name__}")
+        return ProbeResult(
+            candidate,
+            False,
+            None,
+            f"probe_timeout must be int, got {type(probe_timeout).__name__}",
+        )
     if probe_timeout < 1 or probe_timeout > 300:
-        return ProbeResult(candidate, False, None,
-                           f"probe_timeout out of range: {probe_timeout}")
+        return ProbeResult(
+            candidate, False, None, f"probe_timeout out of range: {probe_timeout}"
+        )
 
     runner = _runner if _runner is not None else ProcessRunner()
     add_host = f"host.docker.internal:{candidate}"
-    script = _PROBE_SCRIPT.replace("_PORT_", str(probe_port)).replace("_TOKEN_", token).replace("_TIMEOUT_", str(probe_timeout))
+    script = (
+        _PROBE_SCRIPT.replace("_PORT_", str(probe_port))
+        .replace("_TOKEN_", token)
+        .replace("_TIMEOUT_", str(probe_timeout))
+    )
     cmd = [
-        "docker", "run", "--rm",
-        "--add-host", add_host,
+        "docker",
+        "run",
+        "--rm",
+        "--add-host",
+        add_host,
         probe_image,
-        "sh", "-c", script,
+        "sh",
+        "-c",
+        script,
     ]
     try:
         proc = runner.run(cmd)
@@ -718,7 +753,9 @@ def probe_gateway(
         body = out.strip()
         if body:
             base = body[-200:]
-            detail = f"[exit {proc.return_code}] {base}" if proc.return_code != 0 else base
+            detail = (
+                f"[exit {proc.return_code}] {base}" if proc.return_code != 0 else base
+            )
         else:
             detail = f"exit {proc.return_code}"
         return ProbeResult(candidate, ok, resolved, detail)
@@ -774,10 +811,14 @@ def diagnose_gateway(
         probes: list[ProbeResult] = []
         for cand in candidate_gateways(mode, lan_ip):
             probes.append(
-                probe_gateway(cand, probe_port, server.token,
-                              probe_image=probe_image,
-                              probe_timeout=probe_timeout,
-                              _runner=runner)
+                probe_gateway(
+                    cand,
+                    probe_port,
+                    server.token,
+                    probe_image=probe_image,
+                    probe_timeout=probe_timeout,
+                    _runner=runner,
+                )
             )
 
         chosen = _choose_gateway(tuple(probes))

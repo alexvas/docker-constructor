@@ -1,4 +1,5 @@
 """End-to-end Docker build-output acceptance tests using a fake docker binary."""
+
 from __future__ import annotations
 
 import json
@@ -48,12 +49,22 @@ class TestBuildOutputEndToEnd(unittest.TestCase):
         cls._tmp = tempfile.TemporaryDirectory()
         cls.root = Path(cls._tmp.name) / "repo"
         source = Path(__file__).resolve().parents[1]
-        shutil.copytree(source, cls.root, ignore=shutil.ignore_patterns(
-            ".git", "__pycache__", ".docker-generated", ".docker-cache", ".docker-local",
-            "docker-constructor.local.toml",
-        ))
+        shutil.copytree(
+            source,
+            cls.root,
+            ignore=shutil.ignore_patterns(
+                ".git",
+                "__pycache__",
+                ".docker-generated",
+                ".docker-cache",
+                ".docker-local",
+                "docker-constructor.local.toml",
+            ),
+        )
         if (cls.root / "docker-constructor.local.toml").exists():
-            raise AssertionError("acceptance repository must not inherit a local companion")
+            raise AssertionError(
+                "acceptance repository must not inherit a local companion"
+            )
         fake_dir = cls.root / "fake-bin"
         fake_dir.mkdir()
         fake = fake_dir / "docker"
@@ -151,12 +162,14 @@ class TestBuildOutputEndToEnd(unittest.TestCase):
         type(self)._release_number += 1
         release_file = self.release_dir / f"release-{type(self)._release_number}"
         env = os.environ.copy()
-        env.update({
-            "PATH": f"{self.fake_dir}{os.pathsep}{env['PATH']}",
-            "FAKE_DOCKER_SCENARIO": scenario,
-            "FAKE_DOCKER_RELEASE_FILE": str(release_file),
-            "XDG_CACHE_HOME": str(self.root / "xdg"),
-        })
+        env.update(
+            {
+                "PATH": f"{self.fake_dir}{os.pathsep}{env['PATH']}",
+                "FAKE_DOCKER_SCENARIO": scenario,
+                "FAKE_DOCKER_RELEASE_FILE": str(release_file),
+                "XDG_CACHE_HOME": str(self.root / "xdg"),
+            }
+        )
         return env, release_file
 
     def _command(self, *args: str) -> list[str]:
@@ -165,15 +178,23 @@ class TestBuildOutputEndToEnd(unittest.TestCase):
     def test_text_progress_is_visible_before_cli_exits(self):
         env, release_file = self._env("stream-success")
         proc = subprocess.Popen(
-            self._command("build", "-y"), cwd=self.root, env=env,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            self._command("build", "-y"),
+            cwd=self.root,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
         )
         try:
             assert proc.stdout is not None
             ready, _, _ = select.select([proc.stdout], [], [], 5)
-            self.assertTrue(ready, "first Docker progress line was buffered until CLI exit")
+            self.assertTrue(
+                ready, "first Docker progress line was buffered until CLI exit"
+            )
             self.assertEqual("first\n", proc.stdout.readline())
-            self.assertIsNone(proc.poll(), "CLI exited before first progress became observable")
+            self.assertIsNone(
+                proc.poll(), "CLI exited before first progress became observable"
+            )
             release_file.touch()
             stdout_tail, stderr = proc.communicate(timeout=5)
             self.assertEqual(0, proc.returncode, stderr)
@@ -192,15 +213,22 @@ class TestBuildOutputEndToEnd(unittest.TestCase):
         env, _ = self._env("success-silent")
         env["INJECT_CLEANUP_AGGREGATE"] = "1"
         completed = subprocess.run(
-            self._command("build", "-y"), cwd=self.root, env=env,
-            capture_output=True, text=True, timeout=3,
+            self._command("build", "-y"),
+            cwd=self.root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=3,
         )
         self.assertEqual(4, completed.returncode)
         self.assertIn("superseded cleanup failed for 3 step(s)", completed.stderr)
         for detail in (
-            "sha256:first.blob", "first unlink failed",
-            "sha256:second.json", "second unlink failed",
-            "markers", "marker directory sync failed",
+            "sha256:first.blob",
+            "first unlink failed",
+            "sha256:second.json",
+            "second unlink failed",
+            "markers",
+            "marker directory sync failed",
         ):
             self.assertIn(detail, completed.stderr)
 
@@ -208,8 +236,12 @@ class TestBuildOutputEndToEnd(unittest.TestCase):
         env, _ = self._env("success-silent")
         env["INJECT_COMMIT_FAILURE"] = "pre"
         completed = subprocess.run(
-            self._command("build", "-y"), cwd=self.root, env=env,
-            capture_output=True, text=True, timeout=3,
+            self._command("build", "-y"),
+            cwd=self.root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=3,
         )
         self.assertEqual(4, completed.returncode)
         self.assertIn("generation publication fsync failed", completed.stderr)
@@ -220,25 +252,37 @@ class TestBuildOutputEndToEnd(unittest.TestCase):
         env, _ = self._env("success-silent")
         env["INJECT_COMMIT_FAILURE"] = "post"
         completed = subprocess.run(
-            self._command("build", "-y"), cwd=self.root, env=env,
-            capture_output=True, text=True, timeout=3,
+            self._command("build", "-y"),
+            cwd=self.root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=3,
         )
         self.assertEqual(4, completed.returncode)
-        self.assertIn("image built successfully and remains available", completed.stderr)
+        self.assertIn(
+            "image built successfully and remains available", completed.stderr
+        )
         self.assertIn("newest build generation remains committed", completed.stderr)
         self.assertIn("Recovery is required", completed.stderr)
         for detail in (
             "superseded cleanup failed for 2 step(s)",
-            "sha256:candidate.blob", "unlink failed",
-            "blobs/sha256", "directory sync failed",
+            "sha256:candidate.blob",
+            "unlink failed",
+            "blobs/sha256",
+            "directory sync failed",
         ):
             self.assertIn(detail, completed.stderr)
 
     def test_streamed_failure_is_not_replayed_and_maps_operational_exit(self):
         env, _ = self._env("stream-failure")
         completed = subprocess.run(
-            self._command("build", "-y"), cwd=self.root, env=env,
-            capture_output=True, text=True, timeout=3,
+            self._command("build", "-y"),
+            cwd=self.root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=3,
         )
         self.assertEqual(4, completed.returncode)
         self.assertEqual(1, completed.stderr.count("UNIQUE-DOCKER-FAILURE"))
@@ -247,27 +291,42 @@ class TestBuildOutputEndToEnd(unittest.TestCase):
     def test_json_success_is_one_isolated_document(self):
         env, _ = self._env("json-success")
         completed = subprocess.run(
-            self._command("--output", "json", "build", "-y"), cwd=self.root,
-            env=env, capture_output=True, text=True, timeout=3,
+            self._command("--output", "json", "build", "-y"),
+            cwd=self.root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=3,
         )
         self.assertEqual(0, completed.returncode, completed.stderr)
         payload = json.loads(completed.stdout)
-        self.assertEqual(completed.stdout.strip(), json.dumps(payload, indent=2, sort_keys=True))
+        self.assertEqual(
+            completed.stdout.strip(), json.dumps(payload, indent=2, sort_keys=True)
+        )
         self.assertEqual("success", payload["status"])
         self.assertEqual("docker-stdout\n", payload["data"]["stdout"])
-        self.assertEqual("docker-stderr\n", payload["data"]["stderr"]) 
+        self.assertEqual("docker-stderr\n", payload["data"]["stderr"])
         self.assertEqual("", completed.stderr)
 
     def test_normal_text_hides_published_path_but_verbose_and_json_expose_it(self):
         from docker.versioning.project_state import resolve_project_state
-        expected_path = resolve_project_state(
-            self.root, cache_root=self.root / "xdg" / "docker-constructor",
-        ).generated_root / "docker-constructor.build.effective.toml"
+
+        expected_path = (
+            resolve_project_state(
+                self.root,
+                cache_root=self.root / "xdg" / "docker-constructor",
+            ).generated_root
+            / "docker-constructor.build.effective.toml"
+        )
 
         env, _ = self._env("success-silent")
         text = subprocess.run(
-            self._command("build", "-y"), cwd=self.root, env=env,
-            capture_output=True, text=True, timeout=3,
+            self._command("build", "-y"),
+            cwd=self.root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=3,
         )
         self.assertEqual(0, text.returncode, text.stderr)
         self.assertTrue(expected_path.is_file())
@@ -276,8 +335,12 @@ class TestBuildOutputEndToEnd(unittest.TestCase):
 
         env, _ = self._env("success-silent")
         verbose = subprocess.run(
-            self._command("--verbose", "build", "-y"), cwd=self.root, env=env,
-            capture_output=True, text=True, timeout=3,
+            self._command("--verbose", "build", "-y"),
+            cwd=self.root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=3,
         )
         self.assertEqual(0, verbose.returncode, verbose.stderr)
         self.assertIn("published_path", verbose.stdout)
@@ -285,26 +348,41 @@ class TestBuildOutputEndToEnd(unittest.TestCase):
 
         env, _ = self._env("success-silent")
         structured = subprocess.run(
-            self._command("--output", "json", "build", "-y"), cwd=self.root, env=env,
-            capture_output=True, text=True, timeout=3,
+            self._command("--output", "json", "build", "-y"),
+            cwd=self.root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=3,
         )
         self.assertEqual(0, structured.returncode, structured.stderr)
-        self.assertEqual(str(expected_path), json.loads(structured.stdout)["data"]["published_path"])
+        self.assertEqual(
+            str(expected_path), json.loads(structured.stdout)["data"]["published_path"]
+        )
 
     def test_json_failure_contains_captured_diagnostics_and_operational_exit(self):
         env, _ = self._env("json-failure")
         completed = subprocess.run(
-            self._command("--output", "json", "build", "-y"), cwd=self.root,
-            env=env, capture_output=True, text=True, timeout=3,
+            self._command("--output", "json", "build", "-y"),
+            cwd=self.root,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=3,
         )
         self.assertEqual(4, completed.returncode)
         self.assertEqual("", completed.stderr)
         payload = json.loads(completed.stdout)
         self.assertEqual("operational", payload["status"])
-        self.assertEqual({
-            "return_code": 29,
-            "stdout": "docker-failure-stdout\n",
-            "stderr": "docker-failure-stderr\n",
-            "output_policy": "captured",
-        }, {key: payload["data"][key] for key in
-            ("return_code", "stdout", "stderr", "output_policy")})
+        self.assertEqual(
+            {
+                "return_code": 29,
+                "stdout": "docker-failure-stdout\n",
+                "stderr": "docker-failure-stderr\n",
+                "output_policy": "captured",
+            },
+            {
+                key: payload["data"][key]
+                for key in ("return_code", "stdout", "stderr", "output_policy")
+            },
+        )

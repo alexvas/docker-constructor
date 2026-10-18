@@ -6,6 +6,7 @@ contracts pin construction authority, the no-follow walk, parent/child handoff
 and failure precedence, basename validation, and the primitive child
 operations.
 """
+
 from __future__ import annotations
 
 import ast
@@ -103,7 +104,9 @@ class _FakeOps:
         self.open_fds.add(fd)
         return fd
 
-    def openat(self, directory_fd: int | None, name: str, flags: int, mode: int = 0) -> int:
+    def openat(
+        self, directory_fd: int | None, name: str, flags: int, mode: int = 0
+    ) -> int:
         self.calls.append(("openat", directory_fd, name, flags))
         # Open errors are one-shot: a missing entry can be created and then
         # opened again by ``open_or_create_directory``.
@@ -144,7 +147,9 @@ class _FakeOps:
         if error is not None:
             raise error
 
-    def statat(self, directory_fd: int, name: str, *, follow_symlinks: bool) -> os.stat_result:
+    def statat(
+        self, directory_fd: int, name: str, *, follow_symlinks: bool
+    ) -> os.stat_result:
         self.calls.append(("statat", directory_fd, name, follow_symlinks))
         error = self.statat_errors.get(name)
         if error is not None:
@@ -194,9 +199,7 @@ def _invoke_directory_creation(
 ) -> DirectoryDescriptor:
     """Exercise one child-creation path so fixtures can cover both."""
     if path == "create":
-        return parent.create_directory(
-            name, mode=mode, require_owner=require_owner
-        )
+        return parent.create_directory(name, mode=mode, require_owner=require_owner)
     if path == "open_or_create":
         return parent.open_or_create_directory(
             name, mode=mode, require_owner=require_owner
@@ -398,7 +401,9 @@ class SecureWalkFailureTests(unittest.TestCase):
         self.assertEqual(ops.open_fds, set())
         self.assertEqual(sorted(ops.closed_fds), [100, 101, 102])
 
-    def test_unexpected_defect_during_validation_releases_every_descriptor(self) -> None:
+    def test_unexpected_defect_during_validation_releases_every_descriptor(
+        self,
+    ) -> None:
         ops = _FakeOps()
         ops.fstat_errors[102] = RuntimeError("unexpected defect")
         with self.assertRaises(RuntimeError):
@@ -463,7 +468,9 @@ class ChildDirectoryTests(unittest.TestCase):
         self.assertEqual(ops.open_fds, {parent.fd})
         parent.close()
 
-    def test_create_directory_uses_exclusive_mode_and_post_open_validation(self) -> None:
+    def test_create_directory_uses_exclusive_mode_and_post_open_validation(
+        self,
+    ) -> None:
         child = self.parent.create_directory("fresh", mode=0o700)
         self.assertIsInstance(child, DirectoryDescriptor)
         self.assertIn(("mkdirat", self.parent.fd, "fresh", 0o700), self.ops.calls)
@@ -536,7 +543,9 @@ class LabelValidationTests(unittest.TestCase):
                     ops = _FakeOps()
                     with self.assertRaises(DescriptorError):
                         DirectoryDescriptor.open_secure_path(
-                            ops, path, label=label  # type: ignore[arg-type]
+                            ops,
+                            path,
+                            label=label,  # type: ignore[arg-type]
                         )
                     self.assertEqual(ops.calls, [])
                     self.assertEqual(ops.open_fds, set())
@@ -547,19 +556,24 @@ class LabelValidationTests(unittest.TestCase):
                 (
                     "open_directory",
                     lambda parent, value=label: parent.open_directory(
-                        "child", label=value  # type: ignore[arg-type]
+                        "child",
+                        label=value,  # type: ignore[arg-type]
                     ),
                 ),
                 (
                     "create_directory",
                     lambda parent, value=label: parent.create_directory(
-                        "child", mode=0o700, label=value  # type: ignore[arg-type]
+                        "child",
+                        mode=0o700,
+                        label=value,  # type: ignore[arg-type]
                     ),
                 ),
                 (
                     "open_or_create_directory",
                     lambda parent, value=label: parent.open_or_create_directory(
-                        "child", mode=0o700, label=value  # type: ignore[arg-type]
+                        "child",
+                        mode=0o700,
+                        label=value,  # type: ignore[arg-type]
                     ),
                 ),
             )
@@ -580,7 +594,9 @@ class LabelValidationTests(unittest.TestCase):
                 fd = ops.openat(None, "/", os.O_RDONLY)
                 with self.assertRaises(DescriptorError):
                     DirectoryDescriptor.adopt(
-                        ops, fd, label=label  # type: ignore[arg-type]
+                        ops,
+                        fd,
+                        label=label,  # type: ignore[arg-type]
                     )
                 self.assertIn(fd, ops.open_fds)
                 self.assertEqual(_close_calls(ops), [])
@@ -599,9 +615,7 @@ class MissingChildFallbackTests(unittest.TestCase):
         with self.assertRaises(DescriptorError) as ctx:
             self.parent.open_or_create_directory("child", mode=0o700)
         self.assertIs(ctx.exception.cause, cause)
-        self.assertEqual(
-            [call for call in self.ops.calls if call[0] == "mkdirat"], []
-        )
+        self.assertEqual([call for call in self.ops.calls if call[0] == "mkdirat"], [])
         self.assertEqual(_close_calls(self.ops), [self.child_fd])
         self.assertEqual(self.ops.open_fds, {self.parent.fd})
         self.assertFalse(self.parent.released)
@@ -950,14 +964,20 @@ class FoundationApiSurfaceTests(unittest.TestCase):
         for filename, expected in self._EXPECTED_PUBLIC.items():
             names: set[str] = set()
             for node in self._tree(filename).body:
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                if isinstance(
+                    node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                ):
                     if not node.name.startswith("_"):
                         names.add(node.name)
                 elif isinstance(node, ast.Assign):
                     for target in node.targets:
-                        if isinstance(target, ast.Name) and not target.id.startswith("_"):
+                        if isinstance(target, ast.Name) and not target.id.startswith(
+                            "_"
+                        ):
                             names.add(target.id)
-                elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                elif isinstance(node, ast.AnnAssign) and isinstance(
+                    node.target, ast.Name
+                ):
                     if not node.target.id.startswith("_"):
                         names.add(node.target.id)
             with self.subTest(module=filename):
@@ -997,10 +1017,10 @@ class FoundationApiSurfaceTests(unittest.TestCase):
                             )
                 elif isinstance(node, ast.ImportFrom) and node.module:
                     with self.subTest(module=filename, imported=node.module):
-                        self.assertNotIn(
-                            node.module.split(".")[0], forbidden_modules
-                        )
-                elif isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+                        self.assertNotIn(node.module.split(".")[0], forbidden_modules)
+                elif isinstance(node, ast.Attribute) and isinstance(
+                    node.value, ast.Name
+                ):
                     if node.value.id == "os":
                         with self.subTest(module=filename, attribute=node.attr):
                             self.assertNotIn(node.attr, forbidden_attrs)

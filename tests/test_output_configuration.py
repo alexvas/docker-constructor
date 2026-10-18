@@ -1,4 +1,5 @@
 """Phase 4 output-policy configuration contracts."""
+
 from __future__ import annotations
 
 import contextlib
@@ -12,7 +13,9 @@ from unittest import mock
 from pathlib import Path
 
 from docker.versioning.errors import InventoryError
-from docker.versioning.configuration_document_validation import ConfigurationDocumentError
+from docker.versioning.configuration_document_validation import (
+    ConfigurationDocumentError,
+)
 from docker.versioning.inventory import load_inventory, load_project_configuration
 from docker.versioning.local_project_configuration import (
     LOCAL_COMPANION_BASENAME,
@@ -20,7 +23,10 @@ from docker.versioning.local_project_configuration import (
     validate_local_document,
 )
 from docker.versioning.model import (
-    BuildLocalInputs, LocalConfig, LocalOutputPolicy, NetworkUrlDisplay,
+    BuildLocalInputs,
+    LocalConfig,
+    LocalOutputPolicy,
+    NetworkUrlDisplay,
 )
 from docker.versioning.build_orchestration import BuildResult
 from docker.versioning.dispatch_types import ExitKind
@@ -33,7 +39,9 @@ from docker.npm_environment.streaming import collect_streams
 PROHIBITED_FIELDS = frozenset({"output", "host_heartbeat"})
 
 
-def assert_no_presentation_policy(case: unittest.TestCase, obj: object, *, path: str = "input") -> None:
+def assert_no_presentation_policy(
+    case: unittest.TestCase, obj: object, *, path: str = "input"
+) -> None:
     """Fail when any orchestration input carries host-only presentation policy."""
     seen: list[tuple[object, str]] = [(obj, path)]
     visited: set[int] = set()
@@ -42,7 +50,9 @@ def assert_no_presentation_policy(case: unittest.TestCase, obj: object, *, path:
         if value is None or isinstance(value, (str, bytes, int, float, bool)):
             continue
         if isinstance(value, (LocalConfig, LocalOutputPolicy)):
-            case.fail(f"presentation policy crossed the facade boundary at {where}: {value!r}")
+            case.fail(
+                f"presentation policy crossed the facade boundary at {where}: {value!r}"
+            )
         if id(value) in visited:
             continue
         visited.add(id(value))
@@ -87,7 +97,10 @@ class TestNetworkUrlDisplayDirectEntryPoints(unittest.TestCase):
         self.assertEqual(0, reads)
         with self.assertRaisesRegex(ValueError, "NetworkUrlDisplay"):
             assemble(  # type: ignore[arg-type]
-                validated=None, assembler=None, cache_root="/unused", executor=None,
+                validated=None,
+                assembler=None,
+                cache_root="/unused",
+                executor=None,
                 network_url_display="exact",
             )
 
@@ -99,16 +112,23 @@ class TestNetworkUrlDisplayDirectEntryPoints(unittest.TestCase):
                 "docker.npm_environment.publication.compute_assembler_input_identity",
                 return_value=SimpleNamespace(digest="identity"),
             ),
-            mock.patch("docker.npm_environment.publication.prepare_assembler_namespace"),
+            mock.patch(
+                "docker.npm_environment.publication.prepare_assembler_namespace"
+            ),
             mock.patch(
                 "docker.npm_environment.publication.identity_coordination_lock",
                 return_value=contextlib.nullcontext(),
             ),
-            mock.patch("docker.npm_environment.publication.find_cached_result", return_value=None),
+            mock.patch(
+                "docker.npm_environment.publication.find_cached_result",
+                return_value=None,
+            ),
             mock.patch("docker.npm_environment.publication.remove_staging_workspace"),
             mock.patch(
                 "docker.npm_environment.publication.assemble",
-                side_effect=lambda **kwargs: captured.update(kwargs) or SimpleNamespace(staging="/unused"),
+                side_effect=lambda **kwargs: (
+                    captured.update(kwargs) or SimpleNamespace(staging="/unused")
+                ),
             ),
             mock.patch(
                 "docker.npm_environment.publication.publish_environment",
@@ -116,8 +136,10 @@ class TestNetworkUrlDisplayDirectEntryPoints(unittest.TestCase):
             ),
         ):
             assemble_environment(  # type: ignore[arg-type]
-                validated=None, assembler=SimpleNamespace(digest="assembler"),
-                cache_root="/unused", executor=None,
+                validated=None,
+                assembler=SimpleNamespace(digest="assembler"),
+                cache_root="/unused",
+                executor=None,
             )
         self.assertIs(NetworkUrlDisplay.REDACTED, captured["network_url_display"])
 
@@ -133,14 +155,17 @@ class TestNetworkUrlDisplayDirectEntryPoints(unittest.TestCase):
         )
         with contextlib.ExitStack() as stack:
             mocks = [
-                stack.enter_context(mock.patch(
-                    f"docker.npm_environment.publication.{effect}"
-                ))
+                stack.enter_context(
+                    mock.patch(f"docker.npm_environment.publication.{effect}")
+                )
                 for effect in effects
             ]
             with self.assertRaisesRegex(ValueError, "NetworkUrlDisplay"):
                 assemble_environment(  # type: ignore[arg-type]
-                    validated=None, assembler=None, cache_root="/unused", executor=None,
+                    validated=None,
+                    assembler=None,
+                    cache_root="/unused",
+                    executor=None,
                     network_url_display="exact",
                 )
         self.assertTrue(all(not item.called for item in mocks))
@@ -151,7 +176,8 @@ class TestNetworkUrlDisplayDirectEntryPoints(unittest.TestCase):
         for request in (BuildRequest, PiAssemblyRequest):
             with self.subTest(request=request.__name__):
                 field = next(
-                    item for item in dataclasses.fields(request)
+                    item
+                    for item in dataclasses.fields(request)
                     if item.name == "network_url_display"
                 )
                 self.assertIs(NetworkUrlDisplay.REDACTED, field.default)
@@ -168,19 +194,23 @@ class TestOutputAggregateRegistration(unittest.TestCase):
         )
         for companion in combinations:
             with self.subTest(companion=companion):
-                local = validate_local_document({
-                    **companion,
-                    "output": {
-                        "host_heartbeat": "lines",
-                        "network_url_display": "host-path",
-                    },
-                })
+                local = validate_local_document(
+                    {
+                        **companion,
+                        "output": {
+                            "host_heartbeat": "lines",
+                            "network_url_display": "host-path",
+                        },
+                    }
+                )
                 self.assertEqual("lines", local.output.host_heartbeat)
                 self.assertIs(
                     NetworkUrlDisplay.HOST_PATH, local.output.network_url_display
                 )
 
-    def test_every_top_level_table_except_registered_output_and_predecessors_is_rejected(self) -> None:
+    def test_every_top_level_table_except_registered_output_and_predecessors_is_rejected(
+        self,
+    ) -> None:
         for table in ("build", "runtime", "observability", "outputx"):
             with self.subTest(table=table):
                 with self.assertRaises(InventoryError) as raised:
@@ -198,7 +228,9 @@ class TestOutputOwner(unittest.TestCase):
 
     def test_absent_output_uses_immutable_defaults(self) -> None:
         self.assertEqual(LocalOutputPolicy(), validate_local_document({}).output)
-        self.assertEqual("interactive", validate_local_document({}).output.host_heartbeat)
+        self.assertEqual(
+            "interactive", validate_local_document({}).output.host_heartbeat
+        )
         self.assertIs(
             NetworkUrlDisplay.REDACTED,
             validate_local_document({}).output.network_url_display,
@@ -208,19 +240,31 @@ class TestOutputOwner(unittest.TestCase):
         for heartbeat in ("interactive", "lines", "off"):
             for display in NetworkUrlDisplay:
                 with self.subTest(heartbeat=heartbeat, display=display):
-                    local = validate_local_document({"output": {
-                        "host_heartbeat": heartbeat,
-                        "network_url_display": display.value,
-                    }})
-                    self.assertEqual(LocalOutputPolicy(heartbeat, display), local.output)
+                    local = validate_local_document(
+                        {
+                            "output": {
+                                "host_heartbeat": heartbeat,
+                                "network_url_display": display.value,
+                            }
+                        }
+                    )
+                    self.assertEqual(
+                        LocalOutputPolicy(heartbeat, display), local.output
+                    )
 
     def test_invalid_output_values_have_safe_path_specific_errors(self) -> None:
         cases = (
-            ('[output]\nunknown = true\n', "local.output.unknown"),
+            ("[output]\nunknown = true\n", "local.output.unknown"),
             ('[output]\nhost_heartbeat = "verbose"\n', "local.output.host_heartbeat"),
-            ('[output]\nhost_heartbeat = true\n', "local.output.host_heartbeat"),
-            ('[output]\nnetwork_url_display = true\n', "local.output.network_url_display"),
-            ('[output]\nnetwork_url_display = "unknown"\n', "local.output.network_url_display"),
+            ("[output]\nhost_heartbeat = true\n", "local.output.host_heartbeat"),
+            (
+                "[output]\nnetwork_url_display = true\n",
+                "local.output.network_url_display",
+            ),
+            (
+                '[output]\nnetwork_url_display = "unknown"\n',
+                "local.output.network_url_display",
+            ),
             ('host_heartbeat = "lines"\n', "local.host_heartbeat"),
             ('network_url_display = "host-path"\n', "local.network_url_display"),
             ('[output]\nhost_heartbeat = "lines"\nhost_heartbeat = "off"\n', None),
@@ -234,7 +278,10 @@ class TestOutputOwner(unittest.TestCase):
 
     def test_reviewed_inventory_rejects_output_settings(self) -> None:
         source = Path("docker-constructor.toml").read_text()
-        for key, value in (("host_heartbeat", '"lines"'), ("network_url_display", '"host-path"')):
+        for key, value in (
+            ("host_heartbeat", '"lines"'),
+            ("network_url_display", '"host-path"'),
+        ):
             with self.subTest(key=key), tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / "docker-constructor.toml"
                 path.write_text(f"{source}\n[output]\n{key} = {value}\n")
@@ -265,14 +312,12 @@ class TestOutputOwner(unittest.TestCase):
                 os.environ,
                 {"HOST_HEARTBEAT": "off", "SHOW_NETWORK_HOSTS": "true"},
             ):
-                _, local = load_project_configuration(
-                    root / "docker-constructor.toml"
-                )
+                _, local = load_project_configuration(root / "docker-constructor.toml")
         self.assertEqual(LocalOutputPolicy(), local.output)
 
 
 class TestFacadeOutputPolicyDispatch(unittest.TestCase):
-    def _project(self, output: str = '') -> Path:
+    def _project(self, output: str = "") -> Path:
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         root = Path(directory.name)
@@ -283,7 +328,9 @@ class TestFacadeOutputPolicyDispatch(unittest.TestCase):
         root.joinpath(LOCAL_COMPANION_BASENAME).write_text(output)
         return root
 
-    def test_tty_text_build_constructs_renderer_from_the_single_resolved_policy(self) -> None:
+    def test_tty_text_build_constructs_renderer_from_the_single_resolved_policy(
+        self,
+    ) -> None:
         from docker import constructor_cli
 
         project = self._project(
@@ -301,8 +348,11 @@ class TestFacadeOutputPolicyDispatch(unittest.TestCase):
 
         with (
             mock.patch.object(
-                constructor_cli, "_HostEventRenderer",
-                side_effect=lambda *, output_policy: rendered.append(output_policy) or object(),
+                constructor_cli,
+                "_HostEventRenderer",
+                side_effect=lambda *, output_policy: (
+                    rendered.append(output_policy) or object()
+                ),
             ),
             mock.patch(
                 "docker.versioning.inventory.load_project_configuration",
@@ -313,7 +363,10 @@ class TestFacadeOutputPolicyDispatch(unittest.TestCase):
                 return_value=BuildResult(exit_kind=ExitKind.SUCCESS),
             ) as orchestrate,
             mock.patch.object(
-                Path, "read_bytes", autospec=True, side_effect=original_read_bytes,
+                Path,
+                "read_bytes",
+                autospec=True,
+                side_effect=original_read_bytes,
             ) as read_bytes,
         ):
             exit_code = constructor_cli.main(
@@ -321,7 +374,9 @@ class TestFacadeOutputPolicyDispatch(unittest.TestCase):
                 stderr_isatty=lambda: True,
             )
         self.assertEqual(0, exit_code)
-        self.assertEqual([LocalOutputPolicy("lines", NetworkUrlDisplay.HOST_PATH)], rendered)
+        self.assertEqual(
+            [LocalOutputPolicy("lines", NetworkUrlDisplay.HOST_PATH)], rendered
+        )
         # The exact instance produced by the single read reaches only the
         # facade renderer factory.
         self.assertEqual(1, len(observed_policies))
@@ -332,9 +387,14 @@ class TestFacadeOutputPolicyDispatch(unittest.TestCase):
         # Domain planning receives only audited, output-free slices.
         self.assertEqual(
             BuildLocalInputs.from_local_config(
-                validate_local_document({
-                    "output": {"host_heartbeat": "lines", "network_url_display": "host-path"},
-                })
+                validate_local_document(
+                    {
+                        "output": {
+                            "host_heartbeat": "lines",
+                            "network_url_display": "host-path",
+                        },
+                    }
+                )
             ),
             orchestrate.call_args.kwargs["local_inputs"],
         )
@@ -347,7 +407,8 @@ class TestFacadeOutputPolicyDispatch(unittest.TestCase):
             },
         )
         companion_reads = [
-            call for call in read_bytes.call_args_list
+            call
+            for call in read_bytes.call_args_list
             if call.args[0].resolve() == project.joinpath(LOCAL_COMPANION_BASENAME)
         ]
         self.assertEqual(1, len(companion_reads))
@@ -356,20 +417,31 @@ class TestFacadeOutputPolicyDispatch(unittest.TestCase):
         from docker import constructor_cli
 
         for output, isatty, extra in (
-            ("text", False, []), ("json", True, []),
+            ("text", False, []),
+            ("json", True, []),
             ("text", True, ["--dry-run"]),
         ):
             with self.subTest(output=output, isatty=isatty, extra=extra):
                 project = self._project('[output]\nhost_heartbeat = "off"\n')
                 with (
-                    mock.patch.object(constructor_cli, "_HostEventRenderer") as renderer,
+                    mock.patch.object(
+                        constructor_cli, "_HostEventRenderer"
+                    ) as renderer,
                     mock.patch(
                         "docker.versioning.build_orchestration.orchestrate_build",
                         return_value=BuildResult(exit_kind=ExitKind.SUCCESS),
                     ) as orchestrate,
                 ):
                     exit_code = constructor_cli.main(
-                        ["--project-directory", str(project), "--output", output, "build", "--yes", *extra],
+                        [
+                            "--project-directory",
+                            str(project),
+                            "--output",
+                            output,
+                            "build",
+                            "--yes",
+                            *extra,
+                        ],
                         stderr_isatty=lambda: isatty,
                     )
                 self.assertEqual(0, exit_code)
@@ -383,22 +455,38 @@ class TestFacadeOutputPolicyDispatch(unittest.TestCase):
                     },
                 )
 
-    def test_malformed_output_config_is_reported_in_every_mode_without_planning(self) -> None:
+    def test_malformed_output_config_is_reported_in_every_mode_without_planning(
+        self,
+    ) -> None:
         from docker import constructor_cli
 
         malformed = '[output]\nhost_heartbeat = "invalid"\n'
         for output, isatty, extra in (
-            ("text", True, []), ("text", False, []), ("json", True, []),
+            ("text", True, []),
+            ("text", False, []),
+            ("json", True, []),
             ("text", True, ["--dry-run"]),
         ):
             with self.subTest(output=output, isatty=isatty, extra=extra):
                 project = self._project(malformed)
                 with (
-                    mock.patch.object(constructor_cli, "_HostEventRenderer") as renderer,
-                    mock.patch("docker.versioning.build_orchestration.orchestrate_build") as orchestrate,
+                    mock.patch.object(
+                        constructor_cli, "_HostEventRenderer"
+                    ) as renderer,
+                    mock.patch(
+                        "docker.versioning.build_orchestration.orchestrate_build"
+                    ) as orchestrate,
                 ):
                     exit_code = constructor_cli.main(
-                        ["--project-directory", str(project), "--output", output, "build", "--yes", *extra],
+                        [
+                            "--project-directory",
+                            str(project),
+                            "--output",
+                            output,
+                            "build",
+                            "--yes",
+                            *extra,
+                        ],
                         stderr_isatty=lambda: isatty,
                     )
                 self.assertEqual(3, exit_code)
@@ -407,7 +495,9 @@ class TestFacadeOutputPolicyDispatch(unittest.TestCase):
 
 
 class TestOutputPolicyConfinement(unittest.TestCase):
-    def test_facade_renderer_accepts_immutable_output_policy_without_domain_request_leakage(self) -> None:
+    def test_facade_renderer_accepts_immutable_output_policy_without_domain_request_leakage(
+        self,
+    ) -> None:
         from docker.constructor_cli import _HostEventRenderer
 
         policy = LocalOutputPolicy("off", NetworkUrlDisplay.HOST_PATH)
@@ -421,16 +511,21 @@ class TestOutputPolicyConfinement(unittest.TestCase):
         from docker.versioning.pi_assembly import PiAssemblyRequest
 
         for request in (
-            BuildRequest, PiAssemblyRequest, HostDiagnosticEvent,
+            BuildRequest,
+            PiAssemblyRequest,
+            HostDiagnosticEvent,
             BuildLocalInputs,
         ):
             with self.subTest(request=request.__name__):
                 self.assertFalse(
-                    PROHIBITED_FIELDS & {field.name for field in dataclasses.fields(request)}
+                    PROHIBITED_FIELDS
+                    & {field.name for field in dataclasses.fields(request)}
                 )
 
     def test_narrow_build_inputs_projection_drops_output_only(self) -> None:
-        local = LocalConfig(output=LocalOutputPolicy("off", NetworkUrlDisplay.HOST_PATH))
+        local = LocalConfig(
+            output=LocalOutputPolicy("off", NetworkUrlDisplay.HOST_PATH)
+        )
         projected = BuildLocalInputs.from_local_config(local)
         self.assertEqual(BuildLocalInputs(), projected)
         self.assertFalse(hasattr(projected, "output"))
@@ -438,17 +533,21 @@ class TestOutputPolicyConfinement(unittest.TestCase):
         self.assertFalse(hasattr(projected, "network_url_display"))
 
 
-
 POLICY_TOKENS = (
-    "host_heartbeat", "network_url_display",
-    "host-heartbeat", "show-network-hosts",
+    "host_heartbeat",
+    "network_url_display",
+    "host-heartbeat",
+    "show-network-hosts",
     "[output]",
     LOCAL_COMPANION_BASENAME,
 )
 
 
 def assert_no_policy_strings(
-    case: unittest.TestCase, value: object, *, where: str,
+    case: unittest.TestCase,
+    value: object,
+    *,
+    where: str,
     extra: tuple[str, ...] = (),
 ) -> None:
     """Fail when rendered/serialized text carries output policy or the companion.
@@ -463,7 +562,9 @@ def assert_no_policy_strings(
     lowered = text.lower()
     for token in (*POLICY_TOKENS, *extra):
         case.assertNotIn(
-            token.lower(), lowered, f"{token!r} leaked into {where}: {text!r}",
+            token.lower(),
+            lowered,
+            f"{token!r} leaked into {where}: {text!r}",
         )
 
 
@@ -473,7 +574,9 @@ class _IntegrationProject:
     OUTPUT_OFF = 'host_heartbeat = "off"\nnetwork_url_display = "host-path"\n'
     OUTPUT_LINES = 'host_heartbeat = "lines"\nnetwork_url_display = "redacted"\n'
 
-    def __init__(self, case: unittest.TestCase, *, output_body: str | None = None) -> None:
+    def __init__(
+        self, case: unittest.TestCase, *, output_body: str | None = None
+    ) -> None:
         directory = tempfile.TemporaryDirectory()
         case.addCleanup(directory.cleanup)
         self.root = Path(directory.name)
@@ -501,8 +604,11 @@ class _IntegrationProject:
     def prepare_state(self) -> None:
         from docker.versioning.cache_storage import prepare_resolved_root
         from docker.versioning.project_state import resolve_project_state
+
         resolve_project_state(
-            self.root, cache_root=prepare_resolved_root(self.cache_dir), create=True,
+            self.root,
+            cache_root=prepare_resolved_root(self.cache_dir),
+            create=True,
         )
 
 
@@ -514,15 +620,20 @@ class _RecordingBuildExecutor:
 
     def run(self, argv: tuple[str, ...]) -> object:
         from docker.versioning.build_orchestration import ProcessResult
+
         self.calls.append(tuple(argv))
         return ProcessResult(
-            argv=tuple(argv), return_code=0, stdout="build output", stderr="",
+            argv=tuple(argv),
+            return_code=0,
+            stdout="build output",
+            stderr="",
         )
 
 
 def _fixture_snapshot(*_args: object, **_kwargs: object) -> object:
     from tests.build_test_support import fixture_directory
     from docker.versioning.build_snapshot import MaterializedSnapshot
+
     path = fixture_directory("fixture-snapshot-")
     return MaterializedSnapshot(path, path / "manifest.json")
 
@@ -552,44 +663,67 @@ class _BuildDispatch:
     def run(self) -> object:
         from docker.versioning import build_orchestration as module
         from docker.versioning.build_orchestration import (
-            BuildRequest, PublishResult,
+            BuildRequest,
+            PublishResult,
         )
         from tests.build_test_support import (
-            digest_valid_selected_artifacts, fake_pi_materialization,
-            no_network_transport_factory, publish_digest_valid_artifacts,
+            digest_valid_selected_artifacts,
+            fake_pi_materialization,
+            no_network_transport_factory,
+            publish_digest_valid_artifacts,
         )
 
         project = self.project
 
         def record_materialize(
-            projection, *, constructor_project_root, cache_root,
-            project_state, transport, lock,
+            projection,
+            *,
+            constructor_project_root,
+            cache_root,
+            project_state,
+            transport,
+            lock,
         ):
-            self.materialize_requests.append({
-                "projection": projection,
-                "constructor_project_root": constructor_project_root,
-                "cache_root": cache_root,
-                "project_state": project_state,
-                "transport": transport,
-                "lock": lock,
-            })
+            self.materialize_requests.append(
+                {
+                    "projection": projection,
+                    "constructor_project_root": constructor_project_root,
+                    "cache_root": cache_root,
+                    "project_state": project_state,
+                    "transport": transport,
+                    "lock": lock,
+                }
+            )
             return publish_digest_valid_artifacts(
-                projection, constructor_project_root=constructor_project_root,
-                cache_root=cache_root, project_state=project_state,
+                projection,
+                constructor_project_root=constructor_project_root,
+                cache_root=cache_root,
+                project_state=project_state,
             )
 
         def record_pi(
-            projection, *, transport, cache_root, executor, uid, gid,
-            proxy_url, proxy_no_proxy, corporate_trust_bundle, event_sink=None,
+            projection,
+            *,
+            transport,
+            cache_root,
+            executor,
+            uid,
+            gid,
+            proxy_url,
+            proxy_no_proxy,
+            corporate_trust_bundle,
+            event_sink=None,
         ):
-            self.pi_requests.append({
-                "projection": projection,
-                "cache_root": cache_root,
-                "proxy_url": proxy_url,
-                "proxy_no_proxy": proxy_no_proxy,
-                "corporate_trust_bundle": corporate_trust_bundle,
-                "event_sink": event_sink,
-            })
+            self.pi_requests.append(
+                {
+                    "projection": projection,
+                    "cache_root": cache_root,
+                    "proxy_url": proxy_url,
+                    "proxy_no_proxy": proxy_no_proxy,
+                    "corporate_trust_bundle": corporate_trust_bundle,
+                    "event_sink": event_sink,
+                }
+            )
             return fake_pi_materialization()
 
         def record_publish(projection, *, repo_root):
@@ -604,7 +738,9 @@ class _BuildDispatch:
 
         def record_confinement(*, inventory_path, context, dockerfile):
             plan = real_plan_confinement(
-                inventory_path=inventory_path, context=context, dockerfile=dockerfile,
+                inventory_path=inventory_path,
+                context=context,
+                dockerfile=dockerfile,
             )
             if self._confinement_transform is not None:
                 plan = self._confinement_transform(plan)
@@ -615,11 +751,10 @@ class _BuildDispatch:
 
         def record_materialize_confinement(confinement, *, generated_root):
             materialized = real_materialize_confinement(
-                confinement, generated_root=generated_root,
+                confinement,
+                generated_root=generated_root,
             )
-            self.generated_ignore_bodies.append(
-                materialized.ignorefile.read_text()
-            )
+            self.generated_ignore_bodies.append(materialized.ignorefile.read_text())
             return materialized
 
         real_render = module.render_build_vector
@@ -645,18 +780,23 @@ class _BuildDispatch:
 
         with (
             mock.patch.object(
-                module, "select_build_artifacts",
+                module,
+                "select_build_artifacts",
                 side_effect=digest_valid_selected_artifacts,
             ),
             mock.patch.object(
-                module, "create_artifact_snapshot", side_effect=_fixture_snapshot,
+                module,
+                "create_artifact_snapshot",
+                side_effect=_fixture_snapshot,
             ),
             mock.patch.object(
-                module, "plan_build_context_confinement",
+                module,
+                "plan_build_context_confinement",
                 side_effect=record_confinement,
             ),
             mock.patch.object(
-                module, "materialize_build_context_confinement",
+                module,
+                "materialize_build_context_confinement",
                 side_effect=record_materialize_confinement,
             ),
             mock.patch.object(module, "render_build_vector", side_effect=record_render),
@@ -671,6 +811,7 @@ class _BuildDispatch:
 
     def serialized_projection(self) -> dict[str, object]:
         from docker.versioning import rendering
+
         return rendering.serialize_effective_build(self.publish_projection)
 
 
@@ -686,7 +827,9 @@ class _RunDispatch:
         from docker.versioning import effective as effective_module
         from docker.versioning import rendering
         from docker.launcher import (
-            RunRequest, WorkspaceSelection, orchestrate_run,
+            RunRequest,
+            WorkspaceSelection,
+            orchestrate_run,
         )
 
         project = self.project
@@ -717,8 +860,12 @@ class _RunDispatch:
             _constructor_cache_root=str(project.cache_dir),
         )
         with (
-            mock.patch.object(effective_module, "resolve_runtime", side_effect=record_resolve),
-            mock.patch.object(rendering, "render_run_vector", side_effect=record_render),
+            mock.patch.object(
+                effective_module, "resolve_runtime", side_effect=record_resolve
+            ),
+            mock.patch.object(
+                rendering, "render_run_vector", side_effect=record_render
+            ),
         ):
             self.result = orchestrate_run(request)
         self.request = request
@@ -726,6 +873,7 @@ class _RunDispatch:
 
     def serialized_projection(self) -> dict[str, object]:
         from docker.versioning.effective import to_plain_data
+
         return to_plain_data(self.effective_projections[0])
 
 
@@ -760,7 +908,9 @@ class _VerifyDispatch:
         patches = [
             mock.patch.object(verification, "verify_build", side_effect=record_build),
             mock.patch.object(
-                runtime_verification, "verify_runtime", side_effect=record_runtime,
+                runtime_verification,
+                "verify_runtime",
+                side_effect=record_runtime,
             ),
         ]
         if self._network_transform is not None:
@@ -770,21 +920,32 @@ class _VerifyDispatch:
                 resolved = real_resolve(*args, **kwargs)
                 return self._network_transform(resolved, project)
 
-            patches.append(mock.patch.object(
-                constructor_cli, "_resolve_verify_corporate_network",
-                side_effect=record_network,
-            ))
+            patches.append(
+                mock.patch.object(
+                    constructor_cli,
+                    "_resolve_verify_corporate_network",
+                    side_effect=record_network,
+                )
+            )
 
         with contextlib.ExitStack() as stack:
             for patcher in patches:
                 stack.enter_context(patcher)
-            self.exit_code = constructor_cli.main([
-                "--project-directory", str(project.root),
-                "verify", "--scope", "all",
-                "--container", "pi-1",
-                "--runtime-projection", str(projection),
-                "--workspace", "/work",
-            ])
+            self.exit_code = constructor_cli.main(
+                [
+                    "--project-directory",
+                    str(project.root),
+                    "verify",
+                    "--scope",
+                    "all",
+                    "--container",
+                    "pi-1",
+                    "--runtime-projection",
+                    str(projection),
+                    "--workspace",
+                    "/work",
+                ]
+            )
         return self.exit_code
 
 
@@ -807,6 +968,7 @@ def _assert_build_argv_confinement(case, dispatch, project) -> None:
 
 def _assert_confinement_excludes_companion(case, dispatch) -> None:
     from docker.versioning.build_context_confinement import confinement_ignore_rules
+
     case.assertEqual(1, len(dispatch.confinement_plans))
     plan = dispatch.confinement_plans[0]
     case.assertIn(LOCAL_COMPANION_BASENAME, plan.relative_documents)
@@ -817,7 +979,9 @@ def _assert_confinement_excludes_companion(case, dispatch) -> None:
 
 
 class TestReadOnlyUpdateDiscoveryConfinement(unittest.TestCase):
-    def test_companion_read_reaches_update_discovery_only_as_a_cache_slice(self) -> None:
+    def test_companion_read_reaches_update_discovery_only_as_a_cache_slice(
+        self,
+    ) -> None:
         from docker.versioning import readonly_service
         from docker.versioning.model import LocalCacheConfig
         from docker.versioning.transports import build_transports
@@ -846,11 +1010,13 @@ class TestReadOnlyUpdateDiscoveryConfinement(unittest.TestCase):
                 side_effect=recording_transports,
             ),
             mock.patch(
-                "docker.versioning.updates.check_updates", return_value=[],
+                "docker.versioning.updates.check_updates",
+                return_value=[],
             ),
         ):
             result = readonly_service.dispatch(
-                project.inventory_path, "check-updates",
+                project.inventory_path,
+                "check-updates",
                 command_args={"scope": "all"},
             )
 
@@ -902,7 +1068,8 @@ class TestOutputPolicyBoundaryConfinement(unittest.TestCase):
         serialized = dispatch.serialized_projection()
         assert_no_presentation_policy(self, serialized)
         assert_no_policy_strings(
-            self, json.dumps(serialized, sort_keys=True),
+            self,
+            json.dumps(serialized, sort_keys=True),
             where="published effective build projection",
             extra=(str(project.cache_dir), "[cache]"),
         )
@@ -914,7 +1081,9 @@ class TestOutputPolicyBoundaryConfinement(unittest.TestCase):
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
         self.assertTrue(result.run_args)
         assert_no_policy_strings(
-            self, result.run_args, where="rendered docker run arguments",
+            self,
+            result.run_args,
+            where="rendered docker run arguments",
         )
         self.assertNotIn(str(project.companion), result.run_args)
         # No companion mount/copy is rendered and no output setting reaches
@@ -925,7 +1094,8 @@ class TestOutputPolicyBoundaryConfinement(unittest.TestCase):
         serialized = dispatch.serialized_projection()
         assert_no_presentation_policy(self, serialized)
         assert_no_policy_strings(
-            self, json.dumps(serialized, sort_keys=True),
+            self,
+            json.dumps(serialized, sort_keys=True),
             where="effective runtime projection",
             extra=(str(project.cache_dir), "[cache]"),
         )
@@ -939,12 +1109,15 @@ class TestOutputPolicyBoundaryConfinement(unittest.TestCase):
         for request in (*dispatch.build_requests, *dispatch.runtime_requests):
             assert_no_presentation_policy(self, request)
             assert_no_policy_strings(
-                self, repr(request), where="verification request",
+                self,
+                repr(request),
+                where="verification request",
             )
             self.assertNotIn(str(project.companion), repr(request))
         build_request = dispatch.build_requests[0]
         self.assertNotIn(
-            str(project.companion), str(build_request.effective_projection_path),
+            str(project.companion),
+            str(build_request.effective_projection_path),
         )
 
     def test_domain_event_production_is_independent_of_output_policy(self) -> None:
@@ -968,15 +1141,19 @@ class TestOutputPolicyBoundaryConfinement(unittest.TestCase):
     def test_reviewed_serialization_and_update_discovery_exclude_output(self) -> None:
         from types import MappingProxyType
         from docker.versioning.effective import (
-            EffectiveConfiguration, serialize_effective_inventory,
+            EffectiveConfiguration,
+            serialize_effective_inventory,
         )
         from docker.versioning.inventory import load_inventory_raw
         from docker.versioning.updates import build_update_targets
 
         project = _IntegrationProject(self)
-        serialized = serialize_effective_inventory(EffectiveConfiguration(
-            inventory=project.inventory, overrides=MappingProxyType({}),
-        ))
+        serialized = serialize_effective_inventory(
+            EffectiveConfiguration(
+                inventory=project.inventory,
+                overrides=MappingProxyType({}),
+            )
+        )
         raw = load_inventory_raw(project.inventory_path)
         targets = build_update_targets(project.inventory)
         self.assertNotIn("output", serialized)
@@ -984,7 +1161,8 @@ class TestOutputPolicyBoundaryConfinement(unittest.TestCase):
         for candidate in (serialized, raw, targets):
             assert_no_presentation_policy(self, candidate)
             assert_no_policy_strings(
-                self, json.dumps(candidate, sort_keys=True, default=str),
+                self,
+                json.dumps(candidate, sort_keys=True, default=str),
                 where="reviewed serialization/update discovery",
             )
 
@@ -996,8 +1174,12 @@ class TestBoundaryAssertionSensitivity(unittest.TestCase):
         project = _IntegrationProject(self)
         dispatch = _BuildDispatch(
             project,
-            render_transform=lambda argv, proj: argv + (
-                "--mount", f"type=bind,src={proj.companion},dst=/host",
+            render_transform=lambda argv, proj: (
+                argv
+                + (
+                    "--mount",
+                    f"type=bind,src={proj.companion},dst=/host",
+                )
             ),
         )
         dispatch.run()
@@ -1008,8 +1190,12 @@ class TestBoundaryAssertionSensitivity(unittest.TestCase):
         project = _IntegrationProject(self)
         dispatch = _BuildDispatch(
             project,
-            render_transform=lambda argv, proj: argv + (
-                "--build-arg", "HOST_HEARTBEAT=off",
+            render_transform=lambda argv, proj: (
+                argv
+                + (
+                    "--build-arg",
+                    "HOST_HEARTBEAT=off",
+                )
             ),
         )
         dispatch.run()
@@ -1029,11 +1215,14 @@ class TestBoundaryAssertionSensitivity(unittest.TestCase):
             data["output"] = {"host_heartbeat": "off"}
             return data
 
-        with mock.patch.object(rendering, "serialize_effective_build", side_effect=leaky_serialize):
+        with mock.patch.object(
+            rendering, "serialize_effective_build", side_effect=leaky_serialize
+        ):
             serialized = dispatch.serialized_projection()
         with self.assertRaises(AssertionError):
             assert_no_policy_strings(
-                self, json.dumps(serialized, sort_keys=True),
+                self,
+                json.dumps(serialized, sort_keys=True),
                 where="published effective build projection",
             )
 
@@ -1044,7 +1233,8 @@ class TestBoundaryAssertionSensitivity(unittest.TestCase):
         dispatch = _BuildDispatch(
             project,
             confinement_transform=lambda plan: dataclasses.replace(
-                plan, relative_documents=(),
+                plan,
+                relative_documents=(),
             ),
         )
         dispatch.run()
@@ -1055,14 +1245,20 @@ class TestBoundaryAssertionSensitivity(unittest.TestCase):
         project = _IntegrationProject(self)
         dispatch = _RunDispatch(
             project,
-            render_transform=lambda argv, proj: argv + (
-                "--mount", f"type=bind,src={proj.companion},dst=/host",
+            render_transform=lambda argv, proj: (
+                argv
+                + (
+                    "--mount",
+                    f"type=bind,src={proj.companion},dst=/host",
+                )
             ),
         )
         result = dispatch.run()
         with self.assertRaises(AssertionError):
             assert_no_policy_strings(
-                self, result.run_args, where="rendered docker run arguments",
+                self,
+                result.run_args,
+                where="rendered docker run arguments",
             )
 
     def test_verify_checker_detects_companion_forwarding(self) -> None:
@@ -1070,16 +1266,19 @@ class TestBoundaryAssertionSensitivity(unittest.TestCase):
         dispatch = _VerifyDispatch(
             project,
             network_transform=lambda resolved, proj: (
-                resolved[0], str(proj.companion), resolved[2], resolved[3],
+                resolved[0],
+                str(proj.companion),
+                resolved[2],
+                resolved[3],
             ),
         )
         dispatch.run()
         with self.assertRaises(AssertionError):
             assert_no_policy_strings(
-                self, repr(dispatch.runtime_requests[0]),
+                self,
+                repr(dispatch.runtime_requests[0]),
                 where="verification request",
             )
-
 
 
 if __name__ == "__main__":

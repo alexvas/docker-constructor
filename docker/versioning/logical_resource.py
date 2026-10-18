@@ -12,6 +12,7 @@ This module deliberately depends only on the standard library and the
 assembler digest-prefix length; it has no host-pipeline, transport, Docker, or
 presentation dependencies.
 """
+
 from __future__ import annotations
 
 import re
@@ -69,9 +70,7 @@ def require_approved_logical_resource(value: object, label: str) -> None:
     if not isinstance(value, str):
         raise TypeError(f"{label} must be a string or None")
     if not is_approved_logical_resource_name(value):
-        raise ValueError(
-            f"{label} {value!r} is not an approved logical resource"
-        )
+        raise ValueError(f"{label} {value!r} is not an approved logical resource")
 
 
 @dataclass(frozen=True, slots=True)

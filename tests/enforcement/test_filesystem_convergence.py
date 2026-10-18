@@ -6,6 +6,7 @@ walker, and migrated directory-close ownership.  The runtime audit imports
 one target per fresh interpreter and records all loaded project modules so an
 accidental aggregate or reverse dependency cannot hide behind prior imports.
 """
+
 from __future__ import annotations
 
 import ast
@@ -28,7 +29,12 @@ _PUBLIC_DEFINITIONS = {
         {"DescriptorOps", "PosixDescriptorOps"}
     ),
     "docker/filesystem/descriptors.py": frozenset(
-        {"DescriptorError", "UnsafeDescriptorError", "OwnedDescriptor", "DirectoryDescriptor"}
+        {
+            "DescriptorError",
+            "UnsafeDescriptorError",
+            "OwnedDescriptor",
+            "DirectoryDescriptor",
+        }
     ),
     "docker/filesystem/streams.py": frozenset({"OwnedStream"}),
 }
@@ -177,13 +183,17 @@ def _static_violations(sources: dict[str, str]) -> list[str]:
             and not node.name.startswith("_")
         }
         if actual != expected:
-            violations.append(f"public definitions {path}: {sorted(actual)} != {sorted(expected)}")
+            violations.append(
+                f"public definitions {path}: {sorted(actual)} != {sorted(expected)}"
+            )
 
     init_tree = trees.get("docker/filesystem/__init__.py")
     if init_tree is not None and any(
         isinstance(node, (ast.Import, ast.ImportFrom)) for node in ast.walk(init_tree)
     ):
-        violations.append("docker.filesystem package initializer imports or re-exports names")
+        violations.append(
+            "docker.filesystem package initializer imports or re-exports names"
+        )
 
     for path, tree in trees.items():
         if not path.startswith("docker/filesystem/"):
@@ -209,7 +219,9 @@ def _static_violations(sources: dict[str, str]) -> list[str]:
         imported = _imports(tree)
         explicit = {name for name in imported if name.startswith("docker.filesystem")}
         if explicit != expected:
-            violations.append(f"foundation imports {path}: {sorted(explicit)} != {sorted(expected)}")
+            violations.append(
+                f"foundation imports {path}: {sorted(explicit)} != {sorted(expected)}"
+            )
         if "docker.filesystem" in explicit:
             violations.append(f"aggregate foundation import: {path}")
         if path in {
@@ -235,7 +247,9 @@ def _static_violations(sources: dict[str, str]) -> list[str]:
         names = _imported_names(tree)
         for public_name, origin in expected.items():
             if names.get(public_name) != origin:
-                violations.append(f"compatibility import {path}:{public_name} != {origin}")
+                violations.append(
+                    f"compatibility import {path}:{public_name} != {origin}"
+                )
 
     # There is exactly one generic secure-walk definition, in one module.
     # Domain recursion remains local, but consumers must not define another
@@ -273,14 +287,24 @@ def _static_violations(sources: dict[str, str]) -> list[str]:
         tree = trees.get(path)
         if tree is None:
             continue
-        parents = {child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)}
+        parents = {
+            child: parent
+            for parent in ast.walk(tree)
+            for child in ast.iter_child_nodes(parent)
+        }
         for node in ast.walk(tree):
-            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+            if not isinstance(node, ast.Call) or not isinstance(
+                node.func, ast.Attribute
+            ):
                 continue
             if node.func.attr != "close":
                 continue
             receiver = ast.unparse(node.func.value)
-            if receiver != "os" and receiver != "ops" and not receiver.endswith("._ops"):
+            if (
+                receiver != "os"
+                and receiver != "ops"
+                and not receiver.endswith("._ops")
+            ):
                 continue
             owner = _enclosing_function(parents, node)
             if (path, owner, receiver) not in raw_close_allowlist:
@@ -316,30 +340,43 @@ def _runtime_violations(matrix: dict[str, list[str]]) -> list[str]:
     foundation_allowed = {
         "docker.filesystem": {"docker", "docker.filesystem"},
         "docker.filesystem.cleanup": {
-            "docker", "docker.filesystem", "docker.filesystem.cleanup"
+            "docker",
+            "docker.filesystem",
+            "docker.filesystem.cleanup",
         },
         "docker.filesystem.operations": {
-            "docker", "docker.filesystem", "docker.filesystem.operations"
+            "docker",
+            "docker.filesystem",
+            "docker.filesystem.operations",
         },
         "docker.filesystem.descriptors": {
-            "docker", "docker.filesystem", "docker.filesystem.cleanup",
+            "docker",
+            "docker.filesystem",
+            "docker.filesystem.cleanup",
             "docker.filesystem.descriptors",
         },
         "docker.filesystem.streams": {
-            "docker", "docker.filesystem", "docker.filesystem.cleanup",
+            "docker",
+            "docker.filesystem",
+            "docker.filesystem.cleanup",
             "docker.filesystem.streams",
         },
     }
     for target, allowed in foundation_allowed.items():
         actual = set(matrix.get(target, []))
         if actual != allowed:
-            violations.append(f"isolated foundation import {target}: {sorted(actual - allowed)}")
+            violations.append(
+                f"isolated foundation import {target}: {sorted(actual - allowed)}"
+            )
 
     cache_loaded = set(matrix.get("docker.versioning.cache_storage", []))
     cache_forbidden = sorted(
-        name for name in cache_loaded
-        if name == "docker.transactions" or name.startswith("docker.transactions.")
-        or name == "docker.npm_environment" or name.startswith("docker.npm_environment.")
+        name
+        for name in cache_loaded
+        if name == "docker.transactions"
+        or name.startswith("docker.transactions.")
+        or name == "docker.npm_environment"
+        or name.startswith("docker.npm_environment.")
     )
     if cache_forbidden:
         violations.append(f"cache reverse/aggregate loading: {cache_forbidden}")
@@ -361,18 +398,26 @@ def _runtime_violations(matrix: dict[str, list[str]]) -> list[str]:
     ):
         loaded = set(matrix.get(target, []))
         forbidden = sorted(
-            name for name in loaded
-            if name == "docker.npm_environment" or name.startswith("docker.npm_environment.")
-            or name == "docker.versioning" or name.startswith("docker.versioning.")
+            name
+            for name in loaded
+            if name == "docker.npm_environment"
+            or name.startswith("docker.npm_environment.")
+            or name == "docker.versioning"
+            or name.startswith("docker.versioning.")
         )
         if forbidden:
             violations.append(f"transaction reverse loading {target}: {forbidden}")
         if "docker.filesystem.cleanup" not in loaded:
-            violations.append(f"transaction compatibility path lacks cleanup foundation: {target}")
+            violations.append(
+                f"transaction compatibility path lacks cleanup foundation: {target}"
+            )
         if target.endswith("capabilities") and not {
-            "docker.filesystem.descriptors", "docker.filesystem.operations"
+            "docker.filesystem.descriptors",
+            "docker.filesystem.operations",
         }.issubset(loaded):
-            violations.append(f"transaction capability path lacks descriptor foundation: {target}")
+            violations.append(
+                f"transaction capability path lacks descriptor foundation: {target}"
+            )
     return violations
 
 
@@ -380,21 +425,48 @@ class RepositoryWideAstContractTests(unittest.TestCase):
     def test_stream_preparation_precedes_transfer_without_release(self) -> None:
         tree = ast.parse(_sources()["docker/filesystem/streams.py"])
         owner = next(node for node in tree.body if isinstance(node, ast.ClassDef))
-        constructor = next(node for node in owner.body if isinstance(node, ast.FunctionDef) and node.name == "__init__")
-        transfer = next(node.lineno for node in ast.walk(constructor) if isinstance(node, ast.Assign) and any(isinstance(target, ast.Attribute) and target.attr == "_stream" for target in node.targets))
+        constructor = next(
+            node
+            for node in owner.body
+            if isinstance(node, ast.FunctionDef) and node.name == "__init__"
+        )
+        transfer = next(
+            node.lineno
+            for node in ast.walk(constructor)
+            if isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Attribute) and target.attr == "_stream"
+                for target in node.targets
+            )
+        )
         checks = [node for node in constructor.body if isinstance(node, ast.If)]
         self.assertEqual(len(checks), 2)
         self.assertTrue(all(node.lineno < transfer for node in checks))
-        lock = next(node for node in ast.walk(constructor) if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "Lock")
+        lock = next(
+            node
+            for node in ast.walk(constructor)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "Lock"
+        )
         self.assertLess(lock.lineno, transfer)
-        self.assertFalse(any(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "close" for node in ast.walk(constructor)))
+        self.assertFalse(
+            any(
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "close"
+                for node in ast.walk(constructor)
+            )
+        )
 
     def test_repository_converges_on_one_descriptor_foundation(self) -> None:
         self.assertEqual(_static_violations(_sources()), [])
 
     def test_contract_detects_intentionally_violating_fixture(self) -> None:
         fixture = _sources()
-        fixture["docker/filesystem/__init__.py"] = "from docker.transactions import DirectoryCapability\n"
+        fixture["docker/filesystem/__init__.py"] = (
+            "from docker.transactions import DirectoryCapability\n"
+        )
         fixture["docker/npm_environment/storage.py"] += textwrap.dedent(
             """
             from docker.transactions.errors import TransactionError
@@ -413,14 +485,18 @@ class RepositoryWideAstContractTests(unittest.TestCase):
         violations = _static_violations(fixture)
         self.assertTrue(any("initializer imports" in item for item in violations))
         self.assertTrue(any("secure walkers" in item for item in violations))
-        self.assertTrue(any("direct npm transaction dependency" in item for item in violations))
+        self.assertTrue(
+            any("direct npm transaction dependency" in item for item in violations)
+        )
         raw_close_violations = [
             item for item in violations if "unclassified raw close" in item
         ]
         self.assertEqual(len(raw_close_violations), 3)
         self.assertTrue(any("via os.close" in item for item in raw_close_violations))
         self.assertTrue(any("via ops.close" in item for item in raw_close_violations))
-        self.assertTrue(any("via self._ops.close" in item for item in raw_close_violations))
+        self.assertTrue(
+            any("via self._ops.close" in item for item in raw_close_violations)
+        )
 
 
 class IsolatedImportMatrixTests(unittest.TestCase):
@@ -451,10 +527,18 @@ class IsolatedImportMatrixTests(unittest.TestCase):
             _NPM_PACKAGE_IMPORT_BASELINE | {"docker.constructor_cli"}
         )
         violations = _runtime_violations(matrix)
-        self.assertTrue(any("isolated foundation import" in item for item in violations))
-        self.assertTrue(any("cache reverse/aggregate loading" in item for item in violations))
-        self.assertTrue(any("transaction reverse loading" in item for item in violations))
-        self.assertTrue(any("npm package import baseline" in item for item in violations))
+        self.assertTrue(
+            any("isolated foundation import" in item for item in violations)
+        )
+        self.assertTrue(
+            any("cache reverse/aggregate loading" in item for item in violations)
+        )
+        self.assertTrue(
+            any("transaction reverse loading" in item for item in violations)
+        )
+        self.assertTrue(
+            any("npm package import baseline" in item for item in violations)
+        )
 
 
 if __name__ == "__main__":

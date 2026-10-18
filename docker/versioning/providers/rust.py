@@ -3,6 +3,7 @@
 Parses https://static.rust-lang.org/dist/channel-rust-stable.toml
 to discover the latest Rust stable version.
 """
+
 from __future__ import annotations
 
 import re

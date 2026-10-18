@@ -59,8 +59,10 @@ class FakeProcessRunner(ProcessRunner):
         if self._responses:
             return self._responses.pop(0)
         return ProcessResult(
-            argv=tuple(argv), return_code=1,
-            stdout="", stderr=f"no canned response for {argv[0]}",
+            argv=tuple(argv),
+            return_code=1,
+            stdout="",
+            stderr=f"no canned response for {argv[0]}",
         )
 
     def add(self, result: ProcessResult) -> None:
@@ -70,8 +72,9 @@ class FakeProcessRunner(ProcessRunner):
 class FakeFilesystem(Filesystem):
     """In-memory filesystem for override planning/application tests."""
 
-    def __init__(self, *, home: Path = Path("/fake/home"),
-                 files: dict[str, str] | None = None) -> None:
+    def __init__(
+        self, *, home: Path = Path("/fake/home"), files: dict[str, str] | None = None
+    ) -> None:
         self._files: dict[str, str] = dict(files or {})
         self._home = home
         self.mkdirs: list[Path] = []
@@ -122,8 +125,12 @@ class FakeFilesystem(Filesystem):
 class FakeServiceController(ServiceController):
     """In-memory service controller — records calls, never invokes systemctl."""
 
-    def __init__(self, *, fail_daemon_reload: Optional[Exception] = None,
-                 fail_restart: Optional[Exception] = None) -> None:
+    def __init__(
+        self,
+        *,
+        fail_daemon_reload: Optional[Exception] = None,
+        fail_restart: Optional[Exception] = None,
+    ) -> None:
         super().__init__(_runner=FakeProcessRunner())  # no real subprocess
         self._fail_daemon_reload = fail_daemon_reload
         self._fail_restart = fail_restart
@@ -200,13 +207,17 @@ class TestInspectRootlessOverrideInMemory(unittest.TestCase):
 
     def setUp(self):
         self.src = Path("/fake/override.conf")
-        self.dest = Path("/fake/home/.config/systemd/user/docker.service.d/override.conf")
+        self.dest = Path(
+            "/fake/home/.config/systemd/user/docker.service.d/override.conf"
+        )
 
     def test_installed_when_dest_matches_src(self):
-        fs = FakeFilesystem(files={
-            str(self.src): self.OVERRIDE_CONTENT,
-            str(self.dest): self.OVERRIDE_CONTENT,
-        })
+        fs = FakeFilesystem(
+            files={
+                str(self.src): self.OVERRIDE_CONTENT,
+                str(self.dest): self.OVERRIDE_CONTENT,
+            }
+        )
         plan = plan_rootless_override(
             _fs=fs,
             _override_src=self.src,
@@ -226,10 +237,12 @@ class TestInspectRootlessOverrideInMemory(unittest.TestCase):
         self.assertTrue(plan.needed)
 
     def test_not_installed_when_content_differs(self):
-        fs = FakeFilesystem(files={
-            str(self.src): self.OVERRIDE_CONTENT,
-            str(self.dest): self.OTHER_CONTENT,
-        })
+        fs = FakeFilesystem(
+            files={
+                str(self.src): self.OVERRIDE_CONTENT,
+                str(self.dest): self.OTHER_CONTENT,
+            }
+        )
         plan = plan_rootless_override(
             _fs=fs,
             _override_src=self.src,
@@ -250,10 +263,12 @@ class TestInspectRootlessOverrideInMemory(unittest.TestCase):
 
     def test_uses_injected_fs_not_real_disk(self):
         """Plan uses only the injected fs; a missing real file is fine."""
-        fs = FakeFilesystem(files={
-            "/nonexistent/src.conf": "c",
-            "/nonexistent/dest.conf": "c",
-        })
+        fs = FakeFilesystem(
+            files={
+                "/nonexistent/src.conf": "c",
+                "/nonexistent/dest.conf": "c",
+            }
+        )
         plan = plan_rootless_override(
             _fs=fs,
             _override_src=Path("/nonexistent/src.conf"),
@@ -265,7 +280,9 @@ class TestInspectRootlessOverrideInMemory(unittest.TestCase):
         """When ``_override_dest`` is not given, the default is computed
         from ``fs.home``, not the real ``Path.home()``."""
         src = Path("/fake/override.conf")
-        expected_dest = Path("/custom/home/.config/systemd/user/docker.service.d/override.conf")
+        expected_dest = Path(
+            "/custom/home/.config/systemd/user/docker.service.d/override.conf"
+        )
         fs = FakeFilesystem(
             home=Path("/custom/home"),
             files={str(src): "c", str(expected_dest): "c"},
@@ -291,21 +308,26 @@ class TestApplyRootlessOverrideInMemory(unittest.TestCase):
 
     def setUp(self):
         self.src = Path("/fake/override.conf")
-        self.dest = Path("/fake/home/.config/systemd/user/docker.service.d/override.conf")
+        self.dest = Path(
+            "/fake/home/.config/systemd/user/docker.service.d/override.conf"
+        )
         self.fs = FakeFilesystem(files={str(self.src): self.OVERRIDE_CONTENT})
         self.svc = FakeServiceController()
         self.clock = FakeClock()
 
         self.plan = RootlessOverridePlan(
-            installed=False, needed=True,
-            src=self.src, dest=self.dest,
+            installed=False,
+            needed=True,
+            src=self.src,
+            dest=self.dest,
         )
 
     # -- consent -------------------------------------------------------------
 
     def test_consent_false_performs_zero_operations(self):
-        apply_rootless_override(self.plan, consent=False,
-                                _fs=self.fs, _svc=self.svc, _clock=self.clock)
+        apply_rootless_override(
+            self.plan, consent=False, _fs=self.fs, _svc=self.svc, _clock=self.clock
+        )
         self.assertEqual(self.fs.copies, [])
         self.assertEqual(self.fs.mkdirs, [])
         self.assertEqual(self.svc.reloads, [])
@@ -314,21 +336,26 @@ class TestApplyRootlessOverrideInMemory(unittest.TestCase):
 
     def test_consent_false_bypasses_missing_src(self):
         plan = RootlessOverridePlan(
-            installed=False, needed=True,
-            src=Path("/nonexistent/override.conf"), dest=self.dest,
+            installed=False,
+            needed=True,
+            src=Path("/nonexistent/override.conf"),
+            dest=self.dest,
         )
         # Must not raise
-        apply_rootless_override(plan, consent=False,
-                                _fs=self.fs, _svc=self.svc, _clock=self.clock)
+        apply_rootless_override(
+            plan, consent=False, _fs=self.fs, _svc=self.svc, _clock=self.clock
+        )
 
     def test_consent_true_with_missing_src_raises(self):
         plan = RootlessOverridePlan(
-            installed=False, needed=True,
-            src=Path("/nonexistent/override.conf"), dest=self.dest,
+            installed=False,
+            needed=True,
+            src=Path("/nonexistent/override.conf"),
+            dest=self.dest,
         )
-        failure = apply_rootless_override(plan, consent=True,
-                                          _fs=self.fs, _svc=self.svc,
-                                          _clock=self.clock)
+        failure = apply_rootless_override(
+            plan, consent=True, _fs=self.fs, _svc=self.svc, _clock=self.clock
+        )
         self.assertIsInstance(failure, OverrideFailure)
         self.assertFalse(failure.persistence_applied)
         self.assertIn("source file not found", failure.detail)
@@ -337,12 +364,15 @@ class TestApplyRootlessOverrideInMemory(unittest.TestCase):
 
     def test_needed_false_performs_zero_operations(self):
         plan = RootlessOverridePlan(
-            installed=True, needed=False,
+            installed=True,
+            needed=False,
             state=OverrideState.MATCHING,
-            src=self.src, dest=self.dest,
+            src=self.src,
+            dest=self.dest,
         )
-        apply_rootless_override(plan, consent=True,
-                                _fs=self.fs, _svc=self.svc, _clock=self.clock)
+        apply_rootless_override(
+            plan, consent=True, _fs=self.fs, _svc=self.svc, _clock=self.clock
+        )
         self.assertEqual(self.fs.copies, [], "no copy for no-op plan")
         self.assertEqual(self.fs.mkdirs, [], "no mkdir for no-op plan")
         self.assertEqual(self.svc.reloads, [], "no reload for no-op plan")
@@ -351,69 +381,81 @@ class TestApplyRootlessOverrideInMemory(unittest.TestCase):
 
     def test_needed_false_ignores_missing_src(self):
         plan = RootlessOverridePlan(
-            installed=False, needed=False,
+            installed=False,
+            needed=False,
             state=OverrideState.ABSENT,
-            src=Path("/nonexistent/override.conf"), dest=self.dest,
+            src=Path("/nonexistent/override.conf"),
+            dest=self.dest,
         )
-        result = apply_rootless_override(plan, consent=True,
-                                         _fs=self.fs, _svc=self.svc,
-                                         _clock=self.clock)
+        result = apply_rootless_override(
+            plan, consent=True, _fs=self.fs, _svc=self.svc, _clock=self.clock
+        )
         self.assertIsNone(result, "no error for no-op plan, even with missing src")
 
     def test_needed_false_ignores_missing_src_without_consent(self):
         """The needed=False check runs after consent=False, so both guards
         independently prevent side effects."""
         plan = RootlessOverridePlan(
-            installed=False, needed=False,
-            src=Path("/nonexistent/override.conf"), dest=self.dest,
+            installed=False,
+            needed=False,
+            src=Path("/nonexistent/override.conf"),
+            dest=self.dest,
         )
-        apply_rootless_override(plan, consent=False,
-                                _fs=self.fs, _svc=self.svc, _clock=self.clock)
+        apply_rootless_override(
+            plan, consent=False, _fs=self.fs, _svc=self.svc, _clock=self.clock
+        )
         self.assertEqual(self.fs.copies, [])
         self.assertEqual(self.svc.restarts, [])
 
     def test_needed_false_rootful_not_applicable_still_noop(self):
         """Even when rootless=False (rootful mode), needed=False means no-op."""
         plan = RootlessOverridePlan(
-            installed=False, needed=False,
-            rootless=False, state=OverrideState.ABSENT,
-            src=self.src, dest=self.dest,
+            installed=False,
+            needed=False,
+            rootless=False,
+            state=OverrideState.ABSENT,
+            src=self.src,
+            dest=self.dest,
         )
-        apply_rootless_override(plan, consent=True,
-                                _fs=self.fs, _svc=self.svc, _clock=self.clock)
+        apply_rootless_override(
+            plan, consent=True, _fs=self.fs, _svc=self.svc, _clock=self.clock
+        )
         self.assertEqual(self.fs.copies, [])
         self.assertEqual(self.svc.restarts, [])
 
     # -- happy path ----------------------------------------------------------
 
     def test_copies_src_to_dest(self):
-        apply_rootless_override(self.plan, consent=True,
-                                _fs=self.fs, _svc=self.svc, _clock=self.clock)
+        apply_rootless_override(
+            self.plan, consent=True, _fs=self.fs, _svc=self.svc, _clock=self.clock
+        )
         self.assertEqual(len(self.fs.copies), 1)
         self.assertEqual(self.fs.copies[0], (self.src, self.dest))
         # Dest should now exist in the in-memory fs
         self.assertTrue(self.fs.is_file(self.dest))
 
     def test_creates_dest_parent_directory(self):
-        apply_rootless_override(self.plan, consent=True,
-                                _fs=self.fs, _svc=self.svc, _clock=self.clock)
+        apply_rootless_override(
+            self.plan, consent=True, _fs=self.fs, _svc=self.svc, _clock=self.clock
+        )
         self.assertEqual(len(self.fs.mkdirs), 1)
         self.assertEqual(self.fs.mkdirs[0], self.dest.parent)
 
     # -- service control -----------------------------------------------------
 
     def test_reloads_daemon_before_restart(self):
-        apply_rootless_override(self.plan, consent=True,
-                                _fs=self.fs, _svc=self.svc, _clock=self.clock)
+        apply_rootless_override(
+            self.plan, consent=True, _fs=self.fs, _svc=self.svc, _clock=self.clock
+        )
         self.assertEqual(len(self.svc.reloads), 1)
         self.assertEqual(len(self.svc.restarts), 1)
         self.assertEqual(self.svc.restarts[0], "docker.service")
 
     def test_daemon_reload_failure_propagates(self):
         svc = FakeServiceController(fail_daemon_reload=OSError("systemctl not found"))
-        failure = apply_rootless_override(self.plan, consent=True,
-                                          _fs=self.fs, _svc=svc,
-                                          _clock=self.clock)
+        failure = apply_rootless_override(
+            self.plan, consent=True, _fs=self.fs, _svc=svc, _clock=self.clock
+        )
         self.assertIsInstance(failure, OverrideFailure)
         self.assertEqual(failure.operation, "daemon-reload")
         self.assertIn("systemctl not found", failure.detail)
@@ -423,9 +465,9 @@ class TestApplyRootlessOverrideInMemory(unittest.TestCase):
 
     def test_restart_failure_propagates_after_reload(self):
         svc = FakeServiceController(fail_restart=OSError("docker not running"))
-        failure = apply_rootless_override(self.plan, consent=True,
-                                          _fs=self.fs, _svc=svc,
-                                          _clock=self.clock)
+        failure = apply_rootless_override(
+            self.plan, consent=True, _fs=self.fs, _svc=svc, _clock=self.clock
+        )
         self.assertIsInstance(failure, OverrideFailure)
         self.assertEqual(failure.operation, "restart")
         self.assertIn("docker not running", failure.detail)
@@ -439,9 +481,9 @@ class TestApplyRootlessOverrideInMemory(unittest.TestCase):
         svc = FakeServiceController()
         svc._next_daemon_reload_rc = 1
         svc._next_daemon_reload_stderr = "Failed to connect to bus: No such file"
-        failure = apply_rootless_override(self.plan, consent=True,
-                                          _fs=self.fs, _svc=svc,
-                                          _clock=self.clock)
+        failure = apply_rootless_override(
+            self.plan, consent=True, _fs=self.fs, _svc=svc, _clock=self.clock
+        )
         self.assertIsInstance(failure, OverrideFailure)
         self.assertEqual(failure.operation, "daemon-reload")
         self.assertIn("Failed to connect to bus", failure.detail)
@@ -453,24 +495,25 @@ class TestApplyRootlessOverrideInMemory(unittest.TestCase):
         svc = FakeServiceController()
         svc._next_daemon_reload_rc = 1
         svc._next_daemon_reload_stderr = "x" * 500
-        failure = apply_rootless_override(self.plan, consent=True,
-                                          _fs=self.fs, _svc=svc,
-                                          _clock=self.clock)
+        failure = apply_rootless_override(
+            self.plan, consent=True, _fs=self.fs, _svc=svc, _clock=self.clock
+        )
         self.assertIsInstance(failure, OverrideFailure)
         # The bounded portion is 200 chars; the detail may be longer
         # because of the "daemon-reload failed (rc=1): " prefix, but
         # the stderr portion must be at most 200 chars.
         self.assertLessEqual(len("x" * 500), 500)  # sanity
-        self.assertNotIn("x" * 201, failure.detail,
-                         "stderr must be bounded to 200 chars")
+        self.assertNotIn(
+            "x" * 201, failure.detail, "stderr must be bounded to 200 chars"
+        )
 
     def test_restart_nonzero_rc_yields_override_failure(self):
         svc = FakeServiceController()
         svc._next_restart_rc = 3
         svc._next_restart_stderr = "Job for docker.service failed"
-        failure = apply_rootless_override(self.plan, consent=True,
-                                          _fs=self.fs, _svc=svc,
-                                          _clock=self.clock)
+        failure = apply_rootless_override(
+            self.plan, consent=True, _fs=self.fs, _svc=svc, _clock=self.clock
+        )
         self.assertIsInstance(failure, OverrideFailure)
         self.assertEqual(failure.operation, "restart")
         self.assertIn("Job for docker.service failed", failure.detail)
@@ -483,26 +526,29 @@ class TestApplyRootlessOverrideInMemory(unittest.TestCase):
         svc = FakeServiceController()
         svc._next_restart_rc = 1
         svc._next_restart_stderr = "y" * 500
-        failure = apply_rootless_override(self.plan, consent=True,
-                                          _fs=self.fs, _svc=svc,
-                                          _clock=self.clock)
+        failure = apply_rootless_override(
+            self.plan, consent=True, _fs=self.fs, _svc=svc, _clock=self.clock
+        )
         self.assertIsInstance(failure, OverrideFailure)
-        self.assertNotIn("y" * 201, failure.detail,
-                         "stderr must be bounded to 200 chars")
+        self.assertNotIn(
+            "y" * 201, failure.detail, "stderr must be bounded to 200 chars"
+        )
 
     # -- clock ---------------------------------------------------------------
 
     def test_sleeps_after_restart(self):
-        apply_rootless_override(self.plan, consent=True,
-                                _fs=self.fs, _svc=self.svc, _clock=self.clock)
+        apply_rootless_override(
+            self.plan, consent=True, _fs=self.fs, _svc=self.svc, _clock=self.clock
+        )
         self.assertEqual(self.clock.sleeps, [3.0])
 
     # -- no prompt -----------------------------------------------------------
 
     def test_does_not_call_input(self):
         with mock.patch("builtins.input") as mock_input:
-            apply_rootless_override(self.plan, consent=True,
-                                    _fs=self.fs, _svc=self.svc, _clock=self.clock)
+            apply_rootless_override(
+                self.plan, consent=True, _fs=self.fs, _svc=self.svc, _clock=self.clock
+            )
         mock_input.assert_not_called()
 
 
@@ -522,16 +568,26 @@ class TestDiagnoseGateway(unittest.TestCase):
     @staticmethod
     def _docker_info(stdout: str = "Server Version: 27.0.0") -> ProcessResult:
         return ProcessResult(
-            argv=("docker", "info"), return_code=0,
-            stdout=stdout, stderr="",
+            argv=("docker", "info"),
+            return_code=0,
+            stdout=stdout,
+            stderr="",
         )
 
     @staticmethod
     def _docker_probe(resolved_ip: str = "172.17.0.1") -> ProcessResult:
         return ProcessResult(
-            argv=("docker", "run", "--rm", "--add-host",
-                  "host.docker.internal:host-gateway", "alpine:3.20",
-                  "sh", "-c", "..."),
+            argv=(
+                "docker",
+                "run",
+                "--rm",
+                "--add-host",
+                "host.docker.internal:host-gateway",
+                "alpine:3.20",
+                "sh",
+                "-c",
+                "...",
+            ),
             return_code=0,
             stdout=f"RESOLVED_IP={resolved_ip}\nPROBE_OK",
             stderr="",
@@ -540,17 +596,21 @@ class TestDiagnoseGateway(unittest.TestCase):
     @staticmethod
     def _hostname_ip(ip: str = "192.168.1.10") -> ProcessResult:
         return ProcessResult(
-            argv=("hostname", "-I"), return_code=0,
-            stdout=ip, stderr="",
+            argv=("hostname", "-I"),
+            return_code=0,
+            stdout=ip,
+            stderr="",
         )
 
     def test_rootful_diagnosis_with_successful_probe(self):
-        runner = FakeProcessRunner([
-            self._docker_info(),
-            self._hostname_ip("192.168.1.10"),
-            self._docker_probe(),
-            self._docker_probe(),  # second candidate
-        ])
+        runner = FakeProcessRunner(
+            [
+                self._docker_info(),
+                self._hostname_ip("192.168.1.10"),
+                self._docker_probe(),
+                self._docker_probe(),  # second candidate
+            ]
+        )
         d = diagnose_gateway(
             _runner=runner,
             _host_probe_factory=lambda: FakeHostProbeServer(port=12345, token="TOK"),
@@ -563,12 +623,14 @@ class TestDiagnoseGateway(unittest.TestCase):
         self.assertEqual(len(d.probes), 2)
 
     def test_rootless_diagnosis_with_override_needed(self):
-        runner = FakeProcessRunner([
-            self._docker_info("  rootless: true\n"),
-            self._hostname_ip(""),
-            self._docker_probe("10.0.2.100"),
-            self._docker_probe("10.0.2.100"),  # second candidate
-        ])
+        runner = FakeProcessRunner(
+            [
+                self._docker_info("  rootless: true\n"),
+                self._hostname_ip(""),
+                self._docker_probe("10.0.2.100"),
+                self._docker_probe("10.0.2.100"),  # second candidate
+            ]
+        )
         d = diagnose_gateway(
             _runner=runner,
             _host_probe_factory=lambda: FakeHostProbeServer(port=9000, token="TK"),
@@ -580,25 +642,41 @@ class TestDiagnoseGateway(unittest.TestCase):
         self.assertTrue(d.probes[0].ok)
 
     def test_no_candidate_succeeds(self):
-        runner = FakeProcessRunner([
-            self._docker_info(),
-            # hostname -I (fails), ip route (fails too)
-            ProcessResult(
-                argv=("hostname", "-I"), return_code=1,
-                stdout="", stderr="not found",
-            ),
-            ProcessResult(
-                argv=("ip", "-4", "route", "show", "default"),
-                return_code=1, stdout="", stderr="no route",
-            ),
-            # Rootful: candidates are [host-gateway]
-            ProcessResult(
-                argv=("docker", "run", "--rm", "--add-host",
-                      "host.docker.internal:host-gateway", "alpine:3.20",
-                      "sh", "-c", "..."),
-                return_code=1, stdout="", stderr="connection refused",
-            ),
-        ])
+        runner = FakeProcessRunner(
+            [
+                self._docker_info(),
+                # hostname -I (fails), ip route (fails too)
+                ProcessResult(
+                    argv=("hostname", "-I"),
+                    return_code=1,
+                    stdout="",
+                    stderr="not found",
+                ),
+                ProcessResult(
+                    argv=("ip", "-4", "route", "show", "default"),
+                    return_code=1,
+                    stdout="",
+                    stderr="no route",
+                ),
+                # Rootful: candidates are [host-gateway]
+                ProcessResult(
+                    argv=(
+                        "docker",
+                        "run",
+                        "--rm",
+                        "--add-host",
+                        "host.docker.internal:host-gateway",
+                        "alpine:3.20",
+                        "sh",
+                        "-c",
+                        "...",
+                    ),
+                    return_code=1,
+                    stdout="",
+                    stderr="connection refused",
+                ),
+            ]
+        )
         d = diagnose_gateway(
             _runner=runner,
             _host_probe_factory=lambda: FakeHostProbeServer(port=1, token="X"),
@@ -609,24 +687,39 @@ class TestDiagnoseGateway(unittest.TestCase):
 
     def test_server_stops_after_diagnosis(self):
         fake = FakeHostProbeServer()
-        runner = FakeProcessRunner([
-            self._docker_info(),
-            # hostname -I returns empty, ip route returns not found
-            self._hostname_ip(""),
-            ProcessResult(
-                argv=("ip", "-4", "route", "show", "default"),
-                return_code=1, stdout="", stderr="not found",
-            ),
-            # Rootful: candidates are [host-gateway]
-            ProcessResult(
-                argv=("docker", "run", "--rm", "--add-host",
-                      "host.docker.internal:host-gateway", "alpine:3.20",
-                      "sh", "-c", "..."),
-                return_code=1, stdout="", stderr="timeout",
-            ),
-        ])
-        diagnose_gateway(_runner=runner, _host_probe_factory=lambda: fake,
-                         _fs=FakeFilesystem())
+        runner = FakeProcessRunner(
+            [
+                self._docker_info(),
+                # hostname -I returns empty, ip route returns not found
+                self._hostname_ip(""),
+                ProcessResult(
+                    argv=("ip", "-4", "route", "show", "default"),
+                    return_code=1,
+                    stdout="",
+                    stderr="not found",
+                ),
+                # Rootful: candidates are [host-gateway]
+                ProcessResult(
+                    argv=(
+                        "docker",
+                        "run",
+                        "--rm",
+                        "--add-host",
+                        "host.docker.internal:host-gateway",
+                        "alpine:3.20",
+                        "sh",
+                        "-c",
+                        "...",
+                    ),
+                    return_code=1,
+                    stdout="",
+                    stderr="timeout",
+                ),
+            ]
+        )
+        diagnose_gateway(
+            _runner=runner, _host_probe_factory=lambda: fake, _fs=FakeFilesystem()
+        )
         self.assertTrue(fake.stopped)
 
     def test_override_installed_flag_from_in_memory_fs(self):
@@ -634,13 +727,15 @@ class TestDiagnoseGateway(unittest.TestCase):
         dest = Path("/fake/home/.config/systemd/user/docker.service.d/override.conf")
         content = "[Service]\nX=1\n"
         fs = FakeFilesystem(files={str(src): content, str(dest): content})
-        runner = FakeProcessRunner([
-            self._docker_info("  rootless: true\n"),
-            self._hostname_ip("10.0.0.5"),
-            self._docker_probe("10.0.2.100"),  # 10.0.2.2
-            self._docker_probe("10.0.2.100"),  # 10.0.0.5
-            self._docker_probe("10.0.2.100"),  # host-gateway
-        ])
+        runner = FakeProcessRunner(
+            [
+                self._docker_info("  rootless: true\n"),
+                self._hostname_ip("10.0.0.5"),
+                self._docker_probe("10.0.2.100"),  # 10.0.2.2
+                self._docker_probe("10.0.2.100"),  # 10.0.0.5
+                self._docker_probe("10.0.2.100"),  # host-gateway
+            ]
+        )
         d = diagnose_gateway(
             _runner=runner,
             _host_probe_factory=FakeHostProbeServer,
@@ -652,12 +747,14 @@ class TestDiagnoseGateway(unittest.TestCase):
         self.assertFalse(d.override_needed)
 
     def test_diagnosis_returns_frozen_data(self):
-        runner = FakeProcessRunner([
-            self._docker_info(),
-            self._hostname_ip("10.0.0.5"),
-            self._docker_probe(),
-            self._docker_probe(),
-        ])
+        runner = FakeProcessRunner(
+            [
+                self._docker_info(),
+                self._hostname_ip("10.0.0.5"),
+                self._docker_probe(),
+                self._docker_probe(),
+            ]
+        )
         d = diagnose_gateway(
             _runner=runner,
             _host_probe_factory=FakeHostProbeServer,
@@ -678,31 +775,39 @@ class TestImportBoundary(unittest.TestCase):
 
     def test_module_does_not_import_argparse(self):
         import ast
+
         with open(_NETWORKING_SOURCE) as f:
             tree = ast.parse(f.read())
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    self.assertNotIn("argparse", alias.name,
-                                     "must not import argparse")
+                    self.assertNotIn("argparse", alias.name, "must not import argparse")
             elif isinstance(node, ast.ImportFrom):
                 if node.module:
-                    self.assertNotIn("argparse", node.module,
-                                     "must not import argparse")
+                    self.assertNotIn(
+                        "argparse", node.module, "must not import argparse"
+                    )
 
     def test_module_does_not_import_facade_or_orchestration(self):
         import ast
+
         with open(_NETWORKING_SOURCE) as f:
             tree = ast.parse(f.read())
-        forbidden_modules = {"docker.versions", "docker.build_wrapper",
-                             "docker.launch_pi", "docker.cli"}
+        forbidden_modules = {
+            "docker.versions",
+            "docker.build_wrapper",
+            "docker.launch_pi",
+            "docker.cli",
+        }
         for node in ast.walk(tree):
             if isinstance(node, ast.ImportFrom) and node.module:
-                self.assertNotIn(node.module, forbidden_modules,
-                                 f"must not import {node.module}")
+                self.assertNotIn(
+                    node.module, forbidden_modules, f"must not import {node.module}"
+                )
 
     def test_module_does_not_declare_argparse_parser(self):
         import ast
+
         with open(_NETWORKING_SOURCE) as f:
             tree = ast.parse(f.read())
         for node in ast.walk(tree):
@@ -721,13 +826,13 @@ class TestProbeTimeoutParameter(unittest.TestCase):
         class _Rec(ProcessRunner):
             def run(self, argv):
                 seen.append(list(argv))
-                return ProcessResult(argv=tuple(argv), return_code=0,
-                                     stdout="PROBE_OK", stderr="")
+                return ProcessResult(
+                    argv=tuple(argv), return_code=0, stdout="PROBE_OK", stderr=""
+                )
 
         probe_gateway("gw", 9999, "T", _runner=_Rec())
         script = seen[0][-1]  # last arg is the script
-        self.assertIn("--timeout=3", script,
-                      "default probe timeout must be 3 seconds")
+        self.assertIn("--timeout=3", script, "default probe timeout must be 3 seconds")
 
     def test_custom_timeout_is_interpolated(self):
         seen: list[list[str]] = []
@@ -735,8 +840,9 @@ class TestProbeTimeoutParameter(unittest.TestCase):
         class _Rec(ProcessRunner):
             def run(self, argv):
                 seen.append(list(argv))
-                return ProcessResult(argv=tuple(argv), return_code=0,
-                                     stdout="PROBE_OK", stderr="")
+                return ProcessResult(
+                    argv=tuple(argv), return_code=0, stdout="PROBE_OK", stderr=""
+                )
 
         probe_gateway("gw", 9999, "T", probe_timeout=10, _runner=_Rec())
         script = seen[0][-1]
@@ -750,16 +856,16 @@ class TestProbeTimeoutParameter(unittest.TestCase):
         class _Rec(ProcessRunner):
             def run(self, argv):
                 called.append(argv)
-                return ProcessResult(argv=tuple(argv), return_code=0,
-                                     stdout="PROBE_OK", stderr="")
+                return ProcessResult(
+                    argv=tuple(argv), return_code=0, stdout="PROBE_OK", stderr=""
+                )
 
-        result = probe_gateway("gw", 9999, "T", probe_timeout=value,
-                               _runner=_Rec())
+        result = probe_gateway("gw", 9999, "T", probe_timeout=value, _runner=_Rec())
         self.assertFalse(result.ok)
-        self.assertIn("probe_timeout", result.detail,
-                      f"timeout {value!r} must be rejected")
-        self.assertEqual(called, [],
-                         f"runner must not be called for timeout {value!r}")
+        self.assertIn(
+            "probe_timeout", result.detail, f"timeout {value!r} must be rejected"
+        )
+        self.assertEqual(called, [], f"runner must not be called for timeout {value!r}")
 
     def test_zero_timeout_rejected(self):
         self._assert_timeout_rejected(0)

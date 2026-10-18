@@ -16,6 +16,7 @@ claim as proof that the winning close completed.  The module deliberately
 depends only on the standard library and the foundation cleanup primitives so
 it stays below every domain package.
 """
+
 from __future__ import annotations
 
 import threading
@@ -36,9 +37,7 @@ class OwnedStream:
         # Validate and prepare before transfer. Rejected candidates remain
         # caller-owned; constructor failure never grants release authority.
         if not isinstance(label, str) or not label:
-            raise ValueError(
-                f"stream label must be a non-empty string, not {label!r}"
-            )
+            raise ValueError(f"stream label must be a non-empty string, not {label!r}")
         if not callable(getattr(stream, "close", None)):
             raise TypeError(
                 f"owned stream must expose a callable close(), not {stream!r}"

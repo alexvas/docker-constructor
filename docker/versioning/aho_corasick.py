@@ -111,6 +111,7 @@ documented API cannot drift from behavior::
     ]
     assert observed == [(1, 1, 4), (0, 2, 4), (2, 2, 6)]
 """
+
 from __future__ import annotations
 
 from collections import deque
@@ -130,9 +131,7 @@ _ROOT = 0
 
 #: Compiled attributes that may be assigned only during construction.  Every
 #: other name is already rejected by ``__slots__``.
-_COMPILED_SLOTS = frozenset(
-    {"_patterns", "_goto", "_fail", "_output", "_output_link"}
-)
+_COMPILED_SLOTS = frozenset({"_patterns", "_goto", "_fail", "_output", "_output_link"})
 
 
 @dataclass(frozen=True, slots=True)

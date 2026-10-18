@@ -89,16 +89,12 @@ TREE_CHILD = "tree"
 MANIFEST_FILE = "manifest.json"
 EVIDENCE_FILE = "evidence.json"
 
-_DIR_FLAGS = (
-    os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
-)
+_DIR_FLAGS = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
 _HEX = frozenset("0123456789abcdef")
 
 
 def _is_hex64(value: str) -> bool:
-    return isinstance(value, str) and len(value) == 64 and all(
-        c in _HEX for c in value
-    )
+    return isinstance(value, str) and len(value) == 64 and all(c in _HEX for c in value)
 
 
 class _AlreadyPublished(Exception):
@@ -493,7 +489,9 @@ def _atomic_publish(
 
     outputs_fd = os.open(str(namespace.outputs), _DIR_FLAGS)
     outputs_owner = OwnedDescriptor(
-        PosixDescriptorOps(), outputs_fd, label=f"publication outputs {namespace.outputs}"
+        PosixDescriptorOps(),
+        outputs_fd,
+        label=f"publication outputs {namespace.outputs}",
     )
     primary: BaseException | None = None
     try:
@@ -573,10 +571,12 @@ def read_index(namespace: AssemblerNamespace, input_identity: str) -> tuple[str,
             os.path.abspath(os.fspath(namespace.index)),
             label="npm-environment index",
         )
-        raw = RegularFileContracts().validated_read(
-            directory, path.name, allowed_mode=0o600
-        ).decode("utf-8")
-    except (TransactionError, ValueError):
+        raw = (
+            RegularFileContracts()
+            .validated_read(directory, path.name, allowed_mode=0o600)
+            .decode("utf-8")
+        )
+    except TransactionError, ValueError:
         return ()
     finally:
         if directory is not None:
@@ -609,9 +609,7 @@ def _append_index(
     if output_identity not in entries:
         entries.append(output_identity)
     entries.sort()
-    payload = json.dumps(entries, sort_keys=True, separators=(",", ":")).encode(
-        "utf-8"
-    )
+    payload = json.dumps(entries, sort_keys=True, separators=(",", ":")).encode("utf-8")
     path = index_path(namespace, input_identity)
     directory: DirectoryCapability | None = None
     try:
@@ -621,7 +619,7 @@ def _append_index(
             label="npm-environment index",
         )
         RegularFileContracts().durable_replace(directory, path.name, payload, 0o600)
-    except (TransactionError, ValueError):
+    except TransactionError, ValueError:
         pass
     finally:
         if directory is not None:
@@ -703,7 +701,7 @@ def verify_output(
     try:
         evidence = parse_evidence(_read_private_regular(out, EVIDENCE_FILE))
         manifest = parse_manifest(_read_private_regular(out, MANIFEST_FILE))
-    except (LockedNpmError, TransactionError, ValueError):
+    except LockedNpmError, TransactionError, ValueError:
         return None
     if evidence.output_identity != output_identity:
         return None
@@ -811,9 +809,7 @@ def publish_environment(
                 # Verified collision: heal the non-authoritative input index so
                 # a later lookup can find this output, then drop the redundant
                 # staging tree.  The committed immutable output is untouched.
-                _append_index(
-                    namespace, input_identity.digest, output_identity.digest
-                )
+                _append_index(namespace, input_identity.digest, output_identity.digest)
                 if os.path.lexists(root):
                     try:
                         _remove_redundant_tree(root, final_manifest)
@@ -832,10 +828,7 @@ def publish_environment(
             # validated reconstruction.  If quarantine cannot be performed
             # safely, the corrupt bytes stay in place and publication fails
             # without overwriting anything.
-            if (
-                _quarantine_corrupt_output(namespace, output_identity.digest)
-                is None
-            ):
+            if _quarantine_corrupt_output(namespace, output_identity.digest) is None:
                 raise LockedNpmError(
                     "output_collision_corrupt",
                     f"output identity {output_identity.digest!r} already exists "
@@ -849,9 +842,7 @@ def publish_environment(
             )
 
         _append_index(namespace, input_identity.digest, output_identity.digest)
-        return _make_result(
-            evidence, published / TREE_CHILD, published / EVIDENCE_FILE
-        )
+        return _make_result(evidence, published / TREE_CHILD, published / EVIDENCE_FILE)
 
     with scoped.step("publication"):
         return _publish_once()
@@ -911,9 +902,7 @@ def assemble_environment(
     # failure detail use the same selected representation.  An injected
     # host-side factory/projector (Pi assembly) wins.
     if stream_factory is None:
-        stream_factory = default_stream_factory(
-            effective_secrets, network_url_display
-        )
+        stream_factory = default_stream_factory(effective_secrets, network_url_display)
     if tail_projector is None:
         tail_projector = default_tail_projector(network_url_display)
     scoped = activity if activity is not None else NULL_ACTIVITY

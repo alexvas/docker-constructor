@@ -130,7 +130,10 @@ class CleanupTestCase(unittest.TestCase):
 
     def _staging_workspaces(self, cache_root: Path) -> list[Path]:
         staging_parent = (
-            cache_root / "npm-environments" / "assembler" / _assembler().digest
+            cache_root
+            / "npm-environments"
+            / "assembler"
+            / _assembler().digest
             / "staging"
         )
         if not staging_parent.exists():

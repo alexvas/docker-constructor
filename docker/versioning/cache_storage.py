@@ -25,6 +25,7 @@ The module deliberately imports no CLI, launcher, transport, HTTP
 response-cache, artifact-verification, or provider module so it remains
 an acyclic leaf that those consumers can depend on safely.
 """
+
 from __future__ import annotations
 
 import errno
@@ -125,8 +126,7 @@ def resolve_local_root(
 
     if root == filesystem_root:
         raise CacheStorageError(
-            "local.cache.dir is the filesystem root; choose a dedicated owned "
-            "directory"
+            "local.cache.dir is the filesystem root; choose a dedicated owned directory"
         )
 
     if xdg_root is not None and xdg_root.is_relative_to(root):
@@ -158,7 +158,9 @@ def parse_local_cache_config(
     if cache_raw is None:
         return LocalCacheConfig()
     if not isinstance(cache_raw, dict):
-        raise InventoryError("local.cache: expected table; use [cache].dir", field="local.cache")
+        raise InventoryError(
+            "local.cache: expected table; use [cache].dir", field="local.cache"
+        )
     unknown_cache = set(cache_raw) - {"dir"}
     if unknown_cache:
         key = sorted(unknown_cache)[0]
@@ -267,13 +269,9 @@ def _secure_error(path: Path, exc: DescriptorError) -> CacheStorageError:
             f"cannot secure {path}; restore ownership or remove it ({exc.cause})"
         )
     if exc.cause is not None and exc.stage == _STAGE_CREATE:
-        return CacheStorageError(
-            f"cannot create cache directory {path}: {exc.cause}"
-        )
+        return CacheStorageError(f"cannot create cache directory {path}: {exc.cause}")
     if exc.cause is not None and exc.stage == _STAGE_REOPEN:
-        return CacheStorageError(
-            f"cannot open cache directory {path}: {exc.cause}"
-        )
+        return CacheStorageError(f"cannot open cache directory {path}: {exc.cause}")
     return _entry_error(path, exc)
 
 
@@ -577,7 +575,8 @@ def open_private_entry(
                 f"cannot open cache entry {Path(directory) / name}: {exc}"
             ) from exc
         owner = OwnedDescriptor(
-            descriptor_ops, fd,
+            descriptor_ops,
+            fd,
             label=f"private cache entry {Path(directory) / name}",
         )
         try:
@@ -706,8 +705,7 @@ def _prepare_explicit_xdg(ops: DescriptorOps, xdg: Path) -> None:
                         ) from create_exc
                 elif errno_value in (errno.ENOTDIR, errno.ELOOP):
                     raise CacheStorageError(
-                        f"XDG_CACHE_HOME component {component!r} is not a "
-                        "directory"
+                        f"XDG_CACHE_HOME component {component!r} is not a directory"
                     ) from exc
                 else:
                     raise CacheStorageError(
@@ -727,7 +725,9 @@ def _prepare_explicit_xdg(ops: DescriptorOps, xdg: Path) -> None:
     current.close()
 
 
-def resolve_effective_root(value: str | None, *, xdg_cache_home: str | None, home: Path) -> Path:
+def resolve_effective_root(
+    value: str | None, *, xdg_cache_home: str | None, home: Path
+) -> Path:
     """Select a local override or default root without filesystem effects."""
     if value is None:
         return resolve_default_root(xdg_cache_home, home=home)
@@ -737,17 +737,13 @@ def resolve_effective_root(value: str | None, *, xdg_cache_home: str | None, hom
     return root
 
 
-def prepare_resolved_root(
-    root: Path, *, ops: DescriptorOps | None = None
-) -> Path:
+def prepare_resolved_root(root: Path, *, ops: DescriptorOps | None = None) -> Path:
     """Harden a previously resolved dedicated constructor cache root."""
     _harden_tree(_resolve_ops(ops), root)
     return root
 
 
-def prepare_project_root(
-    root: Path, *, ops: DescriptorOps | None = None
-) -> Path:
+def prepare_project_root(root: Path, *, ops: DescriptorOps | None = None) -> Path:
     """Prepare only the shared root for project-scoped state.
 
     Project build retention must not inspect the independent runtime-artifact

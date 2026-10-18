@@ -1,4 +1,5 @@
 """Repository-specific Dockerfile contracts requiring no Docker daemon."""
+
 from __future__ import annotations
 
 import glob
@@ -69,7 +70,7 @@ def _dockerignore_regex(pattern: str) -> re.Pattern[str]:
             if end == -1:
                 out += r"\["
             else:
-                group = pattern[index + 1:end]
+                group = pattern[index + 1 : end]
                 if group.startswith("!"):
                     group = "^" + group[1:]
                 out += "[" + group.replace("\\", r"\\") + "]"
@@ -116,7 +117,8 @@ def _is_dockerignored(path: str, patterns: list[DockerignorePattern]) -> bool:
     for negated, basename_only, matcher in patterns:
         values = (
             [PurePosixPath(candidate).name for candidate in candidates]
-            if basename_only else candidates
+            if basename_only
+            else candidates
         )
         if any(matcher.fullmatch(value) for value in values):
             ignored = not negated
@@ -197,21 +199,44 @@ class TestDockerfileBuildContract(unittest.TestCase):
         # This is the renderer's reviewed project argument surface. Optional
         # corporate-network keys are included even when a particular build omits them.
         rendered = {
-            "NODE_BASE_IMAGE", "RUST_VERSION", "RUST_PROFILE", "RUST_COMPONENTS",
-            "RUSTUP_SHA256", "UV_VERSION", "UV_SHA256",
-            "PYTHON_VERSION", "TY_VERSION", "RTK_VERSION", "RTK_SHA256",
-            "FD_VERSION", "FD_SHA256", "PI_VERSION", "OPENSPEC_VERSION",
-            "PI_ASSEMBLED_OUTPUT_IDENTITY", "PI_TREE_DIGEST",
-            "PI_ASSEMBLER_EVIDENCE_DIGEST", "PI_ASSEMBLER_EVIDENCE_BYTES_DIGEST",
-            "PI_LAUNCHER_EVIDENCE_DIGEST", "OH_MY_ZSH_VERSION", "PI_CORPORATE_PROXY_URL", "PI_CORPORATE_NO_PROXY",
-            "CORPORATE_TRUST_ENABLED", "PI_CORPORATE_CA_PATH", "DEV_UID", "DEV_GID",
+            "NODE_BASE_IMAGE",
+            "RUST_VERSION",
+            "RUST_PROFILE",
+            "RUST_COMPONENTS",
+            "RUSTUP_SHA256",
+            "UV_VERSION",
+            "UV_SHA256",
+            "PYTHON_VERSION",
+            "TY_VERSION",
+            "RTK_VERSION",
+            "RTK_SHA256",
+            "FD_VERSION",
+            "FD_SHA256",
+            "PI_VERSION",
+            "OPENSPEC_VERSION",
+            "PI_ASSEMBLED_OUTPUT_IDENTITY",
+            "PI_TREE_DIGEST",
+            "PI_ASSEMBLER_EVIDENCE_DIGEST",
+            "PI_ASSEMBLER_EVIDENCE_BYTES_DIGEST",
+            "PI_LAUNCHER_EVIDENCE_DIGEST",
+            "OH_MY_ZSH_VERSION",
+            "PI_CORPORATE_PROXY_URL",
+            "PI_CORPORATE_NO_PROXY",
+            "CORPORATE_TRUST_ENABLED",
+            "PI_CORPORATE_CA_PATH",
+            "DEV_UID",
+            "DEV_GID",
         }
-        declared = set(re.findall(r"^ARG\s+([A-Z][A-Z0-9_]*)", DOCKERFILE, re.MULTILINE))
+        declared = set(
+            re.findall(r"^ARG\s+([A-Z][A-Z0-9_]*)", DOCKERFILE, re.MULTILINE)
+        )
         self.assertEqual(rendered, declared)
         helper = (ROOT / "docker/corp-network-env.sh").read_text(encoding="utf-8")
         helper_arguments = {
-            "PI_CORPORATE_PROXY_URL", "PI_CORPORATE_NO_PROXY",
-            "CORPORATE_TRUST_ENABLED", "PI_CORPORATE_CA_PATH",
+            "PI_CORPORATE_PROXY_URL",
+            "PI_CORPORATE_NO_PROXY",
+            "CORPORATE_TRUST_ENABLED",
+            "PI_CORPORATE_CA_PATH",
         }
         # RTK/FD versions are deliberate cache-identity inputs; artifact URL and
         # checksum perform the installation while a version change still busts
@@ -220,11 +245,16 @@ class TestDockerfileBuildContract(unittest.TestCase):
         # Pi attestation values are consumed by the image-side verify script via
         # ARG-provided environment, not via ``${...}`` interpolation.
         pi_verification_arguments = {
-            "PI_VERSION", "PI_ASSEMBLED_OUTPUT_IDENTITY", "PI_TREE_DIGEST",
-            "PI_ASSEMBLER_EVIDENCE_DIGEST", "PI_ASSEMBLER_EVIDENCE_BYTES_DIGEST",
+            "PI_VERSION",
+            "PI_ASSEMBLED_OUTPUT_IDENTITY",
+            "PI_TREE_DIGEST",
+            "PI_ASSEMBLER_EVIDENCE_DIGEST",
+            "PI_ASSEMBLER_EVIDENCE_BYTES_DIGEST",
             "PI_LAUNCHER_EVIDENCE_DIGEST",
         }
-        for name in rendered - helper_arguments - identity_arguments - pi_verification_arguments:
+        for name in (
+            rendered - helper_arguments - identity_arguments - pi_verification_arguments
+        ):
             with self.subTest(argument=name):
                 self.assertRegex(DOCKERFILE, rf"\$\{{?{name}\}}?", f"unused ARG {name}")
         for name in helper_arguments:
@@ -264,7 +294,9 @@ class TestDockerfileBuildContract(unittest.TestCase):
             DOCKERFILE,
         )
 
-    def test_runtime_home_copy_owns_all_descendants_for_custom_dev_identity(self) -> None:
+    def test_runtime_home_copy_owns_all_descendants_for_custom_dev_identity(
+        self,
+    ) -> None:
         """Cross-stage COPY otherwise resets descendants to root:root.
 
         ``--chown`` is Docker's recursive copy-time ownership mechanism, so
@@ -286,7 +318,9 @@ class TestDockerfileBuildContract(unittest.TestCase):
         self.assertNotRegex(DOCKERFILE, r"chown\\s+-R\\s+[^\\n]*?/home/dev(?:\\s|$)")
 
     def test_runtime_startup_files_and_entrypoint_agree(self) -> None:
-        self.assertIn("COPY docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh", DOCKERFILE)
+        self.assertIn(
+            "COPY docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh", DOCKERFILE
+        )
         self.assertEqual(
             ['ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]'],
             _instructions("ENTRYPOINT"),
@@ -322,8 +356,11 @@ class TestDockerfileBuildContract(unittest.TestCase):
 
     def test_reviewed_inputs_and_retired_surfaces_are_not_baked(self) -> None:
         prohibited = (
-            "docker-constructor.toml", "docker/versions.py", "docker/verify_stage_6",
-            "docker-compose.yml", "install-pi-extensions.sh",
+            "docker-constructor.toml",
+            "docker/versions.py",
+            "docker/verify_stage_6",
+            "docker-compose.yml",
+            "install-pi-extensions.sh",
         )
         copies = "\n".join(_instructions("COPY"))
         for value in prohibited:

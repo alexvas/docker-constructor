@@ -49,11 +49,7 @@ _PROXY_URL_NAMES = (
 )
 _PROXY_BYPASS_NAMES = ("NO_PROXY", "no_proxy")
 
-_VALID_BUNDLE = (
-    "-----BEGIN CERTIFICATE-----\n"
-    "AQIDBAU=\n"
-    "-----END CERTIFICATE-----\n"
-)
+_VALID_BUNDLE = "-----BEGIN CERTIFICATE-----\nAQIDBAU=\n-----END CERTIFICATE-----\n"
 
 _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -63,6 +59,7 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 def _load_mod():
     from docker import constructor_cli
+
     return constructor_cli
 
 
@@ -184,8 +181,12 @@ def _build_arg_pairs(args) -> dict[str, str]:
 
 def _assert_no_corporate_build_args(self, args) -> None:
     pairs = _build_arg_pairs(args)
-    for name in ("PI_CORPORATE_PROXY_URL", "PI_CORPORATE_NO_PROXY",
-                 "PI_CORPORATE_CA_PATH", "CORPORATE_TRUST_ENABLED"):
+    for name in (
+        "PI_CORPORATE_PROXY_URL",
+        "PI_CORPORATE_NO_PROXY",
+        "PI_CORPORATE_CA_PATH",
+        "CORPORATE_TRUST_ENABLED",
+    ):
         self.assertNotIn(name, pairs, f"unexpected corporate arg {name}")
 
 
@@ -204,16 +205,16 @@ class TestConfiguredBuildRunAcceptanceRed(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.m = _load_mod()
         cls.companion = (
-            '[corporate-trust]\nenabled = true\n'
+            "[corporate-trust]\nenabled = true\n"
             f'[network.proxy]\nurl = "{_PROXY_URL}"\n'
             f'no_proxy = "{_NO_PROXY}"\n'
         )
 
     def test_configured_build_dry_run_carries_corporate_args(self) -> None:
-        with _fake_repo(self.m, companion=self.companion,
-                        bundle=_VALID_BUNDLE):
+        with _fake_repo(self.m, companion=self.companion, bundle=_VALID_BUNDLE):
             rc, out, _ = _run(
-                self.m, ["--output", "json", "build", "--dry-run"],
+                self.m,
+                ["--output", "json", "build", "--dry-run"],
             )
             self.assertEqual(0, rc, out)
             data = _json_data(out)
@@ -223,16 +224,22 @@ class TestConfiguredBuildRunAcceptanceRed(unittest.TestCase):
             self.assertEqual(_NO_PROXY, pairs["PI_CORPORATE_NO_PROXY"])
             self.assertEqual("true", pairs["CORPORATE_TRUST_ENABLED"])
             self.assertEqual(
-                _SYSTEM_CA_BUNDLE, pairs["PI_CORPORATE_CA_PATH"],
+                _SYSTEM_CA_BUNDLE,
+                pairs["PI_CORPORATE_CA_PATH"],
             )
 
     def test_configured_run_dry_run_carries_mount_and_env(self) -> None:
-        with _fake_repo(self.m, companion=self.companion,
-                        bundle=_VALID_BUNDLE):
+        with _fake_repo(self.m, companion=self.companion, bundle=_VALID_BUNDLE):
             rc, out, _ = _run(
                 self.m,
-                ["--output", "json", "run", "--dry-run",
-                 "--workspace", "/work/project"],
+                [
+                    "--output",
+                    "json",
+                    "run",
+                    "--dry-run",
+                    "--workspace",
+                    "/work/project",
+                ],
                 _run_executor=_BombExecutor(),
                 _container_inspector=_BombInspector(),
                 _create_projection=_bomb_projection,
@@ -264,20 +271,28 @@ class TestDisabledCompatibilityAcceptanceRed(unittest.TestCase):
             with self.subTest(companion=companion):
                 with _fake_repo(self.m, companion=companion):
                     rc, out, _ = _run(
-                        self.m, ["--output", "json", "build", "--dry-run"],
+                        self.m,
+                        ["--output", "json", "build", "--dry-run"],
                     )
                     self.assertEqual(0, rc, out)
                     data = _json_data(out)
                     _assert_no_corporate_build_args(
-                        self, data["data"]["display_string"],
+                        self,
+                        data["data"]["display_string"],
                     )
 
     def test_disabled_run_dry_run_emits_no_mount_or_proxy(self) -> None:
         with _fake_repo(self.m):
             rc, out, _ = _run(
                 self.m,
-                ["--output", "json", "run", "--dry-run",
-                 "--workspace", "/work/project"],
+                [
+                    "--output",
+                    "json",
+                    "run",
+                    "--dry-run",
+                    "--workspace",
+                    "/work/project",
+                ],
                 _run_executor=_BombExecutor(),
                 _container_inspector=_BombInspector(),
                 _create_projection=_bomb_projection,
@@ -301,8 +316,10 @@ class TestCustomInventoryCompanionAcceptanceRed(unittest.TestCase):
         cls.m = _load_mod()
 
     def test_custom_companion_resolved_beside_custom_inventory(self) -> None:
-        with tempfile.TemporaryDirectory() as inv_dir, \
-                tempfile.TemporaryDirectory() as repo_dir:
+        with (
+            tempfile.TemporaryDirectory() as inv_dir,
+            tempfile.TemporaryDirectory() as repo_dir,
+        ):
             inv_path = Path(inv_dir) / "docker-constructor.toml"
             inv_path.write_text(_CANONICAL)
             shutil.copyfile(_REPO_ROOT / "Dockerfile", Path(inv_dir) / "Dockerfile")
@@ -314,16 +331,24 @@ class TestCustomInventoryCompanionAcceptanceRed(unittest.TestCase):
             with mock.patch.object(self.m, "_INSTALLATION_ROOT", repo_path):
                 rc, out, _ = _run(
                     self.m,
-                    ["--output", "json", "--project-directory", str(Path(inv_path).parent),
-                     "build", "--dry-run"],
+                    [
+                        "--output",
+                        "json",
+                        "--project-directory",
+                        str(Path(inv_path).parent),
+                        "build",
+                        "--dry-run",
+                    ],
                 )
             self.assertEqual(0, rc, out)
             pairs = _build_arg_pairs(_json_data(out)["data"]["display_string"])
             self.assertEqual(_PROXY_URL, pairs["PI_CORPORATE_PROXY_URL"])
 
     def test_custom_inventory_does_not_fall_back_to_repo_root_companion(self) -> None:
-        with tempfile.TemporaryDirectory() as inv_dir, \
-                tempfile.TemporaryDirectory() as repo_dir:
+        with (
+            tempfile.TemporaryDirectory() as inv_dir,
+            tempfile.TemporaryDirectory() as repo_dir,
+        ):
             inv_path = Path(inv_dir) / "docker-constructor.toml"
             inv_path.write_text(_CANONICAL)
             shutil.copyfile(_REPO_ROOT / "Dockerfile", Path(inv_dir) / "Dockerfile")
@@ -335,8 +360,14 @@ class TestCustomInventoryCompanionAcceptanceRed(unittest.TestCase):
             with mock.patch.object(self.m, "_INSTALLATION_ROOT", repo_path):
                 rc, out, _ = _run(
                     self.m,
-                    ["--output", "json", "--project-directory", str(Path(inv_path).parent),
-                     "build", "--dry-run"],
+                    [
+                        "--output",
+                        "json",
+                        "--project-directory",
+                        str(Path(inv_path).parent),
+                        "build",
+                        "--dry-run",
+                    ],
                 )
             self.assertEqual(0, rc, out)
             pairs = _build_arg_pairs(_json_data(out)["data"]["display_string"])
@@ -353,7 +384,8 @@ class TestBundleErrorHandlingAcceptanceRed(unittest.TestCase):
     def test_missing_bundle_fails_build_before_docker(self) -> None:
         with _fake_repo(self.m, companion="[corporate-trust]\nenabled = true\n"):
             rc, out, _ = _run(
-                self.m, ["--output", "json", "build", "--dry-run"],
+                self.m,
+                ["--output", "json", "build", "--dry-run"],
             )
             self.assertEqual(3, rc)
             data = _json_data(out)
@@ -361,12 +393,21 @@ class TestBundleErrorHandlingAcceptanceRed(unittest.TestCase):
             self.assertIn("corporate-ca-bundle.crt", data.get("message", ""))
 
     def test_malformed_bundle_fails_run_before_docker(self) -> None:
-        with _fake_repo(self.m, companion="[corporate-trust]\nenabled = true\n",
-                        bundle="not a pem bundle\n"):
+        with _fake_repo(
+            self.m,
+            companion="[corporate-trust]\nenabled = true\n",
+            bundle="not a pem bundle\n",
+        ):
             rc, out, _ = _run(
                 self.m,
-                ["--output", "json", "run", "--dry-run",
-                 "--workspace", "/work/project"],
+                [
+                    "--output",
+                    "json",
+                    "run",
+                    "--dry-run",
+                    "--workspace",
+                    "/work/project",
+                ],
                 _run_executor=_BombExecutor(),
                 _container_inspector=_BombInspector(),
                 _create_projection=_bomb_projection,
@@ -387,8 +428,15 @@ class TestBundleErrorHandlingAcceptanceRed(unittest.TestCase):
         with _fake_repo(self.m, companion="[corporate-trust]\nenabled = true\n"):
             rc, out, _ = _run(
                 self.m,
-                ["--output", "json", "verify", "--scope", "runtime",
-                 "--image", "pi-cli-pi:latest"],
+                [
+                    "--output",
+                    "json",
+                    "verify",
+                    "--scope",
+                    "runtime",
+                    "--image",
+                    "pi-cli-pi:latest",
+                ],
                 _process_runner=_Runner(),
             )
             self.assertEqual(3, rc)
@@ -416,13 +464,15 @@ class TestProxyUriRejectionAcceptanceRed(unittest.TestCase):
             with self.subTest(url=url):
                 with _fake_repo(self.m, companion=f"[network.proxy]\n{url}\n"):
                     rc, out, _ = _run(
-                        self.m, ["--output", "json", "build", "--dry-run"],
+                        self.m,
+                        ["--output", "json", "build", "--dry-run"],
                     )
                     self.assertEqual(3, rc)
                     data = _json_data(out)
                     self.assertEqual("config", data["status"])
                     self.assertIn(
-                        "local.network.proxy.url", data.get("message", ""),
+                        "local.network.proxy.url",
+                        data.get("message", ""),
                     )
 
     def test_invalid_proxy_url_fails_run_before_docker(self) -> None:
@@ -432,8 +482,14 @@ class TestProxyUriRejectionAcceptanceRed(unittest.TestCase):
         ):
             rc, out, _ = _run(
                 self.m,
-                ["--output", "json", "run", "--dry-run",
-                 "--workspace", "/work/project"],
+                [
+                    "--output",
+                    "json",
+                    "run",
+                    "--dry-run",
+                    "--workspace",
+                    "/work/project",
+                ],
                 _run_executor=_BombExecutor(),
                 _container_inspector=_BombInspector(),
                 _create_projection=_bomb_projection,
@@ -455,8 +511,14 @@ class TestExplicitOnlyNoProxyAcceptanceRed(unittest.TestCase):
         with _fake_repo(self.m, companion=companion):
             rc, out, _ = _run(
                 self.m,
-                ["--output", "json", "run", "--dry-run",
-                 "--workspace", "/work/project"],
+                [
+                    "--output",
+                    "json",
+                    "run",
+                    "--dry-run",
+                    "--workspace",
+                    "/work/project",
+                ],
                 _run_executor=_BombExecutor(),
                 _container_inspector=_BombInspector(),
                 _create_projection=_bomb_projection,
@@ -473,8 +535,7 @@ class TestExplicitOnlyNoProxyAcceptanceRed(unittest.TestCase):
 
     def test_explicit_no_proxy_emitted_under_both_forms(self) -> None:
         env = self._run_dry_run(
-            f'[network.proxy]\nurl = "{_PROXY_URL}"\n'
-            f'no_proxy = "{_NO_PROXY}"\n'
+            f'[network.proxy]\nurl = "{_PROXY_URL}"\nno_proxy = "{_NO_PROXY}"\n'
         )
         self.assertEqual(_NO_PROXY, env["NO_PROXY"])
         self.assertEqual(_NO_PROXY, env["no_proxy"])
@@ -492,7 +553,8 @@ class TestHostAccessIndependenceAcceptanceRed(unittest.TestCase):
         companion = f'[network.proxy]\nurl = "{_PROXY_URL}"\n'
         with _fake_repo(self.m, companion=companion):
             rc, out, _ = _run(
-                self.m, ["--output", "json", "build", "--dry-run"],
+                self.m,
+                ["--output", "json", "build", "--dry-run"],
             )
             self.assertEqual(0, rc, out)
             pairs = _build_arg_pairs(_json_data(out)["data"]["display_string"])
@@ -500,8 +562,14 @@ class TestHostAccessIndependenceAcceptanceRed(unittest.TestCase):
 
             rc, out, _ = _run(
                 self.m,
-                ["--output", "json", "run", "--dry-run",
-                 "--workspace", "/work/project"],
+                [
+                    "--output",
+                    "json",
+                    "run",
+                    "--dry-run",
+                    "--workspace",
+                    "/work/project",
+                ],
                 _run_executor=_BombExecutor(),
                 _container_inspector=_BombInspector(),
                 _create_projection=_bomb_projection,
@@ -512,8 +580,9 @@ class TestHostAccessIndependenceAcceptanceRed(unittest.TestCase):
             self.assertEqual(_PROXY_URL, env["HTTP_PROXY"])
             self.assertNotIn("HOST_ACCESS_ADDRESS", env)
             self.assertNotIn("HOST_PROXY_PORT", env)
-            self.assertNotIn("--add-host", args,
-                             "host-access mapping must not be emitted")
+            self.assertNotIn(
+                "--add-host", args, "host-access mapping must not be emitted"
+            )
 
 
 if __name__ == "__main__":

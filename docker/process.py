@@ -4,6 +4,7 @@ All pipes use the filesystem's single terminal owner. A prepared per-process
 continuation retains resources until the internal reader barriers and winning
 release outcomes are published. No domain policy or external-reader adoption.
 """
+
 from __future__ import annotations
 
 import logging
@@ -78,26 +79,42 @@ class FailureInfo:
     def __post_init__(self) -> None:
         if not isinstance(self.error, BaseException):
             raise TypeError("failure error must be BaseException")
-        if not isinstance(self.kind, FailureKind) or not isinstance(self.phase, FailurePhase):
+        if not isinstance(self.kind, FailureKind) or not isinstance(
+            self.phase, FailurePhase
+        ):
             raise TypeError("failure kind and phase must be declared enums")
         if self.stream is not None and not isinstance(self.stream, ProcessStream):
             raise TypeError("failure stream must be ProcessStream or None")
-        if (self.kind is FailureKind.INTERRUPTION) != (not isinstance(self.error, Exception)):
+        if (self.kind is FailureKind.INTERRUPTION) != (
+            not isinstance(self.error, Exception)
+        ):
             raise ValueError("failure kind cannot fabricate or demote control flow")
-        if self.phase in (FailurePhase.READ, FailurePhase.CALLBACK, FailurePhase.REPORTER) and self.stream is None:
+        if (
+            self.phase
+            in (FailurePhase.READ, FailurePhase.CALLBACK, FailurePhase.REPORTER)
+            and self.stream is None
+        ):
             raise ValueError("this failure phase requires a stream")
-        if self.phase in (FailurePhase.WAIT, FailurePhase.ACTION, FailurePhase.COORDINATION) and self.stream is not None:
+        if (
+            self.phase
+            in (FailurePhase.WAIT, FailurePhase.ACTION, FailurePhase.COORDINATION)
+            and self.stream is not None
+        ):
             raise ValueError("this failure phase cannot identify a stream")
 
 
-def _validate_failures(failures: tuple[FailureInfo, ...], *, action: bool = False) -> None:
+def _validate_failures(
+    failures: tuple[FailureInfo, ...], *, action: bool = False
+) -> None:
     if not isinstance(failures, tuple):
         raise TypeError("failures must be a tuple of FailureInfo")
     for failure in failures:
         if not isinstance(failure, FailureInfo):
             raise TypeError("failures must contain FailureInfo")
         FailureInfo.__post_init__(failure)
-        if action and (failure.phase is not FailurePhase.ACTION or failure.stream is not None):
+        if action and (
+            failure.phase is not FailurePhase.ACTION or failure.stream is not None
+        ):
             raise ValueError("action failures require ACTION/None context")
 
 
@@ -130,7 +147,9 @@ class ActionResult:
     failures: tuple[FailureInfo, ...] = ()
 
     def __post_init__(self) -> None:
-        if not isinstance(self.done, bool) or not isinstance(self.cleanup_complete, bool):
+        if not isinstance(self.done, bool) or not isinstance(
+            self.cleanup_complete, bool
+        ):
             raise TypeError("action progress must be boolean")
         _validate_failures(self.failures, action=True)
 
@@ -179,19 +198,37 @@ def _validate_policy(policy: StopPolicy | None, total: float) -> None:
     for stage in policy.stages:
         if not isinstance(stage, StopStage):
             raise TypeError("policy stages must be StopStage")
-        if not all(isinstance(v, bool) for v in (stage.wait_child, stage.run_on_normal, stage.local_stop_before)):
+        if not all(
+            isinstance(v, bool)
+            for v in (stage.wait_child, stage.run_on_normal, stage.local_stop_before)
+        ):
             raise TypeError("stage flags must be boolean")
         caps.append(stage.seconds)
         if stage.action is not None:
             if any(stage.action is a for a in actions):
                 raise ValueError("a managed action must have one stage owner")
             actions.append(stage.action)
-            if not all(callable(getattr(stage.action, n, None)) for n in ("prepare", "start", "observe", "cancel")):
-                raise TypeError("managed action must implement prepare/start/observe/cancel")
-    if any(not isinstance(v, (int, float)) or isinstance(v, bool) or not math.isfinite(v) or v <= 0 for v in caps):
-        raise ValueError("stage caps and local cleanup reserve must be finite and positive")
+            if not all(
+                callable(getattr(stage.action, n, None))
+                for n in ("prepare", "start", "observe", "cancel")
+            ):
+                raise TypeError(
+                    "managed action must implement prepare/start/observe/cancel"
+                )
+    if any(
+        not isinstance(v, (int, float))
+        or isinstance(v, bool)
+        or not math.isfinite(v)
+        or v <= 0
+        for v in caps
+    ):
+        raise ValueError(
+            "stage caps and local cleanup reserve must be finite and positive"
+        )
     if math.fsum(caps) > total:
-        raise ValueError("stage caps and local cleanup reserve exceed total shutdown budget")
+        raise ValueError(
+            "stage caps and local cleanup reserve exceed total shutdown budget"
+        )
 
 
 def _fallback_callback_diagnostic() -> None:
@@ -217,18 +254,28 @@ class CleanupIncomplete(OSError):
 
 
 def _record(
-    failures: CleanupFailures, error: BaseException,
-    *, ordinary: tuple[type[Exception], ...] = (OSError,),
+    failures: CleanupFailures,
+    error: BaseException,
+    *,
+    ordinary: tuple[type[Exception], ...] = (OSError,),
 ) -> None:
     def raise_error() -> None:
         raise error
+
     failures.run(raise_error, ordinary=ordinary)
 
 
 def _entries(failures: CleanupFailures | _FailureLedger) -> tuple[BaseException, ...]:
-    items = (*failures.interruptions, *failures.unexpected,
-             *((failures.original_primary,) if failures.original_primary is not None else ()),
-             *failures.ordinary_failures)
+    items = (
+        *failures.interruptions,
+        *failures.unexpected,
+        *(
+            (failures.original_primary,)
+            if failures.original_primary is not None
+            else ()
+        ),
+        *failures.ordinary_failures,
+    )
     unique: list[BaseException] = []
     for item in items:
         if not any(item is other for other in unique):
@@ -245,8 +292,10 @@ class _FailureLedger:
         if primary is not None:
             rank = 2 if isinstance(primary, Exception) else 0
             self.contexts[(id(primary), rank)] = FailureInfo(
-                primary, FailureKind.ORDINARY if rank == 2 else FailureKind.INTERRUPTION,
-                FailurePhase.COORDINATION)
+                primary,
+                FailureKind.ORDINARY if rank == 2 else FailureKind.INTERRUPTION,
+                FailurePhase.COORDINATION,
+            )
 
     @property
     def original_primary(self) -> BaseException | None:
@@ -266,30 +315,54 @@ class _FailureLedger:
 
     def add(self, failure: FailureInfo) -> None:
         # Returned helper classification is explicit, never inferred from type.
-        rank = {FailureKind.INTERRUPTION: 0, FailureKind.UNEXPECTED: 1, FailureKind.ORDINARY: 3}[failure.kind]
+        rank = {
+            FailureKind.INTERRUPTION: 0,
+            FailureKind.UNEXPECTED: 1,
+            FailureKind.ORDINARY: 3,
+        }[failure.kind]
         if (id(failure.error), rank) in self.contexts:
             return
-        _record(self.shared, failure.error,
-                ordinary=(Exception,) if failure.kind is FailureKind.ORDINARY else ())
+        _record(
+            self.shared,
+            failure.error,
+            ordinary=(Exception,) if failure.kind is FailureKind.ORDINARY else (),
+        )
         self.contexts[(id(failure.error), rank)] = failure
 
-    def record(self, error: BaseException, *, ordinary: tuple[type[Exception], ...] = (OSError,),
-               phase: FailurePhase = FailurePhase.COORDINATION,
-               stream: ProcessStream | None = None) -> None:
+    def record(
+        self,
+        error: BaseException,
+        *,
+        ordinary: tuple[type[Exception], ...] = (OSError,),
+        phase: FailurePhase = FailurePhase.COORDINATION,
+        stream: ProcessStream | None = None,
+    ) -> None:
         classified = CleanupFailures(None)
         _record(classified, error, ordinary=ordinary)
-        kind = (FailureKind.INTERRUPTION if classified.interruptions else
-                FailureKind.UNEXPECTED if classified.unexpected else FailureKind.ORDINARY)
+        kind = (
+            FailureKind.INTERRUPTION
+            if classified.interruptions
+            else FailureKind.UNEXPECTED
+            if classified.unexpected
+            else FailureKind.ORDINARY
+        )
         self.add(FailureInfo(error, kind, phase, stream))
 
-    def primary(self, error: BaseException, *, phase: FailurePhase = FailurePhase.COORDINATION) -> None:
-        if any(error is item for item in (*self.interruptions, *self.unexpected)) or error is self.original_primary:
+    def primary(
+        self, error: BaseException, *, phase: FailurePhase = FailurePhase.COORDINATION
+    ) -> None:
+        if (
+            any(error is item for item in (*self.interruptions, *self.unexpected))
+            or error is self.original_primary
+        ):
             return
         original = self.original_primary
         if original is None and isinstance(error, Exception):
             previous = self.shared
             self.shared = CleanupFailures(error)
-            self.contexts[(id(error), 2)] = FailureInfo(error, FailureKind.ORDINARY, phase)
+            self.contexts[(id(error), 2)] = FailureInfo(
+                error, FailureKind.ORDINARY, phase
+            )
             for item in (*previous.interruptions, *previous.unexpected):
                 _record(self.shared, item, ordinary=())
             for item in previous.ordinary_failures:
@@ -300,8 +373,12 @@ class _FailureLedger:
     def result(self, complete: bool) -> LifecycleResult:
         ordered: list[FailureInfo] = []
         seen: set[int] = set()
-        groups = (self.interruptions, self.unexpected,
-                  (self.original_primary,) if self.original_primary is not None else (), self.ordinary_failures)
+        groups = (
+            self.interruptions,
+            self.unexpected,
+            (self.original_primary,) if self.original_primary is not None else (),
+            self.ordinary_failures,
+        )
         for rank, group in enumerate(groups):
             for error in group:
                 if id(error) not in seen:
@@ -363,34 +440,70 @@ class OwnedProcess:
 
     @classmethod
     def launch(
-        cls, argv: Any, *, grace_seconds: float = 1.0,
-        deadline_seconds: float | None = None, capture_limit: int = 65536,
+        cls,
+        argv: Any,
+        *,
+        grace_seconds: float = 1.0,
+        deadline_seconds: float | None = None,
+        capture_limit: int = 65536,
         factory: Callable[..., Any] = subprocess.Popen,
         popen_kwargs: dict[str, Any] | None = None,
         on_launched: Callable[[], None] | None = None,
         stop_policy: StopPolicy | None = None,
         reporter: Callable[..., None] | None = None,
     ) -> Self:
-        if not isinstance(argv, (list, tuple)) or not argv or not all(isinstance(s, str) and s for s in argv):
+        if (
+            not isinstance(argv, (list, tuple))
+            or not argv
+            or not all(isinstance(s, str) and s for s in argv)
+        ):
             raise ValueError("argv must be a non-empty string sequence")
-        if not isinstance(grace_seconds, (int, float)) or not math.isfinite(grace_seconds) or grace_seconds <= 0:
+        if (
+            not isinstance(grace_seconds, (int, float))
+            or not math.isfinite(grace_seconds)
+            or grace_seconds <= 0
+        ):
             raise ValueError("grace_seconds must be finite and positive")
-        if deadline_seconds is not None and (not isinstance(deadline_seconds, (int, float)) or not math.isfinite(deadline_seconds) or deadline_seconds <= 0):
+        if deadline_seconds is not None and (
+            not isinstance(deadline_seconds, (int, float))
+            or not math.isfinite(deadline_seconds)
+            or deadline_seconds <= 0
+        ):
             raise ValueError("deadline_seconds must be finite and positive")
-        if not isinstance(capture_limit, int) or isinstance(capture_limit, bool) or capture_limit < 0:
+        if (
+            not isinstance(capture_limit, int)
+            or isinstance(capture_limit, bool)
+            or capture_limit < 0
+        ):
             raise ValueError("capture_limit must be a nonnegative integer")
-        if not callable(factory) or (on_launched is not None and not callable(on_launched)):
+        if not callable(factory) or (
+            on_launched is not None and not callable(on_launched)
+        ):
             raise TypeError("factory and callback must be callable")
         if reporter is not None and not callable(reporter):
             raise TypeError("reporter must be callable")
         options = dict(popen_kwargs or {})
-        if any(k in options for k in ("stdout", "stderr", "stdin", "text", "universal_newlines", "encoding", "errors")):
+        if any(
+            k in options
+            for k in (
+                "stdout",
+                "stderr",
+                "stdin",
+                "text",
+                "universal_newlines",
+                "encoding",
+                "errors",
+            )
+        ):
             raise ValueError("only binary captured stdout/stderr are supported")
         _validate_policy(stop_policy, float(grace_seconds))
         self = cls.__new__(cls)
         # Everything that can allocate synchronization/ownership/continuation
         # capacity is prepared before Popen. No existing-process entry point.
-        self._owners = [_prepare_stream(label="stdout"), _prepare_stream(label="stderr")]
+        self._owners = [
+            _prepare_stream(label="stdout"),
+            _prepare_stream(label="stderr"),
+        ]
         self._cancel = _new_event()
         self._stop = _new_event()
         self._request = _new_event()
@@ -456,9 +569,13 @@ class OwnedProcess:
                         self._action_prepared[index] = True
                         self._action_results[index] = ActionResult(False, False)
                         if stage.action.prepare() is not None:
-                            raise TypeError("action prepare must acknowledge readiness with None")
+                            raise TypeError(
+                                "action prepare must acknowledge readiness with None"
+                            )
             prepared = True
-            self._proc = factory(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **options)
+            self._proc = factory(
+                argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **options
+            )
         except BaseException as exc:
             self._idle_stop = True
             if self._ready.is_set():
@@ -473,7 +590,9 @@ class OwnedProcess:
                 self._request.set()
                 failures = CleanupFailures(exc)
                 if self._continuation.ident is not None:
-                    failures.run(lambda: self._continuation.join(self._grace), ordinary=())
+                    failures.run(
+                        lambda: self._continuation.join(self._grace), ordinary=()
+                    )
                 result = failures.complete()
                 if result:
                     raise result
@@ -496,7 +615,9 @@ class OwnedProcess:
             try:
                 self._transfer(index)
             except BaseException as exc:
-                self._ledger.record(exc, phase=FailurePhase.SETUP, stream=tuple(ProcessStream)[index])
+                self._ledger.record(
+                    exc, phase=FailurePhase.SETUP, stream=tuple(ProcessStream)[index]
+                )
         setup_stream = None
         launch_callback = False
         try:
@@ -520,7 +641,9 @@ class OwnedProcess:
                 if launch_callback:
                     self._ledger.primary(exc, phase=FailurePhase.SETUP)
                 elif not any(exc is error for error in _entries(self._ledger)):
-                    self._ledger.record(exc, phase=FailurePhase.SETUP, stream=setup_stream)
+                    self._ledger.record(
+                        exc, phase=FailurePhase.SETUP, stream=setup_stream
+                    )
             result = self._shutdown(reason="setup", deliver=False)
             self._raise_interruption(result)
         return self
@@ -531,19 +654,25 @@ class OwnedProcess:
         if not self._acquired[index]:
             raise OSError("missing captured stream")
         stream = self._owners[index].stream
-        if not callable(getattr(stream, "close", None)) or not callable(getattr(stream, "read", None)):
+        if not callable(getattr(stream, "close", None)) or not callable(
+            getattr(stream, "read", None)
+        ):
             raise TypeError("captured stream must expose read and close")
         self._transferred[index] = True
 
     def _make_reader(self, index: int) -> threading.Thread:
-        return threading.Thread(target=self._reader, args=(index,),
-                                name=f"owned-process-reader-{index}", daemon=True)
+        return threading.Thread(
+            target=self._reader,
+            args=(index,),
+            name=f"owned-process-reader-{index}",
+            daemon=True,
+        )
 
     def _configure_reader(self, index: int) -> None:
         stream = self._owners[index].stream
         try:
             fd = stream.fileno()
-        except (AttributeError, OSError, ValueError):
+        except AttributeError, OSError, ValueError:
             self._descriptorless[index] = True
             return
         os.set_blocking(fd, False)
@@ -582,7 +711,7 @@ class OwnedProcess:
             # Legacy descriptor-less captured factories may serve text. The
             # generic output/callback boundary still supplies bytes only.
             return data.encode() if isinstance(data, str) else data
-        ready, _, _ = select.select([fd], [], [], .02)
+        ready, _, _ = select.select([fd], [], [], 0.02)
         if not ready:
             return None
         try:
@@ -605,14 +734,19 @@ class OwnedProcess:
                     self._reader_errors[index] = exc
                 raise
             if chunk == b"":
-                self._set_outcome(index, StreamOutcome.ABORTED if self._cancel.is_set() else StreamOutcome.EOF)
+                self._set_outcome(
+                    index,
+                    StreamOutcome.ABORTED
+                    if self._cancel.is_set()
+                    else StreamOutcome.EOF,
+                )
                 return
             if chunk:
                 with self._lock:
                     tail = self._tails[index]
                     tail.extend(chunk)
                     if len(tail) > self._limit:
-                        del tail[:len(tail) - self._limit]
+                        del tail[: len(tail) - self._limit]
                 while True:
                     try:
                         with self._lock:
@@ -627,7 +761,7 @@ class OwnedProcess:
                         # tail replay and may finish before terminal delivery.
                         if self._stop.is_set():
                             break
-                        self._cancel.wait(.02)
+                        self._cancel.wait(0.02)
             if self._poll_child() is not None:
                 if exited_at is None:
                     exited_at = time.monotonic()
@@ -646,10 +780,15 @@ class OwnedProcess:
             self._read(index)
         except BaseException as exc:
             is_read = self._reader_errors[index] is exc
-            self._set_outcome(index, StreamOutcome.READ_FAILED if is_read else StreamOutcome.ABORTED)
+            self._set_outcome(
+                index, StreamOutcome.READ_FAILED if is_read else StreamOutcome.ABORTED
+            )
             with self._lock:
-                self._ledger.record(exc, phase=FailurePhase.READ if is_read else FailurePhase.WAIT,
-                                    stream=tuple(ProcessStream)[index] if is_read else None)
+                self._ledger.record(
+                    exc,
+                    phase=FailurePhase.READ if is_read else FailurePhase.WAIT,
+                    stream=tuple(ProcessStream)[index] if is_read else None,
+                )
             # Launch still owns reader construction/start tracking. Do not
             # release its sibling or publish cleanup until setup has settled.
             self._setup_done.wait()
@@ -668,25 +807,43 @@ class OwnedProcess:
         # the authority to release a descriptor-backed reader's stream.
         return not self._started[index] or self._stopped[index].is_set()
 
-    def _action(self, action: Callable[[], Any], *, ordinary: tuple[type[Exception], ...],
-                phase: FailurePhase = FailurePhase.COORDINATION,
-                stream: ProcessStream | None = None) -> None:
+    def _action(
+        self,
+        action: Callable[[], Any],
+        *,
+        ordinary: tuple[type[Exception], ...],
+        phase: FailurePhase = FailurePhase.COORDINATION,
+        stream: ProcessStream | None = None,
+    ) -> None:
         failures = CleanupFailures(None)
         failures.run(action, ordinary=ordinary)
         with self._lock:
             for error in _entries(failures):
-                self._ledger.record(error, ordinary=ordinary, phase=phase, stream=stream)
+                self._ledger.record(
+                    error, ordinary=ordinary, phase=phase, stream=stream
+                )
 
     def _release_safe(self) -> None:
         for index in range(2):
             owner = self._owners[index]
             if self._acquired[index] and not owner.released:
+
                 def release(index: int = index, owner: OwnedStream = owner) -> None:
                     # Descriptor-less compatibility streams may need release
                     # to unblock read. Unknown/real descriptors remain retained.
-                    if self._safe(index) or self._descriptorless[index] or not callable(getattr(owner.stream, "fileno", None)):
+                    if (
+                        self._safe(index)
+                        or self._descriptorless[index]
+                        or not callable(getattr(owner.stream, "fileno", None))
+                    ):
                         owner.close()
-                self._action(release, ordinary=(OSError,), phase=FailurePhase.RELEASE, stream=tuple(ProcessStream)[index])
+
+                self._action(
+                    release,
+                    ordinary=(OSError,),
+                    phase=FailurePhase.RELEASE,
+                    stream=tuple(ProcessStream)[index],
+                )
 
     def _wait_child(self, timeout: float) -> None:
         self._known_returncode = self._proc.wait(timeout=timeout)
@@ -694,6 +851,7 @@ class OwnedProcess:
 
     def _reap(self, end: float) -> None:
         self._action(self._terminate_if_live, ordinary=(OSError,))
+
         def wait_for_termination() -> None:
             try:
                 self._wait_child(max(0, (end - time.monotonic()) / 2))
@@ -701,11 +859,15 @@ class OwnedProcess:
                 # Expiry of the terminate grace is a normal transition to kill,
                 # not a cleanup failure if the subsequent reap succeeds.
                 pass
+
         self._action(wait_for_termination, ordinary=(OSError,), phase=FailurePhase.WAIT)
         if not self._reaped:
             self._action(lambda: self._proc.kill(), ordinary=(OSError,))
-            self._action(lambda: self._wait_child(max(0, end - time.monotonic())),
-                         ordinary=(OSError, subprocess.TimeoutExpired), phase=FailurePhase.WAIT)
+            self._action(
+                lambda: self._wait_child(max(0, end - time.monotonic())),
+                ordinary=(OSError, subprocess.TimeoutExpired),
+                phase=FailurePhase.WAIT,
+            )
 
     def _record_action_failure(self, index: int, failure: FailureInfo) -> None:
         with self._lock:
@@ -713,7 +875,10 @@ class OwnedProcess:
             self._ledger.add(failure)
             previous = self._action_results[index]
             self._action_results[index] = ActionResult(
-                previous.done, previous.cleanup_complete, self._action_failures[index].result(False).failures)
+                previous.done,
+                previous.cleanup_complete,
+                self._action_failures[index].result(False).failures,
+            )
 
     def _record_action_error(self, index: int, error: BaseException) -> None:
         classified = _FailureLedger()
@@ -739,7 +904,11 @@ class OwnedProcess:
             # Preserve the original raised interruption before probing any
             # malformed fields, which can themselves execute user code.
             classified = _FailureLedger()
-            classified.record(exc, ordinary=(OSError,) if observation is None else (), phase=FailurePhase.ACTION)
+            classified.record(
+                exc,
+                ordinary=(OSError,) if observation is None else (),
+                phase=FailurePhase.ACTION,
+            )
             failure = classified.result(False).failures[0]
             with self._lock:
                 first_kind = failure.kind.name not in self._observed_error_kinds[index]
@@ -753,21 +922,38 @@ class OwnedProcess:
                 recovered.append(field_error)
                 supplied = ()
             if isinstance(supplied, (tuple, list)):
-                items = tuple.__iter__(supplied) if isinstance(supplied, tuple) else list.__iter__(supplied)
+                items = (
+                    tuple.__iter__(supplied)
+                    if isinstance(supplied, tuple)
+                    else list.__iter__(supplied)
+                )
                 for item in items:
                     try:
-                        error = item if isinstance(item, BaseException) else getattr(item, "error", None)
+                        error = (
+                            item
+                            if isinstance(item, BaseException)
+                            else getattr(item, "error", None)
+                        )
                     except BaseException as field_error:
                         error = field_error
                     if isinstance(error, BaseException):
                         recovered.append(error)
             for error in recovered:
-                kind = FailureKind.UNEXPECTED if isinstance(error, Exception) else FailureKind.INTERRUPTION
-                self._record_action_failure(index, FailureInfo(error, kind, FailurePhase.ACTION))
+                kind = (
+                    FailureKind.UNEXPECTED
+                    if isinstance(error, Exception)
+                    else FailureKind.INTERRUPTION
+                )
+                self._record_action_failure(
+                    index, FailureInfo(error, kind, FailurePhase.ACTION)
+                )
             observation = ActionResult(False, False)
         with self._lock:
-            result = ActionResult(observation.done, observation.cleanup_complete,
-                                  self._action_failures[index].result(False).failures)
+            result = ActionResult(
+                observation.done,
+                observation.cleanup_complete,
+                self._action_failures[index].result(False).failures,
+            )
             self._action_results[index] = result
         return result
 
@@ -779,12 +965,18 @@ class OwnedProcess:
     def _cancel_action(self, index: int, end: float) -> None:
         assert self._policy is not None
         action = self._policy.stages[index].action
-        if action is not None and self._action_prepared[index] and not self._action_cancelled[index]:
+        if (
+            action is not None
+            and self._action_prepared[index]
+            and not self._action_cancelled[index]
+        ):
             self._action_cancelled[index] = True
             failures = CleanupFailures(None)
+
             def cancel() -> None:
                 if action.cancel(end) is not None:
                     raise TypeError("action cancel must return None")
+
             failures.run(cancel, ordinary=(OSError,))
             for error in _entries(failures):
                 self._record_action_error(index, error)
@@ -801,7 +993,9 @@ class OwnedProcess:
             if self._reason == "natural" and not stage.run_on_normal:
                 continue
             # Stage caps never borrow the local reserve or restart the total.
-            stage_end = min(time.monotonic() + stage.seconds, end - policy.local_cleanup_seconds)
+            stage_end = min(
+                time.monotonic() + stage.seconds, end - policy.local_cleanup_seconds
+            )
             if time.monotonic() >= stage_end:
                 break
             with self._lock:
@@ -821,12 +1015,15 @@ class OwnedProcess:
                     nonlocal returncode
                     returncode = self._poll_child()
 
-                self._action(observe_returncode, ordinary=(OSError,), phase=FailurePhase.WAIT)
+                self._action(
+                    observe_returncode, ordinary=(OSError,), phase=FailurePhase.WAIT
+                )
 
                 def start_action(action: ManagedAction = stage.action) -> None:
                     context = StopContext(self._reason, returncode, stage_end)
                     if action.start(context) is not None:
                         raise TypeError("action start must return None")
+
                 failures = CleanupFailures(None)
                 failures.run(start_action, ordinary=(OSError,))
                 for error in _entries(failures):
@@ -835,22 +1032,30 @@ class OwnedProcess:
                     self._cancel_action(index, end)
                     continue
             while time.monotonic() < stage_end:
-                observation = self._observe_action(index) if stage.action else ActionResult(True, True)
+                observation = (
+                    self._observe_action(index)
+                    if stage.action
+                    else ActionResult(True, True)
+                )
                 if observation.failures:
                     break
                 if observation.done:
                     if not stage.wait_child:
                         break
                     child_done: bool | None = None
+
                     def observe_child() -> None:
                         nonlocal child_done
                         child_done = self._poll_child() is not None
-                    self._action(observe_child, ordinary=(OSError,), phase=FailurePhase.WAIT)
+
+                    self._action(
+                        observe_child, ordinary=(OSError,), phase=FailurePhase.WAIT
+                    )
                     # None denotes failed observation, not a live child. Advance
                     # rather than retrying a broken poll or losing the worker.
                     if child_done is None or child_done:
                         break
-                _policy_pause(min(.005, max(0, stage_end - time.monotonic())))
+                _policy_pause(min(0.005, max(0, stage_end - time.monotonic())))
             self._cancel_action(index, end)
 
     def _terminate_if_live(self) -> None:
@@ -859,10 +1064,15 @@ class OwnedProcess:
             self._proc.terminate()
 
     def _complete(self) -> bool:
-        return self._reaped and all(self._safe(i) for i in range(2)) and all(
-            not self._acquired[i] or self._owners[i].released for i in range(2)) and all(
-            not prepared or (result.done and result.cleanup_complete)
-            for prepared, result in zip(self._action_prepared, self._action_results))
+        return (
+            self._reaped
+            and all(self._safe(i) for i in range(2))
+            and all(not self._acquired[i] or self._owners[i].released for i in range(2))
+            and all(
+                not prepared or (result.done and result.cleanup_complete)
+                for prepared, result in zip(self._action_prepared, self._action_results)
+            )
+        )
 
     def _publish(self, complete: bool) -> None:
         with self._lock:
@@ -878,8 +1088,12 @@ class OwnedProcess:
 
     def _continue_cleanup(self) -> None:
         self._ready.set()
-        while not self._request.wait(.01):
-            if self._supervising and self._deadline is not None and time.monotonic() - self._launched_at >= self._deadline:
+        while not self._request.wait(0.01):
+            if (
+                self._supervising
+                and self._deadline is not None
+                and time.monotonic() - self._launched_at >= self._deadline
+            ):
                 self._timed_out = True
                 self._shutdown(reason="deadline")  # reentrant request
         if self._idle_stop and not self._requested:
@@ -894,8 +1108,14 @@ class OwnedProcess:
         # Joins are protected independent actions. Reaping always follows,
         # including when a join defect/interruption occurred.
         for index in range(2):
-            self._action(lambda index=index: self._join_reader(index, max(0, end - time.monotonic()) / 3),
-                         ordinary=(), phase=FailurePhase.JOIN, stream=tuple(ProcessStream)[index])
+            self._action(
+                lambda index=index: self._join_reader(
+                    index, max(0, end - time.monotonic()) / 3
+                ),
+                ordinary=(),
+                phase=FailurePhase.JOIN,
+                stream=tuple(ProcessStream)[index],
+            )
         if self._proc is not None:
             self._reap(end)
         self._observe_actions()
@@ -903,14 +1123,22 @@ class OwnedProcess:
         # Cancellation can wake a prepared idle action asynchronously. Use
         # the remaining local reserve to observe settlement, not a fresh
         # budget or a false incomplete result merely due to scheduling.
-        while (any(prepared and not (result.done and result.cleanup_complete)
-                   for prepared, result in zip(self._action_prepared, self._action_results))
-               or any(self._descriptorless[i] and self._owners[i].released and not self._safe(i)
-                      for i in range(2))) and time.monotonic() < end:
+        while (
+            any(
+                prepared and not (result.done and result.cleanup_complete)
+                for prepared, result in zip(self._action_prepared, self._action_results)
+            )
+            or any(
+                self._descriptorless[i]
+                and self._owners[i].released
+                and not self._safe(i)
+                for i in range(2)
+            )
+        ) and time.monotonic() < end:
             # Descriptor-less close may wake its reader asynchronously. Confirm
             # that stop barrier within the existing reserve, without another
             # close/join/reap request or a new budget.
-            _policy_pause(min(.001, max(0, end - time.monotonic())))
+            _policy_pause(min(0.001, max(0, end - time.monotonic())))
             self._observe_actions()
             self._release_safe()
         self._publish(self._complete())
@@ -920,7 +1148,7 @@ class OwnedProcess:
         while not self._finished.is_set():
             for index in range(2):
                 if not self._safe(index):
-                    self._stopped[index].wait(.01)
+                    self._stopped[index].wait(0.01)
             self._release_safe()
             if not self._reaped:
                 try:
@@ -929,15 +1157,20 @@ class OwnedProcess:
                     # Poll expiry is observation, not a new shutdown budget.
                     # Retain the first new late observation defect once, rather
                     # than accumulating failures forever for a broken factory.
-                    if not isinstance(exc, subprocess.TimeoutExpired) and not self._late_reap_recorded:
+                    if (
+                        not isinstance(exc, subprocess.TimeoutExpired)
+                        and not self._late_reap_recorded
+                    ):
                         with self._lock:
-                            if not any(exc is error for error in _entries(self._ledger)):
+                            if not any(
+                                exc is error for error in _entries(self._ledger)
+                            ):
                                 self._ledger.record(exc, phase=FailurePhase.WAIT)
                         self._late_reap_recorded = True
-                    time.sleep(.01)
+                    time.sleep(0.01)
             self._observe_actions()
             self._publish(self._complete())
-            _policy_pause(.001)
+            _policy_pause(0.001)
 
     @property
     def cleanup_status(self) -> LifecycleResult:
@@ -952,8 +1185,9 @@ class OwnedProcess:
     def shutdown(self, *, primary: BaseException | None = None) -> LifecycleResult:
         return self._shutdown(primary=primary, reason="cancel")
 
-    def _shutdown(self, *, primary: BaseException | None = None, reason: str,
-                  deliver: bool = True) -> LifecycleResult:
+    def _shutdown(
+        self, *, primary: BaseException | None = None, reason: str, deliver: bool = True
+    ) -> LifecycleResult:
         with self._lock:
             previously_delivered = self._delivered
             if primary is not None:
@@ -962,12 +1196,15 @@ class OwnedProcess:
                 self._requested = True
                 self._reason = reason
                 self._cleanup_end = time.monotonic() + self._grace
-                self._shutdown_end = self._cleanup_end + .05
+                self._shutdown_end = self._cleanup_end + 0.05
                 self._stop.set()
                 if self._policy is None or not self._policy.drain:
                     self._cancel_readers_locked()
                 self._request.set()
-        if threading.current_thread() is self._continuation or threading.current_thread() in self._readers:
+        if (
+            threading.current_thread() is self._continuation
+            or threading.current_thread() in self._readers
+        ):
             return self.cleanup_status
         # One initial coordination budget, not a new termination sequence.
         interruption = None
@@ -995,14 +1232,18 @@ class OwnedProcess:
                 self._delivered = True
             result = self._status
         if result.complete:
+
             def join_continuation() -> None:
                 nonlocal interruption
                 try:
-                    self._continuation.join(max(0, self._shutdown_end - time.monotonic()))
+                    self._continuation.join(
+                        max(0, self._shutdown_end - time.monotonic())
+                    )
                 except BaseException as exc:
                     if not isinstance(exc, Exception) and interruption is None:
                         interruption = exc
                     raise
+
             self._action(join_continuation, ordinary=(), phase=FailurePhase.JOIN)
             with self._lock:
                 self._status = _outcome(self._ledger, self._status.complete)
@@ -1011,17 +1252,30 @@ class OwnedProcess:
             # Suppress already-delivered authority, not control flow encountered
             # by this call. Before first delivery retain global first-interruption
             # precedence; afterwards raise the first interruption from this call.
-            pending = result if not previously_delivered else LifecycleResult(
-                result.complete, tuple(f for f in result.failures if f.error is interruption))
+            pending = (
+                result
+                if not previously_delivered
+                else LifecycleResult(
+                    result.complete,
+                    tuple(f for f in result.failures if f.error is interruption),
+                )
+            )
             self._raise_interruption(pending)
         return result
 
     def wait_cleanup(self, timeout: float) -> LifecycleResult:
-        if not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout < 0:
+        if (
+            not isinstance(timeout, (int, float))
+            or not math.isfinite(timeout)
+            or timeout < 0
+        ):
             raise ValueError("timeout must be finite and nonnegative")
         end = time.monotonic() + timeout
         self._finished.wait(timeout)
-        if self._finished.is_set() and threading.current_thread() is not self._continuation:
+        if (
+            self._finished.is_set()
+            and threading.current_thread() is not self._continuation
+        ):
             self._continuation.join(max(0, end - time.monotonic()))
         return self.cleanup_status
 
@@ -1062,8 +1316,14 @@ class OwnedProcess:
                 setattr(error, "cleanup", self)
             raise error
 
-    def _invoke_callback(self, callback: Callable[..., Any], args: tuple[Any, ...],
-                         kind: str, identity: ProcessStream, failures: _FailureLedger) -> None:
+    def _invoke_callback(
+        self,
+        callback: Callable[..., Any],
+        args: tuple[Any, ...],
+        kind: str,
+        identity: ProcessStream,
+        failures: _FailureLedger,
+    ) -> None:
         def interrupted(error: BaseException, phase: FailurePhase) -> None:
             failure = FailureInfo(error, FailureKind.INTERRUPTION, phase, identity)
             failures.add(failure)
@@ -1091,12 +1351,20 @@ class OwnedProcess:
             interrupted(interruption, FailurePhase.CALLBACK)
 
     def _snapshot_locked(self, lifecycle: LifecycleResult) -> ProcessResult:
-        return ProcessResult(bytes(self._tails[0]), bytes(self._tails[1]),
-                             self.returncode, self._timed_out, lifecycle,
-                             tuple(zip(ProcessStream, self._outcomes)))
+        return ProcessResult(
+            bytes(self._tails[0]),
+            bytes(self._tails[1]),
+            self.returncode,
+            self._timed_out,
+            lifecycle,
+            tuple(zip(ProcessStream, self._outcomes)),
+        )
 
-    def _collect(self, callback: Callable[[ProcessStream, bytes], Any] | None,
-                 on_stream_end: Callable[[ProcessStream, StreamOutcome], Any] | None = None) -> ProcessResult:
+    def _collect(
+        self,
+        callback: Callable[[ProcessStream, bytes], Any] | None,
+        on_stream_end: Callable[[ProcessStream, StreamOutcome], Any] | None = None,
+    ) -> ProcessResult:
         failures = _FailureLedger()
         notified = [False, False]
 
@@ -1104,25 +1372,48 @@ class OwnedProcess:
             for index, identity in enumerate(ProcessStream):
                 with self._lock:
                     terminal = self._outcomes[index]
-                    ready = force or (self._queued[index] == 0 and
-                                      (terminal is not StreamOutcome.ABORTED or self._safe(index)))
-                if not notified[index] and ready and terminal is not StreamOutcome.PENDING:
+                    ready = force or (
+                        self._queued[index] == 0
+                        and (terminal is not StreamOutcome.ABORTED or self._safe(index))
+                    )
+                if (
+                    not notified[index]
+                    and ready
+                    and terminal is not StreamOutcome.PENDING
+                ):
                     notified[index] = True
                     if on_stream_end is not None:
-                        self._invoke_callback(on_stream_end, (identity, terminal), "end", identity, failures)
+                        self._invoke_callback(
+                            on_stream_end,
+                            (identity, terminal),
+                            "end",
+                            identity,
+                            failures,
+                        )
 
         boundary = FailurePhase.COORDINATION
         try:
-            while not all(self._stopped[i].is_set() or not self._started[i] for i in range(2)) or not self._output.empty():
+            while (
+                not all(
+                    self._stopped[i].is_set() or not self._started[i] for i in range(2)
+                )
+                or not self._output.empty()
+            ):
                 try:
-                    index, chunk = self._output.get(timeout=.02)
+                    index, chunk = self._output.get(timeout=0.02)
                 except queue.Empty:
                     notify()
                     if self._stop.is_set() or _entries(failures):
                         break
                     continue
                 if callback is not None and not self._delivered:
-                    self._invoke_callback(callback, (tuple(ProcessStream)[index], chunk), "chunk", tuple(ProcessStream)[index], failures)
+                    self._invoke_callback(
+                        callback,
+                        (tuple(ProcessStream)[index], chunk),
+                        "chunk",
+                        tuple(ProcessStream)[index],
+                        failures,
+                    )
                 with self._lock:
                     self._queued[index] -= 1
                 notify()
@@ -1130,26 +1421,42 @@ class OwnedProcess:
                     break
             notify()
             boundary = FailurePhase.WAIT
-            while not _entries(failures) and not self._stop.is_set() and self._poll_child() is None:
-                time.sleep(.01)
+            while (
+                not _entries(failures)
+                and not self._stop.is_set()
+                and self._poll_child() is None
+            ):
+                time.sleep(0.01)
         except BaseException as exc:
             failures.record(exc, phase=boundary)
         with self._lock:
             for failure in failures.result(False).failures:
                 self._ledger.add(failure)
-        result = self._shutdown(reason="natural" if not _entries(failures) and not self._stop.is_set() else self._reason,
-                                deliver=False)
+        result = self._shutdown(
+            reason="natural"
+            if not _entries(failures) and not self._stop.is_set()
+            else self._reason,
+            deliver=False,
+        )
         with self._lock:
             self._dispatch_closed = True
         # Flush only the already assigned bounded spool, never a raw snapshot
         # tail. An interrupted invocation attempts ends but no further chunks.
-        while not _entries(failures) and not (result.failures and result.failures[0].kind is FailureKind.INTERRUPTION):
+        while not _entries(failures) and not (
+            result.failures and result.failures[0].kind is FailureKind.INTERRUPTION
+        ):
             try:
                 index, chunk = self._output.get_nowait()
             except queue.Empty:
                 break
             if callback is not None and not self._delivered:
-                self._invoke_callback(callback, (tuple(ProcessStream)[index], chunk), "chunk", tuple(ProcessStream)[index], failures)
+                self._invoke_callback(
+                    callback,
+                    (tuple(ProcessStream)[index], chunk),
+                    "chunk",
+                    tuple(ProcessStream)[index],
+                    failures,
+                )
             with self._lock:
                 self._queued[index] -= 1
             notify()
@@ -1181,9 +1488,15 @@ class OwnedProcess:
         self._claim_collection()
         return self._collect(None)
 
-    def stream(self, callback: Callable[[ProcessStream, bytes], Any], *,
-               on_stream_end: Callable[[ProcessStream, StreamOutcome], Any] | None = None) -> ProcessResult:
-        if not callable(callback) or (on_stream_end is not None and not callable(on_stream_end)):
+    def stream(
+        self,
+        callback: Callable[[ProcessStream, bytes], Any],
+        *,
+        on_stream_end: Callable[[ProcessStream, StreamOutcome], Any] | None = None,
+    ) -> ProcessResult:
+        if not callable(callback) or (
+            on_stream_end is not None and not callable(on_stream_end)
+        ):
             raise TypeError("callbacks must be callable")
         self._claim_collection()
         self._streaming = True
@@ -1203,16 +1516,31 @@ class OwnedProcess:
                 raise
             return
         if exc is None:
+
             def observe_exit() -> None:
                 nonlocal reason
                 if self._poll_child() is not None:
                     reason = "natural"
+
             # Reason selection is cleanup observation, not an escape hatch
             # around the coordinator. Failure retains the context stop plan.
             self._action(observe_exit, ordinary=(OSError,), phase=FailurePhase.WAIT)
         self._raise_result(self._shutdown(primary=exc, reason=reason))
 
 
-__all__ = ["OwnedProcess", "ProcessResult", "ProcessStream", "StreamOutcome", "LifecycleResult", "CleanupIncomplete",
-           "FailureInfo", "FailureKind", "FailurePhase",
-           "StopPolicy", "StopStage", "StopContext", "ManagedAction", "ActionResult"]
+__all__ = [
+    "OwnedProcess",
+    "ProcessResult",
+    "ProcessStream",
+    "StreamOutcome",
+    "LifecycleResult",
+    "CleanupIncomplete",
+    "FailureInfo",
+    "FailureKind",
+    "FailurePhase",
+    "StopPolicy",
+    "StopStage",
+    "StopContext",
+    "ManagedAction",
+    "ActionResult",
+]

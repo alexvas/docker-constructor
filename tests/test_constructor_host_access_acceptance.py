@@ -4,6 +4,7 @@ Each test exercises the full orchestration boundary (build, run, doctor,
 verify) through the real production functions with a minimal filesystem
 and fake Docker/network injectables.  No real Docker is touched.
 """
+
 from __future__ import annotations
 
 import io
@@ -56,7 +57,10 @@ def _make_fake_diagnose(ip: str = "10.0.2.2"):
 
     def _fake(**__: Any):
         probe = ProbeResult(
-            candidate=ip, ok=True, resolved_ip=ip, detail="fake",
+            candidate=ip,
+            ok=True,
+            resolved_ip=ip,
+            detail="fake",
         )
         return GatewayDiagnosis(
             mode=DockerMode.ROOTFUL,
@@ -81,7 +85,10 @@ def _fallback_runner():
 
     def _run(argv, *, interactive: bool = False):
         return ProcessResult(
-            argv=tuple(argv), return_code=0, stdout="", stderr="",
+            argv=tuple(argv),
+            return_code=0,
+            stdout="",
+            stderr="",
         )
 
     return _run
@@ -89,10 +96,10 @@ def _fallback_runner():
 
 def _bomb_docker():
     """Runner that fails if called -- proves Docker was never invoked."""
+
     def _run(argv, *, interactive: bool = False):
-        raise AssertionError(
-            f"Docker must not run; got {argv}"
-        )
+        raise AssertionError(f"Docker must not run; got {argv}")
+
     return _run
 
 
@@ -120,6 +127,7 @@ def _bomb_rootless_apply(**__: Any):
 # 6.1  Disabled host access — builds and planned runs need no gateway
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestDisabledHostAccess(unittest.TestCase):
     """6.1: From absent host-access policy, prove build and planned
     run require neither gateway nor local state."""
@@ -138,10 +146,12 @@ class TestDisabledHostAccess(unittest.TestCase):
                 dry_run=True,
                 runner=_bomb_docker(),
                 _diagnose_gateway=_bomb_gateway,
-            project_root=Path(str(inv)).resolve().parent)
+                project_root=Path(str(inv)).resolve().parent,
+            )
             result = orchestrate_build(req)
             self.assertEqual(
-                ExitKind.SUCCESS, result.exit_kind,
+                ExitKind.SUCCESS,
+                result.exit_kind,
                 f"expected SUCCESS, got {result.exit_kind}: {result.message}",
             )
             self.assertIsNotNone(result.display_string)
@@ -157,16 +167,20 @@ class TestDisabledHostAccess(unittest.TestCase):
             from docker.launcher import orchestrate_run
             from docker.launcher import WorkspaceSelection
 
-            with mock.patch(
-                "docker.versioning.build_orchestration.orchestrate_doctor",
-                side_effect=_bomb_doctor,
-            ) as mocked_doctor, mock.patch(
-                "docker.versioning.build_orchestration.diagnose_gateway",
-                side_effect=_bomb_gateway,
-            ) as mocked_build_orch_gateway, mock.patch(
-                "docker.networking.diagnose_gateway",
-                side_effect=_bomb_gateway,
-            ) as mocked_gateway:
+            with (
+                mock.patch(
+                    "docker.versioning.build_orchestration.orchestrate_doctor",
+                    side_effect=_bomb_doctor,
+                ) as mocked_doctor,
+                mock.patch(
+                    "docker.versioning.build_orchestration.diagnose_gateway",
+                    side_effect=_bomb_gateway,
+                ) as mocked_build_orch_gateway,
+                mock.patch(
+                    "docker.networking.diagnose_gateway",
+                    side_effect=_bomb_gateway,
+                ) as mocked_gateway,
+            ):
                 dry_result = orchestrate_run(
                     RunRequest(
                         inventory_path=str(inv),
@@ -175,26 +189,36 @@ class TestDisabledHostAccess(unittest.TestCase):
                         pi_home_host="/home/user/.pi",
                         dry_run=True,
                         executor=_bomb_docker(),
-                    project_root=Path(str(inv)).resolve().parent),
+                        project_root=Path(str(inv)).resolve().parent,
+                    ),
                 )
             self.assertEqual(ExitKind.SUCCESS, dry_result.exit_kind)
-            self.assertFalse(mocked_doctor.called,
-                             "doctor must not be called for disabled host access")
-            self.assertFalse(mocked_build_orch_gateway.called,
-                             "build-orch diagnose_gateway must not be called for disabled host access")
-            self.assertFalse(mocked_gateway.called,
-                             "gateway diagnosis must not be called for disabled host access")
+            self.assertFalse(
+                mocked_doctor.called,
+                "doctor must not be called for disabled host access",
+            )
+            self.assertFalse(
+                mocked_build_orch_gateway.called,
+                "build-orch diagnose_gateway must not be called for disabled host access",
+            )
+            self.assertFalse(
+                mocked_gateway.called,
+                "gateway diagnosis must not be called for disabled host access",
+            )
             vector = getattr(dry_result, "display_string", "") or ""
             self.assertNotIn(
-                "--add-host", vector,
+                "--add-host",
+                vector,
                 "disabled host access must not emit --add-host",
             )
             self.assertNotIn(
-                "HOST_ACCESS_ADDRESS", vector,
+                "HOST_ACCESS_ADDRESS",
+                vector,
                 "disabled host access must not emit HOST_ACCESS_ADDRESS",
             )
             self.assertNotIn(
-                "HOST_PROXY_PORT", vector,
+                "HOST_PROXY_PORT",
+                vector,
                 "disabled host access must not emit HOST_PROXY_PORT",
             )
 
@@ -208,16 +232,20 @@ class TestDisabledHostAccess(unittest.TestCase):
             from docker.launcher import orchestrate_run
             from docker.launcher import WorkspaceSelection
 
-            with mock.patch(
-                "docker.versioning.build_orchestration.orchestrate_doctor",
-                side_effect=_bomb_doctor,
-            ) as mocked_doctor, mock.patch(
-                "docker.versioning.build_orchestration.diagnose_gateway",
-                side_effect=_bomb_gateway,
-            ) as mocked_build_orch_gateway, mock.patch(
-                "docker.networking.diagnose_gateway",
-                side_effect=_bomb_gateway,
-            ) as mocked_gateway:
+            with (
+                mock.patch(
+                    "docker.versioning.build_orchestration.orchestrate_doctor",
+                    side_effect=_bomb_doctor,
+                ) as mocked_doctor,
+                mock.patch(
+                    "docker.versioning.build_orchestration.diagnose_gateway",
+                    side_effect=_bomb_gateway,
+                ) as mocked_build_orch_gateway,
+                mock.patch(
+                    "docker.networking.diagnose_gateway",
+                    side_effect=_bomb_gateway,
+                ) as mocked_gateway,
+            ):
                 result = orchestrate_run(
                     RunRequest(
                         inventory_path=str(inv),
@@ -226,23 +254,32 @@ class TestDisabledHostAccess(unittest.TestCase):
                         pi_home_host="/home/user/.pi",
                         dry_run=True,
                         executor=_bomb_docker(),
-                    project_root=Path(str(inv)).resolve().parent),
+                        project_root=Path(str(inv)).resolve().parent,
+                    ),
                 )
             self.assertEqual(
-                ExitKind.SUCCESS, result.exit_kind,
+                ExitKind.SUCCESS,
+                result.exit_kind,
                 "disabled launch must succeed without local companion",
             )
-            self.assertFalse(mocked_doctor.called,
-                             "doctor must not be called for disabled host access")
-            self.assertFalse(mocked_build_orch_gateway.called,
-                             "build-orch diagnose_gateway must not be called for disabled host access")
-            self.assertFalse(mocked_gateway.called,
-                             "gateway diagnosis must not be called for disabled host access")
+            self.assertFalse(
+                mocked_doctor.called,
+                "doctor must not be called for disabled host access",
+            )
+            self.assertFalse(
+                mocked_build_orch_gateway.called,
+                "build-orch diagnose_gateway must not be called for disabled host access",
+            )
+            self.assertFalse(
+                mocked_gateway.called,
+                "gateway diagnosis must not be called for disabled host access",
+            )
 
 
 # ═══════════════════════════════════════════════════════════════════════
 # 6.2  Docker-gateway mode — doctor → run → verify chain
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class _VerifyRuntimeRunner:
     """Fake process runner for ``verify_runtime`` integration.
@@ -269,8 +306,7 @@ class _VerifyRuntimeRunner:
         self._gateway_ip = gateway_ip
         self.calls: list[tuple[str, ...]] = []
 
-    def run(self, argv: tuple[str, ...], *,
-            interactive: bool = False) -> "Any":
+    def run(self, argv: tuple[str, ...], *, interactive: bool = False) -> "Any":
         from docker.versioning.runtime_verification import ProcessResult
 
         self.calls.append(argv)
@@ -281,14 +317,18 @@ class _VerifyRuntimeRunner:
 
         # projection.identity — sha256sum of projection
         if "sha256sum" in cmd and "docker-constructor.runtime.toml" in cmd:
-            return P(argv=argv, return_code=0,
-                     stdout=f"{self._proj_hash}  /run/.../runtime.toml\n",
-                     stderr="")
+            return P(
+                argv=argv,
+                return_code=0,
+                stdout=f"{self._proj_hash}  /run/.../runtime.toml\n",
+                stderr="",
+            )
 
         # projection.readonly — grep /proc/mounts
         if "grep" in cmd and "docker-constructor.runtime.toml" in cmd:
-            return P(argv=argv, return_code=0,
-                     stdout=self._proj_mount_line + "\n", stderr="")
+            return P(
+                argv=argv, return_code=0, stdout=self._proj_mount_line + "\n", stderr=""
+            )
 
         # projection.readonly — test -w (must fail to prove read-only)
         if "test" in cmd and "-w" in cmd and "docker-constructor.runtime.toml" in cmd:
@@ -299,9 +339,12 @@ class _VerifyRuntimeRunner:
             return P(argv=argv, return_code=0, stdout="", stderr="")
 
         # projects.present — printenv WORKSPACE_PATH_1
-        if "printenv" in cmd and "WORKSPACE_PATH_1" in cmd and "WORKSPACE_PATH_2" not in cmd:
-            return P(argv=argv, return_code=0,
-                     stdout=self._project_path, stderr="")
+        if (
+            "printenv" in cmd
+            and "WORKSPACE_PATH_1" in cmd
+            and "WORKSPACE_PATH_2" not in cmd
+        ):
+            return P(argv=argv, return_code=0, stdout=self._project_path, stderr="")
 
         # projects.present — printenv WORKSPACE_PATH_2 (must be absent)
         if "printenv" in cmd and "WORKSPACE_PATH_2" in cmd:
@@ -309,18 +352,15 @@ class _VerifyRuntimeRunner:
 
         # working.directory — pwd
         if "pwd" in cmd:
-            return P(argv=argv, return_code=0,
-                     stdout=self._project_path, stderr="")
+            return P(argv=argv, return_code=0, stdout=self._project_path, stderr="")
 
         # ownership.dev — stat pi_home
         if "stat" in cmd and self._pi_home in cmd:
-            return P(argv=argv, return_code=0,
-                     stdout="dev:dev", stderr="")
+            return P(argv=argv, return_code=0, stdout="dev:dev", stderr="")
 
         # ownership.dev — stat project_path
         if "stat" in cmd and self._project_path in cmd:
-            return P(argv=argv, return_code=0,
-                     stdout="dev:dev", stderr="")
+            return P(argv=argv, return_code=0, stdout="dev:dev", stderr="")
 
         # pi-home.setup — test -d pi_home
         if "test" in cmd and "-d" in cmd and self._pi_home in cmd:
@@ -332,14 +372,16 @@ class _VerifyRuntimeRunner:
 
         # gateway.mapping — getent hosts host.docker.internal
         if "getent" in cmd and "host.docker.internal" in cmd:
-            return P(argv=argv, return_code=0,
-                     stdout=f"{self._gateway_ip} host.docker.internal\n",
-                     stderr="")
+            return P(
+                argv=argv,
+                return_code=0,
+                stdout=f"{self._gateway_ip} host.docker.internal\n",
+                stderr="",
+            )
 
         # host-access.address — printenv HOST_ACCESS_ADDRESS
         if "printenv" in cmd and "HOST_ACCESS_ADDRESS" in cmd:
-            return P(argv=argv, return_code=0,
-                     stdout=self._gateway_ip, stderr="")
+            return P(argv=argv, return_code=0, stdout=self._gateway_ip, stderr="")
 
         # corporate-trust.mount (disabled) — exact-mountpoint awk probe
         # must report no options so the disabled contract passes.
@@ -348,9 +390,16 @@ class _VerifyRuntimeRunner:
 
         # proxy.environment (disabled) — keyed printenv must be unset.
         if "printenv" in cmd and any(
-            name in cmd for name in (
-                "HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy",
-                "ALL_PROXY", "all_proxy", "NO_PROXY", "no_proxy",
+            name in cmd
+            for name in (
+                "HTTP_PROXY",
+                "http_proxy",
+                "HTTPS_PROXY",
+                "https_proxy",
+                "ALL_PROXY",
+                "all_proxy",
+                "NO_PROXY",
+                "no_proxy",
             )
         ):
             return P(argv=argv, return_code=1, stdout="", stderr="")
@@ -360,9 +409,7 @@ class _VerifyRuntimeRunner:
             return P(argv=argv, return_code=1, stdout="", stderr="")
 
         # Unknown command — fail loudly
-        raise AssertionError(
-            f"Unexpected docker exec command: {argv}"
-        )
+        raise AssertionError(f"Unexpected docker exec command: {argv}")
 
 
 class TestDockerGatewayEndToEnd(unittest.TestCase):
@@ -389,11 +436,13 @@ class TestDockerGatewayEndToEnd(unittest.TestCase):
                 ),
             )
             self.assertEqual(
-                ExitKind.SUCCESS, doctor_result.exit_kind,
+                ExitKind.SUCCESS,
+                doctor_result.exit_kind,
                 f"doctor must succeed: {doctor_result.message}",
             )
             self.assertEqual(
-                gateway_ip, doctor_result.selected_gateway,
+                gateway_ip,
+                doctor_result.selected_gateway,
             )
             self.assertTrue(companion.is_file(), "doctor must persist local companion")
 
@@ -413,16 +462,19 @@ class TestDockerGatewayEndToEnd(unittest.TestCase):
                     pi_home_host="/home/user/.pi",
                     dry_run=True,
                     executor=_bomb_docker(),
-                project_root=Path(str(inv)).resolve().parent),
+                    project_root=Path(str(inv)).resolve().parent,
+                ),
             )
             self.assertEqual(ExitKind.SUCCESS, run_result.exit_kind)
             vector = getattr(run_result, "display_string", "") or ""
             self.assertIn(
-                f"host.docker.internal:{gateway_ip}", vector,
+                f"host.docker.internal:{gateway_ip}",
+                vector,
                 "run vector must map host.docker.internal to the persisted address",
             )
             self.assertIn(
-                f"HOST_ACCESS_ADDRESS={gateway_ip}", vector,
+                f"HOST_ACCESS_ADDRESS={gateway_ip}",
+                vector,
                 "run vector must export HOST_ACCESS_ADDRESS",
             )
 
@@ -444,10 +496,12 @@ class TestDockerGatewayEndToEnd(unittest.TestCase):
                 f"_resolve_verify_host_access must succeed: {resolve_err}",
             )
             self.assertIsNotNone(
-                ha, "_resolve_verify_host_access must return enabled policy",
+                ha,
+                "_resolve_verify_host_access must return enabled policy",
             )
             self.assertEqual(
-                gateway_ip, resolved_addr,
+                gateway_ip,
+                resolved_addr,
                 "resolved address must equal the doctor-persisted value",
             )
 
@@ -456,9 +510,7 @@ class TestDockerGatewayEndToEnd(unittest.TestCase):
 
             proj = root_path / "runtime-projection.toml"
             proj_content = (
-                "[extensions]\n"
-                "[workspace_paths]\n"
-                'paths = ["/work/project"]\n'
+                '[extensions]\n[workspace_paths]\npaths = ["/work/project"]\n'
             )
             proj.write_text(proj_content)
             proj_hash = hashlib.sha256(proj_content.encode()).hexdigest()
@@ -496,10 +548,10 @@ class TestDockerGatewayEndToEnd(unittest.TestCase):
             )
 
 
-
 # ═══════════════════════════════════════════════════════════════════════
 # 6.3  External-address mode + proxy port
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestExternalAddressEndToEnd(unittest.TestCase):
     """6.3: External-address mode plus proxy port.  Run emits the
@@ -515,37 +567,41 @@ class TestExternalAddressEndToEnd(unittest.TestCase):
             inv = _write_inventory(
                 root_path,
                 policy=(
-                    '[runtime.host-access]\n'
-                    'enabled = true\n'
+                    "[runtime.host-access]\n"
+                    "enabled = true\n"
                     'mode = "external-address"\n'
                     f"proxy-port = {port}\n"
                 ),
             )
             # Write local companion with the external address
             companion = root_path / "docker-constructor.local.toml"
-            companion.write_text(
-                f'[host-access]\naddress = "{address}"\n'
-            )
+            companion.write_text(f'[host-access]\naddress = "{address}"\n')
 
             from docker.launcher import orchestrate_run
             from docker.launcher import WorkspaceSelection
 
-            with mock.patch(
-                "docker.versioning.build_orchestration.orchestrate_doctor",
-                side_effect=_bomb_doctor,
-            ) as mocked_doctor, mock.patch(
-                "docker.versioning.build_orchestration.diagnose_gateway",
-                side_effect=_bomb_gateway,
-            ) as mocked_build_orch_gateway, mock.patch(
-                "docker.networking.diagnose_gateway",
-                side_effect=_bomb_gateway,
-            ) as mocked_gateway, mock.patch(
-                "docker.versioning.build_orchestration.plan_rootless_override",
-                side_effect=_bomb_rootless_plan,
-            ) as mocked_rootless_plan, mock.patch(
-                "docker.versioning.build_orchestration.apply_rootless_override",
-                side_effect=_bomb_rootless_apply,
-            ) as mocked_rootless_apply:
+            with (
+                mock.patch(
+                    "docker.versioning.build_orchestration.orchestrate_doctor",
+                    side_effect=_bomb_doctor,
+                ) as mocked_doctor,
+                mock.patch(
+                    "docker.versioning.build_orchestration.diagnose_gateway",
+                    side_effect=_bomb_gateway,
+                ) as mocked_build_orch_gateway,
+                mock.patch(
+                    "docker.networking.diagnose_gateway",
+                    side_effect=_bomb_gateway,
+                ) as mocked_gateway,
+                mock.patch(
+                    "docker.versioning.build_orchestration.plan_rootless_override",
+                    side_effect=_bomb_rootless_plan,
+                ) as mocked_rootless_plan,
+                mock.patch(
+                    "docker.versioning.build_orchestration.apply_rootless_override",
+                    side_effect=_bomb_rootless_apply,
+                ) as mocked_rootless_apply,
+            ):
                 run_result = orchestrate_run(
                     RunRequest(
                         inventory_path=str(inv),
@@ -554,30 +610,44 @@ class TestExternalAddressEndToEnd(unittest.TestCase):
                         pi_home_host="/home/user/.pi",
                         dry_run=True,
                         executor=_bomb_docker(),
-                    project_root=Path(str(inv)).resolve().parent),
+                        project_root=Path(str(inv)).resolve().parent,
+                    ),
                 )
             self.assertEqual(ExitKind.SUCCESS, run_result.exit_kind)
-            self.assertFalse(mocked_doctor.called,
-                             "doctor must not be called for external-address run")
-            self.assertFalse(mocked_build_orch_gateway.called,
-                             "build-orch diagnose_gateway must not be called for external-address run")
-            self.assertFalse(mocked_gateway.called,
-                             "gateway diagnosis must not be called for external-address run")
-            self.assertFalse(mocked_rootless_plan.called,
-                             "rootless-override planning must not be called for external-address run")
-            self.assertFalse(mocked_rootless_apply.called,
-                             "rootless-override application must not be called for external-address run")
+            self.assertFalse(
+                mocked_doctor.called,
+                "doctor must not be called for external-address run",
+            )
+            self.assertFalse(
+                mocked_build_orch_gateway.called,
+                "build-orch diagnose_gateway must not be called for external-address run",
+            )
+            self.assertFalse(
+                mocked_gateway.called,
+                "gateway diagnosis must not be called for external-address run",
+            )
+            self.assertFalse(
+                mocked_rootless_plan.called,
+                "rootless-override planning must not be called for external-address run",
+            )
+            self.assertFalse(
+                mocked_rootless_apply.called,
+                "rootless-override application must not be called for external-address run",
+            )
             vector = getattr(run_result, "display_string", "") or ""
             self.assertIn(
-                f"host.docker.internal:{address}", vector,
+                f"host.docker.internal:{address}",
+                vector,
                 "external-address run must map host.docker.internal",
             )
             self.assertIn(
-                f"HOST_ACCESS_ADDRESS={address}", vector,
+                f"HOST_ACCESS_ADDRESS={address}",
+                vector,
                 "external-address run must export HOST_ACCESS_ADDRESS",
             )
             self.assertIn(
-                f"HOST_PROXY_PORT={port}", vector,
+                f"HOST_PROXY_PORT={port}",
+                vector,
                 "external-address run must export HOST_PROXY_PORT",
             )
 
@@ -590,15 +660,11 @@ class TestExternalAddressEndToEnd(unittest.TestCase):
             inv = _write_inventory(
                 root_path,
                 policy=(
-                    '[runtime.host-access]\n'
-                    'enabled = true\n'
-                    'mode = "external-address"\n'
+                    '[runtime.host-access]\nenabled = true\nmode = "external-address"\n'
                 ),
             )
             companion = root_path / "docker-constructor.local.toml"
-            companion.write_text(
-                f'[host-access]\naddress = "{address}"\n'
-            )
+            companion.write_text(f'[host-access]\naddress = "{address}"\n')
             original = companion.read_text()
 
             doctor_result = orchestrate_doctor(
@@ -611,12 +677,14 @@ class TestExternalAddressEndToEnd(unittest.TestCase):
             )
             self.assertEqual(ExitKind.SUCCESS, doctor_result.exit_kind)
             self.assertIn(
-                "external-address", doctor_result.message or "",
+                "external-address",
+                doctor_result.message or "",
                 "doctor must report external-address skip",
             )
             # Local companion must remain unchanged
             self.assertEqual(
-                original, companion.read_text(),
+                original,
+                companion.read_text(),
                 "local companion must not be altered by doctor in external-address mode",
             )
 
@@ -624,6 +692,7 @@ class TestExternalAddressEndToEnd(unittest.TestCase):
 # ═══════════════════════════════════════════════════════════════════════
 # 6.4  Custom inventory path + fixed local companion + cache
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestCustomInventoryWithCache(unittest.TestCase):
     """6.4: Custom inventory path, fixed local companion, reviewed cache
@@ -654,8 +723,8 @@ class TestCustomInventoryWithCache(unittest.TestCase):
             inv = repo_root / f"{stem}.toml"
             inv.write_text(
                 raw + "\n"
-                '[runtime.host-access]\n'
-                'enabled = true\n'
+                "[runtime.host-access]\n"
+                "enabled = true\n"
                 'mode = "docker-gateway"\n',
             )
 
@@ -684,12 +753,14 @@ class TestCustomInventoryWithCache(unittest.TestCase):
 
             resolved = resolve_local_companion_path(inv)
             self.assertEqual(
-                local.resolve(), resolved.resolve(),
+                local.resolve(),
+                resolved.resolve(),
                 "companion path must use the fixed basename beside"
                 " the custom inventory, not its parent directory.",
             )
             self.assertNotEqual(
-                repo_local.resolve(), resolved.resolve(),
+                repo_local.resolve(),
+                resolved.resolve(),
                 "repository-root companion must never be resolved"
                 " for a custom inventory",
             )
@@ -701,7 +772,8 @@ class TestCustomInventoryWithCache(unittest.TestCase):
             self.assertIsNotNone(reviewed.cache)
             assert reviewed.cache is not None
             self.assertEqual(
-                custom_ttl, reviewed.cache.ttl,
+                custom_ttl,
+                reviewed.cache.ttl,
                 "reviewed cache.ttl must be the explicit custom value",
             )
             self.assertIsNone(
@@ -719,20 +791,24 @@ class TestCustomInventoryWithCache(unittest.TestCase):
             self.assertIsNotNone(local_cfg)
             assert local_cfg is not None
             self.assertEqual(
-                custom_address, local_cfg.host_access.address,
+                custom_address,
+                local_cfg.host_access.address,
                 "custom local companion address must be used",
             )
             self.assertNotEqual(
-                repo_address, local_cfg.host_access.address,
+                repo_address,
+                local_cfg.host_access.address,
                 "repository-root address must not leak into local config",
             )
             self.assertEqual(
-                custom_cache_dir, local_cfg.cache.dir,
+                custom_cache_dir,
+                local_cfg.cache.dir,
                 f"custom cache dir {custom_cache_dir!r} must be used,"
                 f" not repo {repo_cache_dir!r}",
             )
             self.assertNotEqual(
-                repo_cache_dir, local_cfg.cache.dir,
+                repo_cache_dir,
+                local_cfg.cache.dir,
                 "repository-root cache dir must not leak into local config",
             )
 
@@ -748,17 +824,20 @@ class TestCustomInventoryWithCache(unittest.TestCase):
                     pi_home_host="/home/user/.pi",
                     dry_run=True,
                     executor=_bomb_docker(),
-                project_root=Path(str(inv)).resolve().parent),
+                    project_root=Path(str(inv)).resolve().parent,
+                ),
             )
             self.assertEqual(ExitKind.SUCCESS, run_result.exit_kind)
             vector = getattr(run_result, "display_string", "") or ""
             self.assertIn(
-                f"host.docker.internal:{custom_address}", vector,
+                f"host.docker.internal:{custom_address}",
+                vector,
                 "custom inventory must resolve its own local companion,"
                 f" not repo ({repo_address})",
             )
             self.assertNotIn(
-                repo_address, vector,
+                repo_address,
+                vector,
                 "repository-root companion must not leak into run",
             )
 
@@ -766,6 +845,7 @@ class TestCustomInventoryWithCache(unittest.TestCase):
 # ═══════════════════════════════════════════════════════════════════════
 # 6.5  Invalid local state — no side effects
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestInvalidLocalStateSafety(unittest.TestCase):
     """6.5: Invalid local state must cause failure **before** any
@@ -781,12 +861,11 @@ class TestInvalidLocalStateSafety(unittest.TestCase):
         def __init__(self, effects: list[str]) -> None:
             self._effects = effects
 
-        def run(self, argv: tuple[str, ...], *,
-                interactive: bool = False) -> Any:
+        def run(self, argv: tuple[str, ...], *, interactive: bool = False) -> Any:
             from docker.launcher import ProcessResult
+
             self._effects.append("docker-execution")
-            return ProcessResult(argv=argv, return_code=0,
-                                 stdout="", stderr="")
+            return ProcessResult(argv=argv, return_code=0, stdout="", stderr="")
 
     class _RecordingInspector:
         """Records container-name-list calls."""
@@ -803,6 +882,7 @@ class TestInvalidLocalStateSafety(unittest.TestCase):
         def _fn(*_args, **_kwargs):
             effects.append("runtime-projection-creation")
             return None
+
         return _fn
 
     @staticmethod
@@ -810,6 +890,7 @@ class TestInvalidLocalStateSafety(unittest.TestCase):
         def _fn(*_args, **_kwargs):
             effects.append("artifact-download-materialization")
             return []
+
         return _fn
 
     @staticmethod
@@ -817,6 +898,7 @@ class TestInvalidLocalStateSafety(unittest.TestCase):
         def _fn(*_args, **_kwargs):
             effects.append("cache-publication")
             return []
+
         return _fn
 
     @staticmethod
@@ -824,6 +906,7 @@ class TestInvalidLocalStateSafety(unittest.TestCase):
         def _fn(*_args, **_kwargs):
             effects.append("rootless-override-apply")
             return None
+
         return _fn
 
     @staticmethod
@@ -831,6 +914,7 @@ class TestInvalidLocalStateSafety(unittest.TestCase):
         def _fn(*_args, **_kwargs):
             effects.append("rootless-override-plan")
             return None
+
         return _fn
 
     @staticmethod
@@ -838,19 +922,22 @@ class TestInvalidLocalStateSafety(unittest.TestCase):
         def _fn(*_args, **_kwargs):
             effects.append("gateway-diagnosis")
             return None
+
         return _fn
 
-    def _assert_no_side_effects(self, effects: list[str],
-                                reviewed_bytes: bytes,
-                                inv: Path) -> None:
+    def _assert_no_side_effects(
+        self, effects: list[str], reviewed_bytes: bytes, inv: Path
+    ) -> None:
         """Assert no side-effect guard was triggered and reviewed
         source is byte-for-byte unchanged."""
         self.assertEqual(
-            [], effects,
+            [],
+            effects,
             f"side effects triggered before failure: {effects}",
         )
         self.assertEqual(
-            reviewed_bytes, inv.read_bytes(),
+            reviewed_bytes,
+            inv.read_bytes(),
             "reviewed inventory must be byte-for-byte unchanged",
         )
 
@@ -903,11 +990,13 @@ class TestInvalidLocalStateSafety(unittest.TestCase):
                         inspector=self._RecordingInspector(effects),
                         _create_projection=self._record_projection(effects),
                         _artifact_fetcher=self._record_artifact_fetch(effects),
-                    project_root=Path(str(inv)).resolve().parent),
+                        project_root=Path(str(inv)).resolve().parent,
+                    ),
                 )
 
             self.assertNotEqual(
-                ExitKind.SUCCESS, result.exit_kind,
+                ExitKind.SUCCESS,
+                result.exit_kind,
                 "malformed local companion must produce a failure exit",
             )
             self._assert_no_side_effects(effects, reviewed_bytes, inv)
@@ -927,7 +1016,7 @@ class TestInvalidLocalStateSafety(unittest.TestCase):
 
             # Local companion present but no host-access section
             companion = root_path / "docker-constructor.local.toml"
-            companion.write_text("[cache]\ndir = \"/tmp/cache\"\n")
+            companion.write_text('[cache]\ndir = "/tmp/cache"\n')
 
             from docker.launcher import orchestrate_run
             from docker.launcher import WorkspaceSelection
@@ -963,11 +1052,13 @@ class TestInvalidLocalStateSafety(unittest.TestCase):
                         inspector=self._RecordingInspector(effects),
                         _create_projection=self._record_projection(effects),
                         _artifact_fetcher=self._record_artifact_fetch(effects),
-                    project_root=Path(str(inv)).resolve().parent),
+                        project_root=Path(str(inv)).resolve().parent,
+                    ),
                 )
 
             self.assertNotEqual(
-                ExitKind.SUCCESS, result.exit_kind,
+                ExitKind.SUCCESS,
+                result.exit_kind,
                 "missing address for enabled mode must fail",
             )
             self._assert_no_side_effects(effects, reviewed_bytes, inv)
@@ -996,11 +1087,13 @@ class TestInvalidLocalStateSafety(unittest.TestCase):
             self.assertIsNotNone(error, "must return an actionable error")
             assert error is not None
             self.assertIn(
-                "[host-access].address", error,
+                "[host-access].address",
+                error,
                 "error must mention the missing key",
             )
             self.assertIn(
-                "doctor", error.lower(),
+                "doctor",
+                error.lower(),
                 "error must suggest running doctor",
             )
             # Policy and address must be absent when there's an error

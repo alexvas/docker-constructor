@@ -121,7 +121,8 @@ class TestValidLockfileAcceptance(unittest.TestCase):
             roots={"@scope/tool": "1.2.3"},
             packages={
                 "node_modules/@scope/tool": _pkg(
-                    "@scope/tool", "1.2.3",
+                    "@scope/tool",
+                    "1.2.3",
                     dependencies={"@scope/helper": "^2.0.0"},
                 ),
                 "node_modules/@scope/helper": _pkg("@scope/helper", "2.0.1"),
@@ -166,7 +167,11 @@ class TestValidLockfileAcceptance(unittest.TestCase):
         for alg, nbytes in (("sha256", 32), ("sha384", 48), ("sha512", 64)):
             raw = _lock(
                 roots={"pkg": "1.0.0"},
-                packages={"node_modules/pkg": _pkg("pkg", "1.0.0", integrity=_sri(alg, nbytes))},
+                packages={
+                    "node_modules/pkg": _pkg(
+                        "pkg", "1.0.0", integrity=_sri(alg, nbytes)
+                    )
+                },
             )
             lockfile = parse_lockfile(
                 raw, platform="linux-x64", roots=_roots(("pkg", "1.0.0"))
@@ -175,7 +180,8 @@ class TestValidLockfileAcceptance(unittest.TestCase):
 
     def test_closed_parser_exists_and_is_immutable(self):
         lockfile = parse_lockfile(
-            _lock(roots={"pkg": "1.0.0"}), platform="linux-x64",
+            _lock(roots={"pkg": "1.0.0"}),
+            platform="linux-x64",
             roots=_roots(("pkg", "1.0.0")),
         )
         pkg = lockfile.packages[0]
@@ -273,19 +279,22 @@ class TestReviewedRootMetadata(unittest.TestCase):
             roots={"a": "1.0.0", "b": "2.0.0"},
             packages={
                 "node_modules/a": _pkg(
-                    "a", "1.0.0",
+                    "a",
+                    "1.0.0",
                     bin={"a": "dist/cli.js"},
                     engines={"node": ">=18"},
                 ),
                 "node_modules/b": _pkg(
-                    "b", "2.0.0",
+                    "b",
+                    "2.0.0",
                     bin={"b": "bin/b.js"},
                     engines={"node": ">=20"},
                 ),
             },
         )
         lockfile = parse_lockfile(
-            raw, platform="linux-x64",
+            raw,
+            platform="linux-x64",
             roots=_roots(("a", "1.0.0"), ("b", "2.0.0")),
         )
         self.assertEqual(len(lockfile.root_metadata), 2)
@@ -313,11 +322,10 @@ class TestReviewedRootMetadata(unittest.TestCase):
         raw = _lock(
             roots={"a": "1.0.0"},
             packages={
-                "node_modules/a": _pkg(
-                    "a", "1.0.0", dependencies={"b": "^1.0.0"}
-                ),
+                "node_modules/a": _pkg("a", "1.0.0", dependencies={"b": "^1.0.0"}),
                 "node_modules/b": _pkg(
-                    "b", "1.5.0",
+                    "b",
+                    "1.5.0",
                     bin={"b": "dist/b.js"},
                     engines={"node": "^12.17.0 || ^14.13 || >=16.0.0"},
                 ),
@@ -362,20 +370,17 @@ class TestIgnoredMetadata(unittest.TestCase):
             raw, platform="linux-x64", roots=_roots(("a", "1.0.0"))
         )
         # Manifest engines must not substitute for the reviewed root's.
-        self.assertEqual(
-            [m.package_name for m in lockfile.root_metadata], ["a"]
-        )
+        self.assertEqual([m.package_name for m in lockfile.root_metadata], ["a"])
         self.assertEqual(lockfile.root_metadata[0].engines_node, None)
 
     def test_transitive_metadata_accepted_and_discarded(self):
         raw = _lock(
             roots={"a": "1.0.0"},
             packages={
-                "node_modules/a": _pkg(
-                    "a", "1.0.0", dependencies={"b": "^1.0.0"}
-                ),
+                "node_modules/a": _pkg("a", "1.0.0", dependencies={"b": "^1.0.0"}),
                 "node_modules/b": _pkg(
-                    "b", "1.5.0",
+                    "b",
+                    "1.5.0",
                     bin={"b": "cli.js"},
                     engines={"node": "18 || 20 || >=22"},
                     license="MIT",
@@ -398,12 +403,8 @@ class TestIgnoredMetadata(unittest.TestCase):
             return _lock(
                 roots={"a": "1.0.0"},
                 packages={
-                    "node_modules/a": _pkg(
-                        "a", "1.0.0", dependencies={"b": "^1.0.0"}
-                    ),
-                    "node_modules/b": _pkg(
-                        "b", "1.5.0", license=license_value
-                    ),
+                    "node_modules/a": _pkg("a", "1.0.0", dependencies={"b": "^1.0.0"}),
+                    "node_modules/b": _pkg("b", "1.5.0", license=license_value),
                 },
             )
 
@@ -486,9 +487,7 @@ class TestPreflight(unittest.TestCase):
         raw = _lock(
             roots={"a": "1.0.0"},
             packages={
-                "node_modules/a": _pkg(
-                    "a", "1.0.0", dependencies={"b": "^1.0.0"}
-                ),
+                "node_modules/a": _pkg("a", "1.0.0", dependencies={"b": "^1.0.0"}),
                 "node_modules/b": _pkg("b", "1.5.0", engines={"node": ">=99"}),
             },
         )
@@ -555,9 +554,7 @@ class TestPreflight(unittest.TestCase):
         # Byte-for-byte identical: no decode/encode round trip occurred.
         self.assertEqual(validated.lockfile_bytes, raw)
         self.assertIs(validated.lockfile_bytes, raw)
-        self.assertEqual(
-            validated.lockfile_digest, hashlib.sha256(raw).hexdigest()
-        )
+        self.assertEqual(validated.lockfile_digest, hashlib.sha256(raw).hexdigest())
         self.assertNotEqual(
             validated.lockfile_digest, hashlib.sha256(canonical).hexdigest()
         )
@@ -566,7 +563,9 @@ class TestPreflight(unittest.TestCase):
 class TestLockRejection(unittest.TestCase):
     """1.2 — every unsafe/unsupported input is rejected before effects."""
 
-    def _expect(self, raw: str, platform: str, roots: tuple[RootSpec, ...], reason: str):
+    def _expect(
+        self, raw: str, platform: str, roots: tuple[RootSpec, ...], reason: str
+    ):
         with self.assertRaises(LockedNpmError) as ctx:
             parse_lockfile(raw, platform=platform, roots=roots)
         self.assertEqual(ctx.exception.reason, reason)
@@ -616,13 +615,20 @@ class TestLockRejection(unittest.TestCase):
     def test_missing_required_node(self):
         raw = _lock(
             roots={"a": "1.0.0"},
-            packages={"node_modules/a": _pkg("a", "1.0.0", dependencies={"b": "^1.0.0"})},
+            packages={
+                "node_modules/a": _pkg("a", "1.0.0", dependencies={"b": "^1.0.0"})
+            },
         )
         self._expect(raw, "linux-x64", _roots(("a", "1.0.0")), "missing_node")
 
     def test_unsafe_paths(self):
-        for path in ("../escape", "node_modules/../escape", "/absolute",
-                     "node_modules/a//b", "node_modules/a\\b"):
+        for path in (
+            "../escape",
+            "node_modules/../escape",
+            "/absolute",
+            "node_modules/a//b",
+            "node_modules/a\\b",
+        ):
             raw = _lock(
                 roots={},
                 packages={path: _pkg("escape", "1.0.0")},
@@ -725,7 +731,9 @@ class TestLockRejection(unittest.TestCase):
                 roots={"a": "1.0.0"},
                 packages={"node_modules/a": _pkg("a", "1.0.0", bin={"a": bad})},
             )
-            self._expect(raw, "linux-x64", _roots(("a", "1.0.0")), "unsafe_executable_path")
+            self._expect(
+                raw, "linux-x64", _roots(("a", "1.0.0")), "unsafe_executable_path"
+            )
 
     def test_transitive_bin_unsafe_target_is_accepted(self):
         # Transitive bin is shape-validated only (--no-bin-links): an unsafe
@@ -748,13 +756,18 @@ class TestLockRejection(unittest.TestCase):
             self._expect(raw, "linux-x64", _roots(("a", "1.0.0")), "malformed_lockfile")
 
     def test_unknown_engine_key_rejected(self):
-        for role_pkg in (None, {"node_modules/a": _pkg("a", "1.0.0", engines={"npm": ">=10"})}):
+        for role_pkg in (
+            None,
+            {"node_modules/a": _pkg("a", "1.0.0", engines={"npm": ">=10"})},
+        ):
             raw = _lock(
                 roots={"a": "1.0.0"},
                 root_extra={"engines": {"npm": ">=10"}} if role_pkg is None else None,
                 packages=role_pkg,
             )
-            self._expect(raw, "linux-x64", _roots(("a", "1.0.0")), "unsupported_engine_key")
+            self._expect(
+                raw, "linux-x64", _roots(("a", "1.0.0")), "unsupported_engine_key"
+            )
 
     def test_invalid_engine_range_rejected(self):
         for bad in ("", "not a range", "1.2.3.4"):
@@ -762,7 +775,9 @@ class TestLockRejection(unittest.TestCase):
                 roots={"a": "1.0.0"},
                 packages={"node_modules/a": _pkg("a", "1.0.0", engines={"node": bad})},
             )
-            self._expect(raw, "linux-x64", _roots(("a", "1.0.0")), "invalid_engine_range")
+            self._expect(
+                raw, "linux-x64", _roots(("a", "1.0.0")), "invalid_engine_range"
+            )
 
     def test_engines_not_object_rejected(self):
         raw = _lock(
@@ -803,7 +818,9 @@ class TestLockRejection(unittest.TestCase):
     def test_package_dev_dependencies_rejected(self):
         raw = _lock(
             roots={"a": "1.0.0"},
-            packages={"node_modules/a": _pkg("a", "1.0.0", devDependencies={"c": "^1.0.0"})},
+            packages={
+                "node_modules/a": _pkg("a", "1.0.0", devDependencies={"c": "^1.0.0"})
+            },
         )
         self._expect(raw, "linux-x64", _roots(("a", "1.0.0")), "unsupported_field")
 
@@ -827,7 +844,8 @@ class TestOptionalOmissionModel(unittest.TestCase):
         )
         # On darwin the optional root is applicable and therefore required.
         lockfile = parse_lockfile(
-            raw, platform="darwin-arm64",
+            raw,
+            platform="darwin-arm64",
             roots=_roots(("chalk", "4.1.2"), ("fsevents", "2.3.3")),
         )
         self.assertEqual(lockfile.omitted_optionals, ())
@@ -874,7 +892,8 @@ class TestOptionalOmissionModel(unittest.TestCase):
             roots={"a": "1.0.0"},
             packages={
                 "node_modules/a": _pkg(
-                    "a", "1.0.0",
+                    "a",
+                    "1.0.0",
                     optionalDependencies={"native": "^2.0.0"},
                 ),
                 "node_modules/native": _pkg(
@@ -895,7 +914,8 @@ class TestOptionalOmissionModel(unittest.TestCase):
             roots={"a": "1.0.0"},
             packages={
                 "node_modules/a": _pkg(
-                    "a", "1.0.0",
+                    "a",
+                    "1.0.0",
                     dependencies={"b": "^1.0.0"},
                     optionalDependencies={"c": "^1.0.0"},
                 ),
@@ -927,11 +947,13 @@ class TestOptionalOmissionModel(unittest.TestCase):
             roots={"a": "1.0.0"},
             packages={
                 "node_modules/a": _pkg(
-                    "a", "1.0.0",
+                    "a",
+                    "1.0.0",
                     optionalDependencies={"native": "^2.0.0"},
                 ),
                 "node_modules/native": _pkg(
-                    "native", "2.0.0",
+                    "native",
+                    "2.0.0",
                     optional=True,
                     os=["win32"],
                     dependencies={"gone": "^1.0.0"},
@@ -980,7 +1002,8 @@ class TestPeerDependencies(unittest.TestCase):
             roots={"a": "1.0.0"},
             packages={
                 "node_modules/a": _pkg(
-                    "a", "1.0.0",
+                    "a",
+                    "1.0.0",
                     peerDependencies={"b": "^1.0.0"},
                     peerDependenciesMeta={"b": {"optional": True}},
                 ),
@@ -996,7 +1019,8 @@ class TestPeerDependencies(unittest.TestCase):
             roots={"a": "1.0.0"},
             packages={
                 "node_modules/a": _pkg(
-                    "a", "1.0.0",
+                    "a",
+                    "1.0.0",
                     peerDependencies={"b": "^1.0.0"},
                     peerDependenciesMeta={"b": {"optional": True}},
                 ),
@@ -1015,7 +1039,8 @@ class TestPeerDependencies(unittest.TestCase):
             roots={"a": "1.0.0"},
             packages={
                 "node_modules/a": _pkg(
-                    "a", "1.0.0",
+                    "a",
+                    "1.0.0",
                     peerDependencies={"b": "^1.0.0"},
                     peerDependenciesMeta={"c": {"optional": True}},
                 ),
@@ -1056,9 +1081,7 @@ class TestPeerDependencies(unittest.TestCase):
         lockfile = parse_lockfile(
             raw, platform="linux-x64", roots=_roots(("a", "1.0.0"))
         )
-        self.assertEqual(
-            sorted(p.name for p in lockfile.packages), ["a", "peer"]
-        )
+        self.assertEqual(sorted(p.name for p in lockfile.packages), ["a", "peer"])
 
     def test_nested_peer_does_not_satisfy_peer_dependency(self):
         # ``node_modules/a/node_modules/peer`` must not satisfy ``a``'s peer
@@ -1071,9 +1094,7 @@ class TestPeerDependencies(unittest.TestCase):
                 "node_modules/a": _pkg(
                     "a", "1.0.0", peerDependencies={"peer": "^1.0.0"}
                 ),
-                "node_modules/a/node_modules/peer": _pkg(
-                    "peer", "1.0.0", peer=True
-                ),
+                "node_modules/a/node_modules/peer": _pkg("peer", "1.0.0", peer=True),
             },
         )
         with self.assertRaises(LockedNpmError) as ctx:
@@ -1087,23 +1108,17 @@ class TestPeerDependencies(unittest.TestCase):
         raw = _lock(
             roots={"b": "1.0.0"},
             packages={
-                "node_modules/b": _pkg(
-                    "b", "1.0.0", dependencies={"a": "^1.0.0"}
-                ),
+                "node_modules/b": _pkg("b", "1.0.0", dependencies={"a": "^1.0.0"}),
                 "node_modules/b/node_modules/a": _pkg(
                     "a", "1.0.0", peerDependencies={"peer": "^1.0.0"}
                 ),
-                "node_modules/b/node_modules/peer": _pkg(
-                    "peer", "1.0.0", peer=True
-                ),
+                "node_modules/b/node_modules/peer": _pkg("peer", "1.0.0", peer=True),
             },
         )
         lockfile = parse_lockfile(
             raw, platform="linux-x64", roots=_roots(("b", "1.0.0"))
         )
-        self.assertEqual(
-            sorted(p.name for p in lockfile.packages), ["a", "b", "peer"]
-        )
+        self.assertEqual(sorted(p.name for p in lockfile.packages), ["a", "b", "peer"])
 
 
 class TestClosurePackageSelection(unittest.TestCase):
@@ -1151,18 +1166,14 @@ class TestClosurePackageSelection(unittest.TestCase):
         raw = _lock(
             roots={"a": "1.0.0"},
             packages={
-                "node_modules/a": _pkg(
-                    "a", "1.0.0", dependencies={"b": "^1.0.0"}
-                ),
+                "node_modules/a": _pkg("a", "1.0.0", dependencies={"b": "^1.0.0"}),
                 "node_modules/b": _pkg("b", "1.0.0"),
             },
         )
         lockfile = parse_lockfile(
             raw, platform="linux-x64", roots=_roots(("a", "1.0.0"))
         )
-        self.assertEqual(
-            sorted(p.name for p in lockfile.packages), ["a", "b"]
-        )
+        self.assertEqual(sorted(p.name for p in lockfile.packages), ["a", "b"])
 
     def test_self_referencing_orphan_rejected(self):
         # ``selfref`` only references itself; it is not root-connected.
@@ -1185,12 +1196,8 @@ class TestClosurePackageSelection(unittest.TestCase):
             roots={"a": "1.0.0"},
             packages={
                 "node_modules/a": _pkg("a", "1.0.0"),
-                "node_modules/x": _pkg(
-                    "x", "1.0.0", dependencies={"y": "^1.0.0"}
-                ),
-                "node_modules/y": _pkg(
-                    "y", "1.0.0", dependencies={"x": "^1.0.0"}
-                ),
+                "node_modules/x": _pkg("x", "1.0.0", dependencies={"y": "^1.0.0"}),
+                "node_modules/y": _pkg("y", "1.0.0", dependencies={"x": "^1.0.0"}),
             },
         )
         with self.assertRaises(LockedNpmError) as ctx:
@@ -1205,11 +1212,13 @@ class TestClosurePackageSelection(unittest.TestCase):
             roots={"a": "1.0.0"},
             packages={
                 "node_modules/a": _pkg(
-                    "a", "1.0.0",
+                    "a",
+                    "1.0.0",
                     optionalDependencies={"native": "^2.0.0"},
                 ),
                 "node_modules/native": _pkg(
-                    "native", "2.0.0",
+                    "native",
+                    "2.0.0",
                     optional=True,
                     os=["win32"],
                     dependencies={"helper": "^1.0.0"},
@@ -1238,7 +1247,8 @@ class TestOverlappingOptionalDependencies(unittest.TestCase):
             roots={"a": "1.0.0"},
             packages={
                 "node_modules/a": _pkg(
-                    "a", "1.0.0",
+                    "a",
+                    "1.0.0",
                     dependencies={"x": "^1.0.0"},
                     optionalDependencies={"x": "^2.0.0"},
                 ),
@@ -1248,16 +1258,15 @@ class TestOverlappingOptionalDependencies(unittest.TestCase):
         lockfile = parse_lockfile(
             raw, platform="linux-x64", roots=_roots(("a", "1.0.0"))
         )
-        self.assertEqual(
-            sorted(p.name for p in lockfile.packages), ["a", "x"]
-        )
+        self.assertEqual(sorted(p.name for p in lockfile.packages), ["a", "x"])
 
     def test_overlapping_absent_optional_is_missing_node(self):
         raw = _lock(
             roots={"a": "1.0.0"},
             packages={
                 "node_modules/a": _pkg(
-                    "a", "1.0.0",
+                    "a",
+                    "1.0.0",
                     dependencies={"x": "^1.0.0"},
                     optionalDependencies={"x": "^2.0.0"},
                 ),
@@ -1280,9 +1289,7 @@ class TestOverlappingOptionalDependencies(unittest.TestCase):
                 ),
             },
         )
-        lockfile = parse_lockfile(
-            raw, platform="linux-x64", roots=_roots()
-        )
+        lockfile = parse_lockfile(raw, platform="linux-x64", roots=_roots())
         self.assertEqual(
             [(o.name, o.reason) for o in lockfile.omitted_optionals],
             [("native", "platform-inapplicable")],

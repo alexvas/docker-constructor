@@ -1,4 +1,5 @@
 """Closed configuration, identity, metadata, and disclosure boundaries."""
+
 from __future__ import annotations
 
 import json
@@ -20,7 +21,10 @@ from docker.npm_environment import (
 )
 from docker.versioning.evidence import collect_evidence
 from docker.versioning.errors import InventoryError
-from tests.test_constructor_corporate_network_verification_red import _ClientCaRunner, _verify
+from tests.test_constructor_corporate_network_verification_red import (
+    _ClientCaRunner,
+    _verify,
+)
 
 _REPO = Path(__file__).resolve().parents[1]
 _NAMES = tuple(name for name, _ in CLIENT_CA_ENVIRONMENT)
@@ -30,13 +34,23 @@ _CERTIFICATE = "-----BEGIN CERTIFICATE-----\nSECRET-CONTENT\n-----END CERTIFICAT
 
 class TestClosedClientCaConfiguration(unittest.TestCase):
     def test_mapping_is_exactly_five_fixed_names_and_one_fixed_value(self) -> None:
-        self.assertEqual(_NAMES, (
-            "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "REQUESTS_CA_BUNDLE",
-            "PIP_CERT", "CURL_CA_BUNDLE",
-        ))
-        self.assertEqual({value for _, value in CLIENT_CA_ENVIRONMENT}, {SYSTEM_CA_BUNDLE})
+        self.assertEqual(
+            _NAMES,
+            (
+                "NODE_EXTRA_CA_CERTS",
+                "SSL_CERT_FILE",
+                "REQUESTS_CA_BUNDLE",
+                "PIP_CERT",
+                "CURL_CA_BUNDLE",
+            ),
+        )
+        self.assertEqual(
+            {value for _, value in CLIENT_CA_ENVIRONMENT}, {SYSTEM_CA_BUNDLE}
+        )
 
-    def test_local_configuration_rejects_arbitrary_name_value_and_path_fields(self) -> None:
+    def test_local_configuration_rejects_arbitrary_name_value_and_path_fields(
+        self,
+    ) -> None:
         for key, value in (
             ("environment", {"OTHER_CA": "/tmp/ca.pem"}),
             ("path", "/tmp/ca.pem"),
@@ -46,8 +60,13 @@ class TestClosedClientCaConfiguration(unittest.TestCase):
             with self.subTest(key=key), self.assertRaises(InventoryError):
                 parse_local_corporate_trust({"enabled": True, key: value}, None)
 
-    def test_reviewed_inventory_and_local_example_expose_no_client_ca_fields(self) -> None:
-        for path in (_REPO / "docker-constructor.toml", _REPO / "docker-constructor.local.example.toml"):
+    def test_reviewed_inventory_and_local_example_expose_no_client_ca_fields(
+        self,
+    ) -> None:
+        for path in (
+            _REPO / "docker-constructor.toml",
+            _REPO / "docker-constructor.local.example.toml",
+        ):
             text = path.read_text(encoding="utf-8")
             for name in _NAMES:
                 self.assertNotIn(name, text)
@@ -82,19 +101,23 @@ class TestClientCaDisclosureAndIdentityBoundaries(unittest.TestCase):
         self.assertIn("<redacted>", rendered)
 
     def test_runtime_verification_redacts_exercised_host_material(self) -> None:
-        runner = _ClientCaRunner(enabled=True, overrides={
-            ("printenv", "NODE_EXTRA_CA_CERTS"): (0, _HOST_PATH + "\n", ""),
-            ("printenv", "SSL_CERT_FILE"): (0, _CERTIFICATE + "\n", ""),
-        })
+        runner = _ClientCaRunner(
+            enabled=True,
+            overrides={
+                ("printenv", "NODE_EXTRA_CA_CERTS"): (0, _HOST_PATH + "\n", ""),
+                ("printenv", "SSL_CERT_FILE"): (0, _CERTIFICATE + "\n", ""),
+            },
+        )
         result = _verify(runner, enabled=True)
-        rendered = json.dumps([
-            {"key": check.key, "detail": check.detail}
-            for check in result.checks
-        ])
+        rendered = json.dumps(
+            [{"key": check.key, "detail": check.detail} for check in result.checks]
+        )
         self._assert_sentinels_absent(rendered)
         self.assertIn("corporate-trust.environment", rendered)
 
-    def test_configuration_projection_and_evidence_owners_do_not_import_mapping(self) -> None:
+    def test_configuration_projection_and_evidence_owners_do_not_import_mapping(
+        self,
+    ) -> None:
         for relative in (
             "docker/versioning/effective.py",
             "docker/versioning/evidence.py",
@@ -114,21 +137,29 @@ class TestClientCaDisclosureAndIdentityBoundaries(unittest.TestCase):
                 self.assertNotIn(name, text, relative)
 
     def test_evidence_and_image_inspection_redact_exercised_host_material(self) -> None:
-        inspect_payload = json.dumps([{
-            "Id": "sha256:sentinel-image",
-            "Config": {"Env": ["PATH=/usr/bin"]},
-            "Mounts": [{"Source": _HOST_PATH, "Destination": SYSTEM_CA_BUNDLE}],
-            "Comment": _CERTIFICATE,
-        }])
+        inspect_payload = json.dumps(
+            [
+                {
+                    "Id": "sha256:sentinel-image",
+                    "Config": {"Env": ["PATH=/usr/bin"]},
+                    "Mounts": [{"Source": _HOST_PATH, "Destination": SYSTEM_CA_BUNDLE}],
+                    "Comment": _CERTIFICATE,
+                }
+            ]
+        )
 
         class Runner:
             def run(self, argv):
                 del argv
-                return type("Result", (), {
-                    "return_code": 0,
-                    "stdout": inspect_payload,
-                    "stderr": f"inspected {_HOST_PATH} {_CERTIFICATE}",
-                })()
+                return type(
+                    "Result",
+                    (),
+                    {
+                        "return_code": 0,
+                        "stdout": inspect_payload,
+                        "stderr": f"inspected {_HOST_PATH} {_CERTIFICATE}",
+                    },
+                )()
 
         class Clock:
             def __init__(self) -> None:
@@ -150,18 +181,21 @@ class TestClientCaDisclosureAndIdentityBoundaries(unittest.TestCase):
             )
             files = {
                 path.name: path.read_text(encoding="utf-8")
-                for path in Path(root).iterdir() if path.is_file()
+                for path in Path(root).iterdir()
+                if path.is_file()
             }
             self.assertIn("index.txt", files)
             for filename, raw_content in files.items():
                 with self.subTest(filename=filename):
                     self._assert_sentinels_absent(raw_content)
                     self.assertNotIn(escaped_certificate, raw_content)
-            rendered = json.dumps({
-                "commands": [command.argv for command in bundle.commands],
-                "notes": [(note.key, note.detail) for note in bundle.notes],
-                "files": files,
-            })
+            rendered = json.dumps(
+                {
+                    "commands": [command.argv for command in bundle.commands],
+                    "notes": [(note.key, note.detail) for note in bundle.notes],
+                    "files": files,
+                }
+            )
 
         self._assert_sentinels_absent(rendered)
         self.assertNotIn(escaped_certificate, rendered)

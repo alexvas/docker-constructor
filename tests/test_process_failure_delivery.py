@@ -1,4 +1,5 @@
 """Value delivery, real-reader retention and late observation isolation."""
+
 import subprocess
 import sys
 import threading
@@ -14,7 +15,11 @@ from tests.test_process_stream_outcomes import Child as OutcomeChild, Pipe
 
 
 def collect(owner, method, callback=None, end=None):
-    return owner.capture() if method == "capture" else owner.stream(callback or (lambda *a: None), on_stream_end=end)
+    return (
+        owner.capture()
+        if method == "capture"
+        else owner.stream(callback or (lambda *a: None), on_stream_end=end)
+    )
 
 
 @pytest.mark.parametrize("method", ["capture", "stream"])
@@ -22,7 +27,9 @@ def collect(owner, method, callback=None, end=None):
 def test_operation_failure_identity_and_bounded_known_output(method, kind):
     child = Child()
     error = kind("operation observation")
-    owner = OwnedProcess.launch(["child"], factory=lambda *a, **k: child, capture_limit=6, grace_seconds=.1)
+    owner = OwnedProcess.launch(
+        ["child"], factory=lambda *a, **k: child, capture_limit=6, grace_seconds=0.1
+    )
     try:
         assert all(event.wait(1) for event in owner._stopped)
         with mock.patch.object(child, "poll", side_effect=error):
@@ -34,9 +41,16 @@ def test_operation_failure_identity_and_bounded_known_output(method, kind):
             else:
                 result = collect(owner, method)
                 assert type(result) is ProcessResult
-                assert (result.stdout, result.stderr, result.returncode) == (b"stdout", b"stderr", 7)
+                assert (result.stdout, result.stderr, result.returncode) == (
+                    b"stdout",
+                    b"stderr",
+                    7,
+                )
                 status = result.lifecycle
-        assert status.failures[0].error is error and status.failures[0].phase is process.FailurePhase.WAIT
+        assert (
+            status.failures[0].error is error
+            and status.failures[0].phase is process.FailurePhase.WAIT
+        )
         assert not hasattr(error, "process_result")
         assert child.stdout.attempts == child.stderr.attempts == 1
     finally:
@@ -49,8 +63,12 @@ def test_operation_failure_identity_and_bounded_known_output(method, kind):
 def test_reader_failure_retains_clean_sibling_output_and_exact_authority(method, kind):
     release = threading.Event()
     error = kind("read")
-    child = OutcomeChild(stdout=Pipe([b"retained stdout"]), stderr=Pipe(gate=release, error=error))
-    owner = OwnedProcess.launch(["child"], factory=lambda *a, **k: child, capture_limit=6, grace_seconds=.1)
+    child = OutcomeChild(
+        stdout=Pipe([b"retained stdout"]), stderr=Pipe(gate=release, error=error)
+    )
+    owner = OwnedProcess.launch(
+        ["child"], factory=lambda *a, **k: child, capture_limit=6, grace_seconds=0.1
+    )
     try:
         assert owner._stopped[0].wait(1)
         release.set()
@@ -62,7 +80,11 @@ def test_reader_failure_retains_clean_sibling_output_and_exact_authority(method,
         else:
             result = collect(owner, method)
             assert type(result) is ProcessResult
-            assert (result.stdout, result.stderr, result.returncode) == (b"stdout", b"", 7)
+            assert (result.stdout, result.stderr, result.returncode) == (
+                b"stdout",
+                b"",
+                7,
+            )
             status = result.lifecycle
         assert status.failures[0].error is error
         assert status.failures[0].phase is process.FailurePhase.READ
@@ -81,7 +103,9 @@ def test_reader_failure_retains_clean_sibling_output_and_exact_authority(method,
 def test_wait_failure_retains_bounded_output_and_known_returncode(method, kind):
     child = Child()
     error = kind("wait")
-    owner = OwnedProcess.launch(["child"], factory=lambda *a, **k: child, capture_limit=6, grace_seconds=.1)
+    owner = OwnedProcess.launch(
+        ["child"], factory=lambda *a, **k: child, capture_limit=6, grace_seconds=0.1
+    )
     try:
         assert all(event.wait(1) for event in owner._stopped)
         with mock.patch.object(child, "wait", side_effect=[error, 7]):
@@ -92,10 +116,17 @@ def test_wait_failure_retains_bounded_output_and_known_returncode(method, kind):
                 status = owner.cleanup_status
             else:
                 result = collect(owner, method)
-                assert (result.stdout, result.stderr, result.returncode) == (b"stdout", b"stderr", child.returncode)
+                assert (result.stdout, result.stderr, result.returncode) == (
+                    b"stdout",
+                    b"stderr",
+                    child.returncode,
+                )
                 assert result.returncode is not None
                 status = result.lifecycle
-        assert status.failures[0].error is error and status.failures[0].phase is process.FailurePhase.WAIT
+        assert (
+            status.failures[0].error is error
+            and status.failures[0].phase is process.FailurePhase.WAIT
+        )
         assert not hasattr(error, "process_result")
         assert child.stdout.attempts == child.stderr.attempts == 1
         assert owner.wait_cleanup(1).complete
@@ -133,30 +164,53 @@ def test_real_live_reader_value_and_late_release_are_isolated(method):
 
     owner = None
     try:
-        with mock.patch.object(OwnedProcess, "_read_chunk", read), mock.patch.object(OwnedStream, "close", close):
-            owner = OwnedProcess.launch([sys.executable, "-c", "import time; time.sleep(30)"],
-                factory=factory, grace_seconds=.05, deadline_seconds=.05, capture_limit=6)
+        with (
+            mock.patch.object(OwnedProcess, "_read_chunk", read),
+            mock.patch.object(OwnedStream, "close", close),
+        ):
+            owner = OwnedProcess.launch(
+                [sys.executable, "-c", "import time; time.sleep(30)"],
+                factory=factory,
+                grace_seconds=0.05,
+                deadline_seconds=0.05,
+                capture_limit=6,
+            )
             assert entered.wait(1)
             calls, ends = [], []
-            snapshot = collect(owner, method, lambda *args: calls.append(args), lambda *args: ends.append(args))
+            snapshot = collect(
+                owner,
+                method,
+                lambda *args: calls.append(args),
+                lambda *args: ends.append(args),
+            )
             assert type(snapshot) is ProcessResult and not snapshot.lifecycle.complete
             error = snapshot.lifecycle.failures[0].error
-            assert isinstance(error, CleanupIncomplete) and not hasattr(error, "process_result")
-            assert dict(snapshot.stream_outcomes)[process.ProcessStream.STDOUT] is process.StreamOutcome.ABORTED
+            assert isinstance(error, CleanupIncomplete) and not hasattr(
+                error, "process_result"
+            )
+            assert (
+                dict(snapshot.stream_outcomes)[process.ProcessStream.STDOUT]
+                is process.StreamOutcome.ABORTED
+            )
             if method == "stream":
                 assert len(ends) == 2 and set(ends) == set(snapshot.stream_outcomes)
             assert not children[0].stdout.closed and children[0].returncode is not None
-            assert not owner.wait_cleanup(.01).complete
+            assert not owner.wait_cleanup(0.01).complete
             delivered_notes = tuple(getattr(error, "__notes__", ()))
             delivered_calls, delivered_ends = tuple(calls), tuple(ends)
             release_reader.set()
             eventual = owner.wait_cleanup(1)
-            assert eventual.complete and any(f.error is late_error for f in eventual.failures)
+            assert eventual.complete and any(
+                f.error is late_error for f in eventual.failures
+            )
             assert children[0].stdout.closed and children[0].stderr.closed
             assert snapshot.stdout == b"" and not snapshot.lifecycle.complete
             assert tuple(getattr(error, "__notes__", ())) == delivered_notes
             assert tuple(calls) == delivered_calls and tuple(ends) == delivered_ends
-            assert dict(snapshot.stream_outcomes)[process.ProcessStream.STDOUT] is process.StreamOutcome.ABORTED
+            assert (
+                dict(snapshot.stream_outcomes)[process.ProcessStream.STDOUT]
+                is process.StreamOutcome.ABORTED
+            )
             with pytest.raises(RuntimeError):
                 collect(owner, method)
     finally:

@@ -12,6 +12,7 @@ The tests deliberately distinguish the agreed compatibility changes (unknown
 schemes now stay visible; standalone secrets now render ``<secret>``) from
 accidental recognition failures.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -160,15 +161,14 @@ class PolicyMarkerTests(unittest.TestCase):
                 )
                 self.assertEqual(f"{expected} end", result.text)
                 self.assertEqual(("host.example",), result.hostnames)
-                self.assertEqual(("host.example/public",), tuple(
-                    fact.text for fact in result.host_paths
-                ))
+                self.assertEqual(
+                    ("host.example/public",),
+                    tuple(fact.text for fact in result.host_paths),
+                )
                 self.assertEqual(1, len(result.fingerprints))
 
     def test_secret_bearing_host_renders_a_masked_host(self):
-        result = _project(
-            "https://TOKEN.example/public end", secrets=("TOKEN",)
-        )
+        result = _project("https://TOKEN.example/public end", secrets=("TOKEN",))
         self.assertEqual(f"{REDACTED_HOST}/public end", result.text)
         # Markers are display products, not normalized-host facts.
         self.assertEqual((), result.hostnames)
@@ -177,9 +177,7 @@ class PolicyMarkerTests(unittest.TestCase):
         self.assertNotIn(REDACTED_HOST, result.hostnames)
 
     def test_secret_bearing_and_unsafe_path_render_masked_path(self):
-        result = _project(
-            "https://host.example/TOKEN/private end", secrets=("TOKEN",)
-        )
+        result = _project("https://host.example/TOKEN/private end", secrets=("TOKEN",))
         self.assertEqual("host.example/<redacted-path> end", result.text)
         self.assertEqual(("host.example",), result.hostnames)
         self.assertEqual(
@@ -189,12 +187,8 @@ class PolicyMarkerTests(unittest.TestCase):
         self.assertEqual((), result.fingerprints)
 
     def test_masked_host_and_masked_path_together(self):
-        result = _project(
-            "https://TOKEN.example/TOKEN/private end", secrets=("TOKEN",)
-        )
-        self.assertEqual(
-            f"{REDACTED_HOST}/<redacted-path> end", result.text
-        )
+        result = _project("https://TOKEN.example/TOKEN/private end", secrets=("TOKEN",))
+        self.assertEqual(f"{REDACTED_HOST}/<redacted-path> end", result.text)
         self.assertEqual((), result.hostnames)
         self.assertEqual((), result.fingerprints)
 
@@ -222,14 +216,13 @@ class PolicyMarkerTests(unittest.TestCase):
             (NetworkUrlDisplay.HOST_PATH, "before <secret> after"),
         ):
             with self.subTest(mode=mode):
-                result = _project(
-                    "before TOKEN after", secrets=("TOKEN",), mode=mode
-                )
+                result = _project("before TOKEN after", secrets=("TOKEN",), mode=mode)
                 self.assertEqual(expected, result.text)
 
     def test_early_redacted_marker_is_irreversible(self):
         projector = DiagnosticProjector(
-            (), url_display=NetworkUrlDisplay.REDACTED,
+            (),
+            url_display=NetworkUrlDisplay.REDACTED,
             url_identity=SessionUrlIdentity(),
         )
         self.assertEqual(("<redacted>",), projector.feed_text("https://ho"))
@@ -241,9 +234,7 @@ class PolicyMarkerTests(unittest.TestCase):
 
     def test_markers_are_not_normalized_host_facts(self):
         # A masked host and a masked path must not appear in any fact list.
-        result = _project(
-            "https://TOKEN.example/TOKEN/private end", secrets=("TOKEN",)
-        )
+        result = _project("https://TOKEN.example/TOKEN/private end", secrets=("TOKEN",))
         self.assertEqual((), result.hostnames)
         self.assertEqual((), result.host_paths)
         self.assertNotIn(REDACTED_HOST, result.hostnames)
@@ -265,16 +256,12 @@ class DecodedSecretScopeTests(unittest.TestCase):
         self.assertEqual(1, len(result.fingerprints))
 
     def test_host_secret_suppresses_hostname_and_fingerprint(self):
-        result = _project(
-            "https://TOKEN.example/public end", secrets=("TOKEN",)
-        )
+        result = _project("https://TOKEN.example/public end", secrets=("TOKEN",))
         self.assertEqual((), result.hostnames)
         self.assertEqual((), result.fingerprints)
 
     def test_path_secret_suppresses_fingerprint_but_keeps_safe_hostname(self):
-        result = _project(
-            "https://host.example/TOKEN/private end", secrets=("TOKEN",)
-        )
+        result = _project("https://host.example/TOKEN/private end", secrets=("TOKEN",))
         self.assertEqual(("host.example",), result.hostnames)
         self.assertEqual(
             ("host.example/<redacted-path>",),
@@ -301,10 +288,13 @@ class FactGateRouteTests(unittest.TestCase):
     def test_clean_eof_applies_the_same_gates(self):
         cases = (
             ("https://TOKEN.example/public", ("TOKEN",), (), ()),
-            ("https://host.example/TOKEN/private", ("TOKEN",),
-             ("host.example",), ()),
-            ("https://user:TOKEN@host.example/public", ("TOKEN",),
-             ("host.example",), None),
+            ("https://host.example/TOKEN/private", ("TOKEN",), ("host.example",), ()),
+            (
+                "https://user:TOKEN@host.example/public",
+                ("TOKEN",),
+                ("host.example",),
+                None,
+            ),
             ("TOKENhttps://host.example/public", ("TOKEN",), (), ()),
         )
         for text, secrets, hosts, fingerprints in cases:
@@ -357,10 +347,13 @@ class FactGateRouteTests(unittest.TestCase):
 
     def test_host_and_path_facts_are_delayed_until_settled(self):
         projector = DiagnosticProjector(
-            (), url_display=NetworkUrlDisplay.HOST_PATH,
+            (),
+            url_display=NetworkUrlDisplay.HOST_PATH,
             url_identity=SessionUrlIdentity(),
         )
-        self.assertEqual(("host.example",), projector.feed_text("https://host.example/pa"))
+        self.assertEqual(
+            ("host.example",), projector.feed_text("https://host.example/pa")
+        )
         # The host is a committed component, but the URL is not complete, so no
         # hostname or fingerprint fact is granted yet.
         self.assertEqual((), projector.hostnames)
@@ -388,9 +381,9 @@ class FactGateRouteTests(unittest.TestCase):
             secrets=("TOKEN",),
         )
         self.assertEqual(("safe.example",), result.hostnames)
-        self.assertEqual(("safe.example/public",), tuple(
-            fact.text for fact in result.host_paths
-        ))
+        self.assertEqual(
+            ("safe.example/public",), tuple(fact.text for fact in result.host_paths)
+        )
         self.assertEqual(1, len(result.fingerprints))
 
 
@@ -401,7 +394,8 @@ class CanonicalIdentityTests(unittest.TestCase):
     def _fingerprint(url, secrets=(), identity=None):
         identity = identity or SessionUrlIdentity()
         projector = DiagnosticProjector(
-            secrets, url_identity=identity,
+            secrets,
+            url_identity=identity,
             url_display=NetworkUrlDisplay.REDACTED,
         )
         list(projector.feed_text(url + " "))
@@ -423,9 +417,7 @@ class CanonicalIdentityTests(unittest.TestCase):
     def test_explicit_default_port_is_preserved(self):
         identity = SessionUrlIdentity()
         implicit = self._fingerprint("https://host.example/a", identity=identity)
-        explicit = self._fingerprint(
-            "https://host.example:443/a", identity=identity
-        )
+        explicit = self._fingerprint("https://host.example:443/a", identity=identity)
         self.assertNotEqual(implicit, explicit)
 
     def test_userinfo_query_and_fragment_do_not_change_the_fingerprint(self):
@@ -437,10 +429,7 @@ class CanonicalIdentityTests(unittest.TestCase):
         self.assertEqual(plain, decorated)
 
     def test_fingerprint_order_and_multiplicity_are_preserved(self):
-        text = (
-            "https://host.example/a https://host.example/a "
-            "https://host.example/b "
-        )
+        text = "https://host.example/a https://host.example/a https://host.example/b "
         fingerprints = self._fingerprint(text)
         self.assertEqual(3, len(fingerprints))
         self.assertEqual(fingerprints[0], fingerprints[1])
@@ -484,15 +473,16 @@ class FetchRouteReconciliationTests(unittest.TestCase):
         # scopes are identical to the normal projector route.
         cases = (
             ("https://TOKEN.example/public", ("TOKEN",), ()),
-            ("https://host.example/TOKEN/private", ("TOKEN",),
-             ("host.example/<redacted-path>",)),
+            (
+                "https://host.example/TOKEN/private",
+                ("TOKEN",),
+                ("host.example/<redacted-path>",),
+            ),
             ("https://TOKEN.example/TOKEN/private", ("TOKEN",), ()),
         )
         for url, secrets, expected in cases:
             with self.subTest(url=url):
-                record = parse_npm_fetch_line(
-                    f"npm http fetch GET 200 {url} 15ms"
-                )
+                record = parse_npm_fetch_line(f"npm http fetch GET 200 {url} 15ms")
                 self.assertIsNotNone(record)
                 facts = sanitize_host_paths(record.url + " ", secrets)
                 self.assertEqual(expected, tuple(fact.text for fact in facts))
@@ -503,9 +493,7 @@ class FetchRouteReconciliationTests(unittest.TestCase):
             ("https://host.example/TOKEN/private", ("TOKEN",)),
         ):
             with self.subTest(url=url):
-                record = parse_npm_fetch_line(
-                    f"npm http fetch GET 200 {url} 15ms"
-                )
+                record = parse_npm_fetch_line(f"npm http fetch GET 200 {url} 15ms")
                 canonical = canonical_fetch_text(
                     record, NetworkUrlDisplay.REDACTED, secrets=secrets
                 )

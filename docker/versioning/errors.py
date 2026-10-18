@@ -3,6 +3,7 @@
 All messages accept or construct dot-path identifiers so callers can
 pinpoint the offending TOML key.
 """
+
 from __future__ import annotations
 
 

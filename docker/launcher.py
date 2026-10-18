@@ -55,6 +55,7 @@ class ExecutionMode(enum.Enum):
     **not** guarantee which Docker flags (``--tty``,
     ``--interactive``) appear — those are chosen separately
     based on ``tty`` and ``stdin_open``."""
+
     CAPTURED = "captured"
     INTERACTIVE = "interactive"
 
@@ -91,8 +92,7 @@ class WorkspaceSelection:
     def __post_init__(self) -> None:
         if not self.workspace or not os.path.isabs(self.workspace):
             raise ValueError(
-                f"workspace must be a non-empty absolute path, "
-                f"got {self.workspace!r}"
+                f"workspace must be a non-empty absolute path, got {self.workspace!r}"
             )
         for i, p in enumerate(self.extra_workspaces):
             if not p or not os.path.isabs(p):
@@ -115,8 +115,7 @@ class ContainerNameInspector(Protocol):
     Docker is unavailable or output cannot be parsed.
     """
 
-    def list_names(self) -> set[str]:
-        ...
+    def list_names(self) -> set[str]: ...
 
 
 class WorkspaceSelector(Protocol):
@@ -126,8 +125,7 @@ class WorkspaceSelector(Protocol):
     the user cancels.  The caller owns validation and error mapping.
     """
 
-    def select(self) -> WorkspaceSelection | None:
-        ...
+    def select(self) -> WorkspaceSelection | None: ...
 
 
 class ProjectionFactory(Protocol):
@@ -143,8 +141,7 @@ class ProjectionFactory(Protocol):
         projection: EffectiveRuntimeProjection,
         *,
         parent_dir: str,
-    ) -> RuntimeProjectionHandle:
-        ...
+    ) -> RuntimeProjectionHandle: ...
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -197,9 +194,7 @@ def resolve_workspace_selection(
     deduped: list[str] = []
     for path in normalized_extra:
         if path in seen:
-            raise ValueError(
-                f"Duplicate workspace path after normalisation: {path!r}"
-            )
+            raise ValueError(f"Duplicate workspace path after normalisation: {path!r}")
         seen.add(path)
         deduped.append(path)
 
@@ -308,9 +303,9 @@ class RunExecutor(Protocol):
     or prompts the user.
     """
 
-    def run(self, argv: tuple[str, ...], *,
-            interactive: bool = False) -> ProcessResult:
-        ...
+    def run(
+        self, argv: tuple[str, ...], *, interactive: bool = False
+    ) -> ProcessResult: ...
 
 
 class ArtifactByteFetcher(Protocol):
@@ -332,21 +327,31 @@ class ProcessRunner:
     :class:`ProcessResult` instead of invoking a real subprocess.
     """
 
-    def run(self, argv: Sequence[str], *,
-            mode: ExecutionMode = ExecutionMode.CAPTURED) -> ProcessResult:
+    def run(
+        self, argv: Sequence[str], *, mode: ExecutionMode = ExecutionMode.CAPTURED
+    ) -> ProcessResult:
         """Execute *argv* and return a structured result.
 
         ``mode`` controls whether stdout/stderr are captured or
         the host terminal is inherited."""
         import subprocess
+
         if mode is ExecutionMode.CAPTURED:
             proc = subprocess.run(
-                list(argv), text=True, capture_output=True, check=False,
+                list(argv),
+                text=True,
+                capture_output=True,
+                check=False,
             )
         else:
             proc = subprocess.run(
-                list(argv), text=True, capture_output=False,
-                stdin=None, stdout=None, stderr=None, check=False,
+                list(argv),
+                text=True,
+                capture_output=False,
+                stdin=None,
+                stdout=None,
+                stderr=None,
+                check=False,
             )
         return ProcessResult(
             argv=tuple(argv),
@@ -437,9 +442,13 @@ class RunRequest:
 
     def __post_init__(self) -> None:
         if not isinstance(self.overrides, MappingProxyType):
-            object.__setattr__(self, "overrides", MappingProxyType(
-                dict(self.overrides),
-            ))
+            object.__setattr__(
+                self,
+                "overrides",
+                MappingProxyType(
+                    dict(self.overrides),
+                ),
+            )
 
 
 @dataclass(frozen=True)
@@ -609,20 +618,30 @@ def orchestrate_run(request: RunRequest) -> RunResult:
     # secured constructor cache root; projections and evidence use the
     # selected constructor project's external generated-state namespace.
     from docker.versioning.cache_storage import (
-        prepare_resolved_root, resolve_effective_root,
-        runtime_artifacts_blobs_child, runtime_artifacts_locks_child,
+        prepare_resolved_root,
+        resolve_effective_root,
+        runtime_artifacts_blobs_child,
+        runtime_artifacts_locks_child,
         runtime_artifacts_tmp_child,
     )
+
     xdg_cache_home = os.environ.get("XDG_CACHE_HOME")
     cache_home = Path(os.path.expanduser("~"))
     local_cache_dir = getattr(
-        getattr(local_corporate, "cache", None), "dir", None,
+        getattr(local_corporate, "cache", None),
+        "dir",
+        None,
     )
     try:
-        resolved_cache_root = (Path(request._constructor_cache_root)
-            if request._constructor_cache_root is not None else resolve_effective_root(
-                local_cache_dir, xdg_cache_home=xdg_cache_home, home=cache_home,
-            ))
+        resolved_cache_root = (
+            Path(request._constructor_cache_root)
+            if request._constructor_cache_root is not None
+            else resolve_effective_root(
+                local_cache_dir,
+                xdg_cache_home=xdg_cache_home,
+                home=cache_home,
+            )
+        )
         if request._artifact_cache_root is None:
             runtime_cache_root = str(runtime_artifacts_blobs_child(resolved_cache_root))
             runtime_locks_root = str(runtime_artifacts_locks_child(resolved_cache_root))
@@ -645,11 +664,15 @@ def orchestrate_run(request: RunRequest) -> RunResult:
     if request.dry_run:
         try:
             project_state = resolve_project_state(
-                constructor_project, cache_root=resolved_cache_root, create=False,
+                constructor_project,
+                cache_root=resolved_cache_root,
+                create=False,
             )
         except Exception as exc:
-            return RunResult(exit_kind=ExitKind.CONFIG,
-                             message=f"Failed to resolve constructor project state: {exc}")
+            return RunResult(
+                exit_kind=ExitKind.CONFIG,
+                message=f"Failed to resolve constructor project state: {exc}",
+            )
     runtime_projection_root = str(project_state.runtime_root) if project_state else ""
 
     # ── Step 1c: resolve host-access policy ─────────────────
@@ -661,9 +684,9 @@ def orchestrate_run(request: RunRequest) -> RunResult:
         return RunResult(
             exit_kind=ExitKind.CONFIG,
             message="Host access is enabled but the local companion "
-                    "is missing or has no [host-access] address. "
-                    "Run 'doctor' first or set [host-access].address "
-                    "in the local companion.",
+            "is missing or has no [host-access] address. "
+            "Run 'doctor' first or set [host-access].address "
+            "in the local companion.",
         )
 
     # ── Step 2: apply overrides ──────────────────────────────
@@ -686,6 +709,7 @@ def orchestrate_run(request: RunRequest) -> RunResult:
     # ── Step 3: dry-run ─────────────────────────────────────
     if request.dry_run:
         import dataclasses
+
         assert project_state is not None
 
         try:
@@ -699,7 +723,9 @@ def orchestrate_run(request: RunRequest) -> RunResult:
             }
             projection_hash = hashlib.sha256(
                 json.dumps(
-                    proj_raw, sort_keys=True, default=str,
+                    proj_raw,
+                    sort_keys=True,
+                    default=str,
                 ).encode("utf-8")
             ).hexdigest()
             # Plan artifact mounts from the resolved selection without
@@ -707,7 +733,8 @@ def orchestrate_run(request: RunRequest) -> RunResult:
             # locations, container targets are fixed beneath the
             # runtime-artifacts root.
             dry_run_mounts = plan_dry_run_artifact_mounts(
-                selected_artifacts, cache_root=runtime_cache_root,
+                selected_artifacts,
+                cache_root=runtime_cache_root,
             )
             # Inspect the cache read-only — verify each unique
             # blob's bytes against its declared SRI integrity
@@ -731,9 +758,7 @@ def orchestrate_run(request: RunRequest) -> RunResult:
                     misses.append(artifact_id)
             # Render a dummy projection for display purposes only.
             # No file is ever created.
-            projection_container_path = (
-                "/run/pi-cli/docker-constructor.runtime.toml"
-            )
+            projection_container_path = "/run/pi-cli/docker-constructor.runtime.toml"
             render_inputs = RunRenderInputs(
                 image=request.image,
                 container_name="pi-N",
@@ -776,12 +801,15 @@ def orchestrate_run(request: RunRequest) -> RunResult:
     try:
         project_state = resolve_project_state(
             constructor_project,
-            cache_root=prepare_resolved_root(resolved_cache_root), create=True,
+            cache_root=prepare_resolved_root(resolved_cache_root),
+            create=True,
         )
         runtime_projection_root = str(project_state.runtime_root)
     except Exception as exc:
-        return RunResult(exit_kind=ExitKind.CONFIG,
-                         message=f"Failed to resolve constructor project state: {exc}")
+        return RunResult(
+            exit_kind=ExitKind.CONFIG,
+            message=f"Failed to resolve constructor project state: {exc}",
+        )
     # selected_artifacts from resolve_runtime already deduplicates by
     # integrity.  Each entry in the projection retains its independent
     # package/version/metadata identity.
@@ -789,6 +817,7 @@ def orchestrate_run(request: RunRequest) -> RunResult:
     try:
         artifact_mounts = ()
         if selected_artifacts:
+
             class _InjectedTransport:
                 def fetch_chunks(self, url: str):
                     assert request._artifact_fetcher is not None
@@ -797,14 +826,18 @@ def orchestrate_run(request: RunRequest) -> RunResult:
                         raise TypeError("artifact fetcher must return bytes")
                     yield data
 
-            transport = (_InjectedTransport() if request._artifact_fetcher
-                         else artifact_cache.HttpStreamingTransport())
+            transport = (
+                _InjectedTransport()
+                if request._artifact_fetcher
+                else artifact_cache.HttpStreamingTransport()
+            )
             if request._artifact_cache_root is not None:
                 os.makedirs(runtime_tmp_root, mode=0o700, exist_ok=True)
             configured_root = os.path.abspath(runtime_cache_root)
             if os.path.islink(configured_root):
                 raise artifact_cache.ArtifactMaterializationError(
-                    "containment", "runtime artifact cache root is a symlink",
+                    "containment",
+                    "runtime artifact cache root is a symlink",
                 )
             root = os.path.realpath(configured_root)
             blobs = artifact_cache.materialize_selected_artifacts(
@@ -812,7 +845,8 @@ def orchestrate_run(request: RunRequest) -> RunResult:
                 transport=transport,
                 filesystem=artifact_cache.LocalCacheFilesystem(),
                 lock_factory=artifact_cache.FileIdentityLockFactory(
-                    root, lock_root=runtime_locks_root,
+                    root,
+                    lock_root=runtime_locks_root,
                 ),
                 temp_dir=artifact_cache.LocalTemporaryDirectory(),
                 temp_root=runtime_tmp_root,
@@ -852,6 +886,7 @@ def orchestrate_run(request: RunRequest) -> RunResult:
             # Supply a unique non-existent path for atomic no-clobber publish.
             import uuid
             from docker.versioning.effective import Filesystem
+
             return create_runtime_projection(
                 projection,
                 host_path=os.path.join(parent_dir, f"runtime-{uuid.uuid4().hex}.toml"),
@@ -877,9 +912,7 @@ def orchestrate_run(request: RunRequest) -> RunResult:
             # Capture projection identity
             projection_path = getattr(handle, "path", None)
             projection_hash = getattr(handle, "content_hash", None)
-            projection_container_path = (
-                "/run/pi-cli/docker-constructor.runtime.toml"
-            )
+            projection_container_path = "/run/pi-cli/docker-constructor.runtime.toml"
 
             # ── Step 5: allocate pi-N ────────────────────────
             try:
@@ -940,8 +973,7 @@ def orchestrate_run(request: RunRequest) -> RunResult:
             else:
                 return RunResult(
                     exit_kind=ExitKind.OPERATIONAL,
-                    message=f"Container exited with code "
-                            f"{result.return_code}",
+                    message=f"Container exited with code {result.return_code}",
                     run_args=run_args,
                     process_result=result,
                     projection_path=projection_path,
@@ -973,15 +1005,12 @@ class DockerContainerInspector:
         """Run ``docker ps -a --format '{{.Names}}'`` and return the
         set of container names."""
         try:
-            result = self._runner.run(list(self._ARGV),
-                                      mode=ExecutionMode.CAPTURED)
+            result = self._runner.run(list(self._ARGV), mode=ExecutionMode.CAPTURED)
         except OSError as exc:
             raise ContainerInspectError(str(exc)) from exc
 
         if result.return_code != 0:
-            raise ContainerInspectError(
-                result.stderr.strip() or "docker ps failed"
-            )
+            raise ContainerInspectError(result.stderr.strip() or "docker ps failed")
 
         lines = result.stdout.split("\n")
         names: set[str] = set()
@@ -999,11 +1028,7 @@ class DockerRunExecutor:
     def __init__(self, runner: ProcessRunner) -> None:
         self._runner = runner
 
-    def run(self, argv: tuple[str, ...], *,
-            interactive: bool = False) -> ProcessResult:
+    def run(self, argv: tuple[str, ...], *, interactive: bool = False) -> ProcessResult:
         """Execute the rendered ``docker`` argument vector."""
-        mode = (
-            ExecutionMode.INTERACTIVE if interactive
-            else ExecutionMode.CAPTURED
-        )
+        mode = ExecutionMode.INTERACTIVE if interactive else ExecutionMode.CAPTURED
         return self._runner.run(list(argv), mode=mode)

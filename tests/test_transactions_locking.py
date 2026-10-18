@@ -6,6 +6,7 @@ namespace-bound live capability.  Unsafe entries are rejected without
 mutation, repair happens only after exclusive acquisition, and release is
 unconditional with primary-error-preserving unlock/close handling.
 """
+
 from __future__ import annotations
 
 import errno
@@ -118,14 +119,14 @@ class _LockTestCase(unittest.TestCase):
         try:
             if not self.directory.closed:
                 self.directory.close()
-        except (OSError, TransactionError):
+        except OSError, TransactionError:
             pass
 
     def _close_capability(self, capability: LockCapability) -> None:
         try:
             if not capability.closed:
                 capability.close()
-        except (OSError, TransactionError):
+        except OSError, TransactionError:
             pass
 
     def path(self, name: str) -> str:
@@ -200,9 +201,7 @@ class LockEntryTests(_LockTestCase):
 
     def test_repairs_write_only_mode_when_rdwr_and_rdonly_are_denied(self) -> None:
         path = self.make_lock_file(mode=0o200)
-        self.ops.hooks["openat"] = _deny_access(
-            "build.lock", os.O_RDWR, os.O_RDONLY
-        )
+        self.ops.hooks["openat"] = _deny_access("build.lock", os.O_RDWR, os.O_RDONLY)
         self.ops.reset()
         capability = self.acquire()
         self.assertFalse(capability.closed)
@@ -273,7 +272,9 @@ class LockEntryTests(_LockTestCase):
         self.assertEqual(self.ops.counts.get("fchmod"), 1)
         self.assertLess(self.ops.order.index("flock"), self.ops.order.index("fchmod"))
 
-    def test_restrictive_umask_does_not_repair_preexisting_inaccessible_lock(self) -> None:
+    def test_restrictive_umask_does_not_repair_preexisting_inaccessible_lock(
+        self,
+    ) -> None:
         # The umask exception applies only to the inode created by the current
         # acquisition.  A pre-existing mode-0000 entry must still fail closed
         # without fchmod, under the same restrictive umask.
@@ -449,16 +450,22 @@ class LockEntryTests(_LockTestCase):
 
     def test_repair_does_not_run_when_acquisition_is_interrupted(self) -> None:
         path = self.make_lock_file(mode=0o644)
-        self.ops.failures["flock"] = lambda count: KeyboardInterrupt() if count == 1 else None
+        self.ops.failures["flock"] = lambda count: (
+            KeyboardInterrupt() if count == 1 else None
+        )
         self.ops.reset()
         with self.assertRaises(KeyboardInterrupt):
             self.acquire()
         self.assertEqual(stat.S_IMODE(os.stat(path).st_mode), 0o644)
         self.assertEqual(self.ops.counts.get("fchmod", 0), 0)
 
-    def test_repair_does_not_run_when_restrictive_acquisition_is_interrupted(self) -> None:
+    def test_repair_does_not_run_when_restrictive_acquisition_is_interrupted(
+        self,
+    ) -> None:
         path = self.make_lock_file(mode=0o400)
-        self.ops.failures["flock"] = lambda count: KeyboardInterrupt() if count == 1 else None
+        self.ops.failures["flock"] = lambda count: (
+            KeyboardInterrupt() if count == 1 else None
+        )
         self.ops.reset()
         with self.assertRaises(KeyboardInterrupt):
             self.acquire()
@@ -710,7 +717,9 @@ class LockLifecycleTests(_LockTestCase):
             with capability:
                 raise primary
         self.assertIs(ctx.exception, primary)
-        self.assertEqual(getattr(primary, "_transaction_secondary", None), [unlock_error])
+        self.assertEqual(
+            getattr(primary, "_transaction_secondary", None), [unlock_error]
+        )
         self.assertEqual(self.ops.counts.get("close"), 1)
 
     def test_close_failure_propagates_when_no_primary(self) -> None:
@@ -733,7 +742,9 @@ class LockLifecycleTests(_LockTestCase):
             with capability:
                 raise primary
         self.assertIs(ctx.exception, primary)
-        self.assertEqual(getattr(primary, "_transaction_secondary", None), [close_error])
+        self.assertEqual(
+            getattr(primary, "_transaction_secondary", None), [close_error]
+        )
 
     def test_close_is_attempted_even_when_unlock_fails(self) -> None:
         capability = self.acquire()
@@ -870,7 +881,9 @@ class LockProcessTests(unittest.TestCase):
             policy=LockPolicy.BLOCK,
         )
         self.addCleanup(holder.close)
-        process, started, acquired, results = self._spawn("build.lock", "scope-a", "fail-fast")
+        process, started, acquired, results = self._spawn(
+            "build.lock", "scope-a", "fail-fast"
+        )
         self.assertTrue(started.wait(10))
         self.assertEqual(results.get(timeout=10), "contention")
         self.assertFalse(acquired.is_set())
@@ -884,7 +897,9 @@ class LockProcessTests(unittest.TestCase):
             namespace="scope-a",
             policy=LockPolicy.BLOCK,
         )
-        process, started, acquired, results = self._spawn("build.lock", "scope-a", "block")
+        process, started, acquired, results = self._spawn(
+            "build.lock", "scope-a", "block"
+        )
         self.assertTrue(started.wait(10))
         # The child must remain blocked while the parent holds the lock.
         self.assertFalse(acquired.wait(0.5))

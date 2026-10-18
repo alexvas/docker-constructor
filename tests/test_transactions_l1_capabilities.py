@@ -5,6 +5,7 @@ basename-only authority.  Released and cross-directory capabilities are
 rejected, paths are never reconstructed, and validated reads reject every
 unsafe leaf through one retained no-follow descriptor.
 """
+
 from __future__ import annotations
 
 import errno
@@ -102,7 +103,12 @@ class DirectoryCapabilityTests(unittest.TestCase):
 
     def test_never_reconstructs_paths(self) -> None:
         source = inspect.getsource(capabilities_module)
-        for forbidden in ("os.path.join", "os.path.realpath", ".resolve(", "os.path.abspath"):
+        for forbidden in (
+            "os.path.join",
+            "os.path.realpath",
+            ".resolve(",
+            "os.path.abspath",
+        ):
             self.assertNotIn(forbidden, source)
 
 
@@ -310,11 +316,20 @@ class ValidatedReadTests(unittest.TestCase):
         self._write("foreign", b"data", 0o600)
 
         def foreign(info: os.stat_result) -> os.stat_result:
-            return os.stat_result((
-                info.st_mode, info.st_ino, info.st_dev, info.st_nlink,
-                4242, info.st_gid, info.st_size,
-                info.st_atime, info.st_mtime, info.st_ctime,
-            ))
+            return os.stat_result(
+                (
+                    info.st_mode,
+                    info.st_ino,
+                    info.st_dev,
+                    info.st_nlink,
+                    4242,
+                    info.st_gid,
+                    info.st_size,
+                    info.st_atime,
+                    info.st_mtime,
+                    info.st_ctime,
+                )
+            )
 
         self.ops.fstat_override = foreign
         with self.assertRaises(UnsafeFileError):
@@ -473,7 +488,8 @@ class SecurePathTests(unittest.TestCase):
     def test_missing_component_is_reported_and_no_descriptor_leaks(self) -> None:
         with self.assertRaises(TransactionError) as ctx:
             DirectoryCapability.from_secure_path(
-                self.ops, os.path.join(self.root, "absent"),
+                self.ops,
+                os.path.join(self.root, "absent"),
             )
         self.assertEqual(ctx.exception.stage, STAGE_OPEN)
         self.assertIsInstance(ctx.exception.cause, FileNotFoundError)
@@ -481,7 +497,8 @@ class SecurePathTests(unittest.TestCase):
         # final component could not be opened (the failing ``openat`` is the
         # only attempt that created no descriptor).
         self.assertEqual(
-            self.ops.counts.get("close"), self.ops.counts.get("openat") - 1,
+            self.ops.counts.get("close"),
+            self.ops.counts.get("openat") - 1,
         )
 
     def test_relative_path_is_refused(self) -> None:
@@ -521,8 +538,8 @@ class SecurePathTests(unittest.TestCase):
         os.makedirs(target, mode=0o700)
         components = [part for part in target.split(os.sep) if part]
         parent_error = OSError(errno.EIO, "injected parent close failure")
-        self.ops.failures["close"] = (
-            lambda count: parent_error if count == len(components) else None
+        self.ops.failures["close"] = lambda count: (
+            parent_error if count == len(components) else None
         )
         captured = self._track_leaf("nested")
 
@@ -536,7 +553,8 @@ class SecurePathTests(unittest.TestCase):
         # exactly one close attempt; the two trailing closes are the parent
         # (which failed) followed by the leaf, so neither is retried.
         self.assertEqual(
-            closed[-2:], [captured["parent_fd"], captured["leaf_fd"]],
+            closed[-2:],
+            [captured["parent_fd"], captured["leaf_fd"]],
         )
         self.assertEqual(len(closed), len(components) + 1)
 
@@ -567,7 +585,8 @@ class SecurePathTests(unittest.TestCase):
         self.assertEqual(ctx.exception.secondary, [leaf_error])
         closed = [args[0] for name, args in self.ops.calls if name == "close"]
         self.assertEqual(
-            closed[-2:], [captured["parent_fd"], captured["leaf_fd"]],
+            closed[-2:],
+            [captured["parent_fd"], captured["leaf_fd"]],
         )
         self.assertEqual(len(closed), len(components) + 1)
 
@@ -593,7 +612,8 @@ class SecurePathTests(unittest.TestCase):
         self.assertIs(ctx.exception, interruption)
         closed = [args[0] for name, args in self.ops.calls if name == "close"]
         self.assertEqual(
-            closed[-2:], [captured["parent_fd"], captured["leaf_fd"]],
+            closed[-2:],
+            [captured["parent_fd"], captured["leaf_fd"]],
         )
         self.assertEqual(len(closed), len(components) + 1)
 
@@ -621,11 +641,13 @@ class SecurePathTests(unittest.TestCase):
         # failure is attached as a secondary diagnostic rather than swallowed.
         self.assertIs(ctx.exception, interruption)
         self.assertEqual(
-            getattr(ctx.exception, "_transaction_secondary", []), [leaf_error],
+            getattr(ctx.exception, "_transaction_secondary", []),
+            [leaf_error],
         )
         closed = [args[0] for name, args in self.ops.calls if name == "close"]
         self.assertEqual(
-            closed[-2:], [captured["parent_fd"], captured["leaf_fd"]],
+            closed[-2:],
+            [captured["parent_fd"], captured["leaf_fd"]],
         )
         self.assertEqual(len(closed), len(components) + 1)
 
@@ -660,7 +682,8 @@ class SecurePathTests(unittest.TestCase):
         )
         closed = [args[0] for name, args in self.ops.calls if name == "close"]
         self.assertEqual(
-            closed[-2:], [captured["parent_fd"], captured["leaf_fd"]],
+            closed[-2:],
+            [captured["parent_fd"], captured["leaf_fd"]],
         )
         self.assertEqual(len(closed), len(components) + 1)
 

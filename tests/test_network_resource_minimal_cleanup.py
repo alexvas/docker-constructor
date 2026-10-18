@@ -1,4 +1,5 @@
 """Focused network-resource repairs; broader coordination remains planned."""
+
 import io
 from types import SimpleNamespace
 from urllib.error import HTTPError
@@ -12,6 +13,7 @@ from docker.versioning import artifact_cache, transports
 
 class Body(io.BytesIO):
     """Descriptor-less response body with observable release attempts."""
+
     def __init__(self, read_error=None, close_error=None):
         super().__init__(b"not found")
         self.read_error = read_error
@@ -31,7 +33,9 @@ class Body(io.BytesIO):
 
 
 @pytest.mark.parametrize("streaming", [False, True])
-@pytest.mark.parametrize("close_error", [None, OSError("close"), KeyboardInterrupt("close")])
+@pytest.mark.parametrize(
+    "close_error", [None, OSError("close"), KeyboardInterrupt("close")]
+)
 def test_http_error_body_is_released_once(monkeypatch, streaming, close_error):
     body = Body(close_error=close_error)
     error = HTTPError("https://example.invalid/", 404, "missing", {}, body)
@@ -39,17 +43,23 @@ def test_http_error_body_is_released_once(monkeypatch, streaming, close_error):
     chunks = artifact_cache.HttpStreamingTransport().fetch_chunks(error.url)
     try:
         if streaming:
-            expected = close_error if isinstance(close_error, KeyboardInterrupt) else error
+            expected = (
+                close_error if isinstance(close_error, KeyboardInterrupt) else error
+            )
             with pytest.raises(BaseException) as raised:
                 next(chunks)
             assert raised.value is expected
             chunks.close()
         elif close_error is not None:
             with pytest.raises(BaseException) as raised:
-                transports.build_transports(no_cache=True).http.request("GET", error.url)
+                transports.build_transports(no_cache=True).http.request(
+                    "GET", error.url
+                )
             assert raised.value is close_error
         else:
-            result = transports.build_transports(no_cache=True).http.request("GET", error.url)
+            result = transports.build_transports(no_cache=True).http.request(
+                "GET", error.url
+            )
             assert (result.status, result.body) == (404, b"not found")
         assert body.closed
         assert body.close_calls == 1
@@ -63,7 +73,9 @@ def test_http_error_body_is_released_once(monkeypatch, streaming, close_error):
 
 @pytest.mark.parametrize("streaming", [False, True])
 @pytest.mark.parametrize("operation", [OSError("read"), KeyboardInterrupt("read")])
-def test_http_error_operation_survives_ordinary_close(monkeypatch, streaming, operation):
+def test_http_error_operation_survives_ordinary_close(
+    monkeypatch, streaming, operation
+):
     body = Body(read_error=operation, close_error=OSError("close"))
     error = HTTPError("https://example.invalid/", 404, "missing", {}, body)
     monkeypatch.setattr("urllib.request.urlopen", Mock(side_effect=error))
@@ -72,7 +84,9 @@ def test_http_error_operation_survives_ordinary_close(monkeypatch, streaming, op
             if streaming:
                 next(artifact_cache.HttpStreamingTransport().fetch_chunks(error.url))
             else:
-                transports.build_transports(no_cache=True).http.request("GET", error.url)
+                transports.build_transports(no_cache=True).http.request(
+                    "GET", error.url
+                )
         assert raised.value is (error if streaming else operation)
         assert body.close_calls == 1
     finally:
@@ -81,10 +95,16 @@ def test_http_error_operation_survives_ordinary_close(monkeypatch, streaming, op
 
 
 @pytest.mark.parametrize("close_error", [None, OSError("iterator close")])
-def test_artifact_consumer_finalizes_retained_iterator(monkeypatch, tmp_path, close_error):
+def test_artifact_consumer_finalizes_retained_iterator(
+    monkeypatch, tmp_path, close_error
+):
     from tests.test_constructor_materialization import (
-        _FakeFilesystem, _FakeLockFactory, _FakeTempDir, _VALID_INTEGRITY,
+        _FakeFilesystem,
+        _FakeLockFactory,
+        _FakeTempDir,
+        _VALID_INTEGRITY,
     )
+
     closed = []
 
     def generate():
@@ -105,9 +125,15 @@ def test_artifact_consumer_finalizes_retained_iterator(monkeypatch, tmp_path, cl
     try:
         with pytest.raises(artifact_cache.ArtifactMaterializationError) as raised:
             artifact_cache.materialize_selected_artifacts(
-                [artifact_cache.SelectedArtifact(url="https://example.invalid/", integrity=_VALID_INTEGRITY)],
+                [
+                    artifact_cache.SelectedArtifact(
+                        url="https://example.invalid/", integrity=_VALID_INTEGRITY
+                    )
+                ],
                 transport=SimpleNamespace(fetch_chunks=lambda url: chunks),
-                filesystem=filesystem, lock_factory=_FakeLockFactory(), temp_dir=_FakeTempDir(),
+                filesystem=filesystem,
+                lock_factory=_FakeLockFactory(),
+                temp_dir=_FakeTempDir(),
                 cache_root=str(root / "blobs"),
             )
         assert raised.value.__cause__ is operation
@@ -118,14 +144,22 @@ def test_artifact_consumer_finalizes_retained_iterator(monkeypatch, tmp_path, cl
         chunks.close()
 
 
-def probe_fakes(monkeypatch, *, start_error=None, shutdown_error=None, close_error=None):
+def probe_fakes(
+    monkeypatch, *, start_error=None, shutdown_error=None, close_error=None
+):
     server = SimpleNamespace(
-        server_address=("0.0.0.0", 12345), serve_forever=Mock(),
-        shutdown=Mock(side_effect=shutdown_error), server_close=Mock(side_effect=close_error),
+        server_address=("0.0.0.0", 12345),
+        serve_forever=Mock(),
+        shutdown=Mock(side_effect=shutdown_error),
+        server_close=Mock(side_effect=close_error),
     )
     thread = SimpleNamespace(start=Mock(side_effect=start_error), join=Mock())
-    monkeypatch.setattr(networking.http.server, "ThreadingHTTPServer", Mock(return_value=server))
-    monkeypatch.setattr(networking, "threading", SimpleNamespace(Thread=Mock(return_value=thread)))
+    monkeypatch.setattr(
+        networking.http.server, "ThreadingHTTPServer", Mock(return_value=server)
+    )
+    monkeypatch.setattr(
+        networking, "threading", SimpleNamespace(Thread=Mock(return_value=thread))
+    )
     return server, thread
 
 
@@ -144,7 +178,9 @@ def test_probe_owner_preparation_precedes_acquisition(monkeypatch):
 
 def test_probe_server_construction_failure_has_no_fabricated_cleanup(monkeypatch):
     failure = OSError("bind")
-    monkeypatch.setattr(networking.http.server, "ThreadingHTTPServer", Mock(side_effect=failure))
+    monkeypatch.setattr(
+        networking.http.server, "ThreadingHTTPServer", Mock(side_effect=failure)
+    )
     probe = networking.HostProbeServer()
     with pytest.raises(OSError) as raised:
         probe.start()
@@ -217,14 +253,24 @@ def test_probe_start_failure_closes_without_shutdown_or_join(monkeypatch, start_
     server.server_close.assert_called_once()
 
 
-@pytest.mark.parametrize("shutdown_error", [None, OSError("shutdown"), KeyboardInterrupt("shutdown")])
-@pytest.mark.parametrize("close_error", [None, OSError("close"), KeyboardInterrupt("close")])
-def test_probe_stop_attempts_independent_cleanup_once(monkeypatch, shutdown_error, close_error):
-    server, thread = probe_fakes(monkeypatch, shutdown_error=shutdown_error, close_error=close_error)
+@pytest.mark.parametrize(
+    "shutdown_error", [None, OSError("shutdown"), KeyboardInterrupt("shutdown")]
+)
+@pytest.mark.parametrize(
+    "close_error", [None, OSError("close"), KeyboardInterrupt("close")]
+)
+def test_probe_stop_attempts_independent_cleanup_once(
+    monkeypatch, shutdown_error, close_error
+):
+    server, thread = probe_fakes(
+        monkeypatch, shutdown_error=shutdown_error, close_error=close_error
+    )
     probe = networking.HostProbeServer()
     assert probe.start() == 12345
-    expected = next((e for e in (shutdown_error, close_error) if isinstance(e, KeyboardInterrupt)),
-                    shutdown_error or close_error)
+    expected = next(
+        (e for e in (shutdown_error, close_error) if isinstance(e, KeyboardInterrupt)),
+        shutdown_error or close_error,
+    )
     if expected is None:
         probe.stop()
     else:

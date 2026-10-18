@@ -13,6 +13,7 @@ primary or source that exposes the generic ``add_secondary``/``secondary``
 protocol by duck typing, so a domain exception hierarchy keeps its structured
 storage while every other exception uses a bounded private slot or notes.
 """
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -41,7 +42,9 @@ def _note_text(exc: BaseException) -> str:
     return rendered
 
 
-def _add_secondary_notes(primary: BaseException, secondary: list[BaseException]) -> None:
+def _add_secondary_notes(
+    primary: BaseException, secondary: list[BaseException]
+) -> None:
     add_note = getattr(primary, "add_note", None)
     if not callable(add_note):  # pragma: no cover - pre-3.11 interpreter
         return
@@ -111,7 +114,7 @@ def attach_secondary(primary: BaseException, secondary: list[BaseException]) -> 
         _append_unique(collected, exc)
     try:
         setattr(primary, _SECONDARY_SLOT, collected)
-    except (AttributeError, TypeError):
+    except AttributeError, TypeError:
         _add_secondary_notes(primary, collected)
 
 

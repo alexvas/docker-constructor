@@ -16,6 +16,7 @@ npm-environment assembler and the Pi consumer launcher:
 Every side effect — download, assembler execution, and cache publication — is
 injectable, so tests can drive the full pipeline without a Docker daemon.
 """
+
 from __future__ import annotations
 
 from contextlib import contextmanager
@@ -72,7 +73,9 @@ from docker.versioning.npm_diagnostic_stream import (
     project_tail,
 )
 from docker.versioning.model import (
-    EffectiveBuildProjection, NetworkUrlDisplay, PiReleaseSource,
+    EffectiveBuildProjection,
+    NetworkUrlDisplay,
+    PiReleaseSource,
 )
 from docker.versioning.pi_consumer import (
     LauncherEvidence,
@@ -197,9 +200,7 @@ def route_finalized_diagnostic(
     if internal_sink is not None:
         try:
             internal_sink.admit_diagnostic(
-                presentation_envelope_for(
-                    chunk, logical_resource=logical_resource
-                )
+                presentation_envelope_for(chunk, logical_resource=logical_resource)
             )
         except Exception:
             # Best-effort live presentation never affects SDK delivery or
@@ -252,11 +253,7 @@ def route_overflow_diagnostic(
     never routed to the SDK sink.
     """
     if internal_sink is not None:
-        local_text = (
-            chunk.local_text
-            if chunk.local_text is not None
-            else chunk.text
-        )
+        local_text = chunk.local_text if chunk.local_text is not None else chunk.text
         prefix = HostDiagnosticPrefix(
             phase=HostPhase.LOCKED_ASSEMBLY,
             step=HostStep.NPM_EXECUTION,
@@ -306,9 +303,7 @@ class PiAssemblyRequest:
         if not isinstance(self.network_url_display, NetworkUrlDisplay):
             raise ValueError("network_url_display must be a NetworkUrlDisplay")
         object.__setattr__(self, "event_sink", guard_sink(self.event_sink))
-        object.__setattr__(
-            self, "sdk_event_sink", guard_sink(self.sdk_event_sink)
-        )
+        object.__setattr__(self, "sdk_event_sink", guard_sink(self.sdk_event_sink))
 
 
 @dataclass(frozen=True)
@@ -351,7 +346,10 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
     )
 
     # 1. Exact release-asset URLs and checksum-verified acquisition.
-    emit(request.event_sink, HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.STARTED))
+    emit(
+        request.event_sink,
+        HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.STARTED),
+    )
     urls = derive_pi_release_urls(source, projection.pi_version)
     asset_urls = {
         SHA256SUMS_FILENAME: urls.sha256sums,
@@ -359,7 +357,8 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
         INSTALL_PACKAGE_LOCK_FILENAME: urls.install_package_lock,
     }
     failure_secrets = tuple(
-        value for value in (request.proxy_url, request.corporate_trust_bundle)
+        value
+        for value in (request.proxy_url, request.corporate_trust_bundle)
         if value is not None
     )
 
@@ -416,15 +415,22 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
 
     try:
         package_bytes, lock_bytes = acquire_install_assets(
-            urls, _download,
+            urls,
+            _download,
             activity=_asset_activity,
         )
     except BaseException as exc:
-        emit(request.event_sink, HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.FAILED))
+        emit(
+            request.event_sink,
+            HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.FAILED),
+        )
         if isinstance(exc, PiReleaseError):
             raise PiAssemblyError(f"Pi release acquisition failed: {exc}") from exc
         raise
-    emit(request.event_sink, HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.SUCCEEDED))
+    emit(
+        request.event_sink,
+        HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.SUCCEEDED),
+    )
 
     # 2. Side-effect-free preflight with the exact official lock bytes and
     # the exact official install-package bytes (both are bound assembler
@@ -451,7 +457,10 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
         policy_digest=npm_policy_digest(),
         platform=_ASSEMBLER_PLATFORM,
     )
-    emit(request.event_sink, HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.STARTED))
+    emit(
+        request.event_sink,
+        HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.STARTED),
+    )
     corporate_network = _corporate_network(request)
     session_identity = SessionUrlIdentity()
     activity = HostAssemblyActivity(request.event_sink)
@@ -461,9 +470,7 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
     #: moving a prefix event never loses an earlier committed segment.
     prefix_buffers: dict[str, list[str]] = {}
 
-    def _admit_prefix(
-        chunk, *, text: str, finalized: bool, overflowed: bool
-    ) -> None:
+    def _admit_prefix(chunk, *, text: str, finalized: bool, overflowed: bool) -> None:
         """Route one presentation-only prefix to the internal actor only."""
         route_committed_prefix(
             chunk,
@@ -598,9 +605,7 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
             stream_factory=make_stream_factory(
                 corporate_network.secrets(),
                 session_identity,
-                on_chunk=(
-                    activity.record_diagnostic
-                ),
+                on_chunk=(activity.record_diagnostic),
                 network_url_display=request.network_url_display,
             ),
             tail_projector=functools.partial(
@@ -611,27 +616,46 @@ def materialize_pi(request: PiAssemblyRequest) -> PiMaterialization:
             network_url_display=request.network_url_display,
         )
     except BaseException:
-        emit(request.event_sink, HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.FAILED))
+        emit(
+            request.event_sink,
+            HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.FAILED),
+        )
         raise
-    emit(request.event_sink, HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.SUCCEEDED))
+    emit(
+        request.event_sink,
+        HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.SUCCEEDED),
+    )
 
     # 5–6. Consumer launcher/evidence and the attested-tree verification.
-    emit(request.event_sink, HostPhaseEvent(HostPhase.DERIVED_VALIDATION, HostPhaseState.STARTED))
+    emit(
+        request.event_sink,
+        HostPhaseEvent(HostPhase.DERIVED_VALIDATION, HostPhaseState.STARTED),
+    )
     try:
-        launcher_plan = plan_launcher(metadata, environment_root=result.environment_root)
+        launcher_plan = plan_launcher(
+            metadata, environment_root=result.environment_root
+        )
         evidence = launcher_evidence(launcher_plan)
         recomputed_tree_digest = build_tree_manifest(result.environment_root).digest
         if recomputed_tree_digest != result.tree_digest:
-            raise PiAssemblyError("assembled Pi tree digest does not match the attested value")
+            raise PiAssemblyError(
+                "assembled Pi tree digest does not match the attested value"
+            )
     except BaseException as exc:
         attach_host_failure(
             exc,
             phase=HostPhase.DERIVED_VALIDATION,
             step=HostStep.VALIDATION,
         )
-        emit(request.event_sink, HostPhaseEvent(HostPhase.DERIVED_VALIDATION, HostPhaseState.FAILED))
+        emit(
+            request.event_sink,
+            HostPhaseEvent(HostPhase.DERIVED_VALIDATION, HostPhaseState.FAILED),
+        )
         raise
-    emit(request.event_sink, HostPhaseEvent(HostPhase.DERIVED_VALIDATION, HostPhaseState.SUCCEEDED))
+    emit(
+        request.event_sink,
+        HostPhaseEvent(HostPhase.DERIVED_VALIDATION, HostPhaseState.SUCCEEDED),
+    )
 
     evidence_bytes = result.evidence_path.read_bytes()
     return PiMaterialization(

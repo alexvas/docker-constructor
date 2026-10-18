@@ -4,6 +4,7 @@ Both the inventory loader and the npm update provider need to accept exactly
 the same ``integrity`` strings, so the format check lives in one module with
 no other dependencies.
 """
+
 from __future__ import annotations
 
 import base64
@@ -51,8 +52,7 @@ def validate_integrity(value: str) -> None:
     expected_len = _INTEGRITY_LENGTHS[algorithm]
     if len(decoded) != expected_len:
         raise IntegrityError(
-            f"expected {expected_len} bytes for sha{algorithm}, "
-            f"got {len(decoded)}"
+            f"expected {expected_len} bytes for sha{algorithm}, got {len(decoded)}"
         )
 
 

@@ -4,6 +4,7 @@ The shell harness covers only ``corporate trust bootstrap → first network
 action``. It intentionally does not model the later ``ca-certificates``
 installation, which may create the system trust directory in disabled builds.
 """
+
 from __future__ import annotations
 
 import os
@@ -15,7 +16,9 @@ from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
 _VALID_BUNDLE = "-----BEGIN CERTIFICATE-----\nAQIDBAU=\n-----END CERTIFICATE-----\n"
-_COPY = "cp /tmp/corporate-ca/corporate-ca-bundle.crt /etc/ssl/certs/ca-certificates.crt"
+_COPY = (
+    "cp /tmp/corporate-ca/corporate-ca-bundle.crt /etc/ssl/certs/ca-certificates.crt"
+)
 _ENABLED = 'if [ "${CORPORATE_TRUST_ENABLED:-}" = "true" ]; then \\'
 
 _HARNESS = """set -eu
@@ -37,12 +40,20 @@ class TestDockerfileCorporateTrustBootstrap(unittest.TestCase):
     def test_enabled_bootstrap_order_and_final_reapplication(self):
         lines = (_ROOT / "Dockerfile").read_text().splitlines()
         start = next(i for i, line in enumerate(lines) if line.strip() == _ENABLED)
-        end = next(i for i, line in enumerate(lines[start + 1:], start + 1)
-                   if line.strip() in {"fi", "fi; \\"})
-        block = lines[start:end + 1]
-        validator = next(i for i, line in enumerate(block)
-                         if "sh /tmp/validate-corporate-bundle.sh" in line)
-        mkdir = next(i for i, line in enumerate(block) if "mkdir -p /etc/ssl/certs" in line)
+        end = next(
+            i
+            for i, line in enumerate(lines[start + 1 :], start + 1)
+            if line.strip() in {"fi", "fi; \\"}
+        )
+        block = lines[start : end + 1]
+        validator = next(
+            i
+            for i, line in enumerate(block)
+            if "sh /tmp/validate-corporate-bundle.sh" in line
+        )
+        mkdir = next(
+            i for i, line in enumerate(block) if "mkdir -p /etc/ssl/certs" in line
+        )
         initial_copy = next(i for i, line in enumerate(block) if _COPY in line)
         self.assertLess(validator, mkdir)
         self.assertLess(mkdir, initial_copy)
@@ -53,8 +64,11 @@ class TestDockerfileCorporateTrustBootstrap(unittest.TestCase):
 
         copies = [i for i, line in enumerate(lines) if _COPY in line]
         apt_update = next(i for i, line in enumerate(lines) if "apt-get update" in line)
-        ca_install = next(i for i, line in enumerate(lines)
-                          if "ca-certificates" in line and "ca-certificates.crt" not in line)
+        ca_install = next(
+            i
+            for i, line in enumerate(lines)
+            if "ca-certificates" in line and "ca-certificates.crt" not in line
+        )
         self.assertEqual(2, len(copies))
         self.assertLess(copies[0], apt_update)
         self.assertLess(apt_update, ca_install)
@@ -86,7 +100,12 @@ class TestCorporateTrustDirectoryBootstrap(unittest.TestCase):
             root = Path(tmp)
             destination, events = self._run_harness(root, True)
             self.assertEqual(
-                ["validated", "directory-created", "bundle-installed", "first-network-action"],
+                [
+                    "validated",
+                    "directory-created",
+                    "bundle-installed",
+                    "first-network-action",
+                ],
                 events.read_text().splitlines(),
             )
             self.assertEqual(_VALID_BUNDLE, destination.read_text())

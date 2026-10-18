@@ -72,9 +72,9 @@ def _to_jsonable(value: object) -> object:
 
 def canonical_json_bytes(obj: object) -> bytes:
     """Return the canonical, key-sorted JSON encoding of *obj*."""
-    return json.dumps(
-        _to_jsonable(obj), sort_keys=True, separators=(",", ":")
-    ).encode("utf-8")
+    return json.dumps(_to_jsonable(obj), sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
 
 
 @dataclass(frozen=True)
@@ -299,7 +299,8 @@ def _parse_root_spec(d: object, context: str) -> RootSpec:
 def _parse_tree_entry(d: object, context: str) -> TreeEntry:
     d = _require_dict(d, context)
     _check_keys(
-        d, frozenset({"path", "kind", "digest", "target", "mode", "uid", "gid"}),
+        d,
+        frozenset({"path", "kind", "digest", "target", "mode", "uid", "gid"}),
         context,
     )
     return TreeEntry(
@@ -344,10 +345,23 @@ def _parse_lock_package(d: object, context: str) -> LockPackage:
         d,
         frozenset(
             {
-                "path", "name", "version", "resolved", "integrity",
-                "dependencies", "optional_dependencies", "dev_dependencies",
-                "peer_dependencies", "optional_peers", "dev", "optional",
-                "peer", "has_install_script", "os", "cpu", "applicable",
+                "path",
+                "name",
+                "version",
+                "resolved",
+                "integrity",
+                "dependencies",
+                "optional_dependencies",
+                "dev_dependencies",
+                "peer_dependencies",
+                "optional_peers",
+                "dev",
+                "optional",
+                "peer",
+                "has_install_script",
+                "os",
+                "cpu",
+                "applicable",
             }
         ),
         context,
@@ -384,7 +398,8 @@ def _parse_lock_package(d: object, context: str) -> LockPackage:
 def _parse_omitted_optional(d: object, context: str) -> OmittedOptional:
     d = _require_dict(d, context)
     _check_keys(
-        d, frozenset({"parent_path", "name", "range", "reason", "platform"}),
+        d,
+        frozenset({"parent_path", "name", "range", "reason", "platform"}),
         context,
     )
     return OmittedOptional(
@@ -398,9 +413,7 @@ def _parse_omitted_optional(d: object, context: str) -> OmittedOptional:
 
 def _parse_integrity_less(d: object, context: str) -> IntegrityLessNode:
     d = _require_dict(d, context)
-    _check_keys(
-        d, frozenset({"name", "path", "version", "resolved"}), context
-    )
+    _check_keys(d, frozenset({"name", "path", "version", "resolved"}), context)
     return IntegrityLessNode(
         name=_str(d, "name", context),
         path=_str(d, "path", context),
@@ -412,7 +425,8 @@ def _parse_integrity_less(d: object, context: str) -> IntegrityLessNode:
 def _parse_reviewed_root_metadata(d: object, context: str) -> ReviewedRootMetadata:
     d = _require_dict(d, context)
     _check_keys(
-        d, frozenset({"package_name", "lock_path", "bin", "engines_node"}),
+        d,
+        frozenset({"package_name", "lock_path", "bin", "engines_node"}),
         context,
     )
     engines_node = d.get("engines_node")
@@ -432,8 +446,13 @@ def _parse_assembler_identity(d: object, context: str) -> AssemblerIdentity:
         d,
         frozenset(
             {
-                "image_digest", "node_version", "npm_version", "script_digest",
-                "policy_digest", "platform", "digest",
+                "image_digest",
+                "node_version",
+                "npm_version",
+                "script_digest",
+                "policy_digest",
+                "platform",
+                "digest",
             }
         ),
         context,
@@ -452,12 +471,13 @@ def _parse_assembler_identity(d: object, context: str) -> AssemblerIdentity:
     return recomputed
 
 
-def _parse_assembler_input_identity(
-    d: object, context: str
-) -> AssemblerInputIdentity:
+def _parse_assembler_input_identity(d: object, context: str) -> AssemblerInputIdentity:
     d = _require_dict(d, context)
     _check_keys(
-        d, frozenset({"roots", "lockfile_digest", "assembler", "digest", "package_digest"}),
+        d,
+        frozenset(
+            {"roots", "lockfile_digest", "assembler", "digest", "package_digest"}
+        ),
         context,
     )
     roots = tuple(
@@ -493,8 +513,13 @@ def _parse_evidence_body(d: object, context: str) -> AssemblerEvidenceBody:
         d,
         frozenset(
             {
-                "input_identity", "tree_digest", "tree_entries", "packages",
-                "omitted_optionals", "integrity_less", "root_metadata",
+                "input_identity",
+                "tree_digest",
+                "tree_entries",
+                "packages",
+                "omitted_optionals",
+                "integrity_less",
+                "root_metadata",
                 "npm_policy_flags",
             }
         ),
@@ -549,8 +574,13 @@ def parse_evidence(data: bytes) -> AssemblerEvidence:
     _check_keys(
         d,
         frozenset(
-            {"output_identity", "input_identity", "tree_digest",
-             "evidence_digest", "body"}
+            {
+                "output_identity",
+                "input_identity",
+                "tree_digest",
+                "evidence_digest",
+                "body",
+            }
         ),
         "evidence",
     )
@@ -594,12 +624,26 @@ def parse_result(data: bytes) -> AssemblyResult:
         d,
         frozenset(
             {
-                "environment_root", "evidence_path", "output_identity",
-                "input_identity", "tree_digest", "evidence_digest", "roots",
-                "root_metadata", "packages", "omitted_optionals",
-                "integrity_less", "image_digest", "node_version", "npm_version",
-                "script_digest", "policy_digest", "platform", "lockfile_digest",
-                "npm_policy_flags", "tree_entries",
+                "environment_root",
+                "evidence_path",
+                "output_identity",
+                "input_identity",
+                "tree_digest",
+                "evidence_digest",
+                "roots",
+                "root_metadata",
+                "packages",
+                "omitted_optionals",
+                "integrity_less",
+                "image_digest",
+                "node_version",
+                "npm_version",
+                "script_digest",
+                "policy_digest",
+                "platform",
+                "lockfile_digest",
+                "npm_policy_flags",
+                "tree_entries",
             }
         ),
         "result",

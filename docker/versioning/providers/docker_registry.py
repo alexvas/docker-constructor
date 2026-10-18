@@ -2,6 +2,7 @@
 
 Checks a Docker manifest for the selected tag and reports digest refreshes.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,9 +29,7 @@ _DOCKER_HUB_ALIASES: dict[str, str] = {
 }
 
 
-def _header_case_insensitive(
-    headers: "Mapping[str, str]", name: str
-) -> str | None:
+def _header_case_insensitive(headers: "Mapping[str, str]", name: str) -> str | None:
     """Look up an HTTP header name case-insensitively."""
     name_lower = name.lower()
     for key, val in headers.items():
@@ -100,18 +99,17 @@ class DockerRegistryProvider:
         if resp.status == 401:
             return ProviderResult(
                 unavailable_reason=(
-                    "Docker Registry: authentication required "
-                    "(token flow failed)"
+                    "Docker Registry: authentication required (token flow failed)"
                 )
             )
         if resp.status != 200:
             return ProviderResult(
-                unavailable_reason=(
-                    f"Docker Registry returned HTTP {resp.status}"
-                )
+                unavailable_reason=(f"Docker Registry returned HTTP {resp.status}")
             )
 
-        upstream_digest = _header_case_insensitive(resp.headers, "Docker-Content-Digest")
+        upstream_digest = _header_case_insensitive(
+            resp.headers, "Docker-Content-Digest"
+        )
         if not upstream_digest:
             return ProviderResult(
                 unavailable_reason=(
@@ -122,8 +120,7 @@ class DockerRegistryProvider:
         if not _DOCKER_DIGEST_RE.match(upstream_digest):
             return ProviderResult(
                 unavailable_reason=(
-                    f"Docker Registry: invalid digest format "
-                    f"{upstream_digest!r}"
+                    f"Docker Registry: invalid digest format {upstream_digest!r}"
                 )
             )
 

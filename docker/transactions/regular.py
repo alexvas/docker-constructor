@@ -38,6 +38,7 @@ previously validated inode, so L2 makes no race-free claim against a
 same-user actor that mutates the namespace outside the adopting layer's
 coordination.
 """
+
 from __future__ import annotations
 
 import errno
@@ -270,7 +271,9 @@ class RegularFileContracts:
             except OSError as exc:
                 if exc.errno == errno.ELOOP:
                     raise UnsafeFileError(
-                        STAGE_VALIDATE, f"{base!r} is not a safe regular file", cause=exc
+                        STAGE_VALIDATE,
+                        f"{base!r} is not a safe regular file",
+                        cause=exc,
                     ) from exc
                 raise TransactionError(
                     STAGE_READ, f"cannot open {base!r}", cause=exc
@@ -288,7 +291,10 @@ class RegularFileContracts:
                 not stat.S_ISREG(info.st_mode)
                 or info.st_uid != os.geteuid()
                 or info.st_nlink != 1
-                or (allowed_mode is not None and stat.S_IMODE(info.st_mode) != allowed_mode)
+                or (
+                    allowed_mode is not None
+                    and stat.S_IMODE(info.st_mode) != allowed_mode
+                )
             ):
                 raise UnsafeFileError(
                     STAGE_VALIDATE, f"{base!r} is not a safe owned regular file"
@@ -321,7 +327,9 @@ class RegularFileContracts:
         for _ in range(_TEMP_ATTEMPTS):
             temp_name = _temp_name()
             try:
-                fd = self._ops.openat(directory.fd, temp_name, _TEMP_CREATE_FLAGS, 0o600)
+                fd = self._ops.openat(
+                    directory.fd, temp_name, _TEMP_CREATE_FLAGS, 0o600
+                )
             except FileExistsError as exc:
                 # A collided private name belongs to someone else: never read,
                 # unlink, or replace it; retry with a fresh unpredictable name.
@@ -368,7 +376,9 @@ class RegularFileContracts:
             self._ops.fsync(state.fd)
         except OSError as exc:
             raise TransactionError(
-                STAGE_FSYNC_FILE, f"cannot flush private state in {directory.label!r}", cause=exc
+                STAGE_FSYNC_FILE,
+                f"cannot flush private state in {directory.label!r}",
+                cause=exc,
             ) from exc
 
     def _fsync_directory(self, directory: DirectoryCapability, base: str) -> None:
@@ -416,7 +426,9 @@ class RegularFileContracts:
                 STAGE_UNLINK, f"cannot remove {base!r}", cause=exc
             ) from exc
 
-    def _unlink_temporary(self, directory: DirectoryCapability, state: _Publication) -> None:
+    def _unlink_temporary(
+        self, directory: DirectoryCapability, state: _Publication
+    ) -> None:
         if state.temp_name is None:
             return
         try:
@@ -499,11 +511,16 @@ class RegularFileContracts:
             owner.close()
         except OSError as exc:
             raise TransactionError(
-                STAGE_CLOSE, f"cannot close private state in {directory.label!r}", cause=exc
+                STAGE_CLOSE,
+                f"cannot close private state in {directory.label!r}",
+                cause=exc,
             ) from exc
 
     def _discard(
-        self, directory: DirectoryCapability, state: _Publication, primary: BaseException
+        self,
+        directory: DirectoryCapability,
+        state: _Publication,
+        primary: BaseException,
     ) -> None:
         """Best-effort cleanup that preserves the primary failure.
 

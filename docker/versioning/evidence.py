@@ -5,6 +5,7 @@ The collector records command arguments, exit codes, timestamps, bounded
 stdout/stderr, image inspection, checksums, and redaction metadata, then
 produces a human-readable index.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -59,6 +60,7 @@ class Clock(Protocol):
 @dataclass(frozen=True)
 class EvidenceCommand:
     """A single recorded command."""
+
     argv: tuple[str, ...]
     """Exact argument vector (passwords and secrets redacted)."""
     return_code: int | None
@@ -90,6 +92,7 @@ class EvidenceCommand:
 @dataclass(frozen=True)
 class EvidenceNote:
     """Static note about a collected artifact (file, image, etc.)."""
+
     key: str
     """Label for the note (e.g. ``"image-inspect"``)."""
     detail: str
@@ -99,6 +102,7 @@ class EvidenceNote:
 @dataclass(frozen=True)
 class EvidenceBundle:
     """A complete portable evidence collection."""
+
     commands: tuple[EvidenceCommand, ...]
     """Every command recorded during collection, in order."""
     notes: tuple[EvidenceNote, ...]
@@ -163,19 +167,33 @@ def normalize_static_record(
 
     # Truncate.
     stdout_trunc, stdout_truncated, stdout_orig = _truncate(
-        stdout_clean, max_output_bytes,
+        stdout_clean,
+        max_output_bytes,
     )
     stderr_trunc, stderr_truncated, stderr_orig = _truncate(
-        stderr_clean, max_output_bytes,
+        stderr_clean,
+        max_output_bytes,
     )
 
     # Write bounded output files.
-    stdout_file = _write_output_file(
-        output_dir, f"{index:03d}-stdout", stdout_trunc,
-    ) if stdout_trunc else None
-    stderr_file = _write_output_file(
-        output_dir, f"{index:03d}-stderr", stderr_trunc,
-    ) if stderr_trunc else None
+    stdout_file = (
+        _write_output_file(
+            output_dir,
+            f"{index:03d}-stdout",
+            stdout_trunc,
+        )
+        if stdout_trunc
+        else None
+    )
+    stderr_file = (
+        _write_output_file(
+            output_dir,
+            f"{index:03d}-stderr",
+            stderr_trunc,
+        )
+        if stderr_trunc
+        else None
+    )
 
     # Checksums — hash the truncated content even when empty, so
     # the bundle is byte-identical to live collection.
@@ -223,38 +241,47 @@ def write_static_evidence(
 
     # ── Host metadata ─────────────────────────────────────────────
     hostname = os.uname().nodename
-    evidence_notes.append(EvidenceNote(
-        key="host-metadata",
-        detail=f"collected on {hostname}",
-    ))
+    evidence_notes.append(
+        EvidenceNote(
+            key="host-metadata",
+            detail=f"collected on {hostname}",
+        )
+    )
 
     # ── Git SHA ───────────────────────────────────────────────────
     try:
         git_result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if git_result.returncode == 0:
             git_sha = git_result.stdout.strip()
-            evidence_notes.append(EvidenceNote(
-                key="git-sha",
-                detail=f"commit {git_sha}",
-            ))
+            evidence_notes.append(
+                EvidenceNote(
+                    key="git-sha",
+                    detail=f"commit {git_sha}",
+                )
+            )
         else:
-            evidence_notes.append(EvidenceNote(
-                key="git-sha",
-                detail="git rev-parse failed",
-            ))
+            evidence_notes.append(
+                EvidenceNote(
+                    key="git-sha",
+                    detail="git rev-parse failed",
+                )
+            )
     except Exception:
-        evidence_notes.append(EvidenceNote(
-            key="git-sha",
-            detail="git unavailable",
-        ))
+        evidence_notes.append(
+            EvidenceNote(
+                key="git-sha",
+                detail="git unavailable",
+            )
+        )
 
     # ── Human-readable index ──────────────────────────────────────
     ts = datetime.fromtimestamp(
-        evidence_commands[0].timestamp_epoch
-        if evidence_commands else time.time(),
+        evidence_commands[0].timestamp_epoch if evidence_commands else time.time(),
         tz=timezone.utc,
     )
     lines: list[str] = []
@@ -269,23 +296,25 @@ def write_static_evidence(
         rc_str = str(cmd.return_code) if cmd.return_code is not None else "-"
         dur = f"{cmd.duration_seconds:.3f}s"
         lines.append(
-            f"  [{i:03d}] exit={rc_str} dur={dur}{skipped}"
-            f" argv={' '.join(cmd.argv)}"
+            f"  [{i:03d}] exit={rc_str} dur={dur}{skipped} argv={' '.join(cmd.argv)}"
         )
         if cmd.stdout_file:
-            lines.append(f"        stdout={cmd.stdout_file}"
-                         f" (sha256={cmd.stdout_sha256})")
+            lines.append(
+                f"        stdout={cmd.stdout_file} (sha256={cmd.stdout_sha256})"
+            )
         if cmd.stderr_file:
-            lines.append(f"        stderr={cmd.stderr_file}"
-                         f" (sha256={cmd.stderr_sha256})")
+            lines.append(
+                f"        stderr={cmd.stderr_file} (sha256={cmd.stderr_sha256})"
+            )
     lines.append("")
     lines.append("Notes:")
     for note in evidence_notes:
         lines.append(f"  [{note.key}] {note.detail}")
 
     lines.append("")
-    failures = [c for c in evidence_commands
-                if not c.skipped and c.return_code not in (0, None)]
+    failures = [
+        c for c in evidence_commands if not c.skipped and c.return_code not in (0, None)
+    ]
     if failures:
         lines.append(f"OVERALL: FAIL ({len(failures)} command(s) failed)")
     else:
@@ -337,7 +366,8 @@ def _secret_redaction_variants(secrets: Sequence[str]) -> tuple[str, ...]:
 
 
 def _redact_argv(
-    argv: tuple[str, ...], secrets: Sequence[str] = (),
+    argv: tuple[str, ...],
+    secrets: Sequence[str] = (),
 ) -> tuple[str, ...]:
     """Replace secret-bearing argv entries with redacted versions.
 
@@ -374,6 +404,7 @@ def _redact_argv(
 def _redact_content(data: str, secrets: Sequence[str] = ()) -> str:
     """Scrub bearer tokens and caller-supplied sensitive values."""
     import re
+
     d = data
     d = re.sub(r"Bearer\s+\S+", "Bearer REDACTED", d)
     for secret in _secret_redaction_variants(secrets):
@@ -391,7 +422,9 @@ def _truncate(data: str, max_bytes: int) -> tuple[str, bool, int | None]:
 
 
 def _write_output_file(
-    output_dir: Path, stem: str, content: str,
+    output_dir: Path,
+    stem: str,
+    content: str,
 ) -> str | None:
     """Write *content* to ``<stem>.txt`` inside *output_dir*.
     Returns the relative filename, or ``None`` when content is empty."""
@@ -448,17 +481,19 @@ def collect_evidence(
     for cmd in all_commands:
         t_start = clock.now()
         if dry_run:
-            evidence_commands.append(EvidenceCommand(
-                argv=_redact_argv(cmd, secrets),
-                return_code=None,
-                timestamp_epoch=t_start,
-                duration_seconds=0.0,
-                stdout_file=None,
-                stderr_file=None,
-                stdout_sha256=None,
-                stderr_sha256=None,
-                skipped=True,
-            ))
+            evidence_commands.append(
+                EvidenceCommand(
+                    argv=_redact_argv(cmd, secrets),
+                    return_code=None,
+                    timestamp_epoch=t_start,
+                    duration_seconds=0.0,
+                    stdout_file=None,
+                    stderr_file=None,
+                    stdout_sha256=None,
+                    stderr_sha256=None,
+                    skipped=True,
+                )
+            )
             continue
 
         try:
@@ -513,52 +548,67 @@ def collect_evidence(
                             img_id = "unknown"
                     except Exception:
                         img_id = "parse-error"
-                    evidence_notes.append(EvidenceNote(
-                        key="image-inspect",
-                        detail=f"image {image}: ID {img_id}",
-                    ))
+                    evidence_notes.append(
+                        EvidenceNote(
+                            key="image-inspect",
+                            detail=f"image {image}: ID {img_id}",
+                        )
+                    )
                 elif cmd_rec.return_code not in (0, None):
-                    evidence_notes.append(EvidenceNote(
-                        key="image-inspect",
-                        detail=f"docker inspect {image} failed (exit"
-                                f" {cmd_rec.return_code})",
-                    ))
+                    evidence_notes.append(
+                        EvidenceNote(
+                            key="image-inspect",
+                            detail=f"docker inspect {image} failed (exit"
+                            f" {cmd_rec.return_code})",
+                        )
+                    )
                 break
 
     # Host metadata
     hostname = os.uname().nodename
-    evidence_notes.append(EvidenceNote(
-        key="host-metadata",
-        detail=f"collected on {hostname}",
-    ))
+    evidence_notes.append(
+        EvidenceNote(
+            key="host-metadata",
+            detail=f"collected on {hostname}",
+        )
+    )
 
     # Git SHA
     try:
         git_result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         if git_result.returncode == 0:
             git_sha = git_result.stdout.strip()
-            evidence_notes.append(EvidenceNote(
-                key="git-sha",
-                detail=f"commit {git_sha}",
-            ))
+            evidence_notes.append(
+                EvidenceNote(
+                    key="git-sha",
+                    detail=f"commit {git_sha}",
+                )
+            )
         else:
-            evidence_notes.append(EvidenceNote(
-                key="git-sha",
-                detail="git rev-parse failed",
-            ))
+            evidence_notes.append(
+                EvidenceNote(
+                    key="git-sha",
+                    detail="git rev-parse failed",
+                )
+            )
     except Exception:
-        evidence_notes.append(EvidenceNote(
-            key="git-sha",
-            detail="git unavailable",
-        ))
+        evidence_notes.append(
+            EvidenceNote(
+                key="git-sha",
+                detail="git unavailable",
+            )
+        )
 
     # ── Human-readable index ───────────────────────────────────────────
-    ts = datetime.fromtimestamp(evidence_commands[0].timestamp_epoch
-                                 if evidence_commands else clock.now(),
-                                 tz=timezone.utc)
+    ts = datetime.fromtimestamp(
+        evidence_commands[0].timestamp_epoch if evidence_commands else clock.now(),
+        tz=timezone.utc,
+    )
     lines: list[str] = []
     lines.append(f"Evidence collection for image: {image}")
     lines.append(f"Generated at: {ts.isoformat()}")
@@ -571,23 +621,25 @@ def collect_evidence(
         rc_str = str(cmd.return_code) if cmd.return_code is not None else "-"
         dur = f"{cmd.duration_seconds:.3f}s"
         lines.append(
-            f"  [{i:03d}] exit={rc_str} dur={dur}{skipped}"
-            f" argv={' '.join(cmd.argv)}"
+            f"  [{i:03d}] exit={rc_str} dur={dur}{skipped} argv={' '.join(cmd.argv)}"
         )
         if cmd.stdout_file:
-            lines.append(f"        stdout={cmd.stdout_file}"
-                         f" (sha256={cmd.stdout_sha256})")
+            lines.append(
+                f"        stdout={cmd.stdout_file} (sha256={cmd.stdout_sha256})"
+            )
         if cmd.stderr_file:
-            lines.append(f"        stderr={cmd.stderr_file}"
-                         f" (sha256={cmd.stderr_sha256})")
+            lines.append(
+                f"        stderr={cmd.stderr_file} (sha256={cmd.stderr_sha256})"
+            )
     lines.append("")
     lines.append("Notes:")
     for note in evidence_notes:
         lines.append(f"  [{note.key}] {note.detail}")
 
     # Overall status
-    failures = [c for c in evidence_commands
-                if not c.skipped and c.return_code not in (0, None)]
+    failures = [
+        c for c in evidence_commands if not c.skipped and c.return_code not in (0, None)
+    ]
     lines.append("")
     if failures:
         lines.append(f"OVERALL: FAIL ({len(failures)} command(s) failed)")

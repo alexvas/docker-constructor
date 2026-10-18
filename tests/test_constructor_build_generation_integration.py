@@ -32,7 +32,12 @@ from pathlib import Path
 from unittest import mock
 
 from docker.transactions.capabilities import CapabilityError, DirectoryCapability
-from docker.transactions.errors import STAGE_CLOSE, LockError, TransactionError, UnsafeFileError
+from docker.transactions.errors import (
+    STAGE_CLOSE,
+    LockError,
+    TransactionError,
+    UnsafeFileError,
+)
 from docker.transactions.locking import LockPolicy
 from docker.transactions.posix import PosixFileOps
 from docker.transactions.regular import RegularFileContracts
@@ -190,7 +195,9 @@ def _contender(checkout: str, start, results) -> None:
 
 class BuildLockParityTests(_BuildTestCase):
     def test_lock_is_the_shared_fail_fast_capability(self) -> None:
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             self.assertIs(lock.capability.policy, LockPolicy.FAIL_FAST)
             self.assertEqual(lock.capability.name, "build.lock")
             self.assertEqual(lock.capability.namespace, "build-generation")
@@ -300,9 +307,7 @@ class BuildLockParityTests(_BuildTestCase):
         self.assertIs(typed[0].cause, unlock)
 
     def test_simultaneous_unlock_and_close_failures_are_retained_once(self) -> None:
-        lock = acquire_constructor_project_build_lock(
-            self.repo, cache_root=self.cache
-        )
+        lock = acquire_constructor_project_build_lock(self.repo, cache_root=self.cache)
         unlock = OSError(errno.EIO, "injected unlock failure")
         lock_close = OSError(errno.EBADF, "injected lock close failure")
         directory_close = OSError(errno.ENOSPC, "injected directory close failure")
@@ -322,8 +327,10 @@ class BuildLockParityTests(_BuildTestCase):
             calls["directory_close"] += 1
             raise directory_close
 
-        with mock.patch.object(PosixFileOps, "flock", failing_unlock), \
-                mock.patch.object(PosixFileOps, "close", failing_close):
+        with (
+            mock.patch.object(PosixFileOps, "flock", failing_unlock),
+            mock.patch.object(PosixFileOps, "close", failing_close),
+        ):
             with self.assertRaises(LockError) as ctx:
                 lock.release()
             lock.release()
@@ -339,9 +346,7 @@ class BuildLockParityTests(_BuildTestCase):
             if isinstance(item, TransactionError) and item.stage == STAGE_CLOSE
         )
         self.assertIs(directory_secondary.cause, directory_close)
-        self.assertEqual(
-            {"unlock": 1, "lock_close": 1, "directory_close": 1}, calls
-        )
+        self.assertEqual({"unlock": 1, "lock_close": 1, "directory_close": 1}, calls)
 
     def test_release_failure_without_body_exception_propagates(self) -> None:
         unlock = OSError(errno.EIO, "injected unlock failure")
@@ -370,7 +375,9 @@ class BuildLockParityTests(_BuildTestCase):
         other.mkdir()
         other_cache = self.base / "other-cache"
         other_cache.mkdir(mode=0o700)
-        with acquire_constructor_project_build_lock(link, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            link, cache_root=self.cache
+        ) as lock:
             self.assertEqual(lock.constructor_project_root, self.repo.resolve())
             lock.assert_held_for(self.repo, cache_root=self.cache)
             with self.assertRaises(BuildTransactionError):
@@ -380,7 +387,9 @@ class BuildLockParityTests(_BuildTestCase):
 
     def test_release_on_every_outcome(self) -> None:
         with self.assertRaises(RuntimeError):
-            with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+            with acquire_constructor_project_build_lock(
+                self.repo, cache_root=self.cache
+            ) as lock:
                 raise RuntimeError("interrupted owner")
         # A released capability can be re-acquired, and release is idempotent.
         lock = acquire_constructor_project_build_lock(self.repo, cache_root=self.cache)
@@ -402,10 +411,16 @@ class BuildCacheParityTests(_BuildTestCase):
         paths = self.paths()
         identity = self.identity(b"marker-lifecycle")
         marker = paths.markers_root / f"sha256:{identity.hex_digest()}.json"
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             publish_uncommitted_blob(
-                identity, b"marker-lifecycle", constructor_project_root=self.repo,
-                lock=lock, verified_at=0, cache_root=self.cache,
+                identity,
+                b"marker-lifecycle",
+                constructor_project_root=self.repo,
+                lock=lock,
+                verified_at=0,
+                cache_root=self.cache,
             )
             # Before generation commit the marker is the only retention evidence.
             self.assertTrue(marker.exists())
@@ -413,7 +428,9 @@ class BuildCacheParityTests(_BuildTestCase):
         self.assertFalse(marker.exists())
         self.assertTrue(build_blob_path(paths.blobs_root, identity).exists())
         self.assertEqual(
-            _generation_blobs(paths.persistent_root, _generation_files(paths.persistent_root)[0]),
+            _generation_blobs(
+                paths.persistent_root, _generation_files(paths.persistent_root)[0]
+            ),
             [f"sha256:{identity.hex_digest()}"],
         )
 
@@ -422,17 +439,28 @@ class BuildCacheParityTests(_BuildTestCase):
         committed = self.publish(b"ttl-committed")
         stale = self.publish(b"ttl-stale")
         marker = paths.markers_root / f"sha256:{stale.hex_digest()}.json"
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
-            mark_uncommitted_blob(committed, self.repo, lock=lock, verified_at=0, cache_root=self.cache)
-            mark_uncommitted_blob(stale, self.repo, lock=lock, verified_at=0, cache_root=self.cache)
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
+            mark_uncommitted_blob(
+                committed, self.repo, lock=lock, verified_at=0, cache_root=self.cache
+            )
+            mark_uncommitted_blob(
+                stale, self.repo, lock=lock, verified_at=0, cache_root=self.cache
+            )
             commit_build_set(self.repo, {committed}, lock=lock, cache_root=self.cache)
-            mark_uncommitted_blob(stale, self.repo, lock=lock, verified_at=0, cache_root=self.cache)
+            mark_uncommitted_blob(
+                stale, self.repo, lock=lock, verified_at=0, cache_root=self.cache
+            )
             maintain_uncommitted_blobs(
                 self.repo, lock=lock, now=UNCOMMITTED_TTL_SECONDS, cache_root=self.cache
             )
             self.assertTrue(build_blob_path(paths.blobs_root, stale).exists())
             maintain_uncommitted_blobs(
-                self.repo, lock=lock, now=UNCOMMITTED_TTL_SECONDS + 1, cache_root=self.cache
+                self.repo,
+                lock=lock,
+                now=UNCOMMITTED_TTL_SECONDS + 1,
+                cache_root=self.cache,
             )
         # Committed blobs are TTL-immune; uncommitted blobs expire exactly past TTL.
         self.assertTrue(build_blob_path(paths.blobs_root, committed).exists())
@@ -445,7 +473,9 @@ class BuildCacheParityTests(_BuildTestCase):
         snapshot.mkdir()
         (snapshot / "partial").write_text("partial")
         identity = self.publish(b"content-addressed")
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             recover_build_generations(self.repo, lock=lock, cache_root=self.cache)
             recover_abandoned_snapshots(self.repo, lock=lock, cache_root=self.cache)
         self.assertFalse(snapshot.exists())
@@ -454,8 +484,12 @@ class BuildCacheParityTests(_BuildTestCase):
     def test_restart_fsyncs_marker_directory_when_markers_absent(self) -> None:
         paths = self.paths()
         identity = self.publish(b"marker-absent-restart")
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
-            mark_uncommitted_blob(identity, self.repo, lock=lock, verified_at=0, cache_root=self.cache)
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
+            mark_uncommitted_blob(
+                identity, self.repo, lock=lock, verified_at=0, cache_root=self.cache
+            )
             commit_build_set(self.repo, {identity}, lock=lock, cache_root=self.cache)
         marker = paths.markers_root / f"sha256:{identity.hex_digest()}.json"
         self.assertFalse(marker.exists())
@@ -468,8 +502,12 @@ class BuildCacheParityTests(_BuildTestCase):
             recorded.append(target)
             return real_sync(ops, directory, failures, target=target)
 
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
-            with mock.patch.object(build_cleanup_module, "_sync_directory", recording_sync):
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
+            with mock.patch.object(
+                build_cleanup_module, "_sync_directory", recording_sync
+            ):
                 recover_build_generations(self.repo, lock=lock, cache_root=self.cache)
         # Recovery must synchronize the shared marker directory even though
         # every authoritative-generation marker is already absent.
@@ -480,8 +518,12 @@ class BuildCacheParityTests(_BuildTestCase):
         xdg_blob.parent.mkdir(parents=True)
         xdg_blob.write_bytes(b"shared-xdg")
         identity = self.publish(b"xdg-independent")
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
-            mark_uncommitted_blob(identity, self.repo, lock=lock, verified_at=0, cache_root=self.cache)
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
+            mark_uncommitted_blob(
+                identity, self.repo, lock=lock, verified_at=0, cache_root=self.cache
+            )
             commit_build_set(self.repo, {identity}, lock=lock, cache_root=self.cache)
         self.assertEqual(xdg_blob.read_bytes(), b"shared-xdg")
         self.assertFalse((self.repo / ".docker-cache").exists())
@@ -498,27 +540,41 @@ class PostCommitFailureTests(_BuildTestCase):
         """Publish and commit generation 1 with one blob; return (blob, paths)."""
         paths = self.paths()
         old = self.publish(b"predecessor-blob")
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
-            mark_uncommitted_blob(old, self.repo, lock=lock, verified_at=0, cache_root=self.cache)
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
+            mark_uncommitted_blob(
+                old, self.repo, lock=lock, verified_at=0, cache_root=self.cache
+            )
             commit_build_set(self.repo, {old}, lock=lock, cache_root=self.cache)
         return old, paths
 
-    def test_marker_reconciliation_failure_preserves_generation_and_predecessor(self) -> None:
+    def test_marker_reconciliation_failure_preserves_generation_and_predecessor(
+        self,
+    ) -> None:
         old, paths = self._stage_predecessor()
         new = self.publish(b"successor-blob")
         real_unlinkat = PosixFileOps.unlinkat
 
         def failing_unlinkat(self, dir_fd, name):
-            if isinstance(name, str) and name.endswith(".json") and not name.startswith(
-                "committed-build-"
+            if (
+                isinstance(name, str)
+                and name.endswith(".json")
+                and not name.startswith("committed-build-")
             ):
                 raise OSError(errno.EIO, "injected marker unlink failure")
             return real_unlinkat(self, dir_fd, name)
 
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             publish_uncommitted_blob(
-                new, b"successor-blob", constructor_project_root=self.repo,
-                lock=lock, verified_at=0, cache_root=self.cache,
+                new,
+                b"successor-blob",
+                constructor_project_root=self.repo,
+                lock=lock,
+                verified_at=0,
+                cache_root=self.cache,
             )
             with mock.patch.object(PosixFileOps, "unlinkat", failing_unlinkat):
                 with self.assertRaises(PostCommitBuildError) as ctx:
@@ -550,8 +606,12 @@ class PostCommitFailureTests(_BuildTestCase):
                 raise OSError(errno.EIO, "injected blob unlink failure")
             return real_unlinkat(self, dir_fd, name)
 
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
-            mark_uncommitted_blob(new, self.repo, lock=lock, verified_at=0, cache_root=self.cache)
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
+            mark_uncommitted_blob(
+                new, self.repo, lock=lock, verified_at=0, cache_root=self.cache
+            )
             with mock.patch.object(PosixFileOps, "unlinkat", failing_unlinkat):
                 with self.assertRaises(PostCommitBuildError) as ctx:
                     commit_build_set(self.repo, {new}, lock=lock, cache_root=self.cache)
@@ -569,8 +629,10 @@ class PostCommitFailureTests(_BuildTestCase):
         state = {"unlinked_marker": False}
 
         def recording_unlinkat(self, dir_fd, name):
-            if isinstance(name, str) and name.endswith(".json") and not name.startswith(
-                "committed-build-"
+            if (
+                isinstance(name, str)
+                and name.endswith(".json")
+                and not name.startswith("committed-build-")
             ):
                 state["unlinked_marker"] = True
             return real_unlinkat(self, dir_fd, name)
@@ -580,13 +642,20 @@ class PostCommitFailureTests(_BuildTestCase):
                 raise OSError(errno.EIO, "injected marker directory fsync failure")
             return real_fsync(self, fd)
 
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             publish_uncommitted_blob(
-                new, b"fsync-successor", constructor_project_root=self.repo,
-                lock=lock, verified_at=0, cache_root=self.cache,
+                new,
+                b"fsync-successor",
+                constructor_project_root=self.repo,
+                lock=lock,
+                verified_at=0,
+                cache_root=self.cache,
             )
-            with mock.patch.object(PosixFileOps, "unlinkat", recording_unlinkat), mock.patch.object(
-                PosixFileOps, "fsync", failing_fsync
+            with (
+                mock.patch.object(PosixFileOps, "unlinkat", recording_unlinkat),
+                mock.patch.object(PosixFileOps, "fsync", failing_fsync),
             ):
                 with self.assertRaises(PostCommitBuildError) as ctx:
                     commit_build_set(self.repo, {new}, lock=lock, cache_root=self.cache)
@@ -600,15 +669,22 @@ class PostCommitFailureTests(_BuildTestCase):
         marker = paths.markers_root / f"sha256:{identity.hex_digest()}.json"
         # A snapshot-cleanup failure prevents commit_build_set, so the newly
         # materialized blob stays uncommitted under its durable marker.
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
-            mark_uncommitted_blob(identity, self.repo, lock=lock, verified_at=0, cache_root=self.cache)
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
+            mark_uncommitted_blob(
+                identity, self.repo, lock=lock, verified_at=0, cache_root=self.cache
+            )
             self.assertTrue(marker.exists())
             maintain_uncommitted_blobs(
                 self.repo, lock=lock, now=UNCOMMITTED_TTL_SECONDS, cache_root=self.cache
             )
             self.assertTrue(build_blob_path(paths.blobs_root, identity).exists())
             maintain_uncommitted_blobs(
-                self.repo, lock=lock, now=UNCOMMITTED_TTL_SECONDS + 1, cache_root=self.cache
+                self.repo,
+                lock=lock,
+                now=UNCOMMITTED_TTL_SECONDS + 1,
+                cache_root=self.cache,
             )
         self.assertFalse(marker.exists())
         self.assertFalse(build_blob_path(paths.blobs_root, identity).exists())
@@ -619,7 +695,9 @@ class PostCommitFailureTests(_BuildTestCase):
         (paths.persistent_root / ("committed-build-" + "0" * 19 + "2.json")).write_text(
             "not-json"
         )
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             with self.assertRaises(BuildCacheError):
                 recover_build_generations(self.repo, lock=lock, cache_root=self.cache)
         # Nothing was deleted or repaired.
@@ -661,17 +739,23 @@ class LockDiagnosticParityTests(_BuildTestCase):
         target = self.base / "lock-target"
         target.write_bytes(b"")
         self._lock_path().symlink_to(target)
-        with self.assertRaisesRegex(BuildTransactionError, "unsafe constructor-project build lock"):
+        with self.assertRaisesRegex(
+            BuildTransactionError, "unsafe constructor-project build lock"
+        ):
             acquire_constructor_project_build_lock(self.repo, cache_root=self.cache)
 
     def test_directory_lock_entry_is_unsafe(self) -> None:
         self._lock_path().mkdir()
-        with self.assertRaisesRegex(BuildTransactionError, "unsafe constructor-project build lock"):
+        with self.assertRaisesRegex(
+            BuildTransactionError, "unsafe constructor-project build lock"
+        ):
             acquire_constructor_project_build_lock(self.repo, cache_root=self.cache)
 
     def test_non_regular_lock_entry_is_unsafe(self) -> None:
         os.mkfifo(self._lock_path())
-        with self.assertRaisesRegex(BuildTransactionError, "unsafe constructor-project build lock"):
+        with self.assertRaisesRegex(
+            BuildTransactionError, "unsafe constructor-project build lock"
+        ):
             acquire_constructor_project_build_lock(self.repo, cache_root=self.cache)
 
     def test_foreign_owned_lock_entry_is_unsafe(self) -> None:
@@ -689,12 +773,16 @@ class LockDiagnosticParityTests(_BuildTestCase):
         lock.write_bytes(b"")
         os.chmod(lock, 0o600)
         os.link(lock, self.base / "lock-link")
-        with self.assertRaisesRegex(BuildTransactionError, "unsafe constructor-project build lock"):
+        with self.assertRaisesRegex(
+            BuildTransactionError, "unsafe constructor-project build lock"
+        ):
             acquire_constructor_project_build_lock(self.repo, cache_root=self.cache)
 
     def test_contention_still_reports_active_build(self) -> None:
         with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache):
-            with self.assertRaisesRegex(BuildTransactionError, "already has an active build"):
+            with self.assertRaisesRegex(
+                BuildTransactionError, "already has an active build"
+            ):
                 acquire_constructor_project_build_lock(self.repo, cache_root=self.cache)
 
     def test_cleanup_failure_does_not_replace_primary(self) -> None:
@@ -712,8 +800,9 @@ class LockDiagnosticParityTests(_BuildTestCase):
                 raise close_error
             return _REAL_OPS_CLOSE(self, fd)
 
-        with mock.patch.object(PosixFileOps, "openat", failing_openat), mock.patch.object(
-            PosixFileOps, "close", failing_close
+        with (
+            mock.patch.object(PosixFileOps, "openat", failing_openat),
+            mock.patch.object(PosixFileOps, "close", failing_close),
         ):
             with self.assertRaises(LockError) as ctx:
                 acquire_constructor_project_build_lock(self.repo, cache_root=self.cache)
@@ -746,7 +835,9 @@ class StorageLifecycleTests(_BuildTestCase):
                 raise boom
             return real_from_fd(ops, fd, label)
 
-        with mock.patch.object(DirectoryCapability, "from_fd", staticmethod(fake_from_fd)):
+        with mock.patch.object(
+            DirectoryCapability, "from_fd", staticmethod(fake_from_fd)
+        ):
             with self.assertRaises(CapabilityError) as ctx:
                 with lock.open_storage():
                     pass
@@ -764,7 +855,9 @@ class StorageLifecycleTests(_BuildTestCase):
                 raise boom
             return real_from_fd(ops, fd, label)
 
-        with mock.patch.object(DirectoryCapability, "from_fd", staticmethod(fake_from_fd)):
+        with mock.patch.object(
+            DirectoryCapability, "from_fd", staticmethod(fake_from_fd)
+        ):
             with self.assertRaises(CapabilityError) as ctx:
                 with lock.open_storage():
                     pass
@@ -860,7 +953,9 @@ class MarkerL2AdapterTests(_BuildTestCase):
     def test_replacement_routes_through_l2_durable_replace(self) -> None:
         identity = self.identity(b"l2-replace")
         records: list[tuple] = []
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             with mock.patch.object(
                 build_cache_module, "RegularFileContracts", _contracts_spy(records)
             ):
@@ -876,7 +971,9 @@ class MarkerL2AdapterTests(_BuildTestCase):
 
     def test_missing_marker_publishes_successfully(self) -> None:
         identity = self.identity(b"missing-marker-publication")
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             self._mark(lock, identity)
         self.assertEqual(
             json.loads(self._marker_path(identity).read_bytes()), {"verified_at": 0}
@@ -885,7 +982,9 @@ class MarkerL2AdapterTests(_BuildTestCase):
 
     def test_existing_private_marker_publishes_successfully(self) -> None:
         identity = self.identity(b"existing-private-marker")
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             self._mark(lock, identity)
             mark_uncommitted_blob(
                 identity, self.repo, lock=lock, verified_at=1, cache_root=self.cache
@@ -898,7 +997,9 @@ class MarkerL2AdapterTests(_BuildTestCase):
     def test_read_routes_through_l2_validated_read(self) -> None:
         identity = self.identity(b"l2-read")
         records: list[tuple] = []
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             self._mark(lock, identity)
             with mock.patch.object(
                 build_cache_module, "RegularFileContracts", _contracts_spy(records)
@@ -924,7 +1025,9 @@ class MarkerL2AdapterTests(_BuildTestCase):
 
     def test_unsafe_marker_read_is_a_build_transaction_error(self) -> None:
         identity = self.identity(b"unsafe-read")
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             self._mark(lock, identity)
             os.chmod(self._marker_path(identity), 0o644)
             with lock.open_storage() as storage:
@@ -937,7 +1040,9 @@ class MarkerL2AdapterTests(_BuildTestCase):
 
     def test_missing_marker_read_is_typed_with_absent_cause(self) -> None:
         missing = self.identity(b"missing-read")
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             with lock.open_storage() as storage:
                 with self.assertRaises(TransactionError) as ctx:
                     build_cache_module._read_marker_json(
@@ -951,7 +1056,9 @@ class MarkerL2AdapterTests(_BuildTestCase):
 
     def test_malformed_marker_json_remains_a_value_error(self) -> None:
         identity = self.identity(b"malformed-read")
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             self._mark(lock, identity)
             marker = self._marker_path(identity)
             marker.write_text("not-json")
@@ -963,14 +1070,19 @@ class MarkerL2AdapterTests(_BuildTestCase):
 
     def test_forbidden_mode_marker_blocks_replacement_without_mutation(self) -> None:
         identity = self.identity(b"forbidden-mode-destination")
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             self._mark(lock, identity)
             marker = self._marker_path(identity)
             original = marker.read_bytes()
             os.chmod(marker, 0o644)
             with self.assertRaises(BuildTransactionError) as ctx:
                 mark_uncommitted_blob(
-                    identity, self.repo, lock=lock, verified_at=1,
+                    identity,
+                    self.repo,
+                    lock=lock,
+                    verified_at=1,
                     cache_root=self.cache,
                 )
         self.assertIn("unsafe transaction state file", str(ctx.exception))
@@ -980,7 +1092,9 @@ class MarkerL2AdapterTests(_BuildTestCase):
 
     def test_unsafe_marker_destination_blocks_replacement(self) -> None:
         identity = self.identity(b"unsafe-destination")
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             marker = self._marker_path(identity)
             marker.symlink_to(marker.parent / "unrelated-target")
             with self.assertRaises(BuildTransactionError) as ctx:
@@ -1003,9 +1117,13 @@ class MarkerL2AdapterTests(_BuildTestCase):
                 raise cleanup
             return _REAL_UNLINKAT(self, dir_fd, name)
 
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
-            with mock.patch.object(PosixFileOps, "renameat", failing_renameat), \
-                    mock.patch.object(PosixFileOps, "unlinkat", failing_unlinkat):
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
+            with (
+                mock.patch.object(PosixFileOps, "renameat", failing_renameat),
+                mock.patch.object(PosixFileOps, "unlinkat", failing_unlinkat),
+            ):
                 with self.assertRaises(TransactionError) as ctx:
                     self._mark(lock, identity)
         # The typed replacement failure is preserved with the raw replacement
@@ -1024,7 +1142,9 @@ class MarkerL2AdapterTests(_BuildTestCase):
                 raise boom
             return _REAL_FSYNC(self, fd)
 
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             with mock.patch.object(PosixFileOps, "fsync", failing_fsync):
                 with self.assertRaises(TransactionError) as ctx:
                     self._mark(lock, identity)
@@ -1032,7 +1152,8 @@ class MarkerL2AdapterTests(_BuildTestCase):
         self.assertIs(ctx.exception.__cause__, boom)
         self.assertEqual(ctx.exception.cause.errno, errno.EIO)
         self.assertEqual(
-            str(ctx.exception.cause), "[Errno 5] injected marker directory fsync failure"
+            str(ctx.exception.cause),
+            "[Errno 5] injected marker directory fsync failure",
         )
 
     def test_interruption_during_replacement_propagates_unchanged(self) -> None:
@@ -1044,7 +1165,9 @@ class MarkerL2AdapterTests(_BuildTestCase):
                 raise interrupt
             return _REAL_FCHMOD(self, fd, mode)
 
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             with mock.patch.object(PosixFileOps, "fchmod", interrupting_fchmod):
                 with self.assertRaises(KeyboardInterrupt) as ctx:
                     self._mark(lock, identity)
@@ -1053,7 +1176,9 @@ class MarkerL2AdapterTests(_BuildTestCase):
 
     def test_unsafe_marker_close_failure_is_secondary(self) -> None:
         identity = self.identity(b"secondary-close")
-        with acquire_constructor_project_build_lock(self.repo, cache_root=self.cache) as lock:
+        with acquire_constructor_project_build_lock(
+            self.repo, cache_root=self.cache
+        ) as lock:
             self._mark(lock, identity)
             marker = self._marker_path(identity)
             os.chmod(marker, 0o644)
@@ -1072,7 +1197,9 @@ class MarkerL2AdapterTests(_BuildTestCase):
                         )
         cause = ctx.exception.__cause__
         self.assertIsInstance(cause, UnsafeFileError)
-        self.assertTrue(any("injected marker close failure" in str(exc) for exc in cause.secondary))
+        self.assertTrue(
+            any("injected marker close failure" in str(exc) for exc in cause.secondary)
+        )
 
 
 class MaintenanceDurableUnlinkTests(_BuildTestCase):
@@ -1082,9 +1209,7 @@ class MaintenanceDurableUnlinkTests(_BuildTestCase):
         identity = self.publish(payload)
         marker = self.paths().markers_root / f"sha256:{identity.hex_digest()}.json"
         blob = build_blob_path(self.paths().blobs_root, identity)
-        lock = acquire_constructor_project_build_lock(
-            self.repo, cache_root=self.cache
-        )
+        lock = acquire_constructor_project_build_lock(self.repo, cache_root=self.cache)
         self.addCleanup(lock.release)
         mark_uncommitted_blob(
             identity, self.repo, lock=lock, verified_at=0, cache_root=self.cache
@@ -1093,7 +1218,9 @@ class MaintenanceDurableUnlinkTests(_BuildTestCase):
 
     def _expire(self, lock) -> None:
         maintain_uncommitted_blobs(
-            self.repo, lock=lock, now=UNCOMMITTED_TTL_SECONDS + 1,
+            self.repo,
+            lock=lock,
+            now=UNCOMMITTED_TTL_SECONDS + 1,
             cache_root=self.cache,
         )
 
@@ -1213,8 +1340,10 @@ class MaintenanceDurableUnlinkTests(_BuildTestCase):
                     raise secondary
             return _REAL_OPS_CLOSE(self, fd)
 
-        with mock.patch.object(PosixFileOps, "unlinkat", failing_unlinkat), \
-                mock.patch.object(PosixFileOps, "close", failing_close):
+        with (
+            mock.patch.object(PosixFileOps, "unlinkat", failing_unlinkat),
+            mock.patch.object(PosixFileOps, "close", failing_close),
+        ):
             with self.assertRaises(TransactionError) as ctx:
                 self._expire(lock)
         # The typed unlink failure keeps the raw unlink cause; the close

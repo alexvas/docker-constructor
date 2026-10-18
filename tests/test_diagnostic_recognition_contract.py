@@ -34,6 +34,7 @@ The contract module is greenfield, so before it exists every test fails with
 an explicit assertion naming the missing contract rather than a collection
 error.  The test names themselves enumerate the P1 obligations.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -104,9 +105,7 @@ class _ContractCase(unittest.TestCase):
     def contract(self):
         module = type(self).contract_module
         if module is None:
-            self.fail(
-                f"{_MODULE_NAME} must define the P1 recognition result contract"
-            )
+            self.fail(f"{_MODULE_NAME} must define the P1 recognition result contract")
         return module
 
 
@@ -115,16 +114,12 @@ class SupportedSchemeSetTests(_ContractCase):
 
     def test_supported_scheme_set_matches_the_delta_requirement_exactly(self):
         module = self.contract()
-        self.assertEqual(
-            EXPECTED_SUPPORTED_SCHEMES, set(module.SUPPORTED_SCHEMES)
-        )
+        self.assertEqual(EXPECTED_SUPPORTED_SCHEMES, set(module.SUPPORTED_SCHEMES))
         self.assertEqual(17, len(module.SUPPORTED_SCHEMES))
 
     def test_legacy_known_schemes_name_is_the_same_supported_set(self):
         module = self.contract()
-        self.assertEqual(
-            set(module.SUPPORTED_SCHEMES), set(module.KNOWN_SCHEMES)
-        )
+        self.assertEqual(set(module.SUPPORTED_SCHEMES), set(module.KNOWN_SCHEMES))
 
     def test_every_supported_scheme_is_supported_case_insensitively(self):
         module = self.contract()
@@ -166,9 +161,7 @@ class SupportedSchemeSetTests(_ContractCase):
         # Superseded as a detection obligation, retained as a compatibility
         # helper only.  ``UNKNOWN`` here is not a detected URL.
         module = self.contract()
-        self.assertIs(
-            module.CandidateKind.KNOWN, module.classify_scheme("https")
-        )
+        self.assertIs(module.CandidateKind.KNOWN, module.classify_scheme("https"))
         for scheme in UNSUPPORTED_SCHEMES:
             with self.subTest(scheme=scheme):
                 self.assertIs(
@@ -459,15 +452,11 @@ class StreamCoordinateContractTests(_ContractCase):
         )
         # Absolute stream coordinates select the candidate from the whole
         # stream, not from the most recent feed alone.
-        self.assertEqual(
-            candidate_text, stream[candidate.start : candidate.end]
-        )
+        self.assertEqual(candidate_text, stream[candidate.start : candidate.end])
         self.assertGreater(candidate.start, retained_buffer_start)
         # Conversion at the retention boundary (documented formula).
         buffer_index = candidate.start - retained_buffer_start
-        self.assertEqual(
-            self._RETAINED_BUFFER.index(candidate_text), buffer_index
-        )
+        self.assertEqual(self._RETAINED_BUFFER.index(candidate_text), buffer_index)
         self.assertGreater(buffer_index, 0)
         self.assertEqual(
             candidate_text,
@@ -511,9 +500,7 @@ class StreamCoordinateContractTests(_ContractCase):
         )
         buffer_index = coverage.start - retained_buffer_start
         self.assertGreater(buffer_index, 0)
-        self.assertEqual(
-            "TOKEN", retained_buffer[buffer_index : buffer_index + 5]
-        )
+        self.assertEqual("TOKEN", retained_buffer[buffer_index : buffer_index + 5])
 
 
 if __name__ == "__main__":

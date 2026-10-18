@@ -11,6 +11,7 @@ Before the ``docker/filesystem/`` copy exists the staged layout cannot resolve
 those imports, so the test fails; once the copy is present it passes without
 adding the repository to the subprocess import path.
 """
+
 from __future__ import annotations
 
 import os
@@ -63,7 +64,7 @@ def _pi_cli_sources(text: str) -> list[tuple[str, str]]:
     """Return ``(source, destination)`` COPY local operands into the root."""
     sources: list[tuple[str, str]] = []
     for instruction in _copy_instructions(text):
-        body = instruction[len("COPY"):].strip()
+        body = instruction[len("COPY") :].strip()
         operands = shlex.split(body)
         while operands and operands[0].startswith("--"):
             if operands[0] == "--from" or operands[0].startswith("--from="):
@@ -73,9 +74,7 @@ def _pi_cli_sources(text: str) -> list[tuple[str, str]]:
         if len(operands) < 2:
             continue
         source, destination = operands[0], operands[1]
-        if destination == _INSTALL_ROOT or destination.startswith(
-            _INSTALL_ROOT + "/"
-        ):
+        if destination == _INSTALL_ROOT or destination.startswith(_INSTALL_ROOT + "/"):
             sources.append((source, destination))
     return sources
 
@@ -86,7 +85,7 @@ class TestIsolatedImageLayoutImport(unittest.TestCase):
     def _stage_image_layout(self, tmp: str) -> str:
         stage = os.path.join(tmp, "stage")
         for source, destination in _pi_cli_sources(DOCKERFILE):
-            rel = destination[len(_INSTALL_ROOT):].lstrip("/")
+            rel = destination[len(_INSTALL_ROOT) :].lstrip("/")
             target = os.path.join(stage, rel)
             src = REPO / source
             if not src.exists():

@@ -16,6 +16,7 @@ These bind the deliverables of tasks 4.1-4.7 for
 Nothing here renders, schedules a timer, reads a mailbox, or mutates
 presentation state.
 """
+
 from __future__ import annotations
 
 import random
@@ -87,8 +88,7 @@ def _state_text(value) -> str:
         return "".join(_state_text(item) for item in value)
     if isinstance(value, dict):
         return "".join(
-            _state_text(key) + _state_text(item)
-            for key, item in value.items()
+            _state_text(key) + _state_text(item) for key, item in value.items()
         )
     if hasattr(value, "__dict__"):
         return "".join(_state_text(item) for item in vars(value).values())
@@ -98,9 +98,7 @@ def _state_text(value) -> str:
 def _retained_state_strings(recognizer) -> str:
     # One concatenated string per top-level attribute so unrelated attributes
     # are not spliced into a false positive.
-    return "\x00".join(
-        _state_text(value) for value in vars(recognizer).values()
-    )
+    return "\x00".join(_state_text(value) for value in vars(recognizer).values())
 
 
 class TestFetchGrammarRecognition(unittest.TestCase):
@@ -302,7 +300,9 @@ class TestFetchGrammarRejection(unittest.TestCase):
         self._reject(_line(method="get"), _line(method="Get"))
 
     def test_trailing_whitespace_and_carriage_return_are_rejected(self):
-        self._reject(CACHE_MISS + " ", " " + CACHE_MISS, CACHE_MISS + "\r", CACHE_MISS + "\n\n")
+        self._reject(
+            CACHE_MISS + " ", " " + CACHE_MISS, CACHE_MISS + "\r", CACHE_MISS + "\n\n"
+        )
 
     def test_embedded_newline_is_rejected(self):
         self._reject(_line() + "\nnpm warn extra")
@@ -373,9 +373,7 @@ class TestFetchGroupIdentity(unittest.TestCase):
             self._recognized(_line(latency="999ms", suffix=" (cache miss)")),
             NetworkUrlDisplay.HOST_PATH,
         )
-        base = fetch_group_identity(
-            self._recognized(), NetworkUrlDisplay.HOST_PATH
-        )
+        base = fetch_group_identity(self._recognized(), NetworkUrlDisplay.HOST_PATH)
         self.assertEqual(base, same)
 
         other_path = fetch_group_identity(
@@ -472,7 +470,8 @@ class TestFetchGroupIdentity(unittest.TestCase):
     def test_identity_rejects_a_non_member_display_value(self):
         with self.assertRaises((TypeError, ValueError)):
             fetch_group_identity(
-                self._recognized(), "redacted"  # type: ignore[arg-type]
+                self._recognized(),
+                "redacted",  # type: ignore[arg-type]
             )
 
 
@@ -530,17 +529,17 @@ class TestCanonicalFetchText(unittest.TestCase):
             secrets=("secret",),
         )
         self.assertNotIn("secret.example.org", text)
-        self.assertEqual(
-            "npm http fetch GET 200 <redacted-host>/a/b", text
-        )
+        self.assertEqual("npm http fetch GET 200 <redacted-host>/a/b", text)
 
     def test_host_path_canonical_text_preserves_attempt_and_cache(self):
         self.assertEqual(
             "npm http fetch GET 200 registry.npmjs.org/a/b attempt #4 (cache hit)",
             canonical_fetch_text(
                 self._recognized(
-                    _line(url="https://registry.npmjs.org/a/b",
-                          suffix=" attempt #4 (cache hit)")
+                    _line(
+                        url="https://registry.npmjs.org/a/b",
+                        suffix=" attempt #4 (cache hit)",
+                    )
                 ),
                 NetworkUrlDisplay.HOST_PATH,
             ),
@@ -616,9 +615,7 @@ class TestDelimiterCompleteHostPathProjection(unittest.TestCase):
         record = self._recognized("https://example.com/%")
         key = fetch_group_identity(record, NetworkUrlDisplay.HOST_PATH)
         assert key is not None
-        self.assertEqual(
-            "example.com" + REDACTED_PATH_MARKER, key.host_path
-        )
+        self.assertEqual("example.com" + REDACTED_PATH_MARKER, key.host_path)
         text = canonical_fetch_text(record, NetworkUrlDisplay.HOST_PATH)
         self.assertEqual(
             "npm http fetch GET 200 example.com" + REDACTED_PATH_MARKER, text
@@ -841,9 +838,7 @@ class TestFetchUrlControlRejection(unittest.TestCase):
                 self.assertEqual(expected, key.host_path)
                 text = canonical_fetch_text(record, NetworkUrlDisplay.HOST_PATH)
                 assert text is not None
-                self.assertEqual(
-                    f"npm http fetch GET 200 {expected}", text
-                )
+                self.assertEqual(f"npm http fetch GET 200 {expected}", text)
                 for control in ("\x00", "\x1b", "\x7f"):
                     self.assertNotIn(control, text)
 
@@ -866,9 +861,7 @@ class TestFetchNumericBoundaries(unittest.TestCase):
                 self.assertEqual(int(text), record.latency_ms)
 
     def test_latency_above_the_bound_is_rejected(self):
-        self.assertIsNone(
-            parse_npm_fetch_line(_line(latency="7" * self.ABOVE + "ms"))
-        )
+        self.assertIsNone(parse_npm_fetch_line(_line(latency="7" * self.ABOVE + "ms")))
 
     def test_attempt_below_and_at_the_bound_parse(self):
         for digits in (self.BELOW, self.AT):
@@ -888,9 +881,7 @@ class TestFetchNumericBoundaries(unittest.TestCase):
         for digits in oversized:
             with self.subTest(field="latency", digits=digits):
                 try:
-                    result = parse_npm_fetch_line(
-                        _line(latency="9" * digits + "ms")
-                    )
+                    result = parse_npm_fetch_line(_line(latency="9" * digits + "ms"))
                 except Exception as exc:  # pragma: no cover - failure path
                     self.fail(f"latency parser raised {exc!r}")
                 self.assertIsNone(result)
@@ -915,9 +906,7 @@ class TestFetchNumericBoundaries(unittest.TestCase):
         self.assertEqual(5, record.attempt)
 
     def test_all_zero_fields_are_recognized(self):
-        record = parse_npm_fetch_line(
-            _line(latency="0" * self.FAR_BEYOND + "ms")
-        )
+        record = parse_npm_fetch_line(_line(latency="0" * self.FAR_BEYOND + "ms"))
         assert record is not None
         self.assertEqual(0, record.latency_ms)
 
@@ -992,24 +981,72 @@ class TestFetchParserIntrospection(unittest.TestCase):
 
     def test_each_single_field_corruption_is_rejected(self):
         corruptions: tuple[tuple[str, str], ...] = (
-            *(("method", value) for value in
-              ("get", "Get", "GET2", "G3T", "", "G" * 17)),
-            *(("status", value) for value in
-              ("199", "300", "099", "99", "2000", "2OO", "abc")),
-            *(("url", value) for value in
-              ("not-a-url", "https://", "ftp:/x", "", "x",
-               "https://%", "https://%2e", "https://[", "https://?x",
-               "https:///x", "http://:80/x", "http://127.0.0.1:70000/x",
-               "https://user@/x")),
-            *(("latency", value) for value in
-              ("15", "ms", "15s", "15mks", "15m", "15h", "-15ms", "+15ms",
-               "1.5ms", "15MS", "15 ms")),
-            *(("suffix", value) for value in
-              (" attempt 2", " attempt #", " attempt #x", " attempt #2x",
-               " attempt -1", " attempts #2", " #2", " attempt #2 #3")),
-            *(("suffix", value) for value in
-              (" (cache)", " (cache MISS)", " (cache miss", " (cache m1ss)",
-               " (cache )", " (cache miss) extra")),
+            *(
+                ("method", value)
+                for value in ("get", "Get", "GET2", "G3T", "", "G" * 17)
+            ),
+            *(
+                ("status", value)
+                for value in ("199", "300", "099", "99", "2000", "2OO", "abc")
+            ),
+            *(
+                ("url", value)
+                for value in (
+                    "not-a-url",
+                    "https://",
+                    "ftp:/x",
+                    "",
+                    "x",
+                    "https://%",
+                    "https://%2e",
+                    "https://[",
+                    "https://?x",
+                    "https:///x",
+                    "http://:80/x",
+                    "http://127.0.0.1:70000/x",
+                    "https://user@/x",
+                )
+            ),
+            *(
+                ("latency", value)
+                for value in (
+                    "15",
+                    "ms",
+                    "15s",
+                    "15mks",
+                    "15m",
+                    "15h",
+                    "-15ms",
+                    "+15ms",
+                    "1.5ms",
+                    "15MS",
+                    "15 ms",
+                )
+            ),
+            *(
+                ("suffix", value)
+                for value in (
+                    " attempt 2",
+                    " attempt #",
+                    " attempt #x",
+                    " attempt #2x",
+                    " attempt -1",
+                    " attempts #2",
+                    " #2",
+                    " attempt #2 #3",
+                )
+            ),
+            *(
+                ("suffix", value)
+                for value in (
+                    " (cache)",
+                    " (cache MISS)",
+                    " (cache miss",
+                    " (cache m1ss)",
+                    " (cache )",
+                    " (cache miss) extra",
+                )
+            ),
             ("suffix", " (cache miss) attempt #2"),
         )
         for field, value in corruptions:
@@ -1246,9 +1283,7 @@ class TestParserProjectorAlignment(unittest.TestCase):
                 if facts:
                     self.assertIsNotNone(record)
                     assert record is not None
-                    key = fetch_group_identity(
-                        record, NetworkUrlDisplay.HOST_PATH
-                    )
+                    key = fetch_group_identity(record, NetworkUrlDisplay.HOST_PATH)
                     assert key is not None
                     self.assertEqual(facts[0].text, key.host_path)
 
@@ -1370,9 +1405,7 @@ class TestIncrementalFetchRecognizer(unittest.TestCase):
                     self.assertEqual(expected is None, record is None)
 
     def test_recognizer_retains_no_source_line_or_url(self):
-        line = _line(
-            url="https://user:pass@example.com/secretpath?token=abc#frag"
-        )
+        line = _line(url="https://user:pass@example.com/secretpath?token=abc#frag")
         recognizer, record = self._recognize(line, chunk_size=1)
         self.assertIsNotNone(record)
         self.assertFalse(hasattr(record, "url"))
@@ -1416,7 +1449,15 @@ class TestIncrementalFetchRecognizer(unittest.TestCase):
         self.assertEqual("a" * 200, record.cache_outcome)
 
     def test_canonical_unsafe_matches_source_field_matching(self):
-        for secrets in ((), ("miss",), ("GET",), ("200",), ("GET 200",), ("#3",), ("sec",)):
+        for secrets in (
+            (),
+            ("miss",),
+            ("GET",),
+            ("200",),
+            ("GET 200",),
+            ("#3",),
+            ("sec",),
+        ):
             for line in (
                 CACHE_MISS,
                 _line(suffix=" attempt #3 (cache miss)"),
@@ -1563,18 +1604,14 @@ class TestIncrementalFetchRecognizerEquivalence(unittest.TestCase):
                     self.assertEqual(expected.method, record.method)
                     self.assertEqual(expected.status, record.status)
                     self.assertEqual(expected.attempt, record.attempt)
-                    self.assertEqual(
-                        expected.cache_outcome, record.cache_outcome
-                    )
+                    self.assertEqual(expected.cache_outcome, record.cache_outcome)
 
     def test_matches_the_pure_parser_for_realistic_authorities(self):
         for userinfo in self.USERINFOS:
             for host in self.HOSTS:
                 for body in self.BODIES:
                     url = f"https://{userinfo}{host}{body}"
-                    self._assert_equivalent(
-                        _line(url=url), chunk_sizes=(None, 1, 5)
-                    )
+                    self._assert_equivalent(_line(url=url), chunk_sizes=(None, 1, 5))
 
     def test_matches_the_pure_parser_for_known_malformed_urls(self):
         for url in self.MALFORMED:
@@ -1606,9 +1643,7 @@ class TestIncrementalFetchRecognizerEquivalence(unittest.TestCase):
                         self.assertEqual(expected.method, record.method)
                         self.assertEqual(expected.status, record.status)
                         self.assertEqual(expected.attempt, record.attempt)
-                        self.assertEqual(
-                            expected.cache_outcome, record.cache_outcome
-                        )
+                        self.assertEqual(expected.cache_outcome, record.cache_outcome)
 
     def test_long_authorities_match_across_chunk_boundaries(self):
         long_label = "a" * 3_000
@@ -1620,21 +1655,28 @@ class TestIncrementalFetchRecognizerEquivalence(unittest.TestCase):
         ):
             with self.subTest(shape=url[:48]):
                 self.assertIsNotNone(parse_npm_fetch_line(_line(url=url)))
-                self._assert_equivalent(
-                    _line(url=url), chunk_sizes=(None, 1, 64, 4096)
-                )
+                self._assert_equivalent(_line(url=url), chunk_sizes=(None, 1, 64, 4096))
 
     def test_recognizer_never_over_accepts_a_generated_authority(self):
         rng = random.Random(20240607)
         atoms = list("abc019._-:%[]@") + [
-            "%2F", "%3F", "%23", "%40", "%3A", "%5B", "%5D", "%25",
-            "%2E", "%00", "%09", "%C3", "%BC",
+            "%2F",
+            "%3F",
+            "%23",
+            "%40",
+            "%3A",
+            "%5B",
+            "%5D",
+            "%25",
+            "%2E",
+            "%00",
+            "%09",
+            "%C3",
+            "%BC",
         ]
         checked = 0
         for _ in range(2_000):
-            authority = "".join(
-                rng.choice(atoms) for _ in range(rng.randint(1, 10))
-            )
+            authority = "".join(rng.choice(atoms) for _ in range(rng.randint(1, 10)))
             if any(character in authority for character in " /?#"):
                 continue
             line = _line(url=f"https://{authority}")
@@ -1647,10 +1689,7 @@ class TestIncrementalFetchRecognizerEquivalence(unittest.TestCase):
         self.assertGreater(checked, 100)
 
     def test_recognizer_state_never_retains_credentials_per_chunk(self):
-        url = (
-            "https://credname:credsecret@example.com/credpath"
-            "?token=credq#credf"
-        )
+        url = "https://credname:credsecret@example.com/credpath?token=credq#credf"
         line = _line(url=url)
         always_forbidden = (
             "credsecret",
@@ -1667,9 +1706,7 @@ class TestIncrementalFetchRecognizerEquivalence(unittest.TestCase):
                 recognizer.feed(line[start : start + chunk_size])
                 retained = _retained_state_strings(recognizer)
                 for fragment in always_forbidden:
-                    self.assertNotIn(
-                        fragment, retained, (chunk_size, start)
-                    )
+                    self.assertNotIn(fragment, retained, (chunk_size, start))
                 # A single-label username is indistinguishable from a host
                 # candidate until user information is recognized, so it may
                 # only be asserted gone once the ``@`` has been consumed.

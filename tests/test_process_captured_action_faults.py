@@ -4,6 +4,7 @@ The action is a test-only nonblocking prepared worker, not a domain wrapper.
 Every helper acquisition still passes through the captured adapter; every main
 acquisition is an OwnedProcess launch. Fault seams never close candidates.
 """
+
 import subprocess
 import sys
 import threading
@@ -13,8 +14,15 @@ from unittest import mock
 import pytest
 
 from docker.filesystem.streams import OwnedStream
-from docker.process import (ActionResult, FailureInfo, FailureKind, FailurePhase,
-                            OwnedProcess, StopPolicy, StopStage)
+from docker.process import (
+    ActionResult,
+    FailureInfo,
+    FailureKind,
+    FailurePhase,
+    OwnedProcess,
+    StopPolicy,
+    StopStage,
+)
 from docker.npm_environment import lifecycle
 from tests.test_process_failure_snapshot import Child
 from tests.test_process_lifecycle import workers, secondary
@@ -56,8 +64,11 @@ class CapturedAction:
             status = self.owner.cleanup_status
             complete = complete and status.complete
             known = {(id(f.error), f.kind) for f in failures}
-            failures.extend(FailureInfo(f.error, f.kind, FailurePhase.ACTION) for f in status.failures
-                            if (id(f.error), f.kind) not in known)
+            failures.extend(
+                FailureInfo(f.error, f.kind, FailurePhase.ACTION)
+                for f in status.failures
+                if (id(f.error), f.kind) not in known
+            )
         return ActionResult(True, complete, tuple(failures))
 
     def cancel(self, deadline):
@@ -76,22 +87,38 @@ class CapturedAction:
                 if remaining <= 0:
                     error = TimeoutError("helper stage expired")
                     self.outcome = lifecycle.LifecycleOutcome(errors=[error])
-                    self.failures = (FailureInfo(error, FailureKind.ORDINARY, FailurePhase.ACTION),)
+                    self.failures = (
+                        FailureInfo(error, FailureKind.ORDINARY, FailurePhase.ACTION),
+                    )
                     return
-                grace = min(.02, remaining / 3)
-                operation = lifecycle._run_captured(self.argv, policy=lifecycle.LifecyclePolicy(grace))
+                grace = min(0.02, remaining / 3)
+                operation = lifecycle._run_captured(
+                    self.argv, policy=lifecycle.LifecyclePolicy(grace)
+                )
                 self.owner, self.outcome = operation.owner, operation.outcome
-                self.failures = tuple(FailureInfo(f.error, f.kind, FailurePhase.ACTION) for f in operation.failures)
+                self.failures = tuple(
+                    FailureInfo(f.error, f.kind, FailurePhase.ACTION)
+                    for f in operation.failures
+                )
         except BaseException as exc:
             self.owner = getattr(exc, "cleanup", None)
             if isinstance(self.owner, OwnedProcess):
-                self.failures = tuple(FailureInfo(f.error, f.kind, FailurePhase.ACTION)
-                                      for f in self.owner.cleanup_status.failures)
+                self.failures = tuple(
+                    FailureInfo(f.error, f.kind, FailurePhase.ACTION)
+                    for f in self.owner.cleanup_status.failures
+                )
             if not any(f.error is exc for f in self.failures):
-                kind = (FailureKind.INTERRUPTION if not isinstance(exc, Exception) else
-                        FailureKind.ORDINARY if isinstance(exc, OSError) else FailureKind.UNEXPECTED)
+                kind = (
+                    FailureKind.INTERRUPTION
+                    if not isinstance(exc, Exception)
+                    else FailureKind.ORDINARY
+                    if isinstance(exc, OSError)
+                    else FailureKind.UNEXPECTED
+                )
                 self.failures += (FailureInfo(exc, kind, FailurePhase.ACTION),)
-            self.outcome = lifecycle.LifecycleOutcome(errors=[f.error for f in self.failures])
+            self.outcome = lifecycle.LifecycleOutcome(
+                errors=[f.error for f in self.failures]
+            )
         finally:
             self.done.set()
 
@@ -109,7 +136,11 @@ class CapturedAction:
 @pytest.mark.parametrize("helper_kind", [OSError, RuntimeError, KeyboardInterrupt])
 @pytest.mark.parametrize("primary_kind", [ValueError, KeyboardInterrupt])
 def test_main_and_captured_helper_faults_share_precedence_and_single_owners(
-    setup_failure, helper_source, helper_position, helper_kind, primary_kind,
+    setup_failure,
+    helper_source,
+    helper_position,
+    helper_kind,
+    primary_kind,
 ):
     primary = primary_kind("domain operation")
     helper_error = helper_kind("helper fault")
@@ -126,14 +157,19 @@ def test_main_and_captured_helper_faults_share_precedence_and_single_owners(
     def transfer(owner, index):
         previous = tracked.setdefault(id(owner._proc), owner)
         assert previous is owner, "helper/main ownership was reconstructed"
-        if owner._proc is helper and helper_source == "transfer" and index == helper_position:
+        if (
+            owner._proc is helper
+            and helper_source == "transfer"
+            and index == helper_position
+        ):
             raise helper_error
         original_transfer(owner, index)
 
     def join(owner, index, timeout):
         child = owner._proc
         selected = (child is main and index == 0) or (
-            child is helper and helper_source == "join" and index == helper_position)
+            child is helper and helper_source == "join" and index == helper_position
+        )
         if selected and (id(child), index) not in join_failed:
             join_failed.add((id(child), index))
             raise main_join if child is main else helper_error
@@ -144,23 +180,38 @@ def test_main_and_captured_helper_faults_share_precedence_and_single_owners(
 
     owner = None
     try:
-        with mock.patch.object(lifecycle.subprocess, "Popen", return_value=helper) as helper_factory, \
-             mock.patch.object(OwnedProcess, "_transfer", transfer), \
-             mock.patch.object(OwnedProcess, "_join_reader", join):
+        with (
+            mock.patch.object(
+                lifecycle.subprocess, "Popen", return_value=helper
+            ) as helper_factory,
+            mock.patch.object(OwnedProcess, "_transfer", transfer),
+            mock.patch.object(OwnedProcess, "_join_reader", join),
+        ):
             try:
                 owner = OwnedProcess.launch(
-                    ["main"], factory=lambda *a, **k: main, grace_seconds=.3,
-                    stop_policy=StopPolicy((StopStage(.15, action, local_stop_before=True),), .1),
-                    on_launched=fail_launch_hook if setup_failure else None)
+                    ["main"],
+                    factory=lambda *a, **k: main,
+                    grace_seconds=0.3,
+                    stop_policy=StopPolicy(
+                        (StopStage(0.15, action, local_stop_before=True),), 0.1
+                    ),
+                    on_launched=fail_launch_hook if setup_failure else None,
+                )
             except BaseException as exc:
                 assert setup_failure
                 owner = tracked[id(main)]
                 raised = exc
             else:
                 raised = None
-            result = (owner.capture().lifecycle if raised is None else owner.cleanup_status) if setup_failure else owner.shutdown(primary=primary)
+            result = (
+                (owner.capture().lifecycle if raised is None else owner.cleanup_status)
+                if setup_failure
+                else owner.shutdown(primary=primary)
+            )
             assert action.done.wait(1)
-            assert id(helper) in tracked, "captured helper must delegate to generic launch"
+            assert id(helper) in tracked, (
+                "captured helper must delegate to generic launch"
+            )
             helper_owner = tracked[id(helper)]
             if helper_source == "transfer":
                 # Ordinary failed setup returns its prepared owner; a launch
@@ -175,17 +226,28 @@ def test_main_and_captured_helper_faults_share_precedence_and_single_owners(
             # OSError there is a cleanup defect, ahead of an ordinary primary
             # and ordinary managed-action/release errors, but never ahead of
             # an already active interruption.
-            winner = (primary if primary_kind is KeyboardInterrupt else
-                      main_join if helper_kind is OSError and helper_source != "join" else helper_error)
+            winner = (
+                primary
+                if primary_kind is KeyboardInterrupt
+                else main_join
+                if helper_kind is OSError and helper_source != "join"
+                else helper_error
+            )
             assert result.complete and result.failures[0].error is winner
             if setup_failure:
                 assert raised is (None if isinstance(winner, Exception) else winner)
-            assert all(any(f.error is e for f in result.failures) for e in (primary, helper_error, main_join, main_release))
+            assert all(
+                any(f.error is e for f in result.failures)
+                for e in (primary, helper_error, main_join, main_release)
+            )
             assert action.calls == ["prepare", "start", "cancel"]
             assert main.stdout.attempts == main.stderr.attempts == 1
             assert helper.stdout.attempts == helper.stderr.attempts == 1
             before = (tuple(action.calls), tuple(secondary(winner)))
-            assert owner.shutdown().failures[0].error is winner and owner.wait_cleanup(1).complete
+            assert (
+                owner.shutdown().failures[0].error is winner
+                and owner.wait_cleanup(1).complete
+            )
             assert helper_owner.wait_cleanup(1).complete
             assert before == (tuple(action.calls), tuple(secondary(winner)))
     finally:
@@ -198,11 +260,15 @@ def test_main_and_captured_helper_faults_share_precedence_and_single_owners(
 
 @pytest.mark.parametrize("primary_kind", [ValueError, KeyboardInterrupt])
 @pytest.mark.parametrize("position", [0, 1])
-def test_join_oserror_is_a_defect_but_never_displaces_active_interruption(primary_kind, position):
+def test_join_oserror_is_a_defect_but_never_displaces_active_interruption(
+    primary_kind, position
+):
     primary = primary_kind("active operation")
     join_error, close_error = OSError("reader join"), OSError("pipe release")
     child = Child(close_error)
-    owner = OwnedProcess.launch(["main"], factory=lambda *a, **k: child, grace_seconds=.1)
+    owner = OwnedProcess.launch(
+        ["main"], factory=lambda *a, **k: child, grace_seconds=0.1
+    )
     original_join = owner._join_reader
     joined = []
 
@@ -214,13 +280,18 @@ def test_join_oserror_is_a_defect_but_never_displaces_active_interruption(primar
 
     try:
         assert all(event.wait(1) for event in owner._stopped)
-        with mock.patch.object(owner, "_join_reader", side_effect=join), \
-             mock.patch.object(child, "wait", wraps=child.wait) as reap:
+        with (
+            mock.patch.object(owner, "_join_reader", side_effect=join),
+            mock.patch.object(child, "wait", wraps=child.wait) as reap,
+        ):
             result = owner.shutdown(primary=primary)
         winner = primary if primary_kind is KeyboardInterrupt else join_error
         assert result.complete and result.failures[0].error is winner
         assert joined == [0, 1] and reap.call_count == 1
-        assert all(any(f.error is error for f in result.failures) for error in (primary, join_error, close_error))
+        assert all(
+            any(f.error is error for f in result.failures)
+            for error in (primary, join_error, close_error)
+        )
         assert child.stdout.attempts == child.stderr.attempts == 1
         notes = tuple(secondary(winner))
         assert owner.shutdown().failures[0].error is winner
@@ -234,7 +305,9 @@ def test_join_oserror_is_a_defect_but_never_displaces_active_interruption(primar
 
 
 @pytest.mark.parametrize("primary_kind", [ValueError, KeyboardInterrupt])
-def test_captured_helper_failure_and_primary_merge_in_exact_publication_gap(primary_kind):
+def test_captured_helper_failure_and_primary_merge_in_exact_publication_gap(
+    primary_kind,
+):
     helper_error = OSError("helper release")
     helper = Child(helper_error)
     action = CapturedAction()
@@ -246,8 +319,13 @@ def test_captured_helper_failure_and_primary_merge_in_exact_publication_gap(prim
     try:
         with mock.patch.object(lifecycle.subprocess, "Popen", return_value=helper):
             owner = OwnedProcess.launch(
-                ["main"], factory=lambda *a, **k: Child(), grace_seconds=1,
-                stop_policy=StopPolicy((StopStage(.2, action, local_stop_before=True),), .2))
+                ["main"],
+                factory=lambda *a, **k: Child(),
+                grace_seconds=1,
+                stop_policy=StopPolicy(
+                    (StopStage(0.2, action, local_stop_before=True),), 0.2
+                ),
+            )
             real_set, real_wait = owner._phase_done.set, owner._phase_done.wait
 
             def set_done():
@@ -262,10 +340,13 @@ def test_captured_helper_failure_and_primary_merge_in_exact_publication_gap(prim
 
             caller = threading.Thread(
                 target=lambda: results.append(owner.shutdown(primary=primary)),
-                name="helper-gap-shutdown")
-            with mock.patch.object(owner._phase_done, "set", set_done), \
-                 mock.patch.object(owner._phase_done, "wait", wait_done):
-                owner._deadline = .01
+                name="helper-gap-shutdown",
+            )
+            with (
+                mock.patch.object(owner._phase_done, "set", set_done),
+                mock.patch.object(owner._phase_done, "wait", wait_done),
+            ):
+                owner._deadline = 0.01
                 assert published.wait(1)
                 old = owner.cleanup_status
                 assert old.complete and old.failures[0].error is helper_error
@@ -273,11 +354,18 @@ def test_captured_helper_failure_and_primary_merge_in_exact_publication_gap(prim
                 caller.start()
                 assert merged.wait(1)
                 with owner._lock:
-                    assert owner._ledger.original_primary is primary or primary in owner._ledger.interruptions
+                    assert (
+                        owner._ledger.original_primary is primary
+                        or primary in owner._ledger.interruptions
+                    )
                 proceed.set()
                 caller.join(2)
                 assert not caller.is_alive()
-            assert results and results[0].complete and results[0].failures[0].error is primary
+            assert (
+                results
+                and results[0].complete
+                and results[0].failures[0].error is primary
+            )
             assert [f.error for f in old.failures] == [helper_error]
             assert [f.error for f in results[0].failures[1:]] == [helper_error]
             assert secondary(primary) == []
@@ -323,36 +411,59 @@ def test_real_main_retains_incomplete_captured_helper_and_late_release_outcome()
     def late_close(stream_owner):
         is_helper = len(children) == 2 and stream_owner.stream is children[1].stdout
         if is_helper and entered.is_set():
-            assert reader_stopped.is_set(), "helper pipe closed under live descriptor reader"
+            assert reader_stopped.is_set(), (
+                "helper pipe closed under live descriptor reader"
+            )
         close(stream_owner)
         if is_helper:
             raise late_error
 
     try:
-        with mock.patch.object(lifecycle.subprocess, "Popen", side_effect=spawn), \
-             mock.patch.object(OwnedProcess, "_read_chunk", blocked_read), \
-             mock.patch.object(OwnedStream, "close", late_close):
+        with (
+            mock.patch.object(lifecycle.subprocess, "Popen", side_effect=spawn),
+            mock.patch.object(OwnedProcess, "_read_chunk", blocked_read),
+            mock.patch.object(OwnedStream, "close", late_close),
+        ):
             owner = OwnedProcess.launch(
                 [sys.executable, "-c", "import time; time.sleep(30)"],
-                factory=spawn, grace_seconds=.2,
-                stop_policy=StopPolicy((StopStage(.1, action, local_stop_before=True),), .08))
+                factory=spawn,
+                grace_seconds=0.2,
+                stop_policy=StopPolicy(
+                    (StopStage(0.1, action, local_stop_before=True),), 0.08
+                ),
+            )
             result = owner.shutdown(primary=primary)
             assert entered.is_set(), "captured action must delegate real helper readers"
             assert isinstance(action.owner, OwnedProcess)
             assert not result.complete and result.failures[0].error is primary
             assert not action.owner.cleanup_status.complete
             assert len(children) == 2
-            assert children[0].returncode is not None and children[1].returncode is not None
+            assert (
+                children[0].returncode is not None
+                and children[1].returncode is not None
+            )
             assert children[0].stdout.closed and children[0].stderr.closed
             assert not children[1].stdout.closed
-            before = (tuple(secondary(primary)), tuple(action.calls), action.outcome.stdout, tuple(action.outcome.errors))
-            assert not owner.wait_cleanup(.01).complete
+            before = (
+                tuple(secondary(primary)),
+                tuple(action.calls),
+                action.outcome.stdout,
+                tuple(action.outcome.errors),
+            )
+            assert not owner.wait_cleanup(0.01).complete
             release.set()
             assert action.owner.wait_cleanup(1).complete
-            assert any(f.error is late_error for f in action.owner.cleanup_status.failures)
+            assert any(
+                f.error is late_error for f in action.owner.cleanup_status.failures
+            )
             assert owner.wait_cleanup(1).complete
             assert not result.complete and result.failures[0].error is primary
-            assert before == (tuple(secondary(primary)), tuple(action.calls), action.outcome.stdout, tuple(action.outcome.errors))
+            assert before == (
+                tuple(secondary(primary)),
+                tuple(action.calls),
+                action.outcome.stdout,
+                tuple(action.outcome.errors),
+            )
             assert children[1].stdout.closed and children[1].stderr.closed
     finally:
         release.set()

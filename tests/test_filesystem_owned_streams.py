@@ -9,6 +9,7 @@ cleanup precedence, and failure-safe invalid-input handling the design
 requires.  A ``fileno()`` accessor, generic proxy API, detach/retry, or
 process-aware factory must not exist.
 """
+
 from __future__ import annotations
 
 import io
@@ -105,7 +106,9 @@ class OwnedStreamConstructionTests(unittest.TestCase):
                 with self.assertRaises(ValueError) as ctx:
                     OwnedStream(stream, label="")
                 self.assertEqual(vars(stream), before)
-                self.assertEqual(getattr(ctx.exception, "_transaction_secondary", []), [])
+                self.assertEqual(
+                    getattr(ctx.exception, "_transaction_secondary", []), []
+                )
 
     def test_interface_rejection_leaves_candidate_untouched(self) -> None:
         stream = _FakeStream()
@@ -116,7 +119,10 @@ class OwnedStreamConstructionTests(unittest.TestCase):
         self.assertEqual(vars(stream), before)
 
     def test_validation_precedes_lock_preparation(self) -> None:
-        for stream, label, error in ((_FakeStream(), "", ValueError), (object(), "stdout", TypeError)):
+        for stream, label, error in (
+            (_FakeStream(), "", ValueError),
+            (object(), "stdout", TypeError),
+        ):
             with self.subTest(error=error):
                 with mock.patch("docker.filesystem.streams.threading.Lock") as lock:
                     with self.assertRaises(error):
@@ -128,7 +134,9 @@ class OwnedStreamConstructionTests(unittest.TestCase):
             with self.subTest(failure=type(failure).__name__):
                 stream = _FakeStream()
                 before = vars(stream).copy()
-                with mock.patch("docker.filesystem.streams.threading.Lock", side_effect=failure):
+                with mock.patch(
+                    "docker.filesystem.streams.threading.Lock", side_effect=failure
+                ):
                     with self.assertRaises(type(failure)) as ctx:
                         OwnedStream(stream, label="stdout")
                 self.assertIs(ctx.exception, failure)

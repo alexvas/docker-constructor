@@ -1,4 +1,5 @@
 """Regression tests for maintenance-script cache-root preparation."""
+
 from __future__ import annotations
 
 import os
@@ -38,12 +39,14 @@ class TestMaintenanceCachePreparation(unittest.TestCase):
         for name in ("find", "rm", "docker"):
             _write_probe(probes, name, marker)
         env = os.environ.copy()
-        env.update({
-            "HOME": str(base / "home"),
-            "XDG_CACHE_HOME": str(base / "xdg"),
-            "PATH": str(probes) + os.pathsep + env["PATH"],
-            "PYTHONPATH": str(_ROOT),
-        })
+        env.update(
+            {
+                "HOME": str(base / "home"),
+                "XDG_CACHE_HOME": str(base / "xdg"),
+                "PATH": str(probes) + os.pathsep + env["PATH"],
+                "PYTHONPATH": str(_ROOT),
+            }
+        )
         (base / "home").mkdir()
         (base / "xdg").mkdir()
         return env
@@ -69,13 +72,22 @@ class TestMaintenanceCachePreparation(unittest.TestCase):
             selected.symlink_to(outside, target_is_directory=True)
             project = self._project_directory(base, selected)
             result = subprocess.run(
-                [str(_ROOT / "docker/collect-runtime-artifact-evidence.sh"),
-                 "--project-directory", str(project), "--output-dir", str(base / "evidence")],
-                env=self._environment(base, marker), capture_output=True, text=True,
+                [
+                    str(_ROOT / "docker/collect-runtime-artifact-evidence.sh"),
+                    "--project-directory",
+                    str(project),
+                    "--output-dir",
+                    str(base / "evidence"),
+                ],
+                env=self._environment(base, marker),
+                capture_output=True,
+                text=True,
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("symlink", result.stderr.lower())
-            self.assertFalse(marker.exists(), marker.read_text() if marker.exists() else "")
+            self.assertFalse(
+                marker.exists(), marker.read_text() if marker.exists() else ""
+            )
             self.assertEqual(sentinel.read_bytes(), b"unchanged")
 
     def test_acceptance_rejects_unsafe_local_root_before_rm(self) -> None:
@@ -88,26 +100,42 @@ class TestMaintenanceCachePreparation(unittest.TestCase):
             sentinel.write_bytes(b"unchanged")
             project = self._project_directory(base, xdg)
             result = subprocess.run(
-                [str(_ROOT / "docker/collect-runtime-artifact-acceptance.sh"),
-                 "--project-directory", str(project), "--output-dir", str(base / "evidence"),
-                 "--fresh-cache"],
-                env=env, capture_output=True, text=True,
+                [
+                    str(_ROOT / "docker/collect-runtime-artifact-acceptance.sh"),
+                    "--project-directory",
+                    str(project),
+                    "--output-dir",
+                    str(base / "evidence"),
+                    "--fresh-cache",
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("dedicated", result.stderr.lower())
-            self.assertFalse(marker.exists(), marker.read_text() if marker.exists() else "")
+            self.assertFalse(
+                marker.exists(), marker.read_text() if marker.exists() else ""
+            )
             self.assertEqual(sentinel.read_bytes(), b"unchanged")
 
-    def test_evidence_default_output_and_pi_home_use_external_project_state(self) -> None:
+    def test_evidence_default_output_and_pi_home_use_external_project_state(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             marker = base / "operations"
             env = self._environment(base, marker)
             project = self._project_directory(base, base / "cache")
             result = subprocess.run(
-                [str(_ROOT / "docker/collect-runtime-artifact-evidence.sh"),
-                 "--project-directory", str(project)],
-                env=env, capture_output=True, text=True,
+                [
+                    str(_ROOT / "docker/collect-runtime-artifact-evidence.sh"),
+                    "--project-directory",
+                    str(project),
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
             )
             self.assertEqual(97, result.returncode)
             state_root = base / "cache" / "projects"
@@ -131,10 +159,20 @@ class TestMaintenanceCachePreparation(unittest.TestCase):
             output = Path(env["XDG_CACHE_HOME"]) / "evidence"
             pi_home = Path(env["HOME"]) / ".pi"
             result = subprocess.run(
-                [str(_ROOT / "docker/collect-runtime-artifact-evidence.sh",
-                ), "--project-directory", str(project), "--output-dir", str(output),
-                 "--pi-home", str(pi_home)],
-                env=env, capture_output=True, text=True,
+                [
+                    str(
+                        _ROOT / "docker/collect-runtime-artifact-evidence.sh",
+                    ),
+                    "--project-directory",
+                    str(project),
+                    "--output-dir",
+                    str(output),
+                    "--pi-home",
+                    str(pi_home),
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
             )
             self.assertEqual(97, result.returncode)
             self.assertTrue(output.is_dir())
@@ -151,13 +189,21 @@ class TestMaintenanceCachePreparation(unittest.TestCase):
             project = self._project_directory(base, base / "cache")
             before = _snapshot(project)
             result = subprocess.run(
-                [str(_ROOT / "docker/collect-runtime-artifact-acceptance.sh"),
-                 "--project-directory", str(project)],
-                env=env, capture_output=True, text=True,
+                [
+                    str(_ROOT / "docker/collect-runtime-artifact-acceptance.sh"),
+                    "--project-directory",
+                    str(project),
+                ],
+                env=env,
+                capture_output=True,
+                text=True,
             )
             self.assertEqual(97, result.returncode)
-            evidence = list((base / "cache" / "projects").glob(
-                "*/evidence/runtime-artifacts-acceptance-*"))
+            evidence = list(
+                (base / "cache" / "projects").glob(
+                    "*/evidence/runtime-artifacts-acceptance-*"
+                )
+            )
             self.assertEqual(1, len(evidence))
             self.assertEqual(before, _snapshot(project))
             self.assertFalse((project / ".docker-generated").exists())

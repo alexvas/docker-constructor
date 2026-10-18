@@ -5,6 +5,7 @@ temporary inventory with stubbed providers (no network), then asserts that
 producing complete replacement fragments never writes the inventory, the
 working directory, a cache policy, or any generated file.
 """
+
 from __future__ import annotations
 
 import io
@@ -26,15 +27,23 @@ def _stub_providers() -> dict[str, object]:
 
     class _Current:
         def discover(self, target, context):  # noqa: ANN001
-            return ProviderResult(candidate=UpdateCandidate(
-                value=target.current, kind=UpdateKind.VERSION, artifacts={},
-            ))
+            return ProviderResult(
+                candidate=UpdateCandidate(
+                    value=target.current,
+                    kind=UpdateKind.VERSION,
+                    artifacts={},
+                )
+            )
 
     class _TyOutdated:
         def discover(self, target, context):  # noqa: ANN001
-            return ProviderResult(candidate=UpdateCandidate(
-                value="0.0.62", kind=UpdateKind.VERSION, artifacts={},
-            ))
+            return ProviderResult(
+                candidate=UpdateCandidate(
+                    value="0.0.62",
+                    kind=UpdateKind.VERSION,
+                    artifacts={},
+                )
+            )
 
     return {
         "npm": _Current(),
@@ -71,8 +80,12 @@ class TestSuggestIsNonMutating(unittest.TestCase):
                         _stub_providers(),
                     ):
                         rc = constructor_cli.main(
-                            ["--project-directory", str(pathlib.Path(inv_path).parent),
-                             "check-updates", "--suggest"],
+                            [
+                                "--project-directory",
+                                str(pathlib.Path(inv_path).parent),
+                                "check-updates",
+                                "--suggest",
+                            ],
                             stdout_isatty=lambda: False,
                             stderr_isatty=lambda: False,
                         )

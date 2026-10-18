@@ -1,4 +1,5 @@
 """Generic compatibility corrections required by the captured/stream adapters."""
+
 import io
 import threading
 from unittest import mock
@@ -13,7 +14,9 @@ from tests.test_process_failure_snapshot import Child
 @pytest.mark.parametrize("kind", [KeyboardInterrupt, SystemExit, GeneratorExit])
 @pytest.mark.parametrize("close_kind", [None, OSError, RuntimeError, KeyboardInterrupt])
 @pytest.mark.parametrize("position", [0, 1])
-def test_coordination_wait_interruption_retains_lifecycle_and_independent_cleanup(method, kind, close_kind, position):
+def test_coordination_wait_interruption_retains_lifecycle_and_independent_cleanup(
+    method, kind, close_kind, position
+):
     error = kind("coordinator interrupted")
     close_error = close_kind("release failure") if close_kind is not None else None
     child = Child()
@@ -27,7 +30,9 @@ def test_coordination_wait_interruption_retains_lifecycle_and_independent_cleanu
         original_close()
 
     pipe.close = close
-    owner = OwnedProcess.launch(["child"], factory=lambda *a, **k: child, grace_seconds=.5)
+    owner = OwnedProcess.launch(
+        ["child"], factory=lambda *a, **k: child, grace_seconds=0.5
+    )
     original_wait = owner._phase_done.wait
     interrupted = False
 
@@ -49,7 +54,10 @@ def test_coordination_wait_interruption_retains_lifecycle_and_independent_cleanu
         assert caught.value is error
         status = owner.cleanup_status
         assert status.complete and status.failures[0].error is error
-        assert status.failures[0].phase.name == "COORDINATION" and status.failures[0].stream is None
+        assert (
+            status.failures[0].phase.name == "COORDINATION"
+            and status.failures[0].stream is None
+        )
         if close_error is not None:
             assert sum(item.error is close_error for item in status.failures) == 1
         assert owner.shutdown().failures[0].error is error
@@ -86,14 +94,18 @@ class DescriptorlessPipe:
 @pytest.mark.parametrize("primary_kind", [None, ValueError, KeyboardInterrupt])
 @pytest.mark.parametrize("close_kind", [None, OSError, RuntimeError, KeyboardInterrupt])
 @pytest.mark.parametrize("position", [0, 1])
-def test_known_descriptorless_fileno_rejection_allows_sole_unblocking_release(primary_kind, close_kind, position):
+def test_known_descriptorless_fileno_rejection_allows_sole_unblocking_release(
+    primary_kind, close_kind, position
+):
     error = close_kind("release failure") if close_kind is not None else None
     primary = primary_kind("operation failure") if primary_kind is not None else None
     pipes = [DescriptorlessPipe(), DescriptorlessPipe()]
     pipes[position].error = error
     child = Child()
     child.stdout, child.stderr = pipes
-    owner = OwnedProcess.launch(["child"], factory=lambda *a, **k: child, grace_seconds=.1)
+    owner = OwnedProcess.launch(
+        ["child"], factory=lambda *a, **k: child, grace_seconds=0.1
+    )
     try:
         assert all(pipe.entered.wait(1) for pipe in pipes)
         result = owner.shutdown(primary=primary)
@@ -137,14 +149,20 @@ def test_first_reader_failure_cannot_release_sibling_during_launch_setup():
         original_start(owner, index)
         if index == 0:
             assert entered.wait(1)
-            assert not owner._request.wait(.1), "reader cleanup raced unfinished sibling setup"
+            assert not owner._request.wait(0.1), (
+                "reader cleanup raced unfinished sibling setup"
+            )
             assert not owner._owners[1].released
 
     owner = None
     try:
-        with mock.patch.object(OwnedProcess, "_read_chunk", read), \
-             mock.patch.object(OwnedProcess, "_start_reader", start):
-            owner = OwnedProcess.launch(["child"], factory=lambda *a, **k: child, grace_seconds=.3)
+        with (
+            mock.patch.object(OwnedProcess, "_read_chunk", read),
+            mock.patch.object(OwnedProcess, "_start_reader", start),
+        ):
+            owner = OwnedProcess.launch(
+                ["child"], factory=lambda *a, **k: child, grace_seconds=0.3
+            )
             result = owner.capture()
         assert result.lifecycle.failures[0].error is error
         assert result.lifecycle.failures[0].phase.name == "READ"
@@ -160,8 +178,12 @@ def test_first_reader_failure_cannot_release_sibling_during_launch_setup():
 def test_descriptorless_text_factory_seam_is_normalized_to_bounded_bytes():
     child = Child()
     child.stdout, child.stderr = io.StringIO("stdout"), io.StringIO("stderr")
-    owner = OwnedProcess.launch(["child"], factory=lambda *a, **k: child,
-                                grace_seconds=.1, deadline_seconds=.1)
+    owner = OwnedProcess.launch(
+        ["child"],
+        factory=lambda *a, **k: child,
+        grace_seconds=0.1,
+        deadline_seconds=0.1,
+    )
     try:
         result = owner.capture()
         assert result.stdout == b"stdout" and result.stderr == b"stderr"
@@ -190,16 +212,31 @@ def test_wait_and_release_errors_expose_distinct_typed_diagnostic_context():
 
         child.wait = wait
         child.kill = lambda: None  # fixture child has already exited with 7
-        owner = OwnedProcess.launch(["child"], factory=lambda *a, **k: child, grace_seconds=.1)
+        owner = OwnedProcess.launch(
+            ["child"], factory=lambda *a, **k: child, grace_seconds=0.1
+        )
         try:
             snapshot = owner.capture()
             assert snapshot.lifecycle.failures[0].error is error
             selected = snapshot.lifecycle.failures[0]
             assert selected.phase.name == ("WAIT" if source == "wait" else "RELEASE")
-            assert selected.stream is (None if source == "wait" else ProcessStream.STDOUT)
-            observations.append((snapshot.stdout, snapshot.stderr, snapshot.returncode,
-                                 snapshot.timed_out, snapshot.stream_outcomes, snapshot.lifecycle.complete,
-                                 tuple((type(item.error), item.error.args, item.kind) for item in snapshot.lifecycle.failures)))
+            assert selected.stream is (
+                None if source == "wait" else ProcessStream.STDOUT
+            )
+            observations.append(
+                (
+                    snapshot.stdout,
+                    snapshot.stderr,
+                    snapshot.returncode,
+                    snapshot.timed_out,
+                    snapshot.stream_outcomes,
+                    snapshot.lifecycle.complete,
+                    tuple(
+                        (type(item.error), item.error.args, item.kind)
+                        for item in snapshot.lifecycle.failures
+                    ),
+                )
+            )
             assert owner.shutdown().failures[0].error is error
         finally:
             owner.shutdown()
@@ -224,7 +261,9 @@ def test_wait_only_factory_observation_preserves_failure_and_independent_cleanup
         return original(timeout)
 
     child.wait = wait
-    owner = OwnedProcess.launch(["child"], factory=lambda *a, **k: child, grace_seconds=.1)
+    owner = OwnedProcess.launch(
+        ["child"], factory=lambda *a, **k: child, grace_seconds=0.1
+    )
     try:
         if error is None:
             assert owner.capture().returncode == 7
@@ -237,7 +276,10 @@ def test_wait_only_factory_observation_preserves_failure_and_independent_cleanup
                 assert caught.value is error
                 status = owner.cleanup_status
             assert status.failures[0].error is error
-            assert status.failures[0].phase.name == "WAIT" and status.failures[0].stream is None
+            assert (
+                status.failures[0].phase.name == "WAIT"
+                and status.failures[0].stream is None
+            )
             assert not hasattr(error, "process_result")
         assert owner.wait_cleanup(1).complete
         assert child.stdout.attempts == child.stderr.attempts == 1

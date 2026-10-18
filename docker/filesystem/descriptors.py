@@ -17,6 +17,7 @@ domain-neutral: it derives no descendant paths, performs no recursion, and
 defines no durability, locking, transaction, cache, or npm authority.  It
 depends only on the standard library and the foundation's cleanup primitives.
 """
+
 from __future__ import annotations
 
 import errno
@@ -535,9 +536,7 @@ class DirectoryDescriptor(OwnedDescriptor):
             secure_mode=mode,
         )
 
-    def stat_child(
-        self, name: str, *, follow_symlinks: bool = False
-    ) -> os.stat_result:
+    def stat_child(self, name: str, *, follow_symlinks: bool = False) -> os.stat_result:
         """Stat one child entry under the requested symlink policy."""
         base = self.child_basename(name)
         return self._ops.statat(self.fd, base, follow_symlinks=follow_symlinks)

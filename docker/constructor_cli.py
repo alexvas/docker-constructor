@@ -108,7 +108,7 @@ def _truncate_diagnostic(value: str) -> tuple[str, bool]:
         # Strip trailing byte(s) until valid.
         for cut in range(1, 5):
             try:
-                truncated_text = encoded[:limit - cut].decode("utf-8")
+                truncated_text = encoded[: limit - cut].decode("utf-8")
                 break
             except UnicodeDecodeError:
                 continue
@@ -134,9 +134,9 @@ class CommandRequest:
 
     command: str
     constructor_project: ConstructorProject
-    output: str          # "text" | "json"
+    output: str  # "text" | "json"
     verbose: bool
-    color: str           # "auto" | "always" | "never"
+    color: str  # "auto" | "always" | "never"
     command_args: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -148,13 +148,10 @@ class CommandRequest:
         )
 
 
-
-
 class CommandDispatcher(Protocol):
     """Domain boundary — every subcommand flows through ``execute``."""
 
-    def execute(self, command: str, request: CommandRequest) -> CommandResult:
-        ...
+    def execute(self, command: str, request: CommandRequest) -> CommandResult: ...
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -168,7 +165,9 @@ def _resolve_inventory_path(request: CommandRequest) -> Path:
 
 
 def _resolve_runtime_projection(
-    explicit: object, repo_root: Path, cache_root: Path,
+    explicit: object,
+    repo_root: Path,
+    cache_root: Path,
 ) -> Path | None:
     """Resolve the runtime projection path for verification.
 
@@ -180,8 +179,11 @@ def _resolve_runtime_projection(
     if explicit:
         return Path(str(explicit))
     from docker.versioning.project_state import resolve_project_state
+
     runtime_dir = resolve_project_state(
-        repo_root, cache_root=cache_root, create=False,
+        repo_root,
+        cache_root=cache_root,
+        create=False,
     ).runtime_root
     if not runtime_dir.is_dir():
         return None
@@ -206,7 +208,8 @@ class _CommandRunner(Protocol):
 
 
 def _discover_runtime_projection_from_container(
-    container: str, runner: _CommandRunner,
+    container: str,
+    runner: _CommandRunner,
 ) -> Path | None:
     """Return the host source of the container's runtime projection mount.
 
@@ -215,16 +218,22 @@ def _discover_runtime_projection_from_container(
     their legacy generated-artifact fallback when inspection is unavailable.
     """
     try:
-        result = runner.run([
-            "docker", "inspect", "--format", "{{json .Mounts}}", container,
-        ])
+        result = runner.run(
+            [
+                "docker",
+                "inspect",
+                "--format",
+                "{{json .Mounts}}",
+                container,
+            ]
+        )
     except OSError:
         return None
     if result.return_code != 0:
         return None
     try:
         mounts = _json.loads(result.stdout)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return None
     if not isinstance(mounts, list):
         return None
@@ -239,7 +248,8 @@ def _discover_runtime_projection_from_container(
 
 
 def _discover_workspace_paths_from_container(
-    container: str, runner: _CommandRunner,
+    container: str,
+    runner: _CommandRunner,
 ) -> tuple[Path, ...] | None:
     """Read ``WORKSPACE_PATH_1..N`` env vars from *container*.
 
@@ -248,10 +258,16 @@ def _discover_workspace_paths_from_container(
     indices are not 1..N consecutive.
     """
     try:
-        result = runner.run([
-            "docker", "exec", container, "sh", "-c",
-            "env | sort | grep '^WORKSPACE_PATH_'",
-        ])
+        result = runner.run(
+            [
+                "docker",
+                "exec",
+                container,
+                "sh",
+                "-c",
+                "env | sort | grep '^WORKSPACE_PATH_'",
+            ]
+        )
     except OSError:
         return None
     if result.return_code != 0 or not result.stdout.strip():
@@ -266,7 +282,7 @@ def _discover_workspace_paths_from_container(
         if not value:
             continue
         # Extract numeric suffix: WORKSPACE_PATH_<N>
-        suffix = name[len("WORKSPACE_PATH_"):]
+        suffix = name[len("WORKSPACE_PATH_") :]
         if not suffix.isdigit():
             continue  # skip malformed keys like WORKSPACE_PATH_X
         parsed.append((int(suffix), value))
@@ -327,14 +343,22 @@ def _resolve_verify_host_access(
     if local_address and local_address.strip():
         address = local_address.strip()
     if not companion_path.is_file():
-        return None, None, (
-            f"host access enabled ({mode}) but local companion "
-            f"{companion_path} missing; run 'doctor' or create it"
+        return (
+            None,
+            None,
+            (
+                f"host access enabled ({mode}) but local companion "
+                f"{companion_path} missing; run 'doctor' or create it"
+            ),
         )
     if not address:
-        return None, None, (
-            f"host access enabled ({mode}) but {companion_path} "
-            f"has no [host-access].address; run 'doctor'"
+        return (
+            None,
+            None,
+            (
+                f"host access enabled ({mode}) but {companion_path} "
+                f"has no [host-access].address; run 'doctor'"
+            ),
         )
     return ha, address, None
 
@@ -466,10 +490,7 @@ def _tui_workspace_selector(workspace_root: str | None = None) -> Any:
 
             # Extract paths from FlatItem tree nodes
             primary_path = ""
-            if (
-                primary_item.kind == "tree"
-                and primary_item.node is not None
-            ):
+            if primary_item.kind == "tree" and primary_item.node is not None:
                 primary_path = str(primary_item.node.path)
 
             if not primary_path:
@@ -485,6 +506,7 @@ def _tui_workspace_selector(workspace_root: str | None = None) -> Any:
                     extra_paths.append(_lexical_absolute_path(str(item.node.path)))
 
             from docker.launcher import WorkspaceSelection
+
             return WorkspaceSelection(
                 workspace=primary_path,
                 extra_workspaces=tuple(extra_paths),
@@ -505,9 +527,7 @@ def _host_failure_data(context: Any) -> dict[str, object]:
         "summary": context.summary,
         "tail": context.tail,
         "tail_stream": (
-            context.tail_stream.value
-            if context.tail_stream is not None
-            else None
+            context.tail_stream.value if context.tail_stream is not None else None
         ),
         "logical_resource": context.logical_resource,
         "hostnames": list(context.hostnames),
@@ -589,9 +609,7 @@ def _route_interruption_report_to_session(
         context = _interruption_host_failure(exc)
         if context is None:
             return
-        report = _host_failure_report(
-            context, network_url_display=network_url_display
-        )
+        report = _host_failure_report(context, network_url_display=network_url_display)
         session.submit_final_report(report)
     except BaseException:
         # Best effort: the original interruption stays primary and the
@@ -729,6 +747,7 @@ def _real_dispatcher(
         # at the facade, and hand planning only domain-owned slices.
         try:
             from docker.versioning.inventory import load_project_configuration
+
             inventory, local_config = load_project_configuration(inv_path)
         except Exception as exc:
             return CommandResult(
@@ -791,9 +810,11 @@ def _real_dispatcher(
             cache=_to_bool(c_args.get("cache", True)),
             pull=_to_bool(c_args.get("pull", False)),
             progress=str(c_args.get("progress", "auto")),
-            output_policy=(BuildOutputPolicy.CAPTURED
-                           if request.output == "json"
-                           else BuildOutputPolicy.STREAMED),
+            output_policy=(
+                BuildOutputPolicy.CAPTURED
+                if request.output == "json"
+                else BuildOutputPolicy.STREAMED
+            ),
             uid=c_args.get("uid") if c_args.get("uid") is not None else None,
             gid=c_args.get("gid") if c_args.get("gid") is not None else None,
             confirmed=_to_bool(c_args.get("yes", False)),
@@ -807,7 +828,9 @@ def _real_dispatcher(
 
         try:
             result = orchestrate_build(
-                build_request, inventory=inventory, local_inputs=local_inputs,
+                build_request,
+                inventory=inventory,
+                local_inputs=local_inputs,
             )
         except BaseException as exc:
             if session is not None:
@@ -838,19 +861,25 @@ def _real_dispatcher(
         if result.process_result and request.output == "json":
             if data is None:
                 data = {}
-            data.update({
-                "return_code": result.process_result.return_code,
-                "output_policy": result.process_result.output_policy.value,
-                "stdout": result.process_result.stdout,
-                "stderr": result.process_result.stderr,
-            })
+            data.update(
+                {
+                    "return_code": result.process_result.return_code,
+                    "output_policy": result.process_result.output_policy.value,
+                    "stdout": result.process_result.stdout,
+                    "stderr": result.process_result.stderr,
+                }
+            )
         if result.publish_result and (request.output == "json" or request.verbose):
             if data is None:
                 data = {}
             data["published_path"] = result.publish_result.published_path
             # The generic text renderer displays ``display_string`` verbatim.
             # Keep build-specific diagnostic metadata at this facade boundary.
-            if request.verbose and request.output == "text" and data.get("display_string"):
+            if (
+                request.verbose
+                and request.output == "text"
+                and data.get("display_string")
+            ):
                 data["display_string"] = (
                     f"{data['display_string']}\n"
                     f"published_path: {result.publish_result.published_path}"
@@ -858,10 +887,7 @@ def _real_dispatcher(
 
         message = result.message
         message_owned_by_presentation = False
-        if (
-            result.host_failure is not None
-            and result.exit_kind is not ExitKind.SUCCESS
-        ):
+        if result.host_failure is not None and result.exit_kind is not ExitKind.SUCCESS:
             report = _host_failure_report(
                 result.host_failure,
                 network_url_display=local_config.output.network_url_display,
@@ -911,9 +937,7 @@ def _real_dispatcher(
         yes = bool(request.command_args.get("yes", False))
 
         if apply_override and not yes:
-            approval = prompt(
-                "Apply rootless Docker host-gateway override?"
-            )
+            approval = prompt("Apply rootless Docker host-gateway override?")
             if not approval:
                 return CommandResult(
                     exit_kind=ExitKind.SUCCESS,
@@ -938,13 +962,14 @@ def _real_dispatcher(
         # Build typed DTO
         raw_probe_image = c_args.get("probe_image")
         probe_image = (
-            raw_probe_image if isinstance(raw_probe_image, str)
-            else "alpine:3.20"
+            raw_probe_image if isinstance(raw_probe_image, str) else "alpine:3.20"
         )
         raw_probe_timeout = c_args.get("probe_timeout")
         probe_timeout = (
-            raw_probe_timeout if isinstance(raw_probe_timeout, int)
-            and not isinstance(raw_probe_timeout, bool) else None
+            raw_probe_timeout
+            if isinstance(raw_probe_timeout, int)
+            and not isinstance(raw_probe_timeout, bool)
+            else None
         )
         doctor_request = DoctorRequest(
             apply_override=apply_override,
@@ -1064,9 +1089,7 @@ def _real_dispatcher(
 
         # ── workspace selection ──────────────────────────────────
         workspace = c_args.get("workspace")
-        extra_workspaces: tuple[str, ...] = tuple(
-            c_args.get("extra_workspaces") or ()
-        )
+        extra_workspaces: tuple[str, ...] = tuple(c_args.get("extra_workspaces") or ())
         tui = bool(c_args.get("tui", False))
 
         try:
@@ -1106,9 +1129,7 @@ def _real_dispatcher(
             )
 
         # ── runtime overrides ──────────────────────────────────
-        raw_overrides: tuple[str, ...] = tuple(
-            c_args.get("overrides") or ()
-        )
+        raw_overrides: tuple[str, ...] = tuple(c_args.get("overrides") or ())
         overrides: dict[str, str] = {}
         for raw in raw_overrides:
             if "=" not in raw:
@@ -1128,9 +1149,7 @@ def _real_dispatcher(
         stdin_open = True if stdin_open_flag is None else bool(stdin_open_flag)
         chown = c_args.get("chown_on_start")
         chown_on_start = str(chown) if chown is not None else None
-        command_args: tuple[str, ...] = tuple(
-            c_args.get("passthrough") or ()
-        )
+        command_args: tuple[str, ...] = tuple(c_args.get("passthrough") or ())
 
         # ── build request and dispatch ─────────────────────────
         _runner = _process_runner
@@ -1191,8 +1210,7 @@ def _real_dispatcher(
                     pass
                 else:
                     for stream_name in ("stderr", "stdout"):
-                        raw = getattr(result.process_result,
-                                      stream_name)
+                        raw = getattr(result.process_result, stream_name)
                         truncated, was_cut = _truncate_diagnostic(
                             raw or "",
                         )
@@ -1237,6 +1255,7 @@ def _real_dispatcher(
 
         # Build projection
         from pathlib import Path as _Path
+
         _project_root = request.constructor_project.root
         from docker.versioning.project_state import resolve_project_state
         from docker.versioning.inventory import (
@@ -1244,7 +1263,11 @@ def _real_dispatcher(
             resolve_corporate_trust_bundle_path,
             validate_corporate_trust_bundle,
         )
-        from docker.versioning.cache_storage import prepare_resolved_root, resolve_effective_root
+        from docker.versioning.cache_storage import (
+            prepare_resolved_root,
+            resolve_effective_root,
+        )
+
         # One shared reviewed/local transaction for the whole verify command;
         # host-access, corporate-network, and cache consumers below receive
         # slices of the same local aggregate result.
@@ -1258,9 +1281,7 @@ def _real_dispatcher(
         _corporate_bundle_path: _Path | None = None
         _corporate_bundle_content: str | None = None
         if _local_config.corporate_trust.enabled:
-            _corporate_bundle_path = resolve_corporate_trust_bundle_path(
-                _project_root
-            )
+            _corporate_bundle_path = resolve_corporate_trust_bundle_path(_project_root)
             try:
                 validate_corporate_trust_bundle(_corporate_bundle_path)
                 _corporate_bundle_content = _corporate_bundle_path.read_text(
@@ -1276,37 +1297,51 @@ def _real_dispatcher(
         try:
             _cache_root = resolve_effective_root(
                 getattr(getattr(_local_config, "cache", None), "dir", None),
-                xdg_cache_home=_os_builtin.environ.get("XDG_CACHE_HOME"), home=_Path.home(),
+                xdg_cache_home=_os_builtin.environ.get("XDG_CACHE_HOME"),
+                home=_Path.home(),
             )
         except Exception as exc:
-            return CommandResult(exit_kind=ExitKind.CONFIG,
-                                 message=f"Failed to resolve constructor cache root: {exc}")
-
+            return CommandResult(
+                exit_kind=ExitKind.CONFIG,
+                message=f"Failed to resolve constructor cache root: {exc}",
+            )
 
         results: Any = {}
         all_ok = True
 
         if scope in ("build", "all"):
             try:
-                build_proj_path = resolve_project_state(
-                    _project_root, cache_root=_cache_root, create=False,
-                ).generated_root / "docker-constructor.build.effective.toml"
+                build_proj_path = (
+                    resolve_project_state(
+                        _project_root,
+                        cache_root=_cache_root,
+                        create=False,
+                    ).generated_root
+                    / "docker-constructor.build.effective.toml"
+                )
             except Exception as exc:
-                return CommandResult(exit_kind=ExitKind.CONFIG,
-                                     message=f"Failed to resolve constructor project state: {exc}")
+                return CommandResult(
+                    exit_kind=ExitKind.CONFIG,
+                    message=f"Failed to resolve constructor project state: {exc}",
+                )
             runner = _process_runner or ProcessRunner()
-            b_result = verify_build(VerifyBuildRequest(
-                image=image,
-                effective_projection_path=build_proj_path,
-                runner=runner,
-            ))
+            b_result = verify_build(
+                VerifyBuildRequest(
+                    image=image,
+                    effective_projection_path=build_proj_path,
+                    runner=runner,
+                )
+            )
             results["build"] = {
                 "all_ok": b_result.all_ok,
                 "observations": [
-                    {"key": o.key, "ok": o.ok,
-                     "expected": o.expected_value,
-                     "observed": o.observed_value,
-                     "command": list(o.command)}
+                    {
+                        "key": o.key,
+                        "ok": o.ok,
+                        "expected": o.expected_value,
+                        "observed": o.observed_value,
+                        "command": list(o.command),
+                    }
                     for o in b_result.observations
                 ],
                 "errors": list(b_result.errors),
@@ -1315,12 +1350,11 @@ def _real_dispatcher(
                 all_ok = False
 
         if scope in ("runtime", "all"):
-            _verify_ha, _verify_ha_addr, _verify_ha_err = \
-                _resolve_verify_host_access(
-                    str(inv_path),
-                    inventory=_inventory,
-                    local_config=_local_config,
-                )
+            _verify_ha, _verify_ha_addr, _verify_ha_err = _resolve_verify_host_access(
+                str(inv_path),
+                inventory=_inventory,
+                local_config=_local_config,
+            )
             if _verify_ha_err is not None:
                 return CommandResult(
                     exit_kind=ExitKind.CONFIG,
@@ -1350,8 +1384,7 @@ def _real_dispatcher(
                     _runner = ProcessRunner()
                 try:
                     ps_result = _runner.run(
-                        ["docker", "ps", "-q",
-                         "--filter", f"ancestor={image}"]
+                        ["docker", "ps", "-q", "--filter", f"ancestor={image}"]
                     )
                 except OSError as exc:
                     results["runtime"] = {
@@ -1375,8 +1408,7 @@ def _real_dispatcher(
                         container = None
                     else:
                         ids = [
-                            lid for lid in ps_result.stdout.strip().split("\n")
-                            if lid
+                            lid for lid in ps_result.stdout.strip().split("\n") if lid
                         ]
                         if not ids:
                             results["runtime"] = {
@@ -1413,7 +1445,8 @@ def _real_dispatcher(
                 if not explicit_projection:
                     runtime_proj_path = (
                         _discover_runtime_projection_from_container(
-                            container, _runner,
+                            container,
+                            _runner,
                         )
                         or runtime_proj_path
                     )
@@ -1440,9 +1473,13 @@ def _real_dispatcher(
                         Path(path) for path in raw_workspaces
                     )
                 else:
-                    _workspace_paths = _discover_workspace_paths_from_container(
-                        container, _runner,
-                    ) or ()
+                    _workspace_paths = (
+                        _discover_workspace_paths_from_container(
+                            container,
+                            _runner,
+                        )
+                        or ()
+                    )
                 if not _workspace_paths:
                     results["runtime"] = {
                         "all_ok": False,
@@ -1466,27 +1503,32 @@ def _real_dispatcher(
 
                 # _runner is already resolved above
 
-                r_result = verify_runtime(VerifyRuntimeRequest(
-                    container=container,
-                    runtime_projection_path=runtime_proj_path,
-                    workspace_paths=_workspace_paths,
-                    container_pi_home=_container_pi_home,
-                    runner=_runner,
-                    host_access=_host_access,
-                    host_access_address=_host_access_addr,
-                    corporate_trust_enabled=_verify_trust,
-                    proxy_url=_verify_proxy_url,
-                    proxy_no_proxy=_verify_proxy_no_proxy,
-                ))
+                r_result = verify_runtime(
+                    VerifyRuntimeRequest(
+                        container=container,
+                        runtime_projection_path=runtime_proj_path,
+                        workspace_paths=_workspace_paths,
+                        container_pi_home=_container_pi_home,
+                        runner=_runner,
+                        host_access=_host_access,
+                        host_access_address=_host_access_addr,
+                        corporate_trust_enabled=_verify_trust,
+                        proxy_url=_verify_proxy_url,
+                        proxy_no_proxy=_verify_proxy_no_proxy,
+                    )
+                )
                 results["runtime"] = {
                     "all_ok": r_result.all_ok,
                     "checks": [
-                        {"key": c.key, "ok": c.ok,
-                         "detail": c.detail,
-                         "command": list(c.command) if c.command else None,
-                         "exit_code": c.exit_code,
-                         "raw_stdout": c.raw_stdout,
-                         "raw_stderr": c.raw_stderr}
+                        {
+                            "key": c.key,
+                            "ok": c.ok,
+                            "detail": c.detail,
+                            "command": list(c.command) if c.command else None,
+                            "exit_code": c.exit_code,
+                            "raw_stdout": c.raw_stdout,
+                            "raw_stderr": c.raw_stderr,
+                        }
                         for c in r_result.checks
                     ],
                     "errors": list(r_result.errors),
@@ -1524,17 +1566,29 @@ def _real_dispatcher(
                 evidence_dir = _Path(raw_output_dir)
             elif bool(c_args.get("dry_run", False)):
                 # Prospective only: do not initialise project state for dry-runs.
-                evidence_dir = resolve_project_state(
-                    _project_root, cache_root=_cache_root, create=False,
-                ).evidence_root / _ts
+                evidence_dir = (
+                    resolve_project_state(
+                        _project_root,
+                        cache_root=_cache_root,
+                        create=False,
+                    ).evidence_root
+                    / _ts
+                )
             else:
                 try:
-                    evidence_dir = resolve_project_state(
-                        _project_root, cache_root=prepare_resolved_root(_cache_root), create=True,
-                    ).evidence_root / _ts
+                    evidence_dir = (
+                        resolve_project_state(
+                            _project_root,
+                            cache_root=prepare_resolved_root(_cache_root),
+                            create=True,
+                        ).evidence_root
+                        / _ts
+                    )
                 except Exception as exc:
-                    return CommandResult(exit_kind=ExitKind.CONFIG,
-                                         message=f"Failed to initialize constructor project state: {exc}")
+                    return CommandResult(
+                        exit_kind=ExitKind.CONFIG,
+                        message=f"Failed to initialize constructor project state: {exc}",
+                    )
 
             _runner2 = _process_runner
             if _runner2 is None:
@@ -1565,34 +1619,39 @@ def _real_dispatcher(
             if "build" in results:
                 for obs in results["build"]["observations"]:
                     if not obs["ok"] and obs.get("command"):
-                        captured_records.append(_norm_rec(
-                            argv=tuple(obs["command"]),
-                            return_code=0,
-                            stdout_raw=obs.get("observed") or "",
-                            timestamp_epoch=_now,
-                            output_dir=evidence_dir,
-                            index=_idx,
-                            secrets=_evidence_secrets,
-                        ))
+                        captured_records.append(
+                            _norm_rec(
+                                argv=tuple(obs["command"]),
+                                return_code=0,
+                                stdout_raw=obs.get("observed") or "",
+                                timestamp_epoch=_now,
+                                output_dir=evidence_dir,
+                                index=_idx,
+                                secrets=_evidence_secrets,
+                            )
+                        )
                         _idx += 1
 
             # Runtime: include captured diagnostic command results.
             if "runtime" in results:
                 for chk in results["runtime"].get("checks", []):
                     if chk.get("command") and (
-                        chk.get("raw_stdout") or chk.get("raw_stderr")
+                        chk.get("raw_stdout")
+                        or chk.get("raw_stderr")
                         or chk.get("exit_code") is not None
                     ):
-                        captured_records.append(_norm_rec(
-                            argv=tuple(chk["command"]),
-                            return_code=chk.get("exit_code"),
-                            stdout_raw=chk.get("raw_stdout") or "",
-                            stderr_raw=chk.get("raw_stderr") or "",
-                            timestamp_epoch=_now,
-                            output_dir=evidence_dir,
-                            index=_idx,
-                            secrets=_evidence_secrets,
-                        ))
+                        captured_records.append(
+                            _norm_rec(
+                                argv=tuple(chk["command"]),
+                                return_code=chk.get("exit_code"),
+                                stdout_raw=chk.get("raw_stdout") or "",
+                                stderr_raw=chk.get("raw_stderr") or "",
+                                timestamp_epoch=_now,
+                                output_dir=evidence_dir,
+                                index=_idx,
+                                secrets=_evidence_secrets,
+                            )
+                        )
                         _idx += 1
 
             # ── assemble the bundle ─────────────────────────────
@@ -1652,8 +1711,11 @@ def _real_dispatcher(
         )
 
     from docker.versioning.readonly_service import dispatch
+
     return dispatch(
-        inv_path, command, command_args=request.command_args,
+        inv_path,
+        command,
+        command_args=request.command_args,
         progress=_progress_renderer,
     )
 
@@ -1697,10 +1759,9 @@ def _deep_freeze_command_args(
     frozen: dict[str, Any] = {}
     for key, value in cmd_args.items():
         if isinstance(value, dict):
-            frozen[key] = MappingProxyType({
-                k: tuple(v) if isinstance(v, list) else v
-                for k, v in value.items()
-            })
+            frozen[key] = MappingProxyType(
+                {k: tuple(v) if isinstance(v, list) else v for k, v in value.items()}
+            )
         elif isinstance(value, list):
             frozen[key] = tuple(value)
         else:
@@ -1731,8 +1792,7 @@ def _use_colour(color: str, *, stream_is_tty: bool) -> bool:
     return stream_is_tty  # "auto"
 
 
-def _coloured(text: str, code: str, color: str, *,
-              stream_is_tty: bool) -> str:
+def _coloured(text: str, code: str, color: str, *, stream_is_tty: bool) -> str:
     if not _use_colour(color, stream_is_tty=stream_is_tty):
         return text
     return f"{code}{text}{_RESET}"
@@ -1751,9 +1811,7 @@ def _decorate_replacement_headers(text: str, *, enabled: bool) -> str:
     if not enabled:
         return text
     return "\n".join(
-        f"{_GRAY}{line}{_RESET}"
-        if _REPLACEMENT_HEADER_RE.fullmatch(line)
-        else line
+        f"{_GRAY}{line}{_RESET}" if _REPLACEMENT_HEADER_RE.fullmatch(line) else line
         for line in text.split("\n")
     )
 
@@ -1772,6 +1830,7 @@ def _abbreviate_identifier(value: str) -> str:
     - everything else → unchanged
     """
     import re
+
     # sha256: prefix — abbreviate only when the entire payload is 20+ hex chars
     m = re.fullmatch(r"^(sha256:)([0-9a-fA-F]{20,})", value)
     if m:
@@ -1833,7 +1892,7 @@ def _compact_target(path: str) -> str:
     """
     prefix = "build.stages."
     if path.startswith(prefix):
-        return path[len(prefix):]
+        return path[len(prefix) :]
     return path
 
 
@@ -1932,6 +1991,7 @@ def _normalize_update_row(r: dict[str, object]) -> dict[str, str]:
     renderers.  Shortening and abbreviation are presentation concerns
     and never touch serialized result data.
     """
+
     def _cell(key: str) -> str:
         v = r.get(key)
         if v is None:
@@ -1978,15 +2038,17 @@ def _render_update_summary(results: list[object]) -> str:
             applicable_outdated += 1
 
     status_order = (
-        "current", "outdated", "skipped", "unavailable", "incomplete",
+        "current",
+        "outdated",
+        "skipped",
+        "unavailable",
+        "incomplete",
     )
     parts: list[str] = []
     for s in status_order:
         if s in counts:
             if s == "outdated":
-                parts.append(
-                    f"{counts[s]} outdated ({applicable_outdated} applicable)"
-                )
+                parts.append(f"{counts[s]} outdated ({applicable_outdated} applicable)")
             else:
                 parts.append(f"{counts[s]} {s}")
     if parts:
@@ -2000,6 +2062,7 @@ def _render_update_table(
     rows: list[dict[str, str]],
 ) -> str:
     """Render an aligned ASCII table with fixed columns and 2-space gaps."""
+
     def _col_width(idx: int, label: str) -> int:
         w = len(label)
         for row in rows:
@@ -2009,15 +2072,13 @@ def _render_update_table(
         return w
 
     widths = tuple(_col_width(i, label) for i, label in enumerate(col_labels))
-    header = "  ".join(
-        label.ljust(widths[i]) for i, label in enumerate(col_labels)
-    )
+    header = "  ".join(label.ljust(widths[i]) for i, label in enumerate(col_labels))
     sep = "-" * len(header)
     lines = [sep, header, sep]
     for row in rows:
-        lines.append("  ".join(
-            row[key].ljust(widths[i]) for i, key in enumerate(col_keys)
-        ))
+        lines.append(
+            "  ".join(row[key].ljust(widths[i]) for i, key in enumerate(col_keys))
+        )
     lines.append(sep)
     return "\n".join(lines)
 
@@ -2036,8 +2097,7 @@ def _render_suggestions_section(data: dict[str, object]) -> list[str]:
         ]
     return [
         "",
-        "─── replacement blocks "
-        "───────────────────────────────────────",
+        "─── replacement blocks ───────────────────────────────────────",
         "No reviewable replacement blocks available.",
     ]
 
@@ -2069,10 +2129,8 @@ def _render_check_updates_text(data: object) -> str:
         if isinstance(reason, str) and reason:
             details.append((row["target"], reason))
 
-    col_keys = ("target", "provider", "current_next", "status",
-                "published_date")
-    col_labels = ("TARGET", "PROVIDER", "CURR -> NEXT", "STATUS",
-                  "PUBLISHED")
+    col_keys = ("target", "provider", "current_next", "status", "published_date")
+    col_labels = ("TARGET", "PROVIDER", "CURR -> NEXT", "STATUS", "PUBLISHED")
 
     out = [
         _render_update_summary(results),
@@ -2107,13 +2165,29 @@ def _render_check_updates_details_text(data: object) -> str:
     if not isinstance(results, list):
         return str(data)
 
-    rows = [
-        _normalize_update_row(r) for r in results if isinstance(r, dict)
-    ]
-    col_keys = ("path", "provider", "current", "candidate", "status",
-                "kind", "applicable", "published", "detail")
-    col_labels = ("PATH", "PROVIDER", "CURRENT", "CANDIDATE", "STATUS",
-                  "KIND", "APPLICABLE", "PUBLISHED", "DETAIL")
+    rows = [_normalize_update_row(r) for r in results if isinstance(r, dict)]
+    col_keys = (
+        "path",
+        "provider",
+        "current",
+        "candidate",
+        "status",
+        "kind",
+        "applicable",
+        "published",
+        "detail",
+    )
+    col_labels = (
+        "PATH",
+        "PROVIDER",
+        "CURRENT",
+        "CANDIDATE",
+        "STATUS",
+        "KIND",
+        "APPLICABLE",
+        "PUBLISHED",
+        "DETAIL",
+    )
 
     out = [
         _render_update_summary(results),
@@ -2143,21 +2217,21 @@ def _render_data_text(data: object) -> str:
             parts.append(str(ds))
         hits: list[str] = (
             list(data.get("artifact_cache_hits") or ())
-            if isinstance(data, dict) else []
+            if isinstance(data, dict)
+            else []
         )
         misses: list[str] = (
             list(data.get("artifact_cache_misses") or ())
-            if isinstance(data, dict) else []
+            if isinstance(data, dict)
+            else []
         )
         if hits:
             parts.append(
-                f"Cache hits ({len(hits)}): "
-                + ", ".join(hits),
+                f"Cache hits ({len(hits)}): " + ", ".join(hits),
             )
         if misses:
             parts.append(
-                f"Planned downloads ({len(misses)}): "
-                + ", ".join(misses),
+                f"Planned downloads ({len(misses)}): " + ", ".join(misses),
             )
         return "\n       ".join(parts) if parts else ""
     # Run-failure diagnostics: only render captured streams.
@@ -2219,15 +2293,11 @@ def _render(
             data = result.data
             # Text-only replacement fragments never leak into machine JSON.
             if command == "check-updates" and isinstance(data, dict):
-                data = {
-                    k: v for k, v in data.items()
-                    if k != "replacement_fragments"
-                }
+                data = {k: v for k, v in data.items() if k != "replacement_fragments"}
             payload["data"] = data
         if result.message is not None:
             payload["message"] = result.message
-        out_lines.append(_json.dumps(payload, indent=2, sort_keys=True,
-                                     default=str))
+        out_lines.append(_json.dumps(payload, indent=2, sort_keys=True, default=str))
     else:
         # ── text mode ────────────────────────────────────────────
         level = result.exit_kind.value.upper()
@@ -2286,6 +2356,7 @@ def _render(
 # Parser construction
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _add_global_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--project-directory",
@@ -2300,7 +2371,8 @@ def _add_global_args(parser: argparse.ArgumentParser) -> None:
         help="Output format (default: text)",
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         default=False,
         help="Increase output verbosity",
@@ -2322,9 +2394,7 @@ def _parse_overrides(raw: Sequence[str]) -> dict[str, str]:
     result: dict[str, str] = {}
     for token in raw:
         if "=" not in token:
-            raise ValueError(
-                f"invalid override {token!r}: expected PATH=VALUE"
-            )
+            raise ValueError(f"invalid override {token!r}: expected PATH=VALUE")
         path, value = token.split("=", 1)
         if path != path.strip() or value != value.strip():
             raise ValueError(
@@ -2350,8 +2420,15 @@ def _dispatch_command(
     # Collect command-owned arguments into command_args
     cmd_args: dict[str, object] = {}
     for attr in vars(args):
-        if attr in ("command", "func", "project_directory", "output", "verbose",
-                     "color", "details"):
+        if attr in (
+            "command",
+            "func",
+            "project_directory",
+            "output",
+            "verbose",
+            "color",
+            "details",
+        ):
             continue
         value = getattr(args, attr)
         # Normalise overrides: raw PATH=VALUE list → parsed dict
@@ -2368,21 +2445,15 @@ def _dispatch_command(
     # ---- doctor-owned CLI validation --------------------------------
     if args.command == "doctor":
         timeout = cmd_args.get("probe_timeout")
-        if (
-            timeout is not None
-            and (
-                not isinstance(timeout, int)
-                or isinstance(timeout, bool)
-                or timeout < 1
-                or timeout > 300
-            )
+        if timeout is not None and (
+            not isinstance(timeout, int)
+            or isinstance(timeout, bool)
+            or timeout < 1
+            or timeout > 300
         ):
             return CommandResult(
                 exit_kind=ExitKind.CLI,
-                message=(
-                    f"invalid --probe-timeout {timeout}: "
-                    f"must be 1–300"
-                ),
+                message=(f"invalid --probe-timeout {timeout}: must be 1–300"),
             )
         image = cmd_args.get("probe_image")
         if image == "":
@@ -2408,7 +2479,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="docker/docker-constructor.py",
         description="Pi Docker constructor — build, run, and inspect"
-                    " the Pi container image.",
+        " the Pi container image.",
     )
     _add_global_args(parser)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -2450,7 +2521,8 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Print the build vector without executing",
     )
     p_build.add_argument(
-        "--yes", "-y",
+        "--yes",
+        "-y",
         action="store_true",
         default=False,
         help="Skip confirmation prompts",
@@ -2503,7 +2575,8 @@ def _build_parser() -> argparse.ArgumentParser:
     # --- run (parser only; handler in Stage 9) ---
     p_run = sub.add_parser("run", help="Launch a Pi container session")
     p_run.add_argument(
-        "-w", "--workspace",
+        "-w",
+        "--workspace",
         default=None,
         dest="workspace",
         metavar="PATH",
@@ -2555,7 +2628,7 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="workspace_root",
         metavar="PATH",
         help="Root directory for filesystem tree view "
-             "(overrides project-local .env WORKSPACE_ROOT)",
+        "(overrides project-local .env WORKSPACE_ROOT)",
     )
     p_run.add_argument(
         "--chown-on-start",
@@ -2570,7 +2643,7 @@ def _build_parser() -> argparse.ArgumentParser:
         dest="overrides",
         metavar="KEY=VALUE",
         help="Runtime override (repeatable, e.g. "
-             "runtime.pi-extensions.pi-read.version=0.3.0)",
+        "runtime.pi-extensions.pi-read.version=0.3.0)",
     )
     p_run.add_argument(
         "--dry-run",
@@ -2589,7 +2662,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # --- doctor (parser only; handler in Stage 9) ---
     p_doc = sub.add_parser(
-        "doctor", help="Diagnose host → container connectivity",
+        "doctor",
+        help="Diagnose host → container connectivity",
     )
     p_doc.add_argument(
         "--apply-rootless-override",
@@ -2599,7 +2673,8 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Repair host-gateway override for rootless Docker",
     )
     p_doc.add_argument(
-        "--yes", "-y",
+        "--yes",
+        "-y",
         action="store_true",
         default=False,
         help="Apply rootless override without prompting",
@@ -2621,7 +2696,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # --- verify ---
     p_ver = sub.add_parser(
-        "verify", help="Verify image and runtime integrity",
+        "verify",
+        help="Verify image and runtime integrity",
     )
     p_ver.add_argument(
         "--scope",
@@ -2657,8 +2733,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         dest="runtime_projection",
         help="Path to host-side runtime projection TOML for runtime checks "
-             "(default: most recent projection in the selected project's "
-             "external project-state namespace)",
+        "(default: most recent projection in the selected project's "
+        "external project-state namespace)",
     )
     p_ver.add_argument(
         "--workspace",
@@ -2666,13 +2742,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         dest="workspace_paths",
         help="Workspace path inside the container (repeatable). "
-             "Default: auto-discovered from the container runtime contract.",
+        "Default: auto-discovered from the container runtime contract.",
     )
     p_ver.add_argument(
         "--output-dir",
         default=None,
         help="Directory for evidence bundle output (default: timestamped "
-             "directory in the selected project's external evidence root)",
+        "directory in the selected project's external evidence root)",
     )
     p_ver.add_argument(
         "--dry-run",
@@ -2685,7 +2761,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # --- show ---
     p_show = sub.add_parser(
-        "show", help="Display reviewed inventory contents",
+        "show",
+        help="Display reviewed inventory contents",
     )
     p_show.add_argument(
         "--scope",
@@ -2697,8 +2774,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--effective",
         action="store_true",
         default=False,
-        help="Display the effective projection instead of the"
-             " reviewed source",
+        help="Display the effective projection instead of the reviewed source",
     )
     p_show.add_argument(
         "--override",
@@ -2712,7 +2788,8 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # --- check-updates ---
     p_upd = sub.add_parser(
-        "check-updates", help="Check configured providers for updates",
+        "check-updates",
+        help="Check configured providers for updates",
     )
     p_upd.add_argument(
         "--scope",
@@ -2779,7 +2856,9 @@ _IsAtty = Callable[[], bool]
 def main(
     argv: Optional[Sequence[str]] = None,
     *,
-    dispatcher: Optional[CommandDispatcher | Callable[[str, CommandRequest], CommandResult]] = None,
+    dispatcher: Optional[
+        CommandDispatcher | Callable[[str, CommandRequest], CommandResult]
+    ] = None,
     stdout_isatty: Optional[_IsAtty] = None,
     stderr_isatty: Optional[_IsAtty] = None,
     _prompt_user: Callable[[str], bool] | None = None,
@@ -2827,10 +2906,16 @@ def main(
             return _EXIT_CODES[ExitKind.CLI]
         return _EXIT_CODES[ExitKind.SUCCESS]
 
-    _stdout_tty = (stdout_isatty() if stdout_isatty is not None
-                   else getattr(sys.stdout, "isatty", lambda: False)())
-    _stderr_tty = (stderr_isatty() if stderr_isatty is not None
-                   else getattr(sys.stderr, "isatty", lambda: False)())
+    _stdout_tty = (
+        stdout_isatty()
+        if stdout_isatty is not None
+        else getattr(sys.stdout, "isatty", lambda: False)()
+    )
+    _stderr_tty = (
+        stderr_isatty()
+        if stderr_isatty is not None
+        else getattr(sys.stderr, "isatty", lambda: False)()
+    )
 
     # Facade-owned interactive progress renderer: installed only for
     # text-output check-updates whose stderr is a TTY.  JSON output and
@@ -2845,18 +2930,15 @@ def main(
         host_presentation_factory = lambda policy: _make_presentation_session(
             policy, text_output=True, stderr_is_tty=_stderr_tty
         )
-    if (
-        args.command == "check-updates"
-        and args.output == "text"
-        and _stderr_tty
-    ):
+    if args.command == "check-updates" and args.output == "text" and _stderr_tty:
         progress_renderer = _ProgressRenderer()
 
     if dispatcher is None:
         prompt = _stdin_prompt if _prompt_user is None else _prompt_user
-        disp: Callable[[str, CommandRequest], CommandResult] = (
-            lambda c, r: _real_dispatcher(
-                c, r,
+        disp: Callable[[str, CommandRequest], CommandResult] = lambda c, r: (
+            _real_dispatcher(
+                c,
+                r,
                 _prompt_user=prompt,
                 _process_runner=_process_runner,
                 _container_inspector=_container_inspector,

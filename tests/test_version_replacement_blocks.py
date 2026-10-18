@@ -5,6 +5,7 @@ change.  These tests pin the target-to-owner mapping, deterministic
 grouping, raw-subtree selection, and candidate overlay behaviour without
 touching provider discovery, classification, or JSON serialization.
 """
+
 from __future__ import annotations
 
 import tomllib
@@ -39,12 +40,15 @@ def _raw_and_targets(toml_text: str | None = None):
 
 def _multi_platform_toml() -> str:
     """minimal_toml plus a second uv platform artifact (linux-arm64)."""
-    return minimal_toml() + """
+    return (
+        minimal_toml()
+        + """
 
 [build.stages.toolchain.uv.artifacts.linux-arm64]
 url = "https://github.com/astral-sh/uv/releases/download/0.1.0/uv-aarch64-unknown-linux-gnu.tar.gz"
 sha256 = "faaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 """
+    )
 
 
 class TestReplacementOwnership(unittest.TestCase):
@@ -208,7 +212,8 @@ class TestRawBlockOverlay(unittest.TestCase):
 
         # Original raw block is not mutated.
         self.assertEqual(
-            raw["build"]["stages"]["toolchain"]["uv"]["version"], "0.1.0",
+            raw["build"]["stages"]["toolchain"]["uv"]["version"],
+            "0.1.0",
         )
 
     def test_rust_and_rustup_overlay_share_one_block(self):
@@ -254,7 +259,8 @@ class TestRawBlockOverlay(unittest.TestCase):
         # Both candidate leaves overlaid.
         self.assertEqual(rust["version"], "1.1.0")
         self.assertEqual(
-            rust["rustup"]["artifacts"]["linux-amd64"]["sha256"], "c" * 64,
+            rust["rustup"]["artifacts"]["linux-amd64"]["sha256"],
+            "c" * 64,
         )
 
         # Unchanged rust fields retained.
@@ -318,12 +324,15 @@ class TestRawBlockOverlay(unittest.TestCase):
             )
         }
         overlay_candidates(
-            block, owner=owner, targets=uv_target, results=result,
+            block,
+            owner=owner,
+            targets=uv_target,
+            results=result,
         )
         self.assertEqual(repr(block), before)
 
 
-_DOTTED_EXT_TOML = '''
+_DOTTED_EXT_TOML = """
 [runtime.pi-extensions."foo.bar"]
 version = "1.0.0"
 
@@ -346,7 +355,7 @@ scheme = "numeric"
 
 [runtime.pi-extensions."foo.bar".validation]
 metadata_file = "package.json"
-'''
+"""
 
 
 class TestDottedExtensionName(unittest.TestCase):
@@ -364,9 +373,7 @@ class TestDottedExtensionName(unittest.TestCase):
 
         # 2. build_update_targets() creates the target.
         targets = build_update_targets(inventory)
-        ext_targets = [
-            t for t in targets if t.path == "runtime.pi-extensions.foo.bar"
-        ]
+        ext_targets = [t for t in targets if t.path == "runtime.pi-extensions.foo.bar"]
         self.assertEqual(len(ext_targets), 1)
         self.assertEqual(
             path_segments(ext_targets[0].path),
@@ -397,7 +404,8 @@ class TestDottedExtensionName(unittest.TestCase):
         # Version-keyed artifact table retained (leaf overlay only).
         self.assertIn("1.0.0", block["artifacts"])
         self.assertEqual(
-            block["validation"]["metadata_file"], "package.json",
+            block["validation"]["metadata_file"],
+            "package.json",
         )
         self.assertEqual(block["override"]["constraint"], ">=1.0.0")
 

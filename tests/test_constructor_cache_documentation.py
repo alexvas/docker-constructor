@@ -1,4 +1,5 @@
 """Phase 7 cache documentation and maintained-source consistency checks."""
+
 from pathlib import Path
 import unittest
 

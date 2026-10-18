@@ -4,6 +4,7 @@ The codec orders mapping keys, emits compact UTF-8 bytes, and rejects
 non-finite numbers and unsupported values.  It does not interpret a
 record's fields beyond generic JSON.
 """
+
 from __future__ import annotations
 
 import json

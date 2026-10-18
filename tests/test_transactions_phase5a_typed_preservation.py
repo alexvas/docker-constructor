@@ -9,6 +9,7 @@ cause.  Raw ``OSError`` remains authoritative only before capability adoption,
 at a directly injected POSIX operation, or under a separately documented
 raw-contract exception (the inventory of which is empty for this change).
 """
+
 from __future__ import annotations
 
 import ast
@@ -229,11 +230,7 @@ def _is_cause_accessor(value: ast.AST | None) -> bool:
         return value.attr in ("cause", "__cause__")
     if isinstance(value, ast.Call):
         func = value.func
-        if (
-            isinstance(func, ast.Name)
-            and func.id == "getattr"
-            and len(value.args) >= 2
-        ):
+        if isinstance(func, ast.Name) and func.id == "getattr" and len(value.args) >= 2:
             name = value.args[1]
             return isinstance(name, ast.Constant) and name.value in (
                 "cause",
@@ -302,10 +299,7 @@ def _call_contains_cause(node: ast.AST | None, names: set[str]) -> bool:
 
 def _is_approved_wrapper_construction(node: ast.Call) -> bool:
     """Return whether *node* constructs an approved typed wrapper."""
-    return (
-        isinstance(node.func, ast.Name)
-        and node.func.id in _APPROVED_TYPED_WRAPPERS
-    )
+    return isinstance(node.func, ast.Name) and node.func.id in _APPROVED_TYPED_WRAPPERS
 
 
 def _referenced_cause_names(node: ast.AST | None, names: set[str]) -> set[str]:
@@ -513,7 +507,9 @@ def _escapes_from_source(
     tree = ast.parse(textwrap.dedent(source))
     function = tree.body[0]
     assert isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef))
-    return [kind for _, kind in _prohibited_escapes(function, classification=classification)]
+    return [
+        kind for _, kind in _prohibited_escapes(function, classification=classification)
+    ]
 
 
 class CauseUnwrappingGuardTests(unittest.TestCase):
@@ -965,9 +961,7 @@ class ProjectStateChainingTests(unittest.TestCase):
         from docker.versioning import project_state
 
         raw = OSError(errno.EIO, "injected fstat")
-        wrapper = TransactionError(
-            STAGE_VALIDATE, "cannot stat directory", cause=raw
-        )
+        wrapper = TransactionError(STAGE_VALIDATE, "cannot stat directory", cause=raw)
         secondary = OSError(errno.EACCES, "injected close")
         wrapper.add_secondary(secondary)
         with mock.patch.object(
@@ -982,9 +976,7 @@ class ProjectStateChainingTests(unittest.TestCase):
         # The wrapper keeps its secondary diagnostics; nothing was copied onto
         # the raw cause.
         self.assertIn(secondary, wrapper.secondary)
-        self.assertNotIn(
-            secondary, list(getattr(raw, "_transaction_secondary", []))
-        )
+        self.assertNotIn(secondary, list(getattr(raw, "_transaction_secondary", [])))
 
 
 class RenderingChainingTests(unittest.TestCase):
@@ -992,9 +984,7 @@ class RenderingChainingTests(unittest.TestCase):
         from docker.versioning import rendering
 
         raw = OSError(errno.EIO, "injected fstat")
-        wrapper = TransactionError(
-            STAGE_VALIDATE, "cannot stat directory", cause=raw
-        )
+        wrapper = TransactionError(STAGE_VALIDATE, "cannot stat directory", cause=raw)
         secondary = OSError(errno.EACCES, "injected close")
         wrapper.add_secondary(secondary)
         with self.assertRaises(rendering.EffectiveInventoryOutputError) as ctx:
@@ -1002,9 +992,7 @@ class RenderingChainingTests(unittest.TestCase):
         self.assertIs(ctx.exception.__cause__, wrapper)
         self.assertIs(wrapper.cause, raw)
         self.assertIn(secondary, wrapper.secondary)
-        self.assertNotIn(
-            secondary, list(getattr(raw, "_transaction_secondary", []))
-        )
+        self.assertNotIn(secondary, list(getattr(raw, "_transaction_secondary", [])))
 
 
 # ── Task 5A.4 — adapter propagation and domain chaining ─────────────────
@@ -1082,10 +1070,13 @@ class AdapterTypedPreservationTests(unittest.TestCase):
         raw = OSError(errno.EIO, "injected open")
         wrapper = TransactionError("open-directory", "cannot open", cause=raw)
 
-        with mock.patch.object(effective, "_validate_safe_path"), mock.patch.object(
-            effective.DirectoryCapability,
-            "from_secure_path",
-            side_effect=wrapper,
+        with (
+            mock.patch.object(effective, "_validate_safe_path"),
+            mock.patch.object(
+                effective.DirectoryCapability,
+                "from_secure_path",
+                side_effect=wrapper,
+            ),
         ):
             with self.assertRaises(effective.EffectiveConfigError) as ctx:
                 effective.create_runtime_projection(
@@ -1103,10 +1094,13 @@ class AdapterTypedPreservationTests(unittest.TestCase):
         safety = CapabilityError("runtime projection path is unsafe")
         safety.__cause__ = raw
 
-        with mock.patch.object(effective, "_validate_safe_path"), mock.patch.object(
-            effective.DirectoryCapability,
-            "from_secure_path",
-            side_effect=safety,
+        with (
+            mock.patch.object(effective, "_validate_safe_path"),
+            mock.patch.object(
+                effective.DirectoryCapability,
+                "from_secure_path",
+                side_effect=safety,
+            ),
         ):
             with self.assertRaises(CapabilityError) as ctx:
                 effective.create_runtime_projection(
@@ -1127,10 +1121,13 @@ class AdapterTypedPreservationTests(unittest.TestCase):
 
         interrupt = KeyboardInterrupt()
 
-        with mock.patch.object(effective, "_validate_safe_path"), mock.patch.object(
-            effective.DirectoryCapability,
-            "from_secure_path",
-            side_effect=interrupt,
+        with (
+            mock.patch.object(effective, "_validate_safe_path"),
+            mock.patch.object(
+                effective.DirectoryCapability,
+                "from_secure_path",
+                side_effect=interrupt,
+            ),
         ):
             with self.assertRaises(KeyboardInterrupt) as ctx:
                 effective.create_runtime_projection(
@@ -1146,7 +1143,9 @@ class AdapterTypedPreservationTests(unittest.TestCase):
         raw = OSError(errno.EIO, "injected replace")
         wrapper = TransactionError("replace", "cannot replace", cause=raw)
         with self.assertRaises(rendering.EffectiveInventoryOutputError) as ctx:
-            rendering._raise_effective_failure("docker-constructor.build.effective.toml", wrapper)
+            rendering._raise_effective_failure(
+                "docker-constructor.build.effective.toml", wrapper
+            )
         self.assertIs(ctx.exception.__cause__, wrapper)
         self.assertIs(wrapper.cause, raw)
 
@@ -1257,7 +1256,9 @@ class ConstructorProjectBuildLockExitPolicyTests(unittest.TestCase):
     defect stays authoritative over an in-flight body exception.
     """
 
-    def _lock(self, capability: mock.Mock, directory: mock.Mock) -> ConstructorProjectBuildLock:
+    def _lock(
+        self, capability: mock.Mock, directory: mock.Mock
+    ) -> ConstructorProjectBuildLock:
         return ConstructorProjectBuildLock(
             ops=mock.Mock(),
             capability=capability,
@@ -1268,9 +1269,7 @@ class ConstructorProjectBuildLockExitPolicyTests(unittest.TestCase):
             project_state=mock.Mock(),
         )
 
-    def _exit_with_body_error(
-        self, lock: ConstructorProjectBuildLock
-    ) -> BaseException:
+    def _exit_with_body_error(self, lock: ConstructorProjectBuildLock) -> BaseException:
         with self.assertRaises(RuntimeError) as ctx:
             with lock:
                 raise RuntimeError("body failure")
@@ -1292,7 +1291,9 @@ class ConstructorProjectBuildLockExitPolicyTests(unittest.TestCase):
         self,
     ) -> None:
         directory = mock.Mock()
-        close_failure = TransactionError(STAGE_CLOSE, "cannot close generation directory")
+        close_failure = TransactionError(
+            STAGE_CLOSE, "cannot close generation directory"
+        )
         directory.close.side_effect = close_failure
         lock = self._lock(mock.Mock(), directory)
         body = self._exit_with_body_error(lock)
@@ -1360,9 +1361,7 @@ class LegitimateCauseInspectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             directory = DirectoryCapability.from_path(PosixFileOps(), root)
             self.addCleanup(directory.close)
-            with mock.patch.object(
-                build_cache, "RegularFileContracts", _Contracts
-            ):
+            with mock.patch.object(build_cache, "RegularFileContracts", _Contracts):
                 with self.assertRaises(TransactionError) as ctx:
                     build_cache._read_marker_json(
                         PosixFileOps(), directory, "missing.json"
@@ -1397,9 +1396,7 @@ class LegitimateCauseInspectionTests(unittest.TestCase):
             os.symlink(real, link)
             ops = InjectedOps()
             with self.assertRaises(CapabilityError) as ctx:
-                DirectoryCapability.from_secure_path(
-                    ops, os.path.join(link, "child")
-                )
+                DirectoryCapability.from_secure_path(ops, os.path.join(link, "child"))
         raw = ctx.exception.__cause__
         self.assertIsInstance(raw, OSError)
         self.assertIn(raw.errno, (errno.ELOOP, errno.ENOTDIR))
@@ -1463,9 +1460,7 @@ class ExceptionGraphTests(unittest.TestCase):
         with self.assertRaises(rendering.EffectiveInventoryOutputError):
             rendering._raise_effective_failure("destination", typed)
         self.assertEqual(list(typed.secondary).count(secondary), 1)
-        self.assertNotIn(
-            secondary, list(getattr(raw, "_transaction_secondary", []))
-        )
+        self.assertNotIn(secondary, list(getattr(raw, "_transaction_secondary", [])))
 
 
 # ── Task 5A.14 — ownership-boundary inventory ───────────────────────────
@@ -1473,9 +1468,7 @@ class ExceptionGraphTests(unittest.TestCase):
 
 class OwnershipBoundaryInventoryTests(unittest.TestCase):
     def test_rendering_close_boundary_splits_by_adoption_state(self) -> None:
-        source = (_REPO / "docker/versioning/rendering.py").read_text(
-            encoding="utf-8"
-        )
+        source = (_REPO / "docker/versioning/rendering.py").read_text(encoding="utf-8")
         self.assertIn(
             "failures.run(generated.close, ordinary=(CloseStageFailure,))", source
         )
@@ -1488,14 +1481,14 @@ class OwnershipBoundaryInventoryTests(unittest.TestCase):
     def test_successful_adoption_never_falls_back_to_raw_release(self) -> None:
         # After adoption the rendering boundary must release through the
         # capability, not the raw descriptor.
-        source = (_REPO / "docker/versioning/rendering.py").read_text(
-            encoding="utf-8"
-        )
+        source = (_REPO / "docker/versioning/rendering.py").read_text(encoding="utf-8")
         finally_block = source.split("finally:", 1)[1]
         self.assertIn("if generated is not None:", finally_block)
         self.assertIn("elif generated_owner is not None:", finally_block)
 
-    def test_build_cleanup_adopts_pre_adoption_descriptor_into_shared_owner(self) -> None:
+    def test_build_cleanup_adopts_pre_adoption_descriptor_into_shared_owner(
+        self,
+    ) -> None:
         source = (_REPO / "docker/versioning/build_cleanup.py").read_text(
             encoding="utf-8"
         )
@@ -1505,7 +1498,10 @@ class OwnershipBoundaryInventoryTests(unittest.TestCase):
         self.assertIn("accumulator.run(owner.close, ordinary=(OSError,))", source)
         self.assertIn("owner.detach()", source)
         self.assertIn("_algorithm_failure(algorithm, exc)", source)
-        self.assertNotIn("reported: BaseException = cause if isinstance(cause, OSError) else exc", source)
+        self.assertNotIn(
+            "reported: BaseException = cause if isinstance(cause, OSError) else exc",
+            source,
+        )
 
 
 if __name__ == "__main__":

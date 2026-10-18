@@ -5,6 +5,7 @@ to it while recording call order and injecting deterministic faults or
 partial writes, so the L1/L2 contracts can be exercised across every
 open/write/fsync/link/rename/unlink/chmod/close boundary.
 """
+
 from __future__ import annotations
 
 import os
@@ -67,7 +68,9 @@ class InjectedOps(PosixFileOps):
 
     def linkat(self, src_dir_fd, src, dst_dir_fd, dst, *, follow_symlinks=False):
         self._record("linkat", src_dir_fd, src, dst_dir_fd, dst)
-        return super().linkat(src_dir_fd, src, dst_dir_fd, dst, follow_symlinks=follow_symlinks)
+        return super().linkat(
+            src_dir_fd, src, dst_dir_fd, dst, follow_symlinks=follow_symlinks
+        )
 
     def renameat(self, old_dir_fd, old, new_dir_fd, new):
         self._record("renameat", old_dir_fd, old, new_dir_fd, new)
@@ -111,4 +114,6 @@ class InjectedOps(PosixFileOps):
 
 def temporary_entries(directory: str) -> list[str]:
     """Every still-owned temporary publication entry under *directory*."""
-    return sorted(name for name in os.listdir(directory) if name.startswith(".transaction-"))
+    return sorted(
+        name for name in os.listdir(directory) if name.startswith(".transaction-")
+    )

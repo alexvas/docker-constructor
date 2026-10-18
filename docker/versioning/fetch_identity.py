@@ -12,6 +12,7 @@ public identity API stays stable, and the internal presentation envelope in
 :mod:`docker.versioning.host_progress` reuses this exact type.  Nothing here
 parses, renders, or touches transport, Docker, or the filesystem.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

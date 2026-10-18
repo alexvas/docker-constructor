@@ -2,6 +2,7 @@
 
 No Docker, no network, no subprocess.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -11,7 +12,12 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Callable, Mapping, Optional
 
-from .constraints import Constraint, ConstraintClause, NumericVersion, parse_numeric_version
+from .constraints import (
+    Constraint,
+    ConstraintClause,
+    NumericVersion,
+    parse_numeric_version,
+)
 from .errors import (
     EffectiveConfigError,
     OverrideValidationError,
@@ -57,14 +63,10 @@ from docker.transactions.regular import RegularFileContracts
 _OverrideHandler = Any  # callable
 
 
-def _apply_python_override(
-    inventory: Inventory, value: str, path: str
-) -> Inventory:
+def _apply_python_override(inventory: Inventory, value: str, path: str) -> Inventory:
     entry = inventory.stages.toolchain.python
     if entry.override is None:
-        raise UnsupportedOverrideError(
-            f"{path}: no override policy configured"
-        )
+        raise UnsupportedOverrideError(f"{path}: no override policy configured")
     policy = entry.override
     if policy.scheme != "numeric":
         raise UnsupportedOverrideError(
@@ -86,18 +88,12 @@ def _apply_python_override(
         )
 
     new_python = dataclasses.replace(entry, version=str(candidate))
-    new_toolchain = dataclasses.replace(
-        inventory.stages.toolchain, python=new_python
-    )
-    new_stages = dataclasses.replace(
-        inventory.stages, toolchain=new_toolchain
-    )
+    new_toolchain = dataclasses.replace(inventory.stages.toolchain, python=new_python)
+    new_stages = dataclasses.replace(inventory.stages, toolchain=new_toolchain)
     return dataclasses.replace(inventory, stages=new_stages)
 
 
-SUPPORTED_OVERRIDES: Mapping[
-    str, Callable[[Inventory, str, str], Inventory]
-] = {
+SUPPORTED_OVERRIDES: Mapping[str, Callable[[Inventory, str, str], Inventory]] = {
     "build.stages.toolchain.python.version": _apply_python_override,
 }
 
@@ -106,9 +102,11 @@ SUPPORTED_OVERRIDES: Mapping[
 # Effective configuration
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class EffectiveConfiguration:
     """Immutable snapshot after override application."""
+
     inventory: Inventory
     overrides: Mapping[str, str]
 
@@ -122,9 +120,7 @@ def apply_overrides(
     for path, value in overrides.items():
         handler = SUPPORTED_OVERRIDES.get(path)
         if handler is None:
-            raise UnsupportedOverrideError(
-                f"{path}: not an overrideable path"
-            )
+            raise UnsupportedOverrideError(f"{path}: not an overrideable path")
         result = handler(result, value, path)
     return EffectiveConfiguration(
         inventory=result,
@@ -172,9 +168,7 @@ def resolve_build_projection(
     for path, value in overrides.items():
         kind = _BUILD_OVERRIDE_HANDLERS.get(path)
         if kind is None:
-            raise UnsupportedOverrideError(
-                f"{path}: not an overrideable path"
-            )
+            raise UnsupportedOverrideError(f"{path}: not an overrideable path")
         if kind == "python":
             effective_python = _resolve_python_override(
                 build.stages.toolchain.python, value, path
@@ -245,9 +239,7 @@ def _resolve_python_override(
 ) -> str:
     """Validate a Python version override and return the effective version."""
     if entry.override is None:
-        raise UnsupportedOverrideError(
-            f"{path}: no override policy configured"
-        )
+        raise UnsupportedOverrideError(f"{path}: no override policy configured")
     policy = entry.override
     if policy.scheme != "numeric":
         raise UnsupportedOverrideError(
@@ -299,9 +291,13 @@ def _toml_name(field_name: str) -> str:
 
 _NATIVE_JSON = (str, int, float, bool, type(None))
 _DOMAIN_PRIMITIVES = (Constraint, ConstraintClause, NumericVersion)
-_DOMAIN_PRIMITIVE_NAMES = frozenset({
-    "Constraint", "ConstraintClause", "NumericVersion",
-})
+_DOMAIN_PRIMITIVE_NAMES = frozenset(
+    {
+        "Constraint",
+        "ConstraintClause",
+        "NumericVersion",
+    }
+)
 
 
 def _is_domain_primitive(value: object) -> bool:
@@ -337,10 +333,7 @@ def to_plain_data(value: Any) -> object:
     if isinstance(value, (tuple, list)):
         return [to_plain_data(v) for v in value]
     if isinstance(value, Mapping):
-        return {
-            _toml_name(str(k)): to_plain_data(v)
-            for k, v in value.items()
-        }
+        return {_toml_name(str(k)): to_plain_data(v) for k, v in value.items()}
     if _is_inventory(value):
         # Inventory: nest pi-extensions under runtime, not at top level
         result: dict[str, object] = {}
@@ -399,9 +392,7 @@ def serialize_effective_inventory(
     return result
 
 
-def get_path(
-    effective: EffectiveConfiguration, path: str
-) -> object:
+def get_path(effective: EffectiveConfiguration, path: str) -> object:
     """Traverse the canonical plain data by dot-separated path.
 
     Raises UnknownPathError for invalid, empty, or special paths.
@@ -425,9 +416,7 @@ def get_path(
         if segment.startswith("__") or segment.endswith("__"):
             raise UnknownPathError(f"{path}: restricted segment {segment!r}")
         if not isinstance(current, Mapping):
-            raise UnknownPathError(
-                f"{path}: {'.'.join(segments[:i])} is not a mapping"
-            )
+            raise UnknownPathError(f"{path}: {'.'.join(segments[:i])} is not a mapping")
         if segment not in current:
             raise UnknownPathError(f"{path}: {segment!r} not found")
         current = current[segment]
@@ -482,9 +471,7 @@ def resolve_runtime(
         for path, value in overrides.items():
             expected = f"{_RUNTIME_OVERRIDE_PREFIX}{name}{_RUNTIME_OVERRIDE_SUFFIX}"
             if path == expected:
-                effective_version = _validate_runtime_override(
-                    entry, value, path
-                )
+                effective_version = _validate_runtime_override(entry, value, path)
 
         if effective_version not in entry.artifacts:
             raise EffectiveConfigError(
@@ -504,6 +491,7 @@ def resolve_runtime(
             )
 
         from .model import _derive_artifact_id
+
         artifact_id = _derive_artifact_id(artifact.integrity)
 
         extensions[name] = EffectivePiExtensionEntry(
@@ -517,10 +505,7 @@ def resolve_runtime(
     # Deterministic ordering — insertion order of the inventory's
     # TOML layout must not affect ordering.
     extensions = {k: extensions[k] for k in sorted(extensions)}
-    selected_list = [
-        selected[k]
-        for k in sorted(selected)
-    ]
+    selected_list = [selected[k] for k in sorted(selected)]
     return (
         selected_list,
         EffectiveRuntimeProjection(extensions=extensions),
@@ -538,11 +523,9 @@ def _validate_runtime_override_path(path: str, runtime: RuntimeInventory) -> Non
             f"{path}: override path must end with {_RUNTIME_OVERRIDE_SUFFIX!r}"
         )
     # Extract extension name: drop prefix and suffix
-    middle = path[len(_RUNTIME_OVERRIDE_PREFIX):-len(_RUNTIME_OVERRIDE_SUFFIX)]
+    middle = path[len(_RUNTIME_OVERRIDE_PREFIX) : -len(_RUNTIME_OVERRIDE_SUFFIX)]
     if not middle or middle not in runtime.pi_extensions:
-        raise UnsupportedOverrideError(
-            f"{path}: no such Pi extension {middle!r}"
-        )
+        raise UnsupportedOverrideError(f"{path}: no such Pi extension {middle!r}")
 
 
 def _validate_runtime_override(
@@ -554,9 +537,7 @@ def _validate_runtime_override(
     try:
         _validate_semver(value)
     except SemverError as exc:
-        raise OverrideValidationError(
-            f"{path}: {value!r} — {exc}"
-        ) from exc
+        raise OverrideValidationError(f"{path}: {value!r} — {exc}") from exc
 
     policy = entry.override
     if policy.scheme != "numeric":
@@ -590,8 +571,7 @@ def _validate_runtime_override(
 
     if not policy.constraint.matches(nv):
         raise OverrideValidationError(
-            f"{path}: {value!r} does not satisfy constraint "
-            f"{policy.constraint!r}"
+            f"{path}: {value!r} does not satisfy constraint {policy.constraint!r}"
         )
 
     return value
@@ -631,9 +611,18 @@ class Filesystem:
     """
 
     __slots__ = (
-        "open", "unlink", "link", "fsync", "mkstemp",
-        "chmod", "urandom", "path", "makedirs", "close_fd",
-        "runtime_root", "ops",
+        "open",
+        "unlink",
+        "link",
+        "fsync",
+        "mkstemp",
+        "chmod",
+        "urandom",
+        "path",
+        "makedirs",
+        "close_fd",
+        "runtime_root",
+        "ops",
     )
 
     def __init__(
@@ -677,9 +666,15 @@ _DEFAULT_FS = Filesystem(runtime_root=None)
 _SERIALIZED_TOP_KEYS = frozenset({"extensions"})
 
 # Allowed per-extension keys.
-_SERIALIZED_EXT_KEYS = frozenset({
-    "package", "version", "artifact_id", "integrity", "metadata_file",
-})
+_SERIALIZED_EXT_KEYS = frozenset(
+    {
+        "package",
+        "version",
+        "artifact_id",
+        "integrity",
+        "metadata_file",
+    }
+)
 
 # Allowed SRI integrity algorithms and their digest byte-lengths.
 # From the W3C Subresource Integrity spec: sha256 (32 B), sha384
@@ -712,9 +707,7 @@ def _validate_serialized_projection(data: object) -> None:
         EffectiveConfigError: any invariant is violated.
     """
     if not isinstance(data, dict):
-        raise EffectiveConfigError(
-            "runtime projection must be a TOML table"
-        )
+        raise EffectiveConfigError("runtime projection must be a TOML table")
 
     unknown = set(data) - _SERIALIZED_TOP_KEYS
     if unknown:
@@ -730,25 +723,20 @@ def _validate_serialized_projection(data: object) -> None:
         )
     for ext_name, ext_val in extensions.items():
         if not isinstance(ext_val, dict):
-            raise EffectiveConfigError(
-                f"extensions.{ext_name}: must be a table"
-            )
+            raise EffectiveConfigError(f"extensions.{ext_name}: must be a table")
 
         unknown = set(ext_val) - _SERIALIZED_EXT_KEYS
         if unknown:
             raise EffectiveConfigError(
-                f"extensions.{ext_name}: unknown key(s) "
-                f"{sorted(unknown)!r}"
+                f"extensions.{ext_name}: unknown key(s) {sorted(unknown)!r}"
             )
 
         # ── required string fields ────────────────────────────
-        for key in ("package", "version", "artifact_id", "integrity",
-                     "metadata_file"):
+        for key in ("package", "version", "artifact_id", "integrity", "metadata_file"):
             val = ext_val.get(key)
             if not isinstance(val, str) or not val:
                 raise EffectiveConfigError(
-                    f"extensions.{ext_name}.{key}: must be a "
-                    f"non-empty string"
+                    f"extensions.{ext_name}.{key}: must be a non-empty string"
                 )
 
         # ── metadata_file safety ──────────────────────────────
@@ -771,6 +759,7 @@ def _validate_serialized_projection(data: object) -> None:
 
         # ── artifact_id must agree with integrity ─────────────
         from .model import _derive_artifact_id
+
         expected_id = _derive_artifact_id(ext_val["integrity"])
         if ext_val["artifact_id"] != expected_id:
             raise EffectiveConfigError(
@@ -805,6 +794,7 @@ def _validate_integrity(integrity: str, *, prefix: str) -> None:
         )
 
     import base64
+
     try:
         digest = base64.b64decode(payload, validate=True)
     except Exception as exc:
@@ -835,9 +825,7 @@ def _validate_metadata_file(value: str, *, prefix: str) -> None:
             f"{prefix}.metadata_file: {value!r} contains invalid segments"
         )
     if not value.strip():
-        raise EffectiveConfigError(
-            f"{prefix}.metadata_file: must be non-empty"
-        )
+        raise EffectiveConfigError(f"{prefix}.metadata_file: must be non-empty")
 
 
 def _validate_artifact_id(value: str, *, prefix: str) -> None:
@@ -906,8 +894,7 @@ def _validate_safe_path(
 
     if _fs.path.islink(path):
         raise EffectiveConfigError(
-            f"runtime projection path {path!r} is a symlink, not allowed "
-            f"for security"
+            f"runtime projection path {path!r} is a symlink, not allowed for security"
         )
 
     return real
@@ -1043,8 +1030,7 @@ def create_runtime_projection(
     # Already validated during construction, but this guards against
     # misuse where a bare dict was cast to the type.
     EffectiveRuntimeProjection(
-        **{k: v for k, v in projection.__dict__.items()
-           if k != "extensions"},
+        **{k: v for k, v in projection.__dict__.items() if k != "extensions"},
         extensions=dict(projection.extensions),
     )
 
@@ -1060,9 +1046,7 @@ def create_runtime_projection(
                 "integrity": ext.integrity,
                 "metadata_file": ext.metadata_file,
             }
-            for name, ext in sorted(
-                projection.extensions.items(), key=lambda kv: kv[0]
-            )
+            for name, ext in sorted(projection.extensions.items(), key=lambda kv: kv[0])
         },
     }
 
@@ -1113,10 +1097,15 @@ def create_runtime_projection(
     primary: BaseException | None = None
     try:
         directory = DirectoryCapability.from_secure_path(
-            ops, dirname, label="runtime projection",
+            ops,
+            dirname,
+            label="runtime projection",
         )
         RegularFileContracts(ops).atomic_no_clobber(
-            directory, basename, content, 0o444,
+            directory,
+            basename,
+            content,
+            0o444,
         )
     except DestinationExists as exc:
         primary = EffectiveConfigError(

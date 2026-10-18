@@ -6,6 +6,7 @@ then invokes Docker-backed assembly with the exact preflight-produced validated
 input.  The assembler identity binds the reviewed image reference, tool
 versions, script/policy digests, and platform.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -29,7 +30,9 @@ from docker.versioning.build_orchestration import BuildRequest, _host_failure_co
 from docker.versioning.effective import resolve_build_projection
 from docker.versioning.inventory import load_inventory
 from docker.versioning.pi_assembly import (
-    PiAssemblyError, PiAssemblyRequest, materialize_pi,
+    PiAssemblyError,
+    PiAssemblyRequest,
+    materialize_pi,
 )
 from docker.versioning.pi_release import PiReleaseSource, derive_pi_release_urls
 from docker.versioning.model import NetworkUrlDisplay
@@ -40,9 +43,16 @@ from docker.versioning.host_presentation import (
     PresentationSelection,
 )
 from docker.versioning.host_progress import (
-    GuardedHostEventSink, HostDiagnosticClassification, HostDiagnosticPrefix,
-    HostDiagnosticStream, HostPhase, HostPhaseEvent, HostPhaseState, HostStep,
-    HostStructuredDiagnostic, InternalDirectHostEventSink,
+    GuardedHostEventSink,
+    HostDiagnosticClassification,
+    HostDiagnosticPrefix,
+    HostDiagnosticStream,
+    HostPhase,
+    HostPhaseEvent,
+    HostPhaseState,
+    HostStep,
+    HostStructuredDiagnostic,
+    InternalDirectHostEventSink,
     lookup_host_failure,
 )
 from docker.npm_environment.streaming import StreamChunk
@@ -107,10 +117,12 @@ class TestMaterializePiOrchestration(unittest.TestCase):
         calls: list[dict] = []
 
         def fake_assemble(*, validated, assembler, cache_root, executor, **kwargs):
-            calls.append({
-                "validated": validated,
-                "assembler": assembler,
-            })
+            calls.append(
+                {
+                    "validated": validated,
+                    "assembler": assembler,
+                }
+            )
             env_root = assembled_pi_tree()
             return SimpleNamespace(
                 environment_root=env_root,
@@ -127,7 +139,9 @@ class TestMaterializePiOrchestration(unittest.TestCase):
             cache_root=Path(tempfile.mkdtemp()),
             executor=SimpleNamespace(run=lambda argv: None),
         )
-        with patch.object(pi_assembly, "assemble_environment", side_effect=fake_assemble):
+        with patch.object(
+            pi_assembly, "assemble_environment", side_effect=fake_assemble
+        ):
             result = materialize_pi(request)
 
         # Downloads happened before assembly and covered exactly three assets.
@@ -144,7 +158,8 @@ class TestMaterializePiOrchestration(unittest.TestCase):
         # The install-package manifest is a bound input, not a discard.
         self.assertEqual(validated.package_bytes, package)
         self.assertEqual(
-            validated.package_digest, hashlib.sha256(package).hexdigest(),
+            validated.package_digest,
+            hashlib.sha256(package).hexdigest(),
         )
 
         assembler = calls[0]["assembler"]
@@ -184,22 +199,31 @@ class TestMaterializePiOrchestration(unittest.TestCase):
                 evidence_path=_evidence_path(),
             )
 
-        with patch.object(pi_assembly, "assemble_environment", side_effect=fake_assemble):
-            materialize_pi(PiAssemblyRequest(
-                projection=_projection(), transport=transport,
-                cache_root=Path(tempfile.mkdtemp()), executor=SimpleNamespace(),
-                event_sink=events.append,
-            ))
+        with patch.object(
+            pi_assembly, "assemble_environment", side_effect=fake_assemble
+        ):
+            materialize_pi(
+                PiAssemblyRequest(
+                    projection=_projection(),
+                    transport=transport,
+                    cache_root=Path(tempfile.mkdtemp()),
+                    executor=SimpleNamespace(),
+                    event_sink=events.append,
+                )
+            )
 
         phases = [event for event in events if isinstance(event, HostPhaseEvent)]
-        self.assertEqual(phases, [
-            HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.STARTED),
-            HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.SUCCEEDED),
-            HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.STARTED),
-            HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.SUCCEEDED),
-            HostPhaseEvent(HostPhase.DERIVED_VALIDATION, HostPhaseState.STARTED),
-            HostPhaseEvent(HostPhase.DERIVED_VALIDATION, HostPhaseState.SUCCEEDED),
-        ])
+        self.assertEqual(
+            phases,
+            [
+                HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.STARTED),
+                HostPhaseEvent(HostPhase.RELEASE_ACQUISITION, HostPhaseState.SUCCEEDED),
+                HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.STARTED),
+                HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.SUCCEEDED),
+                HostPhaseEvent(HostPhase.DERIVED_VALIDATION, HostPhaseState.STARTED),
+                HostPhaseEvent(HostPhase.DERIVED_VALIDATION, HostPhaseState.SUCCEEDED),
+            ],
+        )
 
     def test_diagnostics_are_typed_and_precede_assembly_terminal(self):
         version, package, lock = _release_fixture_for_projection()
@@ -220,12 +244,18 @@ class TestMaterializePiOrchestration(unittest.TestCase):
                 evidence_path=_evidence_path(),
             )
 
-        with patch.object(pi_assembly, "assemble_environment", side_effect=fake_assemble):
-            materialize_pi(PiAssemblyRequest(
-                projection=_projection(), transport=transport,
-                cache_root=Path(tempfile.mkdtemp()), executor=SimpleNamespace(),
-                event_sink=events.append,
-            ))
+        with patch.object(
+            pi_assembly, "assemble_environment", side_effect=fake_assemble
+        ):
+            materialize_pi(
+                PiAssemblyRequest(
+                    projection=_projection(),
+                    transport=transport,
+                    cache_root=Path(tempfile.mkdtemp()),
+                    executor=SimpleNamespace(),
+                    event_sink=events.append,
+                )
+            )
 
         diagnostic = HostStructuredDiagnostic(
             phase=HostPhase.LOCKED_ASSEMBLY,
@@ -235,9 +265,15 @@ class TestMaterializePiOrchestration(unittest.TestCase):
             text="already-redacted EOF partial",
         )
         self.assertIn(diagnostic, events)
-        self.assertLess(events.index(diagnostic), events.index(HostPhaseEvent(
-            HostPhase.LOCKED_ASSEMBLY, HostPhaseState.SUCCEEDED,
-        )))
+        self.assertLess(
+            events.index(diagnostic),
+            events.index(
+                HostPhaseEvent(
+                    HostPhase.LOCKED_ASSEMBLY,
+                    HostPhaseState.SUCCEEDED,
+                )
+            ),
+        )
 
     def test_no_sink_release_failure_keeps_asset_context(self):
         class FailingTransport:
@@ -248,13 +284,15 @@ class TestMaterializePiOrchestration(unittest.TestCase):
                 yield b""  # pragma: no cover
 
         with self.assertRaises(PiAssemblyError) as caught:
-            materialize_pi(PiAssemblyRequest(
-                projection=_projection(),
-                transport=FailingTransport(),
-                cache_root=Path(tempfile.mkdtemp()),
-                executor=SimpleNamespace(),
-                event_sink=None,
-            ))
+            materialize_pi(
+                PiAssemblyRequest(
+                    projection=_projection(),
+                    transport=FailingTransport(),
+                    cache_root=Path(tempfile.mkdtemp()),
+                    executor=SimpleNamespace(),
+                    event_sink=None,
+                )
+            )
         marker = lookup_host_failure(caught.exception)
         self.assertIsNotNone(marker)
         assert marker is not None
@@ -286,21 +324,21 @@ class TestMaterializePiOrchestration(unittest.TestCase):
             pi_assembly, "assemble_environment", side_effect=fail_assemble
         ):
             with self.assertRaises(LockedNpmError) as caught:
-                materialize_pi(PiAssemblyRequest(
-                    projection=_projection(),
-                    transport=transport,
-                    cache_root=Path(tempfile.mkdtemp()),
-                    executor=SimpleNamespace(),
-                    event_sink=None,
-                ))
+                materialize_pi(
+                    PiAssemblyRequest(
+                        projection=_projection(),
+                        transport=transport,
+                        cache_root=Path(tempfile.mkdtemp()),
+                        executor=SimpleNamespace(),
+                        event_sink=None,
+                    )
+                )
         marker = lookup_host_failure(caught.exception)
         self.assertIsNotNone(marker)
         assert marker is not None
         self.assertIs(HostPhase.LOCKED_ASSEMBLY, marker.phase)
         self.assertIs(HostStep.NPM_EXECUTION, marker.step)
-        self.assertEqual(
-            "npm-assembler-0123456789abcdef", marker.logical_resource
-        )
+        self.assertEqual("npm-assembler-0123456789abcdef", marker.logical_resource)
         context = _host_failure_context(caught.exception)
         self.assertEqual("locked npm execution failed", context.summary)
         self.assertEqual("retained npm tail", context.tail)
@@ -317,19 +355,31 @@ class TestMaterializePiOrchestration(unittest.TestCase):
             pi_assembly, "assemble_environment", side_effect=RuntimeError("secret")
         ):
             with self.assertRaises(RuntimeError):
-                materialize_pi(PiAssemblyRequest(
-                    projection=_projection(), transport=transport,
-                    cache_root=Path(tempfile.mkdtemp()), executor=SimpleNamespace(),
-                    event_sink=events.append,
-                ))
-        self.assertEqual(1, events.count(HostPhaseEvent(
-            HostPhase.LOCKED_ASSEMBLY, HostPhaseState.FAILED,
-        )))
-        self.assertFalse(any(
-            isinstance(event, HostPhaseEvent)
-            and event.phase is HostPhase.DERIVED_VALIDATION
-            for event in events
-        ))
+                materialize_pi(
+                    PiAssemblyRequest(
+                        projection=_projection(),
+                        transport=transport,
+                        cache_root=Path(tempfile.mkdtemp()),
+                        executor=SimpleNamespace(),
+                        event_sink=events.append,
+                    )
+                )
+        self.assertEqual(
+            1,
+            events.count(
+                HostPhaseEvent(
+                    HostPhase.LOCKED_ASSEMBLY,
+                    HostPhaseState.FAILED,
+                )
+            ),
+        )
+        self.assertFalse(
+            any(
+                isinstance(event, HostPhaseEvent)
+                and event.phase is HostPhase.DERIVED_VALIDATION
+                for event in events
+            )
+        )
         self.assertNotIn("secret", repr(events))
 
     def test_npm_policy_never_enables_bin_links_or_engine_strict(self):
@@ -376,31 +426,37 @@ class TestInstallPackageBinding(unittest.TestCase):
         self.assertEqual(ctx.exception.reason, "malformed_package")
 
     def test_wrong_package_name_rejected(self):
-        bad = json.dumps({
-            "name": "@earendil-works/pi-coding-agent-wrong",
-            "version": "0.84.4",
-            "dependencies": {PI_PACKAGE: "0.84.4"},
-        }).encode()
+        bad = json.dumps(
+            {
+                "name": "@earendil-works/pi-coding-agent-wrong",
+                "version": "0.84.4",
+                "dependencies": {PI_PACKAGE: "0.84.4"},
+            }
+        ).encode()
         with self.assertRaises(LockedNpmError) as ctx:
             self._preflight(bad)
         self.assertEqual(ctx.exception.reason, "package_name_mismatch")
 
     def test_wrong_package_version_rejected(self):
-        bad = json.dumps({
-            "name": "@earendil-works/pi-coding-agent-install",
-            "version": "9.9.9",
-            "dependencies": {PI_PACKAGE: "0.84.4"},
-        }).encode()
+        bad = json.dumps(
+            {
+                "name": "@earendil-works/pi-coding-agent-install",
+                "version": "9.9.9",
+                "dependencies": {PI_PACKAGE: "0.84.4"},
+            }
+        ).encode()
         with self.assertRaises(LockedNpmError) as ctx:
             self._preflight(bad)
         self.assertEqual(ctx.exception.reason, "package_version_mismatch")
 
     def test_package_lock_root_disagreement_rejected(self):
-        bad = json.dumps({
-            "name": "@earendil-works/pi-coding-agent-install",
-            "version": "0.84.4",
-            "dependencies": {PI_PACKAGE: "0.84.3"},
-        }).encode()
+        bad = json.dumps(
+            {
+                "name": "@earendil-works/pi-coding-agent-install",
+                "version": "0.84.4",
+                "dependencies": {PI_PACKAGE: "0.84.3"},
+            }
+        ).encode()
         with self.assertRaises(LockedNpmError) as ctx:
             self._preflight(bad)
         self.assertEqual(ctx.exception.reason, "package_lock_root_disagreement")
@@ -416,26 +472,33 @@ class TestInstallPackageBinding(unittest.TestCase):
     def test_package_substitution_changes_identity(self):
         assembler = self._assembler()
         first = compute_assembler_input_identity(
-            self._preflight(pi_install_package_bytes()), assembler,
+            self._preflight(pi_install_package_bytes()),
+            assembler,
         )
         # Same semantic manifest, different exact bytes (no trailing newline).
-        substituted = json.dumps({
-            "name": "@earendil-works/pi-coding-agent-install",
-            "version": "0.84.4",
-            "dependencies": {PI_PACKAGE: "0.84.4"},
-        }, sort_keys=True).encode()
+        substituted = json.dumps(
+            {
+                "name": "@earendil-works/pi-coding-agent-install",
+                "version": "0.84.4",
+                "dependencies": {PI_PACKAGE: "0.84.4"},
+            },
+            sort_keys=True,
+        ).encode()
         second = compute_assembler_input_identity(
-            self._preflight(substituted), assembler,
+            self._preflight(substituted),
+            assembler,
         )
         self.assertNotEqual(first.package_digest, second.package_digest)
         self.assertNotEqual(first.digest, second.digest)
 
     def test_package_substitution_invalidates_identity(self):
-        substituted = json.dumps({
-            "name": "@earendil-works/pi-coding-agent-install",
-            "version": "0.84.4",
-            "dependencies": {PI_PACKAGE: "0.84.3"},
-        }).encode()
+        substituted = json.dumps(
+            {
+                "name": "@earendil-works/pi-coding-agent-install",
+                "version": "0.84.4",
+                "dependencies": {PI_PACKAGE: "0.84.3"},
+            }
+        ).encode()
         with self.assertRaises(LockedNpmError) as ctx:
             self._preflight(substituted)
         self.assertEqual(ctx.exception.reason, "package_lock_root_disagreement")
@@ -488,7 +551,9 @@ class TestFacadeStreamingNormalization(unittest.TestCase):
             )
 
         with (
-            patch.object(pi_assembly, "assemble_environment", side_effect=fake_assemble),
+            patch.object(
+                pi_assembly, "assemble_environment", side_effect=fake_assemble
+            ),
             patch.object(
                 npm_streaming,
                 "SinkDispatcher",
@@ -566,16 +631,12 @@ class _RecordingPresentationRenderer:
         if OVERSIZED_DIAGNOSTIC_MARKER in text:
             self.marker_durable.set()
 
-    def finalize_diagnostic(
-        self, text: str, *, restore_status: str | None
-    ) -> None:
+    def finalize_diagnostic(self, text: str, *, restore_status: str | None) -> None:
         self.calls.append(("finalize", text))
 
 
 def _durable_text(calls: list[tuple[object, ...]]) -> str:
-    return "\n".join(
-        str(call[1]) for call in calls if call[0] == "durable"
-    )
+    return "\n".join(str(call[1]) for call in calls if call[0] == "durable")
 
 
 class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
@@ -682,22 +743,15 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
         # finalized before its record boundary; lifecycle lines may appear.
         before_durable = _durable_text(snapshot["calls"])
         self.assertNotIn("npm warn partial", before_durable)
-        self.assertFalse(
-            any(call[0] == "finalize" for call in snapshot["calls"])
-        )
+        self.assertFalse(any(call[0] == "finalize" for call in snapshot["calls"]))
         # The complete line is finalized exactly once and the retained tail
         # carries it exactly once.
-        finalizes = [
-            call[1] for call in renderer.calls if call[0] == "finalize"
-        ]
+        finalizes = [call[1] for call in renderer.calls if call[0] == "finalize"]
         self.assertEqual(["npm warn partial"], finalizes)
-        self.assertEqual(
-            captures[0].stdout_tail.count("npm warn partial"), 1
-        )
+        self.assertEqual(captures[0].stdout_tail.count("npm warn partial"), 1)
 
     _PREFIX_URL = (
-        "https://user:secret@registry.example.com:8443"
-        "/pkg/-/pkg-1.0.0.tgz?q=1#frag"
+        "https://user:secret@registry.example.com:8443/pkg/-/pkg-1.0.0.tgz?q=1#frag"
     )
     _PREFIX_LINE = f"npm error network GET {_PREFIX_URL} failed"
     _PREFIX_HOST_PATH = "registry.example.com/pkg/-/pkg-1.0.0.tgz"
@@ -720,14 +774,10 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
         )
 
     def _slots(self, renderer):
-        return [
-            str(call[1]) for call in renderer.calls if call[0] == "slot"
-        ]
+        return [str(call[1]) for call in renderer.calls if call[0] == "slot"]
 
     def test_mode_selected_prefix_is_visible_before_the_record_boundary(self):
-        for display, (expected, forbidden) in (
-            self._mode_prefix_expectations().items()
-        ):
+        for display, (expected, forbidden) in self._mode_prefix_expectations().items():
             with self.subTest(display=display):
                 renderer = _RecordingPresentationRenderer()
                 session = self._session_for(display, renderer)
@@ -744,10 +794,7 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
                         # is observable, then snapshot presentation.
                         deadline = time.monotonic() + 5.0
                         while time.monotonic() < deadline:
-                            if any(
-                                expected in slot
-                                for slot in self._slots(renderer)
-                            ):
+                            if any(expected in slot for slot in self._slots(renderer)):
                                 break
                             time.sleep(0.01)
                         snapshot["slots"] = self._slots(renderer)
@@ -775,17 +822,13 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
                 # The complete line finalizes exactly once with the selected
                 # representation and never duplicates the prefix.
                 finalizes = [
-                    call[1]
-                    for call in renderer.calls
-                    if call[0] == "finalize"
+                    call[1] for call in renderer.calls if call[0] == "finalize"
                 ]
                 self.assertEqual(1, len(finalizes))
                 self.assertIn(expected, str(finalizes[0]))
 
     def test_combined_sinks_fan_out_mode_prefix_internally_and_no_sdk_prefix(self):
-        for display, (expected, forbidden) in (
-            self._mode_prefix_expectations().items()
-        ):
+        for display, (expected, forbidden) in self._mode_prefix_expectations().items():
             with self.subTest(display=display):
                 renderer = _RecordingPresentationRenderer()
                 session = self._session_for(display, renderer)
@@ -801,10 +844,7 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
                     if not sent["newline"]:
                         deadline = time.monotonic() + 5.0
                         while time.monotonic() < deadline:
-                            if any(
-                                expected in slot
-                                for slot in self._slots(renderer)
-                            ):
+                            if any(expected in slot for slot in self._slots(renderer)):
                                 break
                             time.sleep(0.01)
                         # No provisional prefix may have reached the SDK while
@@ -847,9 +887,7 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
                 # every mode, including the selected local representation.
                 self.assertNotIn("https://", structured[0].text)
                 self.assertNotIn("registry.example.com", structured[0].text)
-                self.assertNotIn(
-                    self._PREFIX_HOST_PATH, structured[0].text
-                )
+                self.assertNotIn(self._PREFIX_HOST_PATH, structured[0].text)
 
     def test_combined_sink_saturation_keeps_internal_records_prompt_and_bounded(
         self,
@@ -907,10 +945,7 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
                 # before its record boundary is released.
                 deadline = time.monotonic() + 5.0
                 while time.monotonic() < deadline:
-                    if any(
-                        wait_marker in slot
-                        for slot in self._slots(renderer)
-                    ):
+                    if any(wait_marker in slot for slot in self._slots(renderer)):
                         prompt[wait_marker] = True
                         break
                     time.sleep(0.005)
@@ -955,19 +990,13 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
         self.assertTrue(slot_texts)
         max_line = max(len(line) for line in lines)
         for text in slot_texts:
-            self.assertLessEqual(
-                sum(marker in text for marker in markers), 1
-            )
+            self.assertLessEqual(sum(marker in text for marker in markers), 1)
             self.assertLessEqual(len(text), max_line)
 
         # Every internal finalized record still arrived.
-        finalizes = [
-            call[1] for call in renderer.calls if call[0] == "finalize"
-        ]
+        finalizes = [call[1] for call in renderer.calls if call[0] == "finalize"]
         for marker in markers:
-            self.assertTrue(
-                any(marker in text for text in finalizes), marker
-            )
+            self.assertTrue(any(marker in text for text in finalizes), marker)
 
         # The SDK channel saw only safe, finalized structured diagnostics and
         # at least one was dropped by the one-slot queue.
@@ -1001,13 +1030,8 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
             + "pad " * (limit // 4)
             + "DISCARDED" * 100
         )
-        normal = (
-            f"npm error network GET {self._PREFIX_URL} "
-            "failed record-after "
-        )
-        reads = iter(
-            [oversized.encode(), b"\n", normal.encode(), b"\n", b""]
-        )
+        normal = f"npm error network GET {self._PREFIX_URL} failed record-after "
+        reads = iter([oversized.encode(), b"\n", normal.encode(), b"\n", b""])
 
         def stdout_read(_size):
             return next(reads, b"")
@@ -1062,8 +1086,7 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
                         deadline = time.monotonic() + 5.0
                         while time.monotonic() < deadline:
                             if any(
-                                expected in slot
-                                and OVERSIZED_DIAGNOSTIC_MARKER in slot
+                                expected in slot and OVERSIZED_DIAGNOSTIC_MARKER in slot
                                 for slot in self._slots(renderer)
                             ):
                                 break
@@ -1093,15 +1116,11 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
                 )
                 # The discarded overflow suffix never reaches live
                 # presentation in any mode.
-                self.assertNotIn(
-                    "DISCARDED", "\n".join(self._slots(renderer))
-                )
+                self.assertNotIn("DISCARDED", "\n".join(self._slots(renderer)))
                 # The record boundary closes the provisional state with the
                 # complete mode-selected truncated line.
                 finalized = "\n".join(
-                    str(call[1])
-                    for call in renderer.calls
-                    if call[0] == "finalize"
+                    str(call[1]) for call in renderer.calls if call[0] == "finalize"
                 )
                 self.assertIn(expected, finalized)
                 self.assertIn(OVERSIZED_DIAGNOSTIC_MARKER, finalized)
@@ -1129,16 +1148,12 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
                     session.shutdown()
 
                 finalizes = [
-                    call[1]
-                    for call in renderer.calls
-                    if call[0] == "finalize"
+                    call[1] for call in renderer.calls if call[0] == "finalize"
                 ]
                 self.assertEqual(1, len(finalizes))
                 # The finalized complete line is written once and the visible
                 # provisional prefix is replaced, never appended twice.
-                self.assertEqual(
-                    str(finalizes[0]).count("npm error network GET"), 1
-                )
+                self.assertEqual(str(finalizes[0]).count("npm error network GET"), 1)
 
     def test_external_callback_receives_only_the_finalized_diagnostic(self):
         delivered: list = []
@@ -1150,28 +1165,19 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
         self._materialize(delivered.append, stdout_read, [])
 
         structured = [
-            event
-            for event in delivered
-            if isinstance(event, HostStructuredDiagnostic)
+            event for event in delivered if isinstance(event, HostStructuredDiagnostic)
         ]
         self.assertEqual(1, len(structured))
         self.assertEqual("npm warn partial", structured[0].text)
         # A committed prefix must never reach an external SDK callback.
         self.assertFalse(
-            any(
-                isinstance(event, HostDiagnosticPrefix)
-                for event in delivered
-            )
+            any(isinstance(event, HostDiagnosticPrefix) for event in delivered)
         )
 
     def test_external_overflow_is_one_bounded_safe_truncation_after_the_boundary(self):
         delivered: list = []
         limit = DIAGNOSTIC_LINE_LIMIT_BYTES
-        oversized = (
-            b"npm warn leading "
-            + b"pad " * (limit // 4)
-            + b"DISCARDED" * 100
-        )
+        oversized = b"npm warn leading " + b"pad " * (limit // 4) + b"DISCARDED" * 100
         state = {"stage": 0}
         before: list = []
 
@@ -1196,27 +1202,16 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
         # the oversized line was finalized.
         self.assertEqual(
             [],
-            [
-                event
-                for event in before
-                if isinstance(event, HostStructuredDiagnostic)
-            ],
+            [event for event in before if isinstance(event, HostStructuredDiagnostic)],
         )
         self.assertFalse(
-            any(
-                isinstance(event, HostDiagnosticPrefix)
-                for event in delivered
-            )
+            any(isinstance(event, HostDiagnosticPrefix) for event in delivered)
         )
         structured = [
-            event
-            for event in delivered
-            if isinstance(event, HostStructuredDiagnostic)
+            event for event in delivered if isinstance(event, HostStructuredDiagnostic)
         ]
         overflow = [
-            event
-            for event in structured
-            if OVERSIZED_DIAGNOSTIC_MARKER in event.text
+            event for event in structured if OVERSIZED_DIAGNOSTIC_MARKER in event.text
         ]
         self.assertEqual(1, len(overflow))
         event = overflow[0]
@@ -1228,13 +1223,9 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
         # truncation is delivered as a neutral bounded status diagnostic.
         self.assertEqual((), event.hostnames)
         self.assertEqual((), event.url_fingerprints)
-        self.assertEqual(
-            HostDiagnosticClassification.STATUS, event.classification
-        )
+        self.assertEqual(HostDiagnosticClassification.STATUS, event.classification)
         # A complete line still produces exactly one finalized diagnostic.
-        recovered = [
-            item for item in structured if "recovered" in item.text
-        ]
+        recovered = [item for item in structured if "recovered" in item.text]
         self.assertEqual(1, len(recovered))
 
     def test_external_overflow_finalizes_once_at_eof_without_a_second_marker(self):
@@ -1249,14 +1240,10 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
         self._materialize(delivered.append, stdout_read, [])
 
         structured = [
-            event
-            for event in delivered
-            if isinstance(event, HostStructuredDiagnostic)
+            event for event in delivered if isinstance(event, HostStructuredDiagnostic)
         ]
         self.assertEqual(1, len(structured))
-        self.assertEqual(
-            1, structured[0].text.count(OVERSIZED_DIAGNOSTIC_MARKER)
-        )
+        self.assertEqual(1, structured[0].text.count(OVERSIZED_DIAGNOSTIC_MARKER))
         self.assertNotIn("DISCARDED", structured[0].text)
 
     def test_overflow_marker_is_visible_in_lines_mode_without_the_suffix(self):
@@ -1331,14 +1318,11 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
         # never also renders an ordinary structured duplicate.
         self.assertFalse(
             any(
-                call[0] == "finalize"
-                and OVERSIZED_DIAGNOSTIC_MARKER in str(call[1])
+                call[0] == "finalize" and OVERSIZED_DIAGNOSTIC_MARKER in str(call[1])
                 for call in renderer.calls
             )
         )
-        self.assertEqual(
-            captures[0].stdout_tail.count(OVERSIZED_DIAGNOSTIC_MARKER), 1
-        )
+        self.assertEqual(captures[0].stdout_tail.count(OVERSIZED_DIAGNOSTIC_MARKER), 1)
 
     def test_internal_overflow_interactive_finalizes_once(self):
         renderer = _RecordingPresentationRenderer()
@@ -1362,18 +1346,12 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
         finally:
             session.shutdown()
 
-        finalized = [
-            call[1]
-            for call in renderer.calls
-            if call[0] == "finalize"
-        ]
+        finalized = [call[1] for call in renderer.calls if call[0] == "finalize"]
         self.assertEqual(1, len(finalized))
         self.assertIn("npm warn", finalized[0])
         self.assertTrue(finalized[0].endswith(OVERSIZED_DIAGNOSTIC_MARKER))
         self.assertNotIn("DISCARDED", finalized[0])
-        self.assertEqual(
-            captures[0].stdout_tail.count(OVERSIZED_DIAGNOSTIC_MARKER), 1
-        )
+        self.assertEqual(captures[0].stdout_tail.count(OVERSIZED_DIAGNOSTIC_MARKER), 1)
 
     def test_combined_sinks_fan_out_overflow_without_provisional_sdk_prefix(self):
         renderer = _RecordingPresentationRenderer()
@@ -1416,24 +1394,16 @@ class TestFacadeProvisionalPrefixRoute(unittest.TestCase):
 
         self.assertEqual(
             [],
-            [
-                event
-                for event in before
-                if isinstance(event, HostStructuredDiagnostic)
-            ],
+            [event for event in before if isinstance(event, HostStructuredDiagnostic)],
         )
         self.assertFalse(
             any(isinstance(event, HostDiagnosticPrefix) for event in sdk_events)
         )
         structured = [
-            event
-            for event in sdk_events
-            if isinstance(event, HostStructuredDiagnostic)
+            event for event in sdk_events if isinstance(event, HostStructuredDiagnostic)
         ]
         overflow = [
-            event
-            for event in structured
-            if OVERSIZED_DIAGNOSTIC_MARKER in event.text
+            event for event in structured if OVERSIZED_DIAGNOSTIC_MARKER in event.text
         ]
         self.assertEqual(1, len(overflow))
         self.assertNotIn("DISCARDED", overflow[0].text)
@@ -1490,14 +1460,16 @@ class TestInstallPackageDependencies(unittest.TestCase):
                 with self.assertRaises(LockedNpmError) as ctx:
                     self._parse(self._manifest(dependencies=bad))
                 self.assertEqual(
-                    ctx.exception.reason, "invalid_package_dependencies",
+                    ctx.exception.reason,
+                    "invalid_package_dependencies",
                 )
 
     def test_non_empty_dependencies_rejected_against_empty_lock_root(self):
         with self.assertRaises(LockedNpmError) as ctx:
             self._parse(self._manifest(dependencies={PI_PACKAGE: "0.84.4"}))
         self.assertEqual(
-            ctx.exception.reason, "package_lock_root_disagreement",
+            ctx.exception.reason,
+            "package_lock_root_disagreement",
         )
 
     def test_non_empty_dependencies_accepted_when_exactly_matching(self):

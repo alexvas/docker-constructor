@@ -24,15 +24,23 @@ from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
-from tests.build_test_support import INVENTORY_PATH, fake_pi_materialization, fixture_directory, no_network_transport_factory
+from tests.build_test_support import (
+    INVENTORY_PATH,
+    fake_pi_materialization,
+    fixture_directory,
+    no_network_transport_factory,
+)
 
 # ── helpers ────────────────────────────────────────────────────────────
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
+
 def _load_mod() -> Any:
     from docker import constructor_cli
+
     return constructor_cli
+
 
 def _run(
     mod: Any,
@@ -60,16 +68,22 @@ def _run(
     # Bind them to the external runtime child supplied by orchestration.
     if _create_projection is not None:
         original_create_projection = _create_projection
+
         def _create_projection(_projection: Any, *, parent_dir: str) -> Any:
             handle = original_create_projection(_projection, parent_dir=parent_dir)
             handle.path = str(Path(parent_dir) / "fake-projection.toml")
             return handle
+
     # This daemon-independent acceptance module never exercises transport or
     # cache materialization. Keep every real-launch fixture network-free even
     # when the isolated validation cache starts empty.
-    with redirect_stdout(out), redirect_stderr(err), patch(
-        "docker.launcher.artifact_cache.materialize_selected_artifacts",
-        return_value={},
+    with (
+        redirect_stdout(out),
+        redirect_stderr(err),
+        patch(
+            "docker.launcher.artifact_cache.materialize_selected_artifacts",
+            return_value={},
+        ),
     ):
         rc = mod.main(
             list(argv),
@@ -85,8 +99,10 @@ def _run(
         )
     return rc, out.getvalue(), err.getvalue()
 
+
 def _strip_ansi(text: str) -> str:
     return ANSI_RE.sub("", text)
+
 
 def _make_fake_dispatcher(mod: Any, **kw: object) -> Any:
     """Return a callable that returns a single fixed CommandResult."""
@@ -107,6 +123,7 @@ def _make_fake_dispatcher(mod: Any, **kw: object) -> Any:
 
     return _dispatch
 
+
 def _make_fake_process_runner(
     return_code: int = 0,
     stdout: str = "",
@@ -115,14 +132,16 @@ def _make_fake_process_runner(
     from docker.launcher import ProcessResult
 
     class _Runner:
-        def run(self, argv, *,
-                mode=None):
+        def run(self, argv, *, mode=None):
             return ProcessResult(
-                argv=tuple(argv), return_code=return_code,
-                stdout=stdout, stderr=stderr,
+                argv=tuple(argv),
+                return_code=return_code,
+                stdout=stdout,
+                stderr=stderr,
             )
 
     return _Runner()
+
 
 def _make_recording_runner(
     return_code: int = 0,
@@ -134,17 +153,20 @@ def _make_recording_runner(
     calls: list[tuple[str, ...]] = []
 
     class _Rec:
-        def run(self, argv, *,
-                mode=None):
+        def run(self, argv, *, mode=None):
             calls.append(tuple(argv))
             return ProcessResult(
-                argv=tuple(argv), return_code=return_code,
-                stdout=stdout, stderr=stderr,
+                argv=tuple(argv),
+                return_code=return_code,
+                stdout=stdout,
+                stderr=stderr,
             )
 
     return _Rec(), calls
 
+
 # ── Evidence bundle assertions ─────────────────────────────────────────
+
 
 def _assert_evidence_bundle_complete(
     test_case: unittest.TestCase,
@@ -167,79 +189,76 @@ def _assert_evidence_bundle_complete(
     Returns the parsed index sections for further assertions.
     """
     import re as _re
+
     dir_path = Path(evidence_dir)
-    test_case.assertTrue(dir_path.is_dir(),
-                          f"evidence dir must exist: {evidence_dir}")
+    test_case.assertTrue(dir_path.is_dir(), f"evidence dir must exist: {evidence_dir}")
 
     index_path = dir_path / "index.txt"
-    test_case.assertTrue(index_path.is_file(),
-                          "index.txt must exist")
+    test_case.assertTrue(index_path.is_file(), "index.txt must exist")
     index_text = index_path.read_text(encoding="utf-8")
 
     # ── structural metadata ────────────────────────────────────
-    test_case.assertIn("Evidence collection for image:", index_text,
-                        "index must identify the image")
-    test_case.assertIn("Commands:", index_text,
-                        "index must have a Commands section")
-    test_case.assertIn("Notes:", index_text,
-                        "index must have a Notes section")
-    test_case.assertIn("Bundle checksum (sha256):", index_text,
-                        "index must contain a bundle self-checksum")
+    test_case.assertIn(
+        "Evidence collection for image:", index_text, "index must identify the image"
+    )
+    test_case.assertIn("Commands:", index_text, "index must have a Commands section")
+    test_case.assertIn("Notes:", index_text, "index must have a Notes section")
+    test_case.assertIn(
+        "Bundle checksum (sha256):",
+        index_text,
+        "index must contain a bundle self-checksum",
+    )
 
     # ── parse command entries ───────────────────────────────────
-    cmd_lines = [l for l in index_text.split("\n")
-                 if _re.match(r"\s+\[\d+\]", l)]
+    cmd_lines = [l for l in index_text.split("\n") if _re.match(r"\s+\[\d+\]", l)]
     test_case.assertGreaterEqual(
-        len(cmd_lines), min_commands,
-        f"at least {min_commands} commands must be recorded, "
-        f"got {len(cmd_lines)}")
+        len(cmd_lines),
+        min_commands,
+        f"at least {min_commands} commands must be recorded, got {len(cmd_lines)}",
+    )
 
     # Each command line has exit=, dur=, argv=.
     for i, line in enumerate(cmd_lines):
-        test_case.assertIn("exit=", line,
-                            f"command [{i:03d}] missing exit code")
-        test_case.assertIn("dur=", line,
-                            f"command [{i:03d}] missing duration")
-        test_case.assertIn("argv=", line,
-                            f"command [{i:03d}] missing argv")
+        test_case.assertIn("exit=", line, f"command [{i:03d}] missing exit code")
+        test_case.assertIn("dur=", line, f"command [{i:03d}] missing duration")
+        test_case.assertIn("argv=", line, f"command [{i:03d}] missing argv")
 
     # ── argv assertions ─────────────────────────────────────────
     all_argv_text = "\n".join(cmd_lines)
     for substr in expect_command_substrs:
         test_case.assertIn(
-            substr, all_argv_text,
-            f"evidence must include command containing {substr!r}"
+            substr,
+            all_argv_text,
+            f"evidence must include command containing {substr!r}",
         )
     if expect_argv_substr:
         test_case.assertIn(
-            expect_argv_substr, all_argv_text,
+            expect_argv_substr,
+            all_argv_text,
             f"evidence must include command with argv "
-            f"containing {expect_argv_substr!r}"
+            f"containing {expect_argv_substr!r}",
         )
 
     # ── checksums ──────────────────────────────────────────────
-    sha_lines = [l for l in index_text.split("\n")
-                 if "sha256=" in l]
+    sha_lines = [l for l in index_text.split("\n") if "sha256=" in l]
     # Checksums appear only when output is non-empty.
     for line in sha_lines:
         m = _re.search(r"sha256=([0-9a-f]{64})", line)
-        test_case.assertTrue(m,
-                              f"invalid checksum format: {line.strip()}")
+        test_case.assertTrue(m, f"invalid checksum format: {line.strip()}")
 
     # ── bounded output files ───────────────────────────────────
-    for pat, label in [("*-stdout.txt", "stdout"),
-                        ("*-stderr.txt", "stderr")]:
+    for pat, label in [("*-stdout.txt", "stdout"), ("*-stderr.txt", "stderr")]:
         for sf in sorted(dir_path.glob(pat)):
             fsize = sf.stat().st_size
             test_case.assertLess(
-                fsize, 2 * 1024 * 1024,
-                f"{label} file {sf.name} must be bounded ({fsize} bytes)"
+                fsize,
+                2 * 1024 * 1024,
+                f"{label} file {sf.name} must be bounded ({fsize} bytes)",
             )
             # Content matches the recorded checksum when a checksum is
             # present in the index.
             if sha_lines:
-                actual_hash = hashlib.sha256(
-                    sf.read_bytes()).hexdigest()
+                actual_hash = hashlib.sha256(sf.read_bytes()).hexdigest()
                 found = False
                 for line in sha_lines:
                     if sf.name in line and actual_hash in line:
@@ -249,7 +268,7 @@ def _assert_evidence_bundle_complete(
                     found,
                     f"{sf.name} checksum mismatch: "
                     f"file sha256={actual_hash}, "
-                    f"not found in index"
+                    f"not found in index",
                 )
 
     return {
@@ -260,7 +279,9 @@ def _assert_evidence_bundle_complete(
         "command_count": len(cmd_lines),
     }
 
+
 # ── Scripted Docker runner ─────────────────────────────────────────────
+
 
 class _ScriptedProcessRunner:
     """A ``ProcessRunner`` that returns scripted responses based on
@@ -271,44 +292,50 @@ class _ScriptedProcessRunner:
     *fallback* (if set) is used; otherwise ``RuntimeError`` is raised.
     """
 
-    def __init__(self, fallback_rc: int = 0,
-                 fallback_stdout: str = "",
-                 fallback_stderr: str = "") -> None:
+    def __init__(
+        self, fallback_rc: int = 0, fallback_stdout: str = "", fallback_stderr: str = ""
+    ) -> None:
         from docker.launcher import ProcessResult
+
         self._ProcessResult = ProcessResult
         self._handlers: list[tuple[str, tuple[int, str, str]]] = []
         self._called: list[tuple[str, ...]] = []
         self._fallback = (fallback_rc, fallback_stdout, fallback_stderr)
 
-    def when(self, substr: str, *, rc: int = 0,
-             stdout: str = "", stderr: str = "") -> _ScriptedProcessRunner:
+    def when(
+        self, substr: str, *, rc: int = 0, stdout: str = "", stderr: str = ""
+    ) -> _ScriptedProcessRunner:
         """Register a handler for commands whose joined string contains
         *substr*.  Later registrations take priority over earlier ones."""
         self._handlers.append((substr, (rc, stdout, stderr)))
         return self
 
-    def run(self, argv: Sequence[str], *,
-            interactive: bool = False) -> Any:
+    def run(self, argv: Sequence[str], *, interactive: bool = False) -> Any:
         cmd = " ".join(argv)
         self._called.append(tuple(argv))
         # Scan in reverse — last registered wins.
         for substr, (rc, stdout, stderr) in reversed(self._handlers):
             if substr in cmd:
                 return self._ProcessResult(
-                    argv=tuple(argv), return_code=rc,
-                    stdout=stdout, stderr=stderr,
+                    argv=tuple(argv),
+                    return_code=rc,
+                    stdout=stdout,
+                    stderr=stderr,
                 )
         # Fallback
         frc, fout, ferr = self._fallback
         return self._ProcessResult(
-            argv=tuple(argv), return_code=frc,
-            stdout=fout, stderr=ferr,
+            argv=tuple(argv),
+            return_code=frc,
+            stdout=fout,
+            stderr=ferr,
         )
 
     @property
     def called(self) -> tuple[tuple[str, ...], ...]:
         """Commands seen by this runner, in call order."""
         return tuple(self._called)
+
 
 def _build_happy_runtime_runner(
     container: str,
@@ -327,31 +354,40 @@ def _build_happy_runtime_runner(
     if gateway is None:
         try:
             from docker.constructor_cli import _read_operational_gateway
+
             gateway = _read_operational_gateway()
         except Exception:
             gateway = "host-gateway"
     r = _ScriptedProcessRunner()
     # ── projection identity ──
-    r.when("sha256sum",
-           rc=0, stdout=f"{proj_hash}  "
-                        "/run/pi-cli/docker-constructor.runtime.toml")
+    r.when(
+        "sha256sum",
+        rc=0,
+        stdout=f"{proj_hash}  /run/pi-cli/docker-constructor.runtime.toml",
+    )
     # ── projection readonly ──
-    r.when("docker-constructor.runtime.toml /proc/mounts",
-           rc=0,
-           stdout="/dev/sda1 /run/pi-cli/docker-constructor.runtime.toml"
-                  " ext4 ro,nosuid,nodev,relatime 0 0")
-    r.when("cat /proc/mounts",
-           rc=0,
-           stdout="proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0\n"
-                  "/dev/sda1 / ext4 rw,relatime 0 0\n"
-                  "/dev/sda1 /run/pi-cli/docker-constructor.runtime.toml"
-                  " ext4 ro,nosuid,nodev,relatime 0 0\n")
-    r.when("test -w /run/pi-cli/docker-constructor.runtime.toml",
-           rc=1)  # not writable
+    r.when(
+        "docker-constructor.runtime.toml /proc/mounts",
+        rc=0,
+        stdout="/dev/sda1 /run/pi-cli/docker-constructor.runtime.toml"
+        " ext4 ro,nosuid,nodev,relatime 0 0",
+    )
+    r.when(
+        "cat /proc/mounts",
+        rc=0,
+        stdout="proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0\n"
+        "/dev/sda1 / ext4 rw,relatime 0 0\n"
+        "/dev/sda1 /run/pi-cli/docker-constructor.runtime.toml"
+        " ext4 ro,nosuid,nodev,relatime 0 0\n",
+    )
+    r.when("test -w /run/pi-cli/docker-constructor.runtime.toml", rc=1)  # not writable
     # ── extensions ──
     for _key, (pkg, ver) in sorted(extensions.items()):
-        r.when(f"cat /home/dev/.pi/agent/npm/node_modules/{pkg}/package.json",
-               rc=0, stdout=json.dumps({"version": ver}))
+        r.when(
+            f"cat /home/dev/.pi/agent/npm/node_modules/{pkg}/package.json",
+            rc=0,
+            stdout=json.dumps({"version": ver}),
+        )
     # ── workspace paths ──
     for i, pp in enumerate(workspace_paths, start=1):
         r.when(f"test -d {pp}", rc=0)
@@ -373,13 +409,16 @@ def _build_happy_runtime_runner(
     r.when("test -d /home/dev/.pi", rc=0)
     r.when("test -w /home/dev/.pi", rc=0)
     # ── gateway ──
-    r.when("getent hosts host.docker.internal",
-           rc=0, stdout=f"{gateway} host.docker.internal")
+    r.when(
+        "getent hosts host.docker.internal",
+        rc=0,
+        stdout=f"{gateway} host.docker.internal",
+    )
     # ── forbidden paths ──
     r.when("test -f /run/pi-cli/docker-constructor.toml", rc=1)
-    r.when("test -f /run/pi-cli/docker-constructor.build.effective.toml",
-           rc=1)
+    r.when("test -f /run/pi-cli/docker-constructor.build.effective.toml", rc=1)
     return r
+
 
 def _make_runtime_fixture() -> tuple[str, str, str, str]:
     """Create a temporary directory with the files needed for runtime
@@ -397,6 +436,7 @@ def _make_runtime_fixture() -> tuple[str, str, str, str]:
     # Copy the repository's reviewed inventory (no [runtime.host-access]
     # → host access disabled).
     import shutil
+
     repo_root = Path(__file__).resolve().parents[1]
     shutil.copy(repo_root / "docker-constructor.toml", td_p / "docker-constructor.toml")
 
@@ -411,9 +451,11 @@ version = "0.9.1"
 
     return td, str(td_p / "docker-constructor.toml"), str(proj), proj_hash
 
+
 # ════════════════════════════════════════════════════════════════════════
 # 14.1  Failed build (real orchestration, injected runner)
 # ════════════════════════════════════════════════════════════════════════
+
 
 class TestBuildFailureDiagnostics(unittest.TestCase):
     """Build failures exercised through :func:`orchestrate_build`
@@ -431,10 +473,15 @@ class TestBuildFailureDiagnostics(unittest.TestCase):
         # orchestration tests that do not exercise companion resolution.
         cls._INVENTORY = str(INVENTORY_PATH)
         from docker.versioning.build_snapshot import MaterializedSnapshot
+
         def snapshot(*_args, **_kwargs):
             path = fixture_directory("fixture-snapshot-")
             return MaterializedSnapshot(path, path / "manifest.json")
-        cls._snapshot_patcher = patch("docker.versioning.build_orchestration.create_artifact_snapshot", side_effect=snapshot)
+
+        cls._snapshot_patcher = patch(
+            "docker.versioning.build_orchestration.create_artifact_snapshot",
+            side_effect=snapshot,
+        )
         cls._snapshot_patcher.start()
 
     @classmethod
@@ -446,16 +493,21 @@ class TestBuildFailureDiagnostics(unittest.TestCase):
     @staticmethod
     def _materialize_fixture(*_args, **_kwargs):
         root = fixture_directory("fixture-blobs-")
-        return tuple(root / name for name in ("rustup.blob", "uv.blob", "rtk.blob", "fd.blob"))
+        return tuple(
+            root / name for name in ("rustup.blob", "uv.blob", "rtk.blob", "fd.blob")
+        )
 
     @staticmethod
     def _make_fake_diagnose(ip: str = "192.168.1.1") -> Callable[..., Any]:
         """Return a callable that emulates a successful gateway diagnosis."""
         from docker.networking import GatewayDiagnosis, DockerMode, ProbeResult
+
         def _fake_diagnose(**__: Any) -> GatewayDiagnosis:
             probe = ProbeResult(
-                candidate=ip, ok=True,
-                resolved_ip=ip, detail="fake-probe",
+                candidate=ip,
+                ok=True,
+                resolved_ip=ip,
+                detail="fake-probe",
             )
             return GatewayDiagnosis(
                 mode=DockerMode.ROOTLESS,
@@ -467,26 +519,33 @@ class TestBuildFailureDiagnostics(unittest.TestCase):
                 override_installed=False,
                 override_needed=False,
             )
+
         return _fake_diagnose
 
     @staticmethod
     def _make_fake_persist() -> Callable[..., Any]:
         """Return a callable that emulates a successful gateway persistence."""
         from docker.networking import PersistenceResult
+
         def _fake_persist(_path: Any, _ip: str, **__: Any) -> PersistenceResult:
             return PersistenceResult(
-                path=_path, address=_ip, written=True,
+                path=_path,
+                address=_ip,
+                written=True,
             )
+
         return _fake_persist
 
     @staticmethod
     def _make_fake_publish() -> Callable[..., Any]:
         """Return a callable that emulates a successful projection publish."""
         from docker.versioning.build_orchestration import PublishResult
+
         def _fake_publish(*_: Any, **__: Any) -> PublishResult:
             return PublishResult(
                 published_path="/tmp/.docker-generated/fake-projection.toml",
             )
+
         return _fake_publish
 
     # ── tests ──────────────────────────────────────────────────────
@@ -496,14 +555,19 @@ class TestBuildFailureDiagnostics(unittest.TestCase):
         in ``BuildResult.build_args`` and ``BuildResult.process_result``
         after a failed execution."""
         from docker.versioning.build_orchestration import (
-            BuildRequest, ExitKind, orchestrate_build,
+            BuildRequest,
+            ExitKind,
+            orchestrate_build,
         )
 
         # Register a handler for "docker build" that returns a failure.
         runner = _ScriptedProcessRunner()
-        runner.when("docker build", rc=1,
-                    stdout="Step 1/5 : FROM alpine:3.20\n",
-                    stderr="COPY failed: file not found: Dockerfile")
+        runner.when(
+            "docker build",
+            rc=1,
+            stdout="Step 1/5 : FROM alpine:3.20\n",
+            stderr="COPY failed: file not found: Dockerfile",
+        )
 
         req = BuildRequest(
             inventory_path=self._INVENTORY,
@@ -517,7 +581,8 @@ class TestBuildFailureDiagnostics(unittest.TestCase):
             _transport_factory=no_network_transport_factory,
             _materialize_artifacts=self._materialize_fixture,
             _materialize_pi=fake_pi_materialization,
-        project_root=Path(self._INVENTORY).resolve().parent)
+            project_root=Path(self._INVENTORY).resolve().parent,
+        )
         result = orchestrate_build(req)
 
         # orchestrate_build goes through plan → execute → calls runner.run
@@ -527,20 +592,22 @@ class TestBuildFailureDiagnostics(unittest.TestCase):
         self.assertIn("build", result.build_args)
         # The executed command is preserved as-is.
         self.assertIsNotNone(result.process_result)
-        self.assertEqual(tuple(result.build_args),
-                         result.process_result.argv)
+        self.assertEqual(tuple(result.build_args), result.process_result.argv)
 
     def test_failed_docker_build_return_code_retained(self) -> None:
         """A non-zero Docker return code surfaces through
         ``process_result.return_code`` and the exit kind is
         ``OPERATIONAL``."""
         from docker.versioning.build_orchestration import (
-            BuildRequest, ExitKind, orchestrate_build,
+            BuildRequest,
+            ExitKind,
+            orchestrate_build,
         )
 
         runner = _ScriptedProcessRunner()
-        runner.when("docker build", rc=42,
-                    stderr="unable to prepare context: path not found")
+        runner.when(
+            "docker build", rc=42, stderr="unable to prepare context: path not found"
+        )
 
         req = BuildRequest(
             inventory_path=self._INVENTORY,
@@ -554,7 +621,8 @@ class TestBuildFailureDiagnostics(unittest.TestCase):
             _transport_factory=no_network_transport_factory,
             _materialize_artifacts=self._materialize_fixture,
             _materialize_pi=fake_pi_materialization,
-        project_root=Path(self._INVENTORY).resolve().parent)
+            project_root=Path(self._INVENTORY).resolve().parent,
+        )
         result = orchestrate_build(req)
 
         self.assertEqual(ExitKind.OPERATIONAL, result.exit_kind)
@@ -565,7 +633,9 @@ class TestBuildFailureDiagnostics(unittest.TestCase):
         """Raw stderr from the failed build command is retained
         so callers can diagnose without re-execution."""
         from docker.versioning.build_orchestration import (
-            BuildRequest, ExitKind, orchestrate_build,
+            BuildRequest,
+            ExitKind,
+            orchestrate_build,
         )
 
         stderr_text = (
@@ -588,24 +658,25 @@ class TestBuildFailureDiagnostics(unittest.TestCase):
             _transport_factory=no_network_transport_factory,
             _materialize_artifacts=self._materialize_fixture,
             _materialize_pi=fake_pi_materialization,
-        project_root=Path(self._INVENTORY).resolve().parent)
+            project_root=Path(self._INVENTORY).resolve().parent,
+        )
         result = orchestrate_build(req)
 
         self.assertIsNotNone(result.process_result)
-        self.assertIn("failed to copy files",
-                       result.process_result.stderr)
+        self.assertIn("failed to copy files", result.process_result.stderr)
         self.assertEqual(stderr_text, result.process_result.stderr)
 
     def test_dry_run_skips_execution_but_renders_build_args(self) -> None:
         """In ``--dry-run`` mode, orchestration skips Docker execution
         entirely (no runner invocation) but still renders build args."""
         from docker.versioning.build_orchestration import (
-            BuildRequest, ExitKind, orchestrate_build,
+            BuildRequest,
+            ExitKind,
+            orchestrate_build,
         )
 
         runner = _ScriptedProcessRunner()
-        runner.when("docker build", rc=1,
-                    stderr="this should never be called")
+        runner.when("docker build", rc=1, stderr="this should never be called")
 
         req = BuildRequest(
             inventory_path=self._INVENTORY,
@@ -619,13 +690,17 @@ class TestBuildFailureDiagnostics(unittest.TestCase):
             _transport_factory=no_network_transport_factory,
             _materialize_artifacts=self._materialize_fixture,
             _materialize_pi=fake_pi_materialization,
-        project_root=Path(self._INVENTORY).resolve().parent)
+            project_root=Path(self._INVENTORY).resolve().parent,
+        )
         result = orchestrate_build(req)
 
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind)
         self.assertEqual((), result.build_args)
         self.assertIn("Planned build (not executable)", result.display_string or "")
-        self.assertIn("constructor-artifacts=<prospective:not-materialized>", result.display_string or "")
+        self.assertIn(
+            "constructor-artifacts=<prospective:not-materialized>",
+            result.display_string or "",
+        )
         # Dry run: never touched the runner.
         self.assertIsNone(result.process_result)
         self.assertEqual((), runner.called)
@@ -640,14 +715,18 @@ class TestBuildFailureDiagnostics(unittest.TestCase):
         """
         transport = no_network_transport_factory()
         with self.assertRaises(AssertionError) as ctx:
-            list(transport.stream(
-                "https://github.com/earendil-works/pi/releases/download/v0.84.4/SHA256SUMS"
-            ))
+            list(
+                transport.stream(
+                    "https://github.com/earendil-works/pi/releases/download/v0.84.4/SHA256SUMS"
+                )
+            )
         self.assertIn("unexpected outbound network request", str(ctx.exception))
+
 
 # ════════════════════════════════════════════════════════════════════════
 # 14.1  Failed run
 # ════════════════════════════════════════════════════════════════════════
+
 
 class TestRunFailureDiagnostics(unittest.TestCase):
     """Run failures exercised through :func:`orchestrate_run`
@@ -668,23 +747,30 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         returns the given set of names (so ``allocate_pi_name`` picks
         the next available)."""
         _names = set(names)
+
         class _Insp:
-            def __init__(self, runner: Any = None) -> None: pass
+            def __init__(self, runner: Any = None) -> None:
+                pass
+
             def list_names(self) -> set[str]:
                 return _names.copy()
+
         return _Insp()
 
     class _ProjectionHandle:
         """Minimal projection context manager that exists just long
         enough for the orchestrator to read its attributes."""
+
         entered: bool = False
         exited: bool = False
         projection: object = None
         path: str = "/tmp/.docker-generated/runtime/fake-projection.toml"
         content_hash: str = "abc123def456"
+
         def __enter__(self) -> "TestRunFailureDiagnostics._ProjectionHandle":
             self.entered = True
             return self
+
         def __exit__(self, *a: object) -> None:
             self.exited = True
 
@@ -697,15 +783,18 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         """Return an executor whose ``run(argv)`` returns a
         ``ProcessResult`` with the given outcome."""
         from docker.launcher import ProcessResult
+
         class Executor:
-            def run(self, argv: tuple[str, ...], *,
-                    interactive: bool = False) -> ProcessResult:
+            def run(
+                self, argv: tuple[str, ...], *, interactive: bool = False
+            ) -> ProcessResult:
                 return ProcessResult(
                     argv=tuple(argv),
                     return_code=return_code,
                     stdout=stdout,
                     stderr=stderr,
                 )
+
         return Executor()
 
     # ── tests ──────────────────────────────────────────────────────
@@ -717,15 +806,15 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         import errno
 
         class _FailingExecutor:
-            def run(self, argv: tuple[str, ...], *,
-                    interactive: bool = False) -> None:
+            def run(self, argv: tuple[str, ...], *, interactive: bool = False) -> None:
                 raise OSError(
                     errno.ENOENT,
                     "docker: command not found",
                 )
 
         runner = _make_fake_process_runner(
-            return_code=0, stdout="pi-0001\n",
+            return_code=0,
+            stdout="pi-0001\n",
         )
 
         rc, out, err = _run(
@@ -739,8 +828,9 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         )
         self.assertEqual(4, rc)
         err_clean = _strip_ansi(err)
-        self.assertIn("docker", err_clean.lower(),
-                       "diagnostic must name the missing tool")
+        self.assertIn(
+            "docker", err_clean.lower(), "diagnostic must name the missing tool"
+        )
         # The error text itself must also be reachable — the
         # orchestrator propagates ``str(exc)`` into the message.
         self.assertIn("command not found", err_clean)
@@ -748,8 +838,7 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         # Verify structural data through JSON output.
         rc_j, out_j, _ = _run(
             self.m,
-            ["--output", "json", "run", "--workspace",
-             "/tmp/fake-project"],
+            ["--output", "json", "run", "--workspace", "/tmp/fake-project"],
             _process_runner=runner,
             _container_inspector=self._fake_inspector("pi-0001"),
             _run_executor=_FailingExecutor(),
@@ -760,8 +849,7 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         data = json.loads(out_j)
         self.assertEqual("operational", data.get("status"))
         # The message carries the raw OS error text.
-        self.assertIn("command not found",
-                       data.get("message", ""))
+        self.assertIn("command not found", data.get("message", ""))
         # run_args are preserved even though execution never happened.
         self.assertIsNotNone(data.get("data"))
         self.assertIn("run_args", data["data"])
@@ -779,17 +867,26 @@ class TestRunFailureDiagnostics(unittest.TestCase):
             "is not a valid Windows path.\n"
         )
         executor = self._scripted_executor(
-            return_code=127, stderr=stderr_raw,
+            return_code=127,
+            stderr=stderr_raw,
         )
 
         runner = _make_fake_process_runner(
-            return_code=0, stdout="pi-0001\n",
+            return_code=0,
+            stdout="pi-0001\n",
         )
 
         rc, out, err = _run(
             self.m,
-            ["--output", "json", "run", "--workspace",
-             "/tmp/fake-project", "--no-tty", "--no-interactive"],
+            [
+                "--output",
+                "json",
+                "run",
+                "--workspace",
+                "/tmp/fake-project",
+                "--no-tty",
+                "--no-interactive",
+            ],
             _process_runner=runner,
             _container_inspector=self._fake_inspector("pi-0001"),
             _run_executor=executor,
@@ -840,15 +937,22 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         )
 
         runner = _make_fake_process_runner(
-            return_code=0, stdout="pi-0001\n",
+            return_code=0,
+            stdout="pi-0001\n",
         )
 
         with tempfile.TemporaryDirectory() as td:
             rc, out, err = _run(
                 self.m,
-                ["--output", "json", "run", "--workspace",
-                 str(Path(td) / "main-project"),
-                 "--no-tty", "--no-interactive"],
+                [
+                    "--output",
+                    "json",
+                    "run",
+                    "--workspace",
+                    str(Path(td) / "main-project"),
+                    "--no-tty",
+                    "--no-interactive",
+                ],
                 _process_runner=runner,
                 _container_inspector=self._fake_inspector("pi-0001"),
                 _run_executor=executor,
@@ -865,33 +969,39 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         self.assertIn("stderr", data["data"])
         self.assertIn(stderr_text, data["data"]["stderr"])
         # Captured mode preserves both streams independently.
-        self.assertIn("stdout", data["data"],
-                       "stdout must be captured alongside stderr "
-                       "in captured non-interactive mode")
+        self.assertIn(
+            "stdout",
+            data["data"],
+            "stdout must be captured alongside stderr in captured non-interactive mode",
+        )
         self.assertIn(stdout_text, data["data"]["stdout"])
 
     def test_captured_failure_text_mode_shows_stdout_diagnostics(self) -> None:
         """In captured (non-interactive) mode, text-mode diagnostics
         surface stdout with a clear label even when stderr is empty,
         so the user always sees the real failure text."""
-        stdout_text = (
-            "captured output with container failure\n"
-        )
+        stdout_text = "captured output with container failure\n"
         executor = self._scripted_executor(
             return_code=1,
             stdout=stdout_text,
-            stderr="",   # only stdout carries the diagnostic
+            stderr="",  # only stdout carries the diagnostic
         )
 
         runner = _make_fake_process_runner(
-            return_code=0, stdout="pi-0001\n",
+            return_code=0,
+            stdout="pi-0001\n",
         )
 
         with tempfile.TemporaryDirectory() as td:
             rc, out, err = _run(
                 self.m,
-                ["run", "--workspace", str(Path(td) / "main-project"),
-                 "--no-tty", "--no-interactive"],
+                [
+                    "run",
+                    "--workspace",
+                    str(Path(td) / "main-project"),
+                    "--no-tty",
+                    "--no-interactive",
+                ],
                 _process_runner=runner,
                 _container_inspector=self._fake_inspector("pi-0001"),
                 _run_executor=executor,
@@ -903,18 +1013,22 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         self.assertEqual("", out)
         # The diagnostic stream must contain the captured
         # stdout content.
-        self.assertIn(stdout_text.strip(), err,
-                       "text-mode failure must surface captured "
-                       "stdout diagnostics")
+        self.assertIn(
+            stdout_text.strip(),
+            err,
+            "text-mode failure must surface captured stdout diagnostics",
+        )
         # The output must label captured streams clearly.
-        self.assertIn("stdout", err.lower(),
-                       "the output must label the captured stdout "
-                       "clearly (e.g. 'stdout: ...')")
+        self.assertIn(
+            "stdout",
+            err.lower(),
+            "the output must label the captured stdout clearly (e.g. 'stdout: ...')",
+        )
         # No duplication of diagnostic content.
         count = err.count(stdout_text.strip())
-        self.assertEqual(1, count,
-                          f"diagnostic content appears {count} times, "
-                          f"expected exactly once")
+        self.assertEqual(
+            1, count, f"diagnostic content appears {count} times, expected exactly once"
+        )
 
     def test_interactive_json_preserves_identity_omits_streams(self) -> None:
         """In interactive (streaming) mode the JSON result carries
@@ -922,18 +1036,18 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         fields, and deliberately omits stdout/stderr because output
         was already delivered to the host terminal."""
         runner = _make_fake_process_runner(
-            return_code=0, stdout="pi-0001\n",
+            return_code=0,
+            stdout="pi-0001\n",
         )
         executor = self._scripted_executor(
             return_code=1,
-            stdout="",   # not captured — inherited by terminal
-            stderr="",   # not captured — inherited by terminal
+            stdout="",  # not captured — inherited by terminal
+            stderr="",  # not captured — inherited by terminal
         )
 
         rc, out, err = _run(
             self.m,
-            ["--output", "json", "run", "--workspace",
-             "/tmp/fake-project", "--tty"],
+            ["--output", "json", "run", "--workspace", "/tmp/fake-project", "--tty"],
             _process_runner=runner,
             _container_inspector=self._fake_inspector("pi-0001"),
             _run_executor=executor,
@@ -946,13 +1060,14 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         self.assertEqual("operational", data.get("status"))
 
         # Schema contract: mode marker.
-        self.assertEqual("interactive", data["data"]["mode"],
-                         "interactive execution must be recorded "
-                         "as mode=interactive")
+        self.assertEqual(
+            "interactive",
+            data["data"]["mode"],
+            "interactive execution must be recorded as mode=interactive",
+        )
 
         # Identity fields preserved.
-        for key in ("exit_code", "container_name", "run_args",
-                     "projection_hash"):
+        for key in ("exit_code", "container_name", "run_args", "projection_hash"):
             self.assertIsNotNone(
                 data["data"].get(key),
                 f"{key} must be present in interactive JSON result",
@@ -961,7 +1076,8 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         # Streams deliberately omitted — output already on terminal.
         for stream in ("stderr", "stdout"):
             self.assertNotIn(
-                stream, data["data"],
+                stream,
+                data["data"],
                 f"{stream} must be absent from interactive JSON "
                 f"result — output was streamed to the terminal",
             )
@@ -976,14 +1092,15 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         modes_seen: list[dict[str, object]] = []
 
         class _SpyExecutor:
-            def run(self, argv: tuple[str, ...], *,
-                    interactive: bool = False) -> Any:
+            def run(self, argv: tuple[str, ...], *, interactive: bool = False) -> Any:
                 modes_seen.append({"interactive": interactive})
                 from docker.launcher import ProcessResult
+
                 return ProcessResult(argv=argv, return_code=0)
 
         runner = _make_fake_process_runner(
-            return_code=0, stdout="pi-0001\n",
+            return_code=0,
+            stdout="pi-0001\n",
         )
 
         rc, out, err = _run(
@@ -1015,20 +1132,20 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         modes_seen: list[dict[str, object]] = []
 
         class _SpyExecutor:
-            def run(self, argv: tuple[str, ...], *,
-                    interactive: bool = True) -> Any:
+            def run(self, argv: tuple[str, ...], *, interactive: bool = True) -> Any:
                 modes_seen.append({"interactive": interactive})
                 from docker.launcher import ProcessResult
+
                 return ProcessResult(argv=argv, return_code=0)
 
         runner = _make_fake_process_runner(
-            return_code=0, stdout="pi-0001\n",
+            return_code=0,
+            stdout="pi-0001\n",
         )
 
         rc, out, err = _run(
             self.m,
-            ["run", "--workspace", "/tmp/fake-project",
-             "--no-tty", "--no-interactive"],
+            ["run", "--workspace", "/tmp/fake-project", "--no-tty", "--no-interactive"],
             _process_runner=runner,
             _container_inspector=self._fake_inspector("pi-0001"),
             _run_executor=_SpyExecutor(),
@@ -1044,8 +1161,7 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         # forwards tty=False/stdin_open=False as interactive=False.
         self.assertFalse(
             modes_seen[0]["interactive"],
-            "--no-tty --no-interactive must select captured "
-            "execution mode",
+            "--no-tty --no-interactive must select captured execution mode",
         )
 
     def test_interactive_nonzero_exit_maps_rc_and_no_duplicate_output(
@@ -1061,12 +1177,13 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         * still include the exit code in structured output
         """
         runner = _make_fake_process_runner(
-            return_code=0, stdout="pi-0001\n",
+            return_code=0,
+            stdout="pi-0001\n",
         )
         executor = self._scripted_executor(
             return_code=1,
-            stdout="",   # not captured in interactive mode
-            stderr="",   # not captured in interactive mode
+            stdout="",  # not captured in interactive mode
+            stderr="",  # not captured in interactive mode
         )
 
         rc, out, err = _run(
@@ -1078,27 +1195,29 @@ class TestRunFailureDiagnostics(unittest.TestCase):
             _create_projection=lambda p, **kw: self._ProjectionHandle(),
             _prompt_user=lambda _: True,
         )
-        self.assertEqual(4, rc,
-                         "nonzero interactive exit must map to "
-                         "OPERATIONAL (exit code 4)")
-        self.assertEqual("", out,
-                         "stdout must be empty for error output")
+        self.assertEqual(
+            4, rc, "nonzero interactive exit must map to OPERATIONAL (exit code 4)"
+        )
+        self.assertEqual("", out, "stdout must be empty for error output")
         # The diagnostic line must appear exactly once.
         self.assertIn("[OPERATIONAL]", err)
         self.assertIn("exited with code 1", err)
         # No duplicate rendering — the exit message must appear
         # exactly once on stderr.
         self.assertEqual(
-            1, err.count("exited with code 1"),
+            1,
+            err.count("exited with code 1"),
             "exit diagnostic must appear exactly once — "
             "streamed output must not be rendered a second time",
         )
         # In interactive mode, captured streams are empty; the
         # renderer must not emit a noisy "data: ..." line with
         # empty/None content.
-        self.assertNotIn("data:", err,
-                         "empty streams must not produce a 'data:' "
-                         "line in interactive mode")
+        self.assertNotIn(
+            "data:",
+            err,
+            "empty streams must not produce a 'data:' line in interactive mode",
+        )
 
     def test_interactive_output_reaches_host_streams_not_captured(
         self,
@@ -1144,6 +1263,7 @@ class TestRunFailureDiagnostics(unittest.TestCase):
             Writes streamed output to the host terminal, then
             blocks until the test thread has verified that the
             output arrived before completion."""
+
             def run(self, argv, *, interactive=False):
                 if interactive:
                     host_terminal.write(process_output)
@@ -1154,32 +1274,33 @@ class TestRunFailureDiagnostics(unittest.TestCase):
                     # is still running.
                     executor_released.wait()
                 from docker.launcher import ProcessResult
+
                 return ProcessResult(
                     argv=argv,
                     return_code=1,
-                    stdout="",   # not captured — went to terminal
-                    stderr="",   # not captured — went to terminal
+                    stdout="",  # not captured — went to terminal
+                    stderr="",  # not captured — went to terminal
                 )
 
         runner = _make_fake_process_runner(
-            return_code=0, stdout="pi-0001\n",
+            return_code=0,
+            stdout="pi-0001\n",
         )
 
         result: list[tuple[int, str, str]] = []
 
         def _run_in_worker() -> None:
-            result.append(_run(
-                self.m,
-                ["run", "--workspace", "/tmp/fake-project",
-                 "--tty"],
-                _process_runner=runner,
-                _container_inspector=self._fake_inspector("pi-0001"),
-                _run_executor=_StreamingExecutor(),
-                _create_projection=lambda p, **kw: (
-                    self._ProjectionHandle()
-                ),
-                _prompt_user=lambda _: True,
-            ))
+            result.append(
+                _run(
+                    self.m,
+                    ["run", "--workspace", "/tmp/fake-project", "--tty"],
+                    _process_runner=runner,
+                    _container_inspector=self._fake_inspector("pi-0001"),
+                    _run_executor=_StreamingExecutor(),
+                    _create_projection=lambda p, **kw: self._ProjectionHandle(),
+                    _prompt_user=lambda _: True,
+                )
+            )
 
         worker = threading.Thread(target=_run_in_worker, daemon=True)
         worker.start()
@@ -1206,8 +1327,7 @@ class TestRunFailureDiagnostics(unittest.TestCase):
             self.assertIn(
                 "exit 1",
                 host_terminal.getvalue(),
-                "full streaming output must reach the host "
-                "terminal",
+                "full streaming output must reach the host terminal",
             )
         finally:
             # Always release the executor — an assertion
@@ -1218,21 +1338,21 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         worker.join(timeout=2.0)
         self.assertFalse(
             worker.is_alive(),
-            "worker thread must finish after executor "
-            "is released",
+            "worker thread must finish after executor is released",
         )
 
         rc, out, err = result[0]
 
         # Post-completion assertions.
         #   1. Exit code maps correctly.
-        self.assertEqual(4, rc,
-                         "nonzero interactive exit must map to "
-                         "OPERATIONAL (exit code 4)")
+        self.assertEqual(
+            4, rc, "nonzero interactive exit must map to OPERATIONAL (exit code 4)"
+        )
         #   2. The facade's rendered stderr must NOT contain
         #      the streamed output again.
         self.assertNotIn(
-            "Starting services", err,
+            "Starting services",
+            err,
             "facade must not re-render output that already "
             "appeared on the host terminal",
         )
@@ -1268,14 +1388,15 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         for name, stream in ("stdout", huge_stdout), ("stderr", huge_stderr):
             b = len(stream.encode("utf-8"))
             self.assertGreater(
-                b, _MAX * 2,
+                b,
+                _MAX * 2,
                 f"{name} fixture ({b} UTF-8 bytes) must exceed "
                 f"MAX_RUN_DIAGNOSTIC_BYTES ({_MAX})",
             )
             self.assertLess(
-                len(stream), b,
-                f"{name} multibyte fixture must have "
-                "len(str) < len(bytes)",
+                len(stream),
+                b,
+                f"{name} multibyte fixture must have len(str) < len(bytes)",
             )
 
         executor = self._scripted_executor(
@@ -1284,14 +1405,14 @@ class TestRunFailureDiagnostics(unittest.TestCase):
             stderr=huge_stderr,
         )
         runner = _make_fake_process_runner(
-            return_code=0, stdout="pi-0001\n",
+            return_code=0,
+            stdout="pi-0001\n",
         )
 
         # ── text mode ───────────────────────────────────────
         rc_text, out_text, err_text = _run(
             self.m,
-            ["run", "--workspace", "/tmp/fake-project",
-             "--no-tty", "--no-interactive"],
+            ["run", "--workspace", "/tmp/fake-project", "--no-tty", "--no-interactive"],
             _process_runner=runner,
             _container_inspector=self._fake_inspector("pi-0001"),
             _run_executor=executor,
@@ -1309,7 +1430,8 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         # up to 2× that plus label overhead.
         err_bytes = len(err_text.encode("utf-8"))
         self.assertLess(
-            err_bytes, 2 * _MAX + 2048,
+            err_bytes,
+            2 * _MAX + 2048,
             "text-mode diagnostic (combined stdout + stderr) "
             "must be bounded; per-stream budget is "
             f"MAX_RUN_DIAGNOSTIC_BYTES ({_MAX}) each",
@@ -1318,8 +1440,15 @@ class TestRunFailureDiagnostics(unittest.TestCase):
         # ── JSON mode ───────────────────────────────────────
         rc_json, out_json, err_json = _run(
             self.m,
-            ["--output", "json", "run", "--workspace",
-             "/tmp/fake-project", "--no-tty", "--no-interactive"],
+            [
+                "--output",
+                "json",
+                "run",
+                "--workspace",
+                "/tmp/fake-project",
+                "--no-tty",
+                "--no-interactive",
+            ],
             _process_runner=runner,
             _container_inspector=self._fake_inspector("pi-0001"),
             _run_executor=executor,
@@ -1334,7 +1463,8 @@ class TestRunFailureDiagnostics(unittest.TestCase):
             val = data["data"].get(key, "")
             val_bytes = len(str(val).encode("utf-8"))
             self.assertLessEqual(
-                val_bytes, _MAX,
+                val_bytes,
+                _MAX,
                 f"JSON captured {key} field must not exceed "
                 f"MAX_RUN_DIAGNOSTIC_BYTES ({_MAX}); "
                 f"got {val_bytes} UTF-8 bytes",
@@ -1350,21 +1480,23 @@ class TestRunFailureDiagnostics(unittest.TestCase):
             # In-band sentinel inside the byte budget.
             self.assertTrue(
                 str(val).rstrip().endswith("[truncated]"),
-                f"truncated {key} value must end with "
-                "'[truncated]' sentinel",
+                f"truncated {key} value must end with '[truncated]' sentinel",
             )
 
         # Marker fits in the budget.
         marker_bytes = len("[truncated]".encode("utf-8"))
         self.assertLessEqual(
-            marker_bytes, _MAX,
+            marker_bytes,
+            _MAX,
             f"'[truncated]' marker ({marker_bytes} UTF-8 bytes) "
             f"must fit within MAX_RUN_DIAGNOSTIC_BYTES ({_MAX})",
         )
 
+
 # ════════════════════════════════════════════════════════════════════════
 # 14.1  Mismatched image expectations (verify build)
 # ════════════════════════════════════════════════════════════════════════
+
 
 class TestVerifyBuildMismatchDiagnostics(unittest.TestCase):
     """``verify --scope build`` with mismatched versions produces
@@ -1380,7 +1512,10 @@ class TestVerifyBuildMismatchDiagnostics(unittest.TestCase):
         self._cache_root = self._td / "constructor-cache"
         self._cache_root.mkdir(mode=0o700)
         from docker.versioning.project_state import resolve_project_state
-        self._proj_dir = resolve_project_state(self._td, cache_root=self._cache_root).generated_root
+
+        self._proj_dir = resolve_project_state(
+            self._td, cache_root=self._cache_root
+        ).generated_root
         proj = self._proj_dir / "docker-constructor.build.effective.toml"
         proj.write_text(
             '[python]\nversion = "3.12.0"\n'
@@ -1399,6 +1534,7 @@ class TestVerifyBuildMismatchDiagnostics(unittest.TestCase):
         # Reviewed inventory is validated by the shared transaction, so use
         # the repository's current schema instead of a legacy stub.
         import shutil
+
         shutil.copy(
             Path(__file__).resolve().parents[1] / "docker-constructor.toml",
             self._inv_path,
@@ -1419,8 +1555,15 @@ class TestVerifyBuildMismatchDiagnostics(unittest.TestCase):
         )
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(Path(self._inv_path).parent),
-             "verify", "--scope", "build", "--image", "mis-img:v9"],
+            [
+                "--project-directory",
+                str(Path(self._inv_path).parent),
+                "verify",
+                "--scope",
+                "build",
+                "--image",
+                "mis-img:v9",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -1428,11 +1571,19 @@ class TestVerifyBuildMismatchDiagnostics(unittest.TestCase):
         self.assertGreater(len(calls), 5, "must check multiple tools")
         plain = _strip_ansi(err)
         # The observations use keys like "node.version", "rust.version", etc.
-        key_names = ["python", "rust", "node", "uv", "ty", "rtk", "fd",
-                     "pi", "openspec"]
+        key_names = [
+            "python",
+            "rust",
+            "node",
+            "uv",
+            "ty",
+            "rtk",
+            "fd",
+            "pi",
+            "openspec",
+        ]
         found = sum(1 for k in key_names if k in plain.lower())
-        self.assertGreaterEqual(found, 5,
-                                "must name most contract keys in output")
+        self.assertGreaterEqual(found, 5, "must name most contract keys in output")
 
     def test_json_output_includes_expected_and_observed_per_observation(self) -> None:
         """JSON output must include both expected and observed values for
@@ -1444,10 +1595,20 @@ class TestVerifyBuildMismatchDiagnostics(unittest.TestCase):
         evidence_dir = str(self._td / "evidence")
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(Path(self._inv_path).parent),
-             "--output", "json",
-             "verify", "--scope", "build", "--image", "empty-img:v1",
-             "--collect-evidence", "--output-dir", evidence_dir],
+            [
+                "--project-directory",
+                str(Path(self._inv_path).parent),
+                "--output",
+                "json",
+                "verify",
+                "--scope",
+                "build",
+                "--image",
+                "empty-img:v1",
+                "--collect-evidence",
+                "--output-dir",
+                evidence_dir,
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -1462,8 +1623,7 @@ class TestVerifyBuildMismatchDiagnostics(unittest.TestCase):
         # At least one observation must be present and detailed.
         # Key names use dotted paths like "python.version".
         python_obs = [o for o in obs if "python" in o["key"]]
-        self.assertTrue(python_obs,
-                        "python must be in observations")
+        self.assertTrue(python_obs, "python must be in observations")
         self.assertFalse(python_obs[0]["ok"], "empty observed must fail")
         self.assertEqual("", python_obs[0]["observed"])
 
@@ -1472,7 +1632,8 @@ class TestVerifyBuildMismatchDiagnostics(unittest.TestCase):
         self.assertTrue(ev_meta["all_ok"])
         self.assertGreaterEqual(ev_meta["command_count"], 5)
         evidence = _assert_evidence_bundle_complete(
-            self, evidence_dir,
+            self,
+            evidence_dir,
             min_commands=5,
             expect_command_substrs=[
                 "docker inspect empty-img:v1",
@@ -1482,8 +1643,9 @@ class TestVerifyBuildMismatchDiagnostics(unittest.TestCase):
             ],
         )
         # Each command has exit code 0 (runner succeeds).
-        self.assertIn("exit=0", evidence["index_text"],
-                       "evidence must record exit code")
+        self.assertIn(
+            "exit=0", evidence["index_text"], "evidence must record exit code"
+        )
 
     def test_mismatch_diagnostic_shows_what_was_run(self) -> None:
         """The diagnostic must include enough context to identify the
@@ -1491,8 +1653,15 @@ class TestVerifyBuildMismatchDiagnostics(unittest.TestCase):
         runner, calls = _make_recording_runner(return_code=0, stdout="")
         rc, out, err = _run(
             self.m,
-            ["--project-directory", str(Path(self._inv_path).parent),
-             "verify", "--scope", "build", "--image", "specific-img:v2.5"],
+            [
+                "--project-directory",
+                str(Path(self._inv_path).parent),
+                "verify",
+                "--scope",
+                "build",
+                "--image",
+                "specific-img:v2.5",
+            ],
             _process_runner=runner,
             _prompt_user=lambda _: True,
         )
@@ -1501,14 +1670,14 @@ class TestVerifyBuildMismatchDiagnostics(unittest.TestCase):
         plain = _strip_ansi(err)
         self.assertIn("✗", plain, "mismatches must use ✗ markers")
         # Every observation is listed
-        self.assertIn("python", plain.lower(),
-                       "python observation must be present")
-        self.assertIn("rust", plain.lower(),
-                       "rust observation must be present")
+        self.assertIn("python", plain.lower(), "python observation must be present")
+        self.assertIn("rust", plain.lower(), "rust observation must be present")
+
 
 # ════════════════════════════════════════════════════════════════════════
 # 14.1  Bad runtime mounts / exposed paths / extension failures
 # ════════════════════════════════════════════════════════════════════════
+
 
 class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
     """``verify --scope runtime`` exercises the real verification
@@ -1528,6 +1697,7 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
 
     def tearDown(self) -> None:
         import shutil
+
         shutil.rmtree(self._cleanup, ignore_errors=True)
 
     @property
@@ -1537,19 +1707,24 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
             container="test-ctr",
             proj_hash=self._proj_hash,
             workspace_paths=("/tmp/proj1",),
-            extensions={"@llblab/pi-codex-usage":
-                        ("@llblab/pi-codex-usage", "0.9.1")},
+            extensions={"@llblab/pi-codex-usage": ("@llblab/pi-codex-usage", "0.9.1")},
         )
 
     @property
     def _base_argv(self) -> list[str]:
         """CLI arguments shared by all runtime verification tests."""
         return [
-            "--project-directory", str(Path(self._inv_path).parent),
-            "verify", "--scope", "runtime",
-            "--container", "test-ctr",
-            "--runtime-projection", self._proj_path,
-            "--workspace", "/tmp/proj1",
+            "--project-directory",
+            str(Path(self._inv_path).parent),
+            "verify",
+            "--scope",
+            "runtime",
+            "--container",
+            "test-ctr",
+            "--runtime-projection",
+            self._proj_path,
+            "--workspace",
+            "/tmp/proj1",
         ]
 
     @property
@@ -1562,7 +1737,8 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
         """Base args with ``--collect-evidence`` appended."""
         return self._base_argv + [
             "--collect-evidence",
-            "--output-dir", self._evidence_dir,
+            "--output-dir",
+            self._evidence_dir,
         ]
 
     # ── Helper: shared evidence assertion ────────────────────────
@@ -1571,7 +1747,9 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
         """Run ``_assert_evidence_bundle_complete`` on the current
         test's evidence directory, forwarding *kw*."""
         return _assert_evidence_bundle_complete(
-            self, self._evidence_dir, **kw,
+            self,
+            self._evidence_dir,
+            **kw,
         )
 
     # ── read-only mount absent ───────────────────────────────────
@@ -1581,18 +1759,22 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
         check records "not found in /proc/mounts" in its detail string."""
         runner = self._happy_base.when(
             "docker-constructor.runtime.toml /proc/mounts",
-            rc=1, stdout="", stderr="grep: no match",
+            rc=1,
+            stdout="",
+            stderr="grep: no match",
         )
         rc, out, err = _run(
-            self.m, self._base_argv,
-            _process_runner=runner, _prompt_user=lambda _: True,
+            self.m,
+            self._base_argv,
+            _process_runner=runner,
+            _prompt_user=lambda _: True,
         )
         self.assertEqual(4, rc, "must exit OPERATIONAL on check failure")
         plain = _strip_ansi(err)
-        self.assertIn("projection.readonly", plain.lower(),
-                       "must name failing check")
-        self.assertIn("not found in /proc/mounts", plain,
-                       "must include the check detail")
+        self.assertIn("projection.readonly", plain.lower(), "must name failing check")
+        self.assertIn(
+            "not found in /proc/mounts", plain, "must include the check detail"
+        )
 
     def test_readonly_mount_absent_json_includes_check_key_and_detail(self) -> None:
         """JSON mode surfaces the raw ``projection.readonly`` check with
@@ -1601,11 +1783,15 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
         detected the missing mount."""
         runner = self._happy_base.when(
             "docker-constructor.runtime.toml /proc/mounts",
-            rc=1, stdout="", stderr="grep: no match",
+            rc=1,
+            stdout="",
+            stderr="grep: no match",
         )
         rc, out, err = _run(
-            self.m, ["--output", "json"] + self._evidence_argv,
-            _process_runner=runner, _prompt_user=lambda _: True,
+            self.m,
+            ["--output", "json"] + self._evidence_argv,
+            _process_runner=runner,
+            _prompt_user=lambda _: True,
         )
         data = json.loads(out)
         rt = data["data"]["verification"]["runtime"]
@@ -1618,8 +1804,14 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
         # The check captures the primary diagnostic command result.
         self.assertEqual(
             readonly[0]["command"],
-            ["docker", "exec", "test-ctr", "grep",
-             "docker-constructor.runtime.toml", "/proc/mounts"],
+            [
+                "docker",
+                "exec",
+                "test-ctr",
+                "grep",
+                "docker-constructor.runtime.toml",
+                "/proc/mounts",
+            ],
         )
         self.assertEqual(readonly[0]["exit_code"], 1)
         self.assertIn("grep: no match", readonly[0]["raw_stderr"] or "")
@@ -1637,8 +1829,7 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
         )
         # The grep stderr is captured in the bundle.
         stderr_files = evidence["stderr_files"]
-        self.assertGreater(len(stderr_files), 0,
-                           "grep stderr must be captured")
+        self.assertGreater(len(stderr_files), 0, "grep stderr must be captured")
         stderr_content = stderr_files[0].read_text()
         self.assertIn("grep: no match", stderr_content)
 
@@ -1653,15 +1844,19 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
             rc=0,  # file EXISTS → violation
         )
         rc, out, err = _run(
-            self.m, self._base_argv,
-            _process_runner=runner, _prompt_user=lambda _: True,
+            self.m,
+            self._base_argv,
+            _process_runner=runner,
+            _prompt_user=lambda _: True,
         )
         self.assertEqual(4, rc)
         plain = _strip_ansi(err)
         self.assertIn("forbidden.paths", plain.lower())
-        self.assertIn("forbidden path present: "
-                      "/run/pi-cli/docker-constructor.build.effective.toml",
-                      plain)
+        self.assertIn(
+            "forbidden path present: "
+            "/run/pi-cli/docker-constructor.build.effective.toml",
+            plain,
+        )
 
     def test_forbidden_inventory_present_reported_in_detail(self) -> None:
         """When the reviewed inventory (``docker-constructor.toml``) is
@@ -1671,14 +1866,16 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
             rc=0,  # file EXISTS → violation
         )
         rc, out, err = _run(
-            self.m, self._base_argv,
-            _process_runner=runner, _prompt_user=lambda _: True,
+            self.m,
+            self._base_argv,
+            _process_runner=runner,
+            _prompt_user=lambda _: True,
         )
         self.assertEqual(4, rc)
         plain = _strip_ansi(err)
-        self.assertIn("forbidden path present: "
-                      "/run/pi-cli/docker-constructor.toml",
-                      plain)
+        self.assertIn(
+            "forbidden path present: /run/pi-cli/docker-constructor.toml", plain
+        )
 
     def test_forbidden_path_json_check_is_false(self) -> None:
         """JSON output includes both forbidden check entries with their
@@ -1689,25 +1886,27 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
             rc=0,
         )
         rc, out, err = _run(
-            self.m, ["--output", "json"] + self._evidence_argv,
-            _process_runner=runner, _prompt_user=lambda _: True,
+            self.m,
+            ["--output", "json"] + self._evidence_argv,
+            _process_runner=runner,
+            _prompt_user=lambda _: True,
         )
         data = json.loads(out)
         rt = data["data"]["verification"]["runtime"]
-        forbidden = [c for c in rt["checks"]
-                     if c["key"] == "forbidden.paths"]
+        forbidden = [c for c in rt["checks"] if c["key"] == "forbidden.paths"]
         self.assertGreaterEqual(len(forbidden), 2)
         ok_statuses = {c["detail"]: c["ok"] for c in forbidden}
-        present_key = ("forbidden path present: "
-                       "/run/pi-cli/docker-constructor.toml")
+        present_key = "forbidden path present: /run/pi-cli/docker-constructor.toml"
         self.assertIn(present_key, ok_statuses)
         self.assertFalse(ok_statuses[present_key])
 
         # The failing check captures the original command result.
         failed = [c for c in forbidden if not c["ok"]]
         self.assertGreaterEqual(len(failed), 1)
-        self.assertIn("test -f /run/pi-cli/docker-constructor.toml",
-                       " ".join(failed[0]["command"] or []))
+        self.assertIn(
+            "test -f /run/pi-cli/docker-constructor.toml",
+            " ".join(failed[0]["command"] or []),
+        )
         self.assertEqual(failed[0]["exit_code"], 0)
 
         # Evidence: one record per check + docker inspect.
@@ -1732,21 +1931,23 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
         runner = self._happy_base.when(
             "cat /home/dev/.pi/agent/npm/node_modules/@llblab/pi-codex-usage/"
             "package.json",
-            rc=0, stdout=json.dumps({"version": "0.8.0"}),  # wrong
+            rc=0,
+            stdout=json.dumps({"version": "0.8.0"}),  # wrong
         )
         rc, out, err = _run(
-            self.m, self._base_argv,
-            _process_runner=runner, _prompt_user=lambda _: True,
+            self.m,
+            self._base_argv,
+            _process_runner=runner,
+            _prompt_user=lambda _: True,
         )
         self.assertEqual(4, rc)
         plain = _strip_ansi(err)
         self.assertIn("extensions.results", plain.lower())
-        self.assertIn("@llblab/pi-codex-usage", plain,
-                       "must name the mismatched package")
-        self.assertIn("v0.9.1", plain,
-                       "must name expected version")
-        self.assertIn("v0.8.0", plain,
-                       "must name actual version")
+        self.assertIn(
+            "@llblab/pi-codex-usage", plain, "must name the mismatched package"
+        )
+        self.assertIn("v0.9.1", plain, "must name expected version")
+        self.assertIn("v0.8.0", plain, "must name actual version")
 
     def test_extension_package_json_missing_reported(self) -> None:
         """When ``cat package.json`` fails with non-zero exit, the check
@@ -1754,11 +1955,15 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
         runner = self._happy_base.when(
             "cat /home/dev/.pi/agent/npm/node_modules/@llblab/pi-codex-usage/"
             "package.json",
-            rc=1, stdout="", stderr="cat: No such file",
+            rc=1,
+            stdout="",
+            stderr="cat: No such file",
         )
         rc, out, err = _run(
-            self.m, self._base_argv,
-            _process_runner=runner, _prompt_user=lambda _: True,
+            self.m,
+            self._base_argv,
+            _process_runner=runner,
+            _prompt_user=lambda _: True,
         )
         self.assertEqual(4, rc)
         plain = _strip_ansi(err)
@@ -1770,22 +1975,24 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
         runner = self._happy_base.when(
             "cat /home/dev/.pi/agent/npm/node_modules/@llblab/pi-codex-usage/"
             "package.json",
-            rc=0, stdout=json.dumps({"version": "0.8.0"}),
+            rc=0,
+            stdout=json.dumps({"version": "0.8.0"}),
         )
         rc, out, err = _run(
-            self.m, ["--output", "json"] + self._base_argv,
-            _process_runner=runner, _prompt_user=lambda _: True,
+            self.m,
+            ["--output", "json"] + self._base_argv,
+            _process_runner=runner,
+            _prompt_user=lambda _: True,
         )
         data = json.loads(out)
         rt = data["data"]["verification"]["runtime"]
         check_keys = {c["key"] for c in rt["checks"]}
         self.assertIn("extensions.results", check_keys)
-        self.assertIn("projection.readonly", check_keys,
-                       "readonly check must still run")
-        self.assertIn("ownership.dev", check_keys,
-                       "ownership check must still run")
-        self.assertIn("forbidden.paths", check_keys,
-                       "forbidden check must still run")
+        self.assertIn(
+            "projection.readonly", check_keys, "readonly check must still run"
+        )
+        self.assertIn("ownership.dev", check_keys, "ownership check must still run")
+        self.assertIn("forbidden.paths", check_keys, "forbidden check must still run")
 
     # ── multiple failures ────────────────────────────────────────
 
@@ -1797,31 +2004,37 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
             # Forbidden path
             .when("test -f /run/pi-cli/docker-constructor.toml", rc=0)
             # Extension mismatch
-            .when("cat /home/dev/.pi/agent/npm/node_modules/@llblab/pi-codex-usage/"
-                  "package.json",
-                  rc=0, stdout=json.dumps({"version": "0.7.0"}))
+            .when(
+                "cat /home/dev/.pi/agent/npm/node_modules/@llblab/pi-codex-usage/"
+                "package.json",
+                rc=0,
+                stdout=json.dumps({"version": "0.7.0"}),
+            )
             # Bad ownership
             .when("stat -c %U:%G /home/dev/.pi", rc=0, stdout="root:root")
         )
         rc, out, err = _run(
-            self.m, self._base_argv,
-            _process_runner=runner, _prompt_user=lambda _: True,
+            self.m,
+            self._base_argv,
+            _process_runner=runner,
+            _prompt_user=lambda _: True,
         )
         self.assertEqual(4, rc)
         plain = _strip_ansi(err)
         failures = [line for line in plain.split("\n") if "✗" in line]
-        self.assertGreaterEqual(len(failures), 3,
-                                "must list at least 3 failures")
+        self.assertGreaterEqual(len(failures), 3, "must list at least 3 failures")
         # Each failure names the relevant detail
         self.assertTrue(
             any("forbidden" in f.lower() for f in failures),
-            "must include forbidden path failure")
+            "must include forbidden path failure",
+        )
         self.assertTrue(
             any("pi-codex-usage" in f for f in failures),
-            "must include extension failure")
+            "must include extension failure",
+        )
         self.assertTrue(
-            any("dev:dev" in f for f in failures),
-            "must include ownership failure")
+            any("dev:dev" in f for f in failures), "must include ownership failure"
+        )
 
     def test_multiple_failures_json_all_have_ok_false(self) -> None:
         """JSON output for multiple failures includes every check with
@@ -1830,16 +2043,20 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
         — the evidence bundle is built from those captured results,
         not re-executed."""
         runner = (
-            self._happy_base
-            .when("test -f /run/pi-cli/docker-constructor.toml", rc=0)
-            .when("cat /home/dev/.pi/agent/npm/node_modules/@llblab/pi-codex-usage/"
-                  "package.json",
-                  rc=0, stdout=json.dumps({"version": "0.7.0"}))
+            self._happy_base.when("test -f /run/pi-cli/docker-constructor.toml", rc=0)
+            .when(
+                "cat /home/dev/.pi/agent/npm/node_modules/@llblab/pi-codex-usage/"
+                "package.json",
+                rc=0,
+                stdout=json.dumps({"version": "0.7.0"}),
+            )
             .when("stat -c %U:%G /home/dev/.pi", rc=0, stdout="root:root")
         )
         rc, out, err = _run(
-            self.m, ["--output", "json"] + self._evidence_argv,
-            _process_runner=runner, _prompt_user=lambda _: True,
+            self.m,
+            ["--output", "json"] + self._evidence_argv,
+            _process_runner=runner,
+            _prompt_user=lambda _: True,
         )
         data = json.loads(out)
         rt = data["data"]["verification"]["runtime"]
@@ -1851,20 +2068,27 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
         # At least one forbidden.paths entry must fail.
         self.assertIn("forbidden.paths", checks_by_key)
         self.assertIn(
-            False, checks_by_key["forbidden.paths"],
-            "at least one forbidden.paths entry must fail")
+            False,
+            checks_by_key["forbidden.paths"],
+            "at least one forbidden.paths entry must fail",
+        )
         self.assertIn(
-            False, checks_by_key.get("extensions.results", [True]),
-            "extension check must fail")
+            False,
+            checks_by_key.get("extensions.results", [True]),
+            "extension check must fail",
+        )
         self.assertIn(
-            False, checks_by_key.get("ownership.dev", [True]),
-            "ownership check must fail")
+            False,
+            checks_by_key.get("ownership.dev", [True]),
+            "ownership check must fail",
+        )
 
         # Every check (passing or failing) carries its original result.
         for c in rt["checks"]:
             if c.get("command"):
-                self.assertIsInstance(c["exit_code"], int,
-                                       f"{c['key']} must have exit_code")
+                self.assertIsInstance(
+                    c["exit_code"], int, f"{c['key']} must have exit_code"
+                )
 
         # Evidence: one record per check + docker inspect.
         evidence = self._assert_evidence_written(
@@ -1879,8 +2103,7 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
         )
         # The stat commands produce output → checksums must be present.
         index = evidence["index_text"]
-        self.assertIn("sha256=", index,
-                       "evidence with output must include checksums")
+        self.assertIn("sha256=", index, "evidence with output must include checksums")
 
     # ── evidence: identity check uses real hash ──────────────────
 
@@ -1891,25 +2114,26 @@ class TestVerifyRuntimeMountDiagnostics(unittest.TestCase):
         bogus = "deadbeef" * 8  # 64 hex chars
         runner = self._happy_base.when(
             "sha256sum",
-            rc=0, stdout=f"{bogus}  "
-                         "/run/pi-cli/docker-constructor.runtime.toml",
+            rc=0,
+            stdout=f"{bogus}  /run/pi-cli/docker-constructor.runtime.toml",
         )
         rc, out, err = _run(
-            self.m, self._base_argv,
-            _process_runner=runner, _prompt_user=lambda _: True,
+            self.m,
+            self._base_argv,
+            _process_runner=runner,
+            _prompt_user=lambda _: True,
         )
         self.assertEqual(4, rc)
         plain = _strip_ansi(err)
-        self.assertIn("hash mismatch", plain,
-                       "must report hash mismatch")
-        self.assertIn(bogus[:12], plain,
-                       "must include container hash prefix")
-        self.assertIn(self._proj_hash[:12], plain,
-                       "must include host hash prefix")
+        self.assertIn("hash mismatch", plain, "must report hash mismatch")
+        self.assertIn(bogus[:12], plain, "must include container hash prefix")
+        self.assertIn(self._proj_hash[:12], plain, "must include host hash prefix")
+
 
 # ════════════════════════════════════════════════════════════════════════
 # 14.1  Project errors
 # ════════════════════════════════════════════════════════════════════════
+
 
 class TestProjectErrorDiagnostics(unittest.TestCase):
     """Project-level misconfigurations must leave clear diagnostics."""
@@ -1922,11 +2146,9 @@ class TestProjectErrorDiagnostics(unittest.TestCase):
         """A facade-level ``NoWorkspaceError`` produces CONFIG exit
         code and suggests ``--workspace`` or ``--tui``."""
         fake = _make_fake_dispatcher(
-            self.m, exit_kind="config",
-            message=(
-                "no primary workspace selected; "
-                "pass --workspace or use --tui"
-            ),
+            self.m,
+            exit_kind="config",
+            message=("no primary workspace selected; pass --workspace or use --tui"),
         )
         rc, out, err = _run(self.m, ["run", "--dry-run"], dispatcher=fake)
         self.assertEqual(3, rc)
@@ -1940,8 +2162,14 @@ class TestProjectErrorDiagnostics(unittest.TestCase):
         with the duplicated path in the error."""
         rc, out, err = _run(
             self.m,
-            ["run", "--workspace", "/tmp/proj1",
-             "--extra-workspace", "/tmp/proj1", "--dry-run"],
+            [
+                "run",
+                "--workspace",
+                "/tmp/proj1",
+                "--extra-workspace",
+                "/tmp/proj1",
+                "--dry-run",
+            ],
         )
         self.assertEqual(3, rc)
         self.assertIn(
@@ -1949,9 +2177,11 @@ class TestProjectErrorDiagnostics(unittest.TestCase):
             _strip_ansi(err),
         )
 
+
 # ════════════════════════════════════════════════════════════════════════
 # 14.2  Cross-cutting evidence assertions
 # ════════════════════════════════════════════════════════════════════════
+
 
 class TestEvidenceCompleteness(unittest.TestCase):
     """Every simulated failure provides enough evidence for diagnosis
@@ -1972,14 +2202,18 @@ class TestEvidenceCompleteness(unittest.TestCase):
         ]
         for kind, expected_rc in categories:
             fake = _make_fake_dispatcher(
-                self.m, exit_kind=kind,
+                self.m,
+                exit_kind=kind,
                 message=f"simulated {kind} failure",
             )
             rc, _, _ = _run(
-                self.m, ["build", "--yes"], dispatcher=fake,
+                self.m,
+                ["build", "--yes"],
+                dispatcher=fake,
             )
             self.assertEqual(
-                expected_rc, rc,
+                expected_rc,
+                rc,
                 f"{kind} must map to exit code {expected_rc}, got {rc}",
             )
 
@@ -1990,7 +2224,8 @@ class TestEvidenceCompleteness(unittest.TestCase):
         Global options (``--output``) must precede the subcommand."""
         for command in ("build",):
             fake = _make_fake_dispatcher(
-                self.m, exit_kind="operational",
+                self.m,
+                exit_kind="operational",
                 message=f"simulated {command} failure",
             )
             rc, out, err = _run(
@@ -2007,7 +2242,8 @@ class TestEvidenceCompleteness(unittest.TestCase):
 
         # Verify does not accept --yes; work with confirmation bypass
         fake2 = _make_fake_dispatcher(
-            self.m, exit_kind="operational",
+            self.m,
+            exit_kind="operational",
             message="simulated verify failure",
         )
         rc2, out2, _ = _run(
@@ -2024,7 +2260,8 @@ class TestEvidenceCompleteness(unittest.TestCase):
         """The human-readable stderr message must contain the key detail
         that identifies the failure."""
         fake = _make_fake_dispatcher(
-            self.m, exit_kind="operational",
+            self.m,
+            exit_kind="operational",
             message="container pi-cli-pi-0007 failed to start",
         )
         rc, out, err = _run(self.m, ["run", "--dry-run"], dispatcher=fake)
@@ -2035,12 +2272,14 @@ class TestEvidenceCompleteness(unittest.TestCase):
     def test_non_json_failure_includes_message_on_stderr_not_stdout(self) -> None:
         """In non-JSON mode, failure messages go to stderr; stdout is empty."""
         fake = _make_fake_dispatcher(
-            self.m, exit_kind="operational",
-            message="image tag mismatch: "
-                    "expected pi-cli-pi:latest, got other:v1",
+            self.m,
+            exit_kind="operational",
+            message="image tag mismatch: expected pi-cli-pi:latest, got other:v1",
         )
         rc, out, err = _run(
-            self.m, ["verify", "--scope", "all"], dispatcher=fake,
+            self.m,
+            ["verify", "--scope", "all"],
+            dispatcher=fake,
         )
         self.assertEqual("", out)
         self.assertIn("image tag mismatch", _strip_ansi(err))
@@ -2066,8 +2305,7 @@ class TestEvidenceCompleteness(unittest.TestCase):
             # Cause an extension failure: return wrong version with
             # non-empty stderr.
             runner = runner.when(
-                "cat /home/dev/.pi/agent/npm/node_modules/@llblab/p/"
-                "package.json",
+                "cat /home/dev/.pi/agent/npm/node_modules/@llblab/p/package.json",
                 rc=0,
                 stdout=json.dumps({"version": "0.8.0"}),
                 stderr="warning: deprecated package\n",
@@ -2076,14 +2314,24 @@ class TestEvidenceCompleteness(unittest.TestCase):
             evidence_dir = str(Path(td) / "evidence")
             rc, out, err = _run(
                 self.m,
-                ["--output", "json",
-                 "--project-directory", str(Path(inv_path).parent),
-                 "verify", "--scope", "runtime",
-                 "--container", "ev-ctr",
-                 "--runtime-projection", proj_path,
-                 "--workspace", "/tmp/p1",
-                 "--collect-evidence",
-                 "--output-dir", evidence_dir],
+                [
+                    "--output",
+                    "json",
+                    "--project-directory",
+                    str(Path(inv_path).parent),
+                    "verify",
+                    "--scope",
+                    "runtime",
+                    "--container",
+                    "ev-ctr",
+                    "--runtime-projection",
+                    proj_path,
+                    "--workspace",
+                    "/tmp/p1",
+                    "--collect-evidence",
+                    "--output-dir",
+                    evidence_dir,
+                ],
                 _process_runner=runner,
                 _prompt_user=lambda _: True,
             )
@@ -2094,7 +2342,8 @@ class TestEvidenceCompleteness(unittest.TestCase):
 
             # On-disk evidence: every check record preserved.
             evidence = _assert_evidence_bundle_complete(
-                self, evidence_dir,
+                self,
+                evidence_dir,
                 min_commands=10,
                 expect_command_substrs=[
                     "docker inspect",
@@ -2115,11 +2364,14 @@ class TestEvidenceCompleteness(unittest.TestCase):
                 self.assertLess(sf.stat().st_size, 2 * 1024 * 1024)
         finally:
             import shutil
+
             shutil.rmtree(td, ignore_errors=True)
+
 
 # ════════════════════════════════════════════════════════════════════════
 # 14.2-e  Truncation and redaction of captured evidence output
 # ════════════════════════════════════════════════════════════════════════
+
 
 class TestStaticEvidenceNormalization(unittest.TestCase):
     """Pre-captured verification output is normalised through the same
@@ -2136,6 +2388,7 @@ class TestStaticEvidenceNormalization(unittest.TestCase):
         from docker.versioning.evidence import (
             normalize_static_record as _norm,
         )
+
         td = tempfile.mkdtemp(prefix="acc-norm-")
         out_dir = Path(td)
         big = "x" * 200  # 200 bytes; use a tiny cap
@@ -2155,8 +2408,7 @@ class TestStaticEvidenceNormalization(unittest.TestCase):
         self.assertLessEqual(len(truncated_content.encode()), 50)
         self.assertIsNotNone(rec.stdout_sha256)
         # Checksum matches truncated content.
-        actual_hash = hashlib.sha256(
-            truncated_content.encode()).hexdigest()
+        actual_hash = hashlib.sha256(truncated_content.encode()).hexdigest()
         self.assertEqual(rec.stdout_sha256, actual_hash)
         shutil.rmtree(td, ignore_errors=True)
 
@@ -2166,6 +2418,7 @@ class TestStaticEvidenceNormalization(unittest.TestCase):
         from docker.versioning.evidence import (
             normalize_static_record as _norm,
         )
+
         td = tempfile.mkdtemp(prefix="acc-norm-")
         out_dir = Path(td)
         rec = _norm(
@@ -2187,6 +2440,7 @@ class TestStaticEvidenceNormalization(unittest.TestCase):
         from docker.versioning.evidence import (
             normalize_static_record as _norm,
         )
+
         td = tempfile.mkdtemp(prefix="acc-norm-")
         out_dir = Path(td)
         rec = _norm(
@@ -2212,6 +2466,7 @@ class TestStaticEvidenceNormalization(unittest.TestCase):
         from docker.versioning.evidence import (
             normalize_static_record as _norm,
         )
+
         td = tempfile.mkdtemp(prefix="acc-norm-")
         out_dir = Path(td)
         rec = _norm(
@@ -2236,6 +2491,7 @@ class TestStaticEvidenceNormalization(unittest.TestCase):
         from docker.versioning.evidence import (
             normalize_static_record as _norm,
         )
+
         td = tempfile.mkdtemp(prefix="acc-norm-")
         out_dir = Path(td)
         rec = _norm(
@@ -2258,11 +2514,11 @@ class TestStaticEvidenceNormalization(unittest.TestCase):
         from docker.versioning.evidence import (
             normalize_static_record as _norm,
         )
+
         td = tempfile.mkdtemp(prefix="acc-norm-")
         out_dir = Path(td)
         rec = _norm(
-            argv=("docker", "run", "-e", "GITHUB_TOKEN=ghp_abc123secret",
-                   "img"),
+            argv=("docker", "run", "-e", "GITHUB_TOKEN=ghp_abc123secret", "img"),
             return_code=0,
             timestamp_epoch=0.0,
             output_dir=out_dir,
@@ -2279,6 +2535,7 @@ class TestStaticEvidenceNormalization(unittest.TestCase):
         from docker.versioning.evidence import (
             normalize_static_record as _norm,
         )
+
         td = tempfile.mkdtemp(prefix="acc-norm-")
         out_dir = Path(td)
         rec = _norm(
@@ -2298,8 +2555,6 @@ class TestStaticEvidenceNormalization(unittest.TestCase):
         # Both files exist and are bounded.
         self.assertIsNotNone(rec.stdout_file)
         self.assertIsNotNone(rec.stderr_file)
-        self.assertLessEqual(
-            len((out_dir / rec.stdout_file).read_text().encode()), 100)
-        self.assertLessEqual(
-            len((out_dir / rec.stderr_file).read_text().encode()), 100)
+        self.assertLessEqual(len((out_dir / rec.stdout_file).read_text().encode()), 100)
+        self.assertLessEqual(len((out_dir / rec.stderr_file).read_text().encode()), 100)
         shutil.rmtree(td, ignore_errors=True)

@@ -13,6 +13,7 @@ domain failure from human-readable text.  URL fingerprints and session keys
 never enter rendered text; only a normalized hostname tuple is passed on when
 the facade's hostname-display policy is enabled.
 """
+
 from __future__ import annotations
 
 import os
@@ -183,13 +184,10 @@ def format_heartbeat(
     the corresponding fact exists.  No wording ever claims that npm or its
     network is idle or downloading.
     """
-    parts = [
-        f"{_step_label(event.step)}: {format_elapsed(event.elapsed_seconds)}"
-    ]
+    parts = [f"{_step_label(event.step)}: {format_elapsed(event.elapsed_seconds)}"]
     if event.diagnostic_silence_seconds is not None:
         parts.append(
-            f"no diagnostics for "
-            f"{format_elapsed(event.diagnostic_silence_seconds)}"
+            f"no diagnostics for {format_elapsed(event.diagnostic_silence_seconds)}"
         )
     if (
         event.last_activity_kind is not None
@@ -202,17 +200,13 @@ def format_heartbeat(
     if received_bytes is not None:
         parts.append(f"{received_bytes} bytes received")
     if event.remaining_deadline_seconds is not None:
-        parts.append(
-            f"{format_elapsed(event.remaining_deadline_seconds)} remaining"
-        )
+        parts.append(f"{format_elapsed(event.remaining_deadline_seconds)} remaining")
     return ", ".join(parts)
 
 
 def format_progress(event: HostTransportProgressEvent) -> str:
     """Render cumulative observed transport progress for one step."""
-    return (
-        f"{_step_label(event.step)}: {event.received_bytes} bytes received"
-    )
+    return f"{_step_label(event.step)}: {event.received_bytes} bytes received"
 
 
 def format_diagnostic_text(
@@ -381,7 +375,11 @@ class PresentationMailbox:
             raise ValueError("mailbox capacity must be a positive integer")
         if control_capacity is None:
             control_capacity = CONTROL_CAPACITY
-        if not isinstance(control_capacity, int) or isinstance(control_capacity, bool) or control_capacity <= 0:
+        if (
+            not isinstance(control_capacity, int)
+            or isinstance(control_capacity, bool)
+            or control_capacity <= 0
+        ):
             raise ValueError("control capacity must be a positive integer")
         self._queue: deque[AdmittedEvent] = deque()
         self._capacity = capacity
@@ -450,7 +448,14 @@ class PresentationMailbox:
                 self._cancellation.set()
                 self._condition.notify_all()
                 return False
-            self._queue.append(AdmittedEvent(self._next_sequence(), PresentationLane.CONTROL, event, acknowledgement))
+            self._queue.append(
+                AdmittedEvent(
+                    self._next_sequence(),
+                    PresentationLane.CONTROL,
+                    event,
+                    acknowledgement,
+                )
+            )
             self._control_count += 1
             self._condition.notify()
             return True
@@ -492,13 +497,19 @@ class PresentationMailbox:
                 if diagnostic:
                     self._record_omission_locked()
                 return False
-            self._queue.append(AdmittedEvent(self._next_sequence(), PresentationLane.TELEMETRY, event))
+            self._queue.append(
+                AdmittedEvent(self._next_sequence(), PresentationLane.TELEMETRY, event)
+            )
             self._telemetry_count += 1
             self._condition.notify()
             return True
 
     def try_admit(self, event: HostPresentationEvent) -> bool:
-        return self.admit_control(event) if _is_control(event) else self.admit_telemetry(event)
+        return (
+            self.admit_control(event)
+            if _is_control(event)
+            else self.admit_telemetry(event)
+        )
 
     def consume_omission_notice(self) -> str | None:
         return self.take_omission_notice(None)
@@ -507,7 +518,11 @@ class PresentationMailbox:
         with self._condition:
             if self._omissions == 0:
                 return None
-            if sequence is not None and self._omission_boundary is not None and sequence < self._omission_boundary:
+            if (
+                sequence is not None
+                and self._omission_boundary is not None
+                and sequence < self._omission_boundary
+            ):
                 return None
             count = self._omissions
             uncertain = self._omission_uncertain
@@ -631,9 +646,7 @@ class HostPresentationRenderer(Protocol):
 
     def durable(self, text: str) -> None: ...
 
-    def finalize_diagnostic(
-        self, text: str, *, restore_status: str | None
-    ) -> None: ...
+    def finalize_diagnostic(self, text: str, *, restore_status: str | None) -> None: ...
 
 
 # --------------------------------------------------------------------------
@@ -771,10 +784,7 @@ class HostPresentationState:
         self._provisional[prefix.stream] = prefix.text
         if self._mode is HostPresentationMode.INTERACTIVE:
             self._safe(partial(self._renderer.set_slot, prefix.text))
-        if (
-            prefix.overflowed
-            and self._mode is HostPresentationMode.LINES
-        ):
+        if prefix.overflowed and self._mode is HostPresentationMode.LINES:
             self._present_provisional_overflow(prefix.stream)
 
     def _present_provisional_overflow(self, stream: HostDiagnosticStream) -> None:
@@ -923,9 +933,7 @@ class HostPresentationState:
                 # postpone the summary.
                 self._window_deadline = now + LINES_WINDOW_SECONDS
 
-    def _attach_hosts(
-        self, text: str | None, hostnames: tuple[str, ...]
-    ) -> str | None:
+    def _attach_hosts(self, text: str | None, hostnames: tuple[str, ...]) -> str | None:
         if text is None:
             return text
         if self._show and hostnames:
@@ -1076,9 +1084,7 @@ class HostPresentationState:
         # structurally match a retained host-operation tail.
         self._durable_diagnostic(text)
 
-    def _terminalize(
-        self, text: str, *, omission_notice: str | None = None
-    ) -> None:
+    def _terminalize(self, text: str, *, omission_notice: str | None = None) -> None:
         self._finalize_group(restore_status=None)
         self._discard_provisional()
         if omission_notice is not None:
@@ -1219,13 +1225,9 @@ class PresentationWorker:
         elif isinstance(event, HostTransportProgressEvent):
             self._state.observe_progress(event, now=now)
         elif isinstance(event, HostStepEvent):
-            self._state.observe_step(
-                event, now=now, omission_notice=omission_notice
-            )
+            self._state.observe_step(event, now=now, omission_notice=omission_notice)
         elif isinstance(event, HostPhaseEvent):
-            self._state.observe_phase(
-                event, now=now, omission_notice=omission_notice
-            )
+            self._state.observe_phase(event, now=now, omission_notice=omission_notice)
         elif isinstance(event, HostDiagnosticEvent):
             self._state.observe_diagnostic_event(
                 event, now=now, omission_notice=omission_notice
@@ -1332,7 +1334,9 @@ def _clip_display(text: str, width: int) -> str:
         char_width = (
             0
             if unicodedata.combining(character)
-            else 2 if unicodedata.east_asian_width(character) in ("W", "F") else 1
+            else 2
+            if unicodedata.east_asian_width(character) in ("W", "F")
+            else 1
         )
         if cells + char_width > target:
             break
@@ -1374,7 +1378,7 @@ class TerminalHostRenderer:
     def _stream_terminal_width(self) -> int:
         try:
             return os.get_terminal_size(self._stream.fileno()).columns
-        except (AttributeError, OSError, TypeError, ValueError):
+        except AttributeError, OSError, TypeError, ValueError:
             return 80
 
     @property
@@ -1398,9 +1402,7 @@ class TerminalHostRenderer:
             if self._active and self._write(self._ERASE_LINE):
                 self._active = False
             return
-        rendered = _clip_display(
-            "  ".join(parts), max(1, int(self._terminal_width()))
-        )
+        rendered = _clip_display("  ".join(parts), max(1, int(self._terminal_width())))
         if self._write(f"{self._ERASE_LINE}{rendered}"):
             self._active = True
 
@@ -1434,9 +1436,7 @@ class TerminalHostRenderer:
             self._active = False
         self._write(f"{text}\n")
 
-    def finalize_diagnostic(
-        self, text: str, *, restore_status: str | None
-    ) -> None:
+    def finalize_diagnostic(self, text: str, *, restore_status: str | None) -> None:
         # Exactly one atomic sequence: clear the transient region, write the
         # finished diagnostic durably, drop the slot, then restore only a
         # still-applicable status.
@@ -1458,7 +1458,14 @@ class TerminalHostRenderer:
 class HostPresentationSession:
     """Facade-owned actor session with capacity-independent bounded close."""
 
-    def __init__(self, renderer: HostPresentationRenderer, plan: PresentationPlan, *, clock: Callable[[], float] = time.monotonic, completion_clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self,
+        renderer: HostPresentationRenderer,
+        plan: PresentationPlan,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+        completion_clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         if not isinstance(plan, PresentationPlan):
             raise TypeError("plan must be a PresentationPlan")
         if not plan.live_sink:
@@ -1516,7 +1523,11 @@ class HostPresentationSession:
         remaining = max(0.0, deadline - self._completion_clock())
         if completed and remaining > 0:
             self._worker.join(remaining)
-        healthy = completed and not self._worker.is_alive and not self._mailbox.admission_failed
+        healthy = (
+            completed
+            and not self._worker.is_alive
+            and not self._mailbox.admission_failed
+        )
         if not healthy:
             self._state.cancel()
             self._mailbox.signal_emergency()

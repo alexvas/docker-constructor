@@ -4,6 +4,7 @@ These tests pin the full truth table of :class:`CleanupFailures`, its
 mandatory keyword-only ordinary policy, and the strengthened
 :func:`attach_secondary` object/notes diagnostics.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -80,7 +81,9 @@ class CleanupFailuresTruthTableTests(unittest.TestCase):
         failures.run(_raiser(ordinary), ordinary=(OSError,))
         self.assertIs(failures.complete(), ordinary)
 
-    def test_multiple_ordinary_without_primary_returns_first_and_attaches_rest(self) -> None:
+    def test_multiple_ordinary_without_primary_returns_first_and_attaches_rest(
+        self,
+    ) -> None:
         failures = CleanupFailures(None)
         first = OSError("one")
         second = OSError("two")
@@ -313,9 +316,7 @@ class AttachSecondaryTests(unittest.TestCase):
         for index in range(_MAX_SECONDARY_NOTES * 4):
             attach_secondary(primary, [OSError(f"cleanup {index}")])
         generated = [
-            note
-            for note in primary.__notes__
-            if "secondary cleanup failure" in note
+            note for note in primary.__notes__ if "secondary cleanup failure" in note
         ]
         self.assertEqual(len(generated), _MAX_SECONDARY_NOTES)
 
@@ -328,11 +329,7 @@ class AttachSecondaryTests(unittest.TestCase):
         # The unrelated note is neither removed nor overwritten and counts
         # toward the total budget.
         self.assertEqual(notes[0], "unrelated diagnostic")
-        generated = [
-            note
-            for note in notes
-            if "secondary cleanup failure" in note
-        ]
+        generated = [note for note in notes if "secondary cleanup failure" in note]
         self.assertEqual(len(generated), _MAX_SECONDARY_NOTES - 1)
 
 

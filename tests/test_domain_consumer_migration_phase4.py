@@ -11,6 +11,7 @@ out of serialization, projections, and container vectors.
 These tests were written RED before the Phase 4 migration and are expected to
 fail until the command orchestration and domain consumers are migrated.
 """
+
 from __future__ import annotations
 
 import io
@@ -27,22 +28,15 @@ from docker.versioning.configuration_document_validation import DocumentRole
 from docker.versioning.dispatch_types import ExitKind
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CANONICAL_TOML = (REPO_ROOT / "docker-constructor.toml").read_text(
-    encoding="utf-8"
-)
+CANONICAL_TOML = (REPO_ROOT / "docker-constructor.toml").read_text(encoding="utf-8")
 
 MALFORMED_LOCAL = "not valid toml [[["
 VALID_LOCAL = '[cache]\ndir = "/tmp/phase4-migration-cache"\n'
 
 HOST_ACCESS_POLICY = (
-    '[runtime.host-access]\n'
-    'enabled = true\n'
-    'mode = "external-address"\n'
+    '[runtime.host-access]\nenabled = true\nmode = "external-address"\n'
 )
-HOST_ACCESS_LOCAL = (
-    '[host-access]\n'
-    'address = "192.0.2.10"\n'
-)
+HOST_ACCESS_LOCAL = '[host-access]\naddress = "192.0.2.10"\n'
 
 
 def _fake_transports(**_kwargs: Any) -> Any:
@@ -95,12 +89,15 @@ class _Phase4Harness(unittest.TestCase):
     def _run_check_updates(self, *, suggest: bool = False) -> Any:
         from docker.versioning.readonly_service import dispatch
 
-        with patch(
-            "docker.versioning.updates.check_updates",
-            lambda *a, **k: [],
-        ), patch(
-            "docker.versioning.transports.build_transports",
-            _fake_transports,
+        with (
+            patch(
+                "docker.versioning.updates.check_updates",
+                lambda *a, **k: [],
+            ),
+            patch(
+                "docker.versioning.transports.build_transports",
+                _fake_transports,
+            ),
         ):
             return dispatch(
                 self.inventory,
@@ -173,10 +170,15 @@ class _Phase4Harness(unittest.TestCase):
         with redirect_stdout(out), redirect_stderr(err):
             rc = main(
                 [
-                    "--project-directory", str(self.root),
-                    "verify", "--scope", "runtime",
-                    "--container", "pi-test",
-                    "--runtime-projection", str(self.root / "missing.toml"),
+                    "--project-directory",
+                    str(self.root),
+                    "verify",
+                    "--scope",
+                    "runtime",
+                    "--container",
+                    "pi-test",
+                    "--runtime-projection",
+                    str(self.root / "missing.toml"),
                 ],
                 _process_runner=_Runner(),
             )
@@ -243,9 +245,7 @@ class TestMalformedLocalFailsBeforeEffects(_Phase4Harness):
         self._write_project(local=MALFORMED_LOCAL, dockerfile=True)
         self.assertEqual(self._run_validate().exit_kind, ExitKind.CONFIG)
         self.assertEqual(self._run_show().exit_kind, ExitKind.CONFIG)
-        self.assertEqual(
-            self._run_check_updates().exit_kind, ExitKind.CONFIG
-        )
+        self.assertEqual(self._run_check_updates().exit_kind, ExitKind.CONFIG)
         self.assertEqual(self._run_build().exit_kind, ExitKind.CONFIG)
         self.assertEqual(self._run_run().exit_kind, ExitKind.CONFIG)
         self.assertEqual(self._run_doctor().exit_kind, ExitKind.CONFIG)
@@ -261,9 +261,7 @@ class TestDomainSliceOwnership(_Phase4Harness):
     """Consumers receive only their owning slice, never the aggregate."""
 
     def test_run_does_not_reload_local_companion_for_host_access(self) -> None:
-        self._write_project(
-            policy=HOST_ACCESS_POLICY, local=HOST_ACCESS_LOCAL
-        )
+        self._write_project(policy=HOST_ACCESS_POLICY, local=HOST_ACCESS_LOCAL)
         with patch(
             "docker.versioning.local_project_configuration.load_optional_local_project_configuration",
             side_effect=AssertionError(
@@ -283,12 +281,15 @@ class TestDomainSliceOwnership(_Phase4Harness):
             captured.update(kwargs)
             return _fake_transports()
 
-        with patch(
-            "docker.versioning.updates.check_updates",
-            lambda *a, **k: [],
-        ), patch(
-            "docker.versioning.transports.build_transports",
-            recording_build_transports,
+        with (
+            patch(
+                "docker.versioning.updates.check_updates",
+                lambda *a, **k: [],
+            ),
+            patch(
+                "docker.versioning.transports.build_transports",
+                recording_build_transports,
+            ),
         ):
             from docker.versioning.readonly_service import dispatch
 
@@ -308,7 +309,7 @@ class TestCorporateNetworkIndependence(_Phase4Harness):
     def test_proxy_is_usable_without_host_access(self) -> None:
         self._write_project(
             local=(
-                '[network.proxy]\n'
+                "[network.proxy]\n"
                 'url = "http://proxy.example.test:8080"\n'
                 'no_proxy = "localhost"\n'
             )
@@ -328,7 +329,7 @@ class TestLocalSourceConfinement(_Phase4Harness):
         self._write_project(
             local=(
                 '[cache]\ndir = "/tmp/phase4-confine-cache"\n'
-                '[network.proxy]\n'
+                "[network.proxy]\n"
                 'url = "http://proxy.example.test:8080"\n'
             ),
             dockerfile=True,
@@ -358,13 +359,11 @@ class TestLocalSourceConfinement(_Phase4Harness):
         self._write_project(
             local=(
                 '[cache]\ndir = "/tmp/phase4-effective-confine"\n'
-                '[network.proxy]\n'
+                "[network.proxy]\n"
                 'url = "http://proxy.example.test:8080"\n'
             )
         )
-        result = dispatch(
-            self.inventory, "show", command_args={"effective": True}
-        )
+        result = dispatch(self.inventory, "show", command_args={"effective": True})
         serialized = json.dumps(result.data, default=str)
         self.assertNotIn("phase4-effective-confine", serialized)
         self.assertNotIn("docker-constructor.local.toml", serialized)

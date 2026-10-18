@@ -7,6 +7,7 @@ derivation so the launcher can materialize, verify, and atomically publish
 each selected blob on the host — without importing facade, parser,
 presentation, Docker execution, or container-installer modules.
 """
+
 from __future__ import annotations
 
 import base64
@@ -160,7 +161,9 @@ def derive_cache_path(algorithm: str, digest: str, *, root: str) -> str:
 def derive_cache_path_from_integrity(integrity: str, *, root: str) -> tuple[str, str]:
     """Derive the legacy URL-safe-base64 ``.tgz`` runtime path."""
     identity = DigestIdentity.from_sri(integrity)
-    return derive_cache_path(identity.algorithm, identity.runtime_safe_digest(), root=root), identity.algorithm
+    return derive_cache_path(
+        identity.algorithm, identity.runtime_safe_digest(), root=root
+    ), identity.algorithm
 
 
 # ── protocol boundaries ────────────────────────────────────────────────
@@ -191,7 +194,9 @@ class CacheFilesystem(Protocol):
     def digest_file(self, path: str, algorithm: str) -> str: ...
 
     def inspect_and_digest(
-        self, path: str, algorithm: str,
+        self,
+        path: str,
+        algorithm: str,
     ) -> CacheBlobInspection: ...
 
     # ── secure directory creation ────────────────────────────────
@@ -255,7 +260,6 @@ class IdentityLock(Protocol):
 
     def release(self, identity: str) -> None: ...
 
-
     class Factory(Protocol):
         """Callable that returns an :class:`IdentityLock` for a
         given integrity identity string."""
@@ -271,6 +275,7 @@ class TemporaryDirectory(Protocol):
     """
 
     def mkdtemp(self, prefix: str, parent: str) -> str: ...
+
     """Create a temporary directory beneath *parent* and return its
     absolute path.
 
@@ -325,7 +330,7 @@ def inspect_verified_blob_readonly(
 
     try:
         identity = DigestIdentity.from_sri(integrity)
-    except (DigestIdentityError, ValueError):
+    except DigestIdentityError, ValueError:
         return False
     algo = identity.algorithm
     raw_expected = identity.sri().split("-", 1)[1]
@@ -338,7 +343,9 @@ def inspect_verified_blob_readonly(
     except OSError:
         return False
     root_owner = OwnedDescriptor(
-        PosixDescriptorOps(), root_fd, label=f"cache root {cache_root}",
+        PosixDescriptorOps(),
+        root_fd,
+        label=f"cache root {cache_root}",
     )
 
     primary_root: BaseException | None = None
@@ -349,7 +356,9 @@ def inspect_verified_blob_readonly(
         except OSError:
             return False
         algo_owner = OwnedDescriptor(
-            PosixDescriptorOps(), algo_fd, label=f"cache algorithm {algo!r}",
+            PosixDescriptorOps(),
+            algo_fd,
+            label=f"cache algorithm {algo!r}",
         )
         primary_algo: BaseException | None = None
         try:
@@ -372,14 +381,18 @@ def inspect_verified_blob_readonly(
                 return False
             try:
                 blob_fd = os.open(
-                    blob_name, blob_flags | _noatime, dir_fd=algo_owner.fd,
+                    blob_name,
+                    blob_flags | _noatime,
+                    dir_fd=algo_owner.fd,
                 )
             except PermissionError:
                 return False
             except OSError:
                 return False
             blob_owner = OwnedDescriptor(
-                PosixDescriptorOps(), blob_fd, label=f"cache blob {blob_name!r}",
+                PosixDescriptorOps(),
+                blob_fd,
+                label=f"cache blob {blob_name!r}",
             )
             primary_blob: BaseException | None = None
             try:
@@ -453,16 +466,10 @@ def validate_cache_blob(
     real_path = os.path.realpath(host_path)
 
     # ── containment ──────────────────────────────────────────────
-    if not (
-        real_path == root
-        or real_path.startswith(root + os.sep)
-    ):
+    if not (real_path == root or real_path.startswith(root + os.sep)):
         raise ArtifactMaterializationError(
             reason="containment",
-            detail=(
-                f"resolved path {real_path!r} is outside "
-                f"cache root {root!r}"
-            ),
+            detail=(f"resolved path {real_path!r} is outside cache root {root!r}"),
         )
 
     # ── existence ────────────────────────────────────────────────
@@ -499,8 +506,6 @@ def validate_cache_blob(
 
 
 # ── cache-directory permission enforcement ────────────────────────────
-
-
 
 
 # ── materialization pipeline ──────────────────────────────────────────
@@ -594,9 +599,11 @@ def _try_cache_hit(
             or inspection.digest is None
         ):
             return None
-        if os.path.commonpath((os.path.abspath(root), os.path.abspath(path))) != os.path.abspath(root):
+        if os.path.commonpath(
+            (os.path.abspath(root), os.path.abspath(path))
+        ) != os.path.abspath(root):
             return None
-    except (ArtifactMaterializationError, FileNotFoundError, OSError):
+    except ArtifactMaterializationError, FileNotFoundError, OSError:
         return None
 
     identity = DigestIdentity.from_sri(integrity)
@@ -640,7 +647,9 @@ def _materialize_one(
        chaining — the primary error is always preserved).
     """
     identity = DigestIdentity.from_sri(integrity)
-    path = derive_cache_path(identity.algorithm, identity.runtime_safe_digest(), root=root)
+    path = derive_cache_path(
+        identity.algorithm, identity.runtime_safe_digest(), root=root
+    )
     algorithm = identity.algorithm
 
     # ── 0. harden private subtrees before any access ───────────
@@ -675,7 +684,8 @@ def _materialize_one(
         expected_raw = identity.base64_digest()
 
         tmp_root = temp_dir.mkdtemp(
-            prefix="materialize-", parent=temp_root,
+            prefix="materialize-",
+            parent=temp_root,
         )
         filesystem.ensure_secure_dir(tmp_root)
 
@@ -739,7 +749,11 @@ def _materialize_one(
         # ── 7. post-publication revalidation ─────────────────────
         try:
             _validate_published_blob(
-                path, integrity, algorithm, root, filesystem,
+                path,
+                integrity,
+                algorithm,
+                root,
+                filesystem,
             )
         except BaseException as validation_exc:
             failures = CleanupFailures(validation_exc)
@@ -831,16 +845,18 @@ def _validate_published_blob(
         raise ArtifactMaterializationError(
             reason="publication",
             detail=(
-                f"published blob {path!r} has group/other write bits "
-                f"(mode {oct(mode)})"
+                f"published blob {path!r} has group/other write bits (mode {oct(mode)})"
             ),
         )
 
     # Re-check lexical containment; component safety was established by the
     # descriptor-relative stat and permission operations above.
-    if os.path.commonpath((os.path.abspath(root), os.path.abspath(path))) != os.path.abspath(root):
+    if os.path.commonpath(
+        (os.path.abspath(root), os.path.abspath(path))
+    ) != os.path.abspath(root):
         raise ArtifactMaterializationError(
-            reason="containment", detail=f"published blob {path!r} escaped cache root",
+            reason="containment",
+            detail=f"published blob {path!r} escaped cache root",
         )
 
     # ── digest re-check ──────────────────────────────────────────
@@ -849,7 +865,8 @@ def _validate_published_blob(
     actual_raw = inspection.digest
     if actual_raw is None:
         raise ArtifactMaterializationError(
-            reason="publication", detail=f"published blob {path!r} was not readable",
+            reason="publication",
+            detail=f"published blob {path!r} was not readable",
         )
     if actual_raw != expected_raw:
         raise ArtifactMaterializationError(
@@ -859,7 +876,6 @@ def _validate_published_blob(
                 f"expected {integrity}, got {algorithm}-{actual_raw}"
             ),
         )
-
 
 
 class HttpStreamingTransport:
@@ -904,6 +920,7 @@ def _ensure_dir_private(path: str) -> None:
     non-directory entries.
     """
     import stat as _stat
+
     try:
         parent_fd, name = _open_parent(path)
     except FileNotFoundError:
@@ -914,7 +931,9 @@ def _ensure_dir_private(path: str) -> None:
             f"cannot access parent of cache root {path!r}: {exc}",
         ) from exc
     parent_owner = OwnedDescriptor(
-        PosixDescriptorOps(), parent_fd, label=f"parent of cache root {path!r}",
+        PosixDescriptorOps(),
+        parent_fd,
+        label=f"parent of cache root {path!r}",
     )
     primary_parent: BaseException | None = None
     try:
@@ -937,7 +956,9 @@ def _ensure_dir_private(path: str) -> None:
                 f"unsafe cache root entry at {path!r}: {exc}",
             ) from exc
         fd_owner = OwnedDescriptor(
-            PosixDescriptorOps(), fd, label=f"cache root entry {path!r}",
+            PosixDescriptorOps(),
+            fd,
+            label=f"cache root entry {path!r}",
         )
         primary_fd: BaseException | None = None
         try:
@@ -992,20 +1013,28 @@ def _open_directory_chain(path: str, *, create: bool) -> int:
     absolute = os.path.abspath(path)
     flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
     current_owner = OwnedDescriptor(
-        PosixDescriptorOps(), os.open(os.sep, flags), label="cache path root",
+        PosixDescriptorOps(),
+        os.open(os.sep, flags),
+        label="cache path root",
     )
     try:
         for component in (part for part in absolute.split(os.sep) if part):
             try:
-                value = os.stat(component, dir_fd=current_owner.fd, follow_symlinks=False)
+                value = os.stat(
+                    component, dir_fd=current_owner.fd, follow_symlinks=False
+                )
             except FileNotFoundError:
                 if not create:
                     raise
                 # Let umask dictate the default mode for parent
                 # directories; private subtrees are hardened later.
                 os.mkdir(component, 0o777, dir_fd=current_owner.fd)
-                value = os.stat(component, dir_fd=current_owner.fd, follow_symlinks=False)
-            if stat_module.S_ISLNK(value.st_mode) or not stat_module.S_ISDIR(value.st_mode):
+                value = os.stat(
+                    component, dir_fd=current_owner.fd, follow_symlinks=False
+                )
+            if stat_module.S_ISLNK(value.st_mode) or not stat_module.S_ISDIR(
+                value.st_mode
+            ):
                 raise ArtifactMaterializationError(
                     "containment",
                     f"unsafe cache path component {component!r} in {absolute!r}",
@@ -1042,13 +1071,17 @@ def _remove_tree_at(parent_fd: int, name: str) -> None:
     flags = os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_NOFOLLOW", 0)
     directory_fd = os.open(name, flags, dir_fd=parent_fd)
     directory_owner = OwnedDescriptor(
-        PosixDescriptorOps(), directory_fd, label=f"cache tree {name!r}",
+        PosixDescriptorOps(),
+        directory_fd,
+        label=f"cache tree {name!r}",
     )
     primary: BaseException | None = None
     try:
         for child in os.listdir(directory_owner.fd):
             value = os.stat(child, dir_fd=directory_owner.fd, follow_symlinks=False)
-            if stat_module.S_ISDIR(value.st_mode) and not stat_module.S_ISLNK(value.st_mode):
+            if stat_module.S_ISDIR(value.st_mode) and not stat_module.S_ISLNK(
+                value.st_mode
+            ):
                 _remove_tree_at(directory_owner.fd, child)
             else:
                 os.unlink(child, dir_fd=directory_owner.fd)
@@ -1082,7 +1115,9 @@ class LocalCacheFilesystem:
         except FileNotFoundError:
             return CacheBlobStat(False, False, False, 0, 0)
         parent_owner = OwnedDescriptor(
-            PosixDescriptorOps(), parent_fd, label=f"parent of blob {path!r}",
+            PosixDescriptorOps(),
+            parent_fd,
+            label=f"parent of blob {path!r}",
         )
         primary: BaseException | None = None
         try:
@@ -1110,14 +1145,18 @@ class LocalCacheFilesystem:
     def read_bytes(self, path: str) -> bytes:
         parent_fd, name = _open_parent(path)
         parent_owner = OwnedDescriptor(
-            PosixDescriptorOps(), parent_fd, label=f"parent of blob {path!r}",
+            PosixDescriptorOps(),
+            parent_fd,
+            label=f"parent of blob {path!r}",
         )
         primary_parent: BaseException | None = None
         try:
             flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
             fd = os.open(name, flags, dir_fd=parent_owner.fd)
             fd_owner = OwnedDescriptor(
-                PosixDescriptorOps(), fd, label=f"cache blob {path!r}",
+                PosixDescriptorOps(),
+                fd,
+                label=f"cache blob {path!r}",
             )
             primary_fd: BaseException | None = None
             stream: IO[bytes] | None = None
@@ -1152,25 +1191,37 @@ class LocalCacheFilesystem:
     def digest_file(self, path: str, algorithm: str) -> str:
         inspection = self.inspect_and_digest(path, algorithm)
         if inspection.digest is None:
-            raise ArtifactMaterializationError("containment", "cache blob is not regular")
+            raise ArtifactMaterializationError(
+                "containment", "cache blob is not regular"
+            )
         return inspection.digest
 
     def inspect_and_digest(
-        self, path: str, algorithm: str,
+        self,
+        path: str,
+        algorithm: str,
     ) -> CacheBlobInspection:
         import hashlib
+
         parent_fd, name = _open_parent(path)
         parent_owner = OwnedDescriptor(
-            PosixDescriptorOps(), parent_fd, label=f"parent of blob {path!r}",
+            PosixDescriptorOps(),
+            parent_fd,
+            label=f"parent of blob {path!r}",
         )
         primary_parent: BaseException | None = None
         try:
-            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+            flags = (
+                os.O_RDONLY
+                | getattr(os, "O_NOFOLLOW", 0)
+                | getattr(os, "O_NONBLOCK", 0)
+            )
             try:
                 fd = os.open(name, flags, dir_fd=parent_owner.fd)
             except FileNotFoundError:
                 return CacheBlobInspection(
-                    CacheBlobStat(False, False, False, 0, 0), None,
+                    CacheBlobStat(False, False, False, 0, 0),
+                    None,
                 )
             except OSError:
                 value = os.stat(name, dir_fd=parent_owner.fd, follow_symlinks=False)
@@ -1185,7 +1236,9 @@ class LocalCacheFilesystem:
                     None,
                 )
             fd_owner = OwnedDescriptor(
-                PosixDescriptorOps(), fd, label=f"cache blob {path!r}",
+                PosixDescriptorOps(),
+                fd,
+                label=f"cache blob {path!r}",
             )
             primary_fd: BaseException | None = None
             stream: IO[bytes] | None = None
@@ -1234,7 +1287,9 @@ class LocalCacheFilesystem:
     def ensure_secure_dir(self, path: str) -> None:
         fd = _open_directory_chain(path, create=True)
         owner = OwnedDescriptor(
-            PosixDescriptorOps(), fd, label=f"private cache dir {path!r}",
+            PosixDescriptorOps(),
+            fd,
+            label=f"private cache dir {path!r}",
         )
         primary: BaseException | None = None
         try:
@@ -1252,14 +1307,18 @@ class LocalCacheFilesystem:
     def create_temp(self, path: str) -> None:
         parent_fd, name = _open_parent(path)
         parent_owner = OwnedDescriptor(
-            PosixDescriptorOps(), parent_fd, label=f"parent of temporary {path!r}",
+            PosixDescriptorOps(),
+            parent_fd,
+            label=f"parent of temporary {path!r}",
         )
         primary: BaseException | None = None
         try:
             flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
             fd = os.open(name, flags, 0o600, dir_fd=parent_owner.fd)
             owner = OwnedDescriptor(
-                PosixDescriptorOps(), fd, label=f"temporary blob {path}",
+                PosixDescriptorOps(),
+                fd,
+                label=f"temporary blob {path}",
             )
             owner.close()
         except BaseException as exc:
@@ -1275,22 +1334,28 @@ class LocalCacheFilesystem:
     def append_temp(self, path: str, chunk: bytes) -> None:
         parent_fd, name = _open_parent(path)
         parent_owner = OwnedDescriptor(
-            PosixDescriptorOps(), parent_fd, label=f"parent of temporary {path!r}",
+            PosixDescriptorOps(),
+            parent_fd,
+            label=f"parent of temporary {path!r}",
         )
         primary_parent: BaseException | None = None
         try:
             flags = os.O_WRONLY | os.O_APPEND | getattr(os, "O_NOFOLLOW", 0)
             fd = os.open(name, flags, dir_fd=parent_owner.fd)
             fd_owner = OwnedDescriptor(
-                PosixDescriptorOps(), fd, label=f"temporary blob {path}",
+                PosixDescriptorOps(),
+                fd,
+                label=f"temporary blob {path}",
             )
             primary_fd: BaseException | None = None
             try:
                 if not stat_module.S_ISREG(os.fstat(fd_owner.fd).st_mode):
-                    raise ArtifactMaterializationError("containment", "temporary blob is not regular")
+                    raise ArtifactMaterializationError(
+                        "containment", "temporary blob is not regular"
+                    )
                 view = memoryview(chunk)
                 while view:
-                    view = view[os.write(fd_owner.fd, view):]
+                    view = view[os.write(fd_owner.fd, view) :]
             except BaseException as exc:
                 primary_fd = exc
                 raise
@@ -1313,13 +1378,19 @@ class LocalCacheFilesystem:
     def finalize_temp(self, path: str, mode: int) -> None:
         parent_fd, name = _open_parent(path)
         parent_owner = OwnedDescriptor(
-            PosixDescriptorOps(), parent_fd, label=f"parent of temporary {path!r}",
+            PosixDescriptorOps(),
+            parent_fd,
+            label=f"parent of temporary {path!r}",
         )
         primary_parent: BaseException | None = None
         try:
-            fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent_owner.fd)
+            fd = os.open(
+                name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent_owner.fd
+            )
             fd_owner = OwnedDescriptor(
-                PosixDescriptorOps(), fd, label=f"temporary blob {path}",
+                PosixDescriptorOps(),
+                fd,
+                label=f"temporary blob {path}",
             )
             primary_fd: BaseException | None = None
             try:
@@ -1346,13 +1417,19 @@ class LocalCacheFilesystem:
     def cleanup_temp(self, root: str) -> None:
         parent_fd, name = _open_parent(root)
         parent_owner = OwnedDescriptor(
-            PosixDescriptorOps(), parent_fd, label=f"parent of temporary {root!r}",
+            PosixDescriptorOps(),
+            parent_fd,
+            label=f"parent of temporary {root!r}",
         )
         primary: BaseException | None = None
         try:
             value = os.stat(name, dir_fd=parent_owner.fd, follow_symlinks=False)
-            if not stat_module.S_ISDIR(value.st_mode) or stat_module.S_ISLNK(value.st_mode):
-                raise ArtifactMaterializationError("containment", "temporary root is unsafe")
+            if not stat_module.S_ISDIR(value.st_mode) or stat_module.S_ISLNK(
+                value.st_mode
+            ):
+                raise ArtifactMaterializationError(
+                    "containment", "temporary root is unsafe"
+                )
             _remove_tree_at(parent_owner.fd, name)
         except BaseException as exc:
             primary = exc
@@ -1370,7 +1447,9 @@ class LocalCacheFilesystem:
         except FileNotFoundError:
             return
         parent_owner = OwnedDescriptor(
-            PosixDescriptorOps(), parent_fd, label=f"parent of quarantine {path!r}",
+            PosixDescriptorOps(),
+            parent_fd,
+            label=f"parent of quarantine {path!r}",
         )
         primary: BaseException | None = None
         try:
@@ -1378,7 +1457,9 @@ class LocalCacheFilesystem:
                 value = os.stat(name, dir_fd=parent_owner.fd, follow_symlinks=False)
             except FileNotFoundError:
                 return
-            if stat_module.S_ISDIR(value.st_mode) and not stat_module.S_ISLNK(value.st_mode):
+            if stat_module.S_ISDIR(value.st_mode) and not stat_module.S_ISLNK(
+                value.st_mode
+            ):
                 _remove_tree_at(parent_owner.fd, name)
             else:
                 os.unlink(name, dir_fd=parent_owner.fd)
@@ -1395,7 +1476,9 @@ class LocalCacheFilesystem:
     def get_permissions(self, path: str) -> int:
         parent_fd, name = _open_parent(path)
         parent_owner = OwnedDescriptor(
-            PosixDescriptorOps(), parent_fd, label=f"parent of {path!r}",
+            PosixDescriptorOps(),
+            parent_fd,
+            label=f"parent of {path!r}",
         )
         primary: BaseException | None = None
         try:
@@ -1415,18 +1498,26 @@ class LocalCacheFilesystem:
     def set_permissions(self, path: str, mode: int) -> None:
         parent_fd, name = _open_parent(path)
         parent_owner = OwnedDescriptor(
-            PosixDescriptorOps(), parent_fd, label=f"parent of {path!r}",
+            PosixDescriptorOps(),
+            parent_fd,
+            label=f"parent of {path!r}",
         )
         primary_parent: BaseException | None = None
         try:
-            fd = os.open(name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent_owner.fd)
+            fd = os.open(
+                name, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0), dir_fd=parent_owner.fd
+            )
             fd_owner = OwnedDescriptor(
-                PosixDescriptorOps(), fd, label=f"cache blob {path!r}",
+                PosixDescriptorOps(),
+                fd,
+                label=f"cache blob {path!r}",
             )
             primary_fd: BaseException | None = None
             try:
                 if not stat_module.S_ISREG(os.fstat(fd_owner.fd).st_mode):
-                    raise ArtifactMaterializationError("containment", "cache blob is not regular")
+                    raise ArtifactMaterializationError(
+                        "containment", "cache blob is not regular"
+                    )
                 os.fchmod(fd_owner.fd, mode)
             except BaseException as exc:
                 primary_fd = exc
@@ -1450,26 +1541,35 @@ class LocalCacheFilesystem:
     def atomic_publish(self, temp_path: str, final_path: str) -> None:
         source_fd, source_name = _open_parent(temp_path)
         source_owner = OwnedDescriptor(
-            PosixDescriptorOps(), source_fd, label=f"publish source {temp_path!r}",
+            PosixDescriptorOps(),
+            source_fd,
+            label=f"publish source {temp_path!r}",
         )
         target_owner: OwnedDescriptor | None = None
         primary: BaseException | None = None
         try:
             target_fd, target_name = _open_parent(final_path)
             target_owner = OwnedDescriptor(
-                PosixDescriptorOps(), target_fd, label=f"publish target {final_path!r}",
+                PosixDescriptorOps(),
+                target_fd,
+                label=f"publish target {final_path!r}",
             )
             source = os.stat(source_name, dir_fd=source_owner.fd, follow_symlinks=False)
             target_dir = os.fstat(target_owner.fd)
             if not stat_module.S_ISREG(source.st_mode):
-                raise ArtifactMaterializationError("publication", "temporary blob is not regular")
+                raise ArtifactMaterializationError(
+                    "publication", "temporary blob is not regular"
+                )
             if source.st_dev != target_dir.st_dev:
                 raise ArtifactMaterializationError(
-                    "publication", "temporary and final paths are on different filesystems"
+                    "publication",
+                    "temporary and final paths are on different filesystems",
                 )
             os.replace(
-                source_name, target_name,
-                src_dir_fd=source_owner.fd, dst_dir_fd=target_owner.fd,
+                source_name,
+                target_name,
+                src_dir_fd=source_owner.fd,
+                dst_dir_fd=target_owner.fd,
             )
         except BaseException as exc:
             primary = exc
@@ -1487,9 +1587,12 @@ class LocalCacheFilesystem:
 class LocalTemporaryDirectory:
     def mkdtemp(self, prefix: str, parent: str) -> str:
         import secrets
+
         parent_fd = _open_directory_chain(parent, create=False)
         parent_owner = OwnedDescriptor(
-            PosixDescriptorOps(), parent_fd, label=f"temporary parent {parent!r}",
+            PosixDescriptorOps(),
+            parent_fd,
+            label=f"temporary parent {parent!r}",
         )
         primary: BaseException | None = None
         try:
@@ -1546,10 +1649,14 @@ def _identity_lock_failure(exc: BaseException) -> BaseException:
     if isinstance(exc, LockError):
         if exc.stage == STAGE_LOCK_VALIDATE:
             return ArtifactMaterializationError(
-                "containment", "identity lock is not a private regular file",
+                "containment",
+                "identity lock is not a private regular file",
             )
         if exc.stage in (
-            STAGE_LOCK_STAT, STAGE_LOCK_MODE, STAGE_LOCK_ACQUIRE, STAGE_CLOSE,
+            STAGE_LOCK_STAT,
+            STAGE_LOCK_MODE,
+            STAGE_LOCK_ACQUIRE,
+            STAGE_CLOSE,
         ):
             # An operational descriptor-stat, mode-repair, acquisition, or
             # lock-probe-close failure is already a typed ``LockError``.
@@ -1558,11 +1665,13 @@ def _identity_lock_failure(exc: BaseException) -> BaseException:
             # chains directly from it.
             return exc
         return ArtifactMaterializationError(
-            "containment", "identity lock path is unsafe",
+            "containment",
+            "identity lock path is unsafe",
         )
     if isinstance(exc, CapabilityError):
         return ArtifactMaterializationError(
-            "containment", "identity lock path is unsafe",
+            "containment",
+            "identity lock path is unsafe",
         )
     if isinstance(exc, TransactionError):
         # A typed directory-factory failure is preserved so its stage, exact
@@ -1597,13 +1706,17 @@ class FileIdentityLock(IdentityLock):
         # here; after successful adoption the owner detaches so the capability
         # owns the descriptor exclusively.
         raw_owner: OwnedDescriptor | None = OwnedDescriptor(
-            cast(DescriptorOps, self._ops), lock_dir_fd, label="runtime-artifact locks",
+            cast(DescriptorOps, self._ops),
+            lock_dir_fd,
+            label="runtime-artifact locks",
         )
         directory: DirectoryCapability | None = None
         capability: LockCapability | None = None
         try:
             directory = DirectoryCapability.from_fd(
-                self._ops, raw_owner.fd, "runtime-artifact locks",
+                self._ops,
+                raw_owner.fd,
+                "runtime-artifact locks",
             )
             # Ownership of the directory descriptor transferred to the
             # capability; the shared owner must no longer release it here.
@@ -1666,10 +1779,9 @@ class FileIdentityLock(IdentityLock):
 class FileIdentityLockFactory:
     def __init__(self, cache_root: str, *, lock_root: str | None = None):
         self._lock_root = lock_root or os.path.join(
-            os.path.dirname(cache_root), "locks",
+            os.path.dirname(cache_root),
+            "locks",
         )
 
     def __call__(self, identity: str) -> IdentityLock:
         return FileIdentityLock(self._lock_root)
-
-

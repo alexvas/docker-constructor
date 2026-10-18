@@ -6,6 +6,7 @@ repository configuration, independent copies cannot contaminate one
 another, locally derived SRI matches the synthetic artifact bytes, and
 named mutations fail on the intended field rather than an unrelated one.
 """
+
 from __future__ import annotations
 
 import base64
@@ -55,6 +56,7 @@ class TestStableFixtureBaseline(unittest.TestCase):
 
     def test_override_policies_accept_own_and_reject_neighbours(self):
         from docker.versioning.constraints import parse_numeric_version
+
         inventory = load_inventory(STABLE_INVENTORY_PATH)
         for name, accepted, rejected in (
             ("pi-read", "0.2.1", "0.1.9"),
@@ -95,7 +97,9 @@ class TestFreshDocumentsAreIndependent(unittest.TestCase):
             self.assertEqual(original_second, second.read_text())
 
             inventory = load_inventory(second)
-            self.assertEqual(inventory.runtime_pi_extensions["pi-read"].version, "0.2.1")
+            self.assertEqual(
+                inventory.runtime_pi_extensions["pi-read"].version, "0.2.1"
+            )
 
     def test_write_stable_inventory_writes_fresh_file(self):
         with tempfile.TemporaryDirectory() as td:
@@ -113,7 +117,9 @@ class TestNamedMutations(unittest.TestCase):
             path = write_stable_inventory(td)
             path.write_text(stripped)
             inventory = load_inventory(path)
-            self.assertEqual(sorted(inventory.runtime_pi_extensions), ["pi-proxy", "pi-usage"])
+            self.assertEqual(
+                sorted(inventory.runtime_pi_extensions), ["pi-proxy", "pi-usage"]
+            )
 
     def test_remove_unknown_extension_raises(self):
         with self.assertRaises(KeyError):
@@ -139,6 +145,7 @@ class TestNamedMutations(unittest.TestCase):
             path = write_stable_inventory(td)
             path.write_text(mutated)
             from docker.versioning.errors import InventoryError
+
             with self.assertRaises(InventoryError) as ctx:
                 load_inventory(path)
         self.assertIn("scheme", str(ctx.exception).lower())
@@ -157,6 +164,7 @@ class TestNamedMutations(unittest.TestCase):
             path = write_stable_inventory(td)
             path.write_text(stripped)
             from docker.versioning.errors import InventoryError
+
             with self.assertRaises(InventoryError) as ctx:
                 load_inventory(path)
         self.assertIn("pi-proxy.artifacts", str(ctx.exception).lower())
@@ -199,7 +207,8 @@ class TestLocalIntegrityDerivation(unittest.TestCase):
         )
         shared = artifact_integrity("https://example.invalid/a.tgz")
         rewritten = rewrite_artifact_integrities(
-            text, overrides={"https://example.invalid/b.tgz": shared},
+            text,
+            overrides={"https://example.invalid/b.tgz": shared},
         )
         self.assertEqual(rewritten.count(shared), 2)
 

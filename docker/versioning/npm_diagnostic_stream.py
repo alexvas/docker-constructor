@@ -40,6 +40,7 @@ presentation worker.  ``classify_npm_diagnostic`` is a conservative,
 message-wording classifier used only to select a closed diagnostic priority;
 it never derives a Constructor lifecycle state.
 """
+
 from __future__ import annotations
 
 import re
@@ -217,10 +218,13 @@ class NpmDiagnosticStream:
         self._secrets = tuple(secrets)
         self._framer = TerminalSafeLineFramer(line_limit_bytes=line_limit)
         self._projector = DiagnosticProjector(
-            secrets, url_identity=fingerprinter,
-            url_display=(NetworkUrlDisplay.HOST_PATH
-                         if network_url_display is NetworkUrlDisplay.HOST_PATH
-                         else NetworkUrlDisplay.REDACTED),
+            secrets,
+            url_identity=fingerprinter,
+            url_display=(
+                NetworkUrlDisplay.HOST_PATH
+                if network_url_display is NetworkUrlDisplay.HOST_PATH
+                else NetworkUrlDisplay.REDACTED
+            ),
             capture_redacted=network_url_display is NetworkUrlDisplay.HOST_PATH,
         )
         # The single retained tail is mode-selected.  ``redacted`` retains the
@@ -310,16 +314,10 @@ class NpmDiagnosticStream:
             chunks.extend(
                 self._emit_projected(
                     text,
-                    retain=(
-                        self._network_url_display is NetworkUrlDisplay.REDACTED
-                    ),
+                    retain=(self._network_url_display is NetworkUrlDisplay.REDACTED),
                 )
             )
-        if (
-            self._line_chars
-            or self._line_hostnames
-            or self._line_fingerprints
-        ):
+        if self._line_chars or self._line_hostnames or self._line_fingerprints:
             chunks.append(self._finalize_line())
         return tuple(chunks)
 
@@ -359,8 +357,11 @@ class NpmDiagnosticStream:
                 self._selected_line_chars.append(text)
                 self._append_tail(text)
                 chunks.extend(self._local_prefix_chunks(text))
-            chunks.extend(self._emit_projected(
-                text, retain=self._network_url_display is NetworkUrlDisplay.REDACTED))
+            chunks.extend(
+                self._emit_projected(
+                    text, retain=self._network_url_display is NetworkUrlDisplay.REDACTED
+                )
+            )
             return chunks
         chunks: list[StreamChunk] = []
         start = 0
@@ -381,17 +382,18 @@ class NpmDiagnosticStream:
             # selected representation commits it, before the safe projection
             # finalizes the record at the newline.
             chunks.extend(self._emit_selected_prefix(source_segment))
-            projected = (self._projector.take_redacted_chunks()
-                         if self._retained_projector is not None
-                         else self._projector.feed_text(source_segment))
+            projected = (
+                self._projector.take_redacted_chunks()
+                if self._retained_projector is not None
+                else self._projector.feed_text(source_segment)
+            )
             self._absorb_projector_facts()
             for projected_text in projected:
                 chunks.extend(
                     self._emit_projected(
                         projected_text,
                         retain=(
-                            self._network_url_display
-                            is NetworkUrlDisplay.REDACTED
+                            self._network_url_display is NetworkUrlDisplay.REDACTED
                         ),
                     )
                 )
@@ -510,11 +512,7 @@ class NpmDiagnosticStream:
                 chunks.append(self._emit_prefix(segment, retain=retain))
             if retain:
                 self._append_tail("\n")
-            if (
-                self._line_chars
-                or self._line_hostnames
-                or self._line_fingerprints
-            ):
+            if self._line_chars or self._line_hostnames or self._line_fingerprints:
                 chunks.append(self._finalize_line(newline_terminated=True))
             else:
                 # An empty logical line preserves only its record boundary.
@@ -540,13 +538,14 @@ class NpmDiagnosticStream:
         # their safe projection carries no local fragment and is never
         # displayed.
         local_text = (
-            segment
-            if self._network_url_display is NetworkUrlDisplay.REDACTED
-            else None
+            segment if self._network_url_display is NetworkUrlDisplay.REDACTED else None
         )
         return StreamChunk(
-            self._stream, segment, overflowed=self._line_overflowed,
-            finalized=False, local_text=local_text,
+            self._stream,
+            segment,
+            overflowed=self._line_overflowed,
+            finalized=False,
+            local_text=local_text,
         )
 
     def _finalize_line(self, *, newline_terminated: bool = False) -> StreamChunk:
@@ -561,13 +560,17 @@ class NpmDiagnosticStream:
         )
         self._reset_line_facts()
         return StreamChunk(
-            self._stream, text, hostnames, fingerprints, overflowed=overflowed,
-            local_text=local_text, fetch_key=fetch_key, fetch_text=fetch_text,
+            self._stream,
+            text,
+            hostnames,
+            fingerprints,
+            overflowed=overflowed,
+            local_text=local_text,
+            fetch_key=fetch_key,
+            fetch_text=fetch_text,
         )
 
-    def _selected_local_text(
-        self, projected: str, *, newline_terminated: bool
-    ) -> str:
+    def _selected_local_text(self, projected: str, *, newline_terminated: bool) -> str:
         """Return the accumulated mode-selected local representation.
 
         ``redacted`` selects the URL-free projection already carried in
@@ -671,9 +674,7 @@ class NpmDiagnosticStream:
         for character in text:
             self._tail.append(character)
             self._tail_byte_count += len(character.encode("utf-8"))
-        while (
-            self._tail_byte_count > self._tail_bytes_limit and self._tail
-        ):
+        while self._tail_byte_count > self._tail_bytes_limit and self._tail:
             character = self._tail.popleft()
             self._tail_byte_count -= len(character.encode("utf-8"))
 

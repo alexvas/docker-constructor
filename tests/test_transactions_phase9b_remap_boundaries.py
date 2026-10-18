@@ -12,6 +12,7 @@ Cause inspection that drives a control-flow or domain decision (for example
 recognizing ``FileNotFoundError``) is still permitted; only exception
 replacement is rejected.
 """
+
 from __future__ import annotations
 
 import ast
@@ -97,7 +98,9 @@ class ExplicitAggregatorTests(unittest.TestCase):
         self.assertEqual(len(calls.get("carry_secondary_diagnostics", [])), 0)
         attach = calls.get("attach_secondary", [])
         self.assertEqual(len(attach), 1)
-        self.assertEqual(ast.unparse(attach[0]), "attach_secondary(primary, [release_exc])")
+        self.assertEqual(
+            ast.unparse(attach[0]), "attach_secondary(primary, [release_exc])"
+        )
 
 
 class CarryExportBoundaryTests(unittest.TestCase):

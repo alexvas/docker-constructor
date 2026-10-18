@@ -16,6 +16,7 @@ These bind the orchestration deliverables:
   carrying age/container/deadline context, and no claim of current download or
   network activity and no Docker/process/filesystem probes.
 """
+
 from __future__ import annotations
 
 import base64
@@ -219,8 +220,7 @@ def _started_steps(events) -> list[HostStep]:
     return [
         event.step
         for event in events
-        if isinstance(event, HostStepEvent)
-        and event.state is HostStepState.STARTED
+        if isinstance(event, HostStepEvent) and event.state is HostStepState.STARTED
     ]
 
 
@@ -328,9 +328,7 @@ class TestOrderedStepSequence(_AssemblyCase):
             def run(self, argv):  # noqa: ANN001
                 raise RuntimeError("cleanup rm failed")
 
-            def run_streaming(
-                self, argv, *, secrets=(), sink=None, on_launched=None
-            ):  # noqa: ANN001
+            def run_streaming(self, argv, *, secrets=(), sink=None, on_launched=None):  # noqa: ANN001
                 raise RuntimeError("docker run failed to launch")
 
         events: list[object] = []
@@ -381,8 +379,7 @@ class TestOrderedStepSequence(_AssemblyCase):
         terminal = [
             event
             for event in events
-            if isinstance(event, HostStepEvent)
-            and event.state is HostStepState.FAILED
+            if isinstance(event, HostStepEvent) and event.state is HostStepState.FAILED
         ]
         self.assertTrue(terminal)
         # No step left its heartbeat producer alive.
@@ -396,9 +393,7 @@ class TestCoordinationWait(_AssemblyCase):
         from docker.npm_environment.storage import prepare_assembler_namespace
         from docker.npm_environment.identity import compute_assembler_input_identity
 
-        namespace = prepare_assembler_namespace(
-            self.cache_root, self.assembler.digest
-        )
+        namespace = prepare_assembler_namespace(self.cache_root, self.assembler.digest)
         input_identity = compute_assembler_input_identity(
             self.validated, self.assembler
         )
@@ -470,8 +465,7 @@ class TestCacheReuse(_AssemblyCase):
         reuse = [
             event
             for event in events
-            if isinstance(event, HostStepEvent)
-            and event.step is HostStep.CACHE_REUSE
+            if isinstance(event, HostStepEvent) and event.step is HostStep.CACHE_REUSE
         ]
         self.assertTrue(reuse)
         self.assertTrue(all(event.state is HostStepState.SUCCEEDED for event in reuse))

@@ -53,11 +53,7 @@ _CANONICAL = (_REPO_ROOT / "docker-constructor.toml").read_text()
 
 _CLIENT_CA_NAMES = tuple(name for name, _value in CLIENT_CA_ENVIRONMENT)
 
-_VALID_BUNDLE = (
-    "-----BEGIN CERTIFICATE-----\n"
-    "AQIDBAU=\n"
-    "-----END CERTIFICATE-----\n"
-)
+_VALID_BUNDLE = "-----BEGIN CERTIFICATE-----\nAQIDBAU=\n-----END CERTIFICATE-----\n"
 
 _MALFORMED_BUNDLE = "not a pem bundle\n"
 
@@ -117,7 +113,10 @@ class _ClientCaRunner:
         self.calls.append(t)
         rc, out, err = self._handlers.get(t[3:], (0, "", ""))
         return _ProcessResult(
-            argv=t, return_code=rc, stdout=out, stderr=err,
+            argv=t,
+            return_code=rc,
+            stdout=out,
+            stderr=err,
         )
 
 
@@ -125,17 +124,19 @@ def _verify(runner: _ClientCaRunner, *, enabled: bool):
     with tempfile.TemporaryDirectory() as root:
         proj = Path(root) / "projection.toml"
         proj.write_text("[extensions]\n")
-        return verify_runtime(VerifyRuntimeRequest(
-            container="pi-cli-pi-1",
-            runtime_projection_path=proj,
-            workspace_paths=(Path("/work/project"),),
-            container_pi_home=Path("/home/dev/.pi"),
-            runner=runner,
-            host_access=None,
-            corporate_trust_enabled=enabled,
-            proxy_url=None,
-            proxy_no_proxy=None,
-        ))
+        return verify_runtime(
+            VerifyRuntimeRequest(
+                container="pi-cli-pi-1",
+                runtime_projection_path=proj,
+                workspace_paths=(Path("/work/project"),),
+                container_pi_home=Path("/home/dev/.pi"),
+                runner=runner,
+                host_access=None,
+                corporate_trust_enabled=enabled,
+                proxy_url=None,
+                proxy_no_proxy=None,
+            )
+        )
 
 
 def _client_ca_checks(result) -> dict[str, list]:
@@ -216,7 +217,8 @@ def _collect_mounts(args: tuple[str, ...]) -> list[dict[str, str]]:
 
 
 def _find_mount(
-    mounts: list[dict[str, str]], dst: str,
+    mounts: list[dict[str, str]],
+    dst: str,
 ) -> dict[str, str] | None:
     for mount in mounts:
         if mount.get("dst") == dst:
@@ -247,19 +249,21 @@ class _RunOrchestrationRed(unittest.TestCase):
                 bundle_dir.mkdir()
                 (bundle_dir / "corporate-ca-bundle.crt").write_text(bundle)
             effects: list[str] = []
-            result = orchestrate_run(RunRequest(
-                inventory_path=str(inventory),
-                image="pi-cli-pi:latest",
-                selection=WorkspaceSelection(workspace="/work/project"),
-                pi_home_host="/home/user/.pi",
-                repo_root=str(root_path),
-                project_root=str(root_path),
-                dry_run=True,
-                executor=_bomb_executor(effects),
-                inspector=_bomb_inspector(effects),
-                _create_projection=_bomb_projection(effects),
-                _artifact_fetcher=_bomb_artifact(effects),
-            ))
+            result = orchestrate_run(
+                RunRequest(
+                    inventory_path=str(inventory),
+                    image="pi-cli-pi:latest",
+                    selection=WorkspaceSelection(workspace="/work/project"),
+                    pi_home_host="/home/user/.pi",
+                    repo_root=str(root_path),
+                    project_root=str(root_path),
+                    dry_run=True,
+                    executor=_bomb_executor(effects),
+                    inspector=_bomb_inspector(effects),
+                    _create_projection=_bomb_projection(effects),
+                    _artifact_fetcher=_bomb_artifact(effects),
+                )
+            )
             self.assertEqual([], effects)
             return result
 
@@ -274,7 +278,8 @@ class TestEnabledTrustOrchestrationRed(_RunOrchestrationRed):
         )
         self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
         mount = _find_mount(
-            _collect_mounts(result.run_args), SYSTEM_CA_BUNDLE,
+            _collect_mounts(result.run_args),
+            SYSTEM_CA_BUNDLE,
         )
         self.assertIsNotNone(mount, "missing corporate trust mount")
         self.assertIn("readonly", mount)
@@ -283,7 +288,9 @@ class TestEnabledTrustOrchestrationRed(_RunOrchestrationRed):
             by_name.setdefault(name, []).append(value)
         for name in _CLIENT_CA_NAMES:
             self.assertEqual(
-                [SYSTEM_CA_BUNDLE], by_name.get(name, []), name,
+                [SYSTEM_CA_BUNDLE],
+                by_name.get(name, []),
+                name,
             )
 
     def test_disabled_trust_final_launch_has_neither_mount_nor_env(self) -> None:
@@ -291,18 +298,23 @@ class TestEnabledTrustOrchestrationRed(_RunOrchestrationRed):
             with self.subTest(companion=companion):
                 result = self.run_with_local(companion)
                 self.assertEqual(
-                    ExitKind.SUCCESS, result.exit_kind, result.message,
+                    ExitKind.SUCCESS,
+                    result.exit_kind,
+                    result.message,
                 )
                 self.assertIsNone(
                     _find_mount(
-                        _collect_mounts(result.run_args), SYSTEM_CA_BUNDLE,
+                        _collect_mounts(result.run_args),
+                        SYSTEM_CA_BUNDLE,
                     ),
                     "disabled trust must not emit a system-bundle mount",
                 )
                 assignments = _collect_env_assignments(result.run_args)
                 for name in _CLIENT_CA_NAMES:
                     self.assertEqual(
-                        [], [v for k, v in assignments if k == name], name,
+                        [],
+                        [v for k, v in assignments if k == name],
+                        name,
                     )
 
 
@@ -324,18 +336,19 @@ class TestEnabledClientCaRuntimeVerificationRed(unittest.TestCase):
             check = by_name[name][0]
             self.assertTrue(check.ok, check.detail)
             self.assertIn(SYSTEM_CA_BUNDLE, check.detail)
-        mount = next(
-            c for c in result.checks if c.key == "corporate-trust.mount"
-        )
+        mount = next(c for c in result.checks if c.key == "corporate-trust.mount")
         self.assertTrue(mount.ok, mount.detail)
 
     def test_missing_and_mismatched_variables_reported_individually(
         self,
     ) -> None:
-        runner = _ClientCaRunner(enabled=True, overrides={
-            ("printenv", "PIP_CERT"): (0, "/etc/other/cert.pem\n", ""),
-            ("printenv", "CURL_CA_BUNDLE"): (1, "", ""),
-        })
+        runner = _ClientCaRunner(
+            enabled=True,
+            overrides={
+                ("printenv", "PIP_CERT"): (0, "/etc/other/cert.pem\n", ""),
+                ("printenv", "CURL_CA_BUNDLE"): (1, "", ""),
+            },
+        )
         result = _verify(runner, enabled=True)
         by_name = _client_ca_checks(result)
         self.assertEqual(set(_CLIENT_CA_NAMES), set(by_name))
@@ -348,9 +361,7 @@ class TestEnabledClientCaRuntimeVerificationRed(unittest.TestCase):
         self.assertIn("PIP_CERT", by_name["PIP_CERT"][0].detail)
         self.assertIn("CURL_CA_BUNDLE", by_name["CURL_CA_BUNDLE"][0].detail)
         # The existing mount result is retained alongside the new checks.
-        mount = next(
-            c for c in result.checks if c.key == "corporate-trust.mount"
-        )
+        mount = next(c for c in result.checks if c.key == "corporate-trust.mount")
         self.assertTrue(mount.ok, mount.detail)
 
     def test_whitespace_and_extra_content_values_are_exact_mismatches(
@@ -371,9 +382,12 @@ class TestEnabledClientCaRuntimeVerificationRed(unittest.TestCase):
         )
         for (stdout, label), name in zip(variants, _CLIENT_CA_NAMES):
             with self.subTest(variant=label, variable=name):
-                runner = _ClientCaRunner(enabled=True, overrides={
-                    ("printenv", name): (0, stdout, ""),
-                })
+                runner = _ClientCaRunner(
+                    enabled=True,
+                    overrides={
+                        ("printenv", name): (0, stdout, ""),
+                    },
+                )
                 result = _verify(runner, enabled=True)
                 by_name = _client_ca_checks(result)
                 self.assertEqual(set(_CLIENT_CA_NAMES), set(by_name))
@@ -385,8 +399,7 @@ class TestEnabledClientCaRuntimeVerificationRed(unittest.TestCase):
                         continue
                     self.assertTrue(by_name[other][0].ok, other)
                 mount = next(
-                    c for c in result.checks
-                    if c.key == "corporate-trust.mount"
+                    c for c in result.checks if c.key == "corporate-trust.mount"
                 )
                 self.assertTrue(mount.ok, mount.detail)
 
@@ -399,13 +412,16 @@ class TestEnabledClientCaRuntimeVerificationRed(unittest.TestCase):
             "AQIDBAU=\n"
             "-----END CERTIFICATE-----"
         )
-        runner = _ClientCaRunner(enabled=True, overrides={
-            ("printenv", "PIP_CERT"): (
-                0,
-                hostile + "\n",
-                "printenv failed: " + hostile + "\n",
-            ),
-        })
+        runner = _ClientCaRunner(
+            enabled=True,
+            overrides={
+                ("printenv", "PIP_CERT"): (
+                    0,
+                    hostile + "\n",
+                    "printenv failed: " + hostile + "\n",
+                ),
+            },
+        )
         result = _verify(runner, enabled=True)
         check = _client_ca_checks(result)["PIP_CERT"][0]
         self.assertFalse(check.ok)
@@ -438,9 +454,7 @@ class TestEnabledClientCaRuntimeVerificationRed(unittest.TestCase):
             if other == "PIP_CERT":
                 continue
             self.assertTrue(by_name[other][0].ok, other)
-        mount = next(
-            c for c in result.checks if c.key == "corporate-trust.mount"
-        )
+        mount = next(c for c in result.checks if c.key == "corporate-trust.mount")
         self.assertTrue(mount.ok, mount.detail)
 
 
@@ -459,12 +473,9 @@ class TestDisabledClientCaRuntimeVerificationRed(unittest.TestCase):
         result = _verify(runner, enabled=False)
         self.assertEqual(
             [],
-            [c for c in result.checks
-             if c.key == "corporate-trust.environment"],
+            [c for c in result.checks if c.key == "corporate-trust.environment"],
         )
-        mount = next(
-            c for c in result.checks if c.key == "corporate-trust.mount"
-        )
+        mount = next(c for c in result.checks if c.key == "corporate-trust.mount")
         self.assertTrue(mount.ok, mount.detail)
         # No client CA variable is even inspected.
         for argv in runner.calls:
@@ -474,20 +485,23 @@ class TestDisabledClientCaRuntimeVerificationRed(unittest.TestCase):
     def test_disabled_verification_ignores_inherited_client_ca_values(
         self,
     ) -> None:
-        runner = _ClientCaRunner(enabled=False, overrides={
-            ("printenv", "SSL_CERT_FILE"): (0, "/usr/lib/ssl/cert.pem\n", ""),
-            ("printenv", "NODE_EXTRA_CA_CERTS"):
-                (0, "/etc/ssl/certs/other.pem\n", ""),
-        })
+        runner = _ClientCaRunner(
+            enabled=False,
+            overrides={
+                ("printenv", "SSL_CERT_FILE"): (0, "/usr/lib/ssl/cert.pem\n", ""),
+                ("printenv", "NODE_EXTRA_CA_CERTS"): (
+                    0,
+                    "/etc/ssl/certs/other.pem\n",
+                    "",
+                ),
+            },
+        )
         result = _verify(runner, enabled=False)
         self.assertEqual(
             [],
-            [c for c in result.checks
-             if c.key == "corporate-trust.environment"],
+            [c for c in result.checks if c.key == "corporate-trust.environment"],
         )
-        mount = next(
-            c for c in result.checks if c.key == "corporate-trust.mount"
-        )
+        mount = next(c for c in result.checks if c.key == "corporate-trust.mount")
         self.assertTrue(mount.ok, mount.detail)
 
 
@@ -527,10 +541,9 @@ class TestMalformedEnabledTrustVerificationRed(unittest.TestCase):
             (bundle_dir / "corporate-ca-bundle.crt").write_text(
                 _MALFORMED_BUNDLE,
             )
-            _trust, _url, _no_proxy, error = (
-                _resolve_verify_corporate_network(
-                    str(inventory), root_path,
-                )
+            _trust, _url, _no_proxy, error = _resolve_verify_corporate_network(
+                str(inventory),
+                root_path,
             )
         self.assertIsNotNone(error)
         self.assertIn("corporate-ca-bundle.crt", error or "")
@@ -551,7 +564,8 @@ class TestClientCaVerificationBoundariesRed(unittest.TestCase):
             if check.key != "corporate-trust.environment":
                 continue
             self.assertIn(
-                check.detail.split("=")[0], _CLIENT_CA_NAMES,
+                check.detail.split("=")[0],
+                _CLIENT_CA_NAMES,
                 check.detail,
             )
             # The command vector names only the fixed variable.
@@ -560,13 +574,11 @@ class TestClientCaVerificationBoundariesRed(unittest.TestCase):
                 tuple(check.command or ())[:4],
             )
             self.assertEqual(5, len(check.command or ()))
-            self.assertIn((check.command or ("", "", "", "", ""))[4],
-                          _CLIENT_CA_NAMES)
+            self.assertIn((check.command or ("", "", "", "", ""))[4], _CLIENT_CA_NAMES)
             # Raw structured fields carry only the fixed value, never the
             # host bundle source or certificate contents.
             self.assertEqual(SYSTEM_CA_BUNDLE, (check.raw_stdout or "").strip())
-            for field in (check.detail, check.raw_stdout or "",
-                          check.raw_stderr or ""):
+            for field in (check.detail, check.raw_stdout or "", check.raw_stderr or ""):
                 for forbidden in (
                     "corporate-ca-bundle",
                     ".docker-local",

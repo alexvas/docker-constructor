@@ -3,6 +3,7 @@
 Historical UNKNOWN hiding / unrestricted suffix batch equivalence are not
 contracts. These tests intentionally require persistent overlap states.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -10,7 +11,9 @@ import unittest
 
 from docker.versioning.diagnostic_identity import SessionUrlIdentity
 from docker.versioning.diagnostic_projection import (
-    DiagnosticProjector, INCOMPLETE_TOKEN_MARKER, OVERSIZED_TOKEN_MARKER,
+    DiagnosticProjector,
+    INCOMPLETE_TOKEN_MARKER,
+    OVERSIZED_TOKEN_MARKER,
     PENDING_LIMIT_BYTES,
 )
 from docker.versioning.model import NetworkUrlDisplay
@@ -28,11 +31,18 @@ class Phase3Tests(unittest.TestCase):
     def projector(self, secrets=(), *, host_path=False, url_identity=None):
         if not hasattr(DiagnosticProjector, "recognition_stats"):
             self.fail("P3 requires projector lifetime recognition counters")
-        return DiagnosticProjector(secrets, url_identity=url_identity, url_display=(
-            NetworkUrlDisplay.HOST_PATH if host_path else NetworkUrlDisplay.REDACTED))
+        return DiagnosticProjector(
+            secrets,
+            url_identity=url_identity,
+            url_display=(
+                NetworkUrlDisplay.HOST_PATH if host_path else NetworkUrlDisplay.REDACTED
+            ),
+        )
 
     def project(self, text, secrets=(), cuts=(), *, host_path=False, bytewise=False):
-        p = self.projector(secrets, host_path=host_path, url_identity=self.partition_identity)
+        p = self.projector(
+            secrets, host_path=host_path, url_identity=self.partition_identity
+        )
         out = []
         if bytewise:
             for value in text.encode("utf-8"):
@@ -73,7 +83,9 @@ class Phase3Tests(unittest.TestCase):
 
     def test_completed_url_precedes_ambiguous_tail(self):
         p = self.projector()
-        self.assertEqual("<redacted> ", "".join(p.feed_text("https://one.example/a git:")))
+        self.assertEqual(
+            "<redacted> ", "".join(p.feed_text("https://one.example/a git:"))
+        )
         self.assertEqual(("one.example",), p.hostnames)
         self.assertEqual("git:", p._pending)
         self.assertEqual("<redacted> ", "".join(p.feed_text("//two.example/b ")))
@@ -98,13 +110,29 @@ class Phase3Tests(unittest.TestCase):
     def test_every_split_and_utf8_byte_partition(self):
         cases = (
             ("before TOKEN after", ("TOKEN",), "before <secret> after"),
-            ("before TOKENhttps://host/a end", ("TOKEN",), "before <secret><redacted> end"),
+            (
+                "before TOKENhttps://host/a end",
+                ("TOKEN",),
+                "before <secret><redacted> end",
+            ),
             ("safe TOKENhttps://host end", ("TOKENht",), "safe <secret><redacted> end"),
-            ("https://host/password done after", ("password done",), "<redacted> after"),
-            ("xx h%252574tps%253A%252F%252Fbücher.example/x end", (), "xx <redacted> end"),
+            (
+                "https://host/password done after",
+                ("password done",),
+                "<redacted> after",
+            ),
+            (
+                "xx h%252574tps%253A%252F%252Fbücher.example/x end",
+                (),
+                "xx <redacted> end",
+            ),
             ("%54%4f%4b%45%4e text", ("TOKEN",), "%54%4f%4b%45%4e text"),
             ("https://host/%54%4f%4b%45%4e end", ("TOKEN",), "<redacted> end"),
-            ("https://one.example/a https://two.example/b end", (), "<redacted> <redacted> end"),
+            (
+                "https://one.example/a https://two.example/b end",
+                (),
+                "<redacted> <redacted> end",
+            ),
         )
         for text, secrets, expected in cases:
             baseline = self.project(text, secrets)
@@ -123,9 +151,11 @@ class Phase3Tests(unittest.TestCase):
         self.assertEqual(("host",), p.hostnames)
 
     def test_authority_waits_for_userinfo_ipv6_and_port(self):
-        for first, last, host in (("https://user", "@host/pa", "host"),
-                                 ("https://[2001:db8::", "1]:443/pa", "2001:db8::1"),
-                                 ("https://host:", "8443/pa", "host")):
+        for first, last, host in (
+            ("https://user", "@host/pa", "host"),
+            ("https://[2001:db8::", "1]:443/pa", "2001:db8::1"),
+            ("https://host:", "8443/pa", "host"),
+        ):
             p = self.projector(host_path=True)
             self.assertEqual((), p.feed_text(first))
             self.assertEqual(host, "".join(p.feed_text(last)))
@@ -139,15 +169,21 @@ class Phase3Tests(unittest.TestCase):
         self.assertEqual((), p.hostnames)
 
     def test_host_path_partition_invariance(self):
-        for text, secrets in (("https://host/public?q=x end", ()),
-                              ("https://TOKEN.example/public end", ("TOKEN",)),
-                              ("https://host/TOKEN/private end", ("TOKEN",)),
-                              ("https://user:TOKEN@host/public end", ("TOKEN",)),
-                              ("https%253A%252F%252Fhost/public end", ())):
+        for text, secrets in (
+            ("https://host/public?q=x end", ()),
+            ("https://TOKEN.example/public end", ("TOKEN",)),
+            ("https://host/TOKEN/private end", ("TOKEN",)),
+            ("https://user:TOKEN@host/public end", ("TOKEN",)),
+            ("https%253A%252F%252Fhost/public end", ()),
+        ):
             baseline = self.project(text, secrets, host_path=True)
             for split in range(len(text) + 1):
-                self.assertEqual(baseline, self.project(text, secrets, (split,), host_path=True))
-            self.assertEqual(baseline, self.project(text, secrets, host_path=True, bytewise=True))
+                self.assertEqual(
+                    baseline, self.project(text, secrets, (split,), host_path=True)
+                )
+            self.assertEqual(
+                baseline, self.project(text, secrets, host_path=True, bytewise=True)
+            )
 
     def test_redacted_early_marker_survives_eof_abort_and_overflow(self):
         for ending in ("eof", "abort", "overflow"):
@@ -160,8 +196,10 @@ class Phase3Tests(unittest.TestCase):
                 self.assertEqual((), p.hostnames)
 
     def test_host_commit_survives_abort_and_overflow(self):
-        for ending, marker in (("abort", INCOMPLETE_TOKEN_MARKER),
-                               ("overflow", OVERSIZED_TOKEN_MARKER)):
+        for ending, marker in (
+            ("abort", INCOMPLETE_TOKEN_MARKER),
+            ("overflow", OVERSIZED_TOKEN_MARKER),
+        ):
             p = self.projector(host_path=True)
             self.assertEqual("host", "".join(p.feed_text("https://host/pa")))
             out = []
@@ -173,7 +211,9 @@ class Phase3Tests(unittest.TestCase):
 
     def test_completed_display_has_no_abort_token_marker(self):
         p = self.projector(host_path=True)
-        self.assertEqual("host/path", "".join(p.feed_text("https://host/path?unfinished")))
+        self.assertEqual(
+            "host/path", "".join(p.feed_text("https://host/path?unfinished"))
+        )
         self.assertEqual((), p.finish(abort=True))
         self.assertEqual((), p.hostnames)
 
@@ -218,12 +258,20 @@ class Phase3Tests(unittest.TestCase):
             self.assertEqual(1, p.work_stats.recognition_instances)
             self.assertEqual(len(text.encode()), p.work_stats.encoded_bytes)
             w = p.work_stats
-            work.append(s.layer_char_visits + s.speculative_record_visits
-                        + s.secret_ordering_work + s.secret_record_transfers
-                        + s.candidate_retirement_visits + s.prefix_checks
-                        + s.failure_traversals + s.automaton_outputs
-                        + w.buffer_appends + w.buffer_pops
-                        + w.materialized_chars + w.provenance_visits)
+            work.append(
+                s.layer_char_visits
+                + s.speculative_record_visits
+                + s.secret_ordering_work
+                + s.secret_record_transfers
+                + s.candidate_retirement_visits
+                + s.prefix_checks
+                + s.failure_traversals
+                + s.automaton_outputs
+                + w.buffer_appends
+                + w.buffer_pops
+                + w.materialized_chars
+                + w.provenance_visits
+            )
         self.assertLessEqual(work[1], 2 * work[0] + 64)
 
     def test_fingerprint_order_waits_for_completion(self):
@@ -282,13 +330,21 @@ class Phase3Tests(unittest.TestCase):
             baseline = self.project(text, (first + "Z",), host_path=True)
             self.assertEqual("Xhost/path done", baseline[0])
             for split in range(len(text) + 1):
-                self.assertEqual(baseline, self.project(text, (first + "Z",), (split,), host_path=True))
-            self.assertEqual(baseline, self.project(text, (first + "Z",), host_path=True, bytewise=True))
+                self.assertEqual(
+                    baseline,
+                    self.project(text, (first + "Z",), (split,), host_path=True),
+                )
+            self.assertEqual(
+                baseline,
+                self.project(text, (first + "Z",), host_path=True, bytewise=True),
+            )
 
     def test_delayed_activation_non_match_keeps_other_component_secrets(self):
         first = "Xhttps://host/path"
-        for other, expected in (("host", "X<redacted-host>/path"),
-                                ("/path", "Xhost/<redacted-path>")):
+        for other, expected in (
+            ("host", "X<redacted-host>/path"),
+            ("/path", "Xhost/<redacted-path>"),
+        ):
             p = self.projector((first + "Z", other), host_path=True)
             self.assertEqual((), p.feed_text(first))
             self.assertEqual(expected, "".join(p.feed_text("?q")))
@@ -318,11 +374,14 @@ class Phase3Tests(unittest.TestCase):
 
     def test_single_percent_finalization_and_idempotence(self):
         from unittest.mock import patch
+
         module = self.module()
         p = self.projector(("%",))
         p.feed_text("https://host/%")
         original = module._Pipeline.finish
-        with patch.object(module._Pipeline, "finish", autospec=True, side_effect=original) as finish:
+        with patch.object(
+            module._Pipeline, "finish", autospec=True, side_effect=original
+        ) as finish:
             p.finish()
             p.finish()
             self.assertEqual(1, finish.call_count)
@@ -331,9 +390,13 @@ class Phase3Tests(unittest.TestCase):
     def test_two_products_share_one_collector_raw_owner_and_line_overflow(self):
         from docker.versioning.npm_diagnostic_stream import NpmDiagnosticStream
         from docker.versioning.host_progress import HostDiagnosticStream
-        from docker.npm_environment.streaming import OVERSIZED_DIAGNOSTIC_MARKER as LINE_OVERFLOW_MARKER
-        stream = NpmDiagnosticStream(HostDiagnosticStream.STDERR,
-                                     network_url_display=NetworkUrlDisplay.HOST_PATH)
+        from docker.npm_environment.streaming import (
+            OVERSIZED_DIAGNOSTIC_MARKER as LINE_OVERFLOW_MARKER,
+        )
+
+        stream = NpmDiagnosticStream(
+            HostDiagnosticStream.STDERR, network_url_display=NetworkUrlDisplay.HOST_PATH
+        )
         self.assertIs(stream._projector, stream._retained_projector)
         first = stream.feed_bytes(b"https://host/pa")
         self.assertEqual("host", "".join(c.local_text or "" for c in first))
@@ -354,11 +417,14 @@ class Phase3Tests(unittest.TestCase):
         for count in (2, 4):
             p = self.projector(("password done",))
             recognizer = p._recognizer
-            text = ("https://host/" + "x" * (PENDING_LIMIT_BYTES + 1)
-                    + "password done next ") * count
+            text = (
+                "https://host/"
+                + "x" * (PENDING_LIMIT_BYTES + 1)
+                + "password done next "
+            ) * count
             output = []
             for start in range(0, len(text), 257):
-                output.extend(p.feed_text(text[start:start + 257]))
+                output.extend(p.feed_text(text[start : start + 257]))
                 self.assertIs(recognizer, p._recognizer)
                 self.assertLessEqual(p.pending_size, PENDING_LIMIT_BYTES)
                 p.take_facts()
@@ -368,24 +434,40 @@ class Phase3Tests(unittest.TestCase):
             s, w = p.recognition_stats, p.work_stats
             self.assertEqual(len(text), s.chars)
             self.assertEqual(1, w.recognition_instances)
-            work.append(s.layer_char_visits + s.speculative_record_visits
-                        + s.prefix_checks + s.failure_traversals + s.automaton_outputs
-                        + s.secret_ordering_work + s.secret_record_transfers
-                        + s.candidate_retirement_visits + w.materialized_chars
-                        + w.buffer_appends + w.buffer_pops + w.provenance_visits)
+            work.append(
+                s.layer_char_visits
+                + s.speculative_record_visits
+                + s.prefix_checks
+                + s.failure_traversals
+                + s.automaton_outputs
+                + s.secret_ordering_work
+                + s.secret_record_transfers
+                + s.candidate_retirement_visits
+                + w.materialized_chars
+                + w.buffer_appends
+                + w.buffer_pops
+                + w.provenance_visits
+            )
         self.assertLessEqual(work[1], 2 * work[0] + 64)
 
     def test_all_search_instances_are_counted_even_across_recovery(self):
         from unittest.mock import patch
+
         module = self.module()
         original = module._Pipeline
         instances = []
+
         def tracked(*args, **kwargs):
             result = original(*args, **kwargs)
             instances.append(result)
             return result
-        text = ("TOKENhttps://host/x " * 30 + "https://host/"
-                + "x" * (PENDING_LIMIT_BYTES + 10) + " next ")
+
+        text = (
+            "TOKENhttps://host/x " * 30
+            + "https://host/"
+            + "x" * (PENDING_LIMIT_BYTES + 10)
+            + " next "
+        )
         with patch.object(module, "_Pipeline", side_effect=tracked):
             p = self.projector(("TOKENht",))
             for character in text:
@@ -397,28 +479,46 @@ class Phase3Tests(unittest.TestCase):
 
     def test_legacy_commit_fixtures_preserve_continuation_without_batch_replay(self):
         module = self.module()
-        fixtures = ("xhttps://h", "xgit", "xhttps://h trailing",
-                    "custom%3A%2F%2Fhost", "x%6 a://h", "!https%3A//host",
-                    "%68%74%74%70%73%253A//host", "%6Attps://h", "123https://h",
-                    "%78%67%69%74", "https://host")
+        fixtures = (
+            "xhttps://h",
+            "xgit",
+            "xhttps://h trailing",
+            "custom%3A%2F%2Fhost",
+            "x%6 a://h",
+            "!https%3A//host",
+            "%68%74%74%70%73%253A//host",
+            "%6Attps://h",
+            "123https://h",
+            "%78%67%69%74",
+            "https://host",
+        )
         for text in fixtures:
             for cut in range(len(text) + 1):
                 expected = None
                 for chunk in (1, 2, 3, 5, len(text)):
                     r = module.IncrementalRecognizer()
                     for start in range(0, len(text), chunk):
-                        r.feed(text[start:start + chunk])
+                        r.feed(text[start : start + chunk])
                     states = tuple(layer._cursor.state for layer in r._pipeline._layer)
                     pending = tuple(tuple(d._pending) for d in r._pipeline._transducers)
                     before = r.stats
                     r.consume(cut)
-                    self.assertEqual(states, tuple(layer._cursor.state for layer in r._pipeline._layer))
-                    self.assertEqual(pending, tuple(tuple(d._pending) for d in r._pipeline._transducers))
+                    self.assertEqual(
+                        states,
+                        tuple(layer._cursor.state for layer in r._pipeline._layer),
+                    )
+                    self.assertEqual(
+                        pending,
+                        tuple(tuple(d._pending) for d in r._pipeline._transducers),
+                    )
                     self.assertEqual(before.chars, r.stats.chars)
                     self.assertEqual(before.transitions, r.stats.transitions)
                     match = r.earliest_match()
-                    outcome = (None if match is None else match.start,
-                               r.retain_from(), r.prefix_state())
+                    outcome = (
+                        None if match is None else match.start,
+                        r.retain_from(),
+                        r.prefix_state(),
+                    )
                     if expected is None:
                         expected = outcome
                     self.assertEqual(expected, outcome)
@@ -428,12 +528,14 @@ class Phase3Tests(unittest.TestCase):
 
     def test_legacy_partial_escape_and_separator_continuations(self):
         module = self.module()
-        cases = (("!https%3", 1, "A//host", 1),
-                 ("https%3", 5, "A//host", 0),
-                 ("junk https:", 5, "//host", 5),
-                 ("xhttps", 1, "://h", 1),
-                 ("x%68%74%74%70%73", 1, "%3A//h", 1),
-                 ("%", 1, "68://h https://h", 8))
+        cases = (
+            ("!https%3", 1, "A//host", 1),
+            ("https%3", 5, "A//host", 0),
+            ("junk https:", 5, "//host", 5),
+            ("xhttps", 1, "://h", 1),
+            ("x%68%74%74%70%73", 1, "%3A//h", 1),
+            ("%", 1, "68://h https://h", 8),
+        )
         for first, cut, rest, expected in cases:
             for split in range(len(first) + 1):
                 r = module.IncrementalRecognizer()
@@ -452,7 +554,8 @@ class Phase3Tests(unittest.TestCase):
 
     def test_legacy_long_run_copy_and_encoding_workloads_are_linear(self):
         for prefix, symbol, secrets, small, large in (
-            ("", "x", (), 3000, 6000), ("", "z", (), 2000, 4000),
+            ("", "x", (), 3000, 6000),
+            ("", "z", (), 2000, 4000),
             ("", "z", ("secret",), 2000, 4000),
             ("https://example.com/", "a", (), 2000, 4000),
         ):
@@ -470,11 +573,19 @@ class Phase3Tests(unittest.TestCase):
                 self.assertEqual(w.buffer_appends, w.buffer_pops)
                 self.assertEqual(len(text.encode()), w.encoded_bytes)
                 self.assertEqual("<redacted>" if prefix else text, "".join(out))
-                work.append(s.layer_char_visits + s.prefix_checks + s.failure_traversals
-                            + w.materialized_chars + w.buffer_appends + w.buffer_pops)
+                work.append(
+                    s.layer_char_visits
+                    + s.prefix_checks
+                    + s.failure_traversals
+                    + w.materialized_chars
+                    + w.buffer_appends
+                    + w.buffer_pops
+                )
             self.assertLessEqual(work[1], 2 * work[0] + 64)
-        for text in ("z" * (2 * PENDING_LIMIT_BYTES) + " end",
-                     "z" * (PENDING_LIMIT_BYTES + 512)):
+        for text in (
+            "z" * (2 * PENDING_LIMIT_BYTES) + " end",
+            "z" * (PENDING_LIMIT_BYTES + 512),
+        ):
             p = self.projector()
             out = []
             for character in text:
@@ -493,18 +604,40 @@ class Phase3Tests(unittest.TestCase):
     def test_legacy_regex_and_payload_map_helpers_are_not_production_fallbacks(self):
         from unittest.mock import patch
         import docker.versioning.diagnostic_projection as boundary
+
         for host_path in (False, True):
-            with patch.object(boundary, "_find_url_start", side_effect=AssertionError("regex replay")), \
-                 patch.object(boundary, "_decode_percent_layer", side_effect=AssertionError("source map")), \
-                 patch.object(boundary, "_leftmost_secret_match", side_effect=AssertionError("secret replay")):
-                result = self.project("pre h%74tps%3A%2F%2Fh.example/x end", host_path=host_path)
-                self.assertEqual("pre h.example/x end" if host_path else "pre <redacted> end", result[0])
+            with (
+                patch.object(
+                    boundary,
+                    "_find_url_start",
+                    side_effect=AssertionError("regex replay"),
+                ),
+                patch.object(
+                    boundary,
+                    "_decode_percent_layer",
+                    side_effect=AssertionError("source map"),
+                ),
+                patch.object(
+                    boundary,
+                    "_leftmost_secret_match",
+                    side_effect=AssertionError("secret replay"),
+                ),
+            ):
+                result = self.project(
+                    "pre h%74tps%3A%2F%2Fh.example/x end", host_path=host_path
+                )
+                self.assertEqual(
+                    "pre h.example/x end" if host_path else "pre <redacted> end",
+                    result[0],
+                )
 
     def test_leftmost_longest_selection_survives_pending_and_overlapping_patterns(self):
-        cases = (("abcd bc", ("abcd", "bc"), "<secret> <secret>"),
-                 ("AAAA ", ("AAA", "AA"), "<secret>A "),
-                 ("AAAA", ("AA",), "<secret><secret>"),
-                 ("abc", ("abcd", "bc"), INCOMPLETE_TOKEN_MARKER))
+        cases = (
+            ("abcd bc", ("abcd", "bc"), "<secret> <secret>"),
+            ("AAAA ", ("AAA", "AA"), "<secret>A "),
+            ("AAAA", ("AA",), "<secret><secret>"),
+            ("abc", ("abcd", "bc"), INCOMPLETE_TOKEN_MARKER),
+        )
         for text, secrets, expected in cases:
             self.assertEqual(expected, self.project(text, secrets)[0])
             for split in range(len(text) + 1):
@@ -512,8 +645,10 @@ class Phase3Tests(unittest.TestCase):
             self.assertEqual(expected, self.project(text, secrets, bytewise=True)[0])
 
     def test_early_url_marker_with_earlier_unsettled_crossing_secret(self):
-        for continuation, expected in (("st done", "<secret><redacted> done"),
-                                       ("r done", "X<redacted> done")):
+        for continuation, expected in (
+            ("st done", "<secret><redacted> done"),
+            ("r done", "X<redacted> done"),
+        ):
             with self.subTest(continuation=continuation):
                 p = self.projector(("Xhttps://host",))
                 self.assertEqual((), p.feed_text("Xhttps://ho"))
@@ -526,7 +661,9 @@ class Phase3Tests(unittest.TestCase):
                 out = committed + "".join(p.feed_text(" " + tail)) + "".join(p.finish())
                 self.assertEqual(expected, out)
                 self.assertIs(cursor, p._recognizer)
-                self.assertEqual(len("Xhttps://ho" + continuation), p.recognition_stats.chars)
+                self.assertEqual(
+                    len("Xhttps://ho" + continuation), p.recognition_stats.chars
+                )
 
     def test_clean_eof_resolves_earlier_crossing_secret_as_non_match(self):
         p = self.projector(("Xhttps://host",))
@@ -538,14 +675,20 @@ class Phase3Tests(unittest.TestCase):
         self.assertEqual(0, p.pending_size)
 
     def test_crossing_secret_outcomes_are_partition_invariant(self):
-        for text, expected in (("Xhttps://host done", "<secret><redacted> done"),
-                               ("Xhttps://hor done", "X<redacted> done"),
-                               ("Xhttps://ho", "X<redacted>")):
+        for text, expected in (
+            ("Xhttps://host done", "<secret><redacted> done"),
+            ("Xhttps://hor done", "X<redacted> done"),
+            ("Xhttps://ho", "X<redacted>"),
+        ):
             baseline = self.project(text, ("Xhttps://host",))
             self.assertEqual(expected, baseline[0])
             for split in range(len(text) + 1):
-                self.assertEqual(baseline, self.project(text, ("Xhttps://host",), (split,)))
-            self.assertEqual(baseline, self.project(text, ("Xhttps://host",), bytewise=True))
+                self.assertEqual(
+                    baseline, self.project(text, ("Xhttps://host",), (split,))
+                )
+            self.assertEqual(
+                baseline, self.project(text, ("Xhttps://host",), bytewise=True)
+            )
 
     def test_crossing_secret_clean_eof_keeps_other_secret_coverage(self):
         # An internal completed secret must not force the earlier non-match
@@ -564,13 +707,17 @@ class Phase3Tests(unittest.TestCase):
 
     def test_sdk_crossing_secret_delivery_uses_shared_continuation(self):
         from docker.versioning.npm_diagnostic_stream import NpmDiagnosticStream
+
         for mode in NetworkUrlDisplay:
-            for continuation, expected in (("st done", "<secret><redacted> done"),
-                                           ("r done", "X<redacted> done"),
-                                           ("", "X<redacted>")):
+            for continuation, expected in (
+                ("st done", "<secret><redacted> done"),
+                ("r done", "X<redacted> done"),
+                ("", "X<redacted>"),
+            ):
                 with self.subTest(mode=mode, continuation=continuation):
-                    stream = NpmDiagnosticStream("stderr", ("Xhttps://host",),
-                                                 network_url_display=mode)
+                    stream = NpmDiagnosticStream(
+                        "stderr", ("Xhttps://host",), network_url_display=mode
+                    )
                     initial = stream.feed_bytes(b"Xhttps://ho")
                     self.assertEqual("", "".join(c.text for c in initial))
                     owner = stream._projector._recognizer
@@ -578,7 +725,9 @@ class Phase3Tests(unittest.TestCase):
                     chunks.extend(stream.finish())
                     finalized = [c for c in chunks if c.finalized]
                     self.assertEqual([expected], [c.text for c in finalized])
-                    self.assertEqual(expected, "".join(c.text for c in chunks if not c.finalized))
+                    self.assertEqual(
+                        expected, "".join(c.text for c in chunks if not c.finalized)
+                    )
                     self.assertIs(owner, stream._projector._recognizer)
                     if mode is NetworkUrlDisplay.EXACT:
                         self.assertEqual("Xhttps://ho" + continuation, stream.tail())
@@ -590,13 +739,18 @@ class Phase3Tests(unittest.TestCase):
     def test_crossing_secret_abort_and_overflow_remain_fail_closed(self):
         p = self.projector(("Xhttps://host",))
         self.assertEqual((), p.feed_text("Xhttps://ho"))
-        self.assertEqual(INCOMPLETE_TOKEN_MARKER + "<redacted>", "".join(p.finish(abort=True)))
+        self.assertEqual(
+            INCOMPLETE_TOKEN_MARKER + "<redacted>", "".join(p.finish(abort=True))
+        )
         self.assertEqual((), p.hostnames)
         self.assertEqual((), p.finish())
         # Keep a crossing secret unresolved until the whole-pending bound.
         secret = "Xhttps://" + "h" * (PENDING_LIMIT_BYTES + 50)
         p = self.projector((secret,))
-        self.assertEqual((), p.feed_text("Xhttps://" + "h" * (PENDING_LIMIT_BYTES - len("Xhttps://"))))
+        self.assertEqual(
+            (),
+            p.feed_text("Xhttps://" + "h" * (PENDING_LIMIT_BYTES - len("Xhttps://"))),
+        )
         self.assertEqual(OVERSIZED_TOKEN_MARKER, "".join(p.feed_text("h" * 60)))
         self.assertEqual(" next", "".join(p.feed_text(" next")) + "".join(p.finish()))
         self.assertEqual((), p.hostnames)

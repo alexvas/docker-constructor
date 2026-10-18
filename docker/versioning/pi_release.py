@@ -6,6 +6,7 @@ exact-name assets — ``SHA256SUMS``, ``pi-coding-agent-install-package.json``,
 and ``pi-coding-agent-install-package-lock.json``.  Asset names are never
 inferred from npm metadata and no alternate naming or alias discovery exists.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -21,7 +22,9 @@ from .build_materialization import StreamingTransport
 ProgressCallback = Callable[[int], None]
 
 #: One per-asset observation scope yielding an optional progress callback.
-AssetActivityFactory = Callable[[str], AbstractContextManager["ProgressCallback | None"]]
+AssetActivityFactory = Callable[
+    [str], AbstractContextManager["ProgressCallback | None"]
+]
 
 
 class ProgressAwareDownload(Protocol):
@@ -33,9 +36,7 @@ class ProgressAwareDownload(Protocol):
     protocol, because it cannot serve the no-activity branch.
     """
 
-    def __call__(
-        self, url: str, progress: ProgressCallback | None = None
-    ) -> bytes: ...
+    def __call__(self, url: str, progress: ProgressCallback | None = None) -> bytes: ...
 
 
 class PiReleaseError(RuntimeError):
@@ -116,9 +117,7 @@ def parse_sha256sums(raw: bytes) -> dict[str, str]:
         filename = match.group(2)
         _validate_asset_name(filename, lineno)
         if filename in entries:
-            raise PiReleaseError(
-                f"SHA256SUMS contains duplicate filename {filename!r}"
-            )
+            raise PiReleaseError(f"SHA256SUMS contains duplicate filename {filename!r}")
         entries[filename] = digest
     if not entries:
         raise PiReleaseError("SHA256SUMS is empty")
@@ -235,8 +234,11 @@ def acquire_install_assets(
     ``download(url)`` contract is used, so existing callers that cannot accept
     a progress callback keep working.
     """
+
     def fetch(
-        name: str, url: str, verify: Callable[[bytes], object] | None = None,
+        name: str,
+        url: str,
+        verify: Callable[[bytes], object] | None = None,
     ) -> bytes:
         if activity is None:
             data = download(url)
@@ -258,11 +260,13 @@ def acquire_install_assets(
     fetch(SHA256SUMS_FILENAME, urls.sha256sums, _parse_and_require)
     package_digest, lock_digest = required[0]
     package = fetch(
-        INSTALL_PACKAGE_FILENAME, urls.install_package,
+        INSTALL_PACKAGE_FILENAME,
+        urls.install_package,
         lambda data: _verify_digest(data, package_digest, INSTALL_PACKAGE_FILENAME),
     )
     lock = fetch(
-        INSTALL_PACKAGE_LOCK_FILENAME, urls.install_package_lock,
+        INSTALL_PACKAGE_LOCK_FILENAME,
+        urls.install_package_lock,
         lambda data: _verify_digest(data, lock_digest, INSTALL_PACKAGE_LOCK_FILENAME),
     )
     return package, lock

@@ -42,7 +42,9 @@ def _entry(pkg: str = "p", **kw) -> PiExtensionEntry:
         },
         "validation": RuntimeValidation(metadata_file="package.json"),
         "override": OverridePolicy(
-            constraint=parse_constraint(">=1.0.0"), allow_prerelease=True, scheme="numeric"
+            constraint=parse_constraint(">=1.0.0"),
+            allow_prerelease=True,
+            scheme="numeric",
         ),
     }
     defaults.update(kw)

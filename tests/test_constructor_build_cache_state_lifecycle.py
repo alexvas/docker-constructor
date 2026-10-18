@@ -17,6 +17,7 @@ Phase 4 contract:
 The close order under test is the historical release order
 ``transactions_fd, markers_fd, tmp_fd, blobs_fd, persistent_fd``.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -33,7 +34,13 @@ import docker.versioning.build_cache as build_cache
 
 
 #: Historical release order (reverse of the open order).
-_RELEASE_ORDER = ("transactions_fd", "markers_fd", "tmp_fd", "blobs_fd", "persistent_fd")
+_RELEASE_ORDER = (
+    "transactions_fd",
+    "markers_fd",
+    "tmp_fd",
+    "blobs_fd",
+    "persistent_fd",
+)
 
 
 def _secondary_of(exc: BaseException) -> list[BaseException]:
@@ -50,7 +57,8 @@ class _BuildCacheStateCase(unittest.TestCase):
         self.cache = base / "cache"
         self.cache.mkdir(mode=0o700)
         self.state = build_cache.open_build_cache_state(
-            self.project, cache_root=self.cache,
+            self.project,
+            cache_root=self.cache,
         )
         self.fds = tuple(getattr(self.state, name) for name in _RELEASE_ORDER)
         self._faulted: list[int] = []
@@ -97,18 +105,19 @@ class _BuildCacheStateCase(unittest.TestCase):
 class BuildCacheStateReleaseTests(_BuildCacheStateCase):
     """Tasks 4.1–4.3 — exhaustive at-most-once aggregate release."""
 
-    def test_single_ordinary_failure_at_each_position_closes_every_descriptor(self) -> None:
+    def test_single_ordinary_failure_at_each_position_closes_every_descriptor(
+        self,
+    ) -> None:
         # Release the state opened by setUp() before the loop overwrites
         # self.state; otherwise its five descriptors leak.
         self.state.close()
         for position in range(len(_RELEASE_ORDER)):
             with self.subTest(position=position):
                 self.state = build_cache.open_build_cache_state(
-                    self.project, cache_root=self.cache,
+                    self.project,
+                    cache_root=self.cache,
                 )
-                self.fds = tuple(
-                    getattr(self.state, name) for name in _RELEASE_ORDER
-                )
+                self.fds = tuple(getattr(self.state, name) for name in _RELEASE_ORDER)
                 faulted_fd = self.fds[position]
                 failure = OSError(errno.EIO, f"close failed at {position}")
 
@@ -147,7 +156,8 @@ class BuildCacheStateReleaseTests(_BuildCacheStateCase):
         failures = {self.fds[1]: OSError(errno.EIO, "middle failure")}
 
         with self._close_instruments(lambda fd, attempt: failures.get(fd)) as (
-            events, attempts,
+            events,
+            attempts,
         ):
             with self.assertRaises(OSError):
                 self.state.close()
@@ -162,11 +172,10 @@ class BuildCacheStateReleaseTests(_BuildCacheStateCase):
         for position in range(len(_RELEASE_ORDER)):
             with self.subTest(position=position):
                 self.state = build_cache.open_build_cache_state(
-                    self.project, cache_root=self.cache,
+                    self.project,
+                    cache_root=self.cache,
                 )
-                self.fds = tuple(
-                    getattr(self.state, name) for name in _RELEASE_ORDER
-                )
+                self.fds = tuple(getattr(self.state, name) for name in _RELEASE_ORDER)
                 faulted_fd = self.fds[position]
                 defect = RuntimeError(f"unexpected close defect at {position}")
 
@@ -187,15 +196,16 @@ class BuildCacheStateReleaseTests(_BuildCacheStateCase):
         for position in range(len(_RELEASE_ORDER)):
             with self.subTest(position=position):
                 self.state = build_cache.open_build_cache_state(
-                    self.project, cache_root=self.cache,
+                    self.project,
+                    cache_root=self.cache,
                 )
-                self.fds = tuple(
-                    getattr(self.state, name) for name in _RELEASE_ORDER
-                )
+                self.fds = tuple(getattr(self.state, name) for name in _RELEASE_ORDER)
                 faulted_fd = self.fds[position]
                 interruption = KeyboardInterrupt()
 
-                def policy(fd, attempt, faulted_fd=faulted_fd, interruption=interruption):
+                def policy(
+                    fd, attempt, faulted_fd=faulted_fd, interruption=interruption
+                ):
                     return interruption if fd == faulted_fd else None
 
                 with self._close_instruments(policy) as (events, attempts):
@@ -285,7 +295,9 @@ class BuildCacheStateCompatibilityTests(_BuildCacheStateCase):
     """Task 4.5 — construction and public compatibility."""
 
     def test_dataclass_fields_and_order_unchanged(self) -> None:
-        fields = [field.name for field in dataclasses.fields(build_cache.BuildCacheState)]
+        fields = [
+            field.name for field in dataclasses.fields(build_cache.BuildCacheState)
+        ]
         self.assertEqual(
             fields,
             [

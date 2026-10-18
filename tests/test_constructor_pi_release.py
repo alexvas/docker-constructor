@@ -5,6 +5,7 @@ derivation and exact-name assets, plus strict SHA256SUMS parsing and
 checksum-verified acquisition (redirects, missing assets, mismatches, and
 transport failures).  No npm inference or alternate naming.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -48,12 +49,16 @@ class TestReleaseUrlDerivation(unittest.TestCase):
         self.assertEqual(urls.base, base)
         self.assertEqual(urls.sha256sums, f"{base}/{SHA256SUMS_FILENAME}")
         self.assertEqual(urls.install_package, f"{base}/{INSTALL_PACKAGE_FILENAME}")
-        self.assertEqual(urls.install_package_lock, f"{base}/{INSTALL_PACKAGE_LOCK_FILENAME}")
+        self.assertEqual(
+            urls.install_package_lock, f"{base}/{INSTALL_PACKAGE_LOCK_FILENAME}"
+        )
 
     def test_no_alternate_naming_or_npm_inference(self):
         urls = derive_pi_release_urls(_source(), "1.2.3")
         for value in (
-            urls.sha256sums, urls.install_package, urls.install_package_lock,
+            urls.sha256sums,
+            urls.install_package,
+            urls.install_package_lock,
         ):
             self.assertIn("releases/download/v1.2.3/", value)
         self.assertNotIn("registry.npmjs.org", urls.base)
@@ -140,7 +145,8 @@ class TestAcquireInstallAssets(unittest.TestCase):
             self._urls().install_package_lock: lock,
         }
         got_package, got_lock = acquire_install_assets(
-            self._urls(), lambda url: served[url],
+            self._urls(),
+            lambda url: served[url],
         )
         self.assertEqual(got_package, package)
         self.assertEqual(got_lock, lock)

@@ -67,16 +67,38 @@ def _lock(root_extra: dict | None = None, package_extra: dict | None = None) -> 
 
 
 _MANIFEST = {
-    "name", "version", "dependencies", "devDependencies", "optionalDependencies",
-    "peerDependencies", "peerDependenciesMeta",
-    "engines", "license", "funding", "deprecated",
+    "name",
+    "version",
+    "dependencies",
+    "devDependencies",
+    "optionalDependencies",
+    "peerDependencies",
+    "peerDependenciesMeta",
+    "engines",
+    "license",
+    "funding",
+    "deprecated",
 }
 _PACKAGE = {
-    "name", "version", "resolved", "integrity",
-    "dependencies", "optionalDependencies",
-    "peerDependencies", "peerDependenciesMeta",
-    "dev", "optional", "peer", "hasInstallScript", "os", "cpu",
-    "bin", "engines", "license", "funding", "deprecated",
+    "name",
+    "version",
+    "resolved",
+    "integrity",
+    "dependencies",
+    "optionalDependencies",
+    "peerDependencies",
+    "peerDependenciesMeta",
+    "dev",
+    "optional",
+    "peer",
+    "hasInstallScript",
+    "os",
+    "cpu",
+    "bin",
+    "engines",
+    "license",
+    "funding",
+    "deprecated",
 }
 
 
@@ -146,7 +168,8 @@ class TestIgnoredValuesAreInert(unittest.TestCase):
             "": {"name": "root", "version": "1.0.0", "dependencies": {"a": "1.0.0"}},
             "node_modules/a": _node("a", "1.0.0", dependencies={"b": "^1.0.0"}),
             "node_modules/b": _node(
-                "b", "1.5.0",
+                "b",
+                "1.5.0",
                 bin={"b": "cli.js"},
                 engines={"node": "18 || 20 || >=22"},
                 license="MIT",
@@ -156,8 +179,11 @@ class TestIgnoredValuesAreInert(unittest.TestCase):
         }
         raw = json.dumps(
             {
-                "name": "root", "version": "1.0.0", "lockfileVersion": 3,
-                "requires": True, "packages": packages,
+                "name": "root",
+                "version": "1.0.0",
+                "lockfileVersion": 3,
+                "requires": True,
+                "packages": packages,
             }
         ).encode("utf-8")
         lockfile = parse_lockfile(
@@ -168,9 +194,7 @@ class TestIgnoredValuesAreInert(unittest.TestCase):
             self.assertFalse(hasattr(pkg_b, attr), attr)
         # Only the reviewed root carries (empty) metadata; transitive ``b``
         # must not appear there.
-        self.assertEqual(
-            [m.package_name for m in lockfile.root_metadata], ["a"]
-        )
+        self.assertEqual([m.package_name for m in lockfile.root_metadata], ["a"])
 
     def test_ignored_values_change_identity_only_via_lock_bytes(self):
         def build(license_value: str) -> bytes:
@@ -209,9 +233,7 @@ class TestIgnoredValuesAreInert(unittest.TestCase):
         # Roots and assembler are unchanged; only the lock-byte digest moved.
         self.assertEqual(ident_first.roots, ident_second.roots)
         self.assertEqual(ident_first.assembler, ident_second.assembler)
-        self.assertNotEqual(
-            ident_first.lockfile_digest, ident_second.lockfile_digest
-        )
+        self.assertNotEqual(ident_first.lockfile_digest, ident_second.lockfile_digest)
         self.assertNotEqual(ident_first.digest, ident_second.digest)
 
     def test_no_custom_transitive_engine_diagnostic(self):
@@ -224,8 +246,11 @@ class TestIgnoredValuesAreInert(unittest.TestCase):
         }
         raw = json.dumps(
             {
-                "name": "root", "version": "1.0.0", "lockfileVersion": 3,
-                "requires": True, "packages": packages,
+                "name": "root",
+                "version": "1.0.0",
+                "lockfileVersion": 3,
+                "requires": True,
+                "packages": packages,
             }
         ).encode("utf-8")
         validated = preflight(
@@ -244,35 +269,35 @@ class TestUnsupportedFieldsRejected(unittest.TestCase):
     def test_unknown_top_level_field_rejected(self):
         raw = json.dumps(
             {
-                "name": "root", "version": "1.0.0", "lockfileVersion": 3,
-                "requires": True, "madeUpField": "surprise",
+                "name": "root",
+                "version": "1.0.0",
+                "lockfileVersion": 3,
+                "requires": True,
+                "madeUpField": "surprise",
                 "packages": {
-                    "": {"name": "root", "version": "1.0.0",
-                         "dependencies": {"a": "1.0.0"}},
+                    "": {
+                        "name": "root",
+                        "version": "1.0.0",
+                        "dependencies": {"a": "1.0.0"},
+                    },
                     "node_modules/a": _node("a", "1.0.0"),
                 },
             }
         ).encode("utf-8")
         with self.assertRaises(LockedNpmError) as ctx:
-            parse_lockfile(
-                raw, platform="linux-x64", roots=(RootSpec("a", "1.0.0"),)
-            )
+            parse_lockfile(raw, platform="linux-x64", roots=(RootSpec("a", "1.0.0"),))
         self.assertEqual(ctx.exception.reason, "unsupported_field")
 
     def test_unknown_manifest_field_rejected(self):
         raw = _lock(root_extra={"madeUpField": "surprise"})
         with self.assertRaises(LockedNpmError) as ctx:
-            parse_lockfile(
-                raw, platform="linux-x64", roots=(RootSpec("a", "1.0.0"),)
-            )
+            parse_lockfile(raw, platform="linux-x64", roots=(RootSpec("a", "1.0.0"),))
         self.assertEqual(ctx.exception.reason, "unsupported_field")
 
     def test_unknown_package_field_rejected(self):
         raw = _lock(package_extra={"madeUpField": "surprise"})
         with self.assertRaises(LockedNpmError) as ctx:
-            parse_lockfile(
-                raw, platform="linux-x64", roots=(RootSpec("a", "1.0.0"),)
-            )
+            parse_lockfile(raw, platform="linux-x64", roots=(RootSpec("a", "1.0.0"),))
         self.assertEqual(ctx.exception.reason, "unsupported_field")
 
 

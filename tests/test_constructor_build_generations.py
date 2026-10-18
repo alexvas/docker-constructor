@@ -11,6 +11,7 @@ These tests pin the build-domain generation surface added by Phase 3:
 
 The module under test does not exist until the Phase 3 GREEN tasks.
 """
+
 from __future__ import annotations
 
 import errno
@@ -192,7 +193,9 @@ class ManifestSchemaTests(unittest.TestCase):
             with self.subTest(value=value):
                 with self.assertRaises(BuildGenerationError):
                     BuildManifest.decode(
-                        json.dumps({"version": MANIFEST_VERSION, "blobs": value}).encode()
+                        json.dumps(
+                            {"version": MANIFEST_VERSION, "blobs": value}
+                        ).encode()
                     )
 
     def test_duplicate_blob_identities_are_rejected(self) -> None:
@@ -208,9 +211,7 @@ class ManifestSchemaTests(unittest.TestCase):
                 canonical_blob_key(identity(b"second")),
             )
         )
-        canonical = json.dumps(
-            {"version": MANIFEST_VERSION, "blobs": ordered}
-        ).encode()
+        canonical = json.dumps({"version": MANIFEST_VERSION, "blobs": ordered}).encode()
         self.assertEqual(BuildManifest.decode(canonical).keys, tuple(ordered))
         out_of_order = json.dumps(
             {"version": MANIFEST_VERSION, "blobs": list(reversed(ordered))}
@@ -243,9 +244,7 @@ class ManifestSchemaTests(unittest.TestCase):
     def test_non_finite_json_is_rejected_by_the_codec(self) -> None:
         for token in ("NaN", "Infinity", "-Infinity", "1e400"):
             with self.subTest(token=token):
-                data = (
-                    '{"version":' + token + ',"blobs":[]}'
-                ).encode()
+                data = ('{"version":' + token + ',"blobs":[]}').encode()
                 with self.assertRaises(BuildGenerationError):
                     BuildManifest.decode(data)
 
@@ -264,11 +263,7 @@ class ManifestSchemaTests(unittest.TestCase):
         for raw in (
             b'{"version":1,"blobs":[],"blobs":[]}',
             b'{"version":1,"blobs":["sha256:../../outside"],"blobs":[]}',
-            (
-                '{"version":1,"blobs":["'
-                + safe
-                + '"],"blobs":[]}'
-            ).encode(),
+            ('{"version":1,"blobs":["' + safe + '"],"blobs":[]}').encode(),
         ):
             with self.subTest(raw=raw):
                 with self.assertRaises(BuildGenerationError):
@@ -422,7 +417,9 @@ class GenerationStateTests(_GenerationTestCase):
         with self.assertRaises(BuildGenerationError):
             discover_generations(self.ops, self.directory, lock=self.lock)
         self.assertTrue(link.is_symlink())
-        self.assertEqual(target.read_bytes(), BuildManifest.from_blobs([outside]).encode())
+        self.assertEqual(
+            target.read_bytes(), BuildManifest.from_blobs([outside]).encode()
+        )
 
     def test_wrong_mode_generation_fails_closed(self) -> None:
         self.write_generation(1, [identity(b"live")], mode=0o644)
@@ -469,7 +466,9 @@ class GenerationStateTests(_GenerationTestCase):
 
     def test_discovery_sync_failure_preserves_state(self) -> None:
         name = self.write_generation(1, [identity(b"live")])
-        self.ops.failures["fsync"] = OSError(errno.EIO, "injected generation sync failure")
+        self.ops.failures["fsync"] = OSError(
+            errno.EIO, "injected generation sync failure"
+        )
         with self.assertRaises(BuildGenerationError):
             discover_generations(self.ops, self.directory, lock=self.lock)
         self.assertTrue(self.path(name).exists())
@@ -525,7 +524,9 @@ class GenerationPublicationTests(_GenerationTestCase):
         self.assertEqual(self.path(first.name).read_bytes(), first_bytes)
 
     def test_publication_is_durable_before_success(self) -> None:
-        publish_generation(self.ops, self.directory, [identity(b"live")], lock=self.lock)
+        publish_generation(
+            self.ops, self.directory, [identity(b"live")], lock=self.lock
+        )
         # Discovery sync, file sync, and generation-directory sync.
         self.assertEqual(self.ops.counts.get("fsync"), 3)
         order = self.ops.order
@@ -536,13 +537,17 @@ class GenerationPublicationTests(_GenerationTestCase):
         self.write_generation(MAX_GENERATION)
         self.ops.reset()
         with self.assertRaises(BuildGenerationError):
-            publish_generation(self.ops, self.directory, [identity(b"x")], lock=self.lock)
+            publish_generation(
+                self.ops, self.directory, [identity(b"x")], lock=self.lock
+            )
         self.assertEqual(self.ops.counts.get("linkat", 0), 0)
         self.assertEqual(self.ops.counts.get("unlinkat", 0), 0)
         self.assertEqual(self.ops.counts.get("fsync", 0), 0)
         self.assertTrue(self.path(format_generation_name(MAX_GENERATION)).exists())
 
-    def test_publication_rejects_non_consecutive_generations_before_mutation(self) -> None:
+    def test_publication_rejects_non_consecutive_generations_before_mutation(
+        self,
+    ) -> None:
         first = self.write_generation(1, [identity(b"first")])
         second = self.write_generation(3, [identity(b"third")])
         self.ops.reset()
@@ -564,19 +569,25 @@ class GenerationPublicationTests(_GenerationTestCase):
         self.write_generation(1)
         self.write_generation(2)
         with self.assertRaises(BuildGenerationError):
-            publish_generation(self.ops, self.directory, [identity(b"x")], lock=self.lock)
+            publish_generation(
+                self.ops, self.directory, [identity(b"x")], lock=self.lock
+            )
         self.assertFalse(self.path(format_generation_name(3)).exists())
 
     def test_allocation_failure_publishes_nothing(self) -> None:
         self.ops.failures["openat"] = OSError(errno.EIO, "injected allocation failure")
         with self.assertRaises(BuildGenerationError):
-            publish_generation(self.ops, self.directory, [identity(b"x")], lock=self.lock)
+            publish_generation(
+                self.ops, self.directory, [identity(b"x")], lock=self.lock
+            )
         self.assertFalse(self.path(format_generation_name(1)).exists())
 
     def test_write_failure_publishes_nothing(self) -> None:
         self.ops.failures["write"] = OSError(errno.EIO, "injected write failure")
         with self.assertRaises(BuildGenerationError):
-            publish_generation(self.ops, self.directory, [identity(b"x")], lock=self.lock)
+            publish_generation(
+                self.ops, self.directory, [identity(b"x")], lock=self.lock
+            )
         self.assertFalse(self.path(format_generation_name(1)).exists())
 
     def test_file_fsync_failure_publishes_nothing(self) -> None:
@@ -585,22 +596,30 @@ class GenerationPublicationTests(_GenerationTestCase):
             OSError(errno.EIO, "injected file fsync failure") if count == 2 else None
         )
         with self.assertRaises(BuildGenerationError):
-            publish_generation(self.ops, self.directory, [identity(b"x")], lock=self.lock)
+            publish_generation(
+                self.ops, self.directory, [identity(b"x")], lock=self.lock
+            )
         self.assertFalse(self.path(format_generation_name(1)).exists())
 
     def test_no_clobber_commit_failure_publishes_nothing(self) -> None:
         self.ops.failures["linkat"] = OSError(errno.EIO, "injected commit failure")
         with self.assertRaises(BuildGenerationError):
-            publish_generation(self.ops, self.directory, [identity(b"x")], lock=self.lock)
+            publish_generation(
+                self.ops, self.directory, [identity(b"x")], lock=self.lock
+            )
         self.assertFalse(self.path(format_generation_name(1)).exists())
 
     def test_directory_fsync_failure_is_completed_by_discovery(self) -> None:
         # Call 1 is discovery; call 3 is the generation-directory sync.
         self.ops.failures["fsync"] = lambda count: (
-            OSError(errno.EIO, "injected directory fsync failure") if count == 3 else None
+            OSError(errno.EIO, "injected directory fsync failure")
+            if count == 3
+            else None
         )
         with self.assertRaises(BuildGenerationError):
-            publish_generation(self.ops, self.directory, [identity(b"live")], lock=self.lock)
+            publish_generation(
+                self.ops, self.directory, [identity(b"live")], lock=self.lock
+            )
         visible = self.path(format_generation_name(1))
         self.assertTrue(visible.exists())
         # The visible generation is not authoritative until discovery syncs.
@@ -611,29 +630,43 @@ class GenerationPublicationTests(_GenerationTestCase):
 
     def test_directory_fsync_failure_blocks_authority_until_sync(self) -> None:
         self.ops.failures["fsync"] = lambda count: (
-            OSError(errno.EIO, "injected directory fsync failure") if count == 3 else None
+            OSError(errno.EIO, "injected directory fsync failure")
+            if count == 3
+            else None
         )
         with self.assertRaises(BuildGenerationError):
-            publish_generation(self.ops, self.directory, [identity(b"live")], lock=self.lock)
-        self.ops.failures["fsync"] = OSError(errno.EIO, "injected discovery sync failure")
+            publish_generation(
+                self.ops, self.directory, [identity(b"live")], lock=self.lock
+            )
+        self.ops.failures["fsync"] = OSError(
+            errno.EIO, "injected discovery sync failure"
+        )
         with self.assertRaises(BuildGenerationError):
             discover_generations(self.ops, self.directory, lock=self.lock)
         self.assertTrue(self.path(format_generation_name(1)).exists())
 
     def test_visible_generation_is_not_allocated_without_discovery_sync(self) -> None:
         self.ops.failures["fsync"] = lambda count: (
-            OSError(errno.EIO, "injected directory fsync failure") if count == 3 else None
+            OSError(errno.EIO, "injected directory fsync failure")
+            if count == 3
+            else None
         )
         with self.assertRaises(BuildGenerationError):
-            publish_generation(self.ops, self.directory, [identity(b"one")], lock=self.lock)
+            publish_generation(
+                self.ops, self.directory, [identity(b"one")], lock=self.lock
+            )
         self.assertTrue(self.path(format_generation_name(1)).exists())
         self.assertFalse(self.path(format_generation_name(2)).exists())
         self.ops.reset()
         self.ops.failures["fsync"] = lambda count: (
-            OSError(errno.EIO, "injected discovery fsync failure") if count == 1 else None
+            OSError(errno.EIO, "injected discovery fsync failure")
+            if count == 1
+            else None
         )
         with self.assertRaises(BuildGenerationError):
-            publish_generation(self.ops, self.directory, [identity(b"two")], lock=self.lock)
+            publish_generation(
+                self.ops, self.directory, [identity(b"two")], lock=self.lock
+            )
         # The failing sync is the discovery-time generation-directory sync, so
         # no temporary allocation or publication may have happened.
         self.assertEqual(self.ops.arg_pairs("fsync"), [(self.directory.fd,)])
@@ -643,10 +676,14 @@ class GenerationPublicationTests(_GenerationTestCase):
 
     def test_visible_generation_is_completed_by_discovery_sync(self) -> None:
         self.ops.failures["fsync"] = lambda count: (
-            OSError(errno.EIO, "injected directory fsync failure") if count == 3 else None
+            OSError(errno.EIO, "injected directory fsync failure")
+            if count == 3
+            else None
         )
         with self.assertRaises(BuildGenerationError):
-            publish_generation(self.ops, self.directory, [identity(b"one")], lock=self.lock)
+            publish_generation(
+                self.ops, self.directory, [identity(b"one")], lock=self.lock
+            )
         self.assertTrue(self.path(format_generation_name(1)).exists())
         self.ops.reset()
         self.ops.failures.clear()

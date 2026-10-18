@@ -13,6 +13,7 @@ Extension checks verify installed npm package metadata under
 
 All tests use fake process runners — no Docker required.
 """
+
 from __future__ import annotations
 
 import shutil
@@ -50,7 +51,9 @@ from docker.versioning.runtime_verification import (
 
 # Module-level enabled policy shared by all docker-gateway verification tests
 _ENABLED_POLICY = HostAccessPolicy(
-    enabled=True, mode="docker-gateway", proxy_port=None,
+    enabled=True,
+    mode="docker-gateway",
+    proxy_port=None,
 )
 _DEFAULT_ADDR = "192.168.65.254"
 
@@ -61,7 +64,12 @@ _DEFAULT_ADDR = "192.168.65.254"
 # ═══════════════════════════════════════════════════════════════════════
 
 _EXT_CONSTRAINT = Constraint(
-    (ConstraintClause(operator=">=", operand=NumericVersion(major=0, minor=0, patch=0)),))
+    (
+        ConstraintClause(
+            operator=">=", operand=NumericVersion(major=0, minor=0, patch=0)
+        ),
+    )
+)
 
 
 def _pi_read_entry() -> PiExtensionEntry:
@@ -69,12 +77,14 @@ def _pi_read_entry() -> PiExtensionEntry:
         version="0.2.0",
         source=NpmSource(package="@arcanemachine/pi-read"),
         update=NpmUpdate(stable_only=True),
-        artifacts=MappingProxyType({
-            "0.2.0": NpmArtifact(
-                url="https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.2.0.tgz",
-                integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-            ),
-        }),
+        artifacts=MappingProxyType(
+            {
+                "0.2.0": NpmArtifact(
+                    url="https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.2.0.tgz",
+                    integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                ),
+            }
+        ),
         validation=RuntimeValidation(metadata_file="package.json"),
         override=OverridePolicy(
             constraint=_EXT_CONSTRAINT,
@@ -89,12 +99,14 @@ def _pi_codex_usage_entry() -> PiExtensionEntry:
         version="0.9.1",
         source=NpmSource(package="@llblab/pi-codex-usage"),
         update=NpmUpdate(stable_only=True),
-        artifacts=MappingProxyType({
-            "0.9.1": NpmArtifact(
-                url="https://registry.npmjs.org/@llblab/pi-codex-usage/-/pi-codex-usage-0.9.1.tgz",
-                integrity="sha384-AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB",
-            ),
-        }),
+        artifacts=MappingProxyType(
+            {
+                "0.9.1": NpmArtifact(
+                    url="https://registry.npmjs.org/@llblab/pi-codex-usage/-/pi-codex-usage-0.9.1.tgz",
+                    integrity="sha384-AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEB",
+                ),
+            }
+        ),
         validation=RuntimeValidation(metadata_file="package.json"),
         override=OverridePolicy(
             constraint=_EXT_CONSTRAINT,
@@ -106,10 +118,14 @@ def _pi_codex_usage_entry() -> PiExtensionEntry:
 
 def _canonical_runtime_inventory() -> RuntimeInventory:
     """Return the test canonical runtime inventory."""
-    return RuntimeInventory(pi_extensions=MappingProxyType({
-        "pi-read": _pi_read_entry(),
-        "pi-codex-usage": _pi_codex_usage_entry(),
-    }))
+    return RuntimeInventory(
+        pi_extensions=MappingProxyType(
+            {
+                "pi-read": _pi_read_entry(),
+                "pi-codex-usage": _pi_codex_usage_entry(),
+            }
+        )
+    )
 
 
 def _canonical_runtime_projection(
@@ -149,6 +165,7 @@ def _projection_to_data(projection: EffectiveRuntimeProjection) -> dict:
 # Fake process runner — asserts every call targets the container
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class _FakeRunner:
     """Returns canned output.  Asserts every call targets *container*."""
 
@@ -171,8 +188,7 @@ class _FakeRunner:
         self.calls.append(t)
         if self._container:
             assert self._container in t, (
-                f"command must target container {self._container!r};"
-                f" got argv={t}"
+                f"command must target container {self._container!r}; got argv={t}"
             )
         return ProcessResult(
             argv=t,
@@ -201,15 +217,12 @@ class _DispatchRunner:
         t = tuple(argv)
         self.calls.append(t)
         assert self._container in t, (
-            f"command must target container {self._container!r};"
-            f" got argv={t}"
+            f"command must target container {self._container!r}; got argv={t}"
         )
         for key, (rc, out, err) in self._handlers.items():
-            if len(key) <= len(t) and t[-len(key):] == key:
-                return ProcessResult(argv=t, return_code=rc,
-                                     stdout=out, stderr=err)
-        return ProcessResult(argv=t, return_code=1,
-                             stdout="", stderr=f"unhandled: {t}")
+            if len(key) <= len(t) and t[-len(key) :] == key:
+                return ProcessResult(argv=t, return_code=rc, stdout=out, stderr=err)
+        return ProcessResult(argv=t, return_code=1, stdout="", stderr=f"unhandled: {t}")
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -219,18 +232,12 @@ class _DispatchRunner:
 _CONTAINER = "pi-cli-pi-1"
 
 # Abbreviated package.json responses for extension checks.
-_PI_READ_PACKAGE_JSON = (
-    '{"name":"@arcanemachine/pi-read","version":"0.2.0"}'
-)
-_PI_CODEX_PACKAGE_JSON = (
-    '{"name":"@llblab/pi-codex-usage","version":"0.9.1"}'
-)
+_PI_READ_PACKAGE_JSON = '{"name":"@arcanemachine/pi-read","version":"0.2.0"}'
+_PI_CODEX_PACKAGE_JSON = '{"name":"@llblab/pi-codex-usage","version":"0.9.1"}'
 # Alternate extension for projection-driven checks.
 _ALT_PACKAGE = "@examples/alternate-tool"
 _ALT_VERSION = "3.1.4"
-_ALT_PACKAGE_JSON = (
-    '{"name":"@examples/alternate-tool","version":"3.1.4"}'
-)
+_ALT_PACKAGE_JSON = '{"name":"@examples/alternate-tool","version":"3.1.4"}'
 
 # Projection content hash — derived from the canonical projection.
 # The test that verifies the actual hash uses a fresh handle from
@@ -242,6 +249,7 @@ _TEST_RUNTIME_FS = Filesystem(runtime_root=str(_TEST_RUNTIME_ROOT))
 
 def _fresh_runtime_handle(suffix: str = ".toml"):
     import uuid
+
     path = _TEST_RUNTIME_ROOT / f"test-rt-{uuid.uuid4().hex}{suffix}"
     return create_runtime_projection(
         _canonical_runtime_projection(),
@@ -253,6 +261,7 @@ def _fresh_runtime_handle(suffix: str = ".toml"):
 # ═══════════════════════════════════════════════════════════════════════
 # Dispatch helpers — build a handler dict for a full passing run
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def _passing_handlers(
     *,
@@ -274,27 +283,38 @@ def _passing_handlers(
         }
     handlers: dict[tuple[str, ...], tuple[int, str, str]] = {
         # projection.identity
-        ("sha256sum", "/run/pi-cli/docker-constructor.runtime.toml"):
-            (0, f"{expected_hash}  /run/pi-cli/docker-constructor.runtime.toml\n", ""),
+        ("sha256sum", "/run/pi-cli/docker-constructor.runtime.toml"): (
+            0,
+            f"{expected_hash}  /run/pi-cli/docker-constructor.runtime.toml\n",
+            "",
+        ),
         # projection.readonly — verified via /proc/mounts mount options
-        ("grep", "docker-constructor.runtime.toml", "/proc/mounts"):
-            (0, "none /run/pi-cli/docker-constructor.runtime.toml ext4 ro,nosuid,nodev,relatime 0 0\n", ""),
-        ("test", "-w", "/run/pi-cli/docker-constructor.runtime.toml"):
-            (1, "", ""),
+        ("grep", "docker-constructor.runtime.toml", "/proc/mounts"): (
+            0,
+            "none /run/pi-cli/docker-constructor.runtime.toml ext4 ro,nosuid,nodev,relatime 0 0\n",
+            "",
+        ),
+        ("test", "-w", "/run/pi-cli/docker-constructor.runtime.toml"): (1, "", ""),
         # working.directory
         ("pwd",): (0, f"{workspace_paths[0]}\n", ""),
         # ownership.dev — pi-home
-        ("stat", "-c", "%U:%G", "/home/dev/.pi"):
-            (0, "dev:dev\n", ""),
+        ("stat", "-c", "%U:%G", "/home/dev/.pi"): (0, "dev:dev\n", ""),
         # pi-home.setup
         ("test", "-d", "/home/dev/.pi"): (0, "", ""),
         ("test", "-w", "/home/dev/.pi"): (0, "", ""),
         # gateway.mapping — must resolve to the exact expected address
-        ("getent", "hosts", "host.docker.internal"):
-            (0, f"{expected_addr}  host.docker.internal\n", ""),
+        ("getent", "hosts", "host.docker.internal"): (
+            0,
+            f"{expected_addr}  host.docker.internal\n",
+            "",
+        ),
         # forbidden.paths
         ("test", "-f", "/run/pi-cli/docker-constructor.toml"): (1, "", ""),
-        ("test", "-f", "/run/pi-cli/docker-constructor.build.effective.toml"): (1, "", ""),
+        ("test", "-f", "/run/pi-cli/docker-constructor.build.effective.toml"): (
+            1,
+            "",
+            "",
+        ),
     }
     # extensions.results — one cat per declared extension
     for pkg, (ver, pkg_json) in sorted(extensions.items()):
@@ -313,18 +333,21 @@ def _passing_handlers(
 
 # ── Alternate-extension helpers ──────────────────────────────────────
 
+
 def _alternate_entry() -> PiExtensionEntry:
     """A single non-canonical extension (alternate-tool v3.1.4)."""
     return PiExtensionEntry(
         version=_ALT_VERSION,
         source=NpmSource(package=_ALT_PACKAGE),
         update=NpmUpdate(stable_only=True),
-        artifacts=MappingProxyType({
-            _ALT_VERSION: NpmArtifact(
-                url="https://registry.npmjs.org/@examples/alternate-tool/-/alternate-tool-3.1.4.tgz",
-                integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
-            ),
-        }),
+        artifacts=MappingProxyType(
+            {
+                _ALT_VERSION: NpmArtifact(
+                    url="https://registry.npmjs.org/@examples/alternate-tool/-/alternate-tool-3.1.4.tgz",
+                    integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                ),
+            }
+        ),
         validation=RuntimeValidation(metadata_file="package.json"),
         override=OverridePolicy(
             constraint=_EXT_CONSTRAINT,
@@ -335,9 +358,13 @@ def _alternate_entry() -> PiExtensionEntry:
 
 
 def _alternate_inventory() -> RuntimeInventory:
-    return RuntimeInventory(pi_extensions=MappingProxyType({
-        "alternate-tool": _alternate_entry(),
-    }))
+    return RuntimeInventory(
+        pi_extensions=MappingProxyType(
+            {
+                "alternate-tool": _alternate_entry(),
+            }
+        )
+    )
 
 
 def _alternate_runtime_projection(
@@ -349,6 +376,7 @@ def _alternate_runtime_projection(
 
 def _alternate_runtime_handle(suffix: str = ".toml") -> _RecordingProjectionFactory:
     import uuid
+
     path = _TEST_RUNTIME_ROOT / f"test-alt-{uuid.uuid4().hex}{suffix}"
     return create_runtime_projection(
         _alternate_runtime_projection(),
@@ -374,8 +402,9 @@ class TestRuntimeProjectionIdentity(unittest.TestCase):
         for _, entry in data["extensions"].items():
             self.assertIsInstance(entry.get("artifact_id"), str)
             self.assertIsInstance(entry.get("integrity"), str)
-            self.assertNotIn("artifact", entry,
-                             "legacy 'artifact' table must not appear")
+            self.assertNotIn(
+                "artifact", entry, "legacy 'artifact' table must not appear"
+            )
             self.assertNotIn("url", entry)
 
     def test_identity_matches(self) -> None:
@@ -383,16 +412,18 @@ class TestRuntimeProjectionIdentity(unittest.TestCase):
         handlers = _passing_handlers(expected_hash=handle.content_hash)
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        identity = next(c for c in result.checks
-                        if c.key == "projection.identity")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        identity = next(c for c in result.checks if c.key == "projection.identity")
         self.assertTrue(identity.ok)
         self.assertIn(handle.content_hash, identity.detail)
 
@@ -402,16 +433,18 @@ class TestRuntimeProjectionIdentity(unittest.TestCase):
         handlers = _passing_handlers(expected_hash=bogus)
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        identity = next(c for c in result.checks
-                        if c.key == "projection.identity")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        identity = next(c for c in result.checks if c.key == "projection.identity")
         self.assertFalse(identity.ok)
 
     def test_identity_file_missing(self) -> None:
@@ -419,19 +452,24 @@ class TestRuntimeProjectionIdentity(unittest.TestCase):
         handlers = _passing_handlers(expected_hash=handle.content_hash)
         # Override sha256sum to fail — file not found
         handlers[("sha256sum", "/run/pi-cli/docker-constructor.runtime.toml")] = (
-            1, "", "No such file or directory\n")
+            1,
+            "",
+            "No such file or directory\n",
+        )
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        identity = next(c for c in result.checks
-                        if c.key == "projection.identity")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        identity = next(c for c in result.checks if c.key == "projection.identity")
         self.assertFalse(identity.ok)
 
 
@@ -445,37 +483,43 @@ class TestRuntimeReadonlyMount(unittest.TestCase):
         handlers = _passing_handlers(expected_hash=handle.content_hash)
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        ro = next(c for c in result.checks
-                  if c.key == "projection.readonly")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        ro = next(c for c in result.checks if c.key == "projection.readonly")
         self.assertTrue(ro.ok)
 
     def test_writable_mount_detected_via_proc_mounts(self) -> None:
         """/proc/mounts shows ``rw`` → mount is writable → fail."""
         handle = _fresh_runtime_handle()
         handlers = _passing_handlers(expected_hash=handle.content_hash)
-        handlers[
-            ("grep", "docker-constructor.runtime.toml", "/proc/mounts")
-        ] = (0, "none /run/pi-cli/docker-constructor.runtime.toml ext4 rw,nosuid,nodev,relatime 0 0\n", "")
+        handlers[("grep", "docker-constructor.runtime.toml", "/proc/mounts")] = (
+            0,
+            "none /run/pi-cli/docker-constructor.runtime.toml ext4 rw,nosuid,nodev,relatime 0 0\n",
+            "",
+        )
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        ro = next(c for c in result.checks
-                  if c.key == "projection.readonly")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        ro = next(c for c in result.checks if c.key == "projection.readonly")
         self.assertFalse(ro.ok)
 
     def test_writable_mount_with_restrictive_permissions(self) -> None:
@@ -485,22 +529,26 @@ class TestRuntimeReadonlyMount(unittest.TestCase):
         handle = _fresh_runtime_handle()
         handlers = _passing_handlers(expected_hash=handle.content_hash)
         # /proc/mounts shows rw — writable mount
-        handlers[
-            ("grep", "docker-constructor.runtime.toml", "/proc/mounts")
-        ] = (0, "none /run/pi-cli/docker-constructor.runtime.toml ext4 rw,nosuid,nodev,relatime 0 0\n", "")
+        handlers[("grep", "docker-constructor.runtime.toml", "/proc/mounts")] = (
+            0,
+            "none /run/pi-cli/docker-constructor.runtime.toml ext4 rw,nosuid,nodev,relatime 0 0\n",
+            "",
+        )
         # test -w still fails — file permissions, not mount
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        ro = next(c for c in result.checks
-                  if c.key == "projection.readonly")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        ro = next(c for c in result.checks if c.key == "projection.readonly")
         self.assertFalse(ro.ok)
 
 
@@ -513,16 +561,18 @@ class TestRuntimeExtensionsResults(unittest.TestCase):
         handlers = _passing_handlers(expected_hash=handle.content_hash)
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        per_extension = [c for c in result.checks
-                         if c.key == "extensions.results"]
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        per_extension = [c for c in result.checks if c.key == "extensions.results"]
         self.assertTrue(len(per_extension) >= 1)
         self.assertTrue(all(e.ok for e in per_extension))
         # The detail should mention both installed packages.
@@ -535,23 +585,27 @@ class TestRuntimeExtensionsResults(unittest.TestCase):
         handlers = _passing_handlers(expected_hash=handle.content_hash)
         # pi-read package.json missing
         handlers[
-            ("cat", "/home/dev/.pi/agent/npm/node_modules/@arcanemachine/pi-read/package.json")
+            (
+                "cat",
+                "/home/dev/.pi/agent/npm/node_modules/@arcanemachine/pi-read/package.json",
+            )
         ] = (1, "", "cat: ... No such file or directory\n")
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        per_extension = [c for c in result.checks
-                         if c.key == "extensions.results"]
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        per_extension = [c for c in result.checks if c.key == "extensions.results"]
         # Find the pi-read check (missing handler → fail).
-        pi_read = next(c for c in per_extension
-                       if "pi-read" in c.detail.lower())
+        pi_read = next(c for c in per_extension if "pi-read" in c.detail.lower())
         self.assertFalse(pi_read.ok)
 
     def test_version_mismatch_detected(self) -> None:
@@ -559,23 +613,27 @@ class TestRuntimeExtensionsResults(unittest.TestCase):
         handlers = _passing_handlers(expected_hash=handle.content_hash)
         # pi-codex-usage has wrong version
         handlers[
-            ("cat", "/home/dev/.pi/agent/npm/node_modules/@llblab/pi-codex-usage/package.json")
+            (
+                "cat",
+                "/home/dev/.pi/agent/npm/node_modules/@llblab/pi-codex-usage/package.json",
+            )
         ] = (0, '{"name":"@llblab/pi-codex-usage","version":"0.7.0"}', "")
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        per_extension = [c for c in result.checks
-                         if c.key == "extensions.results"]
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        per_extension = [c for c in result.checks if c.key == "extensions.results"]
         # Find the pi-codex-usage check (wrong version → fail).
-        codex = next(c for c in per_extension
-                     if "pi-codex" in c.detail.lower())
+        codex = next(c for c in per_extension if "pi-codex" in c.detail.lower())
         self.assertFalse(codex.ok)
 
     def test_extensions_parsed_from_projection_not_hardcoded(self) -> None:
@@ -593,16 +651,18 @@ class TestRuntimeExtensionsResults(unittest.TestCase):
         )
         runner = _DispatchRunner(_CONTAINER, handlers)
         with alt_handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=alt_handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        ext = next(c for c in result.checks
-                   if c.key == "extensions.results")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=alt_handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        ext = next(c for c in result.checks if c.key == "extensions.results")
         self.assertTrue(ext.ok)
         # Detail MUST mention the alternate package, not canonicals.
         detail_lower = ext.detail.lower()
@@ -612,7 +672,8 @@ class TestRuntimeExtensionsResults(unittest.TestCase):
         # No cat commands for canonical packages were issued.
         all_argv = [tuple(c) for c in runner.calls]
         canonicals = [
-            t for t in all_argv
+            t
+            for t in all_argv
             if any("pi-read" in a or "pi-codex-usage" in a for a in t)
         ]
         self.assertEqual([], canonicals)
@@ -633,16 +694,18 @@ class TestRuntimeProjects(unittest.TestCase):
         )
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=tuple(Path(p) for p in workspace_paths),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        project_checks = [c for c in result.checks
-                          if c.key == "workspaces.present"]
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=tuple(Path(p) for p in workspace_paths),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        project_checks = [c for c in result.checks if c.key == "workspaces.present"]
         self.assertTrue(all(c.ok for c in project_checks))
         detail = " ".join(c.detail for c in project_checks)
         self.assertIn("/tmp/p1", detail)
@@ -656,20 +719,21 @@ class TestRuntimeProjects(unittest.TestCase):
             expected_hash=handle.content_hash,
             workspace_paths=workspace_paths,
         )
-        handlers[("printenv", "WORKSPACE_PATH_1")] = (
-            0, "/some/other/dir\n", "")
+        handlers[("printenv", "WORKSPACE_PATH_1")] = (0, "/some/other/dir\n", "")
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=tuple(Path(p) for p in workspace_paths),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        project_checks = [c for c in result.checks
-                          if c.key == "workspaces.present"]
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=tuple(Path(p) for p in workspace_paths),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        project_checks = [c for c in result.checks if c.key == "workspaces.present"]
         self.assertFalse(all(c.ok for c in project_checks))
 
     def test_missing_env_variable_detected(self) -> None:
@@ -683,16 +747,18 @@ class TestRuntimeProjects(unittest.TestCase):
         handlers[("printenv", "WORKSPACE_PATH_2")] = (1, "", "")
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=tuple(Path(p) for p in workspace_paths),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        project_checks = [c for c in result.checks
-                          if c.key == "workspaces.present"]
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=tuple(Path(p) for p in workspace_paths),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        project_checks = [c for c in result.checks if c.key == "workspaces.present"]
         self.assertFalse(all(c.ok for c in project_checks))
 
     def test_unexpected_next_entry_detected(self) -> None:
@@ -703,20 +769,21 @@ class TestRuntimeProjects(unittest.TestCase):
             expected_hash=handle.content_hash,
             workspace_paths=workspace_paths,
         )
-        handlers[("printenv", "WORKSPACE_PATH_3")] = (
-            0, "/unexpected/path\n", "")
+        handlers[("printenv", "WORKSPACE_PATH_3")] = (0, "/unexpected/path\n", "")
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=tuple(Path(p) for p in workspace_paths),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        project_checks = [c for c in result.checks
-                          if c.key == "workspaces.present"]
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=tuple(Path(p) for p in workspace_paths),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        project_checks = [c for c in result.checks if c.key == "workspaces.present"]
         self.assertFalse(all(c.ok for c in project_checks))
 
     def test_directory_missing_but_env_set(self) -> None:
@@ -732,16 +799,18 @@ class TestRuntimeProjects(unittest.TestCase):
         handlers[("test", "-d", "/tmp/p1")] = (1, "", "")
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=tuple(Path(p) for p in workspace_paths),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        proj = next(c for c in result.checks
-                    if c.key == "workspaces.present")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=tuple(Path(p) for p in workspace_paths),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        proj = next(c for c in result.checks if c.key == "workspaces.present")
         self.assertFalse(proj.ok)
 
 
@@ -753,16 +822,18 @@ class TestRuntimeWorkingDirectory(unittest.TestCase):
         handlers = _passing_handlers(expected_hash=handle.content_hash)
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        wd = next(c for c in result.checks
-                  if c.key == "working.directory")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        wd = next(c for c in result.checks if c.key == "working.directory")
         self.assertTrue(wd.ok)
         self.assertIn("/tmp/p1", wd.detail)
 
@@ -772,16 +843,18 @@ class TestRuntimeWorkingDirectory(unittest.TestCase):
         handlers[("pwd",)] = (0, "/home/dev\n", "")
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        wd = next(c for c in result.checks
-                  if c.key == "working.directory")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        wd = next(c for c in result.checks if c.key == "working.directory")
         self.assertFalse(wd.ok)
 
 
@@ -793,16 +866,18 @@ class TestRuntimeOwnership(unittest.TestCase):
         handlers = _passing_handlers(expected_hash=handle.content_hash)
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        own = next(c for c in result.checks
-                   if c.key == "ownership.dev")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        own = next(c for c in result.checks if c.key == "ownership.dev")
         self.assertTrue(own.ok)
 
     def test_wrong_ownership_detected(self) -> None:
@@ -812,16 +887,18 @@ class TestRuntimeOwnership(unittest.TestCase):
         handlers[("stat", "-c", "%U:%G", "/tmp/p1")] = (0, "root:root\n", "")
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        per_owner = [c for c in result.checks
-                     if c.key == "ownership.dev"]
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        per_owner = [c for c in result.checks if c.key == "ownership.dev"]
         self.assertFalse(all(c.ok for c in per_owner))
         # Specifically, the project path check should have failed.
         proj_own = next(c for c in per_owner if "/tmp/p1" in c.detail)
@@ -836,16 +913,18 @@ class TestRuntimePiHome(unittest.TestCase):
         handlers = _passing_handlers(expected_hash=handle.content_hash)
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        ph = next(c for c in result.checks
-                  if c.key == "pi-home.setup")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        ph = next(c for c in result.checks if c.key == "pi-home.setup")
         self.assertTrue(ph.ok)
 
     def test_pi_home_missing_detected(self) -> None:
@@ -855,16 +934,18 @@ class TestRuntimePiHome(unittest.TestCase):
         handlers[("test", "-w", "/home/dev/.pi")] = (1, "", "")
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        ph = next(c for c in result.checks
-                  if c.key == "pi-home.setup")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        ph = next(c for c in result.checks if c.key == "pi-home.setup")
         self.assertFalse(ph.ok)
 
 
@@ -881,16 +962,18 @@ class TestRuntimeGatewayMapping(unittest.TestCase):
         )
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=self._GATEWAY,
-                runner=runner,
-            ))
-        gw = next(c for c in result.checks
-                  if c.key == "gateway.mapping")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=self._GATEWAY,
+                    runner=runner,
+                )
+            )
+        gw = next(c for c in result.checks if c.key == "gateway.mapping")
         self.assertTrue(gw.ok)
         self.assertIn(self._GATEWAY, gw.detail)
 
@@ -903,19 +986,24 @@ class TestRuntimeGatewayMapping(unittest.TestCase):
         )
         # Container resolves host.docker.internal to a different IP.
         handlers[("getent", "hosts", "host.docker.internal")] = (
-            0, "10.0.0.1  host.docker.internal\n", "")
+            0,
+            "10.0.0.1  host.docker.internal\n",
+            "",
+        )
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=self._GATEWAY,
-                runner=runner,
-            ))
-        gw = next(c for c in result.checks
-                  if c.key == "gateway.mapping")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=self._GATEWAY,
+                    runner=runner,
+                )
+            )
+        gw = next(c for c in result.checks if c.key == "gateway.mapping")
         self.assertFalse(gw.ok)
 
     def test_gateway_resolution_failure_detected(self) -> None:
@@ -928,16 +1016,18 @@ class TestRuntimeGatewayMapping(unittest.TestCase):
         handlers[("getent", "hosts", "host.docker.internal")] = (2, "", "")
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=self._GATEWAY,
-                runner=runner,
-            ))
-        gw = next(c for c in result.checks
-                  if c.key == "gateway.mapping")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=self._GATEWAY,
+                    runner=runner,
+                )
+            )
+        gw = next(c for c in result.checks if c.key == "gateway.mapping")
         self.assertFalse(gw.ok)
 
 
@@ -949,36 +1039,39 @@ class TestRuntimeForbiddenPaths(unittest.TestCase):
         handlers = _passing_handlers(expected_hash=handle.content_hash)
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        fp = next(c for c in result.checks
-                  if c.key == "forbidden.paths")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        fp = next(c for c in result.checks if c.key == "forbidden.paths")
         self.assertTrue(fp.ok)
 
     def test_forbidden_path_present_detected(self) -> None:
         handle = _fresh_runtime_handle()
         handlers = _passing_handlers(expected_hash=handle.content_hash)
         # Reviewed inventory IS present — must fail
-        handlers[("test", "-f", "/run/pi-cli/docker-constructor.toml")] = (
-            0, "", "")
+        handlers[("test", "-f", "/run/pi-cli/docker-constructor.toml")] = (0, "", "")
         runner = _DispatchRunner(_CONTAINER, handlers)
         with handle:
-            result = verify_runtime(VerifyRuntimeRequest(
-                container=_CONTAINER,
-                runtime_projection_path=handle.path,
-                workspace_paths=(Path("/tmp/p1"),),
-                container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
-                runner=runner,
-            ))
-        fp = next(c for c in result.checks
-                  if c.key == "forbidden.paths")
+            result = verify_runtime(
+                VerifyRuntimeRequest(
+                    container=_CONTAINER,
+                    runtime_projection_path=handle.path,
+                    workspace_paths=(Path("/tmp/p1"),),
+                    container_pi_home=Path("/home/dev/.pi"),
+                    host_access=_ENABLED_POLICY,
+                    host_access_address=_DEFAULT_ADDR,
+                    runner=runner,
+                )
+            )
+        fp = next(c for c in result.checks if c.key == "forbidden.paths")
         self.assertFalse(fp.ok)
 
 
@@ -995,7 +1088,8 @@ class TestRuntimeVerificationStub(unittest.TestCase):
                 runtime_projection_path=handle.path,
                 workspace_paths=(Path("/tmp/p1"),),
                 container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
+                host_access=_ENABLED_POLICY,
+                host_access_address=_DEFAULT_ADDR,
                 runner=runner,
             )
             result = verify_runtime(req)
@@ -1009,14 +1103,16 @@ class TestRuntimeVerificationStub(unittest.TestCase):
 
 class TestRuntimeCheckModel(unittest.TestCase):
     def test_check_ok(self) -> None:
-        c = RuntimeCheck(key="projection.identity", ok=True,
-                         detail="hash matches abc123")
+        c = RuntimeCheck(
+            key="projection.identity", ok=True, detail="hash matches abc123"
+        )
         self.assertTrue(c.ok)
         self.assertEqual("projection.identity", c.key)
 
     def test_check_not_ok(self) -> None:
-        c = RuntimeCheck(key="gateway.mapping", ok=False,
-                         detail="host.docker.internal not found")
+        c = RuntimeCheck(
+            key="gateway.mapping", ok=False, detail="host.docker.internal not found"
+        )
         self.assertFalse(c.ok)
 
 
@@ -1065,7 +1161,8 @@ class TestVerifyRuntimeRequestModel(unittest.TestCase):
                 runtime_projection_path=handle.path,
                 workspace_paths=(Path("/tmp/p1"),),
                 container_pi_home=Path("/home/dev/.pi"),
-                host_access=_ENABLED_POLICY, host_access_address=_DEFAULT_ADDR,
+                host_access=_ENABLED_POLICY,
+                host_access_address=_DEFAULT_ADDR,
                 runner=runner,
             )
             self.assertEqual(_CONTAINER, req.container)

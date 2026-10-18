@@ -33,6 +33,7 @@ tests and a contract inventory for the clauses removed from
 All of these are guards, not drivers: if Phases 1-4 left a violation, the
 matching test fails and ``5.5``/``5.6`` correct it.
 """
+
 from __future__ import annotations
 
 import ast
@@ -99,16 +100,28 @@ _DOMAIN_MODULES = (
     "docker/versioning/cache_storage.py",
     "docker/versioning/corporate_network.py",
 )
-_AGGREGATE_OWNER_MODULES = ("local_project_configuration", "configuration_document_validation")
+_AGGREGATE_OWNER_MODULES = (
+    "local_project_configuration",
+    "configuration_document_validation",
+)
 
 # Cache-storage primitives that must not act on the shared cache root outside
 # ``cache_storage.py``.  ``artifact_cache.py`` is deliberately excluded: its
 # ``cache_root`` is the project-scoped artifact containment root, an
 # independently owned policy, not the shared constructor cache root.
-_CACHE_POLICY_PRIMITIVES = frozenset({
-    "normpath", "isabs", "islink", "is_symlink", "realpath", "lstat",
-    "chmod", "mkdir", "makedirs",
-})
+_CACHE_POLICY_PRIMITIVES = frozenset(
+    {
+        "normpath",
+        "isabs",
+        "islink",
+        "is_symlink",
+        "realpath",
+        "lstat",
+        "chmod",
+        "mkdir",
+        "makedirs",
+    }
+)
 _CACHE_POLICY_SCOPE = (
     "docker/versioning/host_access.py",
     "docker/versioning/corporate_network.py",
@@ -117,11 +130,20 @@ _CACHE_POLICY_SCOPE = (
     "docker/constructor_cli.py",
     "docker/launcher.py",
 )
-_CACHE_STORAGE_ALLOWED_IMPORTS = frozenset({
-    "os", "stat", "errno", "pathlib", "errors", "model", "__future__",
-    "docker.filesystem.cleanup", "docker.filesystem.descriptors",
-    "docker.filesystem.operations",
-})
+_CACHE_STORAGE_ALLOWED_IMPORTS = frozenset(
+    {
+        "os",
+        "stat",
+        "errno",
+        "pathlib",
+        "errors",
+        "model",
+        "__future__",
+        "docker.filesystem.cleanup",
+        "docker.filesystem.descriptors",
+        "docker.filesystem.operations",
+    }
+)
 
 # Aggregate-owner public names.  They may be *imported* by consumers but only
 # defined by the aggregate module.
@@ -141,6 +163,7 @@ _LEGACY_COMPANION_ADAPTERS = ("load_local_config", "load_local_config_for_invent
 # ---------------------------------------------------------------------------
 # AST helpers
 # ---------------------------------------------------------------------------
+
 
 def _source(path: Path) -> str:
     return path.read_text(encoding="utf-8")
@@ -255,9 +278,7 @@ def _aggregate_constructions(tree: ast.AST) -> list[int]:
                     aliases.add(alias.asname or alias.name)
         elif isinstance(node, ast.Assign):
             value = node.value
-            is_reference = (
-                isinstance(value, ast.Name) and value.id in aliases
-            ) or (
+            is_reference = (isinstance(value, ast.Name) and value.id in aliases) or (
                 isinstance(value, ast.Attribute) and value.attr == "LocalConfig"
             )
             if is_reference:
@@ -320,6 +341,7 @@ def _call_name(func: ast.AST) -> str | None:
 # ---------------------------------------------------------------------------
 # 5.1 Project TOML parsing / parse-error projection ownership
 # ---------------------------------------------------------------------------
+
 
 class TestProjectTomlParsingOwnedByBoundary(unittest.TestCase):
     maxDiff = None
@@ -400,9 +422,7 @@ class TestProjectTomlDetectorIsNotVacuous(unittest.TestCase):
         self.assertTrue(_toml_usage(ast.parse(self._SYNTHETIC)))
 
     def test_toml_decode_error_reference_detected(self) -> None:
-        self.assertTrue(
-            _references_name(ast.parse(self._SYNTHETIC), "TOMLDecodeError")
-        )
+        self.assertTrue(_references_name(ast.parse(self._SYNTHETIC), "TOMLDecodeError"))
 
     def test_every_parser_form_is_detected(self) -> None:
         for label, source in self._PARSER_FORMS.items():
@@ -434,6 +454,7 @@ class TestProjectTomlDetectorIsNotVacuous(unittest.TestCase):
 # 5.2 Local aggregate ownership / 5.3 dependency direction and sole owners
 # ---------------------------------------------------------------------------
 
+
 class TestLocalAggregateOwnedByAggregateModule(unittest.TestCase):
     maxDiff = None
 
@@ -460,21 +481,27 @@ class TestLocalAggregateOwnedByAggregateModule(unittest.TestCase):
 
     def test_inventory_module_exposes_no_legacy_companion_loaders(self) -> None:
         tree = ast.parse(_source(_INVENTORY))
-        offenders = [name for name in _LEGACY_COMPANION_ADAPTERS if _defines(tree, name)]
+        offenders = [
+            name for name in _LEGACY_COMPANION_ADAPTERS if _defines(tree, name)
+        ]
         self.assertEqual([], offenders)
 
     def test_runtime_host_access_owner_owns_no_aggregate_state(self) -> None:
         source = _source(_DOCKER / "versioning" / "host_access.py")
         tree = ast.parse(source)
         forbidden_types = {
-            "LocalConfig", "LocalCacheConfig", "LocalCorporateTrust", "LocalNetworkProxy",
+            "LocalConfig",
+            "LocalCacheConfig",
+            "LocalCorporateTrust",
+            "LocalNetworkProxy",
         }
         offenders = sorted(
             name for name in forbidden_types if _references_name(tree, name)
         )
         self.assertEqual([], offenders)
         offenders = sorted(
-            name for name in (
+            name
+            for name in (
                 "parse_local_cache_config",
                 "parse_local_corporate_trust",
                 "parse_local_network_proxy",
@@ -492,9 +519,7 @@ class TestAggregateConstructionDetectorIsNotVacuous(unittest.TestCase):
         "module attribute": (
             "import docker.versioning.model as model\nmodel.LocalConfig()"
         ),
-        "relative module attribute": (
-            "from . import model\nmodel.LocalConfig()"
-        ),
+        "relative module attribute": ("from . import model\nmodel.LocalConfig()"),
         "imported alias": (
             "from docker.versioning.model import LocalConfig as Config\nConfig()"
         ),
@@ -514,8 +539,7 @@ class TestAggregateConstructionDetectorIsNotVacuous(unittest.TestCase):
 
     def test_non_local_config_calls_are_not_false_positives(self) -> None:
         source = (
-            "from docker.versioning.model import LocalHostAccess\n"
-            "LocalHostAccess()\n"
+            "from docker.versioning.model import LocalHostAccess\nLocalHostAccess()\n"
         )
         self.assertEqual([], _aggregate_constructions(ast.parse(source)))
 
@@ -566,9 +590,15 @@ class TestDependencyDirectionAndSoleOwners(unittest.TestCase):
 
     def test_cache_authority_api_is_defined_only_by_cache_storage(self) -> None:
         authority = (
-            "resolve_default_root", "resolve_local_root", "resolve_effective_root",
-            "prepare_default_root", "prepare_local_root", "prepare_resolved_root",
-            "prepare_project_root", "versioning_child", "runtime_artifacts_child",
+            "resolve_default_root",
+            "resolve_local_root",
+            "resolve_effective_root",
+            "prepare_default_root",
+            "prepare_local_root",
+            "prepare_resolved_root",
+            "prepare_project_root",
+            "versioning_child",
+            "runtime_artifacts_child",
         )
         offenders: list[tuple[str, str]] = []
         for path in _docker_sources():
@@ -584,6 +614,7 @@ class TestDependencyDirectionAndSoleOwners(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # 5.4 Contract inventory for clauses moved out of runtime-host-access
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True, slots=True)
 class MovedClause:
@@ -1194,9 +1225,7 @@ _REMOVED_REQUIREMENT = "Store constructor-project machine-local state separately
 
 _SPEC_CACHE_DIRS = (
     _CHANGE_DIR,
-    *sorted((_REPO_ROOT / "openspec" / "changes" / "archive").glob(
-        f"*{_CHANGE_NAME}"
-    )),
+    *sorted((_REPO_ROOT / "openspec" / "changes" / "archive").glob(f"*{_CHANGE_NAME}")),
 )
 
 
@@ -1252,12 +1281,12 @@ def _requirements(text: str) -> dict[str, SpecRequirement]:
     for line in text.splitlines():
         if line.startswith("### Requirement: "):
             flush()
-            title = line[len("### Requirement: "):].strip()
+            title = line[len("### Requirement: ") :].strip()
             body_lines = []
             scenarios = []
             in_scenario = False
         elif line.startswith("#### Scenario: ") and title is not None:
-            scenarios.append(line[len("#### Scenario: "):].strip())
+            scenarios.append(line[len("#### Scenario: ") :].strip())
             in_scenario = True
         elif title is not None and not in_scenario and not line.startswith("#"):
             stripped = line.strip()
@@ -1275,7 +1304,7 @@ def _parse_removed_requirements(text: str) -> set[str]:
         if line.startswith("## "):
             in_removed = line.strip() == "## REMOVED Requirements"
         elif in_removed and line.startswith("### Requirement: "):
-            removed.add(line[len("### Requirement: "):].strip())
+            removed.add(line[len("### Requirement: ") :].strip())
     return removed
 
 
@@ -1553,7 +1582,9 @@ class TestMovedClauseInventory(unittest.TestCase):
             for index in range(start, start + len(obligation.source_excerpt)):
                 covered[index] = True
         for marker in _NORMATIVE_MARKERS:
-            for match in re.finditer(rf"\b{re.escape(marker)}\b", normalized, re.IGNORECASE):
+            for match in re.finditer(
+                rf"\b{re.escape(marker)}\b", normalized, re.IGNORECASE
+            ):
                 start, end = match.span()
                 self.assertTrue(
                     all(covered[start:end]),
@@ -1595,7 +1626,9 @@ class TestMovedClauseInventory(unittest.TestCase):
         )
 
     def test_cache_without_host_access_scenario_uses_a_disabled_test(self) -> None:
-        entry = _scenario_entry("Loading a dedicated local cache root without host access")
+        entry = _scenario_entry(
+            "Loading a dedicated local cache root without host access"
+        )
         discouraged = (
             "tests.test_constructor_host_access_acceptance."
             "TestCustomInventoryWithCache.test_custom_inventory_with_local_cache"
@@ -1625,9 +1658,7 @@ class TestMovedClauseInventory(unittest.TestCase):
             module_name, class_name, method_name = test_id.rsplit(".", 2)
             module = importlib.import_module(module_name)
             suite.addTest(getattr(module, class_name)(method_name))
-        result = _unittest.TextTestRunner(
-            stream=io.StringIO(), verbosity=0
-        ).run(suite)
+        result = _unittest.TextTestRunner(stream=io.StringIO(), verbosity=0).run(suite)
         self.assertTrue(result.wasSuccessful(), "mapped regression tests must pass")
 
 
@@ -1695,7 +1726,9 @@ class TestMovedClauseDetectorIsNotVacuous(unittest.TestCase):
         # uncovered, detected from the source text alone (MOVED_OBLIGATIONS is
         # never consulted here).
         for obligation in _OBLIGATION_MANIFEST.obligations:
-            reduced = _without_obligation(_OBLIGATION_MANIFEST, obligation.obligation_id)
+            reduced = _without_obligation(
+                _OBLIGATION_MANIFEST, obligation.obligation_id
+            )
             errors = _source_coverage_errors(
                 reduced.obligations,
                 authoritative.body,

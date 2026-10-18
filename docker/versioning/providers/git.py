@@ -2,6 +2,7 @@
 
 Uses git ls-remote transport to check for upstream revisions.
 """
+
 from __future__ import annotations
 
 import re
@@ -43,9 +44,7 @@ class GitRefProvider:
         try:
             commit = context.git.resolve_ref(repository, ref)
         except Exception as exc:
-            return ProviderResult(
-                unavailable_reason=f"Git: {exc}"
-            )
+            return ProviderResult(unavailable_reason=f"Git: {exc}")
 
         commit = commit.strip()
         if not _GIT_REVISION_RE.match(commit):

@@ -28,6 +28,7 @@ These tests pin the Phase 5 contract:
   uses an ``OwnedDescriptor`` ledger
   (``HandoffDecisionTests``).
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -242,9 +243,7 @@ class _RelativeDirCase(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.namespace = self.root / "namespace"
         self.namespace.mkdir(mode=0o700)
-        self.namespace_fd = os.open(
-            self.namespace, os.O_RDONLY | os.O_DIRECTORY
-        )
+        self.namespace_fd = os.open(self.namespace, os.O_RDONLY | os.O_DIRECTORY)
         self.addCleanup(self._close_namespace)
 
     def _close_namespace(self) -> None:
@@ -408,13 +407,12 @@ class RelativeDirHandoffTests(_RelativeDirCase):
 
     def test_parent_close_failure_releases_child_without_retrying_parent(self) -> None:
         fault = OSError(errno.EIO, "parent close failed")
-        with _OwnerLedger().install() as ledger, _CloseFaults().index_faults(
-            {0: fault}
-        ) as closes:
+        with (
+            _OwnerLedger().install() as ledger,
+            _CloseFaults().index_faults({0: fault}) as closes,
+        ):
             with self.assertRaises(OSError) as ctx:
-                build_cache._open_relative_dir(
-                    self.namespace_fd, ("a",), create=True
-                )
+                build_cache._open_relative_dir(self.namespace_fd, ("a",), create=True)
         self.assertIs(ctx.exception, fault)
         parent_fd, child_fd = ledger.owned_fds
         self.assertEqual(closes.calls, [parent_fd, child_fd])
@@ -424,10 +422,13 @@ class RelativeDirHandoffTests(_RelativeDirCase):
         self.assertTrue(ledger.owner_for(parent_fd).released)
         self.assertTrue(ledger.owner_for(child_fd).released)
 
-    def test_parent_close_interruption_releases_child_and_stays_authoritative(self) -> None:
-        with _OwnerLedger().install() as ledger, _CloseFaults().index_faults(
-            {0: KeyboardInterrupt()}
-        ) as closes:
+    def test_parent_close_interruption_releases_child_and_stays_authoritative(
+        self,
+    ) -> None:
+        with (
+            _OwnerLedger().install() as ledger,
+            _CloseFaults().index_faults({0: KeyboardInterrupt()}) as closes,
+        ):
             with self.assertRaises(KeyboardInterrupt):
                 build_cache._open_relative_dir(
                     self.namespace_fd, ("a", "b"), create=True
@@ -507,9 +508,7 @@ class BootstrapLockParentTests(_BootstrapCase):
 
     def test_parent_close_failure_is_not_retried_and_child_does_not_leak(self) -> None:
         fault = OSError(errno.EIO, "parent close failed")
-        with mock.patch.object(
-            build_cache, "_PERSISTENT_PARTS", ("alpha", "beta")
-        ):
+        with mock.patch.object(build_cache, "_PERSISTENT_PARTS", ("alpha", "beta")):
             with _OwnerLedger().install() as ledger:
                 with _CloseFaults().armed_faults([fault, None, None]) as closes:
                     with _arm_after_namespace_open(closes, foreign_uid=False):
@@ -531,11 +530,11 @@ class BootstrapLockParentTests(_BootstrapCase):
         self.assertTrue(ledger.owner_for(namespace_fd).released)
 
     def test_parent_close_interruption_stays_authoritative(self) -> None:
-        with mock.patch.object(
-            build_cache, "_PERSISTENT_PARTS", ("alpha", "beta")
-        ):
+        with mock.patch.object(build_cache, "_PERSISTENT_PARTS", ("alpha", "beta")):
             with _OwnerLedger().install() as ledger:
-                with _CloseFaults().armed_faults([KeyboardInterrupt(), None, None]) as closes:
+                with _CloseFaults().armed_faults(
+                    [KeyboardInterrupt(), None, None]
+                ) as closes:
                     with _arm_after_namespace_open(closes, foreign_uid=False):
                         with self.assertRaises(KeyboardInterrupt):
                             self._bootstrap()
@@ -713,8 +712,7 @@ class HandoffDecisionTests(_RelativeDirCase):
         function = next(
             node
             for node in tree.body
-            if isinstance(node, ast.FunctionDef)
-            and node.name == "_open_relative_dir"
+            if isinstance(node, ast.FunctionDef) and node.name == "_open_relative_dir"
         )
         owner_calls = [
             node

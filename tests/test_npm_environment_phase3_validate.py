@@ -88,11 +88,7 @@ def _assembler():
 
 
 def _write_fake_docker(bin_dir: Path, log_path: Path, *, exit_code: int) -> None:
-    script = (
-        "#!/bin/sh\n"
-        f'printf "%s\\n" "$@" > "{log_path}"\n'
-        f'exit {exit_code}\n'
-    )
+    script = f'#!/bin/sh\nprintf "%s\\n" "$@" > "{log_path}"\nexit {exit_code}\n'
     docker = bin_dir / "docker"
     docker.write_text(script)
     docker.chmod(docker.stat().st_mode | stat.S_IXUSR)

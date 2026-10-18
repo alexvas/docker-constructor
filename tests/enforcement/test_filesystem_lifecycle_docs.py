@@ -5,6 +5,7 @@ with the implemented API: every positive example executes, the documented
 negative examples are present, the developer-guide cross-references resolve,
 and the guide names the convergence gates that enforce it.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -47,8 +48,13 @@ class ExecutableExampleTests(unittest.TestCase):
         self.assertEqual(len(examples), 3)
         # Fewer examples still cover each ownership choice and borrowed fd I/O.
         source = "\n".join(examples)
-        for token in ("OwnedDescriptor(", "closefd=False", "OwnedStream(",
-                      "DirectoryDescriptor.open_secure_path(", "open_or_create_directory("):
+        for token in (
+            "OwnedDescriptor(",
+            "closefd=False",
+            "OwnedStream(",
+            "DirectoryDescriptor.open_secure_path(",
+            "open_or_create_directory(",
+        ):
             with self.subTest(api=token):
                 self.assertIn(token, source)
 

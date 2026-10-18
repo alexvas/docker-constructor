@@ -30,33 +30,36 @@ from docker.versioning.errors import EffectiveConfigError
 # Test helpers
 # ---------------------------------------------------------------------------
 
-def _artifact(url: str = "https://example.com/pkg-1.0.0.tar.gz",
-              sha256: str = "e3b0c44298fc1c149afbf4c8996fb924"
-                             "27ae41e4649b934ca495991b7852b855") -> EffectiveArtifact:
+
+def _artifact(
+    url: str = "https://example.com/pkg-1.0.0.tar.gz",
+    sha256: str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+) -> EffectiveArtifact:
     return EffectiveArtifact(url=url, sha256=sha256)
 
 
-def _projection(*,
-                platform: str = "linux-amd64",
-                node_image: str = "docker.io/library/node:22@sha256:ab"
-                                  "cdef1234567890abcdef1234567890abcdef12"
-                                  "34567890abcdef1234567890",
-                rust_version: str = "1.85.0",
-                rust_profile: str = "minimal",
-                rust_components: tuple[str, ...] = ("rustfmt", "clippy"),
-                rustup: EffectiveArtifact | None = None,
-                uv_version: str = "0.6.14",
-                uv_artifact: EffectiveArtifact | None = None,
-                python_version: str = "3.14.6",
-                ty_version: str = "1.0.0",
-                rtk_version: str = "0.1.0",
-                rtk_artifact: EffectiveArtifact | None = None,
-                fd_version: str = "0.1.0",
-                fd_artifact: EffectiveArtifact | None = None,
-                pi_version: str = "1.0.0",
-                openspec_version: str = "1.0.0",
-                oh_my_zsh_revision: str = "abc123def456",
-                ) -> EffectiveBuildProjection:
+def _projection(
+    *,
+    platform: str = "linux-amd64",
+    node_image: str = "docker.io/library/node:22@sha256:ab"
+    "cdef1234567890abcdef1234567890abcdef12"
+    "34567890abcdef1234567890",
+    rust_version: str = "1.85.0",
+    rust_profile: str = "minimal",
+    rust_components: tuple[str, ...] = ("rustfmt", "clippy"),
+    rustup: EffectiveArtifact | None = None,
+    uv_version: str = "0.6.14",
+    uv_artifact: EffectiveArtifact | None = None,
+    python_version: str = "3.14.6",
+    ty_version: str = "1.0.0",
+    rtk_version: str = "0.1.0",
+    rtk_artifact: EffectiveArtifact | None = None,
+    fd_version: str = "0.1.0",
+    fd_artifact: EffectiveArtifact | None = None,
+    pi_version: str = "1.0.0",
+    openspec_version: str = "1.0.0",
+    oh_my_zsh_revision: str = "abc123def456",
+) -> EffectiveBuildProjection:
     if rustup is None:
         rustup = _artifact(
             url="https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init",
@@ -80,7 +83,9 @@ def _projection(*,
     return EffectiveBuildProjection(
         platform=platform,
         node=EffectiveNode(
-            image=node_image, node_version="24.18.0", npm_version="11.16.0",
+            image=node_image,
+            node_version="24.18.0",
+            npm_version="11.16.0",
         ),
         rust=EffectiveRust(
             version=rust_version,
@@ -104,36 +109,42 @@ def _projection(*,
     )
 
 
-def _render(*, build_context: str = ".",
-            projection: EffectiveBuildProjection | None = None,
-            target_stage: str = "runtime",
-            image_tag: str = "pi-cli-pi:latest",
-            platform: str = "linux/amd64",
-            cache: CacheControls | None = None,
-            pull: bool = False,
-            progress: str = "auto",
-            dockerfile: str | None = None,
-            dev_uid: int = 1000,
-            dev_gid: int = 1000,
-            ) -> tuple[str, ...]:
+def _render(
+    *,
+    build_context: str = ".",
+    projection: EffectiveBuildProjection | None = None,
+    target_stage: str = "runtime",
+    image_tag: str = "pi-cli-pi:latest",
+    platform: str = "linux/amd64",
+    cache: CacheControls | None = None,
+    pull: bool = False,
+    progress: str = "auto",
+    dockerfile: str | None = None,
+    dev_uid: int = 1000,
+    dev_gid: int = 1000,
+) -> tuple[str, ...]:
     if projection is None:
         projection = _projection()
     if cache is None:
         cache = CacheControls()
-    return render_build_vector(BuildRenderInputs(
-        build_context=build_context,
-        projection=projection,
-        target_stage=target_stage,
-        image_tag=image_tag,
-        platform=platform,
-        cache=cache,
-        pull=pull,
-        progress=progress,
-        dockerfile=dockerfile,
-        dev_uid=dev_uid,
-        dev_gid=dev_gid,
-        named_context=Materialized("/tmp/constructor-artifacts", NoDerivedEnvironment()),
-    ))
+    return render_build_vector(
+        BuildRenderInputs(
+            build_context=build_context,
+            projection=projection,
+            target_stage=target_stage,
+            image_tag=image_tag,
+            platform=platform,
+            cache=cache,
+            pull=pull,
+            progress=progress,
+            dockerfile=dockerfile,
+            dev_uid=dev_uid,
+            dev_gid=dev_gid,
+            named_context=Materialized(
+                "/tmp/constructor-artifacts", NoDerivedEnvironment()
+            ),
+        )
+    )
 
 
 def _arg_pairs(args: tuple[str, ...]) -> dict[str, str]:
@@ -158,8 +169,11 @@ class TestDefaultBuildVector(unittest.TestCase):
 
     def test_command_prefix_is_docker_build(self):
         args = _render()
-        self.assertEqual(args[:2], ("docker", "build"),
-                         "prefix must be 'docker build', never 'docker compose'")
+        self.assertEqual(
+            args[:2],
+            ("docker", "build"),
+            "prefix must be 'docker build', never 'docker compose'",
+        )
 
     def test_target_is_runtime(self):
         args = _render(target_stage="runtime")
@@ -226,13 +240,21 @@ class TestDefaultBuildVector(unittest.TestCase):
         # Flags and build-args must not be fused: '--build-arg KEY=VALUE'
         # ships as two consecutive elements, not one joined string.
         for i, token in enumerate(args):
-            if token in ("--tag", "--target", "--platform", "--progress",
-                         "--file", "--build-arg"):
-                self.assertLess(i + 1, len(args),
-                                f"flag {token!r} at {i} has no value")
-                self.assertNotEqual(args[i + 1][:2], "--",
-                                    f"flag {token!r} followed by another "
-                                    f"flag {args[i+1]!r}, not a value")
+            if token in (
+                "--tag",
+                "--target",
+                "--platform",
+                "--progress",
+                "--file",
+                "--build-arg",
+            ):
+                self.assertLess(i + 1, len(args), f"flag {token!r} at {i} has no value")
+                self.assertNotEqual(
+                    args[i + 1][:2],
+                    "--",
+                    f"flag {token!r} followed by another "
+                    f"flag {args[i + 1]!r}, not a value",
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -249,21 +271,26 @@ class TestFlagPlacement(unittest.TestCase):
         args = _render(dockerfile="docker/Dockerfile")
         first_build_arg = args.index("--build-arg")
         flag_indices = [
-            i for i, a in enumerate(args)
+            i
+            for i, a in enumerate(args)
             if a in ("--tag", "--target", "--platform", "--progress", "--file")
         ]
         for fi in flag_indices:
-            self.assertLess(fi, first_build_arg,
-                            f"flag {args[fi]!r} at {fi} must precede "
-                            f"first --build-arg at {first_build_arg}")
+            self.assertLess(
+                fi,
+                first_build_arg,
+                f"flag {args[fi]!r} at {fi} must precede "
+                f"first --build-arg at {first_build_arg}",
+            )
 
     def test_build_args_before_context(self):
         args = _render()
-        last_build_arg = max(
-            i for i, a in enumerate(args) if a == "--build-arg"
+        last_build_arg = max(i for i, a in enumerate(args) if a == "--build-arg")
+        self.assertLess(
+            last_build_arg + 1,
+            len(args) - 1,
+            "last --build-arg VALUE pair must precede context",
         )
-        self.assertLess(last_build_arg + 1, len(args) - 1,
-                        "last --build-arg VALUE pair must precede context")
 
     def test_file_flag_when_explicit(self):
         args = _render(dockerfile="docker/Dockerfile")
@@ -289,8 +316,9 @@ class TestBuildArgMapping(unittest.TestCase):
             node_image="docker.io/myreg/node:22@sha256:abc123",
         )
         pairs = _arg_pairs(_render(projection=proj))
-        self.assertEqual(pairs["NODE_BASE_IMAGE"],
-                         "docker.io/myreg/node:22@sha256:abc123")
+        self.assertEqual(
+            pairs["NODE_BASE_IMAGE"], "docker.io/myreg/node:22@sha256:abc123"
+        )
 
     def test_rust_version_profile_components_mapped(self):
         proj = _projection(
@@ -311,8 +339,10 @@ class TestBuildArgMapping(unittest.TestCase):
         proj = _projection(rustup=rustup)
         pairs = _arg_pairs(_render(projection=proj))
         self.assertNotIn("RUSTUP_URL", pairs)
-        self.assertEqual(pairs["RUSTUP_SHA256"],
-                         "arm64rustup0000000000000000000000000000000000000000000000000000")
+        self.assertEqual(
+            pairs["RUSTUP_SHA256"],
+            "arm64rustup0000000000000000000000000000000000000000000000000000",
+        )
 
     def test_uv_version_and_artifact_mapped(self):
         uv = _artifact(
@@ -323,8 +353,10 @@ class TestBuildArgMapping(unittest.TestCase):
         pairs = _arg_pairs(_render(projection=proj))
         self.assertEqual(pairs["UV_VERSION"], "0.7.0")
         self.assertNotIn("UV_URL", pairs)
-        self.assertEqual(pairs["UV_SHA256"],
-                         "uv070000000000000000000000000000000000000000000000000000000000")
+        self.assertEqual(
+            pairs["UV_SHA256"],
+            "uv070000000000000000000000000000000000000000000000000000000000",
+        )
 
     def test_python_version_mapped(self):
         proj = _projection(python_version="3.15.0")
@@ -345,8 +377,10 @@ class TestBuildArgMapping(unittest.TestCase):
         pairs = _arg_pairs(_render(projection=proj))
         self.assertEqual(pairs["RTK_VERSION"], "0.2.0")
         self.assertNotIn("RTK_URL", pairs)
-        self.assertEqual(pairs["RTK_SHA256"],
-                         "rtk020000000000000000000000000000000000000000000000000000000000")
+        self.assertEqual(
+            pairs["RTK_SHA256"],
+            "rtk020000000000000000000000000000000000000000000000000000000000",
+        )
 
     def test_fd_version_and_artifact_mapped(self):
         fd = _artifact(
@@ -357,8 +391,10 @@ class TestBuildArgMapping(unittest.TestCase):
         pairs = _arg_pairs(_render(projection=proj))
         self.assertEqual(pairs["FD_VERSION"], "0.2.0")
         self.assertNotIn("FD_URL", pairs)
-        self.assertEqual(pairs["FD_SHA256"],
-                         "fd0200000000000000000000000000000000000000000000000000000000000")
+        self.assertEqual(
+            pairs["FD_SHA256"],
+            "fd0200000000000000000000000000000000000000000000000000000000000",
+        )
 
     def test_pi_version_mapped(self):
         proj = _projection(pi_version="2.0.0")
@@ -381,13 +417,18 @@ class TestBuildArgMapping(unittest.TestCase):
         pairs = _arg_pairs(args)
         expected = {
             "NODE_BASE_IMAGE",
-            "RUST_VERSION", "RUST_PROFILE", "RUST_COMPONENTS",
+            "RUST_VERSION",
+            "RUST_PROFILE",
+            "RUST_COMPONENTS",
             "RUSTUP_SHA256",
-            "UV_VERSION", "UV_SHA256",
+            "UV_VERSION",
+            "UV_SHA256",
             "PYTHON_VERSION",
             "TY_VERSION",
-            "RTK_VERSION", "RTK_SHA256",
-            "FD_VERSION", "FD_SHA256",
+            "RTK_VERSION",
+            "RTK_SHA256",
+            "FD_VERSION",
+            "FD_SHA256",
             "PI_VERSION",
             "OPENSPEC_VERSION",
             "OH_MY_ZSH_VERSION",
@@ -411,14 +452,16 @@ class TestPythonOverrideIsolation(unittest.TestCase):
         base_pairs = _arg_pairs(_render(projection=base))
         ovr_pairs = _arg_pairs(_render(projection=overridden))
 
-        self.assertNotEqual(base_pairs["PYTHON_VERSION"],
-                            ovr_pairs["PYTHON_VERSION"])
+        self.assertNotEqual(base_pairs["PYTHON_VERSION"], ovr_pairs["PYTHON_VERSION"])
         # Every other arg must be identical
         for key in base_pairs:
             if key == "PYTHON_VERSION":
                 continue
-            self.assertEqual(base_pairs[key], ovr_pairs[key],
-                             f"{key} differs between Python overrides")
+            self.assertEqual(
+                base_pairs[key],
+                ovr_pairs[key],
+                f"{key} differs between Python overrides",
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -437,23 +480,25 @@ class TestPlatformRendering(unittest.TestCase):
         self.assertEqual(args[idx + 1], "linux/amd64")
 
     def test_arm64_platform_string_is_linux_arm64(self):
-        proj = _projection(platform="linux-arm64",
-                           rustup=_artifact(
-                               url="https://rustup.example.com/aarch64",
-                               sha256="arm64rustup0000000000000000000000000000000000000000000000000000",
-                           ),
-                           uv_artifact=_artifact(
-                               url="https://uv.example.com/uv-aarch64.tar.gz",
-                               sha256="uvaarch640000000000000000000000000000000000000000000000000000",
-                           ),
-                           rtk_artifact=_artifact(
-                               url="https://rtk.example.com/rtk-arm64.tar.gz",
-                               sha256="rtkarm640000000000000000000000000000000000000000000000000000",
-                           ),
-                           fd_artifact=_artifact(
-                               url="https://fd.example.com/fd-arm64.tar.gz",
-                               sha256="fdarm6400000000000000000000000000000000000000000000000000000",
-                           ))
+        proj = _projection(
+            platform="linux-arm64",
+            rustup=_artifact(
+                url="https://rustup.example.com/aarch64",
+                sha256="arm64rustup0000000000000000000000000000000000000000000000000000",
+            ),
+            uv_artifact=_artifact(
+                url="https://uv.example.com/uv-aarch64.tar.gz",
+                sha256="uvaarch640000000000000000000000000000000000000000000000000000",
+            ),
+            rtk_artifact=_artifact(
+                url="https://rtk.example.com/rtk-arm64.tar.gz",
+                sha256="rtkarm640000000000000000000000000000000000000000000000000000",
+            ),
+            fd_artifact=_artifact(
+                url="https://fd.example.com/fd-arm64.tar.gz",
+                sha256="fdarm6400000000000000000000000000000000000000000000000000000",
+            ),
+        )
         args = _render(projection=proj, platform="linux/arm64")
         idx = args.index("--platform")
         self.assertEqual(args[idx + 1], "linux/arm64")
@@ -482,9 +527,10 @@ class TestPlatformRendering(unittest.TestCase):
         a_pairs = _arg_pairs(_render(projection=amd64, platform="linux/amd64"))
         b_pairs = _arg_pairs(_render(projection=arm64, platform="linux/arm64"))
 
-        for key in ("RUSTUP_SHA256", "UV_SHA256", "RTK_SHA256", "FD_SHA256"): 
-            self.assertNotEqual(a_pairs[key], b_pairs[key],
-                                f"{key} must differ between platforms")
+        for key in ("RUSTUP_SHA256", "UV_SHA256", "RTK_SHA256", "FD_SHA256"):
+            self.assertNotEqual(
+                a_pairs[key], b_pairs[key], f"{key} must differ between platforms"
+            )
 
     def test_platform_mismatch_rejected(self):
         """Command-platform 'linux/arm64' with projection-platform
@@ -563,7 +609,10 @@ class TestMissingOrEmptyValues(unittest.TestCase):
             _render(projection=proj)
 
     def test_empty_artifact_url_rejected(self):
-        bad = _artifact(url="", sha256="abc12300000000000000000000000000000000000000000000000000000000")
+        bad = _artifact(
+            url="",
+            sha256="abc12300000000000000000000000000000000000000000000000000000000",
+        )
         proj = _projection(uv_artifact=bad)
         with self.assertRaises(EffectiveConfigError):
             _render(projection=proj)
@@ -656,7 +705,9 @@ class TestDeterministicOutput(unittest.TestCase):
             target_stage="runtime",
             image_tag="pi-cli-pi:latest",
             platform="linux/amd64",
-            named_context=Materialized("/tmp/constructor-artifacts", NoDerivedEnvironment()),
+            named_context=Materialized(
+                "/tmp/constructor-artifacts", NoDerivedEnvironment()
+            ),
         )
         a = render_build_vector(bi)
         b = render_build_vector(bi)
@@ -668,22 +719,30 @@ class TestDeterministicOutput(unittest.TestCase):
         """Building the input model with fields in different order
         (all kwargs) yields identical output."""
         proj = _projection()
-        a = render_build_vector(BuildRenderInputs(
-            build_context=".",
-            projection=proj,
-            target_stage="runtime",
-            image_tag="pi-cli-pi:latest",
-            platform="linux/amd64",
-            named_context=Materialized("/tmp/constructor-artifacts", NoDerivedEnvironment()),
-        ))
-        b = render_build_vector(BuildRenderInputs(
-            platform="linux/amd64",
-            image_tag="pi-cli-pi:latest",
-            target_stage="runtime",
-            projection=proj,
-            build_context=".",
-            named_context=Materialized("/tmp/constructor-artifacts", NoDerivedEnvironment()),
-        ))
+        a = render_build_vector(
+            BuildRenderInputs(
+                build_context=".",
+                projection=proj,
+                target_stage="runtime",
+                image_tag="pi-cli-pi:latest",
+                platform="linux/amd64",
+                named_context=Materialized(
+                    "/tmp/constructor-artifacts", NoDerivedEnvironment()
+                ),
+            )
+        )
+        b = render_build_vector(
+            BuildRenderInputs(
+                platform="linux/amd64",
+                image_tag="pi-cli-pi:latest",
+                target_stage="runtime",
+                projection=proj,
+                build_context=".",
+                named_context=Materialized(
+                    "/tmp/constructor-artifacts", NoDerivedEnvironment()
+                ),
+            )
+        )
         self.assertEqual(a, b)
 
 
@@ -770,8 +829,7 @@ class TestBuildArgumentAtomicity(unittest.TestCase):
         args = _render()
         for token in args:
             if token.startswith("--"):
-                self.assertNotIn("=", token,
-                                 f"flag {token!r} must not embed its value")
+                self.assertNotIn("=", token, f"flag {token!r} must not embed its value")
 
     def test_every_build_arg_is_adjacent_pair(self):
         """Each ``--build-arg`` token must be immediately followed
@@ -780,15 +838,16 @@ class TestBuildArgumentAtomicity(unittest.TestCase):
         args = _render()
         for i, token in enumerate(args):
             if token == "--build-arg":
-                self.assertLess(i + 1, len(args),
-                                f"--build-arg at {i} has no successor")
+                self.assertLess(
+                    i + 1, len(args), f"--build-arg at {i} has no successor"
+                )
                 val = args[i + 1]
                 # The successor must be a plain KEY=VALUE string, not
                 # another flag.
-                self.assertFalse(val.startswith("--"),
-                                 f"--build-arg followed by flag {val!r}")
-                self.assertIn("=", val,
-                              f"--build-arg value {val!r} missing '='")
+                self.assertFalse(
+                    val.startswith("--"), f"--build-arg followed by flag {val!r}"
+                )
+                self.assertIn("=", val, f"--build-arg value {val!r} missing '='")
 
     def test_build_arg_with_spaces_remains_one_element(self):
         """Values containing spaces (e.g. RUST_COMPONENTS listings)
@@ -804,8 +863,7 @@ class TestBuildArgumentAtomicity(unittest.TestCase):
             if token == "--build-arg" and args[i + 1].startswith("RUST_COMPONENTS="):
                 rust_components_val = args[i + 1]
                 break
-        self.assertIsNotNone(rust_components_val,
-                             "RUST_COMPONENTS build arg not found")
+        self.assertIsNotNone(rust_components_val, "RUST_COMPONENTS build arg not found")
         self.assertEqual(
             rust_components_val,
             "RUST_COMPONENTS=rls rust-analysis rustfmt",
@@ -815,7 +873,7 @@ class TestBuildArgumentAtomicity(unittest.TestCase):
         self.assertEqual(args[rc_idx - 1], "--build-arg")
         # The spaces inside the value did not split it into multiple args.
         self.assertEqual(
-            tuple(args[rc_idx:rc_idx + 1]),
+            tuple(args[rc_idx : rc_idx + 1]),
             ("RUST_COMPONENTS=rls rust-analysis rustfmt",),
         )
 
@@ -861,8 +919,9 @@ class TestDevUidGid(unittest.TestCase):
                 dev_uid_idx = i
         self.assertIsNotNone(oh_my_idx)
         self.assertIsNotNone(dev_uid_idx)
-        self.assertLess(oh_my_idx, dev_uid_idx,
-                        "DEV_UID must come after projection build args")
+        self.assertLess(
+            oh_my_idx, dev_uid_idx, "DEV_UID must come after projection build args"
+        )
 
     def test_negative_dev_uid_rejected(self):
         with self.assertRaises(ValueError):
@@ -885,10 +944,16 @@ class TestDevUidGid(unittest.TestCase):
         """Setting arbitrary environment variables MUST NOT change the
         rendered vector.  The renderer reads only its typed inputs."""
         import os as _os
+
         baseline = _render()
         saved = {}
-        for k in ("COMPOSE_FILE", "DOCKER_HOST", "PI_COMPOSE_PROJECT",
-                  "DOCKER_BUILDKIT", "BUILDKIT_PROGRESS"):
+        for k in (
+            "COMPOSE_FILE",
+            "DOCKER_HOST",
+            "PI_COMPOSE_PROJECT",
+            "DOCKER_BUILDKIT",
+            "BUILDKIT_PROGRESS",
+        ):
             saved[k] = _os.environ.get(k)
             _os.environ[k] = f"injected-{k}-value"
         try:
@@ -918,6 +983,7 @@ class TestDevUidGid(unittest.TestCase):
             _BUILD_ARG_ORDER,
             _resolve_build_arg,
         )
+
         proj = _projection()
         for arg_name, dotted_path in _BUILD_ARG_ORDER:
             try:
@@ -929,12 +995,10 @@ class TestDevUidGid(unittest.TestCase):
                     f"EffectiveBuildProjection"
                 )
             self.assertIsInstance(
-                value, str,
-                f"{arg_name!r} ({dotted_path}) did not resolve to str"
+                value, str, f"{arg_name!r} ({dotted_path}) did not resolve to str"
             )
             self.assertNotEqual(
-                value, "",
-                f"{arg_name!r} ({dotted_path}) resolved to empty string"
+                value, "", f"{arg_name!r} ({dotted_path}) resolved to empty string"
             )
 
     def test_no_concrete_dependency_version_in_renderer(self):
@@ -958,5 +1022,6 @@ class TestDevUidGid(unittest.TestCase):
                     msg=f"Empty {label} must raise, not fall back to a default",
                 ):
                     _render(projection=make_proj())
+
 
 # end of red-phase tests

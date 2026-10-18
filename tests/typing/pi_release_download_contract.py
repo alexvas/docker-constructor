@@ -8,6 +8,7 @@ Positive cases use :func:`typing.assert_type`.  Negative cases carry a blanket
 ``unused-ignore-comment`` warning fails the check, so the directive itself is
 the assertion that the invalid combination stays rejected.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -19,6 +20,7 @@ from docker.versioning.pi_release import (
     ProgressCallback,
     acquire_install_assets,
 )
+
 
 #: A callback that cannot accept a second argument (the legacy shape).
 def _legacy(url: str) -> bytes:
@@ -46,7 +48,9 @@ def positive_cases(urls: PiReleaseUrls) -> None:
     """The callback shapes the public overloads accept."""
     # Legacy one-argument callback with no observation.
     assert_type(acquire_install_assets(urls, _legacy), tuple[bytes, bytes])
-    assert_type(acquire_install_assets(urls, _legacy, activity=None), tuple[bytes, bytes])
+    assert_type(
+        acquire_install_assets(urls, _legacy, activity=None), tuple[bytes, bytes]
+    )
     # Optional-progress callback with no observation (one-argument call).
     assert_type(acquire_install_assets(urls, _progress_aware), tuple[bytes, bytes])
     assert_type(

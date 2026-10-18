@@ -1,4 +1,5 @@
 """Phase 6BC.9 strict action transport and sole-invocation reporting."""
+
 from types import SimpleNamespace
 import sys
 import threading
@@ -11,7 +12,12 @@ from tests.test_process_single_collection import Child, collect, launch, settle
 
 def info(error, kind="ORDINARY", phase="ACTION", stream=None):
     assert hasattr(process, "FailureInfo"), "missing explicit failure transport"
-    return process.FailureInfo(error, getattr(process.FailureKind, kind), getattr(process.FailurePhase, phase), stream)
+    return process.FailureInfo(
+        error,
+        getattr(process.FailureKind, kind),
+        getattr(process.FailurePhase, phase),
+        stream,
+    )
 
 
 class Action:
@@ -39,12 +45,16 @@ class Action:
 
 
 def action_owner(action):
-    policy = process.StopPolicy((process.StopStage(.05, action, run_on_normal=True),), .1)
+    policy = process.StopPolicy(
+        (process.StopStage(0.05, action, run_on_normal=True),), 0.1
+    )
     return launch(Child(), stop_policy=policy)
 
 
 @pytest.mark.parametrize("kind", ["ORDINARY", "UNEXPECTED"])
-@pytest.mark.parametrize("error", [OSError("helper"), ValueError("helper"), RuntimeError("helper")])
+@pytest.mark.parametrize(
+    "error", [OSError("helper"), ValueError("helper"), RuntimeError("helper")]
+)
 def test_action_kind_is_explicit_not_inferred_from_error_type(kind, error):
     failure = info(error, kind)
     action = Action([process.ActionResult(True, True, (failure,))])
@@ -64,7 +74,10 @@ def test_action_kind_is_explicit_not_inferred_from_error_type(kind, error):
 
 
 @pytest.mark.parametrize("method", ["start", "cancel"])
-@pytest.mark.parametrize("error", [None, OSError("method"), RuntimeError("method"), KeyboardInterrupt("method")])
+@pytest.mark.parametrize(
+    "error",
+    [None, OSError("method"), RuntimeError("method"), KeyboardInterrupt("method")],
+)
 def test_direct_action_boundary_and_void_return_validation(method, error):
     action = Action([process.ActionResult(True, True)])
     original = getattr(action, method)
@@ -88,10 +101,19 @@ def test_direct_action_boundary_and_void_return_validation(method, error):
         selected = failures[0]
         assert selected.phase.name == "ACTION" and selected.stream is None
         if error is None:
-            assert isinstance(selected.error, TypeError) and selected.kind.name == "UNEXPECTED"
+            assert (
+                isinstance(selected.error, TypeError)
+                and selected.kind.name == "UNEXPECTED"
+            )
         else:
             assert selected.error is error
-            expected = "INTERRUPTION" if not isinstance(error, Exception) else "ORDINARY" if isinstance(error, OSError) else "UNEXPECTED"
+            expected = (
+                "INTERRUPTION"
+                if not isinstance(error, Exception)
+                else "ORDINARY"
+                if isinstance(error, OSError)
+                else "UNEXPECTED"
+            )
             assert selected.kind.name == expected
     finally:
         action.finish = True
@@ -101,18 +123,20 @@ def test_direct_action_boundary_and_void_return_validation(method, error):
 def test_cumulative_action_failures_are_not_duplicated_or_erased():
     error = OSError("known before done")
     failure = info(error)
-    action = Action([
-        process.ActionResult(False, False, (failure,)),
-        process.ActionResult(True, False, (failure,)),
-        process.ActionResult(True, True),
-    ])
+    action = Action(
+        [
+            process.ActionResult(False, False, (failure,)),
+            process.ActionResult(True, False, (failure,)),
+            process.ActionResult(True, True),
+        ]
+    )
     owner = action_owner(action)
     try:
         result = owner.capture()
         assert result.lifecycle.complete
         assert result.lifecycle.failures == (failure,)
         for _ in range(3):
-            assert owner.wait_cleanup(.1).failures == (failure,)
+            assert owner.wait_cleanup(0.1).failures == (failure,)
         assert action.prepares == action.starts == action.cancels == 1
     finally:
         action.finish = True
@@ -122,7 +146,9 @@ def test_cumulative_action_failures_are_not_duplicated_or_erased():
 def test_helper_snapshot_and_parent_context_are_orthogonal():
     error = OSError("helper read")
     helper_failure = info(error, "UNEXPECTED", "JOIN", process.ProcessStream.STDERR)
-    helper = process.ProcessResult(b"helper", b"stderr", 1, False, process.LifecycleResult(True, (helper_failure,)))
+    helper = process.ProcessResult(
+        b"helper", b"stderr", 1, False, process.LifecycleResult(True, (helper_failure,))
+    )
     action_failure = info(helper_failure.error, helper_failure.kind.name)
     action = Action([process.ActionResult(True, True, (action_failure,))])
     owner = action_owner(action)
@@ -140,22 +166,41 @@ def test_helper_snapshot_and_parent_context_are_orthogonal():
         settle(owner)
 
 
-@pytest.mark.parametrize("malformed", ["bare", "wrong_kind", "wrong_phase", "wrong_stream"])
-@pytest.mark.parametrize("interrupt", [KeyboardInterrupt("actual"), SystemExit(2), GeneratorExit(), BaseException("actual")])
-def test_malformed_observation_cannot_discard_supplied_control_flow(malformed, interrupt):
+@pytest.mark.parametrize(
+    "malformed", ["bare", "wrong_kind", "wrong_phase", "wrong_stream"]
+)
+@pytest.mark.parametrize(
+    "interrupt",
+    [
+        KeyboardInterrupt("actual"),
+        SystemExit(2),
+        GeneratorExit(),
+        BaseException("actual"),
+    ],
+)
+def test_malformed_observation_cannot_discard_supplied_control_flow(
+    malformed, interrupt
+):
     # Deliberately bypass record validation to exercise the consumer boundary,
     # as opposed to constructor rejection tested separately in 6BC.6.
-    bad = interrupt if malformed == "bare" else SimpleNamespace(
-        error=interrupt, kind="ORDINARY" if malformed == "wrong_kind" else None,
-        phase="READ" if malformed == "wrong_phase" else None,
-        stream="stdout" if malformed == "wrong_stream" else None,
+    bad = (
+        interrupt
+        if malformed == "bare"
+        else SimpleNamespace(
+            error=interrupt,
+            kind="ORDINARY" if malformed == "wrong_kind" else None,
+            phase="READ" if malformed == "wrong_phase" else None,
+            stream="stdout" if malformed == "wrong_stream" else None,
+        )
     )
     observation = object.__new__(process.ActionResult)
     for name, value in dict(done=True, cleanup_complete=True, failures=(bad,)).items():
         object.__setattr__(observation, name, value)
     action = Action([observation])
     child = Child()
-    policy = process.StopPolicy((process.StopStage(.05, action, run_on_normal=True),), .1)
+    policy = process.StopPolicy(
+        (process.StopStage(0.05, action, run_on_normal=True),), 0.1
+    )
     owner = launch(child, stop_policy=policy)
     try:
         with pytest.raises(BaseException) as caught:
@@ -164,9 +209,15 @@ def test_malformed_observation_cannot_discard_supplied_control_flow(malformed, i
         assert not hasattr(interrupt, "process_result")
         failures = owner.wait_cleanup(1).failures
         assert failures[0].error is interrupt
-        assert failures[0].kind.name == "INTERRUPTION" and failures[0].phase.name == "ACTION"
+        assert (
+            failures[0].kind.name == "INTERRUPTION"
+            and failures[0].phase.name == "ACTION"
+        )
         assert failures[0].stream is None
-        assert any(isinstance(f.error, (TypeError, ValueError)) and f.kind.name == "UNEXPECTED" for f in failures[1:])
+        assert any(
+            isinstance(f.error, (TypeError, ValueError)) and f.kind.name == "UNEXPECTED"
+            for f in failures[1:]
+        )
         assert child.stdout.close_calls == child.stderr.close_calls == 1
     finally:
         action.finish = True
@@ -175,8 +226,18 @@ def test_malformed_observation_cannot_discard_supplied_control_flow(malformed, i
 
 @pytest.mark.parametrize("source", ["callback", "reporter", "fallback"])
 @pytest.mark.parametrize("position", [0, 1])
-@pytest.mark.parametrize("interrupt", [KeyboardInterrupt("first"), SystemExit(3), GeneratorExit(), BaseException("first")])
-def test_callback_reporter_fallback_control_flow_has_exact_boundary(monkeypatch, source, position, interrupt):
+@pytest.mark.parametrize(
+    "interrupt",
+    [
+        KeyboardInterrupt("first"),
+        SystemExit(3),
+        GeneratorExit(),
+        BaseException("first"),
+    ],
+)
+def test_callback_reporter_fallback_control_flow_has_exact_boundary(
+    monkeypatch, source, position, interrupt
+):
     identity = tuple(process.ProcessStream)[position]
     diagnostic_error = OSError("callback diagnostic")
     reports, endings = [], []
@@ -208,7 +269,9 @@ def test_callback_reporter_fallback_control_flow_has_exact_boundary(monkeypatch,
         assert caught.value is interrupt and not hasattr(interrupt, "process_result")
         selected = owner.wait_cleanup(1).failures[0]
         assert selected.error is interrupt and selected.kind.name == "INTERRUPTION"
-        assert selected.phase.name == ("CALLBACK" if source == "callback" else "REPORTER")
+        assert selected.phase.name == (
+            "CALLBACK" if source == "callback" else "REPORTER"
+        )
         assert selected.stream is identity
         assert {event[0] for event in endings} == set(process.ProcessStream)
         assert len(endings) == 2
@@ -219,7 +282,9 @@ def test_callback_reporter_fallback_control_flow_has_exact_boundary(monkeypatch,
 
 @pytest.mark.parametrize("later_site", ["callback", "reporter", "fallback"])
 @pytest.mark.parametrize("position", [0, 1])
-def test_later_notification_interruption_does_not_replace_first(monkeypatch, later_site, position):
+def test_later_notification_interruption_does_not_replace_first(
+    monkeypatch, later_site, position
+):
     first, later = KeyboardInterrupt("first chunk"), SystemExit("later end")
     identity = tuple(process.ProcessStream)[position]
     seen, endings = [], []
@@ -314,9 +379,11 @@ def test_reporting_defaults_are_fixed_safe_and_nonrecursive(monkeypatch, caplog,
         raise RuntimeError(secret)
 
     if site == "broken_fallback":
+
         def fallback():
             fallbacks.append(True)
             raise OSError(secret)
+
         monkeypatch.setattr(process, "_fallback_callback_diagnostic", fallback)
     owner = launch(Child(), reporter=None if site == "default" else reporter)
     try:
@@ -325,12 +392,16 @@ def test_reporting_defaults_are_fixed_safe_and_nonrecursive(monkeypatch, caplog,
         assert secret not in caplog.text and "credential" not in caplog.text
         if site == "default":
             assert len(caplog.records) == 2
-            assert {r.getMessage() for r in caplog.records} == {"Process callback failed"}
+            assert {r.getMessage() for r in caplog.records} == {
+                "Process callback failed"
+            }
         else:
             assert reports == [error, error]
             if site == "fallback":
                 assert len(caplog.records) == 2
-                assert {r.getMessage() for r in caplog.records} == {"Process callback diagnostic reporting failed"}
+                assert {r.getMessage() for r in caplog.records} == {
+                    "Process callback diagnostic reporting failed"
+                }
             else:
                 assert fallbacks == [True, True] and caplog.records == []
     finally:
@@ -358,8 +429,10 @@ def test_clean_eof_is_not_deferred_or_revised_by_sibling_failure(monkeypatch):
     owner = launch(Child())
     try:
         result = owner.stream(lambda *a: None, on_stream_end=end)
-        assert events == [(process.ProcessStream.STDOUT, process.StreamOutcome.EOF),
-                          (process.ProcessStream.STDERR, process.StreamOutcome.READ_FAILED)]
+        assert events == [
+            (process.ProcessStream.STDOUT, process.StreamOutcome.EOF),
+            (process.ProcessStream.STDERR, process.StreamOutcome.READ_FAILED),
+        ]
         assert result.stream_outcomes == tuple(events)
         assert result.lifecycle.failures[0].error is failure
         assert result.lifecycle.failures[0].stream is process.ProcessStream.STDERR
@@ -382,27 +455,38 @@ def test_aborted_live_descriptor_reader_retains_owner_until_barrier(monkeypatch)
     monkeypatch.setattr(process.OwnedProcess, "_read_chunk", read)
     owner = process.OwnedProcess.launch(
         [sys.executable, "-c", "import time; time.sleep(10)"],
-        grace_seconds=.2, deadline_seconds=.02,
+        grace_seconds=0.2,
+        deadline_seconds=0.02,
     )
     try:
         assert entered.wait(1)
-        result = owner.stream(lambda *a: events.append(a), on_stream_end=lambda *a: events.append(a))
+        result = owner.stream(
+            lambda *a: events.append(a), on_stream_end=lambda *a: events.append(a)
+        )
         assert not result.lifecycle.complete
-        assert dict(result.stream_outcomes)[process.ProcessStream.STDOUT] is process.StreamOutcome.ABORTED
+        assert (
+            dict(result.stream_outcomes)[process.ProcessStream.STDOUT]
+            is process.StreamOutcome.ABORTED
+        )
         assert not owner._owners[0].released and not owner._stopped[0].is_set()
         before = list(events)
         resume.set()
         assert owner.wait_cleanup(2).complete
         assert owner._owners[0].released and owner._stopped[0].is_set()
         assert events == before
-        assert dict(result.stream_outcomes)[process.ProcessStream.STDOUT] is process.StreamOutcome.ABORTED
+        assert (
+            dict(result.stream_outcomes)[process.ProcessStream.STDOUT]
+            is process.StreamOutcome.ABORTED
+        )
     finally:
         resume.set()
         settle(owner)
 
 
 @pytest.mark.parametrize("publish_first", [False, True])
-def test_completion_racing_dispatch_has_once_only_end_attempt(monkeypatch, publish_first):
+def test_completion_racing_dispatch_has_once_only_end_attempt(
+    monkeypatch, publish_first
+):
     ready, publish = threading.Event(), threading.Event()
     original = process.OwnedProcess._set_outcome
     events = []
@@ -426,7 +510,9 @@ def test_completion_racing_dispatch_has_once_only_end_attempt(monkeypatch, publi
             assert owner._stopped[1].wait(1)
 
     try:
-        result = owner.stream(chunk, on_stream_end=lambda *a: events.append(("end", *a)))
+        result = owner.stream(
+            chunk, on_stream_end=lambda *a: events.append(("end", *a))
+        )
         assert result.lifecycle.complete
         for identity in process.ProcessStream:
             end = [event for event in events if event[:2] == ("end", identity)]
@@ -438,7 +524,15 @@ def test_completion_racing_dispatch_has_once_only_end_attempt(monkeypatch, publi
 
 
 @pytest.mark.parametrize("site", ["failures", "error"])
-@pytest.mark.parametrize("interrupt", [KeyboardInterrupt("field"), SystemExit(4), GeneratorExit(), BaseException("field")])
+@pytest.mark.parametrize(
+    "interrupt",
+    [
+        KeyboardInterrupt("field"),
+        SystemExit(4),
+        GeneratorExit(),
+        BaseException("field"),
+    ],
+)
 def test_malformed_field_access_cannot_escape_independent_cleanup(site, interrupt):
     class Field:
         @property
@@ -452,18 +546,25 @@ def test_malformed_field_access_cannot_escape_independent_cleanup(site, interrup
     observation = Field()
     if site == "error":
         observation = object.__new__(process.ActionResult)
-        for name, value in dict(done=True, cleanup_complete=True, failures=(Field(),)).items():
+        for name, value in dict(
+            done=True, cleanup_complete=True, failures=(Field(),)
+        ).items():
             object.__setattr__(observation, name, value)
     action = Action([observation])
     child = Child()
-    policy = process.StopPolicy((process.StopStage(.05, action, run_on_normal=True),), .1)
+    policy = process.StopPolicy(
+        (process.StopStage(0.05, action, run_on_normal=True),), 0.1
+    )
     owner = launch(child, stop_policy=policy)
     try:
         with pytest.raises(BaseException) as caught:
             owner.capture()
         assert caught.value is interrupt and not hasattr(interrupt, "process_result")
         selected = owner.cleanup_status.failures[0]
-        assert selected.error is interrupt and selected.phase is process.FailurePhase.ACTION
+        assert (
+            selected.error is interrupt
+            and selected.phase is process.FailurePhase.ACTION
+        )
         assert selected.kind is process.FailureKind.INTERRUPTION
         assert child.stdout.close_calls == child.stderr.close_calls == 1
     finally:
@@ -471,16 +572,35 @@ def test_malformed_field_access_cannot_escape_independent_cleanup(site, interrup
         settle(owner)
 
 
-@pytest.mark.parametrize("fault", [OSError("coordination defect"), RuntimeError("coordination defect"), KeyboardInterrupt("policy"), SystemExit(3), GeneratorExit(), BaseException("policy")])
-@pytest.mark.parametrize("close_error", [OSError("release"), RuntimeError("release"), KeyboardInterrupt("release")])
-def test_policy_coordination_failure_never_skips_reap_or_independent_release(monkeypatch, fault, close_error):
+@pytest.mark.parametrize(
+    "fault",
+    [
+        OSError("coordination defect"),
+        RuntimeError("coordination defect"),
+        KeyboardInterrupt("policy"),
+        SystemExit(3),
+        GeneratorExit(),
+        BaseException("policy"),
+    ],
+)
+@pytest.mark.parametrize(
+    "close_error",
+    [OSError("release"), RuntimeError("release"), KeyboardInterrupt("release")],
+)
+def test_policy_coordination_failure_never_skips_reap_or_independent_release(
+    monkeypatch, fault, close_error
+):
     def policy(self, deadline):
         raise fault
 
     monkeypatch.setattr(process.OwnedProcess, "_run_policy", policy)
     child = Child(error=close_error)
     owner = launch(child)
-    expected = (fault if not isinstance(fault, Exception) or isinstance(close_error, Exception) else close_error)
+    expected = (
+        fault
+        if not isinstance(fault, Exception) or isinstance(close_error, Exception)
+        else close_error
+    )
     try:
         if isinstance(expected, Exception):
             status = owner.capture().lifecycle
@@ -490,17 +610,34 @@ def test_policy_coordination_failure_never_skips_reap_or_independent_release(mon
             assert caught.value is expected
             status = owner.cleanup_status
         assert status.complete and status.failures[0].error is expected
-        assert any(f.error is fault and f.phase is process.FailurePhase.COORDINATION for f in status.failures)
-        assert any(f.error is close_error and f.phase is process.FailurePhase.RELEASE for f in status.failures)
-        assert child.wait_calls > 0 and child.stdout.close_calls == child.stderr.close_calls == 1
+        assert any(
+            f.error is fault and f.phase is process.FailurePhase.COORDINATION
+            for f in status.failures
+        )
+        assert any(
+            f.error is close_error and f.phase is process.FailurePhase.RELEASE
+            for f in status.failures
+        )
+        assert (
+            child.wait_calls > 0
+            and child.stdout.close_calls == child.stderr.close_calls == 1
+        )
     finally:
         settle(owner)
 
 
 @pytest.mark.parametrize("source", ["launch", "callback"])
-@pytest.mark.parametrize("close_error", [None, OSError("release"), RuntimeError("release"), KeyboardInterrupt("release")])
-@pytest.mark.parametrize("setter_error", [RuntimeError("observation setter"), SystemExit("observation setter")])
-def test_refused_cleanup_attribute_cannot_replace_first_interruption(monkeypatch, source, close_error, setter_error):
+@pytest.mark.parametrize(
+    "close_error",
+    [None, OSError("release"), RuntimeError("release"), KeyboardInterrupt("release")],
+)
+@pytest.mark.parametrize(
+    "setter_error",
+    [RuntimeError("observation setter"), SystemExit("observation setter")],
+)
+def test_refused_cleanup_attribute_cannot_replace_first_interruption(
+    monkeypatch, source, close_error, setter_error
+):
     attempts = []
 
     class RefusingInterrupt(KeyboardInterrupt):
@@ -512,7 +649,9 @@ def test_refused_cleanup_attribute_cannot_replace_first_interruption(monkeypatch
 
     first = RefusingInterrupt("first")
     action = Action([process.ActionResult(False, False)])
-    policy = process.StopPolicy((process.StopStage(.05, action, run_on_normal=True),), .1)
+    policy = process.StopPolicy(
+        (process.StopStage(0.05, action, run_on_normal=True),), 0.1
+    )
     child = Child(error=close_error)
     prepared = []
     original = process._make_continuation
@@ -528,14 +667,21 @@ def test_refused_cleanup_attribute_cannot_replace_first_interruption(monkeypatch
     owner = None
     try:
         with pytest.raises(RefusingInterrupt) as caught:
-            owner = launch(child, stop_policy=policy, on_launched=interrupt if source == "launch" else None)
+            owner = launch(
+                child,
+                stop_policy=policy,
+                on_launched=interrupt if source == "launch" else None,
+            )
             owner.stream(interrupt)
         assert caught.value is first and not hasattr(first, "process_result")
         owner = prepared[0]
         assert owner._delivered and attempts == ["cleanup"]
         status = owner.cleanup_status
         assert status.failures[0].error is first
-        assert any(f.error is setter_error and f.phase is process.FailurePhase.COORDINATION for f in status.failures)
+        assert any(
+            f.error is setter_error and f.phase is process.FailurePhase.COORDINATION
+            for f in status.failures
+        )
         if close_error is not None:
             assert any(f.error is close_error for f in status.failures)
         assert child.stdout.close_calls == child.stderr.close_calls == 1
@@ -552,15 +698,28 @@ def test_completion_before_registration_preserves_chunk_then_end_once():
     events = []
     try:
         assert all(event.wait(1) for event in owner._stopped)
-        result = owner.stream(lambda *a: events.append(("chunk", *a)), on_stream_end=lambda *a: events.append(("end", *a)))
+        result = owner.stream(
+            lambda *a: events.append(("chunk", *a)),
+            on_stream_end=lambda *a: events.append(("end", *a)),
+        )
         assert result.lifecycle.complete
         for identity in process.ProcessStream:
             local = [event for event in events if event[1] is identity]
-            assert local == [("chunk", identity, b"stdout" if identity is process.ProcessStream.STDOUT else b"stderr"),
-                             ("end", identity, process.StreamOutcome.EOF)]
+            assert local == [
+                (
+                    "chunk",
+                    identity,
+                    b"stdout"
+                    if identity is process.ProcessStream.STDOUT
+                    else b"stderr",
+                ),
+                ("end", identity, process.StreamOutcome.EOF),
+            ]
         before = list(events)
         with pytest.raises(RuntimeError):
-            owner.stream(lambda *a: events.append(a), on_stream_end=lambda *a: events.append(a))
+            owner.stream(
+                lambda *a: events.append(a), on_stream_end=lambda *a: events.append(a)
+            )
         assert events == before
     finally:
         settle(owner)

@@ -54,6 +54,7 @@ from tests.test_networking import FakeFilesystem, FakeHostProbeServer
 # Deterministic fakes (requirement 7)
 # ---------------------------------------------------------------------------
 
+
 def _completed(
     rc: int = 0,
     stdout: str = "",
@@ -65,9 +66,12 @@ def _completed(
     class _Single(ProcessRunner):
         def run(self, argv):
             return ProcessResult(
-                argv=tuple(argv), return_code=rc,
-                stdout=stdout, stderr=stderr,
+                argv=tuple(argv),
+                return_code=rc,
+                stdout=stdout,
+                stderr=stderr,
             )
+
     return _Single()
 
 
@@ -75,7 +79,10 @@ def _proc(rc: int = 0, stdout: str = "", stderr: str = "") -> ProcessResult:
     """Return a ``ProcessResult`` — for use inside inline fake
     functions that dispatch on argv."""
     return ProcessResult(
-        argv=(), return_code=rc, stdout=stdout, stderr=stderr,
+        argv=(),
+        return_code=rc,
+        stdout=stdout,
+        stderr=stderr,
     )
 
 
@@ -85,6 +92,7 @@ def _as_runner(fn) -> ProcessRunner:
     class _Adapter(ProcessRunner):
         def run(self, argv):
             return fn(argv)
+
     return _Adapter()
 
 
@@ -113,7 +121,8 @@ def _fake_run(
                 if docker_info_raises:
                     raise docker_info_raises
                 return ProcessResult(
-                    argv=tuple(argv), return_code=docker_info_rc,
+                    argv=tuple(argv),
+                    return_code=docker_info_rc,
                     stdout=docker_info_stdout,
                     stderr="" if docker_info_rc == 0 else "permission denied",
                 )
@@ -130,28 +139,37 @@ def _fake_run(
                 if probe_rcs and idx < len(probe_rcs):
                     rc = probe_rcs[idx]
                 return ProcessResult(
-                    argv=tuple(argv), return_code=rc,
-                    stdout=stdout, stderr="",
+                    argv=tuple(argv),
+                    return_code=rc,
+                    stdout=stdout,
+                    stderr="",
                 )
 
             if key == "hostname":
                 if hostname_raises:
                     raise hostname_raises
                 return ProcessResult(
-                    argv=tuple(argv), return_code=0,
-                    stdout=hostname_stdout, stderr="",
+                    argv=tuple(argv),
+                    return_code=0,
+                    stdout=hostname_stdout,
+                    stderr="",
                 )
 
             if key == "ip":
                 if ip_route_raises:
                     raise ip_route_raises
                 return ProcessResult(
-                    argv=tuple(argv), return_code=0,
-                    stdout=ip_route_stdout, stderr="",
+                    argv=tuple(argv),
+                    return_code=0,
+                    stdout=ip_route_stdout,
+                    stderr="",
                 )
 
             return ProcessResult(
-                argv=tuple(argv), return_code=0, stdout="", stderr="",
+                argv=tuple(argv),
+                return_code=0,
+                stdout="",
+                stderr="",
             )
 
     return _Fake()
@@ -196,7 +214,9 @@ class TestDetectDockerMode(unittest.TestCase):
     # -- rootful when absent -------------------------------------------------
 
     def test_rootful_when_absent(self):
-        run = _fake_run(docker_info_stdout="  Server Version: 27.0.1\n  OSType: linux\n")
+        run = _fake_run(
+            docker_info_stdout="  Server Version: 27.0.1\n  OSType: linux\n"
+        )
         self.assertIs(detect_docker_mode(_runner=run), DockerMode.ROOTFUL)
 
     # -- command failure → domain error --------------------------------------
@@ -217,6 +237,7 @@ class TestDetectDockerMode(unittest.TestCase):
 
     def test_detection_does_not_print(self):
         import io, sys
+
         run = _fake_run(docker_info_stdout="Server: 27.0.0\n")
         buf = io.StringIO()
         old = sys.stderr
@@ -229,6 +250,7 @@ class TestDetectDockerMode(unittest.TestCase):
 
     def test_detection_failure_does_not_print(self):
         import io, sys
+
         run = _fake_run(docker_info_stdout="", docker_info_rc=1)
         buf = io.StringIO()
         old = sys.stderr
@@ -371,8 +393,9 @@ class TestProbeResultDto(unittest.TestCase):
         """candidate is the probe target, resolved_ip is what the
         container resolved host.docker.internal to."""
         p = ProbeResult("10.0.2.2", True, "172.17.0.1", "ok")
-        self.assertNotEqual(p.candidate, p.resolved_ip,
-                            "candidate and resolved_ip must be distinct")
+        self.assertNotEqual(
+            p.candidate, p.resolved_ip, "candidate and resolved_ip must be distinct"
+        )
 
 
 class TestProbeGateway(unittest.TestCase):
@@ -412,8 +435,10 @@ class TestProbeGateway(unittest.TestCase):
 
     def test_resolved_ip_in_stderr(self):
         """RESOLVED_IP can appear on stderr."""
+
         def run(cmd):
             return _proc(0, stdout="", stderr="RESOLVED_IP=10.8.0.1\nPROBE_OK")
+
         result = probe_gateway("host-gateway", 9999, "T", _runner=_as_runner(run))
         self.assertTrue(result.ok)
         self.assertEqual(result.resolved_ip, "10.8.0.1")
@@ -421,18 +446,22 @@ class TestProbeGateway(unittest.TestCase):
     def test_exception_during_probe(self):
         def run(_cmd):
             raise OSError("no space left on device")
+
         result = probe_gateway("gw", 9999, "T", _runner=_as_runner(run))
         self.assertFalse(result.ok)
         self.assertIn("no space", result.detail)
 
     def test_uses_add_host_argument(self):
         seen: list[list[str]] = []
+
         def run(cmd):
             seen.append(cmd)
             return _proc(0, stdout="PROBE_OK")
+
         probe_gateway("192.168.1.1", 9999, "T", _runner=_as_runner(run))
-        self.assertTrue(any("host.docker.internal:192.168.1.1" in arg
-                            for arg in seen[0]))
+        self.assertTrue(
+            any("host.docker.internal:192.168.1.1" in arg for arg in seen[0])
+        )
 
     # -- requirement 31: exact PROBE_OK line, not substring ----------------
 
@@ -440,40 +469,47 @@ class TestProbeGateway(unittest.TestCase):
         """Docker exits non-zero; stderr quotes the probe script which
         happens to contain PROBE_OK.  The old substring check would
         report ok=True; the line-anchored check must reject it."""
+
         def run(cmd):
-            return _proc(1, stdout="",
-                         stderr="sh: PROBE_OK: command not found")
+            return _proc(1, stdout="", stderr="sh: PROBE_OK: command not found")
+
         result = probe_gateway("gw", 9999, "T", _runner=_as_runner(run))
-        self.assertFalse(result.ok,
-                         "non-zero exit must fail even if PROBE_OK appears")
-        self.assertIn("PROBE_OK", result.detail,
-                      "detail should preserve the probe output")
-        self.assertIn("[exit 1]", result.detail,
-                      "detail must include exit code even with non-empty output")
+        self.assertFalse(result.ok, "non-zero exit must fail even if PROBE_OK appears")
+        self.assertIn(
+            "PROBE_OK", result.detail, "detail should preserve the probe output"
+        )
+        self.assertIn(
+            "[exit 1]",
+            result.detail,
+            "detail must include exit code even with non-empty output",
+        )
 
     def test_not_probe_ok_is_not_a_match(self):
         """NOT_PROBE_OK on its own line must not be treated as success."""
+
         def run(cmd):
             return _proc(0, stdout="RESOLVED_IP=10.0.0.1\nNOT_PROBE_OK")
+
         result = probe_gateway("gw", 9999, "T", _runner=_as_runner(run))
-        self.assertFalse(result.ok,
-                         "NOT_PROBE_OK must not match PROBE_OK regex")
+        self.assertFalse(result.ok, "NOT_PROBE_OK must not match PROBE_OK regex")
 
     def test_probe_ok_embedded_in_other_word_fails(self):
         """XPROBE_OKX on a line is not a standalone PROBE_OK."""
+
         def run(cmd):
             return _proc(0, stdout="RESOLVED_IP=10.0.0.1\nXPROBE_OKX")
+
         result = probe_gateway("gw", 9999, "T", _runner=_as_runner(run))
-        self.assertFalse(result.ok,
-                         "XPROBE_OKX must not match line-anchored PROBE_OK")
+        self.assertFalse(result.ok, "XPROBE_OKX must not match line-anchored PROBE_OK")
 
     def test_probe_ok_with_leading_trailing_whitespace_fails(self):
         """' PROBE_OK ' (with spaces) is not the exact line 'PROBE_OK'."""
+
         def run(cmd):
             return _proc(0, stdout=" PROBE_OK ")
+
         result = probe_gateway("gw", 9999, "T", _runner=_as_runner(run))
-        self.assertFalse(result.ok,
-                         "whitespace must not match ^PROBE_OK$")
+        self.assertFalse(result.ok, "whitespace must not match ^PROBE_OK$")
 
 
 # ---------------------------------------------------------------------------
@@ -561,8 +597,7 @@ class TestTokenSafety(unittest.TestCase):
         result = probe_gateway(*self.SAFE_ARGS, "OK_1734567890", _runner=rec)
         # Reaches runner (which returns default error → not-ok), but not
         # rejected at the validation layer.
-        self.assertGreater(len(rec.calls), 0,
-                           "safe token must reach the ProcessRunner")
+        self.assertGreater(len(rec.calls), 0, "safe token must reach the ProcessRunner")
 
     def test_alphanumeric_hyphen_token_accepted(self):
         rec = _FakeProcessRunner([])
@@ -586,6 +621,7 @@ class TestDiagnosisOrchestration(unittest.TestCase):
     def test_probe_server_starts_before_candidates(self):
         """Server must be started before any probe is attempted."""
         started_before_probe = []
+
         def run(cmd):
             if cmd[0] == "docker" and cmd[1] == "run":
                 # Record that this is a probe call — server must already be started
@@ -602,10 +638,12 @@ class TestDiagnosisOrchestration(unittest.TestCase):
                 self.stopped = False
                 self.token = "T"
                 self.port = 9999
+
             def start(self):
                 self.started = True
                 started_before_probe.append(True)
                 return self.port
+
             def stop(self):
                 self.stopped = True
 
@@ -616,6 +654,7 @@ class TestDiagnosisOrchestration(unittest.TestCase):
 
     def test_every_candidate_tested_in_order(self):
         probed: list[str] = []
+
         def run(cmd):
             if cmd[0] == "docker" and cmd[1] == "run":
                 # Extract candidate from --add-host
@@ -643,6 +682,7 @@ class TestDiagnosisOrchestration(unittest.TestCase):
 
     def test_first_successful_candidate_selected(self):
         """Second candidate succeeds, first fails."""
+
         def run(cmd):
             if cmd[0] == "docker" and cmd[1] == "run":
                 for i, arg in enumerate(cmd):
@@ -687,6 +727,7 @@ class TestDiagnosisOrchestration(unittest.TestCase):
 
     def test_server_stops_after_success(self):
         fake = FakeHostProbeServer()
+
         def run(cmd):
             if cmd[0] == "docker" and cmd[1] == "run":
                 return _proc(0, stdout="PROBE_OK")
@@ -695,11 +736,13 @@ class TestDiagnosisOrchestration(unittest.TestCase):
             if cmd[0] == "hostname":
                 return _proc(0, stdout="10.0.0.5")
             return _proc(0)
+
         diagnose_gateway(_runner=_as_runner(run), _host_probe_factory=lambda: fake)
         self.assertTrue(fake.stopped)
 
     def test_server_stops_after_failure(self):
         fake = FakeHostProbeServer()
+
         def run(cmd):
             if cmd[0] == "docker" and cmd[1] == "run":
                 return _proc(1, stderr="timeout")
@@ -708,12 +751,14 @@ class TestDiagnosisOrchestration(unittest.TestCase):
             if cmd[0] == "hostname":
                 return _proc(0, stdout="")
             return _proc(0)
+
         diagnose_gateway(_runner=_as_runner(run), _host_probe_factory=lambda: fake)
         self.assertTrue(fake.stopped)
 
     def test_diagnosis_does_not_install_override(self):
         """Diagnosis must not mutate filesystem or run systemctl."""
         ran_systemctl = []
+
         def run(cmd):
             if "systemctl" in (cmd[0] if cmd else ""):
                 ran_systemctl.append(cmd)
@@ -729,8 +774,9 @@ class TestDiagnosisOrchestration(unittest.TestCase):
             _runner=_as_runner(run),
             _host_probe_factory=lambda: FakeHostProbeServer(token="X"),
         )
-        self.assertEqual(ran_systemctl, [],
-                         "diagnose_gateway must not invoke systemctl")
+        self.assertEqual(
+            ran_systemctl, [], "diagnose_gateway must not invoke systemctl"
+        )
         # It should report that an override is NOT needed (rootful)
         self.assertFalse(d.override_needed)
 
@@ -775,10 +821,13 @@ class TestImmutableDtos(unittest.TestCase):
     def test_gateway_diagnosis_frozen(self):
         d = GatewayDiagnosis(
             mode=DockerMode.ROOTFUL,
-            probe_port=9000, probe_token="T", lan_ip=None,
+            probe_port=9000,
+            probe_token="T",
+            lan_ip=None,
             probes=(),
             chosen_gateway=None,
-            override_installed=False, override_needed=False,
+            override_installed=False,
+            override_needed=False,
         )
         with self.assertRaises(dataclasses.FrozenInstanceError):
             d.chosen_gateway = "hacked"  # type: ignore[misc]
@@ -800,30 +849,39 @@ class TestHostGatewayIpResolution(unittest.TestCase):
     def test_resolved_ip_when_available(self):
         d = GatewayDiagnosis(
             mode=DockerMode.ROOTFUL,
-            probe_port=9000, probe_token="T", lan_ip=None,
+            probe_port=9000,
+            probe_token="T",
+            lan_ip=None,
             probes=(ProbeResult("host-gateway", True, "10.0.0.1", "ok"),),
             chosen_gateway="host-gateway",
-            override_installed=False, override_needed=False,
+            override_installed=False,
+            override_needed=False,
         )
         self.assertEqual(d.resolved_address, "10.0.0.1")
 
     def test_fallback_to_candidate(self):
         d = GatewayDiagnosis(
             mode=DockerMode.ROOTFUL,
-            probe_port=9000, probe_token="T", lan_ip=None,
+            probe_port=9000,
+            probe_token="T",
+            lan_ip=None,
             probes=(ProbeResult("host-gateway", True, None, "ok"),),
             chosen_gateway="host-gateway",
-            override_installed=False, override_needed=False,
+            override_installed=False,
+            override_needed=False,
         )
         self.assertEqual(d.resolved_address, "host-gateway")
 
     def test_none_when_no_candidate_succeeds(self):
         d = GatewayDiagnosis(
             mode=DockerMode.ROOTFUL,
-            probe_port=9000, probe_token="T", lan_ip=None,
+            probe_port=9000,
+            probe_token="T",
+            lan_ip=None,
             probes=(ProbeResult("10.0.2.2", False, None, "timeout"),),
             chosen_gateway=None,
-            override_installed=False, override_needed=False,
+            override_installed=False,
+            override_needed=False,
         )
         self.assertIsNone(d.resolved_address)
 
@@ -831,23 +889,29 @@ class TestHostGatewayIpResolution(unittest.TestCase):
         """Edge case: chosen_gateway is set but its ProbeResult is not ok."""
         d = GatewayDiagnosis(
             mode=DockerMode.ROOTFUL,
-            probe_port=9000, probe_token="T", lan_ip=None,
+            probe_port=9000,
+            probe_token="T",
+            lan_ip=None,
             probes=(ProbeResult("host-gateway", False, "1.2.3.4", "refused"),),
             chosen_gateway="host-gateway",
-            override_installed=False, override_needed=False,
+            override_installed=False,
+            override_needed=False,
         )
         self.assertIsNone(d.resolved_address)
 
     def test_chosen_probe_matches(self):
         d = GatewayDiagnosis(
             mode=DockerMode.ROOTFUL,
-            probe_port=9000, probe_token="T", lan_ip=None,
+            probe_port=9000,
+            probe_token="T",
+            lan_ip=None,
             probes=(
                 ProbeResult("host-gateway", True, "10.0.0.1", "ok"),
                 ProbeResult("192.168.1.1", False, None, "fail"),
             ),
             chosen_gateway="host-gateway",
-            override_installed=False, override_needed=False,
+            override_installed=False,
+            override_needed=False,
         )
         cp = d.chosen_probe()
         self.assertIsNotNone(cp)
@@ -858,10 +922,13 @@ class TestHostGatewayIpResolution(unittest.TestCase):
     def test_chosen_probe_none_when_no_choice(self):
         d = GatewayDiagnosis(
             mode=DockerMode.ROOTFUL,
-            probe_port=9000, probe_token="T", lan_ip=None,
+            probe_port=9000,
+            probe_token="T",
+            lan_ip=None,
             probes=(),
             chosen_gateway=None,
-            override_installed=False, override_needed=False,
+            override_installed=False,
+            override_needed=False,
         )
         self.assertIsNone(d.chosen_probe())
 
@@ -893,8 +960,9 @@ class TestFilesystemOperationDTO(unittest.TestCase):
         self.assertEqual(op.path, Path("/a/b"))
 
     def test_optional_source_path(self):
-        op = FilesystemOperation(kind="copy", path=Path("/a/dest"),
-                                 source_path=Path("/a/src"))
+        op = FilesystemOperation(
+            kind="copy", path=Path("/a/dest"), source_path=Path("/a/src")
+        )
         self.assertEqual(op.source_path, Path("/a/src"))
 
     def test_default_source_path_is_none(self):
@@ -978,7 +1046,8 @@ class TestRootlessOverridePlanEnhancedFields(unittest.TestCase):
     def test_rootless_field(self):
         plan = RootlessOverridePlan(
             rootless=True,
-            src=Path("/s"), dest=Path("/d"),
+            src=Path("/s"),
+            dest=Path("/d"),
             state=OverrideState.ABSENT,
             needed=True,
             filesystem_ops=(),
@@ -989,7 +1058,8 @@ class TestRootlessOverridePlanEnhancedFields(unittest.TestCase):
     def test_state_field_absent(self):
         plan = RootlessOverridePlan(
             rootless=True,
-            src=Path("/s"), dest=Path("/d"),
+            src=Path("/s"),
+            dest=Path("/d"),
             state=OverrideState.ABSENT,
             needed=True,
             filesystem_ops=(
@@ -1006,7 +1076,8 @@ class TestRootlessOverridePlanEnhancedFields(unittest.TestCase):
     def test_state_field_matching(self):
         plan = RootlessOverridePlan(
             rootless=True,
-            src=Path("/s"), dest=Path("/d"),
+            src=Path("/s"),
+            dest=Path("/d"),
             state=OverrideState.MATCHING,
             needed=False,
             filesystem_ops=(),
@@ -1018,7 +1089,8 @@ class TestRootlessOverridePlanEnhancedFields(unittest.TestCase):
     def test_state_field_different(self):
         plan = RootlessOverridePlan(
             rootless=True,
-            src=Path("/s"), dest=Path("/d"),
+            src=Path("/s"),
+            dest=Path("/d"),
             state=OverrideState.DIFFERENT,
             needed=True,
             filesystem_ops=(
@@ -1034,7 +1106,8 @@ class TestRootlessOverridePlanEnhancedFields(unittest.TestCase):
     def test_filesystem_ops_are_tuple(self):
         plan = RootlessOverridePlan(
             rootless=False,
-            src=Path("/s"), dest=Path("/d"),
+            src=Path("/s"),
+            dest=Path("/d"),
             state=OverrideState.MATCHING,
             needed=False,
             filesystem_ops=(),
@@ -1045,7 +1118,8 @@ class TestRootlessOverridePlanEnhancedFields(unittest.TestCase):
     def test_service_ops_are_tuple(self):
         plan = RootlessOverridePlan(
             rootless=False,
-            src=Path("/s"), dest=Path("/d"),
+            src=Path("/s"),
+            dest=Path("/d"),
             state=OverrideState.MATCHING,
             needed=False,
             filesystem_ops=(),
@@ -1066,8 +1140,7 @@ class TestOverridePlanningResolution(unittest.TestCase):
     SRC_CONTENT = "[Service]\nPort=forward\n"
     OTHER = "[Service]\nPort=other\n"
 
-    def _plan(self, *, rootless=True, src_content=SRC_CONTENT,
-              dest_content=None):
+    def _plan(self, *, rootless=True, src_content=SRC_CONTENT, dest_content=None):
         """Build an in-memory plan via ``plan_rootless_override``
         by controlling what the filesystem returns.  Returns the plan.
         The fake filesystem is constructed so that:
@@ -1083,10 +1156,13 @@ class TestOverridePlanningResolution(unittest.TestCase):
         class _PlanFS(Filesystem):
             def __init__(self):
                 self._files = files
+
             def is_file(self, path):
                 return str(path) in self._files
+
             def read_text(self, path, encoding="utf-8"):
                 return self._files[str(path)]
+
             @property
             def home(self):
                 return Path("/fake/home")
@@ -1160,36 +1236,54 @@ class TestOverridePlanningResolution(unittest.TestCase):
 
         class _RecordingFS(Filesystem):
             def __init__(self):
-                self._files = {str(Path("/fake/src.conf")): TestOverridePlanningResolution.SRC_CONTENT}
+                self._files = {
+                    str(
+                        Path("/fake/src.conf")
+                    ): TestOverridePlanningResolution.SRC_CONTENT
+                }
+
             @property
-            def home(self): return Path("/fake/home")
+            def home(self):
+                return Path("/fake/home")
+
             def is_file(self, path):
                 calls.append(f"is_file({path})")
                 return str(path) in self._files
+
             def read_text(self, path, encoding="utf-8"):
                 calls.append(f"read_text({path})")
                 return self._files[str(path)]
+
             def write_text(self, path, content, encoding="utf-8"):
                 calls.append(f"WRITE({path})")
+
             def mkdir(self, path):
                 calls.append(f"MKDIR({path})")
+
             def copy(self, src, dest):
                 calls.append(f"COPY({src}→{dest})")
+
             def rename(self, src, dest):
                 calls.append(f"RENAME({src}→{dest})")
+
             def delete(self, path):
                 calls.append(f"DELETE({path})")
 
         plan_rootless_override(
             _fs=_RecordingFS(),
             _override_src=Path("/fake/src.conf"),
-            _override_dest=Path("/fake/home/.config/systemd/user/docker.service.d/override.conf"),
+            _override_dest=Path(
+                "/fake/home/.config/systemd/user/docker.service.d/override.conf"
+            ),
         )
-        write_calls = [c for c in calls
-                       if not c.startswith("is_file")
-                       and not c.startswith("read_text")]
-        self.assertEqual(write_calls, [],
-                         f"inspection must be read-only, got: {write_calls}")
+        write_calls = [
+            c
+            for c in calls
+            if not c.startswith("is_file") and not c.startswith("read_text")
+        ]
+        self.assertEqual(
+            write_calls, [], f"inspection must be read-only, got: {write_calls}"
+        )
         self.assertIn("is_file", calls[0])
 
 
@@ -1206,13 +1300,13 @@ class TestConsentEnforcement(unittest.TestCase):
         self.dest = Path("/fake/dest")
         self.plan = RootlessOverridePlan(
             rootless=True,
-            src=self.src, dest=self.dest,
+            src=self.src,
+            dest=self.dest,
             state=OverrideState.ABSENT,
             needed=True,
             filesystem_ops=(
                 FilesystemOperation("mkdir", self.dest.parent),
-                FilesystemOperation("copy", self.dest,
-                                    source_path=self.src),
+                FilesystemOperation("copy", self.dest, source_path=self.src),
             ),
             service_ops=(
                 ServiceOperation("daemon_reload"),
@@ -1226,12 +1320,21 @@ class TestConsentEnforcement(unittest.TestCase):
         src = self.src
 
         class _FS(Filesystem):
-            def is_file(self, path): return path == src
-            def read_text(self, path, **kw): return "content"
+            def is_file(self, path):
+                return path == src
+
+            def read_text(self, path, **kw):
+                return "content"
+
             @property
-            def home(self): return Path("/fake")
-            def mkdir(self, path): calls.append(f"mkdir:{path}")
-            def copy(self, s, d): calls.append(f"copy:{s}->{d}")
+            def home(self):
+                return Path("/fake")
+
+            def mkdir(self, path):
+                calls.append(f"mkdir:{path}")
+
+            def copy(self, s, d):
+                calls.append(f"copy:{s}->{d}")
 
         return _FS()
 
@@ -1239,44 +1342,67 @@ class TestConsentEnforcement(unittest.TestCase):
         calls = self._fake_calls
 
         class _SVC(ServiceController):
-            def __init__(self): pass
-            def daemon_reload(self): calls.append("daemon_reload")
-            def restart(self, unit): calls.append(f"restart:{unit}")
+            def __init__(self):
+                pass
+
+            def daemon_reload(self):
+                calls.append("daemon_reload")
+
+            def restart(self, unit):
+                calls.append(f"restart:{unit}")
 
         return _SVC()
 
     def _make_clock(self):
         class _Clock(SystemClock):
-            def timestamp(self): return 0.0
-            def sleep(self, s): pass
+            def timestamp(self):
+                return 0.0
+
+            def sleep(self, s):
+                pass
+
         return _Clock()
 
     def test_consent_false_returns_none_no_side_effects(self):
         result = apply_rootless_override(
-            self.plan, consent=False,
-            _fs=self._make_fs(), _svc=self._make_svc(), _clock=self._make_clock(),
+            self.plan,
+            consent=False,
+            _fs=self._make_fs(),
+            _svc=self._make_svc(),
+            _clock=self._make_clock(),
         )
         self.assertIsNone(result)
-        self.assertEqual(self._fake_calls, [],
-                         "consent=False must produce zero side effects")
+        self.assertEqual(
+            self._fake_calls, [], "consent=False must produce zero side effects"
+        )
 
     def test_consent_true_applies_and_returns_none_on_success(self):
         result = apply_rootless_override(
-            self.plan, consent=True,
-            _fs=self._make_fs(), _svc=self._make_svc(), _clock=self._make_clock(),
+            self.plan,
+            consent=True,
+            _fs=self._make_fs(),
+            _svc=self._make_svc(),
+            _clock=self._make_clock(),
         )
         self.assertIsNone(result)
         self.assertEqual(
             self._fake_calls,
-            [f"mkdir:{self.dest.parent}", f"copy:{self.src}->{self.dest}",
-             "daemon_reload", "restart:docker.service"],
+            [
+                f"mkdir:{self.dest.parent}",
+                f"copy:{self.src}->{self.dest}",
+                "daemon_reload",
+                "restart:docker.service",
+            ],
         )
 
     def test_module_never_prompts(self):
         with mock.patch("builtins.input"):
             result = apply_rootless_override(
-                self.plan, consent=False,
-                _fs=self._make_fs(), _svc=self._make_svc(), _clock=self._make_clock(),
+                self.plan,
+                consent=False,
+                _fs=self._make_fs(),
+                _svc=self._make_svc(),
+                _clock=self._make_clock(),
             )
         self.assertIsNone(result)
 
@@ -1295,13 +1421,13 @@ class TestApplicationOrder(unittest.TestCase):
         self.dest = Path("/fake/.config/systemd/user/docker.service.d/override.conf")
         self.plan = RootlessOverridePlan(
             rootless=True,
-            src=self.src, dest=self.dest,
+            src=self.src,
+            dest=self.dest,
             state=OverrideState.ABSENT,
             needed=True,
             filesystem_ops=(
                 FilesystemOperation("mkdir", self.dest.parent),
-                FilesystemOperation("copy", self.dest,
-                                    source_path=self.src),
+                FilesystemOperation("copy", self.dest, source_path=self.src),
             ),
             service_ops=(
                 ServiceOperation("daemon_reload"),
@@ -1320,12 +1446,17 @@ class TestApplicationOrder(unittest.TestCase):
         class _FS(Filesystem):
             def is_file(self, path):
                 return str(path) in files
+
             def read_text(self, path, encoding="utf-8"):
                 return files[str(path)]
+
             @property
-            def home(self): return Path("/fake")
+            def home(self):
+                return Path("/fake")
+
             def mkdir(self, path):
                 log.append(f"mkdir:{path}")
+
             def copy(self, src, dest):
                 files[str(dest)] = files[str(src)]
                 log.append(f"copy:{src}→{dest}")
@@ -1336,9 +1467,12 @@ class TestApplicationOrder(unittest.TestCase):
         log = self.log
 
         class _SVC(ServiceController):
-            def __init__(self): pass
+            def __init__(self):
+                pass
+
             def daemon_reload(self):
                 log.append("daemon_reload")
+
             def restart(self, unit):
                 log.append(f"restart:{unit}")
 
@@ -1348,7 +1482,9 @@ class TestApplicationOrder(unittest.TestCase):
         log = self.log
 
         class _Clock(SystemClock):
-            def timestamp(self): return 0.0
+            def timestamp(self):
+                return 0.0
+
             def sleep(self, s):
                 log.append(f"sleep:{s}")
 
@@ -1356,8 +1492,11 @@ class TestApplicationOrder(unittest.TestCase):
 
     def test_operations_execute_in_order(self):
         apply_rootless_override(
-            self.plan, consent=True,
-            _fs=self.fs, _svc=self.svc, _clock=self.clock,
+            self.plan,
+            consent=True,
+            _fs=self.fs,
+            _svc=self.svc,
+            _clock=self.clock,
         )
         self.assertEqual(
             self.log,
@@ -1387,13 +1526,18 @@ class TestApplicationFailures(unittest.TestCase):
     @staticmethod
     def _plan(**kw):
         defaults: dict = dict(
-            rootless=True, src=TestApplicationFailures.SRC,
+            rootless=True,
+            src=TestApplicationFailures.SRC,
             dest=TestApplicationFailures.DEST,
-            state=OverrideState.ABSENT, needed=True,
+            state=OverrideState.ABSENT,
+            needed=True,
             filesystem_ops=(
                 FilesystemOperation("mkdir", TestApplicationFailures.DEST.parent),
-                FilesystemOperation("copy", TestApplicationFailures.DEST,
-                                    source_path=TestApplicationFailures.SRC),
+                FilesystemOperation(
+                    "copy",
+                    TestApplicationFailures.DEST,
+                    source_path=TestApplicationFailures.SRC,
+                ),
             ),
             service_ops=(
                 ServiceOperation("daemon_reload"),
@@ -1410,7 +1554,9 @@ class TestApplicationFailures(unittest.TestCase):
 
         class _FS(Filesystem):
             @property
-            def home(self): return Path("/fake")
+            def home(self):
+                return Path("/fake")
+
             def is_file(self, path):
                 return False  # src not found
 
@@ -1418,9 +1564,12 @@ class TestApplicationFailures(unittest.TestCase):
         self.assertIsInstance(result, OverrideFailure)
         assert result is not None
         self.assertFalse(result.persistence_applied)
-        self.assertIn("copy", result.operation.lower()
-                      or "source" in result.operation.lower()
-                      or "src" in result.path_or_command.lower())
+        self.assertIn(
+            "copy",
+            result.operation.lower()
+            or "source" in result.operation.lower()
+            or "src" in result.path_or_command.lower(),
+        )
 
     # -- directory creation failure -----------------------------------------
 
@@ -1429,9 +1578,15 @@ class TestApplicationFailures(unittest.TestCase):
 
         class _FS(Filesystem):
             @property
-            def home(self): return Path("/fake")
-            def is_file(self, path): return path == TestApplicationFailures.SRC
-            def read_text(self, path, **kw): return "ok"
+            def home(self):
+                return Path("/fake")
+
+            def is_file(self, path):
+                return path == TestApplicationFailures.SRC
+
+            def read_text(self, path, **kw):
+                return "ok"
+
             def mkdir(self, path):
                 raise OSError("permission denied")
 
@@ -1448,10 +1603,18 @@ class TestApplicationFailures(unittest.TestCase):
 
         class _FS(Filesystem):
             @property
-            def home(self): return Path("/fake")
-            def is_file(self, path): return path == TestApplicationFailures.SRC
-            def read_text(self, path, **kw): return "ok"
-            def mkdir(self, path): pass
+            def home(self):
+                return Path("/fake")
+
+            def is_file(self, path):
+                return path == TestApplicationFailures.SRC
+
+            def read_text(self, path, **kw):
+                return "ok"
+
+            def mkdir(self, path):
+                pass
+
             def copy(self, src, dest):
                 raise OSError("disk full")
 
@@ -1467,27 +1630,42 @@ class TestApplicationFailures(unittest.TestCase):
 
         class _FS(Filesystem):
             @property
-            def home(self): return Path("/fake")
-            def is_file(self, path): return path == TestApplicationFailures.SRC
-            def read_text(self, path, **kw): return "ok"
-            def mkdir(self, path): pass
-            def copy(self, src, dest): pass
+            def home(self):
+                return Path("/fake")
+
+            def is_file(self, path):
+                return path == TestApplicationFailures.SRC
+
+            def read_text(self, path, **kw):
+                return "ok"
+
+            def mkdir(self, path):
+                pass
+
+            def copy(self, src, dest):
+                pass
 
         class _SVC(ServiceController):
-            def __init__(self): pass
+            def __init__(self):
+                pass
+
             def daemon_reload(self):
                 raise OSError("systemctl not found")
-            def restart(self, unit): pass
 
-        result = apply_rootless_override(plan, consent=True,
-                                         _fs=_FS(), _svc=_SVC())
+            def restart(self, unit):
+                pass
+
+        result = apply_rootless_override(plan, consent=True, _fs=_FS(), _svc=_SVC())
         self.assertIsInstance(result, OverrideFailure)
         assert result is not None
         # Copy happened before daemon-reload failed
-        self.assertTrue(result.persistence_applied,
-                        "override was written before service failure")
-        self.assertIn("systemctl", result.detail.lower()
-                      or "systemctl" in result.path_or_command.lower())
+        self.assertTrue(
+            result.persistence_applied, "override was written before service failure"
+        )
+        self.assertIn(
+            "systemctl",
+            result.detail.lower() or "systemctl" in result.path_or_command.lower(),
+        )
 
     # -- restart failure ----------------------------------------------------
 
@@ -1496,24 +1674,37 @@ class TestApplicationFailures(unittest.TestCase):
 
         class _FS(Filesystem):
             @property
-            def home(self): return Path("/fake")
-            def is_file(self, path): return path == TestApplicationFailures.SRC
-            def read_text(self, path, **kw): return "ok"
-            def mkdir(self, path): pass
-            def copy(self, src, dest): pass
+            def home(self):
+                return Path("/fake")
+
+            def is_file(self, path):
+                return path == TestApplicationFailures.SRC
+
+            def read_text(self, path, **kw):
+                return "ok"
+
+            def mkdir(self, path):
+                pass
+
+            def copy(self, src, dest):
+                pass
 
         class _SVC(ServiceController):
-            def __init__(self): pass
-            def daemon_reload(self): pass
+            def __init__(self):
+                pass
+
+            def daemon_reload(self):
+                pass
+
             def restart(self, unit):
                 raise OSError("docker not running")
 
-        result = apply_rootless_override(plan, consent=True,
-                                         _fs=_FS(), _svc=_SVC())
+        result = apply_rootless_override(plan, consent=True, _fs=_FS(), _svc=_SVC())
         self.assertIsInstance(result, OverrideFailure)
         assert result is not None
-        self.assertTrue(result.persistence_applied,
-                        "override was written before restart failure")
+        self.assertTrue(
+            result.persistence_applied, "override was written before restart failure"
+        )
 
     # -- no automatic rollback (requirement 21) -----------------------------
 
@@ -1523,25 +1714,35 @@ class TestApplicationFailures(unittest.TestCase):
 
         class _FS(Filesystem):
             @property
-            def home(self): return Path("/fake")
+            def home(self):
+                return Path("/fake")
+
             def is_file(self, path):
                 return path == TestApplicationFailures.SRC or str(path) in written
+
             def read_text(self, path, **kw):
                 return written.get(str(path), "ok")
-            def mkdir(self, path): pass
+
+            def mkdir(self, path):
+                pass
+
             def copy(self, src, dest):
                 written[str(dest)] = "copied-content"
 
         class _SVC(ServiceController):
-            def __init__(self): pass
-            def daemon_reload(self): pass
+            def __init__(self):
+                pass
+
+            def daemon_reload(self):
+                pass
+
             def restart(self, unit):
                 raise OSError("restart failed")
 
-        apply_rootless_override(self._plan(), consent=True,
-                                _fs=_FS(), _svc=_SVC())
-        self.assertIn(str(self.DEST), written,
-                      "dest must remain — no automatic rollback")
+        apply_rootless_override(self._plan(), consent=True, _fs=_FS(), _svc=_SVC())
+        self.assertIn(
+            str(self.DEST), written, "dest must remain — no automatic rollback"
+        )
 
 
 # ======================================================================
@@ -1558,29 +1759,39 @@ class TestProcessResultDTO(unittest.TestCase):
 
     def test_stores_argv_as_tuple(self):
         pr = ProcessResult(
-            argv=("docker", "info"), return_code=0,
-            stdout="ok", stderr="",
+            argv=("docker", "info"),
+            return_code=0,
+            stdout="ok",
+            stderr="",
         )
         self.assertEqual(pr.argv, ("docker", "info"))
         self.assertIsInstance(pr.argv, tuple)
 
     def test_stores_return_code(self):
         pr = ProcessResult(
-            argv=("x",), return_code=1, stdout="", stderr="err",
+            argv=("x",),
+            return_code=1,
+            stdout="",
+            stderr="err",
         )
         self.assertEqual(pr.return_code, 1)
 
     def test_stores_stdout_and_stderr_separately(self):
         pr = ProcessResult(
-            argv=("x",), return_code=0,
-            stdout="out", stderr="err",
+            argv=("x",),
+            return_code=0,
+            stdout="out",
+            stderr="err",
         )
         self.assertEqual(pr.stdout, "out")
         self.assertEqual(pr.stderr, "err")
 
     def test_is_frozen(self):
         pr = ProcessResult(
-            argv=("x",), return_code=0, stdout="", stderr="",
+            argv=("x",),
+            return_code=0,
+            stdout="",
+            stderr="",
         )
         with self.assertRaises(dataclasses.FrozenInstanceError):
             pr.return_code = 5  # type: ignore[misc]
@@ -1597,9 +1808,12 @@ class TestProcessRunnerProtocol(unittest.TestCase):
         class _Fake(ProcessRunner):
             def run(self, argv):
                 return ProcessResult(
-                    argv=tuple(argv), return_code=0,
-                    stdout="fake", stderr="",
+                    argv=tuple(argv),
+                    return_code=0,
+                    stdout="fake",
+                    stderr="",
                 )
+
         result = _Fake().run(["echo", "hello"])
         self.assertIsInstance(result, ProcessResult)
         self.assertEqual(result.argv, ("echo", "hello"))
@@ -1638,24 +1852,29 @@ class TestFakeBoundaryCoverage(unittest.TestCase):
     def test_probe_server_injectable(self):
         """``HostProbeServer`` can be replaced via ``_host_probe_factory``."""
         from docker.networking import HostProbeServer
+
         self.assertTrue(callable(HostProbeServer))
 
     def test_no_test_imports_subprocess_run_directly(self):
         """Requirement 26: this test file must not call ``subprocess.run``."""
         import ast
+
         with open(__file__) as f:
             tree = ast.parse(f.read())
 
         subprocess_calls: list[str] = []
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
-                if (isinstance(node.func, ast.Attribute)
-                        and isinstance(node.func.value, ast.Name)
-                        and node.func.value.id == "subprocess"
-                        and node.func.attr == "run"):
+                if (
+                    isinstance(node.func, ast.Attribute)
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "subprocess"
+                    and node.func.attr == "run"
+                ):
                     subprocess_calls.append(f"line {node.lineno}")
         self.assertEqual(
-            subprocess_calls, [],
+            subprocess_calls,
+            [],
             f"tests must not call subprocess.run directly: {subprocess_calls}",
         )
 
@@ -1663,6 +1882,7 @@ class TestFakeBoundaryCoverage(unittest.TestCase):
         """Requirement 27: this test file must not import socket or
         urllib — networking is behind ``_run`` / ``_host_probe_factory``."""
         import ast
+
         with open(__file__) as f:
             tree = ast.parse(f.read())
 
@@ -1677,7 +1897,8 @@ class TestFakeBoundaryCoverage(unittest.TestCase):
                 if node.module and node.module in forbidden:
                     violations.append(f"from {node.module} import ...")
         self.assertEqual(
-            violations, [],
+            violations,
+            [],
             f"tests must not import network libraries: {violations}",
         )
 
@@ -1704,8 +1925,10 @@ class _FakeProcessRunner(ProcessRunner):
         if self._responses:
             return self._responses.pop(0)
         return ProcessResult(
-            argv=tuple(argv), return_code=1,
-            stdout="", stderr="no more canned responses",
+            argv=tuple(argv),
+            return_code=1,
+            stdout="",
+            stderr="no more canned responses",
         )
 
 
@@ -1713,34 +1936,46 @@ class TestProcessRunnerInjectionDetectDockerMode(unittest.TestCase):
     """Requirement 24: ``detect_docker_mode`` must accept ``_runner``."""
 
     def test_rootful_via_injected_process_runner(self):
-        runner = _FakeProcessRunner([
-            ProcessResult(
-                argv=("docker", "info"), return_code=0,
-                stdout="Server Mode: default", stderr="",
-            ),
-        ])
+        runner = _FakeProcessRunner(
+            [
+                ProcessResult(
+                    argv=("docker", "info"),
+                    return_code=0,
+                    stdout="Server Mode: default",
+                    stderr="",
+                ),
+            ]
+        )
         # RED: _runner not yet accepted, expect TypeError
         mode = detect_docker_mode(_runner=runner)
         self.assertIs(mode, DockerMode.ROOTFUL)
         self.assertTrue(runner.calls)
 
     def test_rootless_via_injected_process_runner(self):
-        runner = _FakeProcessRunner([
-            ProcessResult(
-                argv=("docker", "info"), return_code=0,
-                stdout="rootless: yes", stderr="",
-            ),
-        ])
+        runner = _FakeProcessRunner(
+            [
+                ProcessResult(
+                    argv=("docker", "info"),
+                    return_code=0,
+                    stdout="rootless: yes",
+                    stderr="",
+                ),
+            ]
+        )
         mode = detect_docker_mode(_runner=runner)
         self.assertIs(mode, DockerMode.ROOTLESS)
 
     def test_docker_not_found_via_injected_process_runner(self):
-        runner = _FakeProcessRunner([
-            ProcessResult(
-                argv=("docker", "info"), return_code=1,
-                stdout="", stderr="command not found",
-            ),
-        ])
+        runner = _FakeProcessRunner(
+            [
+                ProcessResult(
+                    argv=("docker", "info"),
+                    return_code=1,
+                    stdout="",
+                    stderr="command not found",
+                ),
+            ]
+        )
         with self.assertRaises(DockerDetectionError):
             detect_docker_mode(_runner=runner)
 
@@ -1749,12 +1984,16 @@ class TestProcessRunnerInjectionDetectLanIp(unittest.TestCase):
     """Requirement 24: ``detect_lan_ip`` must accept ``_runner``."""
 
     def test_returns_parsed_ip_via_injected_runner(self):
-        runner = _FakeProcessRunner([
-            ProcessResult(
-                argv=("hostname", "-I"), return_code=0,
-                stdout="10.0.0.42 ", stderr="",
-            ),
-        ])
+        runner = _FakeProcessRunner(
+            [
+                ProcessResult(
+                    argv=("hostname", "-I"),
+                    return_code=0,
+                    stdout="10.0.0.42 ",
+                    stderr="",
+                ),
+            ]
+        )
         # RED: _runner not yet accepted
         ip = detect_lan_ip(_runner=runner)
         self.assertEqual(ip, "10.0.0.42")
@@ -1764,16 +2003,26 @@ class TestProcessRunnerInjectionProbeGateway(unittest.TestCase):
     """Requirement 24: ``probe_gateway`` must accept ``_runner``."""
 
     def test_probe_uses_injected_runner_for_docker_run(self):
-        runner = _FakeProcessRunner([
-            ProcessResult(
-                argv=("docker", "run", "--rm", "--add-host",
-                      "host.docker.internal:10.0.0.1", "alpine/socat:latest",
-                      "sh", "-c", "..."),
-                return_code=0,
-                stdout="RESOLVED_IP=10.0.0.1\nPROBE_OK",
-                stderr="",
-            ),
-        ])
+        runner = _FakeProcessRunner(
+            [
+                ProcessResult(
+                    argv=(
+                        "docker",
+                        "run",
+                        "--rm",
+                        "--add-host",
+                        "host.docker.internal:10.0.0.1",
+                        "alpine/socat:latest",
+                        "sh",
+                        "-c",
+                        "...",
+                    ),
+                    return_code=0,
+                    stdout="RESOLVED_IP=10.0.0.1\nPROBE_OK",
+                    stderr="",
+                ),
+            ]
+        )
         # RED: _runner not yet accepted
         result = probe_gateway("10.0.0.1", 12345, "secret", _runner=runner)
         self.assertTrue(result.ok)
@@ -1789,27 +2038,41 @@ class TestProcessRunnerInjectionDiagnoseGateway(unittest.TestCase):
         #   1. detect_docker_mode  -> docker info
         #   2. detect_lan_ip       -> hostname -I
         #   3. probe_gateway × N   -> docker run --add-host ...
-        runner = _FakeProcessRunner([
-            # Call 1: detect_docker_mode
-            ProcessResult(
-                argv=("docker", "info"), return_code=0,
-                stdout="rootless: yes", stderr="",
-            ),
-            # Call 2: detect_lan_ip
-            ProcessResult(
-                argv=("hostname", "-I"), return_code=0,
-                stdout="10.0.0.42", stderr="",
-            ),
-            # Call 3: probe_gateway (docker run --add-host ...)
-            ProcessResult(
-                argv=("docker", "run", "--rm", "--add-host",
-                      "host.docker.internal:172.17.0.1",
-                      "alpine/socat:latest", "sh", "-c", "..."),
-                return_code=0,
-                stdout="RESOLVED_IP=172.17.0.1\nPROBE_OK",
-                stderr="",
-            ),
-        ])
+        runner = _FakeProcessRunner(
+            [
+                # Call 1: detect_docker_mode
+                ProcessResult(
+                    argv=("docker", "info"),
+                    return_code=0,
+                    stdout="rootless: yes",
+                    stderr="",
+                ),
+                # Call 2: detect_lan_ip
+                ProcessResult(
+                    argv=("hostname", "-I"),
+                    return_code=0,
+                    stdout="10.0.0.42",
+                    stderr="",
+                ),
+                # Call 3: probe_gateway (docker run --add-host ...)
+                ProcessResult(
+                    argv=(
+                        "docker",
+                        "run",
+                        "--rm",
+                        "--add-host",
+                        "host.docker.internal:172.17.0.1",
+                        "alpine/socat:latest",
+                        "sh",
+                        "-c",
+                        "...",
+                    ),
+                    return_code=0,
+                    stdout="RESOLVED_IP=172.17.0.1\nPROBE_OK",
+                    stderr="",
+                ),
+            ]
+        )
         # RED: _runner not yet accepted
         diag = diagnose_gateway(
             _runner=runner,
@@ -1824,12 +2087,16 @@ class TestProcessRunnerInjectionServiceController(unittest.TestCase):
     """Requirement 24: ``ServiceController`` must accept ``_runner``."""
 
     def test_service_controller_uses_injected_runner(self):
-        runner = _FakeProcessRunner([
-            ProcessResult(
-                argv=("systemctl", "--user", "daemon-reload"),
-                return_code=0, stdout="", stderr="",
-            ),
-        ])
+        runner = _FakeProcessRunner(
+            [
+                ProcessResult(
+                    argv=("systemctl", "--user", "daemon-reload"),
+                    return_code=0,
+                    stdout="",
+                    stderr="",
+                ),
+            ]
+        )
         # RED: __init__ does not accept _runner yet
         svc = ServiceController(_runner=runner)
         svc.daemon_reload()

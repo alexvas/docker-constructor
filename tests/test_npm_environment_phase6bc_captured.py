@@ -1,4 +1,5 @@
 """6BC.1 RED: captured input compatibility and returned ownership contracts."""
+
 import dataclasses
 import inspect
 import sys
@@ -18,7 +19,11 @@ def test_captured_inputs_and_outcome_fields_remain_unchanged():
     assert tuple(signature.parameters) == ("argv", "policy")
     assert signature.parameters["policy"].kind is inspect.Parameter.KEYWORD_ONLY
     assert tuple(f.name for f in dataclasses.fields(lifecycle.LifecycleOutcome)) == (
-        "return_code", "errors", "stdout", "stderr")
+        "return_code",
+        "errors",
+        "stdout",
+        "stderr",
+    )
 
 
 def test_success_returns_same_generic_owner_and_bounded_decoded_output():
@@ -34,10 +39,14 @@ def test_success_returns_same_generic_owner_and_bounded_decoded_output():
         owners.append(owner)
         return owner
 
-    with mock.patch.object(lifecycle.subprocess, "Popen", return_value=child) as factory, \
-         mock.patch.object(OwnedProcess, "launch", side_effect=launch):
+    with (
+        mock.patch.object(lifecycle.subprocess, "Popen", return_value=child) as factory,
+        mock.patch.object(OwnedProcess, "launch", side_effect=launch),
+    ):
         owner, outcome = lifecycle.run_captured(
-            ("client", "arg"), policy=lifecycle.LifecyclePolicy(.1, captured_output_bytes=6))
+            ("client", "arg"),
+            policy=lifecycle.LifecyclePolicy(0.1, captured_output_bytes=6),
+        )
     assert len(owners) == 1 and owner is owners[0]
     assert isinstance(owner, OwnedProcess)
     assert outcome.return_code == 7 and outcome.errors == []
@@ -52,7 +61,9 @@ def test_success_returns_same_generic_owner_and_bounded_decoded_output():
 
 @pytest.mark.parametrize("kind", [OSError, RuntimeError, KeyboardInterrupt])
 @pytest.mark.parametrize("source", ["release", "reader", "wait", "operation"])
-def test_capture_failure_returns_same_owner_and_snapshot_without_recapture(kind, source):
+def test_capture_failure_returns_same_owner_and_snapshot_without_recapture(
+    kind, source
+):
     error = kind(source)
     child = Child(error if source == "release" else None)
     if source == "reader":
@@ -80,9 +91,13 @@ def test_capture_failure_returns_same_owner_and_snapshot_without_recapture(kind,
             child.poll = mock.Mock(side_effect=error)
         return owner
 
-    with mock.patch.object(lifecycle.subprocess, "Popen", return_value=child), \
-         mock.patch.object(OwnedProcess, "launch", side_effect=launch), \
-         mock.patch.object(OwnedProcess, "capture", autospec=True, wraps=OwnedProcess.capture) as capture:
+    with (
+        mock.patch.object(lifecycle.subprocess, "Popen", return_value=child),
+        mock.patch.object(OwnedProcess, "launch", side_effect=launch),
+        mock.patch.object(
+            OwnedProcess, "capture", autospec=True, wraps=OwnedProcess.capture
+        ) as capture,
+    ):
         # autospec+wraps has no real method execution; bind its side effect to
         # the real implementation so the fault still comes from sole release.
         values = []
@@ -95,24 +110,30 @@ def test_capture_failure_returns_same_owner_and_snapshot_without_recapture(kind,
         capture.side_effect = capture_once
         if kind is KeyboardInterrupt:
             with pytest.raises(KeyboardInterrupt) as caught:
-                lifecycle.run_captured(("client",), policy=lifecycle.LifecyclePolicy(.1))
+                lifecycle.run_captured(
+                    ("client",), policy=lifecycle.LifecyclePolicy(0.1)
+                )
             assert caught.value is error
             owner = owners[0]
             assert values == [] and owner.cleanup_status.failures[0].error is error
         else:
-            owner, outcome = lifecycle.run_captured(("client",), policy=lifecycle.LifecyclePolicy(.1))
+            owner, outcome = lifecycle.run_captured(
+                ("client",), policy=lifecycle.LifecyclePolicy(0.1)
+            )
             assert outcome.errors[0] is error and len(values) == 1
             snapshot = values[0]
             assert outcome.return_code == snapshot.returncode == child.returncode
             assert (outcome.stdout, outcome.stderr) == (
-                snapshot.stdout.decode(errors="replace"), snapshot.stderr.decode(errors="replace"))
+                snapshot.stdout.decode(errors="replace"),
+                snapshot.stderr.decode(errors="replace"),
+            )
             assert outcome.stderr == "retained stderr"
             if source != "reader":
                 assert outcome.stdout == "retained stdout"
             assert snapshot.lifecycle.complete
     assert len(owners) == 1 and owner is owners[0] and capture.call_count == 1
     assert not hasattr(error, "process_result")
-    assert owner.wait_cleanup(.1).complete
+    assert owner.wait_cleanup(0.1).complete
     assert child.stdout.attempts == child.stderr.attempts == 1
 
 
@@ -151,12 +172,15 @@ def test_incomplete_setup_failure_returns_original_generic_cleanup_handle():
         return original_read(owner, index)
 
     try:
-        with mock.patch.object(OwnedProcess, "_start_reader", start), \
-             mock.patch.object(OwnedProcess, "_read_chunk", read), \
-             mock.patch.object(OwnedProcess, "launch", side_effect=launch):
+        with (
+            mock.patch.object(OwnedProcess, "_start_reader", start),
+            mock.patch.object(OwnedProcess, "_read_chunk", read),
+            mock.patch.object(OwnedProcess, "launch", side_effect=launch),
+        ):
             owner, outcome = lifecycle.run_captured(
                 (sys.executable, "-c", "import time; time.sleep(30)"),
-                policy=lifecycle.LifecyclePolicy(.05))
+                policy=lifecycle.LifecyclePolicy(0.05),
+            )
             assert caught == [] and returned == [owner]
             assert isinstance(owner, OwnedProcess)
             assert outcome.errors[0] is error
@@ -166,7 +190,11 @@ def test_incomplete_setup_failure_returns_original_generic_cleanup_handle():
             assert owner.wait_cleanup(1).complete
     finally:
         release.set()
-        handle = owner if isinstance(owner, OwnedProcess) else getattr(error, "cleanup", None)
+        handle = (
+            owner
+            if isinstance(owner, OwnedProcess)
+            else getattr(error, "cleanup", None)
+        )
         if handle is not None:
             handle.shutdown()
             assert handle.wait_cleanup(1).complete
@@ -175,9 +203,13 @@ def test_incomplete_setup_failure_returns_original_generic_cleanup_handle():
 def test_completed_setup_failure_returns_prepared_owner():
     child = Child()
     error = OSError("transfer")
-    with mock.patch.object(lifecycle.subprocess, "Popen", return_value=child), \
-         mock.patch.object(OwnedProcess, "_transfer", side_effect=error):
-        owner, outcome = lifecycle.run_captured(("client",), policy=lifecycle.LifecyclePolicy(.1))
+    with (
+        mock.patch.object(lifecycle.subprocess, "Popen", return_value=child),
+        mock.patch.object(OwnedProcess, "_transfer", side_effect=error),
+    ):
+        owner, outcome = lifecycle.run_captured(
+            ("client",), policy=lifecycle.LifecyclePolicy(0.1)
+        )
     assert isinstance(owner, OwnedProcess) and owner.cleanup_status.complete
     assert not hasattr(error, "cleanup") and outcome.errors[0] is error
     assert not hasattr(error, "process_result")
@@ -186,9 +218,13 @@ def test_completed_setup_failure_returns_prepared_owner():
 
 def test_factory_failure_without_handle_returns_none_and_original_error():
     error = OSError("factory")
-    with mock.patch.object(lifecycle.subprocess, "Popen", side_effect=error), \
-         mock.patch.object(OwnedProcess, "launch", side_effect=error) as launch:
-        owner, outcome = lifecycle.run_captured(("client",), policy=lifecycle.LifecyclePolicy(.1))
+    with (
+        mock.patch.object(lifecycle.subprocess, "Popen", side_effect=error),
+        mock.patch.object(OwnedProcess, "launch", side_effect=error) as launch,
+    ):
+        owner, outcome = lifecycle.run_captured(
+            ("client",), policy=lifecycle.LifecyclePolicy(0.1)
+        )
     assert launch.call_count == 1
     assert owner is None and outcome.errors == [error]
     assert (outcome.return_code, outcome.stdout, outcome.stderr) == (None, "", "")
@@ -218,25 +254,43 @@ def test_incomplete_capture_returns_same_owner_and_never_mutates_delivered_outco
         return original_read(owner, index)
 
     try:
-        with mock.patch.object(OwnedProcess, "_read_chunk", read), \
-             mock.patch.object(OwnedStream, "close", close):
+        with (
+            mock.patch.object(OwnedProcess, "_read_chunk", read),
+            mock.patch.object(OwnedStream, "close", close),
+        ):
             owner, outcome = lifecycle.run_captured(
                 (sys.executable, "-c", "import time; time.sleep(30)"),
-                policy=lifecycle.LifecyclePolicy(.05))
+                policy=lifecycle.LifecyclePolicy(0.05),
+            )
             assert entered.is_set(), "captured adapter must delegate internal readers"
             assert isinstance(owner, OwnedProcess)
             assert not owner.cleanup_status.complete
-            assert outcome.errors and any("incomplete" in str(e) for e in outcome.errors)
-            assert not owner.wait_cleanup(.01).complete
-            before = (outcome.return_code, outcome.stdout, outcome.stderr,
-                      tuple(outcome.errors), tuple(tuple(getattr(e, "__notes__", ())) for e in outcome.errors))
+            assert outcome.errors and any(
+                "incomplete" in str(e) for e in outcome.errors
+            )
+            assert not owner.wait_cleanup(0.01).complete
+            before = (
+                outcome.return_code,
+                outcome.stdout,
+                outcome.stderr,
+                tuple(outcome.errors),
+                tuple(tuple(getattr(e, "__notes__", ())) for e in outcome.errors),
+            )
             release.set()
             assert owner.wait_cleanup(1).complete and stopped.is_set()
             assert any(f.error is late_error for f in owner.cleanup_status.failures)
             assert late_error not in outcome.errors
-            assert all("SECRET" not in str(e) and "private.invalid" not in str(e) for e in outcome.errors)
-            assert before == (outcome.return_code, outcome.stdout, outcome.stderr,
-                              tuple(outcome.errors), tuple(tuple(getattr(e, "__notes__", ())) for e in outcome.errors))
+            assert all(
+                "SECRET" not in str(e) and "private.invalid" not in str(e)
+                for e in outcome.errors
+            )
+            assert before == (
+                outcome.return_code,
+                outcome.stdout,
+                outcome.stderr,
+                tuple(outcome.errors),
+                tuple(tuple(getattr(e, "__notes__", ())) for e in outcome.errors),
+            )
     finally:
         release.set()
         if isinstance(owner, OwnedProcess):
@@ -247,7 +301,9 @@ def test_incomplete_capture_returns_same_owner_and_never_mutates_delivered_outco
 def test_actual_factory_failure_returns_prepared_owner():
     error = OSError("actual factory")
     with mock.patch.object(lifecycle.subprocess, "Popen", side_effect=error):
-        owner, outcome = lifecycle.run_captured(("client",), policy=lifecycle.LifecyclePolicy(.1))
+        owner, outcome = lifecycle.run_captured(
+            ("client",), policy=lifecycle.LifecyclePolicy(0.1)
+        )
     assert isinstance(owner, OwnedProcess) and owner.cleanup_status.complete
     assert outcome.errors[0] is error and outcome.return_code is None
     assert outcome.stdout == outcome.stderr == ""

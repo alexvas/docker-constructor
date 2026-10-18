@@ -54,6 +54,7 @@ entries with ``0600``, and ``artifact_cache.py`` publishes verified blobs
 with ``0444`` (the latter is asserted here through real publication into a
 prepared ``runtime-artifacts/blobs`` directory).
 """
+
 from __future__ import annotations
 
 import base64
@@ -152,15 +153,11 @@ class _CacheSecurityTestCase(unittest.TestCase):
 
     def assert_secured_tree(self, root: Path) -> None:
         """Require *root* and every constructor descendant to be ``0700``."""
-        self.assertEqual(
-            _mode(root), 0o700, f"{root} must be owner-only 0700"
-        )
+        self.assertEqual(_mode(root), 0o700, f"{root} must be owner-only 0700")
         for parts in _DESCENDANT_PARTS:
             child = root.joinpath(*parts)
             self.assertTrue(child.is_dir(), f"{child} must be a directory")
-            self.assertEqual(
-                _mode(child), 0o700, f"{child} must be owner-only 0700"
-            )
+            self.assertEqual(_mode(child), 0o700, f"{child} must be owner-only 0700")
 
 
 class TestDefaultRootDirectoryHardening(_CacheSecurityTestCase):
@@ -218,9 +215,7 @@ class TestHttpEntryMode(_CacheSecurityTestCase):
         self.assertEqual(_mode(versioning), 0o700)
 
         cache = DiskCache(versioning, ttl=3600)
-        response = types.SimpleNamespace(
-            status=200, headers={}, body=b"payload"
-        )
+        response = types.SimpleNamespace(status=200, headers={}, body=b"payload")
         cache.set("GET", "https://example.test/entry", response)
 
         entries = [p for p in versioning.iterdir() if p.is_file()]
@@ -516,9 +511,7 @@ class TestLocalRootSecurity(_CacheSecurityTestCase):
         os.chmod(value, 0o755)
 
         foreign_uid = os.getuid() + 1
-        with mock.patch(
-            "os.fstat", side_effect=_foreign_uid_fstat(value, foreign_uid)
-        ):
+        with mock.patch("os.fstat", side_effect=_foreign_uid_fstat(value, foreign_uid)):
             with self.assertRaises(_cache_storage().CacheStorageError) as caught:
                 self._prepare_local(str(value), xdg=str(xdg))
 
@@ -581,9 +574,7 @@ class TestLocalRootSecurity(_CacheSecurityTestCase):
         locks.mkdir(parents=True)
         os.chmod(locks, 0o755)
 
-        with mock.patch(
-            "os.fchmod", side_effect=_deny_fchmod_for(locks)
-        ):
+        with mock.patch("os.fchmod", side_effect=_deny_fchmod_for(locks)):
             with self.assertRaises(_cache_storage().CacheStorageError) as caught:
                 self._prepare_local(str(value), xdg=str(xdg))
 

@@ -128,9 +128,7 @@ class TestBindingRechecks(unittest.TestCase):
 
     def test_changed_roots_rejected(self):
         _raw, validated = _validated({"a": "1.0.0", "b": "1.0.0"})
-        changed = dataclasses.replace(
-            validated, roots=tuple(reversed(validated.roots))
-        )
+        changed = dataclasses.replace(validated, roots=tuple(reversed(validated.roots)))
         with self.assertRaises(LockedNpmError) as ctx:
             _vector(validated=changed)
         self.assertEqual(ctx.exception.reason, "validated_input_mismatch")
@@ -189,8 +187,12 @@ class TestRunVectorShape(unittest.TestCase):
         env = dict(_vector().env)
         self.assertEqual(
             set(env),
-            {"HOME", "npm_config_cache", "REVIEWED_NODE_VERSION",
-             "REVIEWED_NPM_VERSION"}
+            {
+                "HOME",
+                "npm_config_cache",
+                "REVIEWED_NODE_VERSION",
+                "REVIEWED_NPM_VERSION",
+            }
             | {name for name, _value in npm_policy_env()},
         )
         self.assertEqual(env["REVIEWED_NODE_VERSION"], _NODE)

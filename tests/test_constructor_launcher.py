@@ -51,7 +51,9 @@ from docker.versioning.dispatch_types import ExitKind
 
 # ── repo-cache leak guard ───────────────────────────────────────
 
-_REPO_CACHE = os.path.join(os.path.dirname(__file__), "..", ".docker-generated", "runtime-artifacts")
+_REPO_CACHE = os.path.join(
+    os.path.dirname(__file__), "..", ".docker-generated", "runtime-artifacts"
+)
 
 
 def _repo_cache_file_set() -> frozenset[str]:
@@ -81,7 +83,6 @@ def _assert_repo_cache_unchanged(before: frozenset[str]) -> frozenset[str]:
 # ────────────────────────────────────────────────────────────────
 
 
-
 # ── shared-lock-directory leak guard ────────────────────────────────
 # Tests must NEVER create /tmp/locks.  FileIdentityLockFactory
 # derives its lock root from the cache-root parent, so every test
@@ -97,7 +98,9 @@ def _shared_lock_leak_snapshot() -> bool:
     return os.path.exists(_SHARED_LOCK_LEAK)
 
 
-def _assert_no_shared_lock_created(before: bool, *, _path: str = _SHARED_LOCK_LEAK) -> None:
+def _assert_no_shared_lock_created(
+    before: bool, *, _path: str = _SHARED_LOCK_LEAK
+) -> None:
     """Fail when the shared lock directory was *created* during a test.
 
     ``before`` is the snapshot taken in ``setUp``.  If ``_path`` did not
@@ -111,7 +114,6 @@ def _assert_no_shared_lock_created(before: bool, *, _path: str = _SHARED_LOCK_LE
     )
 
 
-
 class FakeProcessRunner(ProcessRunner):
     """Deterministic :class:`ProcessRunner` that consumes canned
     :class:`ProcessResult` responses in FIFO order.  Falls back to
@@ -121,8 +123,9 @@ class FakeProcessRunner(ProcessRunner):
         self._responses: list[ProcessResult] = list(responses or [])
         self.calls: list[list[str]] = []
 
-    def run(self, argv: list[str], *,
-            mode: ExecutionMode = ExecutionMode.CAPTURED) -> ProcessResult:
+    def run(
+        self, argv: list[str], *, mode: ExecutionMode = ExecutionMode.CAPTURED
+    ) -> ProcessResult:
         self.calls.append(argv)
         if self._responses:
             return self._responses.pop(0)
@@ -151,13 +154,16 @@ class TestWorkspaceSelectionFromArgs(unittest.TestCase):
     # ── helpers ──────────────────────────────────────────────────
 
     @staticmethod
-    def _select(*, selector: WorkspaceSelector | None = None, **flags) -> WorkspaceSelection:
+    def _select(
+        *, selector: WorkspaceSelector | None = None, **flags
+    ) -> WorkspaceSelection:
         """Simulate resolving workspace selection from parsed CLI flags.
 
         Mapped to the future ``resolve_workspace_selection()`` in
         ``docker/launcher.py``.
         """
         from docker.launcher import resolve_workspace_selection
+
         return resolve_workspace_selection(
             workspace=flags.get("workspace"),
             extra_workspaces=flags.get("extra_workspaces", ()),
@@ -175,7 +181,8 @@ class TestWorkspaceSelectionFromArgs(unittest.TestCase):
 
     def test_explicit_primary_workspace_with_one_extra_workspace(self) -> None:
         sel = self._select(
-            workspace="/work/p1", extra_workspaces=["/work/p2"],
+            workspace="/work/p1",
+            extra_workspaces=["/work/p2"],
         )
         self.assertEqual(sel.workspace, "/work/p1")
         self.assertEqual(sel.extra_workspaces, ("/work/p2",))
@@ -228,7 +235,8 @@ class TestWorkspaceSelectionFromArgs(unittest.TestCase):
     def test_primary_workspace_equal_to_extra_workspace_rejected(self) -> None:
         with self.assertRaises(ValueError):
             self._select(
-                workspace="/work/p1", extra_workspaces=["/work/p1"],
+                workspace="/work/p1",
+                extra_workspaces=["/work/p1"],
             )
 
     def test_duplicate_extra_workspace_paths_rejected(self) -> None:
@@ -243,7 +251,8 @@ class TestWorkspaceSelectionFromArgs(unittest.TestCase):
     def test_relative_workspace_is_normalized_to_absolute(self) -> None:
         selection = self._select(workspace="relative/path")
         self.assertEqual(
-            selection.workspace, os.path.abspath("relative/path"),
+            selection.workspace,
+            os.path.abspath("relative/path"),
         )
 
     def test_relative_extra_workspace_is_normalized_to_absolute(self) -> None:
@@ -263,7 +272,8 @@ class TestWorkspaceSelectionFromArgs(unittest.TestCase):
     def test_empty_extra_workspace_rejected(self) -> None:
         with self.assertRaises(ValueError):
             self._select(
-                workspace="/work/p1", extra_workspaces=[""],
+                workspace="/work/p1",
+                extra_workspaces=[""],
             )
 
     # ── normalized-path duplicate detection ──────────────────────
@@ -307,7 +317,8 @@ class TestWorkspaceSelectionFromArgs(unittest.TestCase):
         sel = self._select(
             tui=True,
             selector=_FakeSelector(
-                "/work/tui-primary", ("/work/tui-extra1", "/work/tui-extra2"),
+                "/work/tui-primary",
+                ("/work/tui-extra1", "/work/tui-extra2"),
             ),
         )
         self.assertEqual(sel.workspace, "/work/tui-primary")
@@ -327,7 +338,8 @@ class TestWorkspaceSelectionFromArgs(unittest.TestCase):
         primary workspace through the TUI; cancellation is an error."""
         with self.assertRaises(NoWorkspaceError):
             self._select(
-                tui=True, extra_workspaces=["/work/p1"],
+                tui=True,
+                extra_workspaces=["/work/p1"],
                 selector=_FakeSelector.cancelled(),
             )
 
@@ -337,7 +349,8 @@ class TestWorkspaceSelectionFromArgs(unittest.TestCase):
         """Explicit --workspace takes precedence over --tui.
         The selector is not consulted."""
         sel = self._select(
-            workspace="/work/primary", tui=True,
+            workspace="/work/primary",
+            tui=True,
             selector=_FakeSelector("/work/should-not-be-used"),
         )
         self.assertEqual(sel.workspace, "/work/primary")
@@ -346,7 +359,8 @@ class TestWorkspaceSelectionFromArgs(unittest.TestCase):
         """When --workspace is given, even a cancelled TUI must
         not prevent the selection — explicit beats TUI."""
         sel = self._select(
-            workspace="/work/primary", tui=True,
+            workspace="/work/primary",
+            tui=True,
             selector=_FakeSelector.cancelled(),
         )
         self.assertEqual(sel.workspace, "/work/primary")
@@ -370,7 +384,8 @@ class TestWorkspaceSelectionFromArgs(unittest.TestCase):
             self._select(
                 tui=True,
                 selector=_FakeSelector.from_raw(
-                    "/work/primary", ("/work/extra", "/work/extra"),
+                    "/work/primary",
+                    ("/work/extra", "/work/extra"),
                 ),
             )
 
@@ -381,7 +396,8 @@ class TestWorkspaceSelectionFromArgs(unittest.TestCase):
             self._select(
                 tui=True,
                 selector=_FakeSelector.from_raw(
-                    "/work/primary", ("/work/a", "/work/./a"),
+                    "/work/primary",
+                    ("/work/a", "/work/./a"),
                 ),
             )
 
@@ -393,7 +409,8 @@ class TestWorkspaceSelectionFromArgs(unittest.TestCase):
             selector=_FakeSelector.from_raw("relative/path", ()),
         )
         self.assertEqual(
-            selection.workspace, os.path.abspath("relative/path"),
+            selection.workspace,
+            os.path.abspath("relative/path"),
         )
 
     def test_tui_result_empty_workspace_rejected(self) -> None:
@@ -432,7 +449,9 @@ class _FakeSelector:
 
     @classmethod
     def from_raw(
-        cls, primary_workspace: str, extra_workspaces: tuple[str, ...],
+        cls,
+        primary_workspace: str,
+        extra_workspaces: tuple[str, ...],
     ) -> "_FakeSelector":
         """Return a selector that returns a pre-built
         :class:`WorkspaceSelection` with potentially invalid fields.
@@ -461,8 +480,9 @@ class _FakeSelector:
 class FakeContainerNameInspector:
     """Fake :class:`ContainerNameInspector` for deterministic tests."""
 
-    def __init__(self, names: set[str] | None = None,
-                 *, fail_with: Exception | None = None) -> None:
+    def __init__(
+        self, names: set[str] | None = None, *, fail_with: Exception | None = None
+    ) -> None:
         self._names = names or set()
         self._fail_with = fail_with
 
@@ -488,6 +508,7 @@ class TestPiNAllocation(unittest.TestCase):
         inspector: ContainerNameInspector,
     ) -> str:
         from docker.launcher import allocate_pi_name
+
         return allocate_pi_name(inspector)
 
     # ── fresh namespace ──────────────────────────────────────────
@@ -522,9 +543,7 @@ class TestPiNAllocation(unittest.TestCase):
         self.assertEqual(self._allocate(inspector), "pi-3")
 
     def test_many_existing_pi_names(self) -> None:
-        inspector = FakeContainerNameInspector(
-            {f"pi-{i}" for i in range(1, 50)}
-        )
+        inspector = FakeContainerNameInspector({f"pi-{i}" for i in range(1, 50)})
         self.assertEqual(self._allocate(inspector), "pi-50")
 
     # ── non-pi names do not reserve slots ────────────────────────
@@ -618,6 +637,7 @@ class TestLaunchVectorContract(unittest.TestCase):
         chown_on_start: str | None = None,
     ) -> RunRenderInputs:
         from docker.launcher import build_run_inputs
+
         return build_run_inputs(
             selection=selection,
             image=image,
@@ -737,9 +757,7 @@ class TestLaunchVectorContract(unittest.TestCase):
             extra_workspaces=("/work/a", "/work/b", "/work/c"),
         )
         args = self._vector(self._build_inputs(sel))
-        project_path_count = sum(
-            1 for a in args if a.startswith("WORKSPACE_PATH_")
-        )
+        project_path_count = sum(1 for a in args if a.startswith("WORKSPACE_PATH_"))
         self.assertEqual(project_path_count, 4)  # 1 primary + 3 extra
 
     def test_many_extra_workspaces_each_mounted_and_exported(self) -> None:
@@ -761,26 +779,28 @@ class TestLaunchVectorContract(unittest.TestCase):
         for i, path in enumerate(extra_workspaces, start=2):
             spec = _parse_mount_spec(args, dst=path)
             self.assertEqual(
-                spec["src"], path,
+                spec["src"],
+                path,
                 f"extra workspace {path!r} must be mounted 1:1",
             )
             self.assertIn(
-                f"WORKSPACE_PATH_{i}={path}", args,
+                f"WORKSPACE_PATH_{i}={path}",
+                args,
                 f"{path!r} must be exported as WORKSPACE_PATH_{i}",
             )
 
         # No gaps: exactly N+1 WORKSPACE_PATH_ vars for N extra workspaces
-        exported = sorted(
-            a for a in args if a.startswith("WORKSPACE_PATH_")
-        )
+        exported = sorted(a for a in args if a.startswith("WORKSPACE_PATH_"))
         expected = [
             f"WORKSPACE_PATH_{i}={p}"
             for i, p in enumerate(
-                ("/work/primary",) + extra_workspaces, start=1,
+                ("/work/primary",) + extra_workspaces,
+                start=1,
             )
         ]
         self.assertEqual(
-            exported, expected,
+            exported,
+            expected,
             "WORKSPACE_PATH_* must be consecutive with no gaps",
         )
 
@@ -790,6 +810,7 @@ class TestLaunchVectorContract(unittest.TestCase):
         from dataclasses import replace
 
         from docker.versioning.rendering import RunHostAccess
+
         sel = WorkspaceSelection(workspace="/work/p1")
         inputs = replace(
             self._build_inputs(sel),
@@ -799,7 +820,8 @@ class TestLaunchVectorContract(unittest.TestCase):
         self.assertIn("--add-host", args)
         host_idx = args.index("--add-host")
         self.assertEqual(
-            args[host_idx + 1], "host.docker.internal:192.168.1.1",
+            args[host_idx + 1],
+            "host.docker.internal:192.168.1.1",
         )
 
     # ── image and command ────────────────────────────────────────
@@ -863,7 +885,9 @@ def _find_mount(args: tuple[str, ...], *, dst: str) -> int:
 
 
 def _parse_mount_spec(
-    args: tuple[str, ...], *, dst: str,
+    args: tuple[str, ...],
+    *,
+    dst: str,
 ) -> dict[str, str]:
     """Find a ``--mount`` by *dst* and return its spec as a
     ``{key: value}`` dict."""
@@ -894,8 +918,7 @@ class FakeRunExecutor:
         self._fail_with = fail_with
         self.calls: list[tuple[str, ...]] = []
 
-    def run(self, argv: tuple[str, ...], *,
-            interactive: bool = False) -> ProcessResult:
+    def run(self, argv: tuple[str, ...], *, interactive: bool = False) -> ProcessResult:
         if self._fail_with is not None:
             raise self._fail_with
         self.calls.append(argv)
@@ -914,8 +937,7 @@ class _BombExecutor:
     Docker — including ``docker run``.  Any invocation is a test
     failure."""
 
-    def run(self, argv: tuple[str, ...], *,
-            interactive: bool = False) -> ProcessResult:
+    def run(self, argv: tuple[str, ...], *, interactive: bool = False) -> ProcessResult:
         raise AssertionError(
             "_BombExecutor.run() called — dry-run must not invoke Docker",
         )
@@ -931,8 +953,7 @@ class _BombInspector:
 
     def list_names(self) -> frozenset[str]:
         raise AssertionError(
-            "_BombInspector.list_names() called — "
-            "dry-run must not invoke docker ps",
+            "_BombInspector.list_names() called — dry-run must not invoke docker ps",
         )
 
 
@@ -950,8 +971,7 @@ class _BombProjectionFactory:
         parent_dir: str,
     ) -> object:
         raise AssertionError(
-            "_BombProjectionFactory called — "
-            "dry-run must not create projection files",
+            "_BombProjectionFactory called — dry-run must not create projection files",
         )
 
 
@@ -1021,15 +1041,11 @@ class RecordingProjectionFactory:
         raw_proj: dict[str, object] = {
             "extensions": {
                 name: dataclasses.asdict(entry)
-                for name, entry in getattr(
-                    projection, "extensions", {}
-                ).items()
+                for name, entry in getattr(projection, "extensions", {}).items()
             }
         }
         raw = json.dumps(raw_proj, sort_keys=True, default=str)
-        content_hash = hashlib.sha256(
-            raw.encode("utf-8")
-        ).hexdigest()
+        content_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
         path = os.path.join(parent_dir, "proj.toml")
         h = _RecordingHandle(path, content_hash)
         self.calls.append((projection, parent_dir))
@@ -1048,18 +1064,26 @@ class TestRunTransaction(unittest.TestCase):
     def setUp(self) -> None:
         self._lock_leak_before = _shared_lock_leak_snapshot()
         import tempfile
+
         self._tmpdir = tempfile.TemporaryDirectory()
         self._artifact_cache_root = os.path.join(
-            self._tmpdir.name, "runtime-artifacts", "blobs",
+            self._tmpdir.name,
+            "runtime-artifacts",
+            "blobs",
         )
-        self._constructor_cache_root = os.path.join(self._tmpdir.name, "constructor-cache")
+        self._constructor_cache_root = os.path.join(
+            self._tmpdir.name, "constructor-cache"
+        )
         self._artifact_locks_root = os.path.join(self._tmpdir.name, "artifact-locks")
         self._artifact_tmp_root = os.path.join(self._tmpdir.name, "artifact-tmp")
         os.mkdir(self._constructor_cache_root, 0o700)
         # ── repo-cache leak guard ───────────────────────────
         self._repo_cache_snapshot = _repo_cache_file_set()
         self._proj_parent = os.path.join(
-            self._tmpdir.name, "projects", "constructor-identity", "runtime",
+            self._tmpdir.name,
+            "projects",
+            "constructor-identity",
+            "runtime",
         )
         # Build a fixture TOML that adds a second artifact version for
         # pi-read so override-selection tests can prove a non-default
@@ -1072,6 +1096,7 @@ class TestRunTransaction(unittest.TestCase):
         the default ``pi-read`` 0.2.1 artifact and the reviewed 0.3.0
         alternate so override-version selection is observable."""
         from tests.inventory_fixtures import stable_inventory_text
+
         fixture = os.path.join(self._tmpdir.name, "docker-constructor.toml")
         with open(fixture, "w") as fh:
             fh.write(stable_inventory_text())
@@ -1080,6 +1105,7 @@ class TestRunTransaction(unittest.TestCase):
         import base64
         import hashlib
         import re
+
         with open(fixture) as fh:
             content = fh.read()
 
@@ -1121,6 +1147,7 @@ class TestRunTransaction(unittest.TestCase):
 
     def _request(self, **overrides: object) -> RunRequest:
         from docker.launcher import orchestrate_run  # keep import alive
+
         kwargs: dict[str, object] = {
             "inventory_path": self._inventory_path,
             "project_root": str(Path(self._inventory_path).parent),
@@ -1140,6 +1167,7 @@ class TestRunTransaction(unittest.TestCase):
     @staticmethod
     def _run(req: RunRequest) -> RunResult:
         from docker.launcher import orchestrate_run
+
         return orchestrate_run(req)
 
     # ── happy path ───────────────────────────────────────────────
@@ -1151,8 +1179,7 @@ class TestRunTransaction(unittest.TestCase):
         )
         result = self._run(req)
         self.assertEqual(result.exit_kind, ExitKind.SUCCESS)
-        self.assertTrue(len(result.run_args) > 0,
-                        "run_args must be non-empty")
+        self.assertTrue(len(result.run_args) > 0, "run_args must be non-empty")
         self.assertEqual(result.run_args[:3], ("docker", "run", "--rm"))
 
     def test_successful_run_invokes_executor(self) -> None:
@@ -1163,10 +1190,10 @@ class TestRunTransaction(unittest.TestCase):
         )
         result = self._run(req)
         self.assertEqual(result.exit_kind, ExitKind.SUCCESS)
-        self.assertEqual(len(executor.calls), 1,
-                         "executor must be called exactly once")
+        self.assertEqual(len(executor.calls), 1, "executor must be called exactly once")
         self.assertEqual(
-            executor.calls[0], result.run_args,
+            executor.calls[0],
+            result.run_args,
             "executor must receive exactly the rendered args",
         )
 
@@ -1203,8 +1230,11 @@ class TestRunTransaction(unittest.TestCase):
         )
         result = self._run(req)
         self.assertIsNotNone(result.projection_hash)
-        self.assertEqual(len(result.projection_hash or ""), 64,  # type: ignore[arg-type]
-                         "SHA-256 hash must be 64 hex chars")
+        self.assertEqual(
+            len(result.projection_hash or ""),
+            64,  # type: ignore[arg-type]
+            "SHA-256 hash must be 64 hex chars",
+        )
 
     # ── read-only mount ──────────────────────────────────────────
 
@@ -1220,8 +1250,7 @@ class TestRunTransaction(unittest.TestCase):
             dst="/run/pi-cli/docker-constructor.runtime.toml",
         )
         spec = result.run_args[proj_idx + 1]
-        self.assertIn("readonly", spec,
-                      "runtime projection must be mounted read-only")
+        self.assertIn("readonly", spec, "runtime projection must be mounted read-only")
 
     # ── host access ─────────────────────────────────────────────
 
@@ -1233,8 +1262,11 @@ class TestRunTransaction(unittest.TestCase):
             inspector=FakeContainerNameInspector(set()),
         )
         result = self._run(req)
-        self.assertNotIn("--add-host", result.run_args,
-                         "disabled host access must not emit --add-host")
+        self.assertNotIn(
+            "--add-host",
+            result.run_args,
+            "disabled host access must not emit --add-host",
+        )
 
     # ── TTY modes ────────────────────────────────────────────────
 
@@ -1297,7 +1329,9 @@ class TestRunTransaction(unittest.TestCase):
         result = self._run(req)
         self.assertEqual(result.exit_kind, ExitKind.SUCCESS)
         self.assertIsNotNone(result.projection_path)
-        expected_prefix = os.path.realpath(os.path.join(self._constructor_cache_root, "projects"))
+        expected_prefix = os.path.realpath(
+            os.path.join(self._constructor_cache_root, "projects")
+        )
         self.assertTrue(
             os.path.realpath(
                 result.projection_path  # type: ignore[arg-type]
@@ -1367,21 +1401,22 @@ class TestRunTransaction(unittest.TestCase):
         # Check the argument vector.
         args = result.run_args
         art_mounts = [
-            i for i, tok in enumerate(args)
-            if tok == "--mount"
-            and "runtime-artifacts" in args[i + 1]
+            i
+            for i, tok in enumerate(args)
+            if tok == "--mount" and "runtime-artifacts" in args[i + 1]
         ]
         self.assertGreater(
-            len(art_mounts), 0,
-            "dry-run arg vector must contain at least one "
-            "artifact --mount argument",
+            len(art_mounts),
+            0,
+            "dry-run arg vector must contain at least one artifact --mount argument",
         )
         for idx in art_mounts:
             opts = args[idx + 1]
             self.assertIn("type=bind", opts)
             self.assertIn(",readonly", opts)
             self.assertIn(
-                "dst=/run/pi-cli/runtime-artifacts/", opts,
+                "dst=/run/pi-cli/runtime-artifacts/",
+                opts,
             )
 
     def test_dry_run_display_excludes_reviewed_urls(self) -> None:
@@ -1406,12 +1441,11 @@ class TestRunTransaction(unittest.TestCase):
         Round-trip through ``shlex.split`` must recover the arg vector."""
         from unittest import mock
         from docker.versioning.rendering import ArtifactMount
+
         injected = (
             ArtifactMount(
                 host_path="/home/alice/my projects/cache/sha512/abc.tgz",
-                container_target=(
-                    "/run/pi-cli/runtime-artifacts/sha512/abc.tgz"
-                ),
+                container_target=("/run/pi-cli/runtime-artifacts/sha512/abc.tgz"),
             ),
         )
 
@@ -1434,13 +1468,16 @@ class TestRunTransaction(unittest.TestCase):
         display = result.display_string or ""
         # Must contain the quoted mount option.
         self.assertIn(
-            "'type=bind,src=/home/alice/my projects/", display,
+            "'type=bind,src=/home/alice/my projects/",
+            display,
             "mount option with space must be single-quoted",
         )
         # Round-trip: shlex.split the display must recover the run_args.
         import shlex
+
         self.assertEqual(
-            shlex.split(display), list(result.run_args),
+            shlex.split(display),
+            list(result.run_args),
             "display must round-trip through shlex.split",
         )
 
@@ -1450,18 +1487,16 @@ class TestRunTransaction(unittest.TestCase):
         variants (e.g. an alternate version) MUST NOT appear."""
         from docker.versioning.model import _derive_artifact_id
         import base64, hashlib
+
         # Compute the unselected 0.3.0 artifact_id directly.
         unselected_url = (
-            "https://registry.npmjs.org/@arcanemachine/pi-read/"
-            "-/pi-read-0.3.0.tgz"
+            "https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.3.0.tgz"
         )
         unselected_integrity = "sha512-" + base64.b64encode(
             hashlib.sha512(self._artifact_bytes(unselected_url)).digest(),
         ).decode("ascii")
         unselected_artifact_id = _derive_artifact_id(unselected_integrity)
-        unselected_target = (
-            f"/run/pi-cli/runtime-artifacts/{unselected_artifact_id}"
-        )
+        unselected_target = f"/run/pi-cli/runtime-artifacts/{unselected_artifact_id}"
 
         req = self._request(
             dry_run=True,
@@ -1496,7 +1531,8 @@ class TestRunTransaction(unittest.TestCase):
         self.assertEqual(result.exit_kind, ExitKind.OPERATIONAL)
         self.assertIsNotNone(result.process_result)
         self.assertEqual(
-            result.process_result.return_code, 1,  # type: ignore[union-attr]
+            result.process_result.return_code,
+            1,  # type: ignore[union-attr]
         )
 
     def test_executor_raises_oserror(self) -> None:
@@ -1522,7 +1558,8 @@ class TestRunTransaction(unittest.TestCase):
         )
         result = self._run(req)
         self.assertEqual(
-            result.exit_kind, ExitKind.OPERATIONAL,
+            result.exit_kind,
+            ExitKind.OPERATIONAL,
             "unexpected executor exception must be mapped, not raised",
         )
         self.assertIsNotNone(result.message)
@@ -1640,6 +1677,7 @@ class TestRunTransaction(unittest.TestCase):
         same deterministic derivation as the fixture."""
         import base64, hashlib
         from docker.versioning.model import _derive_artifact_id
+
         return sorted(
             _derive_artifact_id(
                 "sha512-"
@@ -1654,12 +1692,14 @@ class TestRunTransaction(unittest.TestCase):
 
     @staticmethod
     def _make_blob(
-        cache_root: str, url: str,
+        cache_root: str,
+        url: str,
     ) -> tuple[str, bytes]:
         """Write a valid blob for *url* under *cache_root* and
         return ``(artifact_id, test_bytes)``."""
         import base64, hashlib
         from docker.versioning.model import _derive_artifact_id
+
         test_bytes = TestRunTransaction._artifact_bytes(url)
         h = hashlib.sha512(test_bytes)
         raw = base64.b64encode(h.digest()).decode("ascii")
@@ -1668,7 +1708,8 @@ class TestRunTransaction(unittest.TestCase):
         blob_path = os.path.join(cache_root, artifact_id)
         os.makedirs(os.path.dirname(blob_path), exist_ok=True)
         fd = os.open(
-            blob_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            blob_path,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
             mode=0o600,
         )
         try:
@@ -1683,11 +1724,13 @@ class TestRunTransaction(unittest.TestCase):
         """When no cache blobs exist, every unique resolved
         artifact must appear in ``artifact_cache_misses`` and
         none in ``artifact_cache_hits``."""
-        expected_ids = self._ids_for_urls([
-            "https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.2.1.tgz",
-            "https://registry.npmjs.org/@narumitw/pi-usage/-/pi-usage-0.60.7.tgz",
-            "https://registry.npmjs.org/pi-proxy/-/pi-proxy-1.0.0.tgz",
-        ])
+        expected_ids = self._ids_for_urls(
+            [
+                "https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.2.1.tgz",
+                "https://registry.npmjs.org/@narumitw/pi-usage/-/pi-usage-0.60.7.tgz",
+                "https://registry.npmjs.org/pi-proxy/-/pi-proxy-1.0.0.tgz",
+            ]
+        )
         req = self._request(
             dry_run=True,
             executor=_BombExecutor(),
@@ -1697,7 +1740,8 @@ class TestRunTransaction(unittest.TestCase):
         result = self._run(req)
         self.assertEqual(result.exit_kind, ExitKind.SUCCESS)
         self.assertEqual(
-            result.artifact_cache_hits, (),
+            result.artifact_cache_hits,
+            (),
             "empty cache must produce zero hits",
         )
         self.assertEqual(
@@ -1711,7 +1755,8 @@ class TestRunTransaction(unittest.TestCase):
         declared SRI integrity is reported as a cache hit."""
         url = "https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.2.1.tgz"
         artifact_id, _test_bytes = self._make_blob(
-            self._artifact_cache_root, url,
+            self._artifact_cache_root,
+            url,
         )
         req = self._request(
             dry_run=True,
@@ -1722,17 +1767,21 @@ class TestRunTransaction(unittest.TestCase):
         result = self._run(req)
         self.assertEqual(result.exit_kind, ExitKind.SUCCESS)
         self.assertIn(
-            artifact_id, result.artifact_cache_hits,
+            artifact_id,
+            result.artifact_cache_hits,
             "verified blob must be a cache hit",
         )
         self.assertNotIn(
-            artifact_id, result.artifact_cache_misses,
+            artifact_id,
+            result.artifact_cache_misses,
             "verified blob must not appear in misses",
         )
-        expected_miss_ids = self._ids_for_urls([
-            "https://registry.npmjs.org/@narumitw/pi-usage/-/pi-usage-0.60.7.tgz",
-            "https://registry.npmjs.org/pi-proxy/-/pi-proxy-1.0.0.tgz",
-        ])
+        expected_miss_ids = self._ids_for_urls(
+            [
+                "https://registry.npmjs.org/@narumitw/pi-usage/-/pi-usage-0.60.7.tgz",
+                "https://registry.npmjs.org/pi-proxy/-/pi-proxy-1.0.0.tgz",
+            ]
+        )
         self.assertEqual(
             sorted(result.artifact_cache_misses),
             expected_miss_ids,
@@ -1746,20 +1795,19 @@ class TestRunTransaction(unittest.TestCase):
 
         url = "https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.2.1.tgz"
         h = hashlib.sha512(self._artifact_bytes(url))
-        integrity = (
-            "sha512-"
-            + base64.b64encode(h.digest()).decode("ascii")
-        )
+        integrity = "sha512-" + base64.b64encode(h.digest()).decode("ascii")
         artifact_id = _derive_artifact_id(integrity)
 
         # Write wrong bytes *with owner-only permissions* so the
         # security gate passes but the digest comparison fails.
         blob_path = os.path.join(
-            self._artifact_cache_root, artifact_id,
+            self._artifact_cache_root,
+            artifact_id,
         )
         os.makedirs(os.path.dirname(blob_path), exist_ok=True)
         fd = os.open(
-            blob_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            blob_path,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
             mode=0o600,
         )
         try:
@@ -1776,11 +1824,13 @@ class TestRunTransaction(unittest.TestCase):
         result = self._run(req)
         self.assertEqual(result.exit_kind, ExitKind.SUCCESS)
         self.assertNotIn(
-            artifact_id, result.artifact_cache_hits,
+            artifact_id,
+            result.artifact_cache_hits,
             "corrupt blob must not be reported as a hit",
         )
         self.assertIn(
-            artifact_id, result.artifact_cache_misses,
+            artifact_id,
+            result.artifact_cache_misses,
             "corrupt blob must be reported as a planned miss",
         )
 
@@ -1795,10 +1845,7 @@ class TestRunTransaction(unittest.TestCase):
 
         url = "https://registry.npmjs.org/pi-proxy/-/pi-proxy-1.0.0.tgz"
         h = hashlib.sha512(self._artifact_bytes(url))
-        integrity = (
-            "sha512-"
-            + base64.b64encode(h.digest()).decode("ascii")
-        )
+        integrity = "sha512-" + base64.b64encode(h.digest()).decode("ascii")
         artifact_id = _derive_artifact_id(integrity)
 
         # Write a valid blob at a real directory, then symlink
@@ -1808,9 +1855,9 @@ class TestRunTransaction(unittest.TestCase):
         self._make_blob(real_root, url)
 
         # Remove the real cache root and replace with symlink.
-        os.makedirs(os.path.dirname(self._artifact_cache_root),
-                    exist_ok=True)
+        os.makedirs(os.path.dirname(self._artifact_cache_root), exist_ok=True)
         import shutil
+
         if os.path.lexists(self._artifact_cache_root):
             shutil.rmtree(self._artifact_cache_root)
         os.symlink(real_root, self._artifact_cache_root)
@@ -1824,11 +1871,13 @@ class TestRunTransaction(unittest.TestCase):
         result = self._run(req)
         self.assertEqual(result.exit_kind, ExitKind.SUCCESS)
         self.assertNotIn(
-            artifact_id, result.artifact_cache_hits,
+            artifact_id,
+            result.artifact_cache_hits,
             "symlinked cache root must not yield any hit",
         )
         self.assertIn(
-            artifact_id, result.artifact_cache_misses,
+            artifact_id,
+            result.artifact_cache_misses,
             "symlinked cache root must report artifacts as misses",
         )
 
@@ -1841,10 +1890,7 @@ class TestRunTransaction(unittest.TestCase):
 
         url = "https://registry.npmjs.org/pi-proxy/-/pi-proxy-1.0.0.tgz"
         h = hashlib.sha512(self._artifact_bytes(url))
-        integrity = (
-            "sha512-"
-            + base64.b64encode(h.digest()).decode("ascii")
-        )
+        integrity = "sha512-" + base64.b64encode(h.digest()).decode("ascii")
         artifact_id = _derive_artifact_id(integrity)
 
         # Write valid bytes *outside* the cache root tree.
@@ -1852,7 +1898,8 @@ class TestRunTransaction(unittest.TestCase):
         external_blob = os.path.join(external_dir, artifact_id)
         os.makedirs(os.path.dirname(external_blob), exist_ok=True)
         fd = os.open(
-            external_blob, os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            external_blob,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
             mode=0o600,
         )
         try:
@@ -1877,11 +1924,13 @@ class TestRunTransaction(unittest.TestCase):
         result = self._run(req)
         self.assertEqual(result.exit_kind, ExitKind.SUCCESS)
         self.assertNotIn(
-            artifact_id, result.artifact_cache_hits,
+            artifact_id,
+            result.artifact_cache_hits,
             "symlinked algorithm dir must not yield a hit",
         )
         self.assertIn(
-            artifact_id, result.artifact_cache_misses,
+            artifact_id,
+            result.artifact_cache_misses,
             "symlinked algorithm dir must be a miss",
         )
 
@@ -1894,22 +1943,20 @@ class TestRunTransaction(unittest.TestCase):
 
         url = "https://registry.npmjs.org/pi-proxy/-/pi-proxy-1.0.0.tgz"
         h = hashlib.sha512(self._artifact_bytes(url))
-        integrity = (
-            "sha512-"
-            + base64.b64encode(h.digest()).decode("ascii")
-        )
+        integrity = "sha512-" + base64.b64encode(h.digest()).decode("ascii")
         artifact_id = _derive_artifact_id(integrity)
 
         # Create a real directory *inside* the cache root with a
         # valid blob.
         real_algo_dir = os.path.join(
-            self._artifact_cache_root, "real-sha512",
+            self._artifact_cache_root,
+            "real-sha512",
         )
-        full_real_path = os.path.join(real_algo_dir,
-                                      artifact_id.split("/", 1)[1])
+        full_real_path = os.path.join(real_algo_dir, artifact_id.split("/", 1)[1])
         os.makedirs(os.path.dirname(full_real_path), exist_ok=True)
         fd = os.open(
-            full_real_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            full_real_path,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
             mode=0o600,
         )
         try:
@@ -1933,11 +1980,13 @@ class TestRunTransaction(unittest.TestCase):
         result = self._run(req)
         self.assertEqual(result.exit_kind, ExitKind.SUCCESS)
         self.assertNotIn(
-            artifact_id, result.artifact_cache_hits,
+            artifact_id,
+            result.artifact_cache_hits,
             "internal symlinked algorithm dir must not yield a hit",
         )
         self.assertIn(
-            artifact_id, result.artifact_cache_misses,
+            artifact_id,
+            result.artifact_cache_misses,
             "internal symlinked algorithm dir must be a miss",
         )
 
@@ -1949,22 +1998,20 @@ class TestRunTransaction(unittest.TestCase):
 
         url = "https://registry.npmjs.org/pi-proxy/-/pi-proxy-1.0.0.tgz"
         h = hashlib.sha512(self._artifact_bytes(url))
-        integrity = (
-            "sha512-"
-            + base64.b64encode(h.digest()).decode("ascii")
-        )
+        integrity = "sha512-" + base64.b64encode(h.digest()).decode("ascii")
         artifact_id = _derive_artifact_id(integrity)
 
         # Write a valid blob at an alternative path, then
         # symlink the expected leaf path to it.
         real_blob_dir = os.path.join(
-            self._artifact_cache_root, "real-blobs",
+            self._artifact_cache_root,
+            "real-blobs",
         )
-        real_blob = os.path.join(real_blob_dir,
-                                 artifact_id.split("/", 1)[1])
+        real_blob = os.path.join(real_blob_dir, artifact_id.split("/", 1)[1])
         os.makedirs(os.path.dirname(real_blob), exist_ok=True)
         fd = os.open(
-            real_blob, os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            real_blob,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
             mode=0o600,
         )
         try:
@@ -1980,7 +2027,8 @@ class TestRunTransaction(unittest.TestCase):
         )
         os.makedirs(leaf_dir, exist_ok=True)
         leaf_path = os.path.join(
-            self._artifact_cache_root, artifact_id,
+            self._artifact_cache_root,
+            artifact_id,
         )
         os.symlink(real_blob, leaf_path)
 
@@ -1993,11 +2041,13 @@ class TestRunTransaction(unittest.TestCase):
         result = self._run(req)
         self.assertEqual(result.exit_kind, ExitKind.SUCCESS)
         self.assertNotIn(
-            artifact_id, result.artifact_cache_hits,
+            artifact_id,
+            result.artifact_cache_hits,
             "symlinked blob must not be reported as a hit",
         )
         self.assertIn(
-            artifact_id, result.artifact_cache_misses,
+            artifact_id,
+            result.artifact_cache_misses,
             "symlinked blob must be reported as a miss",
         )
 
@@ -2016,21 +2066,25 @@ class TestRunTransaction(unittest.TestCase):
             for fn in filenames:
                 fp = os.path.join(dirpath, fn)
                 st = os.lstat(fp)
-                before.add((
-                    os.path.relpath(fp, self._artifact_cache_root),
-                    st.st_mode,
-                    st.st_mtime,
-                    st.st_size,
-                ))
+                before.add(
+                    (
+                        os.path.relpath(fp, self._artifact_cache_root),
+                        st.st_mode,
+                        st.st_mtime,
+                        st.st_size,
+                    )
+                )
             for dn in dirnames:
                 dp = os.path.join(dirpath, dn)
                 st = os.lstat(dp)
-                before.add((
-                    os.path.relpath(dp, self._artifact_cache_root),
-                    st.st_mode,
-                    st.st_mtime,
-                    st.st_size,
-                ))
+                before.add(
+                    (
+                        os.path.relpath(dp, self._artifact_cache_root),
+                        st.st_mode,
+                        st.st_mtime,
+                        st.st_size,
+                    )
+                )
 
         req = self._request(
             dry_run=True,
@@ -2048,26 +2102,30 @@ class TestRunTransaction(unittest.TestCase):
             for fn in filenames:
                 fp = os.path.join(dirpath, fn)
                 st = os.lstat(fp)
-                after.add((
-                    os.path.relpath(fp, self._artifact_cache_root),
-                    st.st_mode,
-                    st.st_mtime,
-                    st.st_size,
-                ))
+                after.add(
+                    (
+                        os.path.relpath(fp, self._artifact_cache_root),
+                        st.st_mode,
+                        st.st_mtime,
+                        st.st_size,
+                    )
+                )
             for dn in dirnames:
                 dp = os.path.join(dirpath, dn)
                 st = os.lstat(dp)
-                after.add((
-                    os.path.relpath(dp, self._artifact_cache_root),
-                    st.st_mode,
-                    st.st_mtime,
-                    st.st_size,
-                ))
+                after.add(
+                    (
+                        os.path.relpath(dp, self._artifact_cache_root),
+                        st.st_mode,
+                        st.st_mtime,
+                        st.st_size,
+                    )
+                )
 
         self.assertEqual(
-            before, after,
-            "dry-run must not mutate cache (entries, modes, "
-            "mtime, or sizes changed)",
+            before,
+            after,
+            "dry-run must not mutate cache (entries, modes, mtime, or sizes changed)",
         )
 
     def test_dry_run_preserves_blob_atime(self) -> None:
@@ -2075,10 +2133,12 @@ class TestRunTransaction(unittest.TestCase):
         must not update its access time (``O_NOATIME``)."""
         url = "https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.2.0.tgz"
         artifact_id, _test_bytes = self._make_blob(
-            self._artifact_cache_root, url,
+            self._artifact_cache_root,
+            url,
         )
         blob_path = os.path.join(
-            self._artifact_cache_root, artifact_id,
+            self._artifact_cache_root,
+            artifact_id,
         )
 
         # Set atime to a known value in the past so we can
@@ -2099,7 +2159,8 @@ class TestRunTransaction(unittest.TestCase):
 
         st_after = os.stat(blob_path)
         self.assertAlmostEqual(
-            st_after.st_atime, _past_atime,
+            st_after.st_atime,
+            _past_atime,
             msg="dry-run must not update blob atime",
         )
 
@@ -2111,7 +2172,8 @@ class TestRunTransaction(unittest.TestCase):
 
         url = "https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.2.1.tgz"
         artifact_id, _test_bytes = self._make_blob(
-            self._artifact_cache_root, url,
+            self._artifact_cache_root,
+            url,
         )
 
         # Intercept os.open: raise PermissionError for any call
@@ -2140,17 +2202,20 @@ class TestRunTransaction(unittest.TestCase):
             result = self._run(req)
         self.assertEqual(result.exit_kind, ExitKind.SUCCESS)
         self.assertNotIn(
-            artifact_id, result.artifact_cache_hits,
+            artifact_id,
+            result.artifact_cache_hits,
             "O_NOATIME denied must not yield a hit",
         )
         self.assertIn(
-            artifact_id, result.artifact_cache_misses,
+            artifact_id,
+            result.artifact_cache_misses,
             "O_NOATIME denied must report artifact as a miss",
         )
         # The blob on disk must still exist and be unchanged —
         # the miss was a rejection, not a deletion.
         blob_path = os.path.join(
-            self._artifact_cache_root, artifact_id,
+            self._artifact_cache_root,
+            artifact_id,
         )
         self.assertTrue(
             os.path.isfile(blob_path),
@@ -2171,7 +2236,8 @@ class TestRunTransaction(unittest.TestCase):
         os.makedirs(algo_dir, exist_ok=True)
         blob_path = os.path.join(algo_dir, "AQID.tgz")
         fd = os.open(
-            blob_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            blob_path,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
             mode=0o600,
         )
         try:
@@ -2208,8 +2274,7 @@ class TestRunTransaction(unittest.TestCase):
                 )
                 self.assertFalse(
                     result,
-                    f"malformed integrity {malformed!r} "
-                    "must return False",
+                    f"malformed integrity {malformed!r} must return False",
                 )
 
     # ── missing boundaries ───────────────────────────────────────
@@ -2246,7 +2311,8 @@ class TestRunTransaction(unittest.TestCase):
         )
         result = self._run(req)
         self.assertEqual(
-            result.exit_kind, ExitKind.SUCCESS,
+            result.exit_kind,
+            ExitKind.SUCCESS,
             f"valid override must succeed, got {result.exit_kind}: {result.message}",
         )
 
@@ -2255,20 +2321,24 @@ class TestRunTransaction(unittest.TestCase):
         produce a different projection than the default, proving the
         override reached artifact selection — not just no-op accepted."""
         # Default run (no overrides)
-        default_result = self._run(self._request(
-            executor=FakeRunExecutor(returncode=0),
-            inspector=FakeContainerNameInspector(set()),
-        ))
+        default_result = self._run(
+            self._request(
+                executor=FakeRunExecutor(returncode=0),
+                inspector=FakeContainerNameInspector(set()),
+            )
+        )
         self.assertEqual(default_result.exit_kind, ExitKind.SUCCESS)
 
         # Overridden run
-        overridden_result = self._run(self._request(
-            overrides={
-                "runtime.pi-extensions.pi-read.version": "0.3.0",
-            },
-            executor=FakeRunExecutor(returncode=0),
-            inspector=FakeContainerNameInspector(set()),
-        ))
+        overridden_result = self._run(
+            self._request(
+                overrides={
+                    "runtime.pi-extensions.pi-read.version": "0.3.0",
+                },
+                executor=FakeRunExecutor(returncode=0),
+                inspector=FakeContainerNameInspector(set()),
+            )
+        )
         self.assertEqual(overridden_result.exit_kind, ExitKind.SUCCESS)
 
         # The two projections must differ — different artifact selected.
@@ -2294,7 +2364,8 @@ class TestRunTransaction(unittest.TestCase):
         )
         result = self._run(req)
         self.assertEqual(
-            result.exit_kind, ExitKind.CONFIG,
+            result.exit_kind,
+            ExitKind.CONFIG,
             f"unknown override must be CONFIG, got {result.exit_kind}",
         )
         # If any bomb exploded the test would have already failed.
@@ -2313,7 +2384,8 @@ class TestRunTransaction(unittest.TestCase):
         )
         result = self._run(req)
         self.assertEqual(
-            result.exit_kind, ExitKind.CONFIG,
+            result.exit_kind,
+            ExitKind.CONFIG,
             f"build override in run must be CONFIG, got {result.exit_kind}",
         )
 
@@ -2330,7 +2402,8 @@ class TestRunTransaction(unittest.TestCase):
         )
         result = self._run(req)
         self.assertEqual(
-            result.exit_kind, ExitKind.CONFIG,
+            result.exit_kind,
+            ExitKind.CONFIG,
             f"missing catalog entry must be CONFIG, got {result.exit_kind}",
         )
 
@@ -2362,7 +2435,8 @@ class TestRunTransaction(unittest.TestCase):
         )
         result = self._run(req)
         self.assertEqual(
-            result.exit_kind, ExitKind.SUCCESS,
+            result.exit_kind,
+            ExitKind.SUCCESS,
             "default (no overrides) must succeed",
         )
 
@@ -2417,6 +2491,7 @@ class TestRunTransaction(unittest.TestCase):
         # The real factory must publish beneath the resolved external runtime
         # directory supplied by orchestration.
         import uuid
+
         try:
             recorded: list[tuple[str, str]] = []  # (path, content_hash)
             observed_modes: list[int] = []
@@ -2424,28 +2499,34 @@ class TestRunTransaction(unittest.TestCase):
             class _WrappingFactory:
                 """Spy that delegates to the real projection factory."""
 
-                def __call__(self, projection: object, *,
-                             parent_dir: str) -> Any:
+                def __call__(self, projection: object, *, parent_dir: str) -> Any:
                     from docker.versioning.effective import Filesystem
+
                     handle = create_runtime_projection(
                         projection,
-                        host_path=os.path.join(parent_dir, f"proj-{uuid.uuid4().hex}.toml"),
+                        host_path=os.path.join(
+                            parent_dir, f"proj-{uuid.uuid4().hex}.toml"
+                        ),
                         _fs=Filesystem(runtime_root=parent_dir),
                     )
                     recorded.append((handle.path, handle.content_hash))
                     return handle
 
             class _AssertingExecutor:
-                def run(self, argv: tuple[str, ...], *,
-                        interactive: bool = False) -> Any:
+                def run(
+                    self, argv: tuple[str, ...], *, interactive: bool = False
+                ) -> Any:
                     for path, _ in recorded:
                         if os.path.exists(path):
                             mode = os.stat(path).st_mode & 0o777
                             observed_modes.append(mode)
                     from docker.launcher import ProcessResult
+
                     return ProcessResult(
-                        argv=argv, return_code=0,
-                        stdout="", stderr="",
+                        argv=argv,
+                        return_code=0,
+                        stdout="",
+                        stderr="",
                     )
 
             req = self._request(
@@ -2468,7 +2549,8 @@ class TestRunTransaction(unittest.TestCase):
             )
             for mode in observed_modes:
                 self.assertEqual(
-                    0o444, mode,
+                    0o444,
+                    mode,
                     f"projection mode {oct(mode)} before docker run "
                     f"— expected 0o444 for remapped-container access",
                 )
@@ -2479,10 +2561,11 @@ class TestRunTransaction(unittest.TestCase):
                 if os.path.exists(path):
                     os.unlink(path)
 
-
     # ── artifact deduplication preserves package metadata ─────
 
-    def test_shared_integrity_preserves_distinct_package_metadata_and_produces_one_mount(self) -> None:
+    def test_shared_integrity_preserves_distinct_package_metadata_and_produces_one_mount(
+        self,
+    ) -> None:
         """Two packages sharing one integrity materialize once and
         produce one Docker mount, yet both projection entries retain
         their distinct package, version, and validation metadata."""
@@ -2495,27 +2578,26 @@ class TestRunTransaction(unittest.TestCase):
         # pi-read's bytes) and override the fetcher to return those
         # bytes for both URLs.
         pi_shared_url = (
-            "https://registry.npmjs.org/@arcanemachine/pi-shared/"
-            "-/pi-shared-1.0.0.tgz"
+            "https://registry.npmjs.org/@arcanemachine/pi-shared/-/pi-shared-1.0.0.tgz"
         )
         shared_section = (
-            '\n'
-            '[runtime.pi-extensions.pi-shared]\n'
+            "\n"
+            "[runtime.pi-extensions.pi-shared]\n"
             'version = "1.0.0"\n'
-            '[runtime.pi-extensions.pi-shared.source]\n'
+            "[runtime.pi-extensions.pi-shared.source]\n"
             'type = "npm"\n'
             'package = "@arcanemachine/pi-shared"\n'
             '[runtime.pi-extensions.pi-shared.artifacts."1.0.0"]\n'
             f'url = "{pi_shared_url}"\n'
             'integrity = "sha512-placeholder"\n'
-            '[runtime.pi-extensions.pi-shared.validation]\n'
+            "[runtime.pi-extensions.pi-shared.validation]\n"
             'metadata_file = "shared-package.json"\n'
-            '[runtime.pi-extensions.pi-shared.update]\n'
+            "[runtime.pi-extensions.pi-shared.update]\n"
             'provider = "npm"\n'
-            'stable_only = true\n'
-            '[runtime.pi-extensions.pi-shared.override]\n'
+            "stable_only = true\n"
+            "[runtime.pi-extensions.pi-shared.override]\n"
             'constraint = ">=1.0.0"\n'
-            'allow_prerelease = false\n'
+            "allow_prerelease = false\n"
             'scheme = "numeric"\n'
         )
         with open(self._inventory_path, "a") as fh:
@@ -2542,8 +2624,7 @@ class TestRunTransaction(unittest.TestCase):
 
         # Extract pi-read's integrity and assign it to pi-shared.
         pi_read_url = (
-            "https://registry.npmjs.org/@arcanemachine/pi-read/"
-            "-/pi-read-0.2.1.tgz"
+            "https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.2.1.tgz"
         )
         shared_integrity_digest = base64.b64encode(
             hashlib.sha512(self._artifact_bytes(pi_read_url)).digest()
@@ -2578,8 +2659,11 @@ class TestRunTransaction(unittest.TestCase):
             inspector=FakeContainerNameInspector(set()),
         )
         result = self._run(req)
-        self.assertEqual(result.exit_kind, ExitKind.SUCCESS,
-                         f"unexpected {result.exit_kind}: {result.message}")
+        self.assertEqual(
+            result.exit_kind,
+            ExitKind.SUCCESS,
+            f"unexpected {result.exit_kind}: {result.message}",
+        )
 
         # ── projection metadata ────────────────────────────
         self.assertEqual(len(factory.calls), 1)
@@ -2606,17 +2690,15 @@ class TestRunTransaction(unittest.TestCase):
         # "type=bind,src=...,dst=/run/pi-cli/runtime-artifacts/...,readonly"
         # in consecutive argv entries.
         artifact_mount_targets = [
-            a for a in result.run_args
-            if a.startswith("type=bind,")
-            and "/runtime-artifacts/" in a
+            a
+            for a in result.run_args
+            if a.startswith("type=bind,") and "/runtime-artifacts/" in a
         ]
         # pi-read/pi-shared share one blob, plus pi-usage and pi-proxy = 3 total
         self.assertEqual(len(artifact_mount_targets), 3, artifact_mount_targets)
         # The shared blob's mount is referenced once (not duplicated).
         shared_digest = shared_integrity_digest.replace("+", "-").replace("/", "_")
-        shared_mounts = [
-            a for a in artifact_mount_targets if shared_digest in a
-        ]
+        shared_mounts = [a for a in artifact_mount_targets if shared_digest in a]
         self.assertEqual(len(shared_mounts), 1, shared_mounts)
         self.assertIn("readonly", shared_mounts[0])
 
@@ -2635,7 +2717,8 @@ class TestRunTransaction(unittest.TestCase):
         )
         result1 = self._run(req1)
         self.assertEqual(
-            result1.exit_kind, ExitKind.SUCCESS,
+            result1.exit_kind,
+            ExitKind.SUCCESS,
             f"pre-population run must succeed: {result1.message}",
         )
 
@@ -2646,9 +2729,7 @@ class TestRunTransaction(unittest.TestCase):
 
         def _no_network(url: str) -> bytes:
             calls.append(url)
-            raise AssertionError(
-                f"unexpected artifact fetch for {url}"
-            )
+            raise AssertionError(f"unexpected artifact fetch for {url}")
 
         req2 = self._request(
             _artifact_fetcher=_no_network,
@@ -2657,11 +2738,13 @@ class TestRunTransaction(unittest.TestCase):
         )
         result2 = self._run(req2)
         self.assertEqual(
-            result2.exit_kind, ExitKind.SUCCESS,
+            result2.exit_kind,
+            ExitKind.SUCCESS,
             f"cache-hit run must succeed: {result2.message}",
         )
         self.assertEqual(
-            calls, [],
+            calls,
+            [],
             "no artifact URL must be fetched when all blobs are "
             "cached — transport must not be invoked",
         )
@@ -2675,9 +2758,7 @@ class TestRunTransaction(unittest.TestCase):
         executor = FakeRunExecutor(returncode=0)
 
         def _failing_fetcher(url: str) -> bytes:
-            raise RuntimeError(
-                f"simulated transport failure for {url}"
-            )
+            raise RuntimeError(f"simulated transport failure for {url}")
 
         req = self._request(
             _artifact_fetcher=_failing_fetcher,
@@ -2686,7 +2767,8 @@ class TestRunTransaction(unittest.TestCase):
         )
         result = self._run(req)
         self.assertEqual(
-            result.exit_kind, ExitKind.OPERATIONAL,
+            result.exit_kind,
+            ExitKind.OPERATIONAL,
             f"transport failure must return OPERATIONAL, "
             f"got {result.exit_kind}: {result.message}",
         )
@@ -2708,7 +2790,8 @@ class TestRunTransaction(unittest.TestCase):
             "that could not be fetched",
         )
         self.assertEqual(
-            len(executor.calls), 0,
+            len(executor.calls),
+            0,
             "Docker must not execute when artifact materialization fails",
         )
 
@@ -2724,13 +2807,15 @@ class TestDockerContainerInspector(unittest.TestCase):
     All tests are daemon-independent."""
 
     def test_passes_correct_argv(self) -> None:
-        runner = FakeProcessRunner([
-            ProcessResult(
-                argv=("docker", "ps", "-a", "--format", "{{.Names}}"),
-                return_code=0,
-                stdout="pi-1\npi-2\n",
-            ),
-        ])
+        runner = FakeProcessRunner(
+            [
+                ProcessResult(
+                    argv=("docker", "ps", "-a", "--format", "{{.Names}}"),
+                    return_code=0,
+                    stdout="pi-1\npi-2\n",
+                ),
+            ]
+        )
         inspector = DockerContainerInspector(runner)
         names = inspector.list_names()
         self.assertEqual(names, {"pi-1", "pi-2"})
@@ -2741,38 +2826,46 @@ class TestDockerContainerInspector(unittest.TestCase):
         )
 
     def test_parses_docker_ps_output(self) -> None:
-        runner = FakeProcessRunner([
-            ProcessResult(
-                argv=(),
-                return_code=0,
-                stdout="pi-1\npi-3\npi-7\n",
-            ),
-        ])
+        runner = FakeProcessRunner(
+            [
+                ProcessResult(
+                    argv=(),
+                    return_code=0,
+                    stdout="pi-1\npi-3\npi-7\n",
+                ),
+            ]
+        )
         inspector = DockerContainerInspector(runner)
         self.assertEqual(inspector.list_names(), {"pi-1", "pi-3", "pi-7"})
 
     def test_empty_output_no_containers(self) -> None:
-        runner = FakeProcessRunner([
-            ProcessResult(argv=(), return_code=0, stdout=""),
-        ])
+        runner = FakeProcessRunner(
+            [
+                ProcessResult(argv=(), return_code=0, stdout=""),
+            ]
+        )
         inspector = DockerContainerInspector(runner)
         self.assertEqual(inspector.list_names(), set())
 
     def test_whitespace_only_output(self) -> None:
-        runner = FakeProcessRunner([
-            ProcessResult(argv=(), return_code=0, stdout="\n  \n"),
-        ])
+        runner = FakeProcessRunner(
+            [
+                ProcessResult(argv=(), return_code=0, stdout="\n  \n"),
+            ]
+        )
         inspector = DockerContainerInspector(runner)
         self.assertEqual(inspector.list_names(), set())
 
     def test_docker_unavailable_raises_inspect_error(self) -> None:
-        runner = FakeProcessRunner([
-            ProcessResult(
-                argv=(),
-                return_code=1,
-                stderr="Cannot connect to the Docker daemon",
-            ),
-        ])
+        runner = FakeProcessRunner(
+            [
+                ProcessResult(
+                    argv=(),
+                    return_code=1,
+                    stderr="Cannot connect to the Docker daemon",
+                ),
+            ]
+        )
         inspector = DockerContainerInspector(runner)
         with self.assertRaises(ContainerInspectError):
             inspector.list_names()
@@ -2782,10 +2875,14 @@ class TestDockerContainerInspector(unittest.TestCase):
         Docker is unavailable.  Raw OSError from the process runner
         must be caught and wrapped so callers only handle the
         documented domain error."""
+
         class BrokenRunner(ProcessRunner):
-            def run(self, argv: list[str], *,
-                    mode: ExecutionMode = ExecutionMode.CAPTURED,
-                    ) -> ProcessResult:
+            def run(
+                self,
+                argv: list[str],
+                *,
+                mode: ExecutionMode = ExecutionMode.CAPTURED,
+            ) -> ProcessResult:
                 raise OSError("docker not found")
 
         inspector = DockerContainerInspector(BrokenRunner())
@@ -2795,13 +2892,15 @@ class TestDockerContainerInspector(unittest.TestCase):
 
     def test_duplicate_names_in_output(self) -> None:
         """If docker ps returns duplicates, they collapse to a single set entry."""
-        runner = FakeProcessRunner([
-            ProcessResult(
-                argv=(),
-                return_code=0,
-                stdout="pi-1\npi-1\npi-2\n",
-            ),
-        ])
+        runner = FakeProcessRunner(
+            [
+                ProcessResult(
+                    argv=(),
+                    return_code=0,
+                    stdout="pi-1\npi-1\npi-2\n",
+                ),
+            ]
+        )
         inspector = DockerContainerInspector(runner)
         self.assertEqual(inspector.list_names(), {"pi-1", "pi-2"})
 
@@ -2812,12 +2911,14 @@ class TestDockerRunExecutor(unittest.TestCase):
     :class:`ProcessRunner`.  All tests are daemon-independent."""
 
     def test_passes_argv_through_to_runner(self) -> None:
-        runner = FakeProcessRunner([
-            ProcessResult(
-                argv=("docker", "run", "--rm", "alpine"),
-                return_code=0,
-            ),
-        ])
+        runner = FakeProcessRunner(
+            [
+                ProcessResult(
+                    argv=("docker", "run", "--rm", "alpine"),
+                    return_code=0,
+                ),
+            ]
+        )
         executor = DockerRunExecutor(runner)
         result = executor.run(("docker", "run", "--rm", "alpine"))
         self.assertEqual(result.return_code, 0)
@@ -2843,13 +2944,15 @@ class TestDockerRunExecutor(unittest.TestCase):
         self.assertEqual(result.stderr, "")
 
     def test_nonzero_exit_preserved(self) -> None:
-        runner = FakeProcessRunner([
-            ProcessResult(
-                argv=("docker", "run", "bad"),
-                return_code=127,
-                stderr="image not found",
-            ),
-        ])
+        runner = FakeProcessRunner(
+            [
+                ProcessResult(
+                    argv=("docker", "run", "bad"),
+                    return_code=127,
+                    stderr="image not found",
+                ),
+            ]
+        )
         executor = DockerRunExecutor(runner)
         result = executor.run(("docker", "run", "bad"))
         self.assertEqual(result.return_code, 127)
@@ -2857,9 +2960,12 @@ class TestDockerRunExecutor(unittest.TestCase):
 
     def test_process_runner_oserror_propagates(self) -> None:
         class BrokenRunner(ProcessRunner):
-            def run(self, argv: list[str], *,
-                    mode: ExecutionMode = ExecutionMode.CAPTURED,
-                    ) -> ProcessResult:
+            def run(
+                self,
+                argv: list[str],
+                *,
+                mode: ExecutionMode = ExecutionMode.CAPTURED,
+            ) -> ProcessResult:
                 raise OSError("docker not found")
 
         executor = DockerRunExecutor(BrokenRunner())
@@ -2875,22 +2981,25 @@ class TestDockerRunExecutor(unittest.TestCase):
         mode_seen: list[dict[str, object]] = []
 
         class _SpyRunner(ProcessRunner):
-            def run(self, argv: list[str], *,
-                    mode: ExecutionMode = ExecutionMode.CAPTURED,
-                    ) -> ProcessResult:
+            def run(
+                self,
+                argv: list[str],
+                *,
+                mode: ExecutionMode = ExecutionMode.CAPTURED,
+            ) -> ProcessResult:
                 mode_seen.append({"mode": mode})
                 return ProcessResult(argv=tuple(argv), return_code=0)
 
         executor = DockerRunExecutor(_SpyRunner())
         # interactive=True → mode is INTERACTIVE
-        executor.run(("docker", "run", "--tty", "img"),
-                     interactive=True)
+        executor.run(("docker", "run", "--tty", "img"), interactive=True)
         self.assertTrue(
             len(mode_seen) >= 1,
             "executor must invoke the runner",
         )
         self.assertIs(
-            mode_seen[0]["mode"], ExecutionMode.INTERACTIVE,
+            mode_seen[0]["mode"],
+            ExecutionMode.INTERACTIVE,
             "interactive mode must disable capture_output "
             "so Docker inherits the host terminal",
         )
@@ -2902,24 +3011,26 @@ class TestDockerRunExecutor(unittest.TestCase):
         mode_seen: list[dict[str, object]] = []
 
         class _SpyRunner(ProcessRunner):
-            def run(self, argv: list[str], *,
-                    mode: ExecutionMode = ExecutionMode.CAPTURED,
-                    ) -> ProcessResult:
+            def run(
+                self,
+                argv: list[str],
+                *,
+                mode: ExecutionMode = ExecutionMode.CAPTURED,
+            ) -> ProcessResult:
                 mode_seen.append({"mode": mode})
                 return ProcessResult(argv=tuple(argv), return_code=0)
 
         executor = DockerRunExecutor(_SpyRunner())
         # interactive=False → mode is CAPTURED
-        executor.run(("docker", "run", "img"),
-                     interactive=False)
+        executor.run(("docker", "run", "img"), interactive=False)
         self.assertTrue(
             len(mode_seen) >= 1,
             "executor must invoke the runner",
         )
         self.assertIs(
-            mode_seen[0]["mode"], ExecutionMode.CAPTURED,
-            "captured mode must enable capture_output "
-            "so diagnostics are available",
+            mode_seen[0]["mode"],
+            ExecutionMode.CAPTURED,
+            "captured mode must enable capture_output so diagnostics are available",
         )
 
 
@@ -2941,13 +3052,15 @@ class TestProcessRunnerExecutionModes(unittest.TestCase):
         def _fake_subprocess_run(argv: list[str], **kw: object) -> object:
             captured_kwargs.append(kw)
             from subprocess import CompletedProcess
+
             return CompletedProcess(argv, 0, stdout="", stderr="")
 
         _subprocess_module.run = _fake_subprocess_run  # type: ignore[assignment]
         try:
             runner = ProcessRunner()
-            runner.run(["docker", "run", "--tty", "img"],
-                       mode=ExecutionMode.INTERACTIVE)
+            runner.run(
+                ["docker", "run", "--tty", "img"], mode=ExecutionMode.INTERACTIVE
+            )
             self.assertTrue(
                 len(captured_kwargs) >= 1,
                 "subprocess.run must be called exactly once",
@@ -2973,13 +3086,15 @@ class TestProcessRunnerExecutionModes(unittest.TestCase):
         def _fake_subprocess_run(argv: list[str], **kw: object) -> object:
             captured_kwargs.append(kw)
             from subprocess import CompletedProcess
+
             return CompletedProcess(argv, 0, stdout=None, stderr=None)
 
         _subprocess_module.run = _fake_subprocess_run  # type: ignore[assignment]
         try:
             runner = ProcessRunner()
-            runner.run(["docker", "run", "--tty", "img"],
-                       mode=ExecutionMode.INTERACTIVE)
+            runner.run(
+                ["docker", "run", "--tty", "img"], mode=ExecutionMode.INTERACTIVE
+            )
             self.assertTrue(
                 len(captured_kwargs) >= 1,
                 "subprocess.run must be called exactly once",
@@ -3015,6 +3130,7 @@ class TestProcessRunnerExecutionModes(unittest.TestCase):
         def _fake_subprocess_run(argv: list[str], **kw: object) -> object:
             captured_kwargs.append(kw)
             from subprocess import CompletedProcess
+
             return CompletedProcess(argv, 0, stdout="ok", stderr="")
 
         _subprocess_module.run = _fake_subprocess_run  # type: ignore[assignment]
@@ -3047,14 +3163,14 @@ class TestProcessRunnerExecutionModes(unittest.TestCase):
             captured_kwargs.append(kw)
             captured_argv.append(argv)
             from subprocess import CompletedProcess
+
             return CompletedProcess(argv, 0, stdout="", stderr="")
 
         _subprocess_module.run = _fake_subprocess_run  # type: ignore[assignment]
         try:
             runner = ProcessRunner()
             # ``capture_output`` yet.
-            runner.run(["docker", "run", "img"],
-                       mode=ExecutionMode.CAPTURED)
+            runner.run(["docker", "run", "img"], mode=ExecutionMode.CAPTURED)
             self.assertTrue(
                 len(captured_kwargs) >= 1,
                 "subprocess.run must be called",
@@ -3068,11 +3184,13 @@ class TestProcessRunnerExecutionModes(unittest.TestCase):
             # No TTY allocation in the docker argv.
             flat_argv = " ".join(captured_argv[0])
             self.assertNotIn(
-                "--tty", flat_argv,
+                "--tty",
+                flat_argv,
                 "captured mode must not pass --tty to Docker",
             )
             self.assertNotIn(
-                "--interactive", flat_argv,
+                "--interactive",
+                flat_argv,
                 "captured mode must not pass --interactive to Docker",
             )
         finally:
@@ -3094,8 +3212,9 @@ class TestOrchestrateRunExecutionModes(TestRunTransaction):
         modes_seen: list[dict[str, object]] = []
 
         class _SpyExecutor:
-            def run(self, argv: tuple[str, ...], *,
-                    interactive: bool = False) -> ProcessResult:
+            def run(
+                self, argv: tuple[str, ...], *, interactive: bool = False
+            ) -> ProcessResult:
                 modes_seen.append({"interactive": interactive})
                 return ProcessResult(argv=argv, return_code=0)
 
@@ -3115,8 +3234,7 @@ class TestOrchestrateRunExecutionModes(TestRunTransaction):
         # The default False silently masks the missing signal.
         self.assertTrue(
             modes_seen[0]["interactive"],
-            "orchestrate_run must pass interactive=True to the "
-            "executor when tty=True",
+            "orchestrate_run must pass interactive=True to the executor when tty=True",
         )
 
     def test_no_tty_invokes_executor_in_captured_mode(self) -> None:
@@ -3126,8 +3244,9 @@ class TestOrchestrateRunExecutionModes(TestRunTransaction):
         modes_seen: list[dict[str, object]] = []
 
         class _SpyExecutor:
-            def run(self, argv: tuple[str, ...], *,
-                    interactive: bool = True) -> ProcessResult:
+            def run(
+                self, argv: tuple[str, ...], *, interactive: bool = True
+            ) -> ProcessResult:
                 modes_seen.append({"interactive": interactive})
                 return ProcessResult(argv=argv, return_code=0)
 
@@ -3159,8 +3278,9 @@ class TestOrchestrateRunExecutionModes(TestRunTransaction):
         modes_seen: list[dict[str, object]] = []
 
         class _SpyExecutor:
-            def run(self, argv: tuple[str, ...], *,
-                    interactive: bool = False) -> ProcessResult:
+            def run(
+                self, argv: tuple[str, ...], *, interactive: bool = False
+            ) -> ProcessResult:
                 modes_seen.append({"interactive": interactive})
                 return ProcessResult(argv=argv, return_code=0)
 
@@ -3191,8 +3311,9 @@ class TestOrchestrateRunExecutionModes(TestRunTransaction):
         modes_seen: list[dict[str, object]] = []
 
         class _SpyExecutor:
-            def run(self, argv: tuple[str, ...], *,
-                    interactive: bool = False) -> ProcessResult:
+            def run(
+                self, argv: tuple[str, ...], *, interactive: bool = False
+            ) -> ProcessResult:
                 modes_seen.append({"interactive": interactive})
                 return ProcessResult(argv=argv, return_code=0)
 
@@ -3227,14 +3348,13 @@ class TestOrchestrateRunExecutionModes(TestRunTransaction):
         has correctly dispatched ``interactive=True`` based on
         ``tty``/``stdin_open`` flags — the mode signal must
         reach the executor before the crash."""
-        _oserror_message = (
-            "[Errno 2] No such file or directory: 'docker'"
-        )
+        _oserror_message = "[Errno 2] No such file or directory: 'docker'"
         mode_seen: list[dict[str, object]] = []
 
         class _CrashingExecutor:
-            def run(self, argv: tuple[str, ...], *,
-                    interactive: bool = False) -> ProcessResult:
+            def run(
+                self, argv: tuple[str, ...], *, interactive: bool = False
+            ) -> ProcessResult:
                 mode_seen.append({"interactive": interactive})
                 raise OSError(_oserror_message)
 
@@ -3256,12 +3376,13 @@ class TestOrchestrateRunExecutionModes(TestRunTransaction):
             "before the executor raises OSError",
         )
         self.assertEqual(
-            result.exit_kind, ExitKind.OPERATIONAL,
-            "OSError during interactive execution must map "
-            "to OPERATIONAL",
+            result.exit_kind,
+            ExitKind.OPERATIONAL,
+            "OSError during interactive execution must map to OPERATIONAL",
         )
         self.assertIn(
-            _oserror_message, result.message or "",
+            _oserror_message,
+            result.message or "",
             "OPERATIONAL result must preserve the original "
             "OSError message for diagnostics",
         )
@@ -3328,33 +3449,34 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
 
         fixture = os.path.join(base_path, "single-ext.toml")
         build_prefix = stable_inventory_text().split(
-            "\n[runtime.pi-extensions.", 1,
+            "\n[runtime.pi-extensions.",
+            1,
         )[0]
         with open(fixture, "w") as fh:
             fh.write(build_prefix + "\n\n")
             fh.write(
-                '[runtime.pi-extensions.pi-read]\n'
+                "[runtime.pi-extensions.pi-read]\n"
                 'version = "0.2.0"\n'
-                '\n'
-                '[runtime.pi-extensions.pi-read.source]\n'
+                "\n"
+                "[runtime.pi-extensions.pi-read.source]\n"
                 'type = "npm"\n'
                 'package = "@arcanemachine/pi-read"\n'
-                '\n'
+                "\n"
                 '[runtime.pi-extensions.pi-read.artifacts."0.2.0"]\n'
                 'url = "https://registry.npmjs.org/@arcanemachine'
                 '/pi-read/-/pi-read-0.2.0.tgz"\n'
                 f'integrity = "{bad_integrity}"\n'
-                '\n'
-                '[runtime.pi-extensions.pi-read.update]\n'
+                "\n"
+                "[runtime.pi-extensions.pi-read.update]\n"
                 'provider = "npm"\n'
-                'stable_only = true\n'
-                '\n'
-                '[runtime.pi-extensions.pi-read.override]\n'
+                "stable_only = true\n"
+                "\n"
+                "[runtime.pi-extensions.pi-read.override]\n"
                 'constraint = ">=0.2.0"\n'
-                'allow_prerelease = false\n'
+                "allow_prerelease = false\n"
                 'scheme = "numeric"\n'
-                '\n'
-                '[runtime.pi-extensions.pi-read.validation]\n'
+                "\n"
+                "[runtime.pi-extensions.pi-read.validation]\n"
                 'metadata_file = "package.json"\n'
             )
         return fixture
@@ -3402,6 +3524,7 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
                 interactive: bool = False,
             ) -> object:
                 from docker.launcher import ProcessResult
+
                 stages.append("executor")
                 return ProcessResult(argv=argv, return_code=returncode)
 
@@ -3411,9 +3534,9 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
 
     def _assert_never_reached(self, stage: str) -> None:
         self.assertNotIn(
-            stage, self._stages,
-            f"{stage} stage reached — should have been blocked; "
-            f"stages={self._stages}",
+            stage,
+            self._stages,
+            f"{stage} stage reached — should have been blocked; stages={self._stages}",
         )
 
     @staticmethod
@@ -3425,10 +3548,7 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
         return (
             hasattr(result, "run_args")
             and result.run_args
-            and any(
-                "--add-host" in a
-                for a in result.run_args
-            )
+            and any("--add-host" in a for a in result.run_args)
         )
 
     @staticmethod
@@ -3535,8 +3655,7 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
         if cache:
             self.assertFalse(
                 cache_ops,
-                f"cache ops triggered but should have been blocked: "
-                f"{cache_ops}",
+                f"cache ops triggered but should have been blocked: {cache_ops}",
             )
         if gateway:
             self.assertFalse(
@@ -3640,9 +3759,11 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
         contradicts the authoritative launcher/runtime specs."""
         import dataclasses
         from docker.launcher import RunRequest
+
         fields = {f.name for f in dataclasses.fields(RunRequest)}
         self.assertNotIn(
-            "cache_root", fields,
+            "cache_root",
+            fields,
             "RunRequest must NOT expose cache_root — "
             "materialization is constructor-owned, not caller-selected",
         )
@@ -3659,6 +3780,7 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
         symlink so the spy and the orchestrator observe the
         same path."""
         from pathlib import Path
+
         cache_root = Path(self._tmpdir.name, "sub", "runtime-artifacts")
         symlink_dest = Path(self._tmpdir.name, "nowhere")
         os.mkdir(str(cache_root.parent))
@@ -3719,8 +3841,7 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
         )
 
         expected_url = (
-            "https://registry.npmjs.org/@arcanemachine/pi-read"
-            "/-/pi-read-0.2.0.tgz"
+            "https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.2.0.tgz"
         )
         fetch_calls: list[tuple[str, ...]] = []
 
@@ -3729,6 +3850,7 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
             return b"known-wrong-bytes-for-deterministic-mismatch"
 
         import tempfile
+
         isolated_cache = tempfile.TemporaryDirectory(
             prefix="digest-mismatch-cache-",
             dir=self._tmpdir.name,
@@ -3761,7 +3883,8 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
                 "reviewed URL before projection or executor",
             )
             self._assert_no_effects(
-                result, cache_ops,
+                result,
+                cache_ops,
                 cache=False,
             )
             published: list[str] = []
@@ -3775,10 +3898,12 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
                 f"despite digest mismatch: {published}",
             )
             self.assertFalse(
-                any(op.startswith(p) for p in ("rename", "replace", "link")
-                    for op in cache_ops),
-                f"publication op in cache despite digest mismatch: "
-                f"{cache_ops}",
+                any(
+                    op.startswith(p)
+                    for p in ("rename", "replace", "link")
+                    for op in cache_ops
+                ),
+                f"publication op in cache despite digest mismatch: {cache_ops}",
             )
         finally:
             restore_spy()
@@ -3793,8 +3918,7 @@ class TestEndToEndPlanningGuards(TestRunTransaction):
 class _LoggedHandle:
     """Context manager that records enter/exit in a shared event log."""
 
-    def __init__(self, path: str, content_hash: str,
-                 log: list[str]) -> None:
+    def __init__(self, path: str, content_hash: str, log: list[str]) -> None:
         self._path = path
         self._hash = content_hash
         self._log = log
@@ -3838,11 +3962,14 @@ class _LoggedProjectionFactory:
     ) -> _LoggedHandle:
         import hashlib
         import json
+
         raw_proj: dict[str, object] = {
             "extensions": {
                 name: __import__("dataclasses").asdict(entry)
                 for name, entry in getattr(
-                    projection, "extensions", {},
+                    projection,
+                    "extensions",
+                    {},
                 ).items()
             }
         }
@@ -3864,8 +3991,7 @@ class _LoggedExecutor:
         self.returncode = returncode
         self.calls: list[tuple[str, ...]] = []
 
-    def run(self, argv: tuple[str, ...], *,
-            interactive: bool = False) -> ProcessResult:
+    def run(self, argv: tuple[str, ...], *, interactive: bool = False) -> ProcessResult:
         self._log.append("docker_execute")
         self.calls.append(argv)
         return ProcessResult(
@@ -3898,14 +4024,20 @@ class TestOrchestrationOrdering(unittest.TestCase):
 
     def setUp(self) -> None:
         import tempfile
+
         self._lock_leak_before = _shared_lock_leak_snapshot()
         self._tmpdir = tempfile.TemporaryDirectory()
         self._artifact_cache_root = os.path.join(
-            self._tmpdir.name, "runtime-artifacts", "blobs",
+            self._tmpdir.name,
+            "runtime-artifacts",
+            "blobs",
         )
         self._repo_cache_snapshot = _repo_cache_file_set()
         self._proj_parent = os.path.join(
-            self._tmpdir.name, "projects", "constructor-identity", "runtime",
+            self._tmpdir.name,
+            "projects",
+            "constructor-identity",
+            "runtime",
         )
         self._inventory_path = self._make_fixture_toml()
         self._event_log: list[str] = []
@@ -3917,6 +4049,7 @@ class TestOrchestrationOrdering(unittest.TestCase):
         import hashlib
         import re
         from tests.inventory_fixtures import stable_inventory_text
+
         fixture = os.path.join(self._tmpdir.name, "fixture.toml")
         with open(fixture, "w") as fh:
             fh.write(stable_inventory_text())
@@ -3926,9 +4059,7 @@ class TestOrchestrationOrdering(unittest.TestCase):
         def replace_integrity(match: re.Match[str]) -> str:
             url = match.group(1)
             digest = base64.b64encode(
-                hashlib.sha512(
-                    ("order-fixture:" + url).encode("utf-8")
-                ).digest()
+                hashlib.sha512(("order-fixture:" + url).encode("utf-8")).digest()
             ).decode("ascii")
             return f'url = "{url}"\nintegrity = "sha512-{digest}"'
 
@@ -3959,6 +4090,7 @@ class TestOrchestrationOrdering(unittest.TestCase):
 
     def _request(self, **overrides: object) -> RunRequest:
         from docker.launcher import WorkspaceSelection
+
         kwargs: dict[str, object] = {
             "inventory_path": self._inventory_path,
             "project_root": str(Path(self._inventory_path).parent),
@@ -3975,6 +4107,7 @@ class TestOrchestrationOrdering(unittest.TestCase):
     @staticmethod
     def _run(req: RunRequest) -> RunResult:
         from docker.launcher import orchestrate_run
+
         return orchestrate_run(req)
 
     @staticmethod
@@ -3988,6 +4121,7 @@ class TestOrchestrationOrdering(unittest.TestCase):
             VerifiedCacheBlob,
         )
         from docker.versioning.model import _derive_artifact_id
+
         result: dict[str, VerifiedCacheBlob] = {}
         for art in selected:
             if art.integrity in result:
@@ -4069,14 +4203,18 @@ class TestOrchestrationOrdering(unittest.TestCase):
             executor=executor,
             inspector=FakeContainerNameInspector(set()),
         )
-        with mock.patch(
-            "docker.versioning.effective.resolve_runtime",
-            return_value=([], EffectiveRuntimeProjection(extensions={})),
-        ), mock.patch(
-            "docker.versioning.artifact_cache.materialize_selected_artifacts",
-        ) as materialize, mock.patch(
-            "docker.versioning.rendering.render_run_vector",
-            side_effect=self._render_patch(),
+        with (
+            mock.patch(
+                "docker.versioning.effective.resolve_runtime",
+                return_value=([], EffectiveRuntimeProjection(extensions={})),
+            ),
+            mock.patch(
+                "docker.versioning.artifact_cache.materialize_selected_artifacts",
+            ) as materialize,
+            mock.patch(
+                "docker.versioning.rendering.render_run_vector",
+                side_effect=self._render_patch(),
+            ),
         ):
             result = self._run(req)
 
@@ -4097,15 +4235,19 @@ class TestOrchestrationOrdering(unittest.TestCase):
             inspector=FakeContainerNameInspector(set()),
         )
 
-        with mock.patch(
-            "docker.versioning.effective.resolve_runtime",
-            side_effect=self._plan_patch(),
-        ), mock.patch(
-            "docker.versioning.artifact_cache.materialize_selected_artifacts",
-            side_effect=self._materialize_patch(),
-        ), mock.patch(
-            "docker.versioning.rendering.render_run_vector",
-            side_effect=self._render_patch(),
+        with (
+            mock.patch(
+                "docker.versioning.effective.resolve_runtime",
+                side_effect=self._plan_patch(),
+            ),
+            mock.patch(
+                "docker.versioning.artifact_cache.materialize_selected_artifacts",
+                side_effect=self._materialize_patch(),
+            ),
+            mock.patch(
+                "docker.versioning.rendering.render_run_vector",
+                side_effect=self._render_patch(),
+            ),
         ):
             result = self._run(req)
 
@@ -4120,6 +4262,7 @@ class TestOrchestrationOrdering(unittest.TestCase):
         import base64
         import hashlib
         from docker.versioning.artifact_cache import SelectedArtifact
+
         _fixture_urls = [
             "https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.2.1.tgz",
             "https://registry.npmjs.org/@narumitw/pi-usage/-/pi-usage-0.60.7.tgz",
@@ -4130,9 +4273,7 @@ class TestOrchestrationOrdering(unittest.TestCase):
                 url=u,
                 integrity="sha512-"
                 + base64.b64encode(
-                    hashlib.sha512(
-                        ("order-fixture:" + u).encode("utf-8")
-                    ).digest()
+                    hashlib.sha512(("order-fixture:" + u).encode("utf-8")).digest()
                 ).decode("ascii"),
             )
             for u in _fixture_urls
@@ -4166,6 +4307,7 @@ class TestOrchestrationOrdering(unittest.TestCase):
             from docker.versioning.artifact_cache import (
                 ArtifactMaterializationError,
             )
+
             raise ArtifactMaterializationError("transport", "boom")
 
         executor = _LoggedExecutor(self._event_log, returncode=0)
@@ -4174,15 +4316,19 @@ class TestOrchestrationOrdering(unittest.TestCase):
             inspector=FakeContainerNameInspector(set()),
         )
 
-        with mock.patch(
-            "docker.versioning.effective.resolve_runtime",
-            side_effect=self._plan_patch(),
-        ), mock.patch(
-            "docker.versioning.artifact_cache.materialize_selected_artifacts",
-            side_effect=_failing_materialize,
-        ), mock.patch(
-            "docker.versioning.rendering.render_run_vector",
-            side_effect=self._render_patch(),
+        with (
+            mock.patch(
+                "docker.versioning.effective.resolve_runtime",
+                side_effect=self._plan_patch(),
+            ),
+            mock.patch(
+                "docker.versioning.artifact_cache.materialize_selected_artifacts",
+                side_effect=_failing_materialize,
+            ),
+            mock.patch(
+                "docker.versioning.rendering.render_run_vector",
+                side_effect=self._render_patch(),
+            ),
         ):
             result = self._run(req)
 
@@ -4209,15 +4355,19 @@ class TestOrchestrationOrdering(unittest.TestCase):
             inspector=FakeContainerNameInspector(set()),
         )
 
-        with mock.patch(
-            "docker.versioning.effective.resolve_runtime",
-            side_effect=self._plan_patch(),
-        ), mock.patch(
-            "docker.versioning.artifact_cache.materialize_selected_artifacts",
-            side_effect=self._materialize_patch(),
-        ), mock.patch(
-            "docker.versioning.rendering.render_run_vector",
-            side_effect=self._render_patch(),
+        with (
+            mock.patch(
+                "docker.versioning.effective.resolve_runtime",
+                side_effect=self._plan_patch(),
+            ),
+            mock.patch(
+                "docker.versioning.artifact_cache.materialize_selected_artifacts",
+                side_effect=self._materialize_patch(),
+            ),
+            mock.patch(
+                "docker.versioning.rendering.render_run_vector",
+                side_effect=self._render_patch(),
+            ),
         ):
             result = self._run(req)
 
@@ -4248,15 +4398,19 @@ class TestOrchestrationOrdering(unittest.TestCase):
             inspector=FakeContainerNameInspector(set()),
         )
 
-        with mock.patch(
-            "docker.versioning.effective.resolve_runtime",
-            side_effect=self._plan_patch(),
-        ), mock.patch(
-            "docker.versioning.artifact_cache.materialize_selected_artifacts",
-            side_effect=self._materialize_patch(),
-        ), mock.patch(
-            "docker.versioning.rendering.render_run_vector",
-            side_effect=self._render_patch(),
+        with (
+            mock.patch(
+                "docker.versioning.effective.resolve_runtime",
+                side_effect=self._plan_patch(),
+            ),
+            mock.patch(
+                "docker.versioning.artifact_cache.materialize_selected_artifacts",
+                side_effect=self._materialize_patch(),
+            ),
+            mock.patch(
+                "docker.versioning.rendering.render_run_vector",
+                side_effect=self._render_patch(),
+            ),
         ):
             result = self._run(req)
 
@@ -4282,15 +4436,19 @@ class TestOrchestrationOrdering(unittest.TestCase):
             inspector=FakeContainerNameInspector(set()),
         )
 
-        with mock.patch(
-            "docker.versioning.effective.resolve_runtime",
-            side_effect=self._plan_patch(),
-        ), mock.patch(
-            "docker.versioning.artifact_cache.materialize_selected_artifacts",
-            side_effect=self._materialize_patch(),
-        ), mock.patch(
-            "docker.versioning.rendering.render_run_vector",
-            side_effect=self._render_patch(),
+        with (
+            mock.patch(
+                "docker.versioning.effective.resolve_runtime",
+                side_effect=self._plan_patch(),
+            ),
+            mock.patch(
+                "docker.versioning.artifact_cache.materialize_selected_artifacts",
+                side_effect=self._materialize_patch(),
+            ),
+            mock.patch(
+                "docker.versioning.rendering.render_run_vector",
+                side_effect=self._render_patch(),
+            ),
         ):
             self._run(req)
 
@@ -4298,6 +4456,7 @@ class TestOrchestrationOrdering(unittest.TestCase):
         # still exist as a regular file.
         for art in self._materialized_selected:
             from docker.versioning.model import _derive_artifact_id
+
             blob_path = os.path.join(
                 self._artifact_cache_root,
                 _derive_artifact_id(art.integrity),

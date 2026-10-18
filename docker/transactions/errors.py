@@ -11,6 +11,7 @@ The generic diagnostic helpers are owned by the lightweight foundation so
 they can be reused without loading the aggregate transaction substrate.  They
 are re-exported here unchanged for existing transaction callers.
 """
+
 from __future__ import annotations
 
 from docker.filesystem.cleanup import (
@@ -43,7 +44,9 @@ STAGE_UNLOCK = "unlock"
 class TransactionError(Exception):
     """A bounded L1/L2 operation failed at a named ``stage``."""
 
-    def __init__(self, stage: str, message: str, *, cause: BaseException | None = None) -> None:
+    def __init__(
+        self, stage: str, message: str, *, cause: BaseException | None = None
+    ) -> None:
         super().__init__(message)
         self.stage = stage
         self.cause = cause
@@ -97,7 +100,9 @@ class DestinationExists(TransactionError):
     """Typed final-destination collision outcome; never a temporary collision."""
 
     def __init__(self, name: str, *, cause: BaseException | None = None) -> None:
-        super().__init__(STAGE_COMMIT, f"destination already exists: {name}", cause=cause)
+        super().__init__(
+            STAGE_COMMIT, f"destination already exists: {name}", cause=cause
+        )
         self.name = name
 
 

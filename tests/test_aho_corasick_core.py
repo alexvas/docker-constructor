@@ -28,6 +28,7 @@ The test names enumerate the P1A obligations.  This core performs literal
 matching only: percent decoding, URL semantics, secret selection and projector
 coordination are P2/P3 work and are deliberately **not** asserted here.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -75,9 +76,7 @@ class _CoreCase(unittest.TestCase):
     def core(self):
         module = type(self).core_module
         if module is None or not hasattr(module, "AhoCorasick"):
-            self.fail(
-                f"{_MODULE_NAME} must define the P1A Aho-Corasick core"
-            )
+            self.fail(f"{_MODULE_NAME} must define the P1A Aho-Corasick core")
         return module
 
     def matcher(self, patterns):
@@ -85,10 +84,7 @@ class _CoreCase(unittest.TestCase):
 
     @staticmethod
     def triplets(matches) -> list[tuple[int, int, int]]:
-        return [
-            (match.pattern_index, match.start, match.end)
-            for match in matches
-        ]
+        return [(match.pattern_index, match.start, match.end) for match in matches]
 
     def feed_splits(self, patterns, text: str, split: int):
         """Feed *text* through one cursor split at *split*.
@@ -131,10 +127,7 @@ class RegistrationAndMatchTests(_CoreCase):
         # cannot drift from behavior.
         matcher = self.matcher(["he", "she", "hers"])
         matches = matcher.find_all("ushers")
-        observed = [
-            (match.pattern_index, match.start, match.end)
-            for match in matches
-        ]
+        observed = [(match.pattern_index, match.start, match.end) for match in matches]
         self.assertEqual([(1, 1, 4), (0, 2, 4), (2, 2, 6)], observed)
 
     def test_prefix_patterns_report_both_ends(self):
@@ -305,9 +298,7 @@ class CompiledStateImmutabilityTests(_CoreCase):
         self.assertEqual(
             expected,
             sorted(
-                self.triplets(
-                    self.matcher(["he", "she", "hers"]).find_all("ushers")
-                )
+                self.triplets(self.matcher(["he", "she", "hers"]).find_all("ushers"))
             ),
         )
         self.assertEqual(("he", "she", "hers"), matcher.patterns)
@@ -328,9 +319,7 @@ class ContinuationAndCountersTests(_CoreCase):
     def test_one_feed_every_split_and_single_character_agree(self):
         for patterns, text in self._CASES:
             with self.subTest(patterns=patterns, text=text):
-                expected = sorted(
-                    self.triplets(self.matcher(patterns).find_all(text))
-                )
+                expected = sorted(self.triplets(self.matcher(patterns).find_all(text)))
                 for split in range(len(text) + 1):
                     _, collected = self.feed_splits(patterns, text, split)
                     self.assertEqual(expected, sorted(collected))
@@ -469,9 +458,7 @@ class DifferentialCorpusTests(_CoreCase):
         patterns = tuple("a" * length for length in range(1, 9))
         text = "a" * 24
         actual = self._assert_matches_oracle(patterns, text)
-        self.assertEqual(
-            sum(24 - length + 1 for length in range(1, 9)), len(actual)
-        )
+        self.assertEqual(sum(24 - length + 1 for length in range(1, 9)), len(actual))
 
     def test_every_match_reported_exactly_once(self):
         patterns = ("a", "aa", "aaa", "b", "ab")
@@ -483,9 +470,7 @@ class DifferentialCorpusTests(_CoreCase):
         matcher = self.matcher(("ab", "bc", "abc", "c"))
         first = sorted(self.triplets(matcher.find_all("abcabc")))
         for _ in range(5):
-            self.assertEqual(
-                first, sorted(self.triplets(matcher.find_all("abcabc")))
-            )
+            self.assertEqual(first, sorted(self.triplets(matcher.find_all("abcabc"))))
         self.assertEqual(("ab", "bc", "abc", "c"), matcher.patterns)
 
     def test_output_sensitive_work_counts_matches_separately(self):

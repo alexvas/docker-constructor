@@ -15,6 +15,7 @@ that keeps it intact:
 Phase 3 found no duplicated root-selection policy; these tests preserve
 that ownership rather than driving a production change.
 """
+
 from __future__ import annotations
 
 import ast
@@ -61,17 +62,33 @@ _SHARED_CACHE_CONSUMERS = (
 
 # Cache-policy primitives that must stay in ``cache_storage.py`` when they
 # act on the shared cache root.
-_POLICY_PRIMITIVES = frozenset({
-    "normpath", "isabs", "islink", "is_symlink", "realpath", "lstat",
-    "chmod", "mkdir", "makedirs",
-})
+_POLICY_PRIMITIVES = frozenset(
+    {
+        "normpath",
+        "isabs",
+        "islink",
+        "is_symlink",
+        "realpath",
+        "lstat",
+        "chmod",
+        "mkdir",
+        "makedirs",
+    }
+)
 
 # Environment/home/root expressions that must not be compared against a
 # cache root outside cache storage (reading them to *pass into* a
 # cache-storage API is delegation, not policy).
-_DANGEROUS_ROOT_NAMES = frozenset({
-    "home", "expanduser", "environ", "XDG_CACHE_HOME", "geteuid", "/",
-})
+_DANGEROUS_ROOT_NAMES = frozenset(
+    {
+        "home",
+        "expanduser",
+        "environ",
+        "XDG_CACHE_HOME",
+        "geteuid",
+        "/",
+    }
+)
 
 # Canonical shared-child names that only cache-storage helpers may
 # assemble into a path.
@@ -149,7 +166,8 @@ class TestCacheStorageOwnsTheAuthorityAPI(_Phase3TestCase):
         from docker.versioning import cache_storage
 
         missing = [
-            name for name in _AUTHORITY_FUNCTIONS
+            name
+            for name in _AUTHORITY_FUNCTIONS
             if not callable(getattr(cache_storage, name, None))
         ]
         self.assertEqual([], missing)
@@ -172,11 +190,20 @@ class TestConsumersDelegateToCacheStorage(_Phase3TestCase):
 
     def test_consumers_call_cache_owned_apis(self) -> None:
         expected = {
-            "docker/versioning/transports.py": {"prepare_default_root", "prepare_local_root"},
+            "docker/versioning/transports.py": {
+                "prepare_default_root",
+                "prepare_local_root",
+            },
             "docker/versioning/project_state.py": {"prepare_default_root"},
-            "docker/versioning/build_orchestration.py": {"prepare_project_root", "resolve_effective_root"},
+            "docker/versioning/build_orchestration.py": {
+                "prepare_project_root",
+                "resolve_effective_root",
+            },
             "docker/versioning/build_cache.py": {"resolve_default_root"},
-            "docker/constructor_cli.py": {"prepare_resolved_root", "resolve_effective_root"},
+            "docker/constructor_cli.py": {
+                "prepare_resolved_root",
+                "resolve_effective_root",
+            },
             "docker/launcher.py": {"prepare_resolved_root", "resolve_effective_root"},
         }
         for relative, api in expected.items():
@@ -261,7 +288,9 @@ class TestNoDuplicatedCachePolicy(_Phase3TestCase):
 class TestAggregateCacheParsingStaysLightweight(_Phase3TestCase):
     """The aggregate owns the ``[cache]`` table shape/type/default only."""
 
-    def test_aggregate_cache_parser_has_no_environment_or_filesystem_logic(self) -> None:
+    def test_aggregate_cache_parser_has_no_environment_or_filesystem_logic(
+        self,
+    ) -> None:
         from docker.versioning import cache_storage
 
         source = inspect.getsource(cache_storage.parse_local_cache_config)
@@ -273,10 +302,25 @@ class TestAggregateCacheParsingStaysLightweight(_Phase3TestCase):
             elif isinstance(node, ast.Attribute):
                 identifiers.add(node.attr)
         forbidden = {
-            "environ", "isabs", "normpath", "resolve", "resolve_local_root",
-            "resolve_default_root", "prepare_local_root", "prepare_default_root",
-            "lstat", "stat", "chmod", "mkdir", "islink", "is_symlink",
-            "expanduser", "home", "owner", "getuid", "geteuid",
+            "environ",
+            "isabs",
+            "normpath",
+            "resolve",
+            "resolve_local_root",
+            "resolve_default_root",
+            "prepare_local_root",
+            "prepare_default_root",
+            "lstat",
+            "stat",
+            "chmod",
+            "mkdir",
+            "islink",
+            "is_symlink",
+            "expanduser",
+            "home",
+            "owner",
+            "getuid",
+            "geteuid",
         }
         self.assertEqual([], sorted(identifiers & forbidden))
         strings = {
@@ -289,8 +333,12 @@ class TestAggregateCacheParsingStaysLightweight(_Phase3TestCase):
         self.assertIn("host_access_mode", source)
         self.assertIn("unknown", source)
 
-    def test_configured_dir_remains_untrusted_until_cache_storage_resolves_it(self) -> None:
-        from docker.versioning.local_project_configuration import validate_local_document
+    def test_configured_dir_remains_untrusted_until_cache_storage_resolves_it(
+        self,
+    ) -> None:
+        from docker.versioning.local_project_configuration import (
+            validate_local_document,
+        )
 
         for raw in ("relative/path", "", "/"):
             with self.subTest(dir=raw):
@@ -346,7 +394,8 @@ class TestDetectorIsNotVacuous(_Phase3TestCase):
         self.assertIn("isabs", primitives)
 
         comparisons = [
-            node for node in ast.walk(tree)
+            node
+            for node in ast.walk(tree)
             if isinstance(node, ast.Compare)
             and any("cache" in n.lower() for n in _names_in(node))
             and _names_in(node) & _DANGEROUS_ROOT_NAMES

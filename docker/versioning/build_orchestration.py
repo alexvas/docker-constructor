@@ -45,10 +45,14 @@ from docker.networking import (
 from docker.transactions.errors import attach_secondary
 from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.build_cache import (
-    BuildCacheError, PostCommitBuildError, ConstructorProjectBuildLock,
+    BuildCacheError,
+    PostCommitBuildError,
+    ConstructorProjectBuildLock,
     acquire_constructor_project_build_lock,
-    commit_build_set, maintain_uncommitted_blobs,
-    recover_abandoned_snapshots, recover_build_generations,
+    commit_build_set,
+    maintain_uncommitted_blobs,
+    recover_abandoned_snapshots,
+    recover_build_generations,
 )
 from docker.versioning.build_cleanup import BuildCleanupError
 from docker.versioning.build_context_confinement import (
@@ -69,8 +73,11 @@ from docker.versioning.build_materialization import (
     select_build_artifacts,
 )
 from docker.versioning.build_snapshot import (
-    DerivedEnvironmentSource, MaterializedSnapshot, SnapshotError,
-    cleanup_artifact_snapshot, create_artifact_snapshot,
+    DerivedEnvironmentSource,
+    MaterializedSnapshot,
+    SnapshotError,
+    cleanup_artifact_snapshot,
+    create_artifact_snapshot,
 )
 from docker.versioning.effective import (
     EffectiveBuildProjection,
@@ -87,7 +94,10 @@ from docker.versioning.inventory import (
     validate_corporate_trust_bundle,
 )
 from docker.versioning.model import (
-    BuildLocalInputs, HostAccessPolicy, Inventory, NetworkUrlDisplay,
+    BuildLocalInputs,
+    HostAccessPolicy,
+    Inventory,
+    NetworkUrlDisplay,
 )
 from docker.versioning.project_state import resolve_project_state
 from docker.versioning.rendering import (
@@ -110,8 +120,16 @@ from docker.versioning.pi_assembly import (
 )
 from docker.versioning.pi_consumer import PiConsumerError
 from docker.versioning.host_progress import (
-    HostDiagnosticStream, HostEventSink, HostFailureContext, HostPhase,
-    HostPhaseEvent, HostPhaseState, HostStep, lookup_host_failure, emit, guard_sink,
+    HostDiagnosticStream,
+    HostEventSink,
+    HostFailureContext,
+    HostPhase,
+    HostPhaseEvent,
+    HostPhaseState,
+    HostStep,
+    lookup_host_failure,
+    emit,
+    guard_sink,
 )
 from docker.versioning.diagnostic_projection import project_exception_type_chain
 
@@ -134,7 +152,9 @@ class BuildExecutor(Protocol):
 class SubprocessBuildExecutor:
     """Production executor with a fixed, typed output policy."""
 
-    def __init__(self, output_policy: BuildOutputPolicy = BuildOutputPolicy.CAPTURED) -> None:
+    def __init__(
+        self, output_policy: BuildOutputPolicy = BuildOutputPolicy.CAPTURED
+    ) -> None:
         if not isinstance(output_policy, BuildOutputPolicy):
             raise ValueError("output_policy must be a BuildOutputPolicy")
         self.output_policy = output_policy
@@ -148,15 +168,22 @@ class SubprocessBuildExecutor:
         """
         if self.output_policy is BuildOutputPolicy.CAPTURED:
             completed = subprocess.run(
-                list(argv), shell=False, text=True, capture_output=True,
+                list(argv),
+                shell=False,
+                text=True,
+                capture_output=True,
             )
         else:
             completed = subprocess.run(list(argv), shell=False, text=True)
         return ProcessResult(
             argv=argv,
             return_code=completed.returncode,
-            stdout=(completed.stdout or "") if self.output_policy is BuildOutputPolicy.CAPTURED else "",
-            stderr=(completed.stderr or "") if self.output_policy is BuildOutputPolicy.CAPTURED else "",
+            stdout=(completed.stdout or "")
+            if self.output_policy is BuildOutputPolicy.CAPTURED
+            else "",
+            stderr=(completed.stderr or "")
+            if self.output_policy is BuildOutputPolicy.CAPTURED
+            else "",
             output_policy=self.output_policy,
         )
 
@@ -317,13 +344,15 @@ class BuildRequest:
         if not isinstance(self.network_url_display, NetworkUrlDisplay):
             raise ValueError("network_url_display must be a NetworkUrlDisplay")
         object.__setattr__(self, "event_sink", guard_sink(self.event_sink))
-        object.__setattr__(
-            self, "sdk_event_sink", guard_sink(self.sdk_event_sink)
-        )
+        object.__setattr__(self, "sdk_event_sink", guard_sink(self.sdk_event_sink))
         if not isinstance(self.overrides, MappingProxyType):
-            object.__setattr__(self, "overrides", MappingProxyType(
-                dict(self.overrides),
-            ))
+            object.__setattr__(
+                self,
+                "overrides",
+                MappingProxyType(
+                    dict(self.overrides),
+                ),
+            )
 
 
 @dataclass(frozen=True)
@@ -495,11 +524,15 @@ class BuildTransactionPlan:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def _publish_projection_default(projection, *, repo_root: Path, project_state) -> PublishResult:
+def _publish_projection_default(
+    projection, *, repo_root: Path, project_state
+) -> PublishResult:
     """Default publisher — writes only beneath resolved external state."""
     try:
         written = write_effective_build(
-            projection, repo_root=repo_root, project_state=project_state,
+            projection,
+            repo_root=repo_root,
+            project_state=project_state,
         )
         return PublishResult(published_path=str(written))
     except Exception as exc:
@@ -562,7 +595,8 @@ def plan_build(
     # Resolve the same configured/default cache root used by runtime execution.
     try:
         cache_root = resolve_effective_root(
-            local_inputs.cache_dir, xdg_cache_home=os.environ.get("XDG_CACHE_HOME"),
+            local_inputs.cache_dir,
+            xdg_cache_home=os.environ.get("XDG_CACHE_HOME"),
             home=Path.home(),
         )
     except Exception as exc:
@@ -582,7 +616,11 @@ def plan_build(
         )
 
     # 3. Build render inputs
-    build_context = request.context if request.context is not None else str(inv_path.parent.absolute())
+    build_context = (
+        request.context
+        if request.context is not None
+        else str(inv_path.parent.absolute())
+    )
     tag = request.tag if request.tag is not None else "pi-cli-pi:latest"
 
     try:
@@ -643,7 +681,8 @@ def plan_build(
             ca_bundle=(
                 local_project_root / ".docker-local" / "corporate-ca-bundle.crt"
                 if local_inputs.corporate_trust_enabled
-                and local_project_root is not None else None
+                and local_project_root is not None
+                else None
             ),
         ),
         cache_root=cache_root,
@@ -653,7 +692,9 @@ def plan_build(
 def _default_named_context_supported() -> bool:
     """Probe the exact ``docker build`` interface used by this constructor."""
     completed = subprocess.run(
-        ["docker", "build", "--help"], shell=False, text=True,
+        ["docker", "build", "--help"],
+        shell=False,
+        text=True,
         capture_output=True,
     )
     return completed.returncode == 0 and "--build-context" in completed.stdout
@@ -781,19 +822,22 @@ def _materialize_pi_for_build(
                 proxy_url=plan.host_network_policy.proxy_url,
                 proxy_no_proxy=(
                     plan.render_inputs.proxy_no_proxy
-                    if plan.render_inputs is not None else None
+                    if plan.render_inputs is not None
+                    else None
                 ),
                 corporate_trust_bundle=(
                     str(plan.host_network_policy.ca_bundle)
-                    if plan.host_network_policy.ca_bundle is not None else None
+                    if plan.host_network_policy.ca_bundle is not None
+                    else None
                 ),
             )
             # The event protocol is optional: old injected materializers keep
             # their existing call shape, while sink-aware implementations opt in.
             try:
                 import inspect
+
                 parameters = inspect.signature(request._materialize_pi).parameters
-            except (TypeError, ValueError):
+            except TypeError, ValueError:
                 parameters = {}
             if "event_sink" in parameters or any(
                 parameter.kind is parameter.VAR_KEYWORD
@@ -810,28 +854,35 @@ def _materialize_pi_for_build(
                 for parameter in parameters.values()
             ):
                 kwargs["network_url_display"] = request.network_url_display
-            return cast(PiMaterialization, request._materialize_pi(projection, **kwargs))
+            return cast(
+                PiMaterialization, request._materialize_pi(projection, **kwargs)
+            )
         from docker.npm_environment.execution import DockerRunExecutor
-        return materialize_pi(PiAssemblyRequest(
-            projection=projection,
-            transport=transport,
-            cache_root=cache_root,
-            executor=request._assembler_executor or DockerRunExecutor(),
-            uid=request.uid,
-            gid=request.gid,
-            proxy_url=plan.host_network_policy.proxy_url,
-            proxy_no_proxy=(
-                plan.render_inputs.proxy_no_proxy
-                if plan.render_inputs is not None else None
-            ),
-            corporate_trust_bundle=(
-                str(plan.host_network_policy.ca_bundle)
-                if plan.host_network_policy.ca_bundle is not None else None
-            ),
-            event_sink=request.event_sink,
-            sdk_event_sink=request.sdk_event_sink,
-            network_url_display=request.network_url_display,
-        ))
+
+        return materialize_pi(
+            PiAssemblyRequest(
+                projection=projection,
+                transport=transport,
+                cache_root=cache_root,
+                executor=request._assembler_executor or DockerRunExecutor(),
+                uid=request.uid,
+                gid=request.gid,
+                proxy_url=plan.host_network_policy.proxy_url,
+                proxy_no_proxy=(
+                    plan.render_inputs.proxy_no_proxy
+                    if plan.render_inputs is not None
+                    else None
+                ),
+                corporate_trust_bundle=(
+                    str(plan.host_network_policy.ca_bundle)
+                    if plan.host_network_policy.ca_bundle is not None
+                    else None
+                ),
+                event_sink=request.event_sink,
+                sdk_event_sink=request.sdk_event_sink,
+                network_url_display=request.network_url_display,
+            )
+        )
     except _PI_MATERIALIZATION_ERRORS as exc:
         raise SnapshotError(f"Pi materialization failed: {exc}") from exc
 
@@ -939,7 +990,8 @@ def execute_build(
         return BuildResult(
             exit_kind=ExitKind.CONFIG,
             message=f"build context confinement rejected: {exc}",
-            build_args=build_args, display_string=display_string,
+            build_args=build_args,
+            display_string=display_string,
         )
 
     # 2. Fail before download, publication, or a Docker build when the local
@@ -951,10 +1003,13 @@ def execute_build(
     except (OSError, SnapshotError) as exc:
         return BuildResult(
             exit_kind=ExitKind.OPERATIONAL,
-            message=("Docker BuildKit named contexts are required; use a Docker "
-                     "build interface that advertises --build-context "
-                     f"({exc})"),
-            build_args=build_args, display_string=display_string,
+            message=(
+                "Docker BuildKit named contexts are required; use a Docker "
+                "build interface that advertises --build-context "
+                f"({exc})"
+            ),
+            build_args=build_args,
+            display_string=display_string,
         )
 
     # 2. Materialize every selected artifact before publishing any reference
@@ -983,24 +1038,32 @@ def execute_build(
         if plan.cache_root is None:
             raise SnapshotError("missing resolved constructor cache root")
         project_state = resolve_project_state(
-            constructor_project, cache_root=prepare_project_root(plan.cache_root),
+            constructor_project,
+            cache_root=prepare_project_root(plan.cache_root),
         )
         lock = acquire_constructor_project_build_lock(
-            constructor_project, cache_root=project_state.cache_root,
+            constructor_project,
+            cache_root=project_state.cache_root,
         )
         # Generation recovery synchronizes the generation directory, reconciles
         # authoritative-generation markers, and completes any retained
         # predecessor cleanup before materialization, snapshot work, Docker
         # execution, or superseded cleanup.  Failure blocks every side effect.
         recover_build_generations(
-            constructor_project, lock=lock, cache_root=project_state.cache_root,
+            constructor_project,
+            lock=lock,
+            cache_root=project_state.cache_root,
         )
         recover_abandoned_snapshots(
-            constructor_project, lock=lock, cache_root=project_state.cache_root,
+            constructor_project,
+            lock=lock,
+            cache_root=project_state.cache_root,
             project_state=project_state,
         )
         maintain_uncommitted_blobs(
-            constructor_project, lock=lock, cache_root=project_state.cache_root,
+            constructor_project,
+            lock=lock,
+            cache_root=project_state.cache_root,
             project_state=project_state,
         )
         if confinement.active:
@@ -1008,14 +1071,18 @@ def execute_build(
             # generated confinement state is published only after it runs and
             # before any artifact materialization, publication, or Docker call.
             confinement_artifacts = materialize_build_context_confinement(
-                confinement, generated_root=project_state.transactions_root,
+                confinement,
+                generated_root=project_state.transactions_root,
             )
         selected_artifacts = tuple(select_build_artifacts(projection))
         transport_factory = request._transport_factory or UrllibStreamingTransport
         transport = transport_factory(plan.host_network_policy)
         materialize_kwargs: dict[str, object] = dict(
-            constructor_project_root=constructor_project, cache_root=project_state.cache_root,
-            project_state=project_state, transport=transport, lock=lock,
+            constructor_project_root=constructor_project,
+            cache_root=project_state.cache_root,
+            project_state=project_state,
+            transport=transport,
+            lock=lock,
         )
         # The event protocol is optional: old injected materializers keep their
         # existing call shape, while sink-aware implementations opt in.  Each
@@ -1023,8 +1090,9 @@ def execute_build(
         # accepts ``event_sink`` but not ``failure_secrets`` still works.
         try:
             import inspect
+
             materialize_parameters = inspect.signature(materialize).parameters
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             materialize_parameters = {}
         accepts_kwargs = any(
             parameter.kind is parameter.VAR_KEYWORD
@@ -1034,13 +1102,16 @@ def execute_build(
             materialize_kwargs["event_sink"] = request.event_sink
         if accepts_kwargs or "failure_secrets" in materialize_parameters:
             materialize_kwargs["failure_secrets"] = tuple(
-                value for value in (
+                value
+                for value in (
                     plan.host_network_policy.proxy_url,
                     (
                         str(plan.host_network_policy.ca_bundle)
-                        if plan.host_network_policy.ca_bundle is not None else None
+                        if plan.host_network_policy.ca_bundle is not None
+                        else None
                     ),
-                ) if value is not None
+                )
+                if value is not None
             )
         materialized = cast(Callable[..., object], materialize)(
             projection, **materialize_kwargs
@@ -1053,7 +1124,11 @@ def execute_build(
         # Materialize the reviewed Pi environment (acquisition → preflight →
         # Docker-backed assembly → consumer launcher) before snapshot creation.
         pi_materialization = _materialize_pi_for_build(
-            request, plan, projection, transport, project_state.cache_root,
+            request,
+            plan,
+            projection,
+            transport,
+            project_state.cache_root,
         )
         if plan.render_inputs is None:
             raise SnapshotError("missing build rendering inputs")
@@ -1077,18 +1152,26 @@ def execute_build(
             canonical_tree_digest=attestation.canonical_tree_digest,
         )
         snapshot = create_artifact_snapshot(
-            selected_artifacts, blobs, constructor_project_root=constructor_project,
-            cache_root=project_state.cache_root, project_state=project_state,
+            selected_artifacts,
+            blobs,
+            constructor_project_root=constructor_project,
+            cache_root=project_state.cache_root,
+            project_state=project_state,
             derived=derived,
         )
-        render_inputs = dataclass_replace(plan.render_inputs, named_context=Materialized(
-            str(snapshot.path), attestation,
-        ))
+        render_inputs = dataclass_replace(
+            plan.render_inputs,
+            named_context=Materialized(
+                str(snapshot.path),
+                attestation,
+            ),
+        )
         if confinement_artifacts is not None:
             # The generated Dockerfile copy carries the Dockerfile-specific
             # ignore file that forces the source documents out of the context.
             render_inputs = dataclass_replace(
-                render_inputs, dockerfile=str(confinement_artifacts.dockerfile),
+                render_inputs,
+                dockerfile=str(confinement_artifacts.dockerfile),
             )
         build_args = render_build_vector(render_inputs)
         display_string = render_command_display(build_args)
@@ -1108,14 +1191,22 @@ def execute_build(
                     f"build context confinement failed: {exc}; "
                     f"build lock release failed: {release_failure}"
                 ),
-                build_args=build_args, display_string=display_string,
+                build_args=build_args,
+                display_string=display_string,
             )
         return BuildResult(
             exit_kind=ExitKind.CONFIG,
             message=f"build context confinement failed: {exc}",
-            build_args=build_args, display_string=display_string,
+            build_args=build_args,
+            display_string=display_string,
         )
-    except (MaterializationError, BuildCacheError, SnapshotError, OSError, ValueError) as exc:
+    except (
+        MaterializationError,
+        BuildCacheError,
+        SnapshotError,
+        OSError,
+        ValueError,
+    ) as exc:
         failure = _host_failure_context(exc)
         try:
             cleanup_confinement()
@@ -1189,36 +1280,51 @@ def execute_build(
             publish = request._publish_projection
             try:
                 if publish is not None:
-                    publish_result = publish(plan.effective_projection, repo_root=constructor_project)
+                    publish_result = publish(
+                        plan.effective_projection, repo_root=constructor_project
+                    )
                 else:
                     publish_result = _publish_projection_default(
-                        plan.effective_projection, repo_root=constructor_project,
+                        plan.effective_projection,
+                        repo_root=constructor_project,
                         project_state=project_state,
                     )
             except Exception as exc:
                 try:
                     finish_snapshot()
                 except (SnapshotError, OSError) as cleanup_exc:
-                    return remember_result(BuildResult(
+                    return remember_result(
+                        BuildResult(
+                            exit_kind=ExitKind.OPERATIONAL,
+                            message=f"failed to clean transaction snapshot: {cleanup_exc}",
+                            build_args=build_args,
+                            display_string=display_string,
+                        )
+                    )
+                return remember_result(
+                    BuildResult(
                         exit_kind=ExitKind.OPERATIONAL,
-                        message=f"failed to clean transaction snapshot: {cleanup_exc}",
-                        build_args=build_args, display_string=display_string,
-                    ))
-                return remember_result(BuildResult(
-                    exit_kind=ExitKind.OPERATIONAL,
-                    message=f"failed to publish effective projection: {getattr(exc, 'detail', str(exc))}",
-                    build_args=build_args, display_string=display_string,
-                    host_failure=HostFailureContext(
-                        phase=HostPhase.DERIVED_VALIDATION,
-                        step=HostStep.PUBLICATION,
-                        summary="failed to publish effective projection",
-                        exception_types=project_exception_type_chain(exc),
-                    ),
-                ))
+                        message=f"failed to publish effective projection: {getattr(exc, 'detail', str(exc))}",
+                        build_args=build_args,
+                        display_string=display_string,
+                        host_failure=HostFailureContext(
+                            phase=HostPhase.DERIVED_VALIDATION,
+                            step=HostStep.PUBLICATION,
+                            summary="failed to publish effective projection",
+                            exception_types=project_exception_type_chain(exc),
+                        ),
+                    )
+                )
 
             runner = request.runner or SubprocessBuildExecutor(request.output_policy)
-            emit(request.event_sink, HostPhaseEvent(HostPhase.DOCKER_TRANSITION, HostPhaseState.STARTED))
-            emit(request.event_sink, HostPhaseEvent(HostPhase.DOCKER_TRANSITION, HostPhaseState.SUCCEEDED))
+            emit(
+                request.event_sink,
+                HostPhaseEvent(HostPhase.DOCKER_TRANSITION, HostPhaseState.STARTED),
+            )
+            emit(
+                request.event_sink,
+                HostPhaseEvent(HostPhase.DOCKER_TRANSITION, HostPhaseState.SUCCEEDED),
+            )
             if request.host_presentation_complete is not None:
                 try:
                     request.host_presentation_complete()
@@ -1231,74 +1337,139 @@ def execute_build(
                 try:
                     finish_snapshot()
                 except (SnapshotError, OSError) as cleanup_exc:
-                    return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                        message=f"failed to clean transaction snapshot: {cleanup_exc}",
-                        build_args=build_args, display_string=display_string,
-                        publish_result=publish_result))
-                return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                    message=f"docker executable not found: {exc}", build_args=build_args,
-                    display_string=display_string, publish_result=publish_result))
+                    return remember_result(
+                        BuildResult(
+                            exit_kind=ExitKind.OPERATIONAL,
+                            message=f"failed to clean transaction snapshot: {cleanup_exc}",
+                            build_args=build_args,
+                            display_string=display_string,
+                            publish_result=publish_result,
+                        )
+                    )
+                return remember_result(
+                    BuildResult(
+                        exit_kind=ExitKind.OPERATIONAL,
+                        message=f"docker executable not found: {exc}",
+                        build_args=build_args,
+                        display_string=display_string,
+                        publish_result=publish_result,
+                    )
+                )
             except OSError as exc:
                 try:
                     finish_snapshot()
                 except (SnapshotError, OSError) as cleanup_exc:
-                    return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                        message=f"failed to clean transaction snapshot: {cleanup_exc}",
-                        build_args=build_args, display_string=display_string,
-                        publish_result=publish_result))
-                return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                    message=f"docker execution failed: {exc}", build_args=build_args,
-                    display_string=display_string, publish_result=publish_result))
+                    return remember_result(
+                        BuildResult(
+                            exit_kind=ExitKind.OPERATIONAL,
+                            message=f"failed to clean transaction snapshot: {cleanup_exc}",
+                            build_args=build_args,
+                            display_string=display_string,
+                            publish_result=publish_result,
+                        )
+                    )
+                return remember_result(
+                    BuildResult(
+                        exit_kind=ExitKind.OPERATIONAL,
+                        message=f"docker execution failed: {exc}",
+                        build_args=build_args,
+                        display_string=display_string,
+                        publish_result=publish_result,
+                    )
+                )
 
             if proc.return_code != 0:
                 try:
                     finish_snapshot()
                 except (SnapshotError, OSError) as cleanup_exc:
-                    return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                        message=f"failed to clean transaction snapshot: {cleanup_exc}",
-                        build_args=build_args, display_string=display_string,
-                        process_result=proc, publish_result=publish_result))
-                message = (f"build exited with code {proc.return_code}"
-                    if getattr(proc, "output_policy", BuildOutputPolicy.CAPTURED) is BuildOutputPolicy.STREAMED
-                    else (proc.stderr or f"build exited with code {proc.return_code}"))
-                return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL, message=message,
-                    build_args=build_args, display_string=display_string,
-                    process_result=proc, publish_result=publish_result))
+                    return remember_result(
+                        BuildResult(
+                            exit_kind=ExitKind.OPERATIONAL,
+                            message=f"failed to clean transaction snapshot: {cleanup_exc}",
+                            build_args=build_args,
+                            display_string=display_string,
+                            process_result=proc,
+                            publish_result=publish_result,
+                        )
+                    )
+                message = (
+                    f"build exited with code {proc.return_code}"
+                    if getattr(proc, "output_policy", BuildOutputPolicy.CAPTURED)
+                    is BuildOutputPolicy.STREAMED
+                    else (proc.stderr or f"build exited with code {proc.return_code}")
+                )
+                return remember_result(
+                    BuildResult(
+                        exit_kind=ExitKind.OPERATIONAL,
+                        message=message,
+                        build_args=build_args,
+                        display_string=display_string,
+                        process_result=proc,
+                        publish_result=publish_result,
+                    )
+                )
 
             try:
                 finish_snapshot()
             except (SnapshotError, OSError) as exc:
-                return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                    message=f"failed to clean transaction snapshot: {exc}",
-                    build_args=build_args, display_string=display_string,
-                    process_result=proc, publish_result=publish_result))
+                return remember_result(
+                    BuildResult(
+                        exit_kind=ExitKind.OPERATIONAL,
+                        message=f"failed to clean transaction snapshot: {exc}",
+                        build_args=build_args,
+                        display_string=display_string,
+                        process_result=proc,
+                        publish_result=publish_result,
+                    )
+                )
 
             try:
                 assert lock is not None
                 commit_build_set(
-                    constructor_project, {selected.identity for selected in selected_artifacts},
-                    lock=lock, cache_root=project_state.cache_root,
+                    constructor_project,
+                    {selected.identity for selected in selected_artifacts},
+                    lock=lock,
+                    cache_root=project_state.cache_root,
                     project_state=project_state,
                 )
             except PostCommitBuildError as exc:
-                return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                    message=(
-                        "Docker image built successfully and remains available; "
-                        "the newest build generation remains committed, but cleanup "
-                        "or marker reconciliation failed. Recovery is required and "
-                        "will be retried on the next build: "
-                        f"{_format_build_cleanup_diagnostic(exc)}"
-                    ),
-                    build_args=build_args, display_string=display_string,
-                    process_result=proc, publish_result=publish_result))
+                return remember_result(
+                    BuildResult(
+                        exit_kind=ExitKind.OPERATIONAL,
+                        message=(
+                            "Docker image built successfully and remains available; "
+                            "the newest build generation remains committed, but cleanup "
+                            "or marker reconciliation failed. Recovery is required and "
+                            "will be retried on the next build: "
+                            f"{_format_build_cleanup_diagnostic(exc)}"
+                        ),
+                        build_args=build_args,
+                        display_string=display_string,
+                        process_result=proc,
+                        publish_result=publish_result,
+                    )
+                )
             except (BuildCacheError, OSError) as exc:
-                return remember_result(BuildResult(exit_kind=ExitKind.OPERATIONAL,
-                    message=f"failed to commit successful build artifacts: {exc}",
-                    build_args=build_args, display_string=display_string,
-                    process_result=proc, publish_result=publish_result))
-            return remember_result(BuildResult(exit_kind=ExitKind.SUCCESS, message="image build completed",
-                build_args=build_args, display_string=display_string,
-                process_result=proc, publish_result=publish_result))
+                return remember_result(
+                    BuildResult(
+                        exit_kind=ExitKind.OPERATIONAL,
+                        message=f"failed to commit successful build artifacts: {exc}",
+                        build_args=build_args,
+                        display_string=display_string,
+                        process_result=proc,
+                        publish_result=publish_result,
+                    )
+                )
+            return remember_result(
+                BuildResult(
+                    exit_kind=ExitKind.SUCCESS,
+                    message="image build completed",
+                    build_args=build_args,
+                    display_string=display_string,
+                    process_result=proc,
+                    publish_result=publish_result,
+                )
+            )
         except BaseException as exc:
             build_primary = exc
             raise
@@ -1341,10 +1512,10 @@ def execute_build(
             return BuildResult(
                 exit_kind=ExitKind.OPERATIONAL,
                 message=(
-                    "failed to release constructor-project build lock: "
-                    f"{exc.failure}"
+                    f"failed to release constructor-project build lock: {exc.failure}"
                 ),
-                build_args=build_args, display_string=display_string,
+                build_args=build_args,
+                display_string=display_string,
             )
         detail = f"failed to release constructor-project build lock: {exc.failure}"
         return dataclass_replace(
@@ -1420,17 +1591,21 @@ def _persist_host_access_address(
 
     if _fs is None:
         from docker.networking import Filesystem as _Fs
+
         _fs = _Fs()
 
     if not address or not address.strip():
         return PersistenceResult(
-            path=companion_path, address=address,
-            written=False, error="address must be non-empty",
+            path=companion_path,
+            address=address,
+            written=False,
+            error="address must be non-empty",
         )
 
     if _fs.is_symlink(companion_path):
         return PersistenceResult(
-            path=companion_path, address=address,
+            path=companion_path,
+            address=address,
             written=False,
             error="local companion must not be a symlink; replace it with a real file",
         )
@@ -1457,7 +1632,7 @@ def _persist_host_access_address(
         # Detect section headers — tolerate trailing inline comments
         section_name = _parse_toml_section_header(stripped)
         if section_name is not None:
-            in_host_access = (section_name == "host-access")
+            in_host_access = section_name == "host-access"
             new_lines.append(line)
             if in_host_access and not address_written:
                 new_lines.append(f'address = "{address}"')
@@ -1497,8 +1672,10 @@ def _persist_host_access_address(
             except OSError:
                 pass
         return PersistenceResult(
-            path=companion_path, address=address,
-            written=False, error=str(exc),
+            path=companion_path,
+            address=address,
+            written=False,
+            error=str(exc),
         )
     finally:
         if _fs.is_file(tmp):
@@ -1508,7 +1685,9 @@ def _persist_host_access_address(
                 pass
 
     return PersistenceResult(
-        path=companion_path, address=address, written=True,
+        path=companion_path,
+        address=address,
+        written=True,
     )
 
 
@@ -1569,6 +1748,7 @@ def _resolve_doctor_host_access(
     if not mode:
         return None, None, None
     from docker.versioning.inventory import resolve_local_companion_path
+
     companion = resolve_local_companion_path(inventory_path)
     return mode, companion, None
 
@@ -1626,7 +1806,7 @@ def orchestrate_doctor(request: DoctorRequest) -> DoctorResult:
         return DoctorResult(
             exit_kind=ExitKind.SUCCESS,
             message="Host access is external-address — no gateway diagnosis needed. "
-                    "The locally configured address is used as-is.",
+            "The locally configured address is used as-is.",
         )
     # docker-gateway mode continues below
 

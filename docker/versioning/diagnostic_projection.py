@@ -69,6 +69,7 @@ The external SDK product is always the redacted projection, independent of the
 local mode, so an attached SDK sink still receives ``<redacted>`` and
 ``<secret>`` and never the source URL, its credentials, or a fingerprint.
 """
+
 from __future__ import annotations
 
 import codecs
@@ -175,9 +176,7 @@ _SLASH_UNIT = r"(?:/|%2[Ff])"
 #: A URL start is a scheme -- fully or partially percent-encoded -- followed
 #: by ``://`` or its percent-encoded form (``%3A%2F%2F``, case-insensitive and
 #: arbitrarily mixed).
-_URL_START_RE = re.compile(
-    rf"{_SCHEME_PATTERN}{_COLON_UNIT}{_SLASH_UNIT}{_SLASH_UNIT}"
-)
+_URL_START_RE = re.compile(rf"{_SCHEME_PATTERN}{_COLON_UNIT}{_SLASH_UNIT}{_SLASH_UNIT}")
 _HOSTNAME_OK_RE = re.compile(r"[a-z0-9._:\-]+")
 _TERMINATOR_CHARS = frozenset(" \t\r\n\f\v\"'`<>|\\^{}")
 _FEED_SLICE_BYTES = 4096
@@ -192,17 +191,10 @@ _UNRESERVED_CHARS = frozenset(
 #: character -- including Unicode bidi and format controls such as U+202E -- is
 #: UTF-8 percent-encoded with uppercase hex so it can never stay active.
 _PATH_SAFE_ASCII = frozenset(
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-    "abcdefghijklmnopqrstuvwxyz"
-    "0123456789"
-    "-._~"
-    "!$&'()*+,;="
-    ":@/"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~!$&'()*+,;=:@/"
 )
 #: Raw C0, DEL, and C1 controls are unsafe whenever they survive to a path.
-_CONTROL_CODES = frozenset(
-    [*range(0x00, 0x20), 0x7F, *range(0x80, 0xA0)]
-)
+_CONTROL_CODES = frozenset([*range(0x00, 0x20), 0x7F, *range(0x80, 0xA0)])
 
 #: Authority after any user information, with an optional numeric port.  A
 #: trailing colon or a non-numeric port is malformed, not merely incomplete.
@@ -496,7 +488,7 @@ def _decode_percent(text: str) -> str | None:
     """Percent-decode *text*, or ``None`` when it is not safely decodable."""
     try:
         return urllib.parse.unquote(text, errors="strict")
-    except (UnicodeDecodeError, ValueError):
+    except UnicodeDecodeError, ValueError:
         return None
 
 
@@ -725,9 +717,7 @@ def _remove_dot_segments(path: str) -> str:
     return output
 
 
-def _path_contains_secret(
-    path: str, secrets: tuple[str, ...]
-) -> bool:
+def _path_contains_secret(path: str, secrets: tuple[str, ...]) -> bool:
     """Whether *path* exposes *secrets* in any bounded decoded layer.
 
     The original encoded path and each bounded percent-decoded layer are
@@ -1054,7 +1044,9 @@ class DiagnosticProjector(CoordinatedProjection):
         url_display: NetworkUrlDisplay = NetworkUrlDisplay.REDACTED,
         capture_redacted: bool = False,
     ) -> None:
-        if url_identity is not None and not isinstance(url_identity, SessionUrlIdentity):
+        if url_identity is not None and not isinstance(
+            url_identity, SessionUrlIdentity
+        ):
             raise TypeError("url_identity must be a SessionUrlIdentity or None")
         self._secrets = dedupe_secrets(secrets)
         self._longest = longest_secret_length(self._secrets)
@@ -1176,6 +1168,7 @@ class DiagnosticProjector(CoordinatedProjection):
     def _reject_if_finished(self) -> None:
         if self._eof:
             raise RuntimeError("projector is already finished")
+
 
 def sanitize_diagnostic_text(
     text: str, secrets: Sequence[str] = ()

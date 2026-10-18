@@ -113,9 +113,9 @@ _SMOKE_FIXTURE = {
     },
 }
 
-_SMOKE_FIXTURE_BYTES = json.dumps(
-    _SMOKE_FIXTURE, sort_keys=True, indent=2
-).encode("utf-8")
+_SMOKE_FIXTURE_BYTES = json.dumps(_SMOKE_FIXTURE, sort_keys=True, indent=2).encode(
+    "utf-8"
+)
 
 _SMOKE_ROOTS = (
     RootSpec("@lilly_in_the_valley/test-postinstall-script-package", "1.0.6"),
@@ -185,8 +185,7 @@ def parse_smoke_args(argv: Sequence[str]) -> SmokeArgs:
     if not report.parent.exists():
         raise LockedNpmError(
             "invalid_smoke_arguments",
-            f"report-file parent directory {str(report.parent)!r} does not "
-            "exist",
+            f"report-file parent directory {str(report.parent)!r} does not exist",
         )
     return SmokeArgs(image, report_path)
 
@@ -214,9 +213,7 @@ def verify_installed_closure(
             f"cannot enumerate node_modules after assembly: {exc}",
         ) from exc
 
-    expected = {
-        pkg.path: (pkg.name, pkg.version) for pkg in validated.packages
-    }
+    expected = {pkg.path: (pkg.name, pkg.version) for pkg in validated.packages}
 
     for rel in discovered:
         if not rel.startswith("node_modules/"):
@@ -425,9 +422,7 @@ def run_smoke(
         validated=validated,
     )
     try:
-        Path(report_path).write_text(
-            serialize_smoke_report(report), encoding="utf-8"
-        )
+        Path(report_path).write_text(serialize_smoke_report(report), encoding="utf-8")
     except OSError as exc:
         raise LockedNpmError(
             "smoke_report_write_failed",

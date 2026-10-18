@@ -157,7 +157,9 @@ class _FakeFilesystem(CacheFilesystem):
         return _compute_digest(self._contents.get(path, b""), algorithm)
 
     def inspect_and_digest(
-        self, path: str, algorithm: str,
+        self,
+        path: str,
+        algorithm: str,
     ) -> CacheBlobInspection:
         status = self.stat_blob(path)
         digest = (
@@ -194,6 +196,7 @@ class _FakeFilesystem(CacheFilesystem):
         if self.fail_cleanup_temp:
             raise OSError("simulated cleanup failure")
         import shutil
+
         shutil.rmtree(root, ignore_errors=True)
 
     def quarantine_or_remove(self, path: str) -> None:
@@ -210,6 +213,7 @@ class _FakeFilesystem(CacheFilesystem):
             os.unlink(path)
         elif os.path.isdir(path):
             import shutil
+
             shutil.rmtree(path, ignore_errors=True)
         elif os.path.exists(path):
             os.unlink(path)
@@ -242,6 +246,7 @@ class _FakeFilesystem(CacheFilesystem):
             os.unlink(final_path)
         elif os.path.isdir(final_path):
             import shutil
+
             shutil.rmtree(final_path, ignore_errors=True)
         elif os.path.exists(final_path):
             os.unlink(final_path)
@@ -323,7 +328,10 @@ def _make_integrity_for(data: bytes, algorithm: str = "sha512") -> str:
 # repo-cache leak guard
 # ═══════════════════════════════════════════════════════════════════════
 
-_REPO_CACHE = os.path.join(os.path.dirname(__file__), "..", ".docker-generated", "runtime-artifacts")
+_REPO_CACHE = os.path.join(
+    os.path.dirname(__file__), "..", ".docker-generated", "runtime-artifacts"
+)
+
 
 def _repo_cache_file_set() -> frozenset[str]:
     """Return an immutable set of every regular file under the repository
@@ -336,6 +344,7 @@ def _repo_cache_file_set() -> frozenset[str]:
         return frozenset(files)
     except FileNotFoundError:
         return frozenset()
+
 
 def _assert_repo_cache_unchanged(before: frozenset[str]) -> frozenset[str]:
     """Assert the repository cache has the exact same files as *before*.
@@ -363,7 +372,9 @@ def _shared_lock_leak_snapshot() -> bool:
     return os.path.exists(_SHARED_LOCK_LEAK)
 
 
-def _assert_no_shared_lock_created(before: bool, *, _path: str = _SHARED_LOCK_LEAK) -> None:
+def _assert_no_shared_lock_created(
+    before: bool, *, _path: str = _SHARED_LOCK_LEAK
+) -> None:
     """Fail when the shared lock directory was *created* during a test.
 
     ``before`` is the snapshot taken in ``setUp``.  If ``_path`` did not
@@ -393,15 +404,20 @@ class _MaterializationTestCase(unittest.TestCase):
         # Model the production layout: <tmp>/runtime-artifacts/blobs
         # so that sibling directories (locks, temp) stay contained.
         self._cache_root = os.path.join(
-            self._tmp_root, "runtime-artifacts", "blobs",
+            self._tmp_root,
+            "runtime-artifacts",
+            "blobs",
         )
         # Create the parent so tests can mkdir/mkfifo inside cache_root.
         os.makedirs(os.path.dirname(self._cache_root), exist_ok=True)
-        os.makedirs(os.path.join(self._tmp_root, "runtime-artifacts", "tmp"), exist_ok=True)
+        os.makedirs(
+            os.path.join(self._tmp_root, "runtime-artifacts", "tmp"), exist_ok=True
+        )
         self._repo_cache_snapshot = _repo_cache_file_set()
 
     def tearDown(self) -> None:
         import shutil
+
         shutil.rmtree(self._tmp_root, ignore_errors=True)
         _ = _assert_repo_cache_unchanged(self._repo_cache_snapshot)
         _assert_no_shared_lock_created(self._lock_leak_before)
@@ -419,7 +435,8 @@ class _MaterializationTestCase(unittest.TestCase):
         if selected is None:
             selected = [
                 SelectedArtifact(
-                    url="https://x.test/pkg.tgz", integrity=_VALID_INTEGRITY,
+                    url="https://x.test/pkg.tgz",
+                    integrity=_VALID_INTEGRITY,
                 )
             ]
         return materialize_selected_artifacts(
@@ -612,7 +629,8 @@ class TestMaterializationPipeline(_MaterializationTestCase):
         transport = _FakeTransport({})
         fs = _FakeFilesystem()
         art = SelectedArtifact(
-            url="https://x.test/missing.tgz", integrity=_VALID_INTEGRITY,
+            url="https://x.test/missing.tgz",
+            integrity=_VALID_INTEGRITY,
         )
 
         with self.assertRaises(ArtifactMaterializationError) as ctx:
@@ -625,12 +643,15 @@ class TestMaterializationPipeline(_MaterializationTestCase):
         factory = _FakeLockFactory()
         fs = _FakeFilesystem()
         art = SelectedArtifact(
-            url="https://x.test/missing.tgz", integrity=_VALID_INTEGRITY,
+            url="https://x.test/missing.tgz",
+            integrity=_VALID_INTEGRITY,
         )
 
         with self.assertRaises(ArtifactMaterializationError):
             self._materialize(
-                [art], transport=transport, filesystem=fs,
+                [art],
+                transport=transport,
+                filesystem=fs,
                 lock_factory=factory,
             )
 
@@ -645,7 +666,8 @@ class TestMaterializationPipeline(_MaterializationTestCase):
         """GREEN — unsupported algorithm rejected before transport."""
         transport = _FakeTransport({"https://x.test/pkg.tgz": b"x"})
         art = SelectedArtifact(
-            url="https://x.test/pkg.tgz", integrity="md5-AAAA",
+            url="https://x.test/pkg.tgz",
+            integrity="md5-AAAA",
         )
 
         with self.assertRaises(ArtifactMaterializationError) as ctx:
@@ -657,7 +679,8 @@ class TestMaterializationPipeline(_MaterializationTestCase):
         """GREEN — malformed integrity rejected before any IO."""
         transport = _FakeTransport({"https://x.test/pkg.tgz": b"x"})
         art = SelectedArtifact(
-            url="https://x.test/pkg.tgz", integrity="not-an-sri-string",
+            url="https://x.test/pkg.tgz",
+            integrity="not-an-sri-string",
         )
 
         with self.assertRaises(ArtifactMaterializationError) as ctx:
@@ -679,7 +702,9 @@ class TestMaterializationPipeline(_MaterializationTestCase):
         art_b = SelectedArtifact(url="https://x.test/b.tgz", integrity=integrity)
 
         result = self._materialize(
-            [art_a, art_b], transport=transport, filesystem=fs,
+            [art_a, art_b],
+            transport=transport,
+            filesystem=fs,
         )
 
         self.assertEqual(len(transport.calls), 1)
@@ -693,10 +718,12 @@ class TestMaterializationPipeline(_MaterializationTestCase):
         int1 = _make_integrity_for(data1)
         int2 = _make_integrity_for(data2)
 
-        transport = _FakeTransport({
-            "https://x.test/a.tgz": data1,
-            "https://x.test/b.tgz": data2,
-        })
+        transport = _FakeTransport(
+            {
+                "https://x.test/a.tgz": data1,
+                "https://x.test/b.tgz": data2,
+            }
+        )
         fs = _FakeFilesystem()
 
         result = self._materialize(
@@ -775,8 +802,11 @@ class TestProductionSymlinkHardening(_MaterializationTestCase):
         *,
         cache_root: str,
         integrity: str,
-    ) -> tuple[_FakeTransport, _RecordingProductionFilesystem,
-               _RecordingProductionTempDirectory]:
+    ) -> tuple[
+        _FakeTransport,
+        _RecordingProductionFilesystem,
+        _RecordingProductionTempDirectory,
+    ]:
         transport = _FakeTransport({"https://x.test/pkg.tgz": b"network-bytes"})
         filesystem = _RecordingProductionFilesystem()
         temp_dir = _RecordingProductionTempDirectory()
@@ -793,7 +823,9 @@ class TestProductionSymlinkHardening(_MaterializationTestCase):
         self.assertEqual(transport.calls, [], "network boundary was reached")
         self.assertEqual(temp_dir.calls, [], "temporary directory was created")
         self.assertEqual(filesystem.temp_creations, [], "temporary file was created")
-        self.assertEqual(filesystem.publications, [], "publication boundary was reached")
+        self.assertEqual(
+            filesystem.publications, [], "publication boundary was reached"
+        )
         return transport, filesystem, temp_dir
 
     def test_inspection_hashes_same_descriptor_when_path_is_replaced(self) -> None:
@@ -827,7 +859,8 @@ class TestProductionSymlinkHardening(_MaterializationTestCase):
 
         self.assertTrue(replaced)
         self.assertEqual(
-            inspection.digest, _compute_digest(original_bytes, "sha512"),
+            inspection.digest,
+            _compute_digest(original_bytes, "sha512"),
         )
         with open(path, "rb") as stream:
             self.assertEqual(stream.read(), replacement_bytes)
@@ -844,7 +877,8 @@ class TestProductionSymlinkHardening(_MaterializationTestCase):
         try:
             os.symlink(outside, link)
             self._run_rejected_materialization(
-                cache_root=cache_root, integrity=integrity,
+                cache_root=cache_root,
+                integrity=integrity,
             )
             with open(marker, "rb") as stream:
                 self.assertEqual(stream.read(), b"unchanged")
@@ -866,7 +900,8 @@ class TestProductionSymlinkHardening(_MaterializationTestCase):
         try:
             os.symlink(outside, lock_root)
             self._run_rejected_materialization(
-                cache_root=cache_root, integrity=integrity,
+                cache_root=cache_root,
+                integrity=integrity,
             )
             with open(marker, "rb") as stream:
                 self.assertEqual(stream.read(), b"unchanged")
@@ -889,7 +924,8 @@ class TestProductionSymlinkHardening(_MaterializationTestCase):
         os.symlink(target, os.path.join(lock_root, safe + ".lock"))
 
         self._run_rejected_materialization(
-            cache_root=cache_root, integrity=integrity,
+            cache_root=cache_root,
+            integrity=integrity,
         )
         with open(target, "rb") as stream:
             self.assertEqual(stream.read(), b"unchanged")
@@ -929,12 +965,14 @@ class TestProductionSymlinkHardening(_MaterializationTestCase):
             "lock directory must not be created",
         )
         self.assertEqual(
-            os.listdir(cache_root), [],
+            os.listdir(cache_root),
+            [],
             "no algorithm directories created under cache root",
         )
 
     def _walk_snapshot(
-        self, root: str,
+        self,
+        root: str,
     ) -> dict[str, tuple[int, int, str]]:
         """Walk *root* and return ``{abspath: (mode, size, kind)}``
         for every filesystem entry.  *kind* is ``"dir"``, ``"file"``,
@@ -950,7 +988,11 @@ class TestProductionSymlinkHardening(_MaterializationTestCase):
                 except OSError:
                     continue
                 if stat_module.S_ISLNK(st.st_mode):
-                    snapshot[os.path.abspath(full)] = (st.st_mode, st.st_size, "symlink")
+                    snapshot[os.path.abspath(full)] = (
+                        st.st_mode,
+                        st.st_size,
+                        "symlink",
+                    )
             for name in filenames:
                 full = os.path.join(dirpath, name)
                 try:
@@ -995,22 +1037,28 @@ class TestProductionSymlinkHardening(_MaterializationTestCase):
         cache_blob = list(result.values())[0]
 
         # ── original file untouched ─────────────────────────────
-        self.assertEqual(os.lstat(fixture_path).st_mode, original_mode,
-                         "source mode must not change")
-        self.assertEqual(os.lstat(fixture_path).st_ino, original_inode,
-                         "source inode must not change")
+        self.assertEqual(
+            os.lstat(fixture_path).st_mode, original_mode, "source mode must not change"
+        )
+        self.assertEqual(
+            os.lstat(fixture_path).st_ino,
+            original_inode,
+            "source inode must not change",
+        )
         with open(fixture_path, "rb") as f:
-            self.assertEqual(f.read(), fixture_data,
-                             "source contents must not change")
+            self.assertEqual(f.read(), fixture_data, "source contents must not change")
         # ── cached copy is private ──────────────────────────────
-        self.assertNotEqual(cache_blob.host_path, fixture_path,
-                            "cache blob must be an independent copy")
-        self.assertEqual(os.stat(cache_blob.host_path).st_mode & 0o777, 0o444,
-                         "cached copy must be 0o444")
-        self.assertEqual(os.stat(cache_root).st_mode & 0o777, 0o700,
-                         "cache root is 0o700")
-
-
+        self.assertNotEqual(
+            cache_blob.host_path, fixture_path, "cache blob must be an independent copy"
+        )
+        self.assertEqual(
+            os.stat(cache_blob.host_path).st_mode & 0o777,
+            0o444,
+            "cached copy must be 0o444",
+        )
+        self.assertEqual(
+            os.stat(cache_root).st_mode & 0o777, 0o700, "cache root is 0o700"
+        )
 
 
 class TestConcurrencyCoordination(_MaterializationTestCase):
@@ -1040,12 +1088,15 @@ class TestConcurrencyCoordination(_MaterializationTestCase):
         transport = _FakeTransport({})
         factory = _FakeLockFactory()
         art = SelectedArtifact(
-            url="https://x.test/missing.tgz", integrity=_VALID_INTEGRITY,
+            url="https://x.test/missing.tgz",
+            integrity=_VALID_INTEGRITY,
         )
 
         with self.assertRaises(ArtifactMaterializationError):
             self._materialize(
-                [art], transport=transport, lock_factory=factory,
+                [art],
+                transport=transport,
+                lock_factory=factory,
             )
 
         lock = factory.locks[_VALID_INTEGRITY]
@@ -1063,7 +1114,10 @@ class TestConcurrencyCoordination(_MaterializationTestCase):
         art = SelectedArtifact(url="https://x.test/pkg.tgz", integrity=integrity)
 
         result = self._materialize(
-            [art], transport=transport, filesystem=fs, lock_factory=factory,
+            [art],
+            transport=transport,
+            filesystem=fs,
+            lock_factory=factory,
         )
 
         self.assertEqual(len(transport.calls), 1)
@@ -1227,7 +1281,7 @@ class TestConcurrencyCoordination(_MaterializationTestCase):
                     transport=transport_a,
                     filesystem=_FakeFilesystem(),
                     lock_factory=lock_factory,
-                            temp_dir=_FakeTempDir(),
+                    temp_dir=_FakeTempDir(),
                     cache_root=self._cache_root,
                 )
                 result_a_holder.append(r)
@@ -1239,6 +1293,7 @@ class TestConcurrencyCoordination(_MaterializationTestCase):
 
         # Give Thread-A time to enter the critical section and block.
         import time
+
         time.sleep(0.1)
 
         # Thread-B tries to materialize.  Lock acquire fails (Thread-A
@@ -1301,7 +1356,9 @@ class TestConcurrencyCoordination(_MaterializationTestCase):
         )
 
         r_b = self._materialize(
-            [art], transport=transport_b, filesystem=fs_b,
+            [art],
+            transport=transport_b,
+            filesystem=fs_b,
             lock_factory=factory_b,
         )
 
@@ -1358,7 +1415,10 @@ class TestCorruptionRecovery(_MaterializationTestCase):
     truncation, unsafe roots, failed repair, publication failures."""
 
     def _setup_corrupt_cache(
-        self, data: bytes, *, make_corrupt: callable,
+        self,
+        data: bytes,
+        *,
+        make_corrupt: callable,
     ) -> tuple[str, SelectedArtifact, _FakeTransport]:
         """Create a valid blob at the cache path, then corrupt it."""
         integrity = _make_integrity_for(data)
@@ -1414,8 +1474,9 @@ class TestCorruptionRecovery(_MaterializationTestCase):
         # ── repair assertions ────────────────────────────────────
         self.assertIn(integrity, result)
         blob = result[integrity]
-        self.assertFalse(os.path.islink(blob.host_path),
-                         "symlink must be replaced by regular file")
+        self.assertFalse(
+            os.path.islink(blob.host_path), "symlink must be replaced by regular file"
+        )
         self.assertTrue(os.path.isfile(blob.host_path))
         self.assertEqual(os.stat(blob.host_path).st_mode & 0o777, 0o444)
         # The reviewed URL was fetched exactly once.
@@ -1456,8 +1517,9 @@ class TestCorruptionRecovery(_MaterializationTestCase):
         # ── repair assertions ────────────────────────────────────
         self.assertIn(integrity, result)
         blob = result[integrity]
-        self.assertTrue(os.path.isfile(blob.host_path),
-                        "directory must be replaced by regular file")
+        self.assertTrue(
+            os.path.isfile(blob.host_path), "directory must be replaced by regular file"
+        )
         self.assertFalse(os.path.isdir(blob.host_path))
         self.assertEqual(os.stat(blob.host_path).st_mode & 0o777, 0o444)
         self.assertEqual(transport.calls, ["https://x.test/pkg.tgz"])
@@ -1494,8 +1556,10 @@ class TestCorruptionRecovery(_MaterializationTestCase):
         # ── repair assertions ────────────────────────────────────
         self.assertIn(integrity, result)
         blob = result[integrity]
-        self.assertFalse(stat_module.S_ISFIFO(os.lstat(blob.host_path).st_mode),
-                         "FIFO must be replaced by regular file")
+        self.assertFalse(
+            stat_module.S_ISFIFO(os.lstat(blob.host_path).st_mode),
+            "FIFO must be replaced by regular file",
+        )
         self.assertTrue(os.path.isfile(blob.host_path))
         self.assertEqual(os.stat(blob.host_path).st_mode & 0o777, 0o444)
         self.assertEqual(transport.calls, ["https://x.test/pkg.tgz"])
@@ -1523,7 +1587,9 @@ class TestCorruptionRecovery(_MaterializationTestCase):
         )
 
         result = self._materialize(
-            [art], transport=transport, filesystem=fs,
+            [art],
+            transport=transport,
+            filesystem=fs,
         )
 
         self.assertIn(integrity, result)
@@ -1552,7 +1618,9 @@ class TestCorruptionRecovery(_MaterializationTestCase):
         )
 
         result = self._materialize(
-            [art], transport=transport, filesystem=fs,
+            [art],
+            transport=transport,
+            filesystem=fs,
         )
 
         self.assertIn(integrity, result)
@@ -1592,8 +1660,9 @@ class TestCorruptionRecovery(_MaterializationTestCase):
 
         blob = result[integrity]
         self.assertEqual(blob.integrity, integrity)
-        self.assertTrue(os.path.isfile(blob.host_path),
-                        "repaired blob must be a regular file")
+        self.assertTrue(
+            os.path.isfile(blob.host_path), "repaired blob must be a regular file"
+        )
         self.assertFalse(os.path.isdir(blob.host_path))
         self.assertEqual(os.stat(blob.host_path).st_mode & 0o777, 0o444)
 
@@ -1635,8 +1704,9 @@ class TestCorruptionRecovery(_MaterializationTestCase):
             )
         self.assertEqual(ctx.exception.reason, "transport")
         # The symlink was removed by quarantine.
-        self.assertFalse(os.path.lexists(blob_path),
-                         "corrupt symlink must be quarantined")
+        self.assertFalse(
+            os.path.lexists(blob_path), "corrupt symlink must be quarantined"
+        )
         # The URL was attempted but the transport had no response.
         self.assertEqual(transport.calls, ["https://x.test/pkg.tgz"])
 
@@ -1721,7 +1791,8 @@ class TestCorruptionRecovery(_MaterializationTestCase):
             self._materialize([art], transport=transport, filesystem=fs)
         self.assertEqual(ctx.exception.reason, "integrity")
         final_path, _ = derive_cache_path_from_integrity(
-            integrity, root=self._cache_root,
+            integrity,
+            root=self._cache_root,
         )
         self.assertIn(final_path, fs.quarantined)
         self.assertNotIn(final_path, fs._exists)
@@ -1734,7 +1805,8 @@ class TestCorruptionRecovery(_MaterializationTestCase):
         original_inspection = fs.inspect_and_digest
 
         def insecure_after_publish(
-            path: str, algorithm: str,
+            path: str,
+            algorithm: str,
         ) -> CacheBlobInspection:
             inspection = original_inspection(path, algorithm)
             if not fs.published:
@@ -1742,8 +1814,11 @@ class TestCorruptionRecovery(_MaterializationTestCase):
             value = inspection.stat
             return CacheBlobInspection(
                 CacheBlobStat(
-                    value.exists, value.is_symlink, value.is_regular_file,
-                    0o100666, value.size,
+                    value.exists,
+                    value.is_symlink,
+                    value.is_regular_file,
+                    0o100666,
+                    value.size,
                 ),
                 inspection.digest,
             )
@@ -1757,7 +1832,8 @@ class TestCorruptionRecovery(_MaterializationTestCase):
                 lock_factory=locks,
             )
         final_path, _ = derive_cache_path_from_integrity(
-            integrity, root=self._cache_root,
+            integrity,
+            root=self._cache_root,
         )
         self.assertIn(final_path, fs.quarantined)
         self.assertEqual(locks.locks[integrity].released, [integrity])
@@ -1784,7 +1860,8 @@ class TestCorruptionRecovery(_MaterializationTestCase):
                 lock_factory=locks,
             )
         final_path, _ = derive_cache_path_from_integrity(
-            integrity, root=self._cache_root,
+            integrity,
+            root=self._cache_root,
         )
         self.assertIn(final_path, fs.quarantined)
         self.assertEqual(locks.locks[integrity].released, [integrity])
@@ -1798,12 +1875,14 @@ class TestCorruptionRecovery(_MaterializationTestCase):
         # setUp creates runtime-artifacts/ — clean it before
         # replacing _tmp_root with a symlink.
         import shutil
+
         shutil.rmtree(os.path.join(real_root, "runtime-artifacts"), ignore_errors=True)
         os.rmdir(real_root)
         symlink_target: str | None = None
         try:
             symlink_target = os.path.join(
-                tempfile.mkdtemp(prefix="real-cache-"), "blobs",
+                tempfile.mkdtemp(prefix="real-cache-"),
+                "blobs",
             )
             os.makedirs(symlink_target)
             os.symlink(symlink_target, real_root)
@@ -1825,6 +1904,7 @@ class TestCorruptionRecovery(_MaterializationTestCase):
         finally:
             if symlink_target is not None:
                 import shutil as _s
+
                 _s.rmtree(symlink_target, ignore_errors=True)
             # Restore root for tearDown assertions.
             if os.path.islink(real_root):
@@ -1835,6 +1915,7 @@ class TestCorruptionRecovery(_MaterializationTestCase):
                 if entry not in original_entries:
                     full = os.path.join(self._tmp_root, entry)
                     import shutil as _shutil
+
                     if os.path.isdir(full) and not os.path.islink(full):
                         _shutil.rmtree(full)
                     else:
@@ -1867,10 +1948,12 @@ class TestProjectionMetadataPreservation(_MaterializationTestCase):
         )
 
         # Second materialization: two entries, both already cached.
-        transport = _FakeTransport({
-            "https://x.test/first.tgz": data,
-            "https://x.test/second.tgz": data,
-        })
+        transport = _FakeTransport(
+            {
+                "https://x.test/first.tgz": data,
+                "https://x.test/second.tgz": data,
+            }
+        )
         result = self._materialize(
             [
                 SelectedArtifact("https://x.test/first.tgz", integrity),
@@ -1917,11 +2000,15 @@ class TestProjectionMetadataPreservation(_MaterializationTestCase):
 
         class _FailingTransport:
             calls: list[str]
-            def __init__(self) -> None: self.calls = []
+
+            def __init__(self) -> None:
+                self.calls = []
+
             def fetch_chunks(self, url: str):
                 self.calls.append(url)
                 raise ArtifactMaterializationError(
-                    reason="transport", detail="injected failure",
+                    reason="transport",
+                    detail="injected failure",
                 )
 
         transport = _FailingTransport()
@@ -1975,6 +2062,7 @@ class TestProjectionMetadataPreservation(_MaterializationTestCase):
         self.assertIsNotNone(lock)
         self.assertIn(wrong_integrity, lock.released)
 
+
 # ═══════════════════════════════════════════════════════════════════════
 # Task 3.4 — Interruption Safety
 # ═══════════════════════════════════════════════════════════════════════
@@ -2008,7 +2096,7 @@ class TestInterruptionSafety(_MaterializationTestCase):
                 transport=transport,
                 filesystem=fs,
                 lock_factory=factory,
-                    temp_dir=td,
+                temp_dir=td,
                 cache_root=self._cache_root,
             )
 
@@ -2045,7 +2133,7 @@ class TestInterruptionSafety(_MaterializationTestCase):
                 transport=transport,
                 filesystem=fs,
                 lock_factory=factory,
-                    temp_dir=td,
+                temp_dir=td,
                 cache_root=self._cache_root,
             )
 
@@ -2077,7 +2165,7 @@ class TestInterruptionSafety(_MaterializationTestCase):
                 transport=transport,
                 filesystem=fs,
                 lock_factory=factory,
-                    temp_dir=td,
+                temp_dir=td,
                 cache_root=self._cache_root,
             )
 
@@ -2111,7 +2199,7 @@ class TestInterruptionSafety(_MaterializationTestCase):
                 transport=transport,
                 filesystem=fs,
                 lock_factory=factory,
-                    temp_dir=td,
+                temp_dir=td,
                 cache_root=self._cache_root,
             )
 
@@ -2139,7 +2227,7 @@ class TestInterruptionSafety(_MaterializationTestCase):
                 transport=transport,
                 filesystem=fs,
                 lock_factory=factory,
-                    temp_dir=_FakeTempDir(),
+                temp_dir=_FakeTempDir(),
                 cache_root=self._cache_root,
             )
 
@@ -2170,6 +2258,7 @@ class TestInterruptionSafety(_MaterializationTestCase):
             def __init__(self):
                 super().__init__()
                 self.cleaned_dirs: list[str] = []
+
             def cleanup_temp(self, root: str) -> None:
                 self.cleaned_dirs.append(root)
                 raise SystemExit(0)
@@ -2182,7 +2271,7 @@ class TestInterruptionSafety(_MaterializationTestCase):
                 transport=transport,
                 filesystem=fs,
                 lock_factory=factory,
-                    temp_dir=_FakeTempDir(),
+                temp_dir=_FakeTempDir(),
                 cache_root=self._cache_root,
             )
 
@@ -2197,6 +2286,7 @@ class TestInterruptionSafety(_MaterializationTestCase):
 # ═══════════════════════════════════════════════════════════════════════
 # Phase 3 — artifact-cache temporary-creation lifecycle (tasks 3.2/3.5)
 # ═══════════════════════════════════════════════════════════════════════
+
 
 def _fd_owner_path(fd: int) -> str | None:
     try:
@@ -2320,9 +2410,14 @@ class TestTemporaryCreationLifecycle(unittest.TestCase):
                 super().__init__(*args, **kwargs)
                 created.append(self)
 
-        with mock.patch.object(
-            artifact_cache_module, "OwnedDescriptor", _RecordingOwner,
-        ), mock.patch("os.close", side_effect=fake_close):
+        with (
+            mock.patch.object(
+                artifact_cache_module,
+                "OwnedDescriptor",
+                _RecordingOwner,
+            ),
+            mock.patch("os.close", side_effect=fake_close),
+        ):
             with self.assertRaises(OSError):
                 LocalCacheFilesystem().create_temp(str(self.blob))
         # Phase 6 also owns the parent path, so several owners are created;

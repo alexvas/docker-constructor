@@ -18,6 +18,7 @@ Task 5.3: require all README translations to document disabled default,
 These tests MUST fail against the pre-Phase-5 codebase because the
 obsolete patterns have not been removed yet.
 """
+
 from __future__ import annotations
 
 import pathlib
@@ -31,6 +32,7 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 # Helpers
 # ════════════════════════════════════════════════════════════════════
 
+
 def _py_files() -> dict[str, pathlib.Path]:
     result: dict[str, pathlib.Path] = {}
     for p in (REPO / "docker").rglob("*.py"):
@@ -41,9 +43,7 @@ def _py_files() -> dict[str, pathlib.Path]:
 
 def _lines(path: pathlib.Path) -> list[tuple[int, str]]:
     try:
-        return list(
-            enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
-        )
+        return list(enumerate(path.read_text(encoding="utf-8").splitlines(), 1))
     except UnicodeDecodeError:
         return []
 
@@ -59,9 +59,7 @@ def _check_patterns(
                 m = pat.search(line)
                 if not m:
                     continue
-                violations.append(
-                    f"{rel}:{lineno}: {label} — {line.strip()[:120]}"
-                )
+                violations.append(f"{rel}:{lineno}: {label} — {line.strip()[:120]}")
     return violations
 
 
@@ -89,9 +87,7 @@ _REVIEWED_CACHE_DIR: list[tuple[str, re.Pattern[str]]] = [
     ),
 ]
 
-_DIAGNOSTIC_FUNC_RE = re.compile(
-    r"def\s+(probe_|diagnose_|_probe|_diagnose|detect_)"
-)
+_DIAGNOSTIC_FUNC_RE = re.compile(r"def\s+(probe_|diagnose_|_probe|_diagnose|detect_)")
 
 
 # ════════════════════════════════════════════════════════════════════
@@ -104,13 +100,13 @@ class TestNoEnvGatewayPersistence(unittest.TestCase):
 
     def test_no_dotenv_gateway_references(self) -> None:
         violations = _check_patterns(
-            _py_files(), _GATEWAY_ENV_PERSISTENCE,
+            _py_files(),
+            _GATEWAY_ENV_PERSISTENCE,
         )
         if violations:
             self.fail(
                 "Production files reference .env gateway persistence "
-                "— migrate to local TOML companion:\n"
-                + "\n".join(violations)
+                "— migrate to local TOML companion:\n" + "\n".join(violations)
             )
 
 
@@ -152,6 +148,7 @@ class TestNoUnconditionalRunMapping(unittest.TestCase):
     @staticmethod
     def _renderer_projection_path() -> pathlib.Path:
         import tempfile
+
         td = pathlib.Path(tempfile.mkdtemp())
         dot_docker = td / ".docker-generated" / "runtime"
         dot_docker.mkdir(parents=True)
@@ -161,8 +158,11 @@ class TestNoUnconditionalRunMapping(unittest.TestCase):
 
     def test_disabled_renderer_emits_no_add_host(self) -> None:
         from docker.versioning.rendering import (
-            RunRenderInputs, RunHostAccess, render_run_vector,
+            RunRenderInputs,
+            RunHostAccess,
+            render_run_vector,
         )
+
         proj = self._renderer_projection_path()
         try:
             inputs = RunRenderInputs(
@@ -174,15 +174,22 @@ class TestNoUnconditionalRunMapping(unittest.TestCase):
             result = render_run_vector(inputs)
         finally:
             import shutil
+
             shutil.rmtree(proj.parents[2], ignore_errors=True)
         self.assertNotIn("--add-host", result, "disabled must not emit --add-host")
-        self.assertNotIn("host.docker.internal", result,
-                         "disabled must not reference host.docker.internal")
+        self.assertNotIn(
+            "host.docker.internal",
+            result,
+            "disabled must not reference host.docker.internal",
+        )
 
     def test_enabled_renderer_emits_add_host(self) -> None:
         from docker.versioning.rendering import (
-            RunRenderInputs, RunHostAccess, render_run_vector,
+            RunRenderInputs,
+            RunHostAccess,
+            render_run_vector,
         )
+
         proj = self._renderer_projection_path()
         try:
             inputs = RunRenderInputs(
@@ -190,21 +197,25 @@ class TestNoUnconditionalRunMapping(unittest.TestCase):
                 projection_host_path=str(proj),
                 projection_container_path="/run/pi-cli/docker-constructor.runtime.toml",
                 host_access=RunHostAccess(
-                    address="10.0.2.2", mode="docker-gateway",
+                    address="10.0.2.2",
+                    mode="docker-gateway",
                 ),
             )
             result = render_run_vector(inputs)
         finally:
             import shutil
+
             shutil.rmtree(proj.parents[2], ignore_errors=True)
         self.assertIn("--add-host", result, "enabled must emit --add-host")
         idx = result.index("--add-host")
         self.assertLess(
-            idx + 1, len(result),
+            idx + 1,
+            len(result),
             "--add-host must be followed by a mapping value",
         )
         self.assertEqual(
-            "host.docker.internal:10.0.2.2", result[idx + 1],
+            "host.docker.internal:10.0.2.2",
+            result[idx + 1],
             "enabled docker-gateway must map host.docker.internal to the address",
         )
 
@@ -232,9 +243,7 @@ class TestNoUnconditionalRunMapping(unittest.TestCase):
 
         host_re = re.compile(r"host\.docker\.internal")
         # Module-level diagnostic variable patterns
-        _DIAG_VAR_RE = re.compile(
-            r"^(_PROBE_|_DIAGNOSE_|_DETECT_|_GATEWAY_)"
-        )
+        _DIAG_VAR_RE = re.compile(r"^(_PROBE_|_DIAGNOSE_|_DETECT_|_GATEWAY_)")
         # Build variable-name per line for module-level assignments
         var_for_line: dict[int, str] = {}
         for i, (_, line) in enumerate(all_lines):
@@ -266,23 +275,26 @@ class TestNoUnconditionalRunMapping(unittest.TestCase):
                     break
                 # If we hit another module-level assignment or a def, stop
                 l = all_lines[j][1]
-                if l.startswith("def ") or ("=" in l and l.strip() == l and not l.startswith(" ")):
+                if l.startswith("def ") or (
+                    "=" in l and l.strip() == l and not l.startswith(" ")
+                ):
                     break
             if in_diag_var:
                 continue
             # Not in any diagnostic context — fail
             has_diag_ancestor = _has_diagnostic_ancestor(all_lines, i)
             if not has_diag_ancestor:
-                    self.fail(
-                        f"docker/networking.py:{lineno}: "
-                        f"host.docker.internal outside a diagnostic "
-                        f"function (probe_*/diagnose_*/detect_*); "
-                        f"this is not a run-mapping site"
-                    )
+                self.fail(
+                    f"docker/networking.py:{lineno}: "
+                    f"host.docker.internal outside a diagnostic "
+                    f"function (probe_*/diagnose_*/detect_*); "
+                    f"this is not a run-mapping site"
+                )
 
 
 def _has_diagnostic_ancestor(
-    all_lines: list[tuple[int, str]], idx: int,
+    all_lines: list[tuple[int, str]],
+    idx: int,
 ) -> bool:
     """Scan backwards from *idx* looking for a def of a diagnostic function."""
     for j in range(idx - 1, max(idx - 150, 0), -1):
@@ -300,13 +312,13 @@ class TestNoReviewedCacheDir(unittest.TestCase):
 
     def test_no_reviewed_cache_dir(self) -> None:
         violations = _check_patterns(
-            _py_files(), _REVIEWED_CACHE_DIR,
+            _py_files(),
+            _REVIEWED_CACHE_DIR,
         )
         if violations:
             self.fail(
                 "Production files reference reviewed cache.dir "
-                "— it is now local-only:\n"
-                + "\n".join(violations)
+                "— it is now local-only:\n" + "\n".join(violations)
             )
 
 
@@ -354,17 +366,21 @@ class TestLocalExampleExists(unittest.TestCase):
         try:
             result = subprocess.run(
                 ["git", "ls-files", "--", str(rel)],
-                capture_output=True, text=True, cwd=str(REPO),
+                capture_output=True,
+                text=True,
+                cwd=str(REPO),
             )
         except Exception as exc:
             self.skipTest(f"git ls-files failed: {exc}")
         self.assertEqual(
-            0, result.returncode,
+            0,
+            result.returncode,
             f"git ls-files failed: {result.stderr}",
         )
         tracked = result.stdout.strip()
         self.assertIn(
-            str(rel), tracked.splitlines() or [],
+            str(rel),
+            tracked.splitlines() or [],
             f"{rel} must be tracked by git (not in .gitignore)",
         )
 
@@ -372,10 +388,9 @@ class TestLocalExampleExists(unittest.TestCase):
         if not _LOCAL_EXAMPLE_FILE.is_file():
             self.skipTest("example file missing")
         import tomllib
+
         try:
-            data = tomllib.loads(
-                _LOCAL_EXAMPLE_FILE.read_text(encoding="utf-8")
-            )
+            data = tomllib.loads(_LOCAL_EXAMPLE_FILE.read_text(encoding="utf-8"))
         except Exception as exc:
             self.fail(f"example is not valid TOML: {exc}")
         sections = set(data.keys())
@@ -390,10 +405,9 @@ class TestLocalExampleExists(unittest.TestCase):
         if not _LOCAL_EXAMPLE_FILE.is_file():
             self.skipTest("example file missing")
         import tomllib
+
         try:
-            data = tomllib.loads(
-                _LOCAL_EXAMPLE_FILE.read_text(encoding="utf-8")
-            )
+            data = tomllib.loads(_LOCAL_EXAMPLE_FILE.read_text(encoding="utf-8"))
         except Exception:
             self.skipTest("invalid TOML — checked by other test")
         ha = data.get("host-access", {})
@@ -407,7 +421,8 @@ class TestLocalExampleExists(unittest.TestCase):
             f"got {set(ha.keys())}",
         )
         self.assertIsInstance(
-            ha.get("address"), str,
+            ha.get("address"),
+            str,
             "[host-access].address must be a string",
         )
 
@@ -415,10 +430,9 @@ class TestLocalExampleExists(unittest.TestCase):
         if not _LOCAL_EXAMPLE_FILE.is_file():
             self.skipTest("example file missing")
         import tomllib
+
         try:
-            data = tomllib.loads(
-                _LOCAL_EXAMPLE_FILE.read_text(encoding="utf-8")
-            )
+            data = tomllib.loads(_LOCAL_EXAMPLE_FILE.read_text(encoding="utf-8"))
         except Exception:
             self.skipTest("invalid TOML — checked by other test")
         cache = data.get("cache", {})
@@ -432,7 +446,8 @@ class TestLocalExampleExists(unittest.TestCase):
             f"got {set(cache.keys())}",
         )
         self.assertIsInstance(
-            cache.get("dir"), str,
+            cache.get("dir"),
+            str,
             "[cache].dir must be a string",
         )
 
@@ -463,66 +478,146 @@ _README_REQUIREMENTS: tuple[
     (
         "host access disabled by default / opt-in only",
         ("docker-gateway", "external-address", "host-access"),
-        (("disabled", "off by default", "absent", "opt-in",
-           "отключен", "по умолчанию", "禁用", "默认"),),
+        (
+            (
+                "disabled",
+                "off by default",
+                "absent",
+                "opt-in",
+                "отключен",
+                "по умолчанию",
+                "禁用",
+                "默认",
+            ),
+        ),
     ),
     (
         "docker-gateway mode resolves host.docker.internal via doctor",
         ("docker-gateway",),
-        (("host.docker.internal", "resolve", "doctor",
-           "шлюз", "разрешает", "网关", "解析"),),
+        (
+            (
+                "host.docker.internal",
+                "resolve",
+                "doctor",
+                "шлюз",
+                "разрешает",
+                "网关",
+                "解析",
+            ),
+        ),
     ),
     (
         "external-address mode uses user-supplied known address",
         ("external-address",),
-        (("user", "supply", "known", "interface",
-           "указать", "внешний", "指定", "外部"),),
+        (
+            (
+                "user",
+                "supply",
+                "known",
+                "interface",
+                "указать",
+                "внешний",
+                "指定",
+                "外部",
+            ),
+        ),
     ),
     (
         "canonical companion: docker-constructor.toml → docker-constructor.local.toml",
         ("docker-constructor.local.toml",),
-        (("docker-constructor.toml",),
-         ("companion", "local", "рядом", "сопроводительный",
-          "本地", "旁边"),),
+        (
+            ("docker-constructor.toml",),
+            ("companion", "local", "рядом", "сопроводительный", "本地", "旁边"),
+        ),
     ),
     (
         "optional proxy-port with no protocol assumption",
         ("proxy-port",),
-        (("optional", "no protocol", "port only", "HOST_PROXY_PORT",
-           "derive", "assume", "construct",
-           "необязательный", "протокол", "可选", "协议"),),
+        (
+            (
+                "optional",
+                "no protocol",
+                "port only",
+                "HOST_PROXY_PORT",
+                "derive",
+                "assume",
+                "construct",
+                "необязательный",
+                "протокол",
+                "可选",
+                "协议",
+            ),
+        ),
     ),
     (
         "external-service binding caveat (interface / firewall)",
         ("HOST_ACCESS_ADDRESS", "external service"),
-        (("bind", "interface", "loopback", "firewall", "listens",
-           "caveat", "reachable",
-           "привязка", "интерфейс", "брандмауэр", "绑定", "接口", "防火墙"),),
+        (
+            (
+                "bind",
+                "interface",
+                "loopback",
+                "firewall",
+                "listens",
+                "caveat",
+                "reachable",
+                "привязка",
+                "интерфейс",
+                "брандмауэр",
+                "绑定",
+                "接口",
+                "防火墙",
+            ),
+        ),
     ),
     (
         "neutral HOST_ACCESS_ADDRESS / HOST_PROXY_PORT (no protocol assumption)",
         ("HOST_ACCESS_ADDRESS",),
-        (("HOST_PROXY_PORT",),
-         ("neutral", "protocol", "assume", "derive",
-           "only", "variable",
-           "нейтральн", "протокол", "仅", "协议"),),
+        (
+            ("HOST_PROXY_PORT",),
+            (
+                "neutral",
+                "protocol",
+                "assume",
+                "derive",
+                "only",
+                "variable",
+                "нейтральн",
+                "протокол",
+                "仅",
+                "协议",
+            ),
+        ),
     ),
     (
         "doctor Docker-gateway exclusivity: external-address/disabled skipped",
         ("docker-gateway",),
-        (("external-address", "disabled",
-           "внешний", "отключен", "外部", "禁用"),
-         ("does not", "skip", "no diagnosis", "no overwrite",
-          "no repair", "no persist",
-          "не выполняет", "не работает", "не диагностирует",
-          "не перезаписывает", "не восстанавливает",
-          "不能", "不运行", "不诊断", "不覆盖", "不修复"),),
+        (
+            ("external-address", "disabled", "внешний", "отключен", "外部", "禁用"),
+            (
+                "does not",
+                "skip",
+                "no diagnosis",
+                "no overwrite",
+                "no repair",
+                "no persist",
+                "не выполняет",
+                "не работает",
+                "не диагностирует",
+                "не перезаписывает",
+                "не восстанавливает",
+                "不能",
+                "不运行",
+                "不诊断",
+                "不覆盖",
+                "不修复",
+            ),
+        ),
     ),
     (
         "cache.dir local companion and cache.ttl reviewed policy",
         ("cache.dir",),
-        (("cache.ttl",),
-         ("local", "companion", "локальный", "本地")),
+        (("cache.ttl",), ("local", "companion", "локальный", "本地")),
     ),
 )
 
@@ -595,9 +690,7 @@ class TestDocumentationMatcher(unittest.TestCase):
 
     def test_doctor_scope_missing_excluded_mode(self) -> None:
         """docker-gateway + negative but no excluded mode → no match."""
-        para = (
-            "For docker-gateway mode, doctor does not run for anything else."
-        )
+        para = "For docker-gateway mode, doctor does not run for anything else."
         anchor = ("docker-gateway",)
         groups = (
             ("external-address", "disabled"),
@@ -610,9 +703,7 @@ class TestDocumentationMatcher(unittest.TestCase):
 
     def test_doctor_scope_external_address_not_behavior(self) -> None:
         """external-address alone does not satisfy negative-behavior group."""
-        para = (
-            "docker-gateway mode and external-address mode are the two options."
-        )
+        para = "docker-gateway mode and external-address mode are the two options."
         anchor = ("docker-gateway",)
         groups = (
             ("external-address", "disabled"),
@@ -625,9 +716,7 @@ class TestDocumentationMatcher(unittest.TestCase):
 
     def test_doctor_scope_missing_negative(self) -> None:
         """docker-gateway + excluded mode but no negative → no match."""
-        para = (
-            "Docker-gateway mode can be used with external-address or disabled."
-        )
+        para = "Docker-gateway mode can be used with external-address or disabled."
         anchor = ("docker-gateway",)
         groups = (
             ("external-address", "disabled"),
@@ -740,13 +829,24 @@ class TestReadmeParity(unittest.TestCase):
         Docker-gateway local state."""
         anchor = ("docker-gateway", "doctor")
         groups = (
-            ("diagnose", "update", "persist", "write", "record",
-             "диагностик", "обновляет", "сохраняет",
-             "诊断", "更新", "保存"),
+            (
+                "diagnose",
+                "update",
+                "persist",
+                "write",
+                "record",
+                "диагностик",
+                "обновляет",
+                "сохраняет",
+                "诊断",
+                "更新",
+                "保存",
+            ),
         )
         self._assert_paragraph_exists(
             "doctor diagnoses/updates docker-gateway local state",
-            anchor, groups,
+            anchor,
+            groups,
         )
 
     def test_doctor_excludes_external_address(self) -> None:
@@ -754,15 +854,37 @@ class TestReadmeParity(unittest.TestCase):
         diagnose/overwrite/persist/repair for external-address."""
         anchor = ("external-address",)
         groups = (
-            ("does not", "skip", "no", "not", "never",
-             "не", "не выполняет", "不", "不会"),
-            ("diagnose", "overwrite", "persist", "repair", "update",
-             "диагностик", "перезаписывает", "сохраняет", "восстанавливает",
-             "诊断", "覆盖", "保存", "修复"),
+            (
+                "does not",
+                "skip",
+                "no",
+                "not",
+                "never",
+                "не",
+                "не выполняет",
+                "不",
+                "不会",
+            ),
+            (
+                "diagnose",
+                "overwrite",
+                "persist",
+                "repair",
+                "update",
+                "диагностик",
+                "перезаписывает",
+                "сохраняет",
+                "восстанавливает",
+                "诊断",
+                "覆盖",
+                "保存",
+                "修复",
+            ),
         )
         self._assert_paragraph_exists(
             "doctor excludes external-address from diagnosis/persistence",
-            anchor, groups,
+            anchor,
+            groups,
         )
 
     def test_disabled_skips_doctor_persistence(self) -> None:
@@ -770,15 +892,35 @@ class TestReadmeParity(unittest.TestCase):
         trigger doctor persistence or repair."""
         anchor = ("disabled", "отключен", "禁用")
         groups = (
-            ("does not", "skip", "no", "not", "never",
-             "не", "не выполняет", "不", "不会"),
-            ("doctor", "diagnose", "persist", "repair", "update",
-             "диагностик", "сохраняет", "восстанавливает",
-             "诊断", "保存", "修复"),
+            (
+                "does not",
+                "skip",
+                "no",
+                "not",
+                "never",
+                "не",
+                "не выполняет",
+                "不",
+                "不会",
+            ),
+            (
+                "doctor",
+                "diagnose",
+                "persist",
+                "repair",
+                "update",
+                "диагностик",
+                "сохраняет",
+                "восстанавливает",
+                "诊断",
+                "保存",
+                "修复",
+            ),
         )
         self._assert_paragraph_exists(
             "disabled host access does not trigger doctor persistence",
-            anchor, groups,
+            anchor,
+            groups,
         )
 
     # ── helpers ───────────────────────────────────────────────────

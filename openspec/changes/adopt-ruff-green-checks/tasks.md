@@ -163,27 +163,27 @@ This forward-only chain is the chosen DAG. A phase may depend only on an earlier
 
 ### RED
 
-- [ ] 3.1 Capture the pre-format full-inventory format-check result; accept when actual findings/status or an already-formatted result are recorded.
-- [ ] 3.2 Capture the P2 exit source baseline; accept when temporary before-state contents and durable fingerprints identify every inventory file for AST/diff comparison.
+- [x] 3.1 Capture the pre-format full-inventory format-check result; accept when actual findings/status or an already-formatted result are recorded.
+- [x] 3.2 Capture the P2 exit source baseline; accept when temporary before-state contents and durable fingerprints identify every inventory file for AST/diff comparison.
 
 ### GREEN
 
-- [ ] 3.3 Run Ruff formatting on the complete inventory; accept when the source delta is generated only by `ruff format` 0.17.1 with the agreed configuration.
+- [x] 3.3 Run Ruff formatting on the complete inventory; accept when the source delta is generated only by `ruff format` 0.17.1 with the agreed configuration.
 
 ### INTROSPECT
 
-- [ ] 3.4 Compare changed-file ASTs ignoring locations; accept when every changed file is equivalent, including type comments where represented. If formatter changes type-ignore locations, normalize only location metadata, not the ignored code or tag.
-- [ ] 3.5 Audit delta purity; accept when only formatter output appears and the delta is suitable for a separate explicitly authorized commit. Return source-sensitive test repairs to P1/P2 instead of hiding them here.
+- [x] 3.4 Compare changed-file ASTs ignoring locations; accept when every changed file is equivalent, including type comments where represented. If formatter changes type-ignore locations, normalize only location metadata, not the ignored code or tag.
+- [x] 3.5 Audit delta purity; accept when only formatter output appears and the delta is suitable for a separate explicitly authorized commit. Return source-sensitive test repairs to P1/P2 instead of hiding them here.
 
 ### VALIDATE
 
-- [ ] 3.6 Run formatting a second time; accept when no contents change.
-- [ ] 3.7 Run full-inventory format check; accept only exit 0.
-- [ ] 3.8 Run full pytest for R; accept only exit 0 and its durable summary.
-- [ ] 3.9 Execute manifest checks mandatory in P3: all existing required checks, shared compilation and full-inventory format check; accept only successful statuses. Full-inventory lint remains diagnostic backlog until P5.
-- [ ] 3.10 Run shared compilation for R; accept only exit 0.
-- [ ] 3.11 Review phase-exit skips; accept only justified reasons.
-- [ ] 3.12 Publish the P3 exit report; accept when purity/equivalence reports and R identify the same formatted state.
+- [x] 3.6 Run formatting a second time; accept when no contents change.
+- [x] 3.7 Run full-inventory format check; accept only exit 0.
+- [x] 3.8 Run full pytest for R; accept only exit 0 and its durable summary.
+- [x] 3.9 Execute manifest checks mandatory in P3: all existing required checks, shared compilation and full-inventory format check; accept only successful statuses. Full-inventory lint remains diagnostic backlog until P5.
+- [x] 3.10 Run shared compilation for R; accept only exit 0.
+- [x] 3.11 Review phase-exit skips; accept only justified reasons.
+- [x] 3.12 Publish the P3 exit report; accept when purity/equivalence reports and R identify the same formatted state.
 
 ## 4. P4 — Safe automatic fixes (3.1)
 

@@ -23,6 +23,7 @@ guard so an implementation cannot pass by calling ``Path.resolve()``,
 tests intentionally precede the module implementation; run them before the
 GREEN task and expect failures until ``cache_storage.py`` exists.
 """
+
 from __future__ import annotations
 
 import ast
@@ -105,8 +106,7 @@ def _filesystem_guard(name: str):
 
     def _guard(*args, **kwargs):
         raise AssertionError(
-            f"pure cache-root resolution must not access the filesystem "
-            f"via {name}(...)"
+            f"pure cache-root resolution must not access the filesystem via {name}(...)"
         )
 
     return _guard
@@ -234,9 +234,7 @@ class TestDefaultRootResolution(_PureResolutionTestCase):
 
     def _resolve(self, xdg: str | None, home: Path) -> Path:
         cache_storage = _cache_storage()
-        return self._guarded(
-            cache_storage.resolve_default_root, xdg, home=home
-        )
+        return self._guarded(cache_storage.resolve_default_root, xdg, home=home)
 
     def test_explicit_absolute_xdg_produces_candidate(self) -> None:
         root = self._resolve("/xdg/cache", Path("/home/user"))
@@ -359,15 +357,15 @@ class TestLocalRootResolution(_PureResolutionTestCase):
 
     def test_lexical_equivalents_of_unsafe_roots_rejected(self) -> None:
         equivalents = [
-            "/xdg/cache/",            # equal XDG (trailing slash)
-            "/xdg/cache/.",           # equal XDG (dot segment)
-            "/xdg/cache/sub/..",      # equal XDG (dot-dot collapse)
-            "/xdg/./cache",           # equal XDG
-            "/home/testuser/.",       # equal HOME
+            "/xdg/cache/",  # equal XDG (trailing slash)
+            "/xdg/cache/.",  # equal XDG (dot segment)
+            "/xdg/cache/sub/..",  # equal XDG (dot-dot collapse)
+            "/xdg/./cache",  # equal XDG
+            "/home/testuser/.",  # equal HOME
             "/home/testuser/sub/..",  # equal HOME
-            "/xdg/cache/..",          # ancestor of XDG
-            "/xdg/..",                # filesystem root
-            "/.",                     # filesystem root
+            "/xdg/cache/..",  # ancestor of XDG
+            "/xdg/..",  # filesystem root
+            "/.",  # filesystem root
         ]
         for value in equivalents:
             with self.subTest(value=value):

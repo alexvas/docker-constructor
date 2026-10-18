@@ -1,4 +1,5 @@
 """Unit tests for docker.versioning.model — validation helpers."""
+
 from __future__ import annotations
 
 import unittest
@@ -54,36 +55,29 @@ class TestValidateUtcRfc3339(unittest.TestCase):
 
     def test_minus_00_00_rejected(self) -> None:
         """-00:00 is an unknown local offset, not authoritative UTC."""
-        self.assertIsNone(
-            _validate_utc_rfc3339("2025-01-01T00:00:00-00:00"))
+        self.assertIsNone(_validate_utc_rfc3339("2025-01-01T00:00:00-00:00"))
 
     def test_non_utc_plus_rejected(self) -> None:
-        self.assertIsNone(
-            _validate_utc_rfc3339("2025-01-01T00:00:00+01:00"))
+        self.assertIsNone(_validate_utc_rfc3339("2025-01-01T00:00:00+01:00"))
 
     def test_non_utc_minus_rejected(self) -> None:
-        self.assertIsNone(
-            _validate_utc_rfc3339("2025-01-01T00:00:00-05:00"))
+        self.assertIsNone(_validate_utc_rfc3339("2025-01-01T00:00:00-05:00"))
 
     # ── rejected: timezone-less ───────────────────────────────────
 
     def test_timezone_less_rejected(self) -> None:
-        self.assertIsNone(
-            _validate_utc_rfc3339("2025-01-01T00:00:00"))
+        self.assertIsNone(_validate_utc_rfc3339("2025-01-01T00:00:00"))
 
     # ── rejected: non-RFC-3339 forms ──────────────────────────────
 
     def test_space_separator_rejected(self) -> None:
-        self.assertIsNone(
-            _validate_utc_rfc3339("2025-01-01 00:00:00Z"))
+        self.assertIsNone(_validate_utc_rfc3339("2025-01-01 00:00:00Z"))
 
     def test_compact_form_rejected(self) -> None:
-        self.assertIsNone(
-            _validate_utc_rfc3339("20250101T000000Z"))
+        self.assertIsNone(_validate_utc_rfc3339("20250101T000000Z"))
 
     def test_bare_date_rejected(self) -> None:
-        self.assertIsNone(
-            _validate_utc_rfc3339("2025-01-01"))
+        self.assertIsNone(_validate_utc_rfc3339("2025-01-01"))
 
     # ── rejected: invalid / absent inputs ─────────────────────────
 
@@ -97,13 +91,11 @@ class TestValidateUtcRfc3339(unittest.TestCase):
         self.assertIsNone(_validate_utc_rfc3339("   "))
 
     def test_garbage_rejected(self) -> None:
-        self.assertIsNone(
-            _validate_utc_rfc3339("not-a-timestamp"))
+        self.assertIsNone(_validate_utc_rfc3339("not-a-timestamp"))
 
     def test_invalid_date_rejected(self) -> None:
         """Feb 30 is not a real calendar date."""
-        self.assertIsNone(
-            _validate_utc_rfc3339("2025-02-30T12:00:00Z"))
+        self.assertIsNone(_validate_utc_rfc3339("2025-02-30T12:00:00Z"))
 
     def test_fraction_digits_up_to_six_accepted(self) -> None:
         """Up to 6 fractional digits (microsecond) accepted."""
@@ -114,5 +106,4 @@ class TestValidateUtcRfc3339(unittest.TestCase):
 
     def test_fraction_digits_over_six_rejected(self) -> None:
         """>6 fractional digits exceed datetime resolution — rejected."""
-        self.assertIsNone(
-            _validate_utc_rfc3339("2025-01-01T00:00:00.1234567Z"))
+        self.assertIsNone(_validate_utc_rfc3339("2025-01-01T00:00:00.1234567Z"))

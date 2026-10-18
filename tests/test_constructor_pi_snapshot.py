@@ -8,6 +8,7 @@ the tree is copied only after validation, and the copied staging tree is
 recomputed and re-validated before publication.  The two checksum-verified
 installation files are never exposed.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -37,9 +38,7 @@ from docker.versioning.digest_identity import DigestIdentity
 from docker.versioning.project_state import resolve_project_state
 from tests.pi_fixtures import PI_BIN_TARGET, build_pi_attestation
 
-_CLI_REL = (
-    "node_modules/@earendil-works/pi-coding-agent/" + PI_BIN_TARGET
-)
+_CLI_REL = "node_modules/@earendil-works/pi-coding-agent/" + PI_BIN_TARGET
 
 # Snapshot-relative location of the isolated Pi derived-environment directory.
 _ISOLATION = Path("derived-environments/pi")
@@ -48,7 +47,10 @@ _ISOLATION = Path("derived-environments/pi")
 def _selected(root: Path):
     result = []
     for name, payload in (
-        ("rustup", b"r"), ("uv", b"u"), ("rtk", b"t"), ("fd", b"f"),
+        ("rustup", b"r"),
+        ("uv", b"u"),
+        ("rtk", b"t"),
+        ("fd", b"f"),
     ):
         blob = root / f"{name}.blob"
         blob.write_bytes(payload)
@@ -59,7 +61,8 @@ def _selected(root: Path):
                     name,
                     "https://not-exposed.invalid/",
                     DigestIdentity.from_hex(
-                        "sha256", hashlib.sha256(payload).hexdigest(),
+                        "sha256",
+                        hashlib.sha256(payload).hexdigest(),
                     ),
                 ),
                 blob,
@@ -114,8 +117,10 @@ class _SnapshotHarness:
 
     def run(self):
         snapshot = create_artifact_snapshot(
-            (x[0] for x in self.pairs), (x[1] for x in self.pairs),
-            constructor_project_root=self.root, project_state=self.state,
+            (x[0] for x in self.pairs),
+            (x[1] for x in self.pairs),
+            constructor_project_root=self.root,
+            project_state=self.state,
             derived=self.derived,
         )
         self.test.addCleanup(cleanup_artifact_snapshot, snapshot)
@@ -124,8 +129,10 @@ class _SnapshotHarness:
     def assert_fails(self, message_substr: str) -> None:
         with self.test.assertRaises(SnapshotError) as ctx:
             create_artifact_snapshot(
-                (x[0] for x in self.pairs), (x[1] for x in self.pairs),
-                constructor_project_root=self.root, project_state=self.state,
+                (x[0] for x in self.pairs),
+                (x[1] for x in self.pairs),
+                constructor_project_root=self.root,
+                project_state=self.state,
                 derived=self.derived,
             )
         self.test.assertIn(message_substr, str(ctx.exception))
@@ -151,9 +158,7 @@ class TestPiSnapshotAdmission(unittest.TestCase):
         self.assertEqual(stat.S_IMODE(launcher_evidence.stat().st_mode), 0o444)
         manifest = json.loads(snapshot.manifest.read_text())
         self.assertIn("pi", manifest)
-        self.assertEqual(
-            manifest["pi"]["isolation_dir"], _ISOLATION.as_posix()
-        )
+        self.assertEqual(manifest["pi"]["isolation_dir"], _ISOLATION.as_posix())
         self.assertEqual(
             manifest["pi"]["tree"]["path"],
             (_ISOLATION / "opt" / "pi").as_posix(),
@@ -182,8 +187,14 @@ class TestPiSnapshotAdmission(unittest.TestCase):
         # tree at the root.
         self.assertEqual(
             {p.name for p in snapshot.path.iterdir()},
-            {"rustup-init", "uv.tar.gz", "rtk.deb", "fd.deb", "manifest.json",
-             "derived-environments"},
+            {
+                "rustup-init",
+                "uv.tar.gz",
+                "rtk.deb",
+                "fd.deb",
+                "manifest.json",
+                "derived-environments",
+            },
         )
         self.assertFalse((snapshot.path / "pi-assembler-evidence.json").exists())
         self.assertFalse((snapshot.path / "pi-launcher-evidence.json").exists())
@@ -214,8 +225,10 @@ class TestPiSnapshotAdmission(unittest.TestCase):
         for name in ("rustup-init", "uv.tar.gz", "rtk.deb", "fd.deb"):
             self.assertTrue((snapshot.path / name).is_file())
         self.assertFalse(
-            any(p.name in {"rustup-init", "uv.tar.gz", "rtk.deb", "fd.deb"}
-                for p in isolation.rglob("*"))
+            any(
+                p.name in {"rustup-init", "uv.tar.gz", "rtk.deb", "fd.deb"}
+                for p in isolation.rglob("*")
+            )
         )
 
     def test_installation_files_are_absent_from_snapshot(self):
@@ -361,7 +374,7 @@ class TestPiSnapshotValidation(unittest.TestCase):
         tree, parts = self._parts()
         derived = dataclasses.replace(
             _derived_source(parts),
-            launcher_contents=b"#!/bin/sh\nexec node /tmp/elsewhere \"$@\"\n",
+            launcher_contents=b'#!/bin/sh\nexec node /tmp/elsewhere "$@"\n',
         )
         _SnapshotHarness(self, derived).assert_fails(
             "launcher contents do not match the launcher evidence"
@@ -393,9 +406,9 @@ class TestPiSnapshotValidation(unittest.TestCase):
         tree, parts = self._parts()
         body = json.loads(parts.launcher_evidence.data)
         body["extra"] = "x"
-        new_data = json.dumps(
-            body, sort_keys=True, separators=(",", ":")
-        ).encode("utf-8")
+        new_data = json.dumps(body, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8"
+        )
         derived = dataclasses.replace(
             _derived_source(parts),
             launcher_evidence=new_data,
@@ -407,12 +420,12 @@ class TestPiSnapshotValidation(unittest.TestCase):
         # Arbitrary bytes are rejected even when their digest is recorded, via
         # the canonical-script recompute from the evidenced target.
         tree, parts = self._parts()
-        arbitrary = b"#!/bin/sh\nexec node /tmp/elsewhere \"$@\"\n"
+        arbitrary = b'#!/bin/sh\nexec node /tmp/elsewhere "$@"\n'
         body = json.loads(parts.launcher_evidence.data)
         body["contents_sha256"] = hashlib.sha256(arbitrary).hexdigest()
-        new_data = json.dumps(
-            body, sort_keys=True, separators=(",", ":")
-        ).encode("utf-8")
+        new_data = json.dumps(body, sort_keys=True, separators=(",", ":")).encode(
+            "utf-8"
+        )
         derived = dataclasses.replace(
             _derived_source(parts),
             launcher_contents=arbitrary,
@@ -431,9 +444,7 @@ class TestPiSnapshotValidation(unittest.TestCase):
     def test_launcher_evidence_wrong_path_rejected(self):
         tree, parts = self._parts()
         derived = self._derived_with_launcher(
-            parts, lambda body: body.__setitem__(
-                "launcher_path", "/usr/local/bin/pi"
-            )
+            parts, lambda body: body.__setitem__("launcher_path", "/usr/local/bin/pi")
         )
         _SnapshotHarness(self, derived).assert_fails("does not equal")
 

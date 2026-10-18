@@ -29,7 +29,11 @@ class TestPublicResultBoundary(unittest.TestCase):
     def test_result_and_evidence_do_not_leak_cache_or_runtime_internals(self) -> None:
         import docker.npm_environment as pkg
 
-        for dto in (pkg.AssemblyResult, pkg.AssemblerEvidence, pkg.AssemblerEvidenceBody):
+        for dto in (
+            pkg.AssemblyResult,
+            pkg.AssemblerEvidence,
+            pkg.AssemblerEvidenceBody,
+        ):
             fields = {f.name for f in dataclasses.fields(dto)}
             lowered = " ".join(fields).lower()
             for forbidden in (

@@ -25,6 +25,7 @@ and ``[network.proxy]``:
 Run this module before tasks 2.6-2.11 and expect failures until that
 boundary exists.
 """
+
 from __future__ import annotations
 
 import os
@@ -68,16 +69,26 @@ _CLIENT_CA_ARG_NAMES = (
 
 _SYSTEM_CA_BUNDLE = "/etc/ssl/certs/ca-certificates.crt"
 
-_VALID_BUNDLE = (
-    "-----BEGIN CERTIFICATE-----\n"
-    "AQIDBAU=\n"
-    "-----END CERTIFICATE-----\n"
-)
+_VALID_BUNDLE = "-----BEGIN CERTIFICATE-----\nAQIDBAU=\n-----END CERTIFICATE-----\n"
 
 _DOCKERFILE_INSTRUCTIONS = {
-    "ADD", "ARG", "CMD", "COPY", "ENTRYPOINT", "ENV", "EXPOSE", "FROM",
-    "HEALTHCHECK", "LABEL", "ONBUILD", "RUN", "SHELL", "STOPSIGNAL", "USER",
-    "VOLUME", "WORKDIR",
+    "ADD",
+    "ARG",
+    "CMD",
+    "COPY",
+    "ENTRYPOINT",
+    "ENV",
+    "EXPOSE",
+    "FROM",
+    "HEALTHCHECK",
+    "LABEL",
+    "ONBUILD",
+    "RUN",
+    "SHELL",
+    "STOPSIGNAL",
+    "USER",
+    "VOLUME",
+    "WORKDIR",
 }
 
 _NETWORK_MARKERS = (
@@ -150,13 +161,16 @@ class _BuildOrchestrationRed(unittest.TestCase):
                 bundle_dir.mkdir()
                 (bundle_dir / "corporate-ca-bundle.crt").write_text(bundle)
             effects: list[str] = []
-            result = orchestrate_build(BuildRequest(
-                inventory_path=str(inventory),
-                repo_root=str(root_path), project_root=str(root_path),
-                confirmed=False,
-                dry_run=True,
-                runner=_recording_build_executor(effects),
-            ))
+            result = orchestrate_build(
+                BuildRequest(
+                    inventory_path=str(inventory),
+                    repo_root=str(root_path),
+                    project_root=str(root_path),
+                    confirmed=False,
+                    dry_run=True,
+                    runner=_recording_build_executor(effects),
+                )
+            )
             self.assertEqual([], effects)
             return result
 
@@ -243,9 +257,7 @@ class TestConfiguredProxyBuildVectorRed(_BuildOrchestrationRed):
             "socks5h://proxy.corp.example:1080",
         ):
             with self.subTest(url=url):
-                result = self.build_with_local(
-                    f'[network.proxy]\nurl = "{url}"\n'
-                )
+                result = self.build_with_local(f'[network.proxy]\nurl = "{url}"\n')
                 self.assertEqual(ExitKind.SUCCESS, result.exit_kind, result.message)
                 pairs = _build_arg_pairs(result.display_string or "")
                 self.assertEqual(url, pairs.get("PI_CORPORATE_PROXY_URL"))
@@ -256,7 +268,7 @@ class TestConfiguredProxyBuildVectorRed(_BuildOrchestrationRed):
 
     def test_no_proxy_emitted_only_when_explicitly_configured(self) -> None:
         configured = self.build_with_local(
-            '[network.proxy]\n'
+            "[network.proxy]\n"
             'url = "http://proxy.corp.example:3128"\n'
             'no_proxy = "localhost,.corp.example"\n'
         )
@@ -342,11 +354,13 @@ class TestCorporateNetworkEnvironmentHelper(unittest.TestCase):
         inherited = {
             name: f"/inherited/{name.lower()}" for name in _CLIENT_CA_ARG_NAMES
         }
-        environment = self._source_helper({
-            **inherited,
-            "CORPORATE_TRUST_ENABLED": "true",
-            "PI_CORPORATE_CA_PATH": _SYSTEM_CA_BUNDLE,
-        })
+        environment = self._source_helper(
+            {
+                **inherited,
+                "CORPORATE_TRUST_ENABLED": "true",
+                "PI_CORPORATE_CA_PATH": _SYSTEM_CA_BUNDLE,
+            }
+        )
         self.assertEqual(
             {name: _SYSTEM_CA_BUNDLE for name in _CLIENT_CA_ARG_NAMES},
             {name: environment.get(name) for name in _CLIENT_CA_ARG_NAMES},
@@ -362,7 +376,9 @@ class TestCorporateNetworkEnvironmentHelper(unittest.TestCase):
                 for name in _CLIENT_CA_ARG_NAMES:
                     self.assertNotIn(name, environment)
 
-    def test_absent_or_disabled_trust_preserves_inherited_client_ca_values(self) -> None:
+    def test_absent_or_disabled_trust_preserves_inherited_client_ca_values(
+        self,
+    ) -> None:
         inherited = {
             name: f"/inherited/{name.lower()}" for name in _CLIENT_CA_ARG_NAMES
         }
@@ -394,7 +410,8 @@ class TestDockerfileTrustReplacementRed(unittest.TestCase):
         lines = text.splitlines()
         apt_indices = [i for i, line in enumerate(lines) if "apt-get update" in line]
         trust_indices = [
-            i for i, line in enumerate(lines)
+            i
+            for i, line in enumerate(lines)
             if "/etc/ssl/certs/ca-certificates.crt" in line
         ]
         self.assertTrue(apt_indices, "expected a base-stage apt-get network operation")
@@ -429,12 +446,14 @@ class TestDockerfileTrustReplacementRed(unittest.TestCase):
                 i += 1
         for var in _CLIENT_CA_ARG_NAMES:
             prohibited = [
-                instruction for instruction in instructions
+                instruction
+                for instruction in instructions
                 if instruction.startswith(("ENV ", "ARG "))
                 and var in instruction.replace("=", " ").split()
             ]
             self.assertEqual(
-                [], prohibited,
+                [],
+                prohibited,
                 f"{var} must not be a persistent ENV or same-named ARG",
             )
         self.assertIn("ARG PI_CORPORATE_CA_PATH", text)
@@ -458,12 +477,14 @@ class TestDockerfileTrustReplacementRed(unittest.TestCase):
         text = (_REPO_ROOT / "Dockerfile").read_text()
         lines = text.splitlines()
         ca_install = [
-            i for i, line in enumerate(lines)
+            i
+            for i, line in enumerate(lines)
             if "ca-certificates" in line and "ca-certificates.crt" not in line
         ]
         self.assertTrue(ca_install, "expected the ca-certificates package install")
         reapply = [
-            i for i, line in enumerate(lines)
+            i
+            for i, line in enumerate(lines)
             if i > ca_install[0]
             and "cp " in line
             and "/etc/ssl/certs/ca-certificates.crt" in line
@@ -562,15 +583,14 @@ class TestDockerfileBundleValidationRed(unittest.TestCase):
 
     def test_validator_accepts_complete_bundles(self) -> None:
         for label, content in (
-            ("single block",
-             f"{self._BEGIN}\nAQIDBAU=\n{self._END}\n"),
-            ("multi-block",
-             f"{self._BEGIN}\nAQIDBAU=\n{self._END}\n"
-             f"{self._BEGIN}\nCQoLDA0=\n{self._END}\n"),
-            ("multi-line payload",
-             f"{self._BEGIN}\nAQID\nBAUG\n{self._END}\n"),
-            ("CRLF line endings",
-             f"{self._BEGIN}\r\nAQIDBAU=\r\n{self._END}\r\n"),
+            ("single block", f"{self._BEGIN}\nAQIDBAU=\n{self._END}\n"),
+            (
+                "multi-block",
+                f"{self._BEGIN}\nAQIDBAU=\n{self._END}\n"
+                f"{self._BEGIN}\nCQoLDA0=\n{self._END}\n",
+            ),
+            ("multi-line payload", f"{self._BEGIN}\nAQID\nBAUG\n{self._END}\n"),
+            ("CRLF line endings", f"{self._BEGIN}\r\nAQIDBAU=\r\n{self._END}\r\n"),
         ):
             with self.subTest(case=label):
                 self.assertEqual(0, self._validator_exit(content))
@@ -587,8 +607,7 @@ class TestDockerfileBundleValidationRed(unittest.TestCase):
             "unmatched END": f"{self._END}\n",
             "text before block": f"hello\n{self._BEGIN}\nAQIDBAU=\n{self._END}\n",
             "text after block": f"{self._BEGIN}\nAQIDBAU=\n{self._END}\nworld\n",
-            "inline delimiter in payload":
-                f"{self._BEGIN}\nAQID{self._BEGIN}BAU=\n{self._END}\n",
+            "inline delimiter in payload": f"{self._BEGIN}\nAQID{self._BEGIN}BAU=\n{self._END}\n",
             "empty payload": f"{self._BEGIN}\n{self._END}\n",
         }
         for label, content in cases.items():
@@ -600,8 +619,7 @@ class TestDockerfileBundleValidationRed(unittest.TestCase):
             "punctuation": f"{self._BEGIN}\nAQIDBAU!\n{self._END}\n",
             "embedded space": f"{self._BEGIN}\nAQID BAU=\n{self._END}\n",
             "embedded tab": f"{self._BEGIN}\nAQID\tBAU=\n{self._END}\n",
-            "embedded carriage return":
-                f"{self._BEGIN}\nAQID\rBAU=\n{self._END}\n",
+            "embedded carriage return": f"{self._BEGIN}\nAQID\rBAU=\n{self._END}\n",
             "missing padding": f"{self._BEGIN}\nAQIDBAU\n{self._END}\n",
             "non-ASCII": f"{self._BEGIN}\nAQIDBAU=\u00e4\n{self._END}\n",
             "control byte": f"{self._BEGIN}\nAQIDBAU=\x7f\n{self._END}\n",
@@ -618,7 +636,8 @@ class TestDockerfileProxyArgsRed(unittest.TestCase):
         text = (_REPO_ROOT / "Dockerfile").read_text()
         for name in _PROXY_ARG_NAMES:
             self.assertNotIn(
-                f"ARG {name}", text,
+                f"ARG {name}",
+                text,
                 f"{name} must not be a same-named ARG (an inherited ENV overrides it)",
             )
         for name in _CONSTRUCTOR_PROXY_ARGS:

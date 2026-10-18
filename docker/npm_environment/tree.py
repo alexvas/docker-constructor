@@ -91,9 +91,7 @@ def _contained_target(rel_path: str, target: str) -> bool:
     """Return True when a symlink target resolves inside the tree root."""
     if not target or os.path.isabs(target) or "\\" in target:
         return False
-    resolved = posixpath.normpath(
-        posixpath.join(posixpath.dirname(rel_path), target)
-    )
+    resolved = posixpath.normpath(posixpath.join(posixpath.dirname(rel_path), target))
     return not (resolved == ".." or resolved.startswith("../"))
 
 
@@ -237,10 +235,14 @@ def parse_manifest(data: bytes) -> TreeManifest:
         )
     digest = raw.get("digest")
     if not isinstance(digest, str):
-        raise LockedNpmError("tree_manifest_malformed", "manifest digest must be a string")
+        raise LockedNpmError(
+            "tree_manifest_malformed", "manifest digest must be a string"
+        )
     entries_raw = raw.get("entries")
     if not isinstance(entries_raw, list):
-        raise LockedNpmError("tree_manifest_malformed", "manifest entries must be a list")
+        raise LockedNpmError(
+            "tree_manifest_malformed", "manifest entries must be a list"
+        )
     entries = tuple(
         _entry_from_jsonable(item, f"entries[{i}]")
         for i, item in enumerate(entries_raw)
@@ -248,7 +250,8 @@ def parse_manifest(data: bytes) -> TreeManifest:
     ordered = tuple(sorted(entries))
     if entries != ordered:
         raise LockedNpmError(
-            "tree_order_mismatch", "tree manifest entries are not in canonical path order"
+            "tree_order_mismatch",
+            "tree manifest entries are not in canonical path order",
         )
     if len(ordered) != len({e.path for e in ordered}):
         raise LockedNpmError(
@@ -262,9 +265,7 @@ def parse_manifest(data: bytes) -> TreeManifest:
     return TreeManifest(entries=ordered, digest=digest)
 
 
-def _hash_file_entry(
-    directory: DirectoryDescriptor, name: str, rel: str
-) -> _Found:
+def _hash_file_entry(directory: DirectoryDescriptor, name: str, rel: str) -> _Found:
     """Hash one regular-file entry from a single no-follow descriptor.
 
     Regular files stay a raw POSIX boundary: the lightweight capability
@@ -338,14 +339,11 @@ def _walk_entries(
         elif _stat.S_ISDIR(st.st_mode):
             visit(_Found(rel, _KIND_DIRECTORY, "", "", mode, uid, gid))
             try:
-                sub = directory.open_directory(
-                    name, label=rel, require_owner=False
-                )
+                sub = directory.open_directory(name, label=rel, require_owner=False)
             except DescriptorError as exc:
                 raise LockedNpmError(
                     "tree_type_mismatch",
-                    f"cannot open directory entry {rel!r}: "
-                    f"{_foundation_cause(exc)}",
+                    f"cannot open directory entry {rel!r}: {_foundation_cause(exc)}",
                 ) from exc
             with sub:
                 _walk_entries(sub, rel, visit)
@@ -448,13 +446,10 @@ def build_tree_manifest(
 
 
 def _compare(found: _Found, expected: TreeEntry) -> None:
-    if found.kind == _KIND_SYMLINK and not _contained_target(
-        found.path, found.target
-    ):
+    if found.kind == _KIND_SYMLINK and not _contained_target(found.path, found.target):
         raise LockedNpmError(
             "tree_symlink_escape",
-            f"symlink {found.path!r} targets outside the tree: "
-            f"{found.target!r}",
+            f"symlink {found.path!r} targets outside the tree: {found.target!r}",
         )
     if found.kind != expected.kind:
         raise LockedNpmError(

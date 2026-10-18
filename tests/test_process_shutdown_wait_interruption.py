@@ -1,4 +1,5 @@
 """Shutdown must publish new control flow even after incomplete delivery."""
+
 import threading
 from unittest import mock
 
@@ -10,7 +11,9 @@ from tests.test_process_lifecycle import Child, stalled
 
 @pytest.mark.parametrize("method", ["capture", "stream"])
 @pytest.mark.parametrize("operation", ["shutdown", "context"])
-def test_incomplete_collection_wait_interruption_without_continuation_publication(method, operation):
+def test_incomplete_collection_wait_interruption_without_continuation_publication(
+    method, operation
+):
     child = Child()
     owner, pipe = stalled(process, child)
     paused, resume = threading.Event(), threading.Event()
@@ -26,13 +29,19 @@ def test_incomplete_collection_wait_interruption_without_continuation_publicatio
         with mock.patch.object(owner, "_publish", publish):
             assert not owner.shutdown().complete
             assert paused.wait(1)
-            result = owner.capture() if method == "capture" else owner.stream(lambda *args: None)
+            result = (
+                owner.capture()
+                if method == "capture"
+                else owner.stream(lambda *args: None)
+            )
             assert not result.lifecycle.complete
             snapshot = result.lifecycle.failures
             assert owner._collection_delivered
             assert not owner._phase_done.is_set()
             assert pipe.attempts == 0
-            with mock.patch.object(owner._phase_done, "wait", side_effect=interruption) as wait:
+            with mock.patch.object(
+                owner._phase_done, "wait", side_effect=interruption
+            ) as wait:
                 with pytest.raises(KeyboardInterrupt) as caught:
                     if operation == "shutdown":
                         owner.shutdown()
@@ -44,7 +53,9 @@ def test_incomplete_collection_wait_interruption_without_continuation_publicatio
             assert interruption.cleanup is owner
             assert not hasattr(interruption, "process_result")
             assert not owner.cleanup_status.complete
-            failure = next(f for f in owner.cleanup_status.failures if f.error is interruption)
+            failure = next(
+                f for f in owner.cleanup_status.failures if f.error is interruption
+            )
             assert failure.kind is process.FailureKind.INTERRUPTION
             assert failure.phase is process.FailurePhase.COORDINATION
             assert failure.stream is None

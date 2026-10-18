@@ -5,6 +5,7 @@ its diagnostic-retention helpers, prove the foundation is import-isolated from
 the transaction substrate and domain packages, and confirm the transaction
 compatibility paths still resolve to the single shared implementation.
 """
+
 from __future__ import annotations
 
 import ast
@@ -374,9 +375,7 @@ class FoundationOwnershipTests(unittest.TestCase):
         self.assertEqual(list(cleanup_init.parameters), ["self", "primary"])
         run_params = inspect.signature(CleanupFailures.run).parameters
         self.assertEqual(list(run_params), ["self", "action", "ordinary"])
-        self.assertEqual(
-            run_params["ordinary"].kind, inspect.Parameter.KEYWORD_ONLY
-        )
+        self.assertEqual(run_params["ordinary"].kind, inspect.Parameter.KEYWORD_ONLY)
         self.assertEqual(
             list(inspect.signature(carry_secondary_diagnostics).parameters),
             ["target", "source"],

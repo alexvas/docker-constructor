@@ -3,6 +3,7 @@
 Maps (repository, ref) pairs to commit hashes.
 Records all calls for assertion.  Fails on unexpected calls.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -34,6 +35,4 @@ class FailingGitTransport:
     """A git transport that fails on any call — for regression tests."""
 
     def resolve_ref(self, repository: str, ref: str) -> str:
-        raise AssertionError(
-            f"Unexpected git ref resolution: {repository} {ref}"
-        )
+        raise AssertionError(f"Unexpected git ref resolution: {repository} {ref}")

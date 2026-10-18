@@ -14,6 +14,7 @@ loop with the shared ``LockCapability`` acquired under an explicit
 These tests pin the migrated behavior.  The lock entry name remains the
 identity-derived private name so the on-disk namespace is unchanged.
 """
+
 from __future__ import annotations
 
 import base64
@@ -114,7 +115,9 @@ class ConcurrencyScopeTests(_RuntimeLockCase):
             # The contender must not enter while the holder owns the identity.
             self.assertFalse(acquired.wait(0.3), "same-identity lock did not block")
             holder.release(_SHA512)
-            self.assertTrue(acquired.wait(5.0), "contender never acquired after release")
+            self.assertTrue(
+                acquired.wait(5.0), "contender never acquired after release"
+            )
             self.assertTrue(released.wait(5.0))
         finally:
             holder.release(_SHA512)
@@ -422,7 +425,10 @@ class ValidHitFastPathTests(_RuntimeLockCase):
         from docker.versioning.artifact_cache import LocalCacheFilesystem
 
         hit = _try_cache_hit(
-            integrity, "sha512", blob, LocalCacheFilesystem(),
+            integrity,
+            "sha512",
+            blob,
+            LocalCacheFilesystem(),
             os.path.join(self.tmp.name, "cache"),
         )
         self.assertIsNotNone(hit)

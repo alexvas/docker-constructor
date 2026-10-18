@@ -19,9 +19,9 @@ from docker.versioning.configuration_document_validation import (  # noqa: E402
     ConfigurationDocumentError,
     DocumentRole,
 )
-from docker.versioning.model import InvalidArtifactKey               # noqa: E402
-from docker.versions import load_inventory               # noqa: E402
-from tests.inventory_fixtures import (                   # noqa: E402
+from docker.versioning.model import InvalidArtifactKey  # noqa: E402
+from docker.versions import load_inventory  # noqa: E402
+from tests.inventory_fixtures import (  # noqa: E402
     stable_inventory_path,
     stable_inventory_text,
 )
@@ -99,8 +99,10 @@ def _add_artifact(key: str) -> str:
 # shared helpers for test classes
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class _TmpMixin:
     """Mixin adding temp-file tracking + cleanup to a TestCase."""
+
     _temp_files: ClassVar[list[Path]]
 
     @classmethod
@@ -152,6 +154,7 @@ class _TmpMixin:
 # ═══════════════════════════════════════════════════════════════════════════
 # Task 3.1 — Closed runtime schema
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestClosedRuntimeSchema(_TmpMixin, unittest.TestCase):
     """Focused tests for the runtime.pi-extensions closed source schema."""
@@ -242,17 +245,21 @@ class TestClosedRuntimeSchema(_TmpMixin, unittest.TestCase):
         # The error may mention 'build' before 'runtime' since build is checked first.
         # Either way, a scalar runtime is rejected.
         msg = str(ctx.exception).lower()
-        self.assertTrue("runtime" in msg or "table" in msg or "build" in msg,
-                        f"Unexpected error: {msg}")
+        self.assertTrue(
+            "runtime" in msg or "table" in msg or "build" in msg,
+            f"Unexpected error: {msg}",
+        )
 
     def test_non_table_extension_rejected(self):
         toml = _read_canonical()
-        toml += "\n[runtime.pi-extensions]\nbad-ext = \"not a table\"\n"
+        toml += '\n[runtime.pi-extensions]\nbad-ext = "not a table"\n'
         path = self._write(toml)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path, "runtime.pi-extensions.bad-ext",
+            ctx,
+            path,
+            "runtime.pi-extensions.bad-ext",
             rejected="not a table",
         )
 
@@ -260,7 +267,7 @@ class TestClosedRuntimeSchema(_TmpMixin, unittest.TestCase):
 
     def test_unknown_runtime_key_rejected(self):
         toml = _read_canonical()
-        toml += "\n[runtime.extra-thing]\nkey = \"val\"\n"
+        toml += '\n[runtime.extra-thing]\nkey = "val"\n'
         path = self._write(toml)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
@@ -271,13 +278,15 @@ class TestClosedRuntimeSchema(_TmpMixin, unittest.TestCase):
         # Add an unrecognized key directly in the extension table using inline
         toml = toml.replace(
             "[runtime.pi-extensions.pi-test]\nversion",
-            "[runtime.pi-extensions.pi-test]\nadmin_password = \"secret\"\nversion"
+            '[runtime.pi-extensions.pi-test]\nadmin_password = "secret"\nversion',
         )
         path = self._write(toml)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path, "runtime.pi-extensions.pi-test.admin_password",
+            ctx,
+            path,
+            "runtime.pi-extensions.pi-test.admin_password",
             rejected="secret",
         )
 
@@ -285,14 +294,15 @@ class TestClosedRuntimeSchema(_TmpMixin, unittest.TestCase):
         toml = _read_canonical() + _RUNTIME_SNIPPET
         # Replace the validation section with one containing extra keys
         toml = toml.replace(
-            "metadata_file = \"package.json\"",
-            "metadata_file = \"package.json\"\nrun_script = \"evil.sh\""
+            'metadata_file = "package.json"',
+            'metadata_file = "package.json"\nrun_script = "evil.sh"',
         )
         path = self._write(toml)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-read.validation.run_script",
             rejected="evil.sh",
         )
@@ -300,14 +310,14 @@ class TestClosedRuntimeSchema(_TmpMixin, unittest.TestCase):
     def test_metadata_file_absolute_path_rejected(self):
         """metadata_file must not be an absolute path."""
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
-            'metadata_file = "package.json"',
-            'metadata_file = "/etc/passwd"'
+            'metadata_file = "package.json"', 'metadata_file = "/etc/passwd"'
         )
         path = self._write(toml)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test.validation.metadata_file",
             rejected="/etc/passwd",
         )
@@ -315,14 +325,14 @@ class TestClosedRuntimeSchema(_TmpMixin, unittest.TestCase):
     def test_metadata_file_traversal_rejected(self):
         """metadata_file must not contain .. traversal."""
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
-            'metadata_file = "package.json"',
-            'metadata_file = "../../etc/passwd"'
+            'metadata_file = "package.json"', 'metadata_file = "../../etc/passwd"'
         )
         path = self._write(toml)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test.validation.metadata_file",
             rejected="../../etc/passwd",
         )
@@ -330,13 +340,12 @@ class TestClosedRuntimeSchema(_TmpMixin, unittest.TestCase):
     def test_metadata_file_safe_relative_accepted(self):
         """A safe relative metadata_file path is accepted."""
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
-            'metadata_file = "package.json"',
-            'metadata_file = "dist/info.json"'
+            'metadata_file = "package.json"', 'metadata_file = "dist/info.json"'
         )
         inv = load_inventory(self._write(toml))
         self.assertEqual(
             inv.runtime_pi_extensions["pi-test"].validation.metadata_file,
-            "dist/info.json"
+            "dist/info.json",
         )
 
     # ── version validation ──────────────────────────────────────────────
@@ -405,7 +414,9 @@ metadata_file = "package.json"
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path, "runtime.pi-extensions.pi-test.source.type",
+            ctx,
+            path,
+            "runtime.pi-extensions.pi-test.source.type",
             rejected="pypi",
         )
 
@@ -417,7 +428,9 @@ metadata_file = "package.json"
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path, "runtime.pi-extensions.pi-test.update.provider",
+            ctx,
+            path,
+            "runtime.pi-extensions.pi-test.update.provider",
             rejected="pypi",
         )
 
@@ -514,8 +527,9 @@ validation = 42
 
     def test_missing_integrity_rejected(self):
         import re
+
         toml = _read_canonical() + _RUNTIME_SNIPPET
-        toml = re.sub(r'integrity = ".*"\n', '', toml)
+        toml = re.sub(r'integrity = ".*"\n', "", toml)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(self._write(toml))
         self.assertIn("integrity", str(ctx.exception).lower())
@@ -539,7 +553,8 @@ validation = 42
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test.artifacts.1.2.3.integrity",
             rejected="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
         )
@@ -557,11 +572,11 @@ validation = 42
     def test_valid_sri_integrity_algorithms_accepted(self):
         """Valid sha256/sha384/sha512 integrity values are accepted."""
         import base64
+
         for algorithm, byte_length in (("sha256", 32), ("sha384", 48), ("sha512", 64)):
             with self.subTest(algorithm=algorithm):
                 integrity = (
-                    f"{algorithm}-"
-                    + base64.b64encode(b"\x00" * byte_length).decode()
+                    f"{algorithm}-" + base64.b64encode(b"\x00" * byte_length).decode()
                 )
                 toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
                     "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
@@ -576,6 +591,7 @@ validation = 42
     def test_unsupported_integrity_algorithm_rejected(self):
         """An SRI value outside sha256/sha384/sha512 is rejected."""
         import base64
+
         unsupported = "sha1-" + base64.b64encode(b"\x00" * 20).decode()
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
             "sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
@@ -593,7 +609,8 @@ validation = 42
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test.artifacts.1.2.3.url",
             rejected="http://registry.npmjs.org/@example/pi-test/-/pi-test-1.2.3.tgz",
         )
@@ -621,8 +638,7 @@ validation = 42
     def test_override_unknown_key_rejected(self):
         """Unknown keys inside [override] are rejected."""
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
-            'scheme = "numeric"',
-            'scheme = "numeric"\nunsupported_field = true'
+            'scheme = "numeric"', 'scheme = "numeric"\nunsupported_field = true'
         )
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(self._write(toml))
@@ -631,7 +647,7 @@ validation = 42
     def test_override_numeric_rejects_prerelease(self):
         """Numeric scheme with allow_prerelease=true is rejected."""
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
-            'allow_prerelease = false', 'allow_prerelease = true'
+            "allow_prerelease = false", "allow_prerelease = true"
         )
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(self._write(toml))
@@ -641,9 +657,7 @@ validation = 42
         """Version must satisfy the declared override constraint."""
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
             'version = "1.2.3"', 'version = "0.9.0"'
-        ).replace(
-            'pi-test-1.2.3.tgz', 'pi-test-0.9.0.tgz'
-        ).replace(
+        ).replace("pi-test-1.2.3.tgz", "pi-test-0.9.0.tgz").replace(
             'artifacts."1.2.3"', 'artifacts."0.9.0"'
         )
         path = self._write(toml)
@@ -660,7 +674,7 @@ validation = 42
     def test_stages_under_build_rejected_at_runtime(self):
         """build.stages fields should not appear under runtime."""
         toml = _read_canonical()
-        toml += "\n[runtime.stages.something]\nversion = \"1.0\"\n"
+        toml += '\n[runtime.stages.something]\nversion = "1.0"\n'
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(self._write(toml))
         self.assertIn("stages", str(ctx.exception).lower())
@@ -670,13 +684,15 @@ validation = 42
         # Add unrecognized key via inline modification of the existing section
         toml = toml.replace(
             "[runtime.pi-extensions.pi-test]\nversion",
-            "[runtime.pi-extensions.pi-test]\ninstall_dir = \"/opt\"\nversion"
+            '[runtime.pi-extensions.pi-test]\ninstall_dir = "/opt"\nversion',
         )
         path = self._write(toml)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path, "runtime.pi-extensions.pi-test.install_dir",
+            ctx,
+            path,
+            "runtime.pi-extensions.pi-test.install_dir",
             rejected="/opt",
         )
 
@@ -691,7 +707,8 @@ validation = 42
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test.artifacts.1.2.3.integrity",
             rejected="bad-hash",
         )
@@ -705,7 +722,8 @@ validation = 42
             load_inventory(path)
         # The artifact key is the authorized canonical field path, not leaked prose.
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test.artifacts.not/a/version",
         )
 
@@ -717,19 +735,21 @@ validation = 42
                 with self.assertRaises(InventoryError) as ctx:
                     load_inventory(path)
                 self.assertReviewedSchemaError(
-                    ctx, path,
+                    ctx,
+                    path,
                     f"runtime.pi-extensions.pi-test.artifacts.{tag}",
                 )
 
     def test_artifact_key_version_not_in_url_rejected(self):
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
-            'pi-test-1.2.3.tgz', 'pi-test-9.9.9.tgz'
+            "pi-test-1.2.3.tgz", "pi-test-9.9.9.tgz"
         )
         path = self._write(toml)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test.artifacts.1.2.3.url",
             rejected="pi-test-9.9.9.tgz",
         )
@@ -741,7 +761,8 @@ validation = 42
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test.artifacts.1.2.3-01",
         )
 
@@ -751,7 +772,8 @@ validation = 42
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test.artifacts.1.2.3+build!",
         )
 
@@ -759,78 +781,84 @@ validation = 42
 
     def test_url_version_in_query_rejected(self):
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
-            'pi-test-1.2.3.tgz', 'pi-test-1.2.3.tgz?version=1.2.3'
+            "pi-test-1.2.3.tgz", "pi-test-1.2.3.tgz?version=1.2.3"
         )
         path = self._write(toml)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test.artifacts.1.2.3.url",
             rejected="?version=1.2.3",
         )
 
     def test_url_fragment_rejected(self):
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
-            'pi-test-1.2.3.tgz', 'pi-test-1.2.3.tgz#1.2.3'
+            "pi-test-1.2.3.tgz", "pi-test-1.2.3.tgz#1.2.3"
         )
         path = self._write(toml)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test.artifacts.1.2.3.url",
             rejected="#1.2.3",
         )
 
     def test_url_wrong_package_stem_rejected(self):
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
-            '@example/pi-test/-/', '@evil/wrong-package/-/'
+            "@example/pi-test/-/", "@evil/wrong-package/-/"
         )
         path = self._write(toml)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test.artifacts.1.2.3.url",
             rejected="@evil/wrong-package",
         )
 
     def test_url_missing_tarball_stem_rejected(self):
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
-            '/@example/pi-test/-/', '/@example/pi-test/v/'
+            "/@example/pi-test/-/", "/@example/pi-test/v/"
         )
         path = self._write(toml)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test.artifacts.1.2.3.url",
             rejected="https://registry.npmjs.org/@example/pi-test/v/pi-test-1.2.3.tgz",
         )
 
     def test_url_not_tgz_rejected(self):
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
-            'pi-test-1.2.3.tgz', 'pi-test-1.2.3.tar.gz'
+            "pi-test-1.2.3.tgz", "pi-test-1.2.3.tar.gz"
         )
         path = self._write(toml)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test.artifacts.1.2.3.url",
             rejected="pi-test-1.2.3.tar.gz",
         )
 
     def test_url_wrong_tarball_name_rejected(self):
         toml = _read_canonical() + _RUNTIME_SNIPPET.replace(
-            'pi-test-1.2.3.tgz', 'wrong-name-1.2.3.tgz'
+            "pi-test-1.2.3.tgz", "wrong-name-1.2.3.tgz"
         )
         path = self._write(toml)
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test.artifacts.1.2.3.url",
             rejected="wrong-name-1.2.3.tgz",
         )
@@ -839,6 +867,7 @@ validation = 42
 # ═══════════════════════════════════════════════════════════════════════════
 # Task 3.2 — Phase placement and cross-phase duplicates
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPhasePlacement(_TmpMixin, unittest.TestCase):
     """Tests rejecting dependencies placed in the wrong phase."""
@@ -859,14 +888,14 @@ package = "bad-ext"
     def test_stages_under_runtime_rejected(self):
         """build-only 'stages' must not appear under runtime."""
         toml = _read_canonical()
-        toml += "\n[runtime.stages.foo]\nversion = \"1.0\"\n"
+        toml += '\n[runtime.stages.foo]\nversion = "1.0"\n'
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(self._write(toml))
 
     def test_build_tool_entry_under_runtime_rejected(self):
         """A build tool (e.g. pi, openspec) is not valid under runtime.pi-extensions."""
         toml = _read_canonical()
-        toml += "\n[runtime.pi-tools.pi]\nversion = \"1.0\"\n"
+        toml += '\n[runtime.pi-tools.pi]\nversion = "1.0"\n'
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(self._write(toml))
 
@@ -913,7 +942,9 @@ metadata_file = "package.json"
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path, "runtime.pi-extensions.pi-duplicate",
+            ctx,
+            path,
+            "runtime.pi-extensions.pi-duplicate",
             rejected="@earendil-works/pi-coding-agent",
         )
 
@@ -943,7 +974,8 @@ metadata_file = "package.json"
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test-renamed.source.package",
             rejected="@example/pi-test",
         )
@@ -1000,7 +1032,8 @@ metadata_file = "package.json"
         with self.assertRaises(InventoryError) as ctx:
             load_inventory(path)
         self.assertReviewedSchemaError(
-            ctx, path,
+            ctx,
+            path,
             "runtime.pi-extensions.pi-test-dup.source.package",
             rejected="@example/pi-test",
         )
@@ -1017,6 +1050,7 @@ metadata_file = "package.json"
 # Live-contract lane — the repository's reviewed runtime schema
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestLiveInventoryRuntimeContract(unittest.TestCase):
     """Structural / self-consistency checks on the real project inventory.
 
@@ -1029,6 +1063,7 @@ class TestLiveInventoryRuntimeContract(unittest.TestCase):
         # Successful load is the contract; an inventory may legitimately
         # declare zero optional extensions (empty ``[runtime.pi-extensions]``).
         from collections.abc import Mapping
+
         inventory = load_inventory(_LIVE_INVENTORY)
         self.assertIsInstance(inventory.runtime_pi_extensions, Mapping)
 

@@ -6,6 +6,7 @@ sibling state, replaces only an absent or validated owned destination, and
 flushes the parent directory before success.  A post-publication parent
 fsync failure remains a failure even though the destination is visible.
 """
+
 from __future__ import annotations
 
 import errno
@@ -54,9 +55,13 @@ class DurableNoClobberTests(_DurableContractCase):
     def test_publishes_complete_bytes_and_mode(self) -> None:
         self.contracts.durable_no_clobber(self.directory, "entry", b"payload", 0o600)
         self.assertEqual(self._read("entry"), b"payload")
-        self.assertEqual(stat.S_IMODE(os.stat(os.path.join(self.root, "entry")).st_mode), 0o600)
+        self.assertEqual(
+            stat.S_IMODE(os.stat(os.path.join(self.root, "entry")).st_mode), 0o600
+        )
 
-    def test_file_fsync_precedes_publication_and_parent_fsync_precedes_success(self) -> None:
+    def test_file_fsync_precedes_publication_and_parent_fsync_precedes_success(
+        self,
+    ) -> None:
         self.contracts.durable_no_clobber(self.directory, "entry", b"payload", 0o600)
         fsync_fds = [args[0] for args in self.ops.arg_pairs("fsync")]
         self.assertEqual(len(fsync_fds), 2)
@@ -71,29 +76,33 @@ class DurableNoClobberTests(_DurableContractCase):
         with open(os.path.join(self.root, "entry"), "wb") as stream:
             stream.write(b"original")
         with self.assertRaises(DestinationExists):
-            self.contracts.durable_no_clobber(self.directory, "entry", b"replacement", 0o600)
+            self.contracts.durable_no_clobber(
+                self.directory, "entry", b"replacement", 0o600
+            )
         self.assertEqual(self._read("entry"), b"original")
         self.assertEqual(temporary_entries(self.root), [])
 
     def test_post_publication_parent_fsync_failure_remains_failure(self) -> None:
-        self.ops.failures["fsync"] = (
-            lambda count: OSError(errno.EIO, "injected directory fsync")
-            if count == 2 else None
+        self.ops.failures["fsync"] = lambda count: (
+            OSError(errno.EIO, "injected directory fsync") if count == 2 else None
         )
         with self.assertRaises(TransactionError) as ctx:
-            self.contracts.durable_no_clobber(self.directory, "entry", b"payload", 0o600)
+            self.contracts.durable_no_clobber(
+                self.directory, "entry", b"payload", 0o600
+            )
         self.assertEqual(ctx.exception.stage, STAGE_FSYNC_DIRECTORY)
         self.assertTrue(os.path.exists(os.path.join(self.root, "entry")))
         self.assertEqual(self._read("entry"), b"payload")
         self.assertEqual(temporary_entries(self.root), [])
 
     def test_file_fsync_failure_prevents_publication(self) -> None:
-        self.ops.failures["fsync"] = (
-            lambda count: OSError(errno.EIO, "injected file fsync")
-            if count == 1 else None
+        self.ops.failures["fsync"] = lambda count: (
+            OSError(errno.EIO, "injected file fsync") if count == 1 else None
         )
         with self.assertRaises(TransactionError):
-            self.contracts.durable_no_clobber(self.directory, "entry", b"payload", 0o600)
+            self.contracts.durable_no_clobber(
+                self.directory, "entry", b"payload", 0o600
+            )
         self.assertFalse(os.path.exists(os.path.join(self.root, "entry")))
         self.assertEqual(temporary_entries(self.root), [])
 
@@ -125,9 +134,8 @@ class DurableReplacementTests(_DurableContractCase):
         self.assertEqual(temporary_entries(self.root), [])
 
     def test_post_replacement_parent_fsync_failure_remains_failure(self) -> None:
-        self.ops.failures["fsync"] = (
-            lambda count: OSError(errno.EIO, "injected directory fsync")
-            if count == 2 else None
+        self.ops.failures["fsync"] = lambda count: (
+            OSError(errno.EIO, "injected directory fsync") if count == 2 else None
         )
         with self.assertRaises(TransactionError) as ctx:
             self.contracts.durable_replace(self.directory, "entry", b"payload", 0o600)
@@ -153,7 +161,9 @@ class DurableReplacementTests(_DurableContractCase):
         order = self.ops.order
         self.assertLess(order.index("fstat"), order.index("renameat"))
         self.assertLess(order.index("fsync"), order.index("renameat"))
-        self.assertGreater(order.index("fsync", order.index("renameat")), order.index("renameat"))
+        self.assertGreater(
+            order.index("fsync", order.index("renameat")), order.index("renameat")
+        )
 
     def test_fchmod_failure_is_a_staged_mode_error(self) -> None:
         cause = OSError(errno.EIO, "injected fchmod")
@@ -182,8 +192,8 @@ class DurableReplacementTests(_DurableContractCase):
         os.chmod(os.path.join(self.root, "entry"), 0o600)
         # close runs for the private temp fd first (count 1) and for the
         # destination-validation descriptor second (count 2).
-        self.ops.failures["close"] = (
-            lambda count: OSError(errno.EIO, "injected close") if count == 2 else None
+        self.ops.failures["close"] = lambda count: (
+            OSError(errno.EIO, "injected close") if count == 2 else None
         )
         with self.assertRaises(TransactionError) as ctx:
             self.contracts.durable_replace(self.directory, "entry", b"new", 0o600)
@@ -196,9 +206,7 @@ class DurableReplacementTests(_DurableContractCase):
             stream.write(b"old")
         os.chmod(os.path.join(self.root, "entry"), 0o600)
         interruption = KeyboardInterrupt()
-        self.ops.failures["close"] = (
-            lambda count: interruption if count == 2 else None
-        )
+        self.ops.failures["close"] = lambda count: interruption if count == 2 else None
         with self.assertRaises(KeyboardInterrupt) as ctx:
             self.contracts.durable_replace(self.directory, "entry", b"new", 0o600)
         self.assertIs(ctx.exception, interruption)
@@ -210,9 +218,7 @@ class DurableReplacementTests(_DurableContractCase):
             stream.write(b"old")
         os.chmod(os.path.join(self.root, "entry"), 0o600)
         cancellation = _Cancellation()
-        self.ops.failures["close"] = (
-            lambda count: cancellation if count == 2 else None
-        )
+        self.ops.failures["close"] = lambda count: cancellation if count == 2 else None
         with self.assertRaises(_Cancellation) as ctx:
             self.contracts.durable_replace(self.directory, "entry", b"new", 0o600)
         self.assertIs(ctx.exception, cancellation)
@@ -229,11 +235,21 @@ class DurableReplacementTests(_DurableContractCase):
         def observe(*args):
             observed.append(os.path.exists(dest))
 
-        for method in ("fchmod", "write", "fsync", "openat", "fstat", "close", "renameat"):
+        for method in (
+            "fchmod",
+            "write",
+            "fsync",
+            "openat",
+            "fstat",
+            "close",
+            "renameat",
+        ):
             self.ops.hooks[method] = observe
         self.contracts.durable_replace(self.directory, "entry", b"new", 0o600)
         self.assertTrue(observed)
-        self.assertTrue(all(observed), "destination was observably absent during replacement")
+        self.assertTrue(
+            all(observed), "destination was observably absent during replacement"
+        )
         self.assertEqual(self._read("entry"), b"new")
         # A replacement never unlinks the destination, so the name is never absent.
         self.assertNotIn("unlinkat", self.ops.order)
@@ -310,6 +326,7 @@ class DurableReplacementTests(_DurableContractCase):
         self.assertIs(ctx.exception.cause, primary)
         self.assertIn(cleanup, ctx.exception.secondary)
         self.assertEqual(len(temporary_entries(self.root)), 1)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

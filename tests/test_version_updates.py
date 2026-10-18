@@ -2,6 +2,7 @@
 
 Uses fake providers (not real network) via injected transports.
 """
+
 from __future__ import annotations
 
 import json
@@ -83,34 +84,56 @@ def _minimal_inventory():
     return Inventory(
         schema=1,
         stages=Stages(
-            base=BaseStage(node=NodeEntry(
-                tag="24-trixie-slim",
-                digest="sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                node_version="24.18.0", npm_version="11.16.0",
-                source=DockerRegistrySource(registry="docker.io", repository="library/node"),
-                update=DockerRegistryUpdate(stable_only=True, track="tag-digest"),
-            )),
+            base=BaseStage(
+                node=NodeEntry(
+                    tag="24-trixie-slim",
+                    digest="sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    node_version="24.18.0",
+                    npm_version="11.16.0",
+                    source=DockerRegistrySource(
+                        registry="docker.io", repository="library/node"
+                    ),
+                    update=DockerRegistryUpdate(stable_only=True, track="tag-digest"),
+                )
+            ),
             toolchain=ToolchainStage(
                 rust=RustEntry(
-                    version="1.88.0", profile="minimal",
+                    version="1.88.0",
+                    profile="minimal",
                     components=("rustfmt", "clippy"),
                     source=RustChannelSource(manifest="https://example.com/rust.toml"),
                     update=RustChannelUpdate(channel="stable", stable_only=True),
-                    rustup={"linux-amd64": ArtifactEntry(url="https://example.com/rustup-init", sha256="a" * 64)},
-                    rustup_source=StaticUrlSource(checksum_url="https://example.com/rustup-init.sha256"),
+                    rustup={
+                        "linux-amd64": ArtifactEntry(
+                            url="https://example.com/rustup-init", sha256="a" * 64
+                        )
+                    },
+                    rustup_source=StaticUrlSource(
+                        checksum_url="https://example.com/rustup-init.sha256"
+                    ),
                     rustup_update=StaticUrlUpdate(stable_only=True),
                 ),
                 uv=UvEntry(
                     version="0.1.0",
-                    artifacts={"linux-amd64": ArtifactEntry(url="https://example.com/uv.tar.gz", sha256="a" * 64)},
+                    artifacts={
+                        "linux-amd64": ArtifactEntry(
+                            url="https://example.com/uv.tar.gz", sha256="a" * 64
+                        )
+                    },
                     source=GitHubReleaseSource(repository="astral-sh/uv", tag="0.1.0"),
-                    update=GitHubReleaseUpdate(stable_only=True, required_platforms=("linux-amd64",)),
+                    update=GitHubReleaseUpdate(
+                        stable_only=True, required_platforms=("linux-amd64",)
+                    ),
                 ),
                 python=PythonEntry(
                     version="3.14.6",
                     source=UvPythonSource(implementation="cpython"),
                     update=UvPythonUpdate(implementation="cpython", stable_only=True),
-                    override=OverridePolicy(constraint=parse_constraint(">=3.14.6"), allow_prerelease=False, scheme="numeric"),
+                    override=OverridePolicy(
+                        constraint=parse_constraint(">=3.14.6"),
+                        allow_prerelease=False,
+                        scheme="numeric",
+                    ),
                 ),
                 ty=TyEntry(
                     version="0.0.61",
@@ -118,37 +141,61 @@ def _minimal_inventory():
                     update=PyPiUpdate(stable_only=True),
                 ),
             ),
-            rtk_prebuilt=RtkPrebuiltStage(rtk=PrebuiltToolEntry(
-                version="v0.1.0",
-                artifacts={"linux-amd64": ArtifactEntry(url="https://example.com/rtk.deb", sha256="a" * 64)},
-                source=GitHubReleaseSource(repository="rtk-ai/rtk", tag="v0.1.0"),
-                update=GitHubReleaseUpdate(stable_only=True, required_platforms=("linux-amd64",)),
-            )),
-            fd_prebuilt=FdPrebuiltStage(fd=PrebuiltToolEntry(
-                version="v1.0.0",
-                artifacts={"linux-amd64": ArtifactEntry(url="https://example.com/fd.deb", sha256="a" * 64)},
-                source=GitHubReleaseSource(repository="sharkdp/fd", tag="v1.0.0"),
-                update=GitHubReleaseUpdate(stable_only=True, required_platforms=("linux-amd64",)),
-            )),
-            pi_tools=PiToolsStage(pi=PiToolEntry(
-                version="1.0.0",
-                source=PiReleaseSource(
-                    package="@scope/pkg",
-                    release_repository="scope/pi",
-                    release_tag_prefix="v",
-                ),
-                update=NpmUpdate(stable_only=True),
-            )),
-            openspec_tools=OpenSpecToolsStage(openspec=NpmToolEntry(
-                version="1.0.0",
-                source=NpmSource(package="@scope/openspec"),
-                update=NpmUpdate(stable_only=True),
-            )),
-            runtime=RuntimeStage(oh_my_zsh=OhMyZshEntry(
-                revision="a" * 40,
-                source=GitSource(repository="https://github.com/ohmyzsh/ohmyzsh.git"),
-                update=GitRefUpdate(ref="master"),
-            )),
+            rtk_prebuilt=RtkPrebuiltStage(
+                rtk=PrebuiltToolEntry(
+                    version="v0.1.0",
+                    artifacts={
+                        "linux-amd64": ArtifactEntry(
+                            url="https://example.com/rtk.deb", sha256="a" * 64
+                        )
+                    },
+                    source=GitHubReleaseSource(repository="rtk-ai/rtk", tag="v0.1.0"),
+                    update=GitHubReleaseUpdate(
+                        stable_only=True, required_platforms=("linux-amd64",)
+                    ),
+                )
+            ),
+            fd_prebuilt=FdPrebuiltStage(
+                fd=PrebuiltToolEntry(
+                    version="v1.0.0",
+                    artifacts={
+                        "linux-amd64": ArtifactEntry(
+                            url="https://example.com/fd.deb", sha256="a" * 64
+                        )
+                    },
+                    source=GitHubReleaseSource(repository="sharkdp/fd", tag="v1.0.0"),
+                    update=GitHubReleaseUpdate(
+                        stable_only=True, required_platforms=("linux-amd64",)
+                    ),
+                )
+            ),
+            pi_tools=PiToolsStage(
+                pi=PiToolEntry(
+                    version="1.0.0",
+                    source=PiReleaseSource(
+                        package="@scope/pkg",
+                        release_repository="scope/pi",
+                        release_tag_prefix="v",
+                    ),
+                    update=NpmUpdate(stable_only=True),
+                )
+            ),
+            openspec_tools=OpenSpecToolsStage(
+                openspec=NpmToolEntry(
+                    version="1.0.0",
+                    source=NpmSource(package="@scope/openspec"),
+                    update=NpmUpdate(stable_only=True),
+                )
+            ),
+            runtime=RuntimeStage(
+                oh_my_zsh=OhMyZshEntry(
+                    revision="a" * 40,
+                    source=GitSource(
+                        repository="https://github.com/ohmyzsh/ohmyzsh.git"
+                    ),
+                    update=GitRefUpdate(ref="master"),
+                )
+            ),
         ),
         runtime_pi_extensions={},
     )
@@ -156,6 +203,7 @@ def _minimal_inventory():
 
 class StubProvider:
     """A fake provider that returns a pre-configured result."""
+
     name = "stub"
 
     def __init__(self, result=None, exc=None):
@@ -169,7 +217,9 @@ class StubProvider:
             return self._result
         return ProviderResult(
             candidate=UpdateCandidate(
-                value=target.current, kind=UpdateKind.VERSION, artifacts={},
+                value=target.current,
+                kind=UpdateKind.VERSION,
+                artifacts={},
             )
         )
 
@@ -205,44 +255,142 @@ class TestTargetTraversal(unittest.TestCase):
 
     def test_pi_extensions_sorted(self):
         from types import MappingProxyType
+
         inv = Inventory(
             schema=1,
             stages=Stages(
-                base=BaseStage(node=NodeEntry(
-                    tag="t", digest="sha256:" + "a" * 64,
-                    node_version="24.18.0", npm_version="11.16.0",
-                    source=DockerRegistrySource(registry="r", repository="p"),
-                    update=DockerRegistryUpdate(stable_only=True, track="tag-digest"),
-                )),
-                toolchain=ToolchainStage(
-                    rust=RustEntry(version="1.0.0", profile="minimal", components=(), source=RustChannelSource(manifest="u"), update=RustChannelUpdate(channel="stable", stable_only=True), rustup={"linux-amd64": ArtifactEntry(url="u", sha256="a" * 64)}, rustup_source=StaticUrlSource(checksum_url="u.sha256"), rustup_update=StaticUrlUpdate(stable_only=True)),
-                    uv=UvEntry(version="0.1.0", artifacts={}, source=GitHubReleaseSource(repository="r/r", tag="0.1.0"), update=GitHubReleaseUpdate(stable_only=True)),
-                    python=PythonEntry(version="3.14.6", source=UvPythonSource(implementation="cpython"), update=UvPythonUpdate(implementation="cpython", stable_only=True)),
-                    ty=TyEntry(version="1.0.0", source=PyPiSource(package="p"), update=PyPiUpdate(stable_only=True)),
+                base=BaseStage(
+                    node=NodeEntry(
+                        tag="t",
+                        digest="sha256:" + "a" * 64,
+                        node_version="24.18.0",
+                        npm_version="11.16.0",
+                        source=DockerRegistrySource(registry="r", repository="p"),
+                        update=DockerRegistryUpdate(
+                            stable_only=True, track="tag-digest"
+                        ),
+                    )
                 ),
-                rtk_prebuilt=RtkPrebuiltStage(rtk=PrebuiltToolEntry(version="v1.0.0", artifacts={}, source=GitHubReleaseSource(repository="r", tag="v1.0.0"), update=GitHubReleaseUpdate(stable_only=True))),
-                fd_prebuilt=FdPrebuiltStage(fd=PrebuiltToolEntry(version="v1.0.0", artifacts={}, source=GitHubReleaseSource(repository="r", tag="v1.0.0"), update=GitHubReleaseUpdate(stable_only=True))),
-                pi_tools=PiToolsStage(pi=PiToolEntry(version="1.0.0", source=PiReleaseSource(package="p", release_repository="r/r", release_tag_prefix="v"), update=NpmUpdate(stable_only=True))),
-                openspec_tools=OpenSpecToolsStage(openspec=NpmToolEntry(version="1.0.0", source=NpmSource(package="p"), update=NpmUpdate(stable_only=True))),
-                runtime=RuntimeStage(oh_my_zsh=OhMyZshEntry(revision="a" * 40, source=GitSource(repository="r"), update=GitRefUpdate(ref="r"))),
+                toolchain=ToolchainStage(
+                    rust=RustEntry(
+                        version="1.0.0",
+                        profile="minimal",
+                        components=(),
+                        source=RustChannelSource(manifest="u"),
+                        update=RustChannelUpdate(channel="stable", stable_only=True),
+                        rustup={"linux-amd64": ArtifactEntry(url="u", sha256="a" * 64)},
+                        rustup_source=StaticUrlSource(checksum_url="u.sha256"),
+                        rustup_update=StaticUrlUpdate(stable_only=True),
+                    ),
+                    uv=UvEntry(
+                        version="0.1.0",
+                        artifacts={},
+                        source=GitHubReleaseSource(repository="r/r", tag="0.1.0"),
+                        update=GitHubReleaseUpdate(stable_only=True),
+                    ),
+                    python=PythonEntry(
+                        version="3.14.6",
+                        source=UvPythonSource(implementation="cpython"),
+                        update=UvPythonUpdate(
+                            implementation="cpython", stable_only=True
+                        ),
+                    ),
+                    ty=TyEntry(
+                        version="1.0.0",
+                        source=PyPiSource(package="p"),
+                        update=PyPiUpdate(stable_only=True),
+                    ),
+                ),
+                rtk_prebuilt=RtkPrebuiltStage(
+                    rtk=PrebuiltToolEntry(
+                        version="v1.0.0",
+                        artifacts={},
+                        source=GitHubReleaseSource(repository="r", tag="v1.0.0"),
+                        update=GitHubReleaseUpdate(stable_only=True),
+                    )
+                ),
+                fd_prebuilt=FdPrebuiltStage(
+                    fd=PrebuiltToolEntry(
+                        version="v1.0.0",
+                        artifacts={},
+                        source=GitHubReleaseSource(repository="r", tag="v1.0.0"),
+                        update=GitHubReleaseUpdate(stable_only=True),
+                    )
+                ),
+                pi_tools=PiToolsStage(
+                    pi=PiToolEntry(
+                        version="1.0.0",
+                        source=PiReleaseSource(
+                            package="p",
+                            release_repository="r/r",
+                            release_tag_prefix="v",
+                        ),
+                        update=NpmUpdate(stable_only=True),
+                    )
+                ),
+                openspec_tools=OpenSpecToolsStage(
+                    openspec=NpmToolEntry(
+                        version="1.0.0",
+                        source=NpmSource(package="p"),
+                        update=NpmUpdate(stable_only=True),
+                    )
+                ),
+                runtime=RuntimeStage(
+                    oh_my_zsh=OhMyZshEntry(
+                        revision="a" * 40,
+                        source=GitSource(repository="r"),
+                        update=GitRefUpdate(ref="r"),
+                    )
+                ),
             ),
-            runtime_pi_extensions=MappingProxyType({
-                "z-ext": PiExtensionEntry(version="1.0.0", source=NpmSource(package="z"), update=NpmUpdate(stable_only=True),
-            artifacts={"1.0.0": NpmArtifact(url="https://registry.npmjs.org/z/-/z-1.0.0.tgz", integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==")},
-            validation=RuntimeValidation(metadata_file="package.json"),
-            override=OverridePolicy(constraint=parse_constraint(">=1.0.0"), allow_prerelease=False, scheme="numeric")),
-                "a-ext": PiExtensionEntry(version="1.0.0", source=NpmSource(package="a"), update=NpmUpdate(stable_only=True),
-            artifacts={"1.0.0": NpmArtifact(url="https://registry.npmjs.org/a/-/a-1.0.0.tgz", integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==")},
-            validation=RuntimeValidation(metadata_file="package.json"),
-            override=OverridePolicy(constraint=parse_constraint(">=1.0.0"), allow_prerelease=False, scheme="numeric")),
-            }),
+            runtime_pi_extensions=MappingProxyType(
+                {
+                    "z-ext": PiExtensionEntry(
+                        version="1.0.0",
+                        source=NpmSource(package="z"),
+                        update=NpmUpdate(stable_only=True),
+                        artifacts={
+                            "1.0.0": NpmArtifact(
+                                url="https://registry.npmjs.org/z/-/z-1.0.0.tgz",
+                                integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                            )
+                        },
+                        validation=RuntimeValidation(metadata_file="package.json"),
+                        override=OverridePolicy(
+                            constraint=parse_constraint(">=1.0.0"),
+                            allow_prerelease=False,
+                            scheme="numeric",
+                        ),
+                    ),
+                    "a-ext": PiExtensionEntry(
+                        version="1.0.0",
+                        source=NpmSource(package="a"),
+                        update=NpmUpdate(stable_only=True),
+                        artifacts={
+                            "1.0.0": NpmArtifact(
+                                url="https://registry.npmjs.org/a/-/a-1.0.0.tgz",
+                                integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                            )
+                        },
+                        validation=RuntimeValidation(metadata_file="package.json"),
+                        override=OverridePolicy(
+                            constraint=parse_constraint(">=1.0.0"),
+                            allow_prerelease=False,
+                            scheme="numeric",
+                        ),
+                    ),
+                }
+            ),
         )
         targets = build_update_targets(inv)
         ext_paths = [t.path for t in targets if "pi-extensions" in t.path]
-        self.assertEqual(ext_paths, [
-            "runtime.pi-extensions.a-ext",
-            "runtime.pi-extensions.z-ext",
-        ])
+        self.assertEqual(
+            ext_paths,
+            [
+                "runtime.pi-extensions.a-ext",
+                "runtime.pi-extensions.z-ext",
+            ],
+        )
 
 
 class TestCheckUpdates(unittest.TestCase):
@@ -252,17 +400,28 @@ class TestCheckUpdates(unittest.TestCase):
 
     def _ctx(self, include_prerelease=False):
         return ProviderContext(
-            http=self.http, git=self.git,
-            include_prerelease=include_prerelease, tokens={},
+            http=self.http,
+            git=self.git,
+            include_prerelease=include_prerelease,
+            tokens={},
         )
 
     def test_current(self):
         inv = _minimal_inventory()
         # All providers return current
-        providers = {k: StubProvider() for k in [
-            "docker-registry", "rust-channel", "github-release",
-            "uv-python", "pypi", "npm", "git-ref", "static-url",
-        ]}
+        providers = {
+            k: StubProvider()
+            for k in [
+                "docker-registry",
+                "rust-channel",
+                "github-release",
+                "uv-python",
+                "pypi",
+                "npm",
+                "git-ref",
+                "static-url",
+            ]
+        }
         results = check_updates(inv, providers=providers, context=self._ctx())
         for r in results:
             self.assertEqual(r.status.value, "current", f"{r.path}: {r.status}")
@@ -275,9 +434,13 @@ class TestCheckUpdates(unittest.TestCase):
             "github-release": StubProvider(),
             "uv-python": StubProvider(),
             "pypi": StubProvider(
-                ProviderResult(candidate=UpdateCandidate(
-                    value="0.0.62", kind=UpdateKind.VERSION, artifacts={},
-                ))
+                ProviderResult(
+                    candidate=UpdateCandidate(
+                        value="0.0.62",
+                        kind=UpdateKind.VERSION,
+                        artifacts={},
+                    )
+                )
             ),
             "npm": StubProvider(),
             "git-ref": StubProvider(),
@@ -293,33 +456,48 @@ class TestCheckUpdates(unittest.TestCase):
         """A Pi-extension candidate missing dist data is INCOMPLETE, not applicable."""
         from dataclasses import replace
         from types import MappingProxyType
+
         inv = replace(
             _minimal_inventory(),
-            runtime_pi_extensions=MappingProxyType({
-                "ext": PiExtensionEntry(
-                    version="1.0.0",
-                    source=NpmSource(package="pkg"),
-                    update=NpmUpdate(stable_only=True),
-                    artifacts={"1.0.0": NpmArtifact(
-                        url="https://registry.npmjs.org/pkg/-/pkg-1.0.0.tgz",
-                        integrity="sha512-" + "A" * 86 + "==",
-                    )},
-                    validation=RuntimeValidation(metadata_file="package.json"),
-                    override=OverridePolicy(
-                        constraint=parse_constraint(">=1.0.0"),
-                        allow_prerelease=False, scheme="numeric",
+            runtime_pi_extensions=MappingProxyType(
+                {
+                    "ext": PiExtensionEntry(
+                        version="1.0.0",
+                        source=NpmSource(package="pkg"),
+                        update=NpmUpdate(stable_only=True),
+                        artifacts={
+                            "1.0.0": NpmArtifact(
+                                url="https://registry.npmjs.org/pkg/-/pkg-1.0.0.tgz",
+                                integrity="sha512-" + "A" * 86 + "==",
+                            )
+                        },
+                        validation=RuntimeValidation(metadata_file="package.json"),
+                        override=OverridePolicy(
+                            constraint=parse_constraint(">=1.0.0"),
+                            allow_prerelease=False,
+                            scheme="numeric",
+                        ),
                     ),
-                ),
-            }),
+                }
+            ),
         )
         providers = {
-            "npm": StubProvider(ProviderResult(candidate=UpdateCandidate(
-                value="2.0.0", kind=UpdateKind.VERSION, artifacts={},
-                incomplete_reason="missing npm tarball URL",
-            ))),
+            "npm": StubProvider(
+                ProviderResult(
+                    candidate=UpdateCandidate(
+                        value="2.0.0",
+                        kind=UpdateKind.VERSION,
+                        artifacts={},
+                        incomplete_reason="missing npm tarball URL",
+                    )
+                )
+            ),
         }
         results = check_updates(
-            inv, providers=providers, context=self._ctx(), only=("npm",),
+            inv,
+            providers=providers,
+            context=self._ctx(),
+            only=("npm",),
         )
         ext = [r for r in results if r.path == "runtime.pi-extensions.ext"][0]
         self.assertEqual(ext.status, UpdateStatus.INCOMPLETE)
@@ -336,35 +514,54 @@ class TestCheckUpdates(unittest.TestCase):
         """INCOMPLETE extension results never enter replacement blocks."""
         from dataclasses import replace
         from types import MappingProxyType
+
         inv = replace(
             _minimal_inventory(),
-            runtime_pi_extensions=MappingProxyType({
-                "ext": PiExtensionEntry(
-                    version="1.0.0",
-                    source=NpmSource(package="pkg"),
-                    update=NpmUpdate(stable_only=True),
-                    artifacts={"1.0.0": NpmArtifact(
-                        url="https://registry.npmjs.org/pkg/-/pkg-1.0.0.tgz",
-                        integrity="sha512-" + "A" * 86 + "==",
-                    )},
-                    validation=RuntimeValidation(metadata_file="package.json"),
-                    override=OverridePolicy(
-                        constraint=parse_constraint(">=1.0.0"),
-                        allow_prerelease=False, scheme="numeric",
+            runtime_pi_extensions=MappingProxyType(
+                {
+                    "ext": PiExtensionEntry(
+                        version="1.0.0",
+                        source=NpmSource(package="pkg"),
+                        update=NpmUpdate(stable_only=True),
+                        artifacts={
+                            "1.0.0": NpmArtifact(
+                                url="https://registry.npmjs.org/pkg/-/pkg-1.0.0.tgz",
+                                integrity="sha512-" + "A" * 86 + "==",
+                            )
+                        },
+                        validation=RuntimeValidation(metadata_file="package.json"),
+                        override=OverridePolicy(
+                            constraint=parse_constraint(">=1.0.0"),
+                            allow_prerelease=False,
+                            scheme="numeric",
+                        ),
                     ),
-                ),
-            }),
+                }
+            ),
         )
         providers = {
-            "npm": StubProvider(ProviderResult(candidate=UpdateCandidate(
-                value="2.0.0", kind=UpdateKind.VERSION, artifacts={},
-                incomplete_reason="missing npm integrity",
-            ))),
+            "npm": StubProvider(
+                ProviderResult(
+                    candidate=UpdateCandidate(
+                        value="2.0.0",
+                        kind=UpdateKind.VERSION,
+                        artifacts={},
+                        incomplete_reason="missing npm integrity",
+                    )
+                )
+            ),
         }
         results = check_updates(
-            inv, providers=providers, context=self._ctx(), only=("npm",),
+            inv,
+            providers=providers,
+            context=self._ctx(),
+            only=("npm",),
         )
-        from docker.versioning.updates import build_replacement_blocks, serialize_suggestions
+        from docker.versioning.updates import (
+            build_replacement_blocks,
+            serialize_suggestions,
+        )
+
         targets = build_update_targets(inv)
         ext_result = [r for r in results if r.path == "runtime.pi-extensions.ext"][0]
         # The INCOMPLETE result is filtered out before any raw block is
@@ -416,31 +613,64 @@ class TestCheckUpdates(unittest.TestCase):
 
     def test_only_filter_provider(self):
         inv = _minimal_inventory()
-        providers = {k: StubProvider() for k in [
-            "docker-registry", "rust-channel", "github-release",
-            "uv-python", "pypi", "npm", "git-ref", "static-url",
-        ]}
-        results = check_updates(inv, providers=providers, context=self._ctx(), only=("npm",))
+        providers = {
+            k: StubProvider()
+            for k in [
+                "docker-registry",
+                "rust-channel",
+                "github-release",
+                "uv-python",
+                "pypi",
+                "npm",
+                "git-ref",
+                "static-url",
+            ]
+        }
+        results = check_updates(
+            inv, providers=providers, context=self._ctx(), only=("npm",)
+        )
         self.assertTrue(all(r.provider == "npm" for r in results))
         self.assertEqual(len(results), 2)  # pi-tools.pi + openspec-tools.openspec
 
     def test_only_filter_path(self):
         inv = _minimal_inventory()
-        providers = {k: StubProvider() for k in [
-            "docker-registry", "rust-channel", "github-release",
-            "uv-python", "pypi", "npm", "git-ref", "static-url",
-        ]}
-        results = check_updates(inv, providers=providers, context=self._ctx(),
-                                 only=("build.stages.toolchain.python",))
+        providers = {
+            k: StubProvider()
+            for k in [
+                "docker-registry",
+                "rust-channel",
+                "github-release",
+                "uv-python",
+                "pypi",
+                "npm",
+                "git-ref",
+                "static-url",
+            ]
+        }
+        results = check_updates(
+            inv,
+            providers=providers,
+            context=self._ctx(),
+            only=("build.stages.toolchain.python",),
+        )
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].path, "build.stages.toolchain.python")
 
     def test_deterministic_json(self):
         inv = _minimal_inventory()
-        providers = {k: StubProvider() for k in [
-            "docker-registry", "rust-channel", "github-release",
-            "uv-python", "pypi", "npm", "git-ref", "static-url",
-        ]}
+        providers = {
+            k: StubProvider()
+            for k in [
+                "docker-registry",
+                "rust-channel",
+                "github-release",
+                "uv-python",
+                "pypi",
+                "npm",
+                "git-ref",
+                "static-url",
+            ]
+        }
         results = check_updates(inv, providers=providers, context=self._ctx())
         j1 = render_json(results)
         j2 = render_json(results)
@@ -478,21 +708,34 @@ class TestCheckUpdatesProgress(unittest.TestCase):
 
     def _ctx(self, include_prerelease=False):
         return ProviderContext(
-            http=self.http, git=self.git,
-            include_prerelease=include_prerelease, tokens={},
+            http=self.http,
+            git=self.git,
+            include_prerelease=include_prerelease,
+            tokens={},
         )
 
     def _providers(self):
-        return {k: StubProvider() for k in [
-            "docker-registry", "rust-channel", "github-release",
-            "uv-python", "pypi", "npm", "git-ref", "static-url",
-        ]}
+        return {
+            k: StubProvider()
+            for k in [
+                "docker-registry",
+                "rust-channel",
+                "github-release",
+                "uv-python",
+                "pypi",
+                "npm",
+                "git-ref",
+                "static-url",
+            ]
+        }
 
     def test_event_fields_and_one_based_index(self) -> None:
         inv = _minimal_inventory()
         events: list[object] = []
         results = check_updates(
-            inv, providers=self._providers(), context=self._ctx(),
+            inv,
+            providers=self._providers(),
+            context=self._ctx(),
             progress=events.append,
         )
         self.assertEqual(len(events), 11)
@@ -512,8 +755,11 @@ class TestCheckUpdatesProgress(unittest.TestCase):
         inv = _minimal_inventory()
         events: list[object] = []
         check_updates(
-            inv, providers=self._providers(), context=self._ctx(),
-            scope=Scope.BUILD, progress=events.append,
+            inv,
+            providers=self._providers(),
+            context=self._ctx(),
+            scope=Scope.BUILD,
+            progress=events.append,
         )
         self.assertTrue(events)
         self.assertTrue(all(e.path.startswith("build.") for e in events))
@@ -527,8 +773,11 @@ class TestCheckUpdatesProgress(unittest.TestCase):
         inv = _minimal_inventory()
         events: list[object] = []
         check_updates(
-            inv, providers=self._providers(), context=self._ctx(),
-            only=("npm",), progress=events.append,
+            inv,
+            providers=self._providers(),
+            context=self._ctx(),
+            only=("npm",),
+            progress=events.append,
         )
         self.assertEqual(
             [e.path for e in events],
@@ -545,7 +794,9 @@ class TestCheckUpdatesProgress(unittest.TestCase):
         providers = self._providers()
         providers["pypi"] = StubProvider(exc=RuntimeError("network error"))
         results = check_updates(
-            inv, providers=providers, context=self._ctx(),
+            inv,
+            providers=providers,
+            context=self._ctx(),
             progress=events.append,
         )
         ty_events = [e for e in events if e.path == "build.stages.toolchain.ty"]
@@ -558,11 +809,15 @@ class TestCheckUpdatesProgress(unittest.TestCase):
         inv = _minimal_inventory()
         providers = self._providers()
         with_cb = check_updates(
-            inv, providers=providers, context=self._ctx(),
+            inv,
+            providers=providers,
+            context=self._ctx(),
             progress=lambda e: None,
         )
         without_cb = check_updates(
-            inv, providers=providers, context=self._ctx(),
+            inv,
+            providers=providers,
+            context=self._ctx(),
         )
         self.assertEqual(
             [(r.path, r.status, r.candidate) for r in with_cb],
@@ -581,7 +836,8 @@ class TestCheckUpdatesProgress(unittest.TestCase):
                 log.append(f"end:{target.path}")
                 return ProviderResult(
                     candidate=UpdateCandidate(
-                        value=target.current, kind=UpdateKind.VERSION,
+                        value=target.current,
+                        kind=UpdateKind.VERSION,
                         artifacts={},
                     ),
                 )
@@ -591,18 +847,19 @@ class TestCheckUpdatesProgress(unittest.TestCase):
             providers={"npm": RecordingProvider()},
             context=self._ctx(),
             only=("npm",),
-            progress=lambda e: log.append(
-                f"event:{e.path}:{e.index}/{e.total}"
-            ),
+            progress=lambda e: log.append(f"event:{e.path}:{e.index}/{e.total}"),
         )
-        self.assertEqual(log, [
-            "event:build.stages.pi-tools.pi:1/2",
-            "start:build.stages.pi-tools.pi",
-            "end:build.stages.pi-tools.pi",
-            "event:build.stages.openspec-tools.openspec:2/2",
-            "start:build.stages.openspec-tools.openspec",
-            "end:build.stages.openspec-tools.openspec",
-        ])
+        self.assertEqual(
+            log,
+            [
+                "event:build.stages.pi-tools.pi:1/2",
+                "start:build.stages.pi-tools.pi",
+                "end:build.stages.pi-tools.pi",
+                "event:build.stages.openspec-tools.openspec:2/2",
+                "start:build.stages.openspec-tools.openspec",
+                "end:build.stages.openspec-tools.openspec",
+            ],
+        )
         self.assertEqual(
             [r.path for r in results],
             ["build.stages.pi-tools.pi", "build.stages.openspec-tools.openspec"],
@@ -669,8 +926,10 @@ class TestPiReleaseNpmDiscovery(unittest.TestCase):
 
     def _ctx(self) -> ProviderContext:
         return ProviderContext(
-            http=self.http, git=self.git,
-            include_prerelease=False, tokens={},
+            http=self.http,
+            git=self.git,
+            include_prerelease=False,
+            tokens={},
         )
 
     def test_pi_target_is_outdated_and_fragment_retains_release_metadata(
@@ -688,18 +947,21 @@ class TestPiReleaseNpmDiscovery(unittest.TestCase):
         candidate = ".".join(core)
 
         from urllib.parse import quote
+
         encoded = quote(package, safe="")
         self.http.set(
             "GET",
             f"https://registry.npmjs.org/{encoded}",
             status=200,
-            body=json.dumps({
-                "versions": {
-                    current: {"version": current},
-                    candidate: {"version": candidate},
-                },
-                "time": {candidate: "2026-01-02T03:04:05Z"},
-            }).encode(),
+            body=json.dumps(
+                {
+                    "versions": {
+                        current: {"version": current},
+                        candidate: {"version": candidate},
+                    },
+                    "time": {candidate: "2026-01-02T03:04:05Z"},
+                }
+            ).encode(),
         )
 
         targets = build_update_targets(inventory)

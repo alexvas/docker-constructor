@@ -114,8 +114,12 @@ class TestDisplayedMatchesExecutable(unittest.TestCase):
         keys = [k for k, _v in vector.env]
         self.assertEqual(
             keys,
-            ["HOME", "npm_config_cache", "REVIEWED_NODE_VERSION",
-             "REVIEWED_NPM_VERSION"]
+            [
+                "HOME",
+                "npm_config_cache",
+                "REVIEWED_NODE_VERSION",
+                "REVIEWED_NPM_VERSION",
+            ]
             + [name for name, _value in npm_policy_env()],
         )
 

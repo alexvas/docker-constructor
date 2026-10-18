@@ -7,6 +7,7 @@ rendered, retained, persisted, failure, evidence, or policy artifact, plus a
 pure presentation identity that ignores normalized hostnames after the final
 safe rendered text is formed.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -125,9 +126,7 @@ class TestUrlFingerprintIdentity(unittest.TestCase):
         self.assertEqual(("registry.npmjs.org",), diagnostic.hostnames)
         self.assertEqual(1, len(diagnostic.url_fingerprints))
         independent = _project(target, session=session)
-        self.assertEqual(
-            independent.url_fingerprints, diagnostic.url_fingerprints
-        )
+        self.assertEqual(independent.url_fingerprints, diagnostic.url_fingerprints)
 
     def test_malformed_candidates_do_not_emit_a_fingerprint(self):
         session = SessionUrlIdentity()
@@ -229,7 +228,9 @@ class TestStructuredDiagnosticIdentity(unittest.TestCase):
     def test_same_identity_is_an_exact_repeat(self):
         left = identity_for(self._diagnostic())
         right = identity_for(self._diagnostic())
-        self.assertEqual(DiagnosticComparison.EXACT_REPEAT, compare_diagnostics(left, right))
+        self.assertEqual(
+            DiagnosticComparison.EXACT_REPEAT, compare_diagnostics(left, right)
+        )
 
     def test_different_hidden_url_identity_forms_a_different_group(self):
         left = identity_for(
@@ -239,7 +240,9 @@ class TestStructuredDiagnosticIdentity(unittest.TestCase):
             self._diagnostic(text="GET <redacted>", url_fingerprints=("b" * 64,))
         )
         self.assertEqual(left.text, right.text)
-        self.assertEqual(DiagnosticComparison.DIFFERENT, compare_diagnostics(left, right))
+        self.assertEqual(
+            DiagnosticComparison.DIFFERENT, compare_diagnostics(left, right)
+        )
 
     def test_normalized_hosts_are_not_a_separate_coalescing_key(self):
         left = identity_for(
@@ -249,7 +252,9 @@ class TestStructuredDiagnosticIdentity(unittest.TestCase):
             self._diagnostic(hostnames=("two.example",), url_fingerprints=("a" * 64,))
         )
         self.assertEqual(left, right)
-        self.assertEqual(DiagnosticComparison.EXACT_REPEAT, compare_diagnostics(left, right))
+        self.assertEqual(
+            DiagnosticComparison.EXACT_REPEAT, compare_diagnostics(left, right)
+        )
 
     def test_phase_step_stream_classification_and_resource_partition_groups(self):
         base = self._diagnostic()
@@ -258,20 +263,22 @@ class TestStructuredDiagnosticIdentity(unittest.TestCase):
             self._diagnostic(step=HostStep.PUBLICATION),
             self._diagnostic(stream=HostDiagnosticStream.STDERR),
             self._diagnostic(classification=HostDiagnosticClassification.ERROR),
-            self._diagnostic(
-                logical_resource="npm-assembler-0123456789abcdef"
-            ),
+            self._diagnostic(logical_resource="npm-assembler-0123456789abcdef"),
         )
         base_identity = identity_for(base)
         for variant_diagnostic in variations:
             with self.subTest(variant=variant_diagnostic):
                 self.assertEqual(
                     DiagnosticComparison.DIFFERENT,
-                    compare_diagnostics(base_identity, identity_for(variant_diagnostic)),
+                    compare_diagnostics(
+                        base_identity, identity_for(variant_diagnostic)
+                    ),
                 )
 
     def test_identity_excludes_hostnames_from_its_public_surface(self):
-        fields = {field.name for field in DiagnosticIdentity.__dataclass_fields__.values()}
+        fields = {
+            field.name for field in DiagnosticIdentity.__dataclass_fields__.values()
+        }
         self.assertNotIn("hostnames", fields)
         self.assertEqual("added 1 package", identity_for(self._diagnostic()).text)
 
@@ -312,7 +319,9 @@ class TestUrlFingerprintBoundary(unittest.TestCase):
         )
 
     def test_both_dtos_accept_fixed_width_lowercase_hex(self):
-        self.assertEqual((self.FIXED,), self._diagnostic((self.FIXED,)).url_fingerprints)
+        self.assertEqual(
+            (self.FIXED,), self._diagnostic((self.FIXED,)).url_fingerprints
+        )
         self.assertEqual((self.FIXED,), self._identity((self.FIXED,)).url_fingerprints)
         self.assertEqual((), self._diagnostic(()).url_fingerprints)
         self.assertEqual((), self._identity(()).url_fingerprints)

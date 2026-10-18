@@ -9,6 +9,7 @@ These tests pin the Phase 2 boundary:
 * ``DiskCache`` only ever receives that already-prepared directory and never
   recreates or chmods it.
 """
+
 from __future__ import annotations
 
 import os
@@ -33,9 +34,7 @@ class _HandoffTestCase(unittest.TestCase):
         self.base = Path(tmp.name)
         self.home = self.base / "home"
         self.home.mkdir()
-        self._saved = {
-            key: os.environ.get(key) for key in ("HOME", "XDG_CACHE_HOME")
-        }
+        self._saved = {key: os.environ.get(key) for key in ("HOME", "XDG_CACHE_HOME")}
         os.environ["HOME"] = str(self.home)
 
     def tearDown(self) -> None:
@@ -45,17 +44,18 @@ class _HandoffTestCase(unittest.TestCase):
             else:
                 os.environ[key] = value
 
-    def _build(self, *, xdg: str, local_dir: str | None = None,
-               inventory_cache: CacheConfig | None = None,
-               no_cache: bool = False):
+    def _build(
+        self,
+        *,
+        xdg: str,
+        local_dir: str | None = None,
+        inventory_cache: CacheConfig | None = None,
+        no_cache: bool = False,
+    ):
         from docker.versioning.transports import build_transports
 
         os.environ["XDG_CACHE_HOME"] = xdg
-        local = (
-            LocalCacheConfig(dir=local_dir)
-            if local_dir is not None
-            else None
-        )
+        local = LocalCacheConfig(dir=local_dir) if local_dir is not None else None
         return build_transports(
             no_cache=no_cache,
             inventory_cache=inventory_cache,
@@ -116,17 +116,23 @@ class TestTransportRootPreparation(_HandoffTestCase):
     def test_reviewed_ttl_is_used_with_and_without_local_companion(self) -> None:
         xdg = self.base / "xdg" / "cache"
         reviewed = CacheConfig(ttl=123)
-        self.assertEqual(self._build(xdg=str(xdg), inventory_cache=reviewed)
-                         .http.ttl, 123)
-        self.assertEqual(self._build(
-            xdg=str(xdg), local_dir=str(self.base / "dedicated"),
-            inventory_cache=reviewed,
-        ).http.ttl, 123)
+        self.assertEqual(
+            self._build(xdg=str(xdg), inventory_cache=reviewed).http.ttl, 123
+        )
+        self.assertEqual(
+            self._build(
+                xdg=str(xdg),
+                local_dir=str(self.base / "dedicated"),
+                inventory_cache=reviewed,
+            ).http.ttl,
+            123,
+        )
 
     def test_no_cache_bypasses_disk_without_changing_reviewed_ttl(self) -> None:
         config = self._build(
             xdg=str(self.base / "xdg"),
-            inventory_cache=CacheConfig(ttl=123), no_cache=True,
+            inventory_cache=CacheConfig(ttl=123),
+            no_cache=True,
         )
         self.assertFalse(hasattr(config.http, "disk"))
 
@@ -144,7 +150,8 @@ class TestTransportRootPreparation(_HandoffTestCase):
         os.environ["XDG_CACHE_HOME"] = str(xdg)
 
         config = build_transports(
-            no_cache=False, suggest_mode=False,
+            no_cache=False,
+            suggest_mode=False,
         )
         disk = config.http.disk
         self.assertIsNotNone(disk)
@@ -153,7 +160,9 @@ class TestTransportRootPreparation(_HandoffTestCase):
         self.assertEqual(_mode(versioning), 0o700)
 
         delegate = FakeHttpTransport()
-        delegate.set("GET", "https://example.test/persist", status=200, body=b"persisted")
+        delegate.set(
+            "GET", "https://example.test/persist", status=200, body=b"persisted"
+        )
         cache = CachingHttpTransport(delegate, ttl=None, disk_cache=disk)
         resp = cache.request("GET", "https://example.test/persist")
         self.assertEqual(resp.body, b"persisted")
@@ -166,7 +175,9 @@ class TestTransportRootPreparation(_HandoffTestCase):
         # without touching the network.
         disk2 = DiskCache(versioning, ttl=None)
         cache2 = CachingHttpTransport(
-            FailingHttpTransport(), ttl=None, disk_cache=disk2,
+            FailingHttpTransport(),
+            ttl=None,
+            disk_cache=disk2,
         )
         resp2 = cache2.request("GET", "https://example.test/persist")
         self.assertEqual(resp2.body, b"persisted")

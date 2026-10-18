@@ -8,6 +8,7 @@ owner, so the migration contract (terminal-before-close + tracked transfer +
 at-most-once) is the RED part.  ``_copy_source_fd_to_destination`` already owned
 its destination descriptor in Phase 3 and stays passing.
 """
+
 from __future__ import annotations
 
 import errno
@@ -42,7 +43,9 @@ def _selected(root: Path):
                 SelectedBuildArtifact(
                     name,
                     "https://not-exposed.invalid/",
-                    DigestIdentity.from_hex("sha256", hashlib.sha256(payload).hexdigest()),
+                    DigestIdentity.from_hex(
+                        "sha256", hashlib.sha256(payload).hexdigest()
+                    ),
                 ),
                 blob,
             )
@@ -106,7 +109,8 @@ class ValidateHardLinkDestinationOwnershipTests(_SnapshotCase):
     def test_success_releases_through_shared_owner(self) -> None:
         with recording(build_snapshot_module) as rec:
             _validate_hard_link_destination(
-                self.destination_name, self.dir_fd, self.source_stat, self.expected)
+                self.destination_name, self.dir_fd, self.source_stat, self.expected
+            )
         rec.assert_terminal_and_at_most_once(self)
 
     def test_identity_mismatch_releases_through_shared_owner(self) -> None:
@@ -117,7 +121,8 @@ class ValidateHardLinkDestinationOwnershipTests(_SnapshotCase):
         with recording(build_snapshot_module) as rec:
             with self.assertRaises(SnapshotError):
                 _validate_hard_link_destination(
-                    self.destination_name, self.dir_fd, other_stat, self.expected)
+                    self.destination_name, self.dir_fd, other_stat, self.expected
+                )
         rec.assert_terminal_and_at_most_once(self)
 
 

@@ -12,6 +12,7 @@ It also proves that the same contract accepts test-owned *valid* variants
 (a bumped reviewed artifact version and a removed optional extension) and
 rejects deliberately inconsistent declarations.
 """
+
 from __future__ import annotations
 
 import tempfile
@@ -103,6 +104,7 @@ class _LiveContractMixin:
                 self.assertTrue(extension.validation.metadata_file)
                 if extension.override is not None:
                     from docker.versioning.constraints import parse_numeric_version
+
                     self.assertTrue(
                         extension.override.constraint.matches(
                             parse_numeric_version(extension.version)
@@ -114,7 +116,8 @@ class _LiveContractMixin:
         selected = select_build_artifacts(projection)
         declared = _declared_platform_artifacts(inventory)
         self.assertEqual(
-            {artifact.name for artifact in selected}, set(declared),
+            {artifact.name for artifact in selected},
+            set(declared),
         )
         for artifact in selected:
             with self.subTest(artifact=artifact.name):
@@ -140,10 +143,12 @@ class _LiveContractMixin:
 
         # Declared tool versions propagate to the build environment.
         self.assertEqual(
-            env["PYTHON_VERSION"], inventory.stages.toolchain.python.version,
+            env["PYTHON_VERSION"],
+            inventory.stages.toolchain.python.version,
         )
         self.assertEqual(
-            env["UV_VERSION"], inventory.stages.toolchain.uv.version,
+            env["UV_VERSION"],
+            inventory.stages.toolchain.uv.version,
         )
         # Node base image is derived from declared source metadata.
         node = inventory.stages.base.node
@@ -166,9 +171,7 @@ class _LiveContractMixin:
         raw = tomllib.loads(document_text)
         inventory = validate_inventory(raw)
         independent = set(independent_update_owners(raw))
-        production = set(
-            production_update_owners(inventory, omit_paths=omit_paths)
-        )
+        production = set(production_update_owners(inventory, omit_paths=omit_paths))
         self.assertEqual(independent, production)
         return independent
 
@@ -176,7 +179,8 @@ class _LiveContractMixin:
         independent = self.assert_owner_membership(document_text)
         self.assertTrue(independent)
         self.assertEqual(
-            [], owner_header_violations(document_text, independent),
+            [],
+            owner_header_violations(document_text, independent),
         )
 
 
@@ -236,7 +240,8 @@ class TestValidVariants(_LiveContractMixin, unittest.TestCase):
         stripped = remove_extension(stable_inventory_text(), "pi-read")
         inventory = _load_text(stripped)
         self.assertEqual(
-            sorted(inventory.runtime_pi_extensions), ["pi-proxy", "pi-usage"],
+            sorted(inventory.runtime_pi_extensions),
+            ["pi-proxy", "pi-usage"],
         )
         self.assert_load_contract(inventory)
         self.assert_effective_environment_propagation(inventory)
@@ -266,7 +271,8 @@ class TestValidVariants(_LiveContractMixin, unittest.TestCase):
         )
         inventory = _load_text(changed)
         self.assertEqual(
-            inventory.build.stages.base.node.node_version, "25.1.0",
+            inventory.build.stages.base.node.node_version,
+            "25.1.0",
         )
         self.assert_effective_environment_propagation(inventory)
 
@@ -276,7 +282,8 @@ class TestValidVariants(_LiveContractMixin, unittest.TestCase):
         for algorithm in ("sha256", "sha384", "sha512"):
             with self.subTest(algorithm=algorithm):
                 variant = rewrite_artifact_integrities(
-                    stable_inventory_text(), algorithm=algorithm,
+                    stable_inventory_text(),
+                    algorithm=algorithm,
                 )
                 inventory = _load_text(variant)
                 self.assert_load_contract(inventory)
@@ -305,7 +312,9 @@ class TestValidVariants(_LiveContractMixin, unittest.TestCase):
     def test_dotted_extension_missing_header_is_detected(self):
         variant = with_dotted_extension(stable_inventory_text())
         without_header = variant.replace(
-            "# --- pi-extensions.foo.bar ---\n", "", 1,
+            "# --- pi-extensions.foo.bar ---\n",
+            "",
+            1,
         )
         self.assertNotEqual(without_header, variant)
         with self.assertRaises(AssertionError):
@@ -314,10 +323,8 @@ class TestValidVariants(_LiveContractMixin, unittest.TestCase):
     def test_dotted_extension_misplaced_header_is_detected(self):
         variant = with_dotted_extension(stable_inventory_text())
         misplaced = variant.replace(
-            '# --- pi-extensions.foo.bar ---\n'
-            '[runtime.pi-extensions."foo.bar"]',
-            '[runtime.pi-extensions."foo.bar"]\n'
-            '# --- pi-extensions.foo.bar ---',
+            '# --- pi-extensions.foo.bar ---\n[runtime.pi-extensions."foo.bar"]',
+            '[runtime.pi-extensions."foo.bar"]\n# --- pi-extensions.foo.bar ---',
             1,
         )
         self.assertNotEqual(misplaced, variant)

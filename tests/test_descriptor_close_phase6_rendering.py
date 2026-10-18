@@ -10,6 +10,7 @@ descriptor is adopted into an ``OwnedDescriptor`` and every release delegates
 to ``owner.close`` (terminal before the syscall, never retried) with the
 existing precedence and completion guarantees.
 """
+
 from __future__ import annotations
 
 import errno
@@ -100,9 +101,7 @@ class WriteEffectiveBuildOwnershipTests(_ProjectionCase):
     def test_failed_adoption_releases_generated_owner(self) -> None:
         self.ops = _GeneratedFstatOps(OSError(errno.EIO, "injected generated fstat"))
         with recording(rendering_module) as rec:
-            with self.assertRaises(
-                rendering_module.EffectiveInventoryOutputError
-            ):
+            with self.assertRaises(rendering_module.EffectiveInventoryOutputError):
                 write_effective_build(
                     self.projection, repo_root=self.root, project_state=self.state
                 )
@@ -168,15 +167,11 @@ class WriteEffectiveInventoryOwnershipTests(unittest.TestCase):
         with recording(
             rendering_module, close_fault=lambda fd, owner: descriptor_error
         ) as rec:
-            with file_object_faults(
-                rendering_module, close_fault=file_close_error
-            ):
+            with file_object_faults(rendering_module, close_fault=file_close_error):
                 with mock.patch.object(
                     rendering_module, "_write_toml", side_effect=write_error
                 ):
-                    with mock.patch.object(
-                        rendering_module.os, "replace"
-                    ) as replace:
+                    with mock.patch.object(rendering_module.os, "replace") as replace:
                         with self.assertRaises(OSError) as ctx:
                             rendering_module.write_effective_inventory(
                                 self.effective, self.destination
@@ -190,7 +185,9 @@ class WriteEffectiveInventoryOwnershipTests(unittest.TestCase):
         self.assertEqual(self.destination.read_text(), "prior")
         self.assertEqual(list(self.destination.parent.glob(".versions-*")), [])
 
-    def test_file_object_close_failure_stays_primary_over_descriptor_close(self) -> None:
+    def test_file_object_close_failure_stays_primary_over_descriptor_close(
+        self,
+    ) -> None:
         self.destination.parent.mkdir(parents=True)
         self.destination.write_text("prior")
         file_close_error = OSError(errno.EIO, "injected file-object close")
@@ -198,12 +195,8 @@ class WriteEffectiveInventoryOwnershipTests(unittest.TestCase):
         with recording(
             rendering_module, close_fault=lambda fd, owner: descriptor_error
         ) as rec:
-            with file_object_faults(
-                rendering_module, close_fault=file_close_error
-            ):
-                with mock.patch.object(
-                    rendering_module.os, "replace"
-                ) as replace:
+            with file_object_faults(rendering_module, close_fault=file_close_error):
+                with mock.patch.object(rendering_module.os, "replace") as replace:
                     with self.assertRaises(OSError) as ctx:
                         rendering_module.write_effective_inventory(
                             self.effective, self.destination

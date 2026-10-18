@@ -119,7 +119,10 @@ def _write_pkg(root: Path, path: str, name: str, version: str, **extra: object) 
 
 def _write_tree(root: Path) -> None:
     _write_pkg(
-        root, "node_modules/a", "a", "1.0.0",
+        root,
+        "node_modules/a",
+        "a",
+        "1.0.0",
         dependencies={"dep": "^1.0.0"},
         optionalDependencies={"native": "^2.0.0"},
     )
@@ -134,17 +137,35 @@ def _write_tree(root: Path) -> None:
 
 _RESULT_KEYS = frozenset(
     {
-        "environment_root", "evidence_path", "output_identity", "input_identity",
-        "tree_digest", "evidence_digest", "roots", "root_metadata", "packages",
-        "omitted_optionals", "integrity_less", "image_digest", "node_version",
-        "npm_version", "script_digest", "policy_digest", "platform",
-        "lockfile_digest", "npm_policy_flags", "tree_entries",
+        "environment_root",
+        "evidence_path",
+        "output_identity",
+        "input_identity",
+        "tree_digest",
+        "evidence_digest",
+        "roots",
+        "root_metadata",
+        "packages",
+        "omitted_optionals",
+        "integrity_less",
+        "image_digest",
+        "node_version",
+        "npm_version",
+        "script_digest",
+        "policy_digest",
+        "platform",
+        "lockfile_digest",
+        "npm_policy_flags",
+        "tree_entries",
     }
 )
 
 _EVIDENCE_KEYS = frozenset(
     {
-        "output_identity", "input_identity", "tree_digest", "evidence_digest",
+        "output_identity",
+        "input_identity",
+        "tree_digest",
+        "evidence_digest",
         "body",
     }
 )
@@ -174,9 +195,7 @@ class _SerializationTestCase(unittest.TestCase):
             namespace=self.namespace,
             input_identity=self.input_identity,
         )
-        self.evidence = parse_evidence(
-            (self.result.evidence_path).read_bytes()
-        )
+        self.evidence = parse_evidence((self.result.evidence_path).read_bytes())
 
 
 class TestRoundTripAndDeterminism(_SerializationTestCase):
@@ -225,18 +244,10 @@ class TestCoversEveryRequiredField(_SerializationTestCase):
             ],
         )
         # Every input, package, integrity omission, flag, and path present.
-        self.assertEqual(
-            [p["name"] for p in raw["packages"]], ["a", "dep"]
-        )
-        self.assertEqual(
-            [i["name"] for i in raw["integrity_less"]], ["dep"]
-        )
-        self.assertEqual(
-            [o["name"] for o in raw["omitted_optionals"]], ["native"]
-        )
-        self.assertEqual(
-            [m["package_name"] for m in raw["root_metadata"]], ["a"]
-        )
+        self.assertEqual([p["name"] for p in raw["packages"]], ["a", "dep"])
+        self.assertEqual([i["name"] for i in raw["integrity_less"]], ["dep"])
+        self.assertEqual([o["name"] for o in raw["omitted_optionals"]], ["native"])
+        self.assertEqual([m["package_name"] for m in raw["root_metadata"]], ["a"])
         self.assertEqual(raw["root_metadata"][0]["bin"], [["acmd", "bin/a.js"]])
         self.assertEqual(raw["root_metadata"][0]["engines_node"], ">=20.0.0")
         self.assertTrue(raw["environment_root"])
@@ -250,18 +261,10 @@ class TestCoversEveryRequiredField(_SerializationTestCase):
         self.assertEqual(raw["tree_digest"], self.result.tree_digest)
         self.assertEqual(raw["evidence_digest"], self.result.evidence_digest)
         body = raw["body"]
-        self.assertEqual(
-            [p["name"] for p in body["packages"]], ["a", "dep"]
-        )
-        self.assertEqual(
-            [i["name"] for i in body["integrity_less"]], ["dep"]
-        )
-        self.assertEqual(
-            [o["name"] for o in body["omitted_optionals"]], ["native"]
-        )
-        self.assertEqual(
-            [m["package_name"] for m in body["root_metadata"]], ["a"]
-        )
+        self.assertEqual([p["name"] for p in body["packages"]], ["a", "dep"])
+        self.assertEqual([i["name"] for i in body["integrity_less"]], ["dep"])
+        self.assertEqual([o["name"] for o in body["omitted_optionals"]], ["native"])
+        self.assertEqual([m["package_name"] for m in body["root_metadata"]], ["a"])
 
     def test_no_pi_or_runtime_fields(self):
         # ``environment_root`` and ``evidence_path`` embed this test's random
@@ -276,8 +279,14 @@ class TestCoversEveryRequiredField(_SerializationTestCase):
             result_raw = result_raw.replace(base, "<base>")
             evidence_raw = evidence_raw.replace(base, "<base>")
         for forbidden in (
-            "launcher", "extension", "settings", "build_context",
-            "cli_guard", "consumer", "pi", "runtime",
+            "launcher",
+            "extension",
+            "settings",
+            "build_context",
+            "cli_guard",
+            "consumer",
+            "pi",
+            "runtime",
         ):
             self.assertNotIn(forbidden, result_raw.lower())
             self.assertNotIn(forbidden, evidence_raw.lower())

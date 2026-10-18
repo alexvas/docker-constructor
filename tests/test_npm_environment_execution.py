@@ -163,7 +163,9 @@ class TestFixedNpmPolicy(unittest.TestCase):
         script = assembler_script_bytes().decode("utf-8")
         lines = script.splitlines()
         npm_ci_index = next(
-            i for i, line in enumerate(lines) if line.strip().startswith("npm ci")
+            i
+            for i, line in enumerate(lines)
+            if line.strip().startswith("npm ci")
             or line.strip().startswith("exec npm ci")
         )
         # The version assertions must appear before the npm ci invocation.
@@ -229,9 +231,7 @@ class TestReviewedRootEngineEnforcement(unittest.TestCase):
             npm_version=_NPM,
         )
         # Accepted; no "dep" metadata survives in any DTO.
-        self.assertFalse(any(
-            m.package_name == "dep" for m in validated.root_metadata
-        ))
+        self.assertFalse(any(m.package_name == "dep" for m in validated.root_metadata))
         self.assertTrue(any(p.name == "dep" for p in validated.packages))
 
 
@@ -285,7 +285,9 @@ class TestStructuredFailures(unittest.TestCase):
             stderr="failed to reach https://proxy.example:3128 SUPERSECRET123\n",
         )
         with self.assertRaises(LockedNpmError) as ctx:
-            self._assemble(executor, secrets=("SUPERSECRET123", "https://proxy.example:3128"))
+            self._assemble(
+                executor, secrets=("SUPERSECRET123", "https://proxy.example:3128")
+            )
         self.assertNotIn("SUPERSECRET123", ctx.exception.detail)
         self.assertNotIn("https://proxy.example:3128", ctx.exception.detail)
         self.assertIn("<redacted>", ctx.exception.detail)
@@ -384,8 +386,9 @@ class TestLockfileWriteLifecycle(unittest.TestCase):
         message = str(write_error)
         arguments = write_error.args
 
-        with mock.patch("os.write", side_effect=write_error), mock.patch(
-            "os.close", side_effect=fake_close
+        with (
+            mock.patch("os.write", side_effect=write_error),
+            mock.patch("os.close", side_effect=fake_close),
         ):
             with self.assertRaises(OSError) as ctx:
                 execution_module._write_lockfile(self.staging, self.payload)
@@ -442,9 +445,10 @@ class TestLockfileWriteLifecycle(unittest.TestCase):
 
         fake_close, attempts = self._fail_file_close(close_error)
 
-        with mock.patch.object(
-            execution_module, "OwnedDescriptor", _Capturing
-        ), mock.patch("os.close", side_effect=fake_close):
+        with (
+            mock.patch.object(execution_module, "OwnedDescriptor", _Capturing),
+            mock.patch("os.close", side_effect=fake_close),
+        ):
             with self.assertRaises(OSError) as ctx:
                 execution_module._write_lockfile(self.staging, self.payload)
             self.assertIs(ctx.exception, close_error)

@@ -6,6 +6,7 @@ only the secondary diagnostics the wrapper already retained.  It accepts no
 caller-supplied iterable, consumes nothing from the source, and changes no
 chaining, cause, context, or unrelated notes.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -84,7 +85,9 @@ class CarrySecondaryDiagnosticsTests(unittest.TestCase):
         carry_secondary_diagnostics(target, source)
         self.assertEqual(_secondary_of(target), [first, second])
 
-    def test_transaction_error_target_deduplicates_across_repeated_carries(self) -> None:
+    def test_transaction_error_target_deduplicates_across_repeated_carries(
+        self,
+    ) -> None:
         duplicate = OSError("cleanup")
         source = _wrapper_with(duplicate, duplicate)
         target = TransactionError("stage", "target")
@@ -106,7 +109,9 @@ class CarrySecondaryDiagnosticsTests(unittest.TestCase):
         self.assertIn("second cleanup", notes[1])
         self.assertTrue(all(len(note) <= 240 for note in notes))
 
-    def test_fallback_repeated_carry_stays_bounded_without_identity_guarantee(self) -> None:
+    def test_fallback_repeated_carry_stays_bounded_without_identity_guarantee(
+        self,
+    ) -> None:
         source = _wrapper_with(OSError("cleanup"))
         target = _NoAttachment("target")
         for _ in range(_MAX_SECONDARY_NOTES * 3):

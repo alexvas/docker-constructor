@@ -8,6 +8,7 @@ both ``.cause`` and ``.__cause__``; process-control exceptions propagate
 unchanged.  This module also holds the repository-wide consumer inventory
 used to keep every direct and indirect close/factory boundary classified.
 """
+
 from __future__ import annotations
 
 import ast
@@ -90,14 +91,16 @@ class _CapabilityCase(unittest.TestCase):
     def _safe_close(capability) -> None:
         try:
             capability.close()
-        except (OSError, TransactionError):
+        except OSError, TransactionError:
             pass
 
 
 class OpenErrorNormalizationTests(_CapabilityCase):
     """Task 5.1 — operational open failures are typed at ``STAGE_OPEN``."""
 
-    def _assert_typed_open(self, ctx: unittest.case._AssertRaisesContext, cause) -> None:
+    def _assert_typed_open(
+        self, ctx: unittest.case._AssertRaisesContext, cause
+    ) -> None:
         self.assertEqual(ctx.exception.stage, STAGE_OPEN)
         self.assertIs(ctx.exception.cause, cause)
         self.assertIs(ctx.exception.__cause__, cause)
@@ -484,8 +487,9 @@ class NpmPublicationAdvisoryCloseTests(_CapabilityCase):
         def failing_read(self, fd, size):
             raise OSError(errno.EIO, "injected read")
 
-        with mock.patch.object(PosixFileOps, "close", closing), mock.patch.object(
-            PosixFileOps, "read", failing_read
+        with (
+            mock.patch.object(PosixFileOps, "close", closing),
+            mock.patch.object(PosixFileOps, "read", failing_read),
         ):
             entries = publication.read_index(namespace, identity)
         self.assertEqual(entries, ())
@@ -499,9 +503,7 @@ class NpmPublicationAdvisoryCloseTests(_CapabilityCase):
         with mock.patch.object(
             PosixFileOps, "close", self._failing_directory_close("index", error)
         ):
-            self.assertIsNone(
-                publication._append_index(namespace, identity, "e" * 64)
-            )
+            self.assertIsNone(publication._append_index(namespace, identity, "e" * 64))
 
     def test_read_private_regular_suppresses_typed_close_failure(self) -> None:
         outputs = Path(self.root) / "outputs"
@@ -551,8 +553,9 @@ class NpmPublicationAdvisoryCloseTests(_CapabilityCase):
         def failing_read(self, fd, size):
             raise OSError(errno.EIO, "injected read")
 
-        with mock.patch.object(PosixFileOps, "close", closing), mock.patch.object(
-            PosixFileOps, "read", failing_read
+        with (
+            mock.patch.object(PosixFileOps, "close", closing),
+            mock.patch.object(PosixFileOps, "read", failing_read),
         ):
             with self.assertRaises(TransactionError) as ctx:
                 publication._read_private_regular(outputs, "evidence")
@@ -1033,9 +1036,11 @@ class RepositoryCloseInventoryTests(_InventoryRule, unittest.TestCase):
                     continue
                 risky: set[str] = set()
                 for inner in ast.walk(node):
-                    if isinstance(inner, ast.Call) and isinstance(
-                        inner.func, ast.Attribute
-                    ) and inner.func.attr == "close":
+                    if (
+                        isinstance(inner, ast.Call)
+                        and isinstance(inner.func, ast.Attribute)
+                        and inner.func.attr == "close"
+                    ):
                         receiver = ast.unparse(inner.func.value)
                         if receiver not in self.RAW_RECEIVERS and not (
                             receiver.startswith("self._ops")
@@ -1091,7 +1096,10 @@ class RepositoryFactoryMappingInventoryTests(_CapabilityCase):
         # The typed transaction failure is aggregated unchanged; the raw cause
         # is never promoted to a replacement error.
         self.assertIn("_algorithm_failure(algorithm, exc)", source)
-        self.assertNotIn("reported: BaseException = cause if isinstance(cause, OSError) else exc", source)
+        self.assertNotIn(
+            "reported: BaseException = cause if isinstance(cause, OSError) else exc",
+            source,
+        )
 
     def test_rendering_factory_mapping_preserves_typed_error(self) -> None:
         """The ``write_effective_build`` generated-directory factory mapping.
@@ -1105,7 +1113,9 @@ class RepositoryFactoryMappingInventoryTests(_CapabilityCase):
         self.assertNotIn("carry_secondary_diagnostics(cause, exc)", source)
         # The cleanup boundary splits by ownership state: an adopted
         # capability and a still caller-owned raw descriptor.
-        self.assertIn("failures.run(generated.close, ordinary=(CloseStageFailure,))", source)
+        self.assertIn(
+            "failures.run(generated.close, ordinary=(CloseStageFailure,))", source
+        )
         self.assertIn("ordinary=(OSError,))", source)
 
 
@@ -1124,16 +1134,14 @@ _PUBLIC_BOUNDARY_CLASSIFICATION = {
         "operational -> TransactionError; unsafe leaf -> UnsafeFileError"
     ),
     "DirectoryCapability.close": (
-        "operational-close -> TransactionError(STAGE_CLOSE); "
-        "process-control unchanged"
+        "operational-close -> TransactionError(STAGE_CLOSE); process-control unchanged"
     ),
     "DirectoryCapability.__exit__": (
         "cleanup precedence; typed close secondary to an active primary"
     ),
     "FileCapability.read_all": "operational-read -> TransactionError(STAGE_READ)",
     "FileCapability.close": (
-        "operational-close -> TransactionError(STAGE_CLOSE); "
-        "process-control unchanged"
+        "operational-close -> TransactionError(STAGE_CLOSE); process-control unchanged"
     ),
     "FileCapability.assert_owned_by": "misuse/authority -> CapabilityError",
 }
@@ -1164,7 +1172,18 @@ class PublicBoundaryClassificationTests(_CapabilityCase):
 
     def test_classification_inventory_covers_every_public_method(self) -> None:
         for cls, names in (
-            (DirectoryCapability, ("from_path", "from_secure_path", "from_fd", "child_basename", "open_regular", "close", "__exit__")),
+            (
+                DirectoryCapability,
+                (
+                    "from_path",
+                    "from_secure_path",
+                    "from_fd",
+                    "child_basename",
+                    "open_regular",
+                    "close",
+                    "__exit__",
+                ),
+            ),
             (FileCapability, ("read_all", "close", "assert_owned_by")),
         ):
             for name in names:
@@ -1198,10 +1217,13 @@ class PublicBoundaryClassificationTests(_CapabilityCase):
         )
         for cls_name in ("DirectoryCapability", "FileCapability"):
             cls = next(
-                node for node in tree.body
+                node
+                for node in tree.body
                 if isinstance(node, ast.ClassDef) and node.name == cls_name
             )
-            for handler in [n for n in ast.walk(cls) if isinstance(n, ast.ExceptHandler)]:
+            for handler in [
+                n for n in ast.walk(cls) if isinstance(n, ast.ExceptHandler)
+            ]:
                 if handler.type is None or "OSError" not in ast.unparse(handler.type):
                     continue
                 classified = any(

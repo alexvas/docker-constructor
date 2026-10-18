@@ -173,7 +173,8 @@ class TestReviewedFiniteLimits(unittest.TestCase):
         self.assertIsInstance(NPM_RETRY_MAX_TIMEOUT_MS, int)
         self.assertGreater(NPM_RETRY_MIN_TIMEOUT_MS, 0)
         self.assertLessEqual(
-            NPM_RETRY_MIN_TIMEOUT_MS, NPM_RETRY_MAX_TIMEOUT_MS,
+            NPM_RETRY_MIN_TIMEOUT_MS,
+            NPM_RETRY_MAX_TIMEOUT_MS,
         )
 
     def test_total_assembly_duration_is_finite_positive_seconds(self):
@@ -245,10 +246,12 @@ class TestPolicyIdentity(unittest.TestCase):
         changed["retry_count"] = changed["retry_count"] + 1
         new_assembler = _assembler(policy_digest=_canonical_digest(changed))
         new_input_identity = compute_assembler_input_identity(
-            validated, new_assembler,
+            validated,
+            new_assembler,
         )
         self.assertNotEqual(
-            new_input_identity.digest, input_identity.digest,
+            new_input_identity.digest,
+            input_identity.digest,
         )
         self.assertIsNone(
             verify_output(
@@ -291,7 +294,8 @@ class TestPolicyRendering(unittest.TestCase):
             self.assertIn(f"{name}={value}", argv)
 
         redacted_vector = redact_run_vector(
-            vector, (_PROXY, _TRUST_BUNDLE),
+            vector,
+            (_PROXY, _TRUST_BUNDLE),
         )
         redacted_argv = redact_docker_argv(argv, (_PROXY, _TRUST_BUNDLE))
         for secret in (_PROXY, _TRUST_BUNDLE):
@@ -346,8 +350,15 @@ class TestPolicyRendering(unittest.TestCase):
         ):
             params = set(inspect.signature(func).parameters)
             self.assertFalse(
-                params & {"timeout", "retry", "deadline", "duration",
-                          "fetch_timeout", "total_timeout"},
+                params
+                & {
+                    "timeout",
+                    "retry",
+                    "deadline",
+                    "duration",
+                    "fetch_timeout",
+                    "total_timeout",
+                },
                 f"{func.__name__} exposes a limit override",
             )
 
@@ -356,10 +367,16 @@ class TestPolicyRendering(unittest.TestCase):
         import docker.versioning.inventory as inventory_module
         import docker.versioning.model as model_module
 
-        toml = (Path(__file__).resolve().parents[1] / "docker-constructor.toml")
+        toml = Path(__file__).resolve().parents[1] / "docker-constructor.toml"
         toml_text = toml.read_text()
-        for key in ("fetch_timeout", "fetch_timeout_ms", "npm_retry",
-                    "npm_timeout", "assembly_timeout", "total_timeout"):
+        for key in (
+            "fetch_timeout",
+            "fetch_timeout_ms",
+            "npm_retry",
+            "npm_timeout",
+            "assembly_timeout",
+            "total_timeout",
+        ):
             self.assertNotIn(key, inspect.getsource(model_module))
             self.assertNotIn(key, inspect.getsource(inventory_module))
             self.assertNotIn(key, toml_text)

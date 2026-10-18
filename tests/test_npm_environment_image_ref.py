@@ -105,12 +105,8 @@ class TestValidateImageReference(unittest.TestCase):
     def test_accepts_repository_plus_digest(self):
         validate_image_reference(_FULL)
         validate_image_reference(_UNTAGGED)
-        validate_image_reference(
-            f"registry.example.com/library/node:24.1.0@{_DIGEST}"
-        )
-        validate_image_reference(
-            f"registry.example.com/library/node@{_DIGEST}"
-        )
+        validate_image_reference(f"registry.example.com/library/node:24.1.0@{_DIGEST}")
+        validate_image_reference(f"registry.example.com/library/node@{_DIGEST}")
 
     def test_accepts_untagged_nested_repositories(self):
         for ref in (
@@ -173,10 +169,10 @@ class TestValidateImageReference(unittest.TestCase):
 
     def test_rejects_mutable_or_malformed_references(self):
         for bad in (
-            "docker.io/library/node:tag",           # tag, no digest
-            f"node:24@{_DIGEST}",                   # name:tag but no registry/repo
-            f"node@{_DIGEST}",                      # name but no registry/repo
-            "",                                     # empty
+            "docker.io/library/node:tag",  # tag, no digest
+            f"node:24@{_DIGEST}",  # name:tag but no registry/repo
+            f"node@{_DIGEST}",  # name but no registry/repo
+            "",  # empty
             f"docker.io/library/node:ta@g@{_DIGEST}",  # multiple '@'
         ):
             with self.assertRaises(LockedNpmError) as ctx:
@@ -185,13 +181,13 @@ class TestValidateImageReference(unittest.TestCase):
 
     def test_rejects_malformed_untagged_repositories(self):
         for bad in (
-            f"docker.io/Library/node@{_DIGEST}",          # uppercase segment
-            f"docker.io/library//node@{_DIGEST}",         # empty segment
-            f"docker.io/library/node repo@{_DIGEST}",     # space
-            f"docker.io/-node@{_DIGEST}",                 # leading separator
-            f"docker.io/node-@{_DIGEST}",                 # trailing separator
-            f"docker.io/library/node..x@{_DIGEST}",       # doubled separator
-            f"docker.io/@{_DIGEST}",                      # empty repository
+            f"docker.io/Library/node@{_DIGEST}",  # uppercase segment
+            f"docker.io/library//node@{_DIGEST}",  # empty segment
+            f"docker.io/library/node repo@{_DIGEST}",  # space
+            f"docker.io/-node@{_DIGEST}",  # leading separator
+            f"docker.io/node-@{_DIGEST}",  # trailing separator
+            f"docker.io/library/node..x@{_DIGEST}",  # doubled separator
+            f"docker.io/@{_DIGEST}",  # empty repository
         ):
             with self.assertRaises(LockedNpmError) as ctx:
                 validate_image_reference(bad)
@@ -199,18 +195,18 @@ class TestValidateImageReference(unittest.TestCase):
 
     def test_rejects_malformed_registries(self):
         for bad in (
-            f"https://registry.example.com/repo@{_DIGEST}",   # URL scheme
-            f"bad host/repo@{_DIGEST}",                       # whitespace
-            f"registry.example.com:/repo@{_DIGEST}",          # empty port
-            f"registry.example.com:abc/repo@{_DIGEST}",       # non-numeric port
-            f"registry.example.com:70000/repo@{_DIGEST}",     # out-of-range port
-            f"registry.example.com:0/repo@{_DIGEST}",         # port zero
-            f"registry.example.com:50:00/repo@{_DIGEST}",     # extra colon
-            f"-registry.example.com/repo@{_DIGEST}",          # leading hyphen
-            f"registry..example.com/repo@{_DIGEST}",          # empty label
-            f"registry_.example.com/repo@{_DIGEST}",          # invalid char
-            f"./repo@{_DIGEST}",                              # empty hostname
-            f":5000/repo@{_DIGEST}",                          # empty hostname
+            f"https://registry.example.com/repo@{_DIGEST}",  # URL scheme
+            f"bad host/repo@{_DIGEST}",  # whitespace
+            f"registry.example.com:/repo@{_DIGEST}",  # empty port
+            f"registry.example.com:abc/repo@{_DIGEST}",  # non-numeric port
+            f"registry.example.com:70000/repo@{_DIGEST}",  # out-of-range port
+            f"registry.example.com:0/repo@{_DIGEST}",  # port zero
+            f"registry.example.com:50:00/repo@{_DIGEST}",  # extra colon
+            f"-registry.example.com/repo@{_DIGEST}",  # leading hyphen
+            f"registry..example.com/repo@{_DIGEST}",  # empty label
+            f"registry_.example.com/repo@{_DIGEST}",  # invalid char
+            f"./repo@{_DIGEST}",  # empty hostname
+            f":5000/repo@{_DIGEST}",  # empty hostname
         ):
             with self.assertRaises(LockedNpmError) as ctx:
                 validate_image_reference(bad)
@@ -218,13 +214,13 @@ class TestValidateImageReference(unittest.TestCase):
 
     def test_rejects_malformed_ipv6_registries(self):
         for bad in (
-            f"::1/repo@{_DIGEST}",                   # unbracketed IPv6
-            f"[::1/repo@{_DIGEST}",                  # unclosed bracket
-            f"[not-ipv6]/repo@{_DIGEST}",            # not an IPv6 literal
-            f"[1.2.3.4]/repo@{_DIGEST}",             # IPv4 in brackets
-            f"[::1]:abc/repo@{_DIGEST}",             # non-numeric port
-            f"[2001:db8::1]:70000/repo@{_DIGEST}",   # out-of-range port
-            f"[::1]extra/repo@{_DIGEST}",            # trailing garbage
+            f"::1/repo@{_DIGEST}",  # unbracketed IPv6
+            f"[::1/repo@{_DIGEST}",  # unclosed bracket
+            f"[not-ipv6]/repo@{_DIGEST}",  # not an IPv6 literal
+            f"[1.2.3.4]/repo@{_DIGEST}",  # IPv4 in brackets
+            f"[::1]:abc/repo@{_DIGEST}",  # non-numeric port
+            f"[2001:db8::1]:70000/repo@{_DIGEST}",  # out-of-range port
+            f"[::1]extra/repo@{_DIGEST}",  # trailing garbage
         ):
             with self.assertRaises(LockedNpmError) as ctx:
                 validate_image_reference(bad)
@@ -256,19 +252,13 @@ class TestInvalidReferenceFailsBeforeEffects(unittest.TestCase):
         self._assert_no_effects("sha256:" + "A" * 64)
 
     def test_userinfo_fails_before_effects(self):
-        self._assert_no_effects(
-            f"user:pass@docker.io/library/node:24@{_DIGEST}"
-        )
+        self._assert_no_effects(f"user:pass@docker.io/library/node:24@{_DIGEST}")
 
     def test_malformed_repository_fails_before_effects(self):
-        self._assert_no_effects(
-            f"docker.io/Library/node@{_DIGEST}"
-        )
+        self._assert_no_effects(f"docker.io/Library/node@{_DIGEST}")
 
     def test_malformed_registry_fails_before_effects(self):
-        self._assert_no_effects(
-            f"registry.example.com:abc/repo@{_DIGEST}"
-        )
+        self._assert_no_effects(f"registry.example.com:abc/repo@{_DIGEST}")
 
 
 if __name__ == "__main__":

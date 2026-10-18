@@ -16,6 +16,7 @@ invokes the production entry point, and asserts:
 Effect categories: cache mutation, network access, artifact publication,
 container execution, and Docker execution.
 """
+
 from __future__ import annotations
 
 import base64
@@ -39,16 +40,20 @@ def _fixture_inventory(directory: Path) -> Path:
 
     def replace_integrity(match: re.Match[str]) -> str:
         url = match.group(1)
-        digest = base64.b64encode(hashlib.sha512(
-            ("release-order:" + url).encode()
-        ).digest()).decode()
+        digest = base64.b64encode(
+            hashlib.sha512(("release-order:" + url).encode()).digest()
+        ).decode()
         return f'url = "{url}"\nintegrity = "sha512-{digest}"'
 
     content = re.sub(
-        r'url = "([^"]+)"\nintegrity = "[^"]+"', replace_integrity, content,
+        r'url = "([^"]+)"\nintegrity = "[^"]+"',
+        replace_integrity,
+        content,
     )
     content = re.sub(
-        r'integrity = "[^"]+"\nurl = "([^"]+)"', replace_integrity, content,
+        r'integrity = "[^"]+"\nurl = "([^"]+)"',
+        replace_integrity,
+        content,
     )
     inventory.write_text(content)
     return inventory
@@ -66,6 +71,7 @@ class _RecordingExecutor:
 
     def run(self, argv: tuple[str, ...], *, interactive: bool = False):
         from docker.launcher import ProcessResult
+
         self.calls.append(argv)
         return ProcessResult(argv=argv, return_code=0, stdout="", stderr="")
 
@@ -85,9 +91,7 @@ class _ReleaseOrderingTestCase(unittest.TestCase):
         self.xdg = self.base / "xdg"
         self.inventory = _fixture_inventory(self.checkout)
         (self.checkout / "Dockerfile").write_text("FROM scratch\n")
-        self._saved = {
-            key: os.environ.get(key) for key in ("HOME", "XDG_CACHE_HOME")
-        }
+        self._saved = {key: os.environ.get(key) for key in ("HOME", "XDG_CACHE_HOME")}
         home = self.base / "home"
         home.mkdir()
         os.environ["HOME"] = str(home)
@@ -124,23 +128,28 @@ class TestRunEffectsBlockedBeforeRelease(_ReleaseOrderingTestCase):
             fetchers.append(url)
             return b"should-not-be-fetched"
 
-        with mock.patch(
-            "docker.versioning.artifact_cache.materialize_selected_artifacts",
-        ) as materialize, mock.patch(
-            "urllib.request.urlopen",
-            side_effect=AssertionError("network access reached"),
+        with (
+            mock.patch(
+                "docker.versioning.artifact_cache.materialize_selected_artifacts",
+            ) as materialize,
+            mock.patch(
+                "urllib.request.urlopen",
+                side_effect=AssertionError("network access reached"),
+            ),
         ):
-            result = orchestrate_run(RunRequest(
-                inventory_path=str(self.inventory),
-                image="test-image",
-                selection=WorkspaceSelection(workspace="/work/project"),
-                pi_home_host="/home/test/.pi",
-                repo_root=str(self.checkout),
-                project_root=self.checkout,
-                _artifact_fetcher=fetch,
-                executor=executor,
-                inspector=_NoContainersInspector(),
-            ))
+            result = orchestrate_run(
+                RunRequest(
+                    inventory_path=str(self.inventory),
+                    image="test-image",
+                    selection=WorkspaceSelection(workspace="/work/project"),
+                    pi_home_host="/home/test/.pi",
+                    repo_root=str(self.checkout),
+                    project_root=self.checkout,
+                    _artifact_fetcher=fetch,
+                    executor=executor,
+                    inspector=_NoContainersInspector(),
+                )
+            )
         return result, materialize, fetchers, executor
 
     def test_dangerous_root_blocks_every_effect(self) -> None:
@@ -186,16 +195,18 @@ class TestRunEffectsBlockedBeforeRelease(_ReleaseOrderingTestCase):
             "docker.versioning.artifact_cache.materialize_selected_artifacts",
             return_value={},
         ) as materialize:
-            result = orchestrate_run(RunRequest(
-                inventory_path=str(self.inventory),
-                image="test-image",
-                selection=WorkspaceSelection(workspace="/work/project"),
-                pi_home_host="/home/test/.pi",
-                repo_root=str(self.checkout),
-                project_root=self.checkout,
-                executor=executor,
-                inspector=_NoContainersInspector(),
-            ))
+            result = orchestrate_run(
+                RunRequest(
+                    inventory_path=str(self.inventory),
+                    image="test-image",
+                    selection=WorkspaceSelection(workspace="/work/project"),
+                    pi_home_host="/home/test/.pi",
+                    repo_root=str(self.checkout),
+                    project_root=self.checkout,
+                    executor=executor,
+                    inspector=_NoContainersInspector(),
+                )
+            )
         self.assertNotEqual("config", result.exit_kind.value, result.message)
         materialize.assert_called_once()
         self.assertTrue(executor.calls, "valid root must reach container execution")
@@ -206,11 +217,16 @@ class TestRunEffectsBlockedBeforeRelease(_ReleaseOrderingTestCase):
         for bad in ("/", "relative/path", ""):
             with self.subTest(cache_dir=bad):
                 _write_companion(self.inventory, bad)
-                with mock.patch.object(
-                    cache_storage, "_create_and_secure",
-                ) as create, mock.patch.object(
-                    cache_storage, "_harden_tree",
-                ) as harden:
+                with (
+                    mock.patch.object(
+                        cache_storage,
+                        "_create_and_secure",
+                    ) as create,
+                    mock.patch.object(
+                        cache_storage,
+                        "_harden_tree",
+                    ) as harden,
+                ):
                     result, *_ = self._run(bad)
                 self.assertEqual("config", result.exit_kind.value, result.message)
                 create.assert_not_called()
@@ -230,12 +246,14 @@ class TestBuildDockerExecutionBlockedBeforeRelease(_ReleaseOrderingTestCase):
         with mock.patch(
             "docker.versioning.build_orchestration.execute_build",
         ) as execute:
-            result = orchestrate_build(BuildRequest(
-                inventory_path=str(self.inventory),
-                project_root=str(self.checkout),
-                confirmed=True,
-                runner=mock.Mock(),
-            ))
+            result = orchestrate_build(
+                BuildRequest(
+                    inventory_path=str(self.inventory),
+                    project_root=str(self.checkout),
+                    confirmed=True,
+                    runner=mock.Mock(),
+                )
+            )
         return result, execute
 
     def test_dangerous_root_blocks_docker_execution(self) -> None:
@@ -289,6 +307,7 @@ class TestBuildUnsafeDescendantBlockedBeforeRelease(_ReleaseOrderingTestCase):
             def probe(*_args, **_kwargs):
                 reached.append(name)
                 raise AssertionError(f"{name} reached before cache rejection")
+
             return probe
 
         class _Runner:
@@ -307,7 +326,8 @@ class TestBuildUnsafeDescendantBlockedBeforeRelease(_ReleaseOrderingTestCase):
         )
         plan = plan_build(request)
         self.assertEqual(
-            "success", plan.exit_kind.value,
+            "success",
+            plan.exit_kind.value,
             f"descendant inspection is a preparation concern: {plan.message}",
         )
         # ``execute_build`` is invoked for real: its cache preparation must
@@ -434,11 +454,14 @@ class TestCacheOwnedDescendantMutationOrdering(_ReleaseOrderingTestCase):
     def test_unsafe_root_rejected_before_inspection(self) -> None:
         from docker.versioning import cache_storage
 
-        with mock.patch.object(cache_storage, "_inspect_entry") as inspect, \
-             mock.patch.object(cache_storage, "_create_and_secure") as create:
+        with (
+            mock.patch.object(cache_storage, "_inspect_entry") as inspect,
+            mock.patch.object(cache_storage, "_create_and_secure") as create,
+        ):
             with self.assertRaises(cache_storage.CacheStorageError):
                 cache_storage.prepare_local_root(
-                    "/", xdg_cache_home=str(self.xdg),
+                    "/",
+                    xdg_cache_home=str(self.xdg),
                     home=self.base / "home",
                 )
         inspect.assert_not_called()

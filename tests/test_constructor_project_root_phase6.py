@@ -1,4 +1,5 @@
 """Phase 6 semantic and README contract checks."""
+
 from __future__ import annotations
 
 import re
@@ -30,10 +31,16 @@ class TestSemanticContract(unittest.TestCase):
             for path in root.rglob("*"):
                 if not path.is_file() or path.suffix not in {"", ".py", ".sh"}:
                     continue
-                for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                for line_no, line in enumerate(
+                    path.read_text(encoding="utf-8").splitlines(), 1
+                ):
                     if any(pattern.search(line) for pattern in FORBIDDEN):
-                        violations.append(f"{path.relative_to(ROOT)}:{line_no}: {line.strip()}")
-        self.assertEqual([], violations, "removed contracts remain active:\n" + "\n".join(violations))
+                        violations.append(
+                            f"{path.relative_to(ROOT)}:{line_no}: {line.strip()}"
+                        )
+        self.assertEqual(
+            [], violations, "removed contracts remain active:\n" + "\n".join(violations)
+        )
 
 
 class TestReadmeContract(unittest.TestCase):
@@ -73,7 +80,9 @@ class TestReadmeContract(unittest.TestCase):
             with self.subTest(readme=readme.name):
                 self.assertIn(phrase, readme.read_text(encoding="utf-8"))
 
-    def test_every_translation_documents_external_generated_output_behavior(self) -> None:
+    def test_every_translation_documents_external_generated_output_behavior(
+        self,
+    ) -> None:
         expected = (
             (
                 "внешнем пространстве состояния проекта",
@@ -98,7 +107,11 @@ class TestReadmeContract(unittest.TestCase):
         workflows = (
             ("build -y", "build -y", "build -y"),
             ("run --tui", "run --tui", "run --tui"),
-            ("--workspace /path/to/primary", "--workspace /path/to/primary", "--workspace /path/to/primary"),
+            (
+                "--workspace /path/to/primary",
+                "--workspace /path/to/primary",
+                "--workspace /path/to/primary",
+            ),
             ("check-updates", "check-updates", "check-updates"),
             ("## Обслуживание", "## Maintenance", "## 维护"),
         )

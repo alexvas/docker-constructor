@@ -6,6 +6,7 @@ injecting build metadata into the container.
 
 All tests use fake process runners — no Docker required.
 """
+
 from __future__ import annotations
 
 import io
@@ -50,6 +51,7 @@ from docker.versioning.verification import (
 # validated through the maintained serializer / validator pipeline.
 # ═══════════════════════════════════════════════════════════════════════
 
+
 def _canonical_projection() -> EffectiveBuildProjection:
     """Return the project-wide canonical effective build projection.
 
@@ -69,7 +71,7 @@ def _canonical_projection() -> EffectiveBuildProjection:
             components=("clippy", "rustfmt"),
             rustup=EffectiveArtifact(
                 url="https://static.rust-lang.org/rustup/archive/1.27.1/"
-                    "x86_64-unknown-linux-gnu/rustup-init",
+                "x86_64-unknown-linux-gnu/rustup-init",
                 sha256="6a20b2c8a3945a3a5a8d6c2e9e4a0ce4a20f3be3710957477c5353b6b3d28f5d",
             ),
         ),
@@ -77,7 +79,7 @@ def _canonical_projection() -> EffectiveBuildProjection:
             version="0.6.17",
             artifact=EffectiveArtifact(
                 url="https://github.com/astral-sh/uv/releases/download/0.6.17/"
-                    "uv-aarch64-unknown-linux-gnu.tar.gz",
+                "uv-aarch64-unknown-linux-gnu.tar.gz",
                 sha256="fab4a20b2c8e3945a3a5a8d6c2e9e4a0ce4a20f3be3710957477c5353b6b3d28f5",
             ),
         ),
@@ -87,7 +89,7 @@ def _canonical_projection() -> EffectiveBuildProjection:
             version="0.1.29",
             artifact=EffectiveArtifact(
                 url="https://github.com/vaibhav-patel/rtk/releases/download/"
-                    "v0.1.29/rtk-v0.1.29-aarch64-unknown-linux-gnu.tar.gz",
+                "v0.1.29/rtk-v0.1.29-aarch64-unknown-linux-gnu.tar.gz",
                 sha256="cbb4a20b2c8e3945a3a5a8d6c2e9e4a0ce4a20f3be3710957477c5353b6b3d28f5",
             ),
         ),
@@ -95,7 +97,7 @@ def _canonical_projection() -> EffectiveBuildProjection:
             version="10.1.0",
             artifact=EffectiveArtifact(
                 url="https://github.com/sharkdp/fd/releases/download/"
-                    "v10.1.0/fd-v10.1.0-aarch64-unknown-linux-gnu.tar.gz",
+                "v10.1.0/fd-v10.1.0-aarch64-unknown-linux-gnu.tar.gz",
                 sha256="dbb4a20b2c8e3945a3a5a8d6c2e9e4a0ce4a20f3be3710957477c5353b6b3d28f5",
             ),
         ),
@@ -134,6 +136,7 @@ def _write_projection_fixture(proj: EffectiveBuildProjection | None = None) -> P
     toml_str = _serialize_projection_to_toml(proj)
     fd, path = tempfile.mkstemp(suffix=".toml", prefix="test-eff-build-")
     import os
+
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(toml_str)
     return Path(path)
@@ -142,6 +145,7 @@ def _write_projection_fixture(proj: EffectiveBuildProjection | None = None) -> P
 def _canonical_projection_dict() -> dict:
     """Return the serialized canonical projection as a plain dict."""
     from docker.versioning.rendering import serialize_effective_build
+
     return serialize_effective_build(_canonical_projection())
 
 
@@ -156,6 +160,7 @@ def _fixture_is_valid_round_trip(path: Path) -> None:
 # ═══════════════════════════════════════════════════════════════════════
 # Fake process runner — dispatches by tool name found in argv
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class ToolVersionRunner:
     """Returns canned version output for *tool* names found in argv.
@@ -195,12 +200,16 @@ class ToolVersionRunner:
                 tool = t[0]
         if tool in self._versions:
             return VProcessResult(
-                argv=t, return_code=self._return_code,
-                stdout=self._versions[tool], stderr=self._stderr,
+                argv=t,
+                return_code=self._return_code,
+                stdout=self._versions[tool],
+                stderr=self._stderr,
             )
         return VProcessResult(
-            argv=t, return_code=1,
-            stdout="", stderr="no version known for: " + ", ".join(argv),
+            argv=t,
+            return_code=1,
+            stdout="",
+            stderr="no version known for: " + ", ".join(argv),
         )
 
 
@@ -209,20 +218,20 @@ class ToolVersionRunner:
 # ═══════════════════════════════════════════════════════════════════════
 
 _MATCHING: dict[str, str] = {
-    "node":      "v22.11.0\n",
-    "rustc":     "rustc 1.83.0 (90b35a623 2024-11-26)\n",
-    "cargo":     "cargo 1.83.0 (5ffa321 2024-11-26)\n",
-    "rustfmt":   "rustfmt 1.83.0-stable (abc1234 2024-11-26)\n",
-    "clippy":    "clippy 0.1.83 (abc1234 2024-11-26)\n",
-    "uv":        "uv 0.6.17\n",
-    "python3":   "Python 3.14.0\n",
-    "ty":        "ty v0.9.0\n",
-    "rtk":       "rtk 0.1.29\n",
-    "fd":        "fd 10.1.0\n",
-    "pi":        "v1.4.236\n",
-    "openspec":  "openspec v0.15.0\n",
-    "git":       "eea3ac1a6802f0d8a778447413b9b52a14decb40\n",
-    "rustup":    (
+    "node": "v22.11.0\n",
+    "rustc": "rustc 1.83.0 (90b35a623 2024-11-26)\n",
+    "cargo": "cargo 1.83.0 (5ffa321 2024-11-26)\n",
+    "rustfmt": "rustfmt 1.83.0-stable (abc1234 2024-11-26)\n",
+    "clippy": "clippy 0.1.83 (abc1234 2024-11-26)\n",
+    "uv": "uv 0.6.17\n",
+    "python3": "Python 3.14.0\n",
+    "ty": "ty v0.9.0\n",
+    "rtk": "rtk 0.1.29\n",
+    "fd": "fd 10.1.0\n",
+    "pi": "v1.4.236\n",
+    "openspec": "openspec v0.15.0\n",
+    "git": "eea3ac1a6802f0d8a778447413b9b52a14decb40\n",
+    "rustup": (
         "/home/dev/.rustup/toolchains/1.83.0-x86_64-unknown"
         "-linux-gnu/bin/rustfmt\n"
         "rustfmt-x86_64-unknown-linux-gnu (installed)\n"
@@ -236,6 +245,7 @@ _MISMATCHED: dict[str, str] = {
 
 # ── Per-tool normalization helpers used by the tests to prove the
 #    API applies the right rule, not to re-implement it.
+
 
 def _normalize_node(raw: str) -> str:
     """Strip leading ``v``/``V`` then trailing whitespace."""
@@ -285,18 +295,18 @@ def _normalize_rustup_toolchain_version(raw: str) -> str:
 
 
 _NORMALIZERS: dict[str, object] = {
-    "node.version":     _normalize_node,
-    "rust.version":     _extract_first_version_token,
-    "rust.cargo":       _extract_first_version_token,
-    "rust.rustfmt":     _normalize_rustup_toolchain_version,
+    "node.version": _normalize_node,
+    "rust.version": _extract_first_version_token,
+    "rust.cargo": _extract_first_version_token,
+    "rust.rustfmt": _normalize_rustup_toolchain_version,
     "rust.rustfmt.component": _normalize_component_status,
-    "rust.clippy":      _extract_first_version_token,
-    "uv.version":       _extract_first_version_token,
-    "python.version":   _extract_first_version_token,
-    "ty.version":       _normalize_v_stripped,
-    "rtk.version":      _extract_first_version_token,
-    "fd.version":       _extract_first_version_token,
-    "pi.version":       _normalize_node,
+    "rust.clippy": _extract_first_version_token,
+    "uv.version": _extract_first_version_token,
+    "python.version": _extract_first_version_token,
+    "ty.version": _normalize_v_stripped,
+    "rtk.version": _extract_first_version_token,
+    "fd.version": _extract_first_version_token,
+    "pi.version": _normalize_node,
     "openspec.version": _normalize_v_stripped,
     "oh-my-zsh.revision": lambda r: r.strip(),
 }
@@ -355,9 +365,13 @@ class TestBuildVerification(unittest.TestCase):
         _fixture_is_valid_round_trip(tf)  # prove the fixture is real
         proj_dict = _canonical_projection_dict()
         runner = ToolVersionRunner(_MATCHING)
-        result = verify_build(VerifyBuildRequest(
-            image=IMG, effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image=IMG,
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
 
         self.assertTrue(result.all_ok)
         self.assertEqual((), result.errors)
@@ -365,15 +379,17 @@ class TestBuildVerification(unittest.TestCase):
         obs_by_key = {o.key: o for o in result.observations}
         applicable = _applicable_contracts(proj_dict)
         contract_by_key = {c.key: c for c in applicable}
-        self.assertEqual(set(contract_by_key), set(obs_by_key),
-                         "every applicable contract must produce an observation")
+        self.assertEqual(
+            set(contract_by_key),
+            set(obs_by_key),
+            "every applicable contract must produce an observation",
+        )
 
         for contract in applicable:
             obs = obs_by_key[contract.key]
             expected = _extract_expected_value(contract.key, proj_dict)
             with self.subTest(key=contract.key):
-                expected_cmd = ("docker", "run", "--rm", IMG,
-                                *contract.command_suffix)
+                expected_cmd = ("docker", "run", "--rm", IMG, *contract.command_suffix)
                 self.assertEqual(expected_cmd, obs.command)
                 self.assertEqual(expected, obs.expected_value)
                 self.assertTrue(obs.ok)
@@ -391,9 +407,13 @@ class TestBuildVerification(unittest.TestCase):
         IMG = "pi-cli-pi:latest"
         tf = _write_projection_fixture()
         runner = ToolVersionRunner(_MISMATCHED)
-        result = verify_build(VerifyBuildRequest(
-            image=IMG, effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image=IMG,
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
 
         self.assertFalse(result.all_ok)
         obs_by_key = {o.key: o for o in result.observations}
@@ -417,9 +437,13 @@ class TestBuildVerification(unittest.TestCase):
         IMG = "pi-cli-pi:latest"
         tf = _write_projection_fixture()
         runner = ToolVersionRunner(_MATCHING)
-        verify_build(VerifyBuildRequest(
-            image=IMG, effective_projection_path=tf, runner=runner,
-        ))
+        verify_build(
+            VerifyBuildRequest(
+                image=IMG,
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
 
         self.assertTrue(len(runner.calls) > 0)
         tf_str = str(tf)
@@ -436,10 +460,13 @@ class TestBuildVerification(unittest.TestCase):
         """Missing file → errors, zero observations."""
         missing = Path("/nonexistent/build.effective.toml")
         assert not missing.exists()
-        result = verify_build(VerifyBuildRequest(
-            image="img", effective_projection_path=missing,
-            runner=ToolVersionRunner(),
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image="img",
+                effective_projection_path=missing,
+                runner=ToolVersionRunner(),
+            )
+        )
         self.assertFalse(result.all_ok)
         self.assertEqual((), result.observations)
         self.assertTrue(len(result.errors) > 0)
@@ -448,10 +475,13 @@ class TestBuildVerification(unittest.TestCase):
         """Unparseable TOML → errors, zero observations."""
         tf = _write_projection_fixture()
         tf.write_text("}}} not valid toml {{{[[[")
-        result = verify_build(VerifyBuildRequest(
-            image="img", effective_projection_path=tf,
-            runner=ToolVersionRunner(),
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image="img",
+                effective_projection_path=tf,
+                runner=ToolVersionRunner(),
+            )
+        )
         self.assertFalse(result.all_ok)
         self.assertEqual((), result.observations)
         self.assertTrue(len(result.errors) > 0)
@@ -460,13 +490,17 @@ class TestBuildVerification(unittest.TestCase):
         """Non-zero docker exit → at least one observation not-ok."""
         tf = _write_projection_fixture()
         runner = ToolVersionRunner(
-            _MATCHING, return_code=125,
+            _MATCHING,
+            return_code=125,
             stderr="No such image: pi-cli-pi:latest\n",
         )
-        result = verify_build(VerifyBuildRequest(
-            image="pi-cli-pi:latest",
-            effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image="pi-cli-pi:latest",
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
         self.assertFalse(result.all_ok)
         self.assertTrue(
             any(not o.ok for o in result.observations),
@@ -478,10 +512,13 @@ class TestBuildVerification(unittest.TestCase):
         in the deterministic _CONTRACTS subsequence order."""
         IMG = "pi-cli-pi:latest"
         tf = _write_projection_fixture()
-        result = verify_build(VerifyBuildRequest(
-            image=IMG, effective_projection_path=tf,
-            runner=ToolVersionRunner(_MATCHING),
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image=IMG,
+                effective_projection_path=tf,
+                runner=ToolVersionRunner(_MATCHING),
+            )
+        )
         obs_keys = tuple(o.key for o in result.observations)
         proj_dict = _canonical_projection_dict()
         contract_keys = tuple(c.key for c in _applicable_contracts(proj_dict))
@@ -493,10 +530,14 @@ class TestBuildVerification(unittest.TestCase):
         tf = _write_projection_fixture()
 
         def _run():
-            return verify_build(VerifyBuildRequest(
-                image=IMG, effective_projection_path=tf,
-                runner=ToolVersionRunner(_MATCHING),
-            ))
+            return verify_build(
+                VerifyBuildRequest(
+                    image=IMG,
+                    effective_projection_path=tf,
+                    runner=ToolVersionRunner(_MATCHING),
+                )
+            )
+
         r1, r2 = _run(), _run()
         self.assertEqual(
             tuple(o.key for o in r1.observations),
@@ -508,52 +549,68 @@ class TestBuildVerification(unittest.TestCase):
         corresponding section of the effective build projection."""
         IMG = "pi-cli-pi:latest"
         tf = _write_projection_fixture()
-        result = verify_build(VerifyBuildRequest(
-            image=IMG, effective_projection_path=tf,
-            runner=ToolVersionRunner(_MATCHING),
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image=IMG,
+                effective_projection_path=tf,
+                runner=ToolVersionRunner(_MATCHING),
+            )
+        )
         obs_by_key = {o.key: o for o in result.observations}
         proj_dict = _canonical_projection_dict()
 
         self.assertEqual(
             _extract_expected_value("node.version", proj_dict),
-            obs_by_key["node.version"].expected_value)
+            obs_by_key["node.version"].expected_value,
+        )
         self.assertEqual(
             _extract_expected_value("rust.version", proj_dict),
-            obs_by_key["rust.version"].expected_value)
+            obs_by_key["rust.version"].expected_value,
+        )
         self.assertEqual(
             _extract_expected_value("rust.cargo", proj_dict),
-            obs_by_key["rust.cargo"].expected_value)
+            obs_by_key["rust.cargo"].expected_value,
+        )
         self.assertEqual(
             _extract_expected_value("rust.rustfmt", proj_dict),
-            obs_by_key["rust.rustfmt"].expected_value)
+            obs_by_key["rust.rustfmt"].expected_value,
+        )
         self.assertEqual(
             _extract_expected_value("rust.clippy", proj_dict),
-            obs_by_key["rust.clippy"].expected_value)
+            obs_by_key["rust.clippy"].expected_value,
+        )
         self.assertEqual(
             _extract_expected_value("uv.version", proj_dict),
-            obs_by_key["uv.version"].expected_value)
+            obs_by_key["uv.version"].expected_value,
+        )
         self.assertEqual(
             _extract_expected_value("python.version", proj_dict),
-            obs_by_key["python.version"].expected_value)
+            obs_by_key["python.version"].expected_value,
+        )
         self.assertEqual(
             _extract_expected_value("ty.version", proj_dict),
-            obs_by_key["ty.version"].expected_value)
+            obs_by_key["ty.version"].expected_value,
+        )
         self.assertEqual(
             _extract_expected_value("rtk.version", proj_dict),
-            obs_by_key["rtk.version"].expected_value)
+            obs_by_key["rtk.version"].expected_value,
+        )
         self.assertEqual(
             _extract_expected_value("fd.version", proj_dict),
-            obs_by_key["fd.version"].expected_value)
+            obs_by_key["fd.version"].expected_value,
+        )
         self.assertEqual(
             _extract_expected_value("pi.version", proj_dict),
-            obs_by_key["pi.version"].expected_value)
+            obs_by_key["pi.version"].expected_value,
+        )
         self.assertEqual(
             _extract_expected_value("openspec.version", proj_dict),
-            obs_by_key["openspec.version"].expected_value)
+            obs_by_key["openspec.version"].expected_value,
+        )
         self.assertEqual(
             _extract_expected_value("oh-my-zsh.revision", proj_dict),
-            obs_by_key["oh-my-zsh.revision"].expected_value)
+            obs_by_key["oh-my-zsh.revision"].expected_value,
+        )
 
 
 class TestAlteredProjection(unittest.TestCase):
@@ -568,8 +625,9 @@ class TestAlteredProjection(unittest.TestCase):
             platform=base.platform,
             node=EffectiveNode(
                 image="node:18.19.0-bookworm-slim"
-                      "@sha256:abc123def4567890011223344556677889900aabbcc",
-                node_version="18.19.0", npm_version="10.2.4",
+                "@sha256:abc123def4567890011223344556677889900aabbcc",
+                node_version="18.19.0",
+                npm_version="10.2.4",
             ),
             rust=EffectiveRust(
                 version="1.75.0",
@@ -595,17 +653,17 @@ class TestAlteredProjection(unittest.TestCase):
         """Container outputs that match the altered projection."""
         return {
             **_MATCHING,
-            "node":     "v18.19.0\n",
-            "rustc":    "rustc 1.75.0 (90b35a623 2024-11-26)\n",
-            "cargo":    "cargo 1.75.0 (5ffa321 2024-11-26)\n",
-            "rustup":   (
+            "node": "v18.19.0\n",
+            "rustc": "rustc 1.75.0 (90b35a623 2024-11-26)\n",
+            "cargo": "cargo 1.75.0 (5ffa321 2024-11-26)\n",
+            "rustup": (
                 "/home/dev/.rustup/toolchains/1.75.0-x86_64-unknown"
                 "-linux-gnu/bin/rustfmt\n"
                 "rustfmt-x86_64-unknown-linux-gnu (installed)\n"
             ),
-            "clippy":   "clippy 0.1.75 (abc1234 2024-11-26)\n",
-            "uv":       "uv 0.5.0\n",
-            "git":      "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef\n",
+            "clippy": "clippy 0.1.75 (abc1234 2024-11-26)\n",
+            "uv": "uv 0.5.0\n",
+            "git": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef\n",
         }
 
     def test_altered_projection_changes_expected_values(self) -> None:
@@ -615,40 +673,39 @@ class TestAlteredProjection(unittest.TestCase):
         altered = self._altered_projection()
         tf = _write_projection_fixture(altered)
         runner = ToolVersionRunner(self._altered_matching())
-        result = verify_build(VerifyBuildRequest(
-            image=IMG, effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image=IMG,
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
 
         self.assertTrue(result.all_ok)
         obs_by_key = {o.key: o for o in result.observations}
 
         # Node: digest-qualified image → extract "18.19.0"
-        self.assertEqual("18.19.0",
-                         obs_by_key["node.version"].expected_value)
+        self.assertEqual("18.19.0", obs_by_key["node.version"].expected_value)
         self.assertTrue(obs_by_key["node.version"].ok)
 
         # Rust family: 1.75.0
-        self.assertEqual("1.75.0",
-                         obs_by_key["rust.version"].expected_value)
-        self.assertEqual("1.75.0",
-                         obs_by_key["rust.cargo"].expected_value)
-        self.assertEqual("1.75.0",
-                         obs_by_key["rust.rustfmt"].expected_value)
+        self.assertEqual("1.75.0", obs_by_key["rust.version"].expected_value)
+        self.assertEqual("1.75.0", obs_by_key["rust.cargo"].expected_value)
+        self.assertEqual("1.75.0", obs_by_key["rust.rustfmt"].expected_value)
         # clippy: 0.1.{minor} → 0.1.75
-        self.assertEqual("0.1.75",
-                         obs_by_key["rust.clippy"].expected_value)
+        self.assertEqual("0.1.75", obs_by_key["rust.clippy"].expected_value)
 
         # uv: 0.5.0
-        self.assertEqual("0.5.0",
-                         obs_by_key["uv.version"].expected_value)
+        self.assertEqual("0.5.0", obs_by_key["uv.version"].expected_value)
 
         # Unchanged fields still match canonical
-        self.assertEqual("3.14.0",
-                         obs_by_key["python.version"].expected_value)
+        self.assertEqual("3.14.0", obs_by_key["python.version"].expected_value)
 
         # oh-my-zsh revision changed
-        self.assertEqual("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
-                         obs_by_key["oh-my-zsh.revision"].expected_value)
+        self.assertEqual(
+            "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+            obs_by_key["oh-my-zsh.revision"].expected_value,
+        )
 
     def test_altered_projection_digest_qualified_node(self) -> None:
         """Node version is the reviewed ``node_version`` field, never the tag."""
@@ -656,8 +713,13 @@ class TestAlteredProjection(unittest.TestCase):
             "18.19.0",
             _extract_expected_value(
                 "node.version",
-                {"node": {"image": "node:18.19.0-bookworm-slim@sha256:abc123def456",
-                          "node_version": "18.19.0", "npm_version": "10.2.4"}},
+                {
+                    "node": {
+                        "image": "node:18.19.0-bookworm-slim@sha256:abc123def456",
+                        "node_version": "18.19.0",
+                        "npm_version": "10.2.4",
+                    }
+                },
             ),
         )
 
@@ -725,7 +787,8 @@ class TestConditionalComponents(unittest.TestCase):
         expected_extra = {"rust.rustfmt", "rust.rustfmt.component"}
         expected_excluded = {"rust.clippy"}
         self.assertEqual(
-            (all_keys - expected_excluded) | expected_extra, keys,
+            (all_keys - expected_excluded) | expected_extra,
+            keys,
         )
 
     def test_only_clippy_includes_clippy_only(self) -> None:
@@ -764,18 +827,19 @@ class TestConditionalComponents(unittest.TestCase):
         applicable_keys = [c.key for c in contracts]
         # The two dynamic contracts are appended after the static ones.
         dynamic_keys = {"rust.rustfmt", "rust.rustfmt.component"}
-        static_keys = [k for k in applicable_keys
-                       if k not in dynamic_keys]
+        static_keys = [k for k in applicable_keys if k not in dynamic_keys]
         # Static keys must be a subsequence of _CONTRACTS order.
         filtered = [k for k in full_keys if k in set(static_keys)]
         self.assertEqual(filtered, static_keys)
         # The dynamic contracts must be the last two keys, in order.
         self.assertEqual(
-            "rust.rustfmt", applicable_keys[-2],
+            "rust.rustfmt",
+            applicable_keys[-2],
             "rust.rustfmt must be the second-to-last applicable contract",
         )
         self.assertEqual(
-            "rust.rustfmt.component", applicable_keys[-1],
+            "rust.rustfmt.component",
+            applicable_keys[-1],
             "rust.rustfmt.component must be the last applicable contract",
         )
 
@@ -788,9 +852,13 @@ class TestConditionalComponents(unittest.TestCase):
         proj = self._proj_with_components("rustfmt")
         tf = _write_projection_fixture(proj)
         runner = ToolVersionRunner(_MATCHING)
-        result = verify_build(VerifyBuildRequest(
-            image=IMG, effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image=IMG,
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
         obs_by_key = {o.key: o for o in result.observations}
         self.assertIn("rust.rustfmt", obs_by_key)
         self.assertNotIn("rust.clippy", obs_by_key)
@@ -805,9 +873,13 @@ class TestConditionalComponents(unittest.TestCase):
         proj = self._proj_with_components("clippy")
         tf = _write_projection_fixture(proj)
         runner = ToolVersionRunner(_MATCHING)
-        result = verify_build(VerifyBuildRequest(
-            image=IMG, effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image=IMG,
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
         obs_by_key = {o.key: o for o in result.observations}
         self.assertNotIn("rust.rustfmt", obs_by_key)
         self.assertIn("rust.clippy", obs_by_key)
@@ -821,9 +893,13 @@ class TestConditionalComponents(unittest.TestCase):
         proj = self._proj_with_components()
         tf = _write_projection_fixture(proj)
         runner = ToolVersionRunner(_MATCHING)
-        result = verify_build(VerifyBuildRequest(
-            image=IMG, effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image=IMG,
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
         obs_by_key = {o.key: o for o in result.observations}
         self.assertNotIn("rust.rustfmt", obs_by_key)
         self.assertNotIn("rust.clippy", obs_by_key)
@@ -858,41 +934,57 @@ class TestFixtureIntegrity(unittest.TestCase):
         proj = _canonical_projection()
 
         # Spot-checks that prove extraction uses the right projection fields
-        self.assertEqual("22.11.0",
-                         _extract_expected_value("node.version", proj_dict))
-        self.assertEqual(proj.rust.version,
-                         _extract_expected_value("rust.version", proj_dict))
-        self.assertEqual(proj.rust.version,
-                         _extract_expected_value("rust.cargo", proj_dict))
-        self.assertEqual(proj.rust.version,
-                         _extract_expected_value("rust.rustfmt", proj_dict))
-        self.assertEqual(f"0.1.{proj.rust.version.split('.')[1]}",
-                         _extract_expected_value("rust.clippy", proj_dict))
-        self.assertEqual(proj.uv.version,
-                         _extract_expected_value("uv.version", proj_dict))
-        self.assertEqual(proj.python_version,
-                         _extract_expected_value("python.version", proj_dict))
-        self.assertEqual(proj.ty_version.lstrip("v"),
-                         _extract_expected_value("ty.version", proj_dict))
-        self.assertEqual(proj.rtk.version,
-                         _extract_expected_value("rtk.version", proj_dict))
-        self.assertEqual(proj.fd.version,
-                         _extract_expected_value("fd.version", proj_dict))
-        self.assertEqual(proj.pi_version.lstrip("v"),
-                         _extract_expected_value("pi.version", proj_dict))
-        self.assertEqual(proj.openspec_version.lstrip("v"),
-                         _extract_expected_value("openspec.version", proj_dict))
-        self.assertEqual(proj.oh_my_zsh_revision,
-                         _extract_expected_value("oh-my-zsh.revision",
-                                                 proj_dict))
+        self.assertEqual("22.11.0", _extract_expected_value("node.version", proj_dict))
+        self.assertEqual(
+            proj.rust.version, _extract_expected_value("rust.version", proj_dict)
+        )
+        self.assertEqual(
+            proj.rust.version, _extract_expected_value("rust.cargo", proj_dict)
+        )
+        self.assertEqual(
+            proj.rust.version, _extract_expected_value("rust.rustfmt", proj_dict)
+        )
+        self.assertEqual(
+            f"0.1.{proj.rust.version.split('.')[1]}",
+            _extract_expected_value("rust.clippy", proj_dict),
+        )
+        self.assertEqual(
+            proj.uv.version, _extract_expected_value("uv.version", proj_dict)
+        )
+        self.assertEqual(
+            proj.python_version, _extract_expected_value("python.version", proj_dict)
+        )
+        self.assertEqual(
+            proj.ty_version.lstrip("v"),
+            _extract_expected_value("ty.version", proj_dict),
+        )
+        self.assertEqual(
+            proj.rtk.version, _extract_expected_value("rtk.version", proj_dict)
+        )
+        self.assertEqual(
+            proj.fd.version, _extract_expected_value("fd.version", proj_dict)
+        )
+        self.assertEqual(
+            proj.pi_version.lstrip("v"),
+            _extract_expected_value("pi.version", proj_dict),
+        )
+        self.assertEqual(
+            proj.openspec_version.lstrip("v"),
+            _extract_expected_value("openspec.version", proj_dict),
+        )
+        self.assertEqual(
+            proj.oh_my_zsh_revision,
+            _extract_expected_value("oh-my-zsh.revision", proj_dict),
+        )
 
         # Every contract key must be extractable
         for c in _CONTRACTS:
             with self.subTest(key=c.key):
                 val = _extract_expected_value(c.key, proj_dict)
                 self.assertIsInstance(val, str)
-                self.assertTrue(len(val) > 0,
-                                f"{c.key}: expected_value must be non-empty")
+                self.assertTrue(
+                    len(val) > 0, f"{c.key}: expected_value must be non-empty"
+                )
 
 
 class TestObservationContracts(unittest.TestCase):
@@ -902,11 +994,20 @@ class TestObservationContracts(unittest.TestCase):
     def test_contracts_are_in_deterministic_order(self) -> None:
         keys = tuple(c.key for c in _CONTRACTS)
         self.assertEqual(
-            ("node.version", "rust.version", "rust.cargo",
-             "rust.clippy",
-             "uv.version", "python.version", "ty.version",
-             "rtk.version", "fd.version", "pi.version",
-             "openspec.version", "oh-my-zsh.revision"),
+            (
+                "node.version",
+                "rust.version",
+                "rust.cargo",
+                "rust.clippy",
+                "uv.version",
+                "python.version",
+                "ty.version",
+                "rtk.version",
+                "fd.version",
+                "pi.version",
+                "openspec.version",
+                "oh-my-zsh.revision",
+            ),
             keys,
         )
 
@@ -963,10 +1064,15 @@ class TestObservationContracts(unittest.TestCase):
             "24.18.0",
             _extract_expected_value(
                 "node.version",
-                {"node": {"image": "docker.io/library/node:24.18.0-trixie-slim"
-                          "@sha256:ae91dcc111a68c9d2d81ff2a17bda61be126426176fde"
-                          "6fe7d08ab13b7f50573",
-                          "node_version": "24.18.0", "npm_version": "11.16.0"}},
+                {
+                    "node": {
+                        "image": "docker.io/library/node:24.18.0-trixie-slim"
+                        "@sha256:ae91dcc111a68c9d2d81ff2a17bda61be126426176fde"
+                        "6fe7d08ab13b7f50573",
+                        "node_version": "24.18.0",
+                        "npm_version": "11.16.0",
+                    }
+                },
             ),
         )
 
@@ -976,8 +1082,13 @@ class TestObservationContracts(unittest.TestCase):
             "24.18.0",
             _extract_expected_value(
                 "node.version",
-                {"node": {"image": "node:24-trixie-slim",
-                          "node_version": "24.18.0", "npm_version": "11.16.0"}},
+                {
+                    "node": {
+                        "image": "node:24-trixie-slim",
+                        "node_version": "24.18.0",
+                        "npm_version": "11.16.0",
+                    }
+                },
             ),
         )
 
@@ -988,8 +1099,7 @@ class TestObservationContracts(unittest.TestCase):
         tag with the pinned digest."""
         repo_root = Path(__file__).resolve().parents[1]
         inv_path = repo_root / "docker-constructor.toml"
-        self.assertTrue(inv_path.is_file(),
-                        f"inventory not found at {inv_path}")
+        self.assertTrue(inv_path.is_file(), f"inventory not found at {inv_path}")
         inv = load_inventory(inv_path)
 
         # The inventory tag is the exact semver the verifier must
@@ -997,14 +1107,14 @@ class TestObservationContracts(unittest.TestCase):
         # verification.
         node = inv.stages.base.node
         self.assertEqual(
-            node.tag, "24.18.0-trixie-slim",
+            node.tag,
+            "24.18.0-trixie-slim",
             "inventory must pin the exact Node semver tag",
         )
         # The digest is the immutable build authority.
         self.assertEqual(
             node.digest,
-            "sha256:ae91dcc111a68c9d2d81ff2a17bda61be126426176fde"
-            "6fe7d08ab13b7f50573",
+            "sha256:ae91dcc111a68c9d2d81ff2a17bda61be126426176fde6fe7d08ab13b7f50573",
             "inventory must retain the reviewed digest",
         )
 
@@ -1031,9 +1141,10 @@ class TestObservationContracts(unittest.TestCase):
             platform=proj.platform,
             node=EffectiveNode(
                 image="docker.io/library/node:24.18.0-trixie-slim"
-                      "@sha256:ae91dcc111a68c9d2d81ff2a17bda61be12642"
-                      "6176fde6fe7d08ab13b7f50573",
-                node_version="24.18.0", npm_version="11.16.0",
+                "@sha256:ae91dcc111a68c9d2d81ff2a17bda61be12642"
+                "6176fde6fe7d08ab13b7f50573",
+                node_version="24.18.0",
+                npm_version="11.16.0",
             ),
             rust=proj.rust,
             uv=proj.uv,
@@ -1051,10 +1162,13 @@ class TestObservationContracts(unittest.TestCase):
         matching = dict(_MATCHING)
         matching["node"] = "v24.18.0\n"
         runner = ToolVersionRunner(matching)
-        result = verify_build(VerifyBuildRequest(
-            image="pi-cli-pi:latest",
-            effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image="pi-cli-pi:latest",
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
         node_obs = {o.key: o for o in result.observations}["node.version"]
         self.assertTrue(
             node_obs.ok,
@@ -1070,9 +1184,10 @@ class TestObservationContracts(unittest.TestCase):
             platform=proj.platform,
             node=EffectiveNode(
                 image="docker.io/library/node:24-trixie-slim"
-                      "@sha256:ae91dcc111a68c9d2d81ff2a17bda61be12642"
-                      "6176fde6fe7d08ab13b7f50573",
-                node_version="24.18.0", npm_version="11.16.0",
+                "@sha256:ae91dcc111a68c9d2d81ff2a17bda61be12642"
+                "6176fde6fe7d08ab13b7f50573",
+                node_version="24.18.0",
+                npm_version="11.16.0",
             ),
             rust=proj.rust,
             uv=proj.uv,
@@ -1089,10 +1204,13 @@ class TestObservationContracts(unittest.TestCase):
         matching = dict(_MATCHING)
         matching["node"] = "v24.18.0\n"
         runner = ToolVersionRunner(matching)
-        result = verify_build(VerifyBuildRequest(
-            image="pi-cli-pi:latest",
-            effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image="pi-cli-pi:latest",
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
         node_obs = {o.key: o for o in result.observations}["node.version"]
         self.assertTrue(
             node_obs.ok,
@@ -1139,14 +1257,16 @@ class TestObservationContracts(unittest.TestCase):
         matching["cargo"] = "cargo 1.97.1 (8bab26f4f6 2025-01-15)\n"
         # rustup which rustfmt → path inside the 1.97.1 toolchain.
         matching["rustup"] = (
-            "/home/dev/.rustup/toolchains/1.97.1-x86_64-unknown"
-            "-linux-gnu/bin/rustfmt\n"
+            "/home/dev/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/rustfmt\n"
         )
         runner = ToolVersionRunner(matching)
-        result = verify_build(VerifyBuildRequest(
-            image="pi-cli-pi:latest",
-            effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image="pi-cli-pi:latest",
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
         obs_by_key = {o.key: o for o in result.observations}
         rustfmt_obs = obs_by_key["rust.rustfmt"]
         # GREEN: rustfmt provenance passes because the rustup
@@ -1198,10 +1318,13 @@ class TestObservationContracts(unittest.TestCase):
         matching["cargo"] = "cargo 1.97.1 (8bab26f4f6 2025-01-15)\n"
         # No "rustup" key → exit 1, "no version known" on stderr.
         runner = ToolVersionRunner(matching)
-        result = verify_build(VerifyBuildRequest(
-            image="pi-cli-pi:latest",
-            effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image="pi-cli-pi:latest",
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
         obs_by_key = {o.key: o for o in result.observations}
         rustfmt_obs = obs_by_key["rust.rustfmt"]
         # RED: current code only compares version numbers —
@@ -1224,10 +1347,13 @@ class TestObservationContracts(unittest.TestCase):
         # toolchain directory.
         matching["rustup"] = "/usr/bin/rustfmt\n"
         runner = ToolVersionRunner(matching)
-        result = verify_build(VerifyBuildRequest(
-            image="pi-cli-pi:latest",
-            effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image="pi-cli-pi:latest",
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
         obs_by_key = {o.key: o for o in result.observations}
         rustfmt_obs = obs_by_key["rust.rustfmt"]
         # GREEN: the rustup which path does not contain 1.97.1,
@@ -1253,10 +1379,13 @@ class TestObservationContracts(unittest.TestCase):
         # Path contains 1.97.1 but is NOT inside .rustup/toolchains/.
         matching["rustup"] = "/opt/tools/1.97.1/bin/rustfmt\n"
         runner = ToolVersionRunner(matching)
-        result = verify_build(VerifyBuildRequest(
-            image="pi-cli-pi:latest",
-            effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image="pi-cli-pi:latest",
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
         obs_by_key = {o.key: o for o in result.observations}
         rustfmt_obs = obs_by_key["rust.rustfmt"]
         self.assertFalse(
@@ -1278,10 +1407,13 @@ class TestObservationContracts(unittest.TestCase):
         # token to extract.
         matching["rustup"] = ""  # empty output
         runner = ToolVersionRunner(matching)
-        result = verify_build(VerifyBuildRequest(
-            image="pi-cli-pi:latest",
-            effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image="pi-cli-pi:latest",
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
         obs_by_key = {o.key: o for o in result.observations}
         rustfmt_obs = obs_by_key["rust.rustfmt"]
         # RED: current code normalizes empty string to "" which
@@ -1290,8 +1422,7 @@ class TestObservationContracts(unittest.TestCase):
         # just report a version mismatch.
         self.assertFalse(
             rustfmt_obs.ok,
-            "malformed/empty rustfmt output must be reported as "
-            "a verification failure",
+            "malformed/empty rustfmt output must be reported as a verification failure",
         )
 
     def test_rustfmt_mismatched_toolchain_reported(self) -> None:
@@ -1305,14 +1436,16 @@ class TestObservationContracts(unittest.TestCase):
         # rustup which returns a path from a *different* toolchain
         # (1.83.0).
         matching["rustup"] = (
-            "/home/dev/.rustup/toolchains/1.83.0-x86_64-unknown"
-            "-linux-gnu/bin/rustfmt\n"
+            "/home/dev/.rustup/toolchains/1.83.0-x86_64-unknown-linux-gnu/bin/rustfmt\n"
         )
         runner = ToolVersionRunner(matching)
-        result = verify_build(VerifyBuildRequest(
-            image="pi-cli-pi:latest",
-            effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image="pi-cli-pi:latest",
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
         obs_by_key = {o.key: o for o in result.observations}
         rustfmt_obs = obs_by_key["rust.rustfmt"]
         # GREEN: the observed path contains toolchain 1.83.0,
@@ -1325,9 +1458,9 @@ class TestObservationContracts(unittest.TestCase):
         # The failure detail must mention the toolchain mismatch.
         observed = rustfmt_obs.observed_value or ""
         self.assertIn(
-            "1.83.0", observed,
-            "failure detail must identify the actual toolchain "
-            "rustfmt resolves to",
+            "1.83.0",
+            observed,
+            "failure detail must identify the actual toolchain rustfmt resolves to",
         )
 
     def test_rustfmt_provenance_invokes_rustup_which(self) -> None:
@@ -1341,22 +1474,32 @@ class TestObservationContracts(unittest.TestCase):
         matching["rustc"] = "rustc 1.97.1 (8bab26f4f6 2025-01-15)\n"
         matching["cargo"] = "cargo 1.97.1 (8bab26f4f6 2025-01-15)\n"
         matching["rustup"] = (
-            "/home/dev/.rustup/toolchains/1.97.1-x86_64-unknown"
-            "-linux-gnu/bin/rustfmt\n"
+            "/home/dev/.rustup/toolchains/1.97.1-x86_64-unknown-linux-gnu/bin/rustfmt\n"
         )
         runner = ToolVersionRunner(matching)
-        verify_build(VerifyBuildRequest(
-            image="pi-cli-pi:latest",
-            effective_projection_path=tf, runner=runner,
-        ))
+        verify_build(
+            VerifyBuildRequest(
+                image="pi-cli-pi:latest",
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
         # GREEN: the exact ``rustup which --toolchain 1.97.1
         # rustfmt`` command must appear in the recorded calls.
         expected_cmd = (
-            "docker", "run", "--rm", "pi-cli-pi:latest",
-            "rustup", "which", "--toolchain", "1.97.1", "rustfmt",
+            "docker",
+            "run",
+            "--rm",
+            "pi-cli-pi:latest",
+            "rustup",
+            "which",
+            "--toolchain",
+            "1.97.1",
+            "rustfmt",
         )
         self.assertIn(
-            expected_cmd, runner.calls,
+            expected_cmd,
+            runner.calls,
             "rustfmt provenance must invoke the exact "
             "'rustup which --toolchain 1.97.1 rustfmt' command",
         )
@@ -1376,19 +1519,29 @@ class TestObservationContracts(unittest.TestCase):
             "clippy-x86_64-unknown-linux-gnu (default)\n"
         )
         runner = ToolVersionRunner(matching)
-        verify_build(VerifyBuildRequest(
-            image="pi-cli-pi:latest",
-            effective_projection_path=tf, runner=runner,
-        ))
+        verify_build(
+            VerifyBuildRequest(
+                image="pi-cli-pi:latest",
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
         # GREEN: the exact ``rustup component list --toolchain
         # 1.97.1`` command must appear in the recorded calls.
         expected_cmd = (
-            "docker", "run", "--rm", "pi-cli-pi:latest",
-            "rustup", "component", "list",
-            "--toolchain", "1.97.1",
+            "docker",
+            "run",
+            "--rm",
+            "pi-cli-pi:latest",
+            "rustup",
+            "component",
+            "list",
+            "--toolchain",
+            "1.97.1",
         )
         self.assertIn(
-            expected_cmd, runner.calls,
+            expected_cmd,
+            runner.calls,
             "rustfmt provenance must invoke the exact "
             "'rustup component list --toolchain 1.97.1' command",
         )
@@ -1426,18 +1579,23 @@ class TestObservationContracts(unittest.TestCase):
         matching["rustc"] = "rustc 1.97.1 (8bab26f4f6 2025-01-15)\n"
         matching["cargo"] = "cargo 1.97.1 (8bab26f4f6 2025-01-15)\n"
         runner = ToolVersionRunner(matching)
-        result = verify_build(VerifyBuildRequest(
-            image="pi-cli-pi:latest",
-            effective_projection_path=tf, runner=runner,
-        ))
+        result = verify_build(
+            VerifyBuildRequest(
+                image="pi-cli-pi:latest",
+                effective_projection_path=tf,
+                runner=runner,
+            )
+        )
         keys = {o.key for o in result.observations}
         self.assertNotIn(
-            "rust.rustfmt", keys,
+            "rust.rustfmt",
+            keys,
             "rustfmt observation must be absent when rustfmt is "
             "not in the configured components",
         )
         self.assertNotIn(
-            "rust.clippy", keys,
+            "rust.clippy",
+            keys,
             "clippy observation must be absent when clippy is "
             "not in the configured components",
         )
@@ -1513,7 +1671,8 @@ class TestVerifyBuildRequestModel(unittest.TestCase):
     def test_request_requires_projection_path(self) -> None:
         p = _write_projection_fixture()
         req = VerifyBuildRequest(
-            image="img", effective_projection_path=p,
+            image="img",
+            effective_projection_path=p,
             runner=ToolVersionRunner(),
         )
         self.assertIsInstance(req.effective_projection_path, Path)
@@ -1521,7 +1680,8 @@ class TestVerifyBuildRequestModel(unittest.TestCase):
     def test_request_requires_runner(self) -> None:
         r = ToolVersionRunner()
         req = VerifyBuildRequest(
-            image="img", effective_projection_path=_write_projection_fixture(),
+            image="img",
+            effective_projection_path=_write_projection_fixture(),
             runner=r,
         )
         self.assertIs(r, req.runner)
@@ -1536,11 +1696,14 @@ class TestBuildVerificationResultModel(unittest.TestCase):
             observations=(
                 BuildObservation(
                     key="node.version",
-                    command=("cmd",), expected_value="22.11.0",
-                    observed_value="v22.11.0\n", ok=True,
+                    command=("cmd",),
+                    expected_value="22.11.0",
+                    observed_value="v22.11.0\n",
+                    ok=True,
                 ),
             ),
-            all_ok=True, errors=(),
+            all_ok=True,
+            errors=(),
         )
         self.assertTrue(result.all_ok)
 
@@ -1550,22 +1713,29 @@ class TestBuildVerificationResultModel(unittest.TestCase):
             observations=(
                 BuildObservation(
                     key="node.version",
-                    command=("cmd",), expected_value="22.11.0",
-                    observed_value="v22.11.0\n", ok=True,
+                    command=("cmd",),
+                    expected_value="22.11.0",
+                    observed_value="v22.11.0\n",
+                    ok=True,
                 ),
                 BuildObservation(
                     key="uv.version",
-                    command=("cmd",), expected_value="0.6.17",
-                    observed_value="uv 0.6.10\n", ok=False,
+                    command=("cmd",),
+                    expected_value="0.6.17",
+                    observed_value="uv 0.6.10\n",
+                    ok=False,
                 ),
             ),
-            all_ok=False, errors=(),
+            all_ok=False,
+            errors=(),
         )
         self.assertFalse(result.all_ok)
 
     def test_errors_for_non_observation_failures(self) -> None:
         result = BuildVerificationResult(
-            image="img", observations=(), all_ok=False,
+            image="img",
+            observations=(),
+            all_ok=False,
             errors=("missing projection file",),
         )
         self.assertEqual(("missing projection file",), result.errors)

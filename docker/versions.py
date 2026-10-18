@@ -5,6 +5,7 @@ All public types and functions are available through ``docker.versioning``
 directly.  This module exists only so that existing ``from docker.versions
 import ...`` statements in internal tests continue to resolve.
 """
+
 from __future__ import annotations
 
 if __package__:

@@ -4,6 +4,7 @@ The npm acceptance fixture drives the production assembler execution/streaming
 entry point with an injected fake subprocess and monotonic clock. It performs no
 real waiting, Docker execution, or registry access.
 """
+
 from __future__ import annotations
 
 import base64
@@ -122,9 +123,9 @@ class _SilentThenSuccessfulPipe:
             return b""
         with self.process.clock.condition:
             while (
-                (self.process.clock.now < 120.0 or not self.process.output_allowed.is_set())
-                and not self.closed
-            ):
+                self.process.clock.now < 120.0
+                or not self.process.output_allowed.is_set()
+            ) and not self.closed:
                 self.process.clock.condition.wait(timeout=1.0)
             if self.closed or self.delivered:
                 return b""
@@ -199,20 +200,26 @@ class _Renderer:
 
 def _validated_input():
     integrity = "sha512-" + base64.b64encode(bytes([0xAB]) * 64).decode()
-    lock = json.dumps({
-        "name": "root",
-        "version": "1.0.0",
-        "lockfileVersion": 3,
-        "requires": True,
-        "packages": {
-            "": {"name": "root", "version": "1.0.0", "dependencies": {"a": "1.0.0"}},
-            "node_modules/a": {
-                "version": "1.0.0",
-                "resolved": "https://registry.npmjs.org/a/-/a-1.0.0.tgz",
-                "integrity": integrity,
+    lock = json.dumps(
+        {
+            "name": "root",
+            "version": "1.0.0",
+            "lockfileVersion": 3,
+            "requires": True,
+            "packages": {
+                "": {
+                    "name": "root",
+                    "version": "1.0.0",
+                    "dependencies": {"a": "1.0.0"},
+                },
+                "node_modules/a": {
+                    "version": "1.0.0",
+                    "resolved": "https://registry.npmjs.org/a/-/a-1.0.0.tgz",
+                    "integrity": integrity,
+                },
             },
-        },
-    }).encode()
+        }
+    ).encode()
     return preflight(
         lock,
         roots=(RootSpec("a", "1.0.0"),),
@@ -237,16 +244,28 @@ class TestAcceptanceMatrixContract(unittest.TestCase):
     """Keep every Phase 10 row mapped to passing executable coverage."""
 
     REQUIRED_ROWS = {
-        "host_download_progress_failure", "coordination_wait", "cache_reuse",
-        "npm_timeout", "validation_publication_failure", "interactive_lines_off",
-        "hostname_hidden_shown", "json_isolation", "safe_cancellation",
-        "final_report_ownership_native_handoff", "retained_replay_after_drop",
-        "full_inbox_close", "control_exhaustion", "renderer_exception",
-        "stalled_write_single_budget", "heartbeat_counts_not_timeout",
+        "host_download_progress_failure",
+        "coordination_wait",
+        "cache_reuse",
+        "npm_timeout",
+        "validation_publication_failure",
+        "interactive_lines_off",
+        "hostname_hidden_shown",
+        "json_isolation",
+        "safe_cancellation",
+        "final_report_ownership_native_handoff",
+        "retained_replay_after_drop",
+        "full_inbox_close",
+        "control_exhaustion",
+        "renderer_exception",
+        "stalled_write_single_budget",
+        "heartbeat_counts_not_timeout",
     }
 
     def test_every_revised_scenario_executes_and_passes(self) -> None:
-        path = Path(__file__).parent / "data" / "host_observability_acceptance_matrix.json"
+        path = (
+            Path(__file__).parent / "data" / "host_observability_acceptance_matrix.json"
+        )
         matrix = json.loads(path.read_text(encoding="utf-8"))
         self.assertEqual(self.REQUIRED_ROWS, set(matrix))
         loader = unittest.defaultTestLoader
@@ -256,9 +275,12 @@ class TestAcceptanceMatrixContract(unittest.TestCase):
                 suite = loader.loadTestsFromName(test_id)
                 load_result = unittest.TestResult()
                 suite.run(load_result)
-                detail = "\n".join(text for _test, text in (*load_result.failures, *load_result.errors))
+                detail = "\n".join(
+                    text for _test, text in (*load_result.failures, *load_result.errors)
+                )
                 self.assertEqual(
-                    1, load_result.testsRun,
+                    1,
+                    load_result.testsRun,
                     f"acceptance row {row!r} target {test_id!r} did not resolve exactly once: {detail}",
                 )
                 self.assertTrue(
@@ -271,19 +293,54 @@ class TestHostOutputDocumentation(unittest.TestCase):
     def test_user_contract_and_example_cover_phase10_behavior(self) -> None:
         root = Path(__file__).resolve().parents[1]
         doc = (root / "docs" / "host-build-output.md").read_text(encoding="utf-8")
-        example = (root / "docker-constructor.local.example.toml").read_text(encoding="utf-8")
+        example = (root / "docker-constructor.local.example.toml").read_text(
+            encoding="utf-8"
+        )
         for term in (
-            "interactive", "lines", "off", "network_url_display", "redacted",
-            "host-path", "exact", "defaults to `redacted`", "3 seconds", "30 seconds",
-            "120 seconds", "diagnostic silence", "execution timeout", "Last activity",
-            "Ctrl-C", "retained-context", "may repeat", "best-effort", "numeric-token",
-            "five-second", "daemon", "in flight", "final output may",
-            "does not synchronously retry", "--loglevel=http", "npm 11.16.0",
-            "credentials", "caller-provided secrets", "terminal-control neutralization",
-            "64 KiB", "8 KiB", "text failure", "JSON `host_failure.tail`",
-            "exactly one bounded retained tail", "typed", "host materialization",
-            "assembler execution", "direct", "external SDK", "evidence", "identity",
-            "operators", "third-party output", "sensitive input values",
+            "interactive",
+            "lines",
+            "off",
+            "network_url_display",
+            "redacted",
+            "host-path",
+            "exact",
+            "defaults to `redacted`",
+            "3 seconds",
+            "30 seconds",
+            "120 seconds",
+            "diagnostic silence",
+            "execution timeout",
+            "Last activity",
+            "Ctrl-C",
+            "retained-context",
+            "may repeat",
+            "best-effort",
+            "numeric-token",
+            "five-second",
+            "daemon",
+            "in flight",
+            "final output may",
+            "does not synchronously retry",
+            "--loglevel=http",
+            "npm 11.16.0",
+            "credentials",
+            "caller-provided secrets",
+            "terminal-control neutralization",
+            "64 KiB",
+            "8 KiB",
+            "text failure",
+            "JSON `host_failure.tail`",
+            "exactly one bounded retained tail",
+            "typed",
+            "host materialization",
+            "assembler execution",
+            "direct",
+            "external SDK",
+            "evidence",
+            "identity",
+            "operators",
+            "third-party output",
+            "sensitive input values",
         ):
             with self.subTest(term=term):
                 self.assertIn(term.lower(), doc.lower())
@@ -298,14 +355,18 @@ class TestHostOutputDocumentation(unittest.TestCase):
 
 
 class TestIntegratedSilentNpmAcceptance(unittest.TestCase):
-    def test_fake_subprocess_silence_resume_and_success_use_real_streaming_path(self) -> None:
+    def test_fake_subprocess_silence_resume_and_success_use_real_streaming_path(
+        self,
+    ) -> None:
         clock = _Clock()
         output_observed = threading.Event()
         waiter = _AutoWaiter(clock, output_observed)
         renderer = _Renderer()
         session = HostPresentationSession(
             renderer,
-            PresentationPlan(HostPresentationMode.INTERACTIVE, PresentationSelection.LIVE),
+            PresentationPlan(
+                HostPresentationMode.INTERACTIVE, PresentationSelection.LIVE
+            ),
             clock=clock,
         )
         observed: list[HostBuildEvent] = []
@@ -335,21 +396,26 @@ class TestIntegratedSilentNpmAcceptance(unittest.TestCase):
         )
 
         def diagnostic_sink(chunk) -> None:
-            event_sink(HostStructuredDiagnostic(
-                phase=HostPhase.LOCKED_ASSEMBLY,
-                step=HostStep.NPM_EXECUTION,
-                stream=HostDiagnosticStream(chunk.stream),
-                classification=classify_npm_diagnostic(chunk.text),
-                text=chunk.text,
-                hostnames=chunk.hostnames,
-                logical_resource=activity.current_container_name,
-                url_fingerprints=chunk.url_fingerprints,
-            ))
+            event_sink(
+                HostStructuredDiagnostic(
+                    phase=HostPhase.LOCKED_ASSEMBLY,
+                    step=HostStep.NPM_EXECUTION,
+                    stream=HostDiagnosticStream(chunk.stream),
+                    classification=classify_npm_diagnostic(chunk.text),
+                    text=chunk.text,
+                    hostnames=chunk.hostnames,
+                    logical_resource=activity.current_container_name,
+                    url_fingerprints=chunk.url_fingerprints,
+                )
+            )
 
         started = time.monotonic()
-        with tempfile.TemporaryDirectory() as cache_root, mock.patch(
-            "docker.npm_environment.execution.subprocess.Popen",
-            return_value=fake_process,
+        with (
+            tempfile.TemporaryDirectory() as cache_root,
+            mock.patch(
+                "docker.npm_environment.execution.subprocess.Popen",
+                return_value=fake_process,
+            ),
         ):
             run = assemble(
                 validated=_validated_input(),
@@ -360,7 +426,10 @@ class TestIntegratedSilentNpmAcceptance(unittest.TestCase):
                 gid=1000,
                 sink=diagnostic_sink,
                 stream_factory=make_stream_factory(
-                    on_chunk=lambda: (activity.record_diagnostic(), output_observed.set()),
+                    on_chunk=lambda: (
+                        activity.record_diagnostic(),
+                        output_observed.set(),
+                    ),
                 ),
                 tail_projector=project_tail,
                 activity=activity,
@@ -368,12 +437,18 @@ class TestIntegratedSilentNpmAcceptance(unittest.TestCase):
         self.assertTrue(session.shutdown())
         wall_elapsed = time.monotonic() - started
 
-        heartbeats = [event for event in observed if isinstance(event, HostHeartbeatEvent)]
+        heartbeats = [
+            event for event in observed if isinstance(event, HostHeartbeatEvent)
+        ]
         elapsed = [event.elapsed_seconds for event in heartbeats]
         self.assertEqual(3, elapsed[0])
         self.assertEqual(list(range(3, 122)), elapsed)
         self.assertTrue(all(b - a == 1 for a, b in zip(elapsed, elapsed[1:])))
-        silence = [event for event in heartbeats if event.diagnostic_silence_seconds is not None]
+        silence = [
+            event
+            for event in heartbeats
+            if event.diagnostic_silence_seconds is not None
+        ]
         self.assertEqual([120], [event.diagnostic_silence_seconds for event in silence])
         self.assertIsNone(heartbeats[-1].diagnostic_silence_seconds)
         self.assertGreater(heartbeats[-1].remaining_deadline_seconds or 0, 0)
@@ -382,12 +457,15 @@ class TestIntegratedSilentNpmAcceptance(unittest.TestCase):
         self.assertIn("npm http fetch", run.stdout)
         self.assertLess(wall_elapsed, 2.0)
         terminals = [
-            event for event in observed
+            event
+            for event in observed
             if isinstance(event, HostStepEvent)
             and event.step is HostStep.NPM_EXECUTION
             and event.state is not HostStepState.STARTED
         ]
-        self.assertEqual([HostStepState.SUCCEEDED], [event.state for event in terminals])
+        self.assertEqual(
+            [HostStepState.SUCCEEDED], [event.state for event in terminals]
+        )
         statuses = [str(call[1]) for call in renderer.calls if call[0] == "status"]
         self.assertTrue(any("no diagnostics for 2m 00s" in text for text in statuses))
         self.assertTrue(any("last diagnostic 1s ago" in text for text in statuses))

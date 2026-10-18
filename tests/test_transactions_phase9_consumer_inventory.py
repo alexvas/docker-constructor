@@ -1,4 +1,5 @@
 """Phase 9 downstream-plan ownership checks."""
+
 from __future__ import annotations
 
 import unittest
@@ -35,8 +36,11 @@ class PiExtensionPlanBoundaryTests(unittest.TestCase):
         self.assertIn("compare-and-swap adapters", self.text)
 
     def test_does_not_delegate_a_generic_envelope_or_shared_recovery(self) -> None:
-        for forbidden in ("journal-envelope layer", "journal envelope layer",
-                          "single-authority recovery substrate"):
+        for forbidden in (
+            "journal-envelope layer",
+            "journal envelope layer",
+            "single-authority recovery substrate",
+        ):
             self.assertNotIn(forbidden, self.text)
         self.assertIn("do not treat shared primitives as generic envelope", self.text)
 
@@ -51,7 +55,9 @@ class MetadataPlanBoundaryTests(unittest.TestCase):
         self.assertIn("shared layer receives bytes", self.text)
 
     def test_adopts_no_journal_or_broad_transaction_lock(self) -> None:
-        self.assertIn("does not adopt recoverable journals or a broad transaction lock", self.text)
+        self.assertIn(
+            "does not adopt recoverable journals or a broad transaction lock", self.text
+        )
         self.assertIn("no metadata authority", self.text)
 
     def test_does_not_delegate_a_generic_envelope(self) -> None:
@@ -63,12 +69,17 @@ class SharedSubstrateSeamTests(unittest.TestCase):
     def test_no_generic_envelope_or_recovery_api(self) -> None:
         exported = set(transactions.__all__)
         forbidden = ("Envelope", "Journal", "Recovery", "Recover", "Schema")
-        self.assertFalse(any(any(token in name for token in forbidden) for name in exported))
+        self.assertFalse(
+            any(any(token in name for token in forbidden) for name in exported)
+        )
 
     def test_codec_grants_no_schema_or_version_authority(self) -> None:
         public_callables = {
-            name for name, value in vars(codec).items()
-            if not name.startswith("_") and callable(value) and getattr(value, "__module__", None) == codec.__name__
+            name
+            for name, value in vars(codec).items()
+            if not name.startswith("_")
+            and callable(value)
+            and getattr(value, "__module__", None) == codec.__name__
         }
         self.assertEqual({"encode", "decode"}, public_callables)
         self.assertFalse(hasattr(codec, "version"))

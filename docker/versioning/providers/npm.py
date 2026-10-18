@@ -2,6 +2,7 @@
 
 Checks https://registry.npmjs.org/ for package version updates.
 """
+
 from __future__ import annotations
 
 import json
@@ -98,6 +99,7 @@ def _candidate_extension_dist(
     if not isinstance(tarball, str) or not tarball.strip():
         return {}, "missing npm tarball URL"
     from ..npm_tarball import NpmTarballUrlError, validate
+
     try:
         validate(tarball, package, candidate_raw)
     except NpmTarballUrlError:
@@ -180,7 +182,11 @@ class NpmProvider:
 
         current = target.current
 
-        selector = _latest_stable if (upd.stable_only and not context.include_prerelease) else _latest_any
+        selector = (
+            _latest_stable
+            if (upd.stable_only and not context.include_prerelease)
+            else _latest_any
+        )
         candidate_raw = selector(versions)
         if candidate_raw is None:
             return ProviderResult(
@@ -189,6 +195,7 @@ class NpmProvider:
 
         # Extract authoritative version publication time (validated UTC)
         from ..model import _validate_utc_rfc3339
+
         npm_time: str | None = None
         times = data.get("time")
         if isinstance(times, dict):
@@ -223,7 +230,10 @@ class NpmProvider:
 
         # npm_time was already extracted above (before early returns)
         artifacts, incomplete_reason = _candidate_extension_dist(
-            target, package, candidate_raw, versions,
+            target,
+            package,
+            candidate_raw,
+            versions,
         )
         return ProviderResult(
             candidate=UpdateCandidate(

@@ -18,6 +18,7 @@ boundary it now shares with ``docker.filesystem``:
 The tests patch ``os`` and inject ``DescriptorOps`` so they exercise the
 production ``PosixDescriptorOps`` adapter as well as the capability seam.
 """
+
 from __future__ import annotations
 
 import ast
@@ -268,8 +269,9 @@ class TestCacheWalkerReleasePrecedence(_CacheTestCase):
                 raise OSError(errno.EIO, "injected parent close failure")
             return real_close(fd, *args, **kwargs)
 
-        with mock.patch("os.open", side_effect=fake_open), mock.patch(
-            "os.close", side_effect=fake_close
+        with (
+            mock.patch("os.open", side_effect=fake_open),
+            mock.patch("os.close", side_effect=fake_close),
         ):
             with self.assertRaises(OSError):
                 _cache_storage().prepare_resolved_root(self.root)
@@ -282,9 +284,7 @@ class TestCacheWalkerReleasePrecedence(_CacheTestCase):
 
     def test_opened_child_is_released_when_parent_close_fails(self):
         ops = _LedgerOps()
-        ops.close_errors["/"] = OSError(
-            errno.EIO, "injected parent close failure"
-        )
+        ops.close_errors["/"] = OSError(errno.EIO, "injected parent close failure")
 
         with self.assertRaises(OSError):
             _cache_storage().prepare_resolved_root(self.root, ops=ops)
@@ -339,10 +339,13 @@ class TestCachePrimaryFailureOverClose(_CacheTestCase):
     def test_ownership_failure_stays_primary_over_parent_close(self):
         close_error = OSError(errno.EIO, "injected parent close failure")
         foreign_uid = os.getuid() + 1
-        with mock.patch(
-            "os.fstat", side_effect=_foreign_uid_fstat(self.root, foreign_uid)
-        ), mock.patch(
-            "os.close", side_effect=_fail_close_on(self.root.parent, close_error)
+        with (
+            mock.patch(
+                "os.fstat", side_effect=_foreign_uid_fstat(self.root, foreign_uid)
+            ),
+            mock.patch(
+                "os.close", side_effect=_fail_close_on(self.root.parent, close_error)
+            ),
         ):
             with self.assertRaises(_cache_storage().CacheStorageError) as ctx:
                 _cache_storage().prepare_resolved_root(self.root)
@@ -384,8 +387,9 @@ class TestCachePrimaryFailureOverClose(_CacheTestCase):
                 raise close_error
             return real_close(fd, *args, **kwargs)
 
-        with mock.patch("os.fchmod", side_effect=fake_fchmod), mock.patch(
-            "os.close", side_effect=fake_close
+        with (
+            mock.patch("os.fchmod", side_effect=fake_fchmod),
+            mock.patch("os.close", side_effect=fake_close),
         ):
             with self.assertRaises(_cache_storage().CacheStorageError) as ctx:
                 _cache_storage().prepare_resolved_root(self.root)
@@ -398,11 +402,12 @@ class TestCachePrimaryFailureOverClose(_CacheTestCase):
         versioning = self.root / "versioning"
         cache_storage.prepare_resolved_root(self.root)
         close_error = OSError(errno.EIO, "injected directory close failure")
-        with mock.patch(
-            "os.replace",
-            side_effect=OSError(errno.EROFS, "read-only filesystem"),
-        ), mock.patch(
-            "os.close", side_effect=_fail_close_on(versioning, close_error)
+        with (
+            mock.patch(
+                "os.replace",
+                side_effect=OSError(errno.EROFS, "read-only filesystem"),
+            ),
+            mock.patch("os.close", side_effect=_fail_close_on(versioning, close_error)),
         ):
             with self.assertRaises(cache_storage.CacheStorageError) as ctx:
                 cache_storage.publish_private_entry(versioning, "tmp", "final")
@@ -438,9 +443,7 @@ class TestExplicitXdgLifecycle(_CacheTestCase):
         xdg = self.base / "xdg-cache"
         ops = _LedgerOps()
 
-        root = cache_storage.prepare_default_root(
-            str(xdg), home=self.home, ops=ops
-        )
+        root = cache_storage.prepare_default_root(str(xdg), home=self.home, ops=ops)
 
         self.assertTrue(xdg.is_dir())
         self.assertTrue(root.is_dir())
@@ -717,7 +720,11 @@ class TestCacheStorageFoundationBoundary(unittest.TestCase):
             self.assertTrue(_defines(tree, name), name)
 
     def test_foundation_imports_no_domain_or_transaction_package(self):
-        forbidden = ("docker.versioning", "docker.transactions", "docker.npm_environment")
+        forbidden = (
+            "docker.versioning",
+            "docker.transactions",
+            "docker.npm_environment",
+        )
         offenders: list[tuple[str, str]] = []
         for path in sorted(_FOUNDATION.rglob("*.py")):
             modules = _imported_module_paths(path.read_text(encoding="utf-8"))
@@ -739,9 +746,7 @@ class TestCacheStorageCharacterization(_CacheTestCase):
         cache_storage = _cache_storage()
         from docker.versioning.errors import InventoryError
 
-        self.assertEqual(
-            cache_storage.parse_local_cache_config(None, None).dir, None
-        )
+        self.assertEqual(cache_storage.parse_local_cache_config(None, None).dir, None)
         with self.assertRaises(InventoryError):
             cache_storage.parse_local_cache_config("not-a-table", None)
         with self.assertRaises(InventoryError):
@@ -756,13 +761,9 @@ class TestCacheStorageCharacterization(_CacheTestCase):
                 "relative", xdg_cache_home=None, home=self.home
             )
         with self.assertRaises(cache_storage.CacheStorageError):
-            cache_storage.resolve_local_root(
-                "/", xdg_cache_home=None, home=self.home
-            )
+            cache_storage.resolve_local_root("/", xdg_cache_home=None, home=self.home)
         self.assertIsNone(
-            cache_storage.resolve_local_root(
-                None, xdg_cache_home=None, home=self.home
-            )
+            cache_storage.resolve_local_root(None, xdg_cache_home=None, home=self.home)
         )
 
     def test_parent_mutation_and_recovery_guidance_are_pinned(self):
@@ -783,9 +784,7 @@ class TestCacheStorageCharacterization(_CacheTestCase):
                 str(unsafe), xdg_cache_home=str(xdg), home=self.home
             )
         message = str(ctx.exception).lower()
-        self.assertTrue(
-            "remove" in message or "restore" in message, message
-        )
+        self.assertTrue("remove" in message or "restore" in message, message)
 
 
 # ---------------------------------------------------------------------------
@@ -836,9 +835,7 @@ class TestStageNarrowedAbsenceHandling(_CacheTestCase):
         with self.assertRaises(cache_storage.CacheStorageError) as ctx:
             cache_storage.prepare_default_root(str(xdg), home=self.home, ops=ops)
 
-        self.assertIn(
-            "cannot inspect XDG_CACHE_HOME component", str(ctx.exception)
-        )
+        self.assertIn("cannot inspect XDG_CACHE_HOME component", str(ctx.exception))
         self.assertTrue(_carries_secondary(ctx.exception.__cause__, close_error))
         self.assertEqual(ops.mkdir_order, [])
         self.assertEqual(_mode(xdg), 0o755)
@@ -1015,9 +1012,7 @@ class TestRootAcquisitionDomainMapping(_CacheTestCase):
         self.assertIn("cannot access parent directory", str(ctx.exception))
         self.assertIs(type(ctx.exception.__cause__).__name__, "DescriptorError")
         self.assertIs(ctx.exception.__cause__.cause, validation_error)
-        self.assertTrue(
-            _carries_secondary(ctx.exception.__cause__, close_error)
-        )
+        self.assertTrue(_carries_secondary(ctx.exception.__cause__, close_error))
         self.assertEqual(ops.close_paths.count(os.sep), 1)
         self.assertEqual(len(ops.open_paths), len(ops.close_paths))
         self._assert_no_mutation(ops, self.root)
@@ -1036,9 +1031,7 @@ class TestRootAcquisitionDomainMapping(_CacheTestCase):
         self.assertIn("XDG_CACHE_HOME", str(ctx.exception))
         self.assertIs(type(ctx.exception.__cause__).__name__, "DescriptorError")
         self.assertIs(ctx.exception.__cause__.cause, validation_error)
-        self.assertTrue(
-            _carries_secondary(ctx.exception.__cause__, close_error)
-        )
+        self.assertTrue(_carries_secondary(ctx.exception.__cause__, close_error))
         self.assertEqual(ops.close_paths.count(os.sep), 1)
         self.assertEqual(len(ops.open_paths), len(ops.close_paths))
         self._assert_no_mutation(ops, self.xdg)

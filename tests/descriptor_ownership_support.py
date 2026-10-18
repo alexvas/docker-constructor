@@ -18,6 +18,7 @@ descriptor backend so the *real* close primitive is still exercised, while the
 recorder captures the owner's released-state at close time and can inject
 ordinary close failures.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -53,7 +54,8 @@ class OwnershipRecorder:
     def __init__(
         self,
         close_faults: Sequence[BaseException | None] = (),
-        close_fault: Callable[[int, OwnedDescriptor], BaseException | None] | None = None,
+        close_fault: Callable[[int, OwnedDescriptor], BaseException | None]
+        | None = None,
     ) -> None:
         self.owners: list[OwnedDescriptor] = []
         # ``(fd, released_before_close, owner)`` in syscall order.  The owner

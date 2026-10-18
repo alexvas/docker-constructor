@@ -9,6 +9,7 @@ the migrated contract: the fd is adopted immediately into an
 ``OwnedDescriptor``, the file object is opened with ``closefd=False``, and the
 owner is released through shared precedence before publication.
 """
+
 from __future__ import annotations
 
 import errno
@@ -67,9 +68,7 @@ class DiskCacheSetOwnershipTests(unittest.TestCase):
 
     def test_json_write_failure_stays_primary_and_prevents_publication(self) -> None:
         close_error = OSError(errno.EIO, "injected descriptor release failure")
-        with recording(
-            cache_module, close_fault=lambda fd, owner: close_error
-        ) as rec:
+        with recording(cache_module, close_fault=lambda fd, owner: close_error) as rec:
             with mock.patch.object(
                 cache_module.json, "dump", side_effect=ValueError("injected write")
             ):
@@ -82,16 +81,16 @@ class DiskCacheSetOwnershipTests(unittest.TestCase):
 
     def test_descriptor_release_failure_prevents_publication(self) -> None:
         close_error = OSError(errno.EIO, "injected descriptor release failure")
-        with recording(
-            cache_module, close_fault=lambda fd, owner: close_error
-        ) as rec:
+        with recording(cache_module, close_fault=lambda fd, owner: close_error) as rec:
             with self.assertRaises(OSError) as ctx:
                 self.cache.set("GET", "https://example.com/a", self.response)
         self.assertIs(ctx.exception, close_error)
         rec.assert_terminal_and_at_most_once(self)
         self.assertFalse(self._entry().exists())
 
-    def test_json_write_failure_stays_primary_over_file_and_descriptor_close(self) -> None:
+    def test_json_write_failure_stays_primary_over_file_and_descriptor_close(
+        self,
+    ) -> None:
         write_error = ValueError("injected write")
         file_close_error = OSError(errno.EIO, "injected file-object close")
         descriptor_error = OSError(errno.EIO, "injected descriptor release")
@@ -117,7 +116,9 @@ class DiskCacheSetOwnershipTests(unittest.TestCase):
         rec.assert_terminal_and_at_most_once(self)
         self.assertFalse(self._entry().exists())
 
-    def test_file_object_close_failure_stays_primary_over_descriptor_close(self) -> None:
+    def test_file_object_close_failure_stays_primary_over_descriptor_close(
+        self,
+    ) -> None:
         file_close_error = OSError(errno.EIO, "injected file-object close")
         descriptor_error = OSError(errno.EIO, "injected descriptor release")
         with recording(
@@ -128,9 +129,7 @@ class DiskCacheSetOwnershipTests(unittest.TestCase):
                     cache_storage_module, "publish_private_entry"
                 ) as publish:
                     with self.assertRaises(OSError) as ctx:
-                        self.cache.set(
-                            "GET", "https://example.com/a", self.response
-                        )
+                        self.cache.set("GET", "https://example.com/a", self.response)
         self.assertIs(ctx.exception, file_close_error)
         self.assertIn(descriptor_error, secondary_diagnostics(ctx.exception))
         publish.assert_not_called()

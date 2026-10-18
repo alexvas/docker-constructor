@@ -11,6 +11,7 @@ boundary raises instead of skipping so the validator reports incomplete
 validation. Without it, unavailable privilege degrades to an ordinary
 ``SkipTest`` so a local developer run stays green.
 """
+
 from __future__ import annotations
 
 import os
@@ -32,7 +33,9 @@ def _sudo_run(*argv: str, purpose: str) -> subprocess.CompletedProcess:
     """Run one narrowly scoped sudo command, never prompting for a password."""
     try:
         return subprocess.run(
-            ["sudo", "-n", "--", *argv], capture_output=True, text=True,
+            ["sudo", "-n", "--", *argv],
+            capture_output=True,
+            text=True,
         )
     except OSError as exc:
         _require(f"sudo {purpose} unavailable: {exc}")
@@ -61,7 +64,14 @@ def sudo_chown(path: str | os.PathLike[str], uid: int, gid: int) -> None:
 
 def sudo_chown_tree(path: str | os.PathLike[str], uid: int, gid: int) -> None:
     """Recursively transfer a tree to (uid, gid) via sudo chown -R."""
-    _sudo("chown", "-R", f"{uid}:{gid}", "--", os.fspath(path), purpose="ownership transfer")
+    _sudo(
+        "chown",
+        "-R",
+        f"{uid}:{gid}",
+        "--",
+        os.fspath(path),
+        purpose="ownership transfer",
+    )
 
 
 def sudo_maintain_tree(path: str | os.PathLike[str], uid: int, gid: int) -> None:
@@ -78,13 +88,21 @@ def sudo_maintain_tree(path: str | os.PathLike[str], uid: int, gid: int) -> None
     _sudo("chmod", "-R", "g+rwX", "--", root, purpose="ownership maintenance")
 
 
-def differing_uid_read_status(path: str | os.PathLike[str], *, user: str = "nobody") -> int:
+def differing_uid_read_status(
+    path: str | os.PathLike[str], *, user: str = "nobody"
+) -> int:
     """Return the exit status of ``test -r`` executed as *user* via sudo.
 
     ``0`` means the differing UID can read the path; nonzero means it cannot.
     """
     completed = _sudo_run(
-        "runuser", "-u", user, "--", "test", "-r", os.fspath(path),
+        "runuser",
+        "-u",
+        user,
+        "--",
+        "test",
+        "-r",
+        os.fspath(path),
         purpose=f"runuser -u {user}",
     )
     if completed.returncode == 0:

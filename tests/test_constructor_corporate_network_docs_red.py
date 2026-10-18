@@ -91,8 +91,15 @@ _README_REQUIREMENTS: tuple[
         "SOCKS build support is best-effort",
         ("socks5", "socks5h"),
         (
-            ("best-effort", "best effort", "may fail", "not guarantee",
-             "не гарантир", "尽力", "可能"),
+            (
+                "best-effort",
+                "best effort",
+                "may fail",
+                "not guarantee",
+                "не гарантир",
+                "尽力",
+                "可能",
+            ),
         ),
     ),
     (
@@ -223,7 +230,7 @@ class TestCorporateNetworkClientCaDocumentation(unittest.TestCase):
     @staticmethod
     def _policy(text: str) -> str:
         start = text.lower().index("node_extra_ca_certs")
-        return text.lower()[start:start + 5000]
+        return text.lower()[start : start + 5000]
 
     def test_exact_five_variable_mapping_and_enabled_scope_are_documented(self) -> None:
         terms = {
@@ -263,7 +270,9 @@ class TestCorporateNetworkClientCaDocumentation(unittest.TestCase):
                 for term in terms[filename]:
                     self.assertIn(term, policy)
 
-    def test_launch_exceptions_do_not_exclude_required_runtime_verification(self) -> None:
+    def test_launch_exceptions_do_not_exclude_required_runtime_verification(
+        self,
+    ) -> None:
         terms = {
             "README.en.md": (
                 "standalone npm assembler container",
@@ -295,15 +304,25 @@ class TestCorporateNetworkClientCaDocumentation(unittest.TestCase):
     def test_enterprise_goal_and_node_augmentation_are_documented(self) -> None:
         terms = {
             "README.en.md": (
-                "enterprise tls interception", "augments", "built-in",
-                "does not replace", "system bundle",
+                "enterprise tls interception",
+                "augments",
+                "built-in",
+                "does not replace",
+                "system bundle",
             ),
             "README.md": (
-                "корпоративным перехватом tls", "дополняет", "встроенные",
-                "не заменяет", "системный bundle",
+                "корпоративным перехватом tls",
+                "дополняет",
+                "встроенные",
+                "не заменяет",
+                "системный bundle",
             ),
             "README.zh.md": (
-                "企业 tls 拦截", "扩充", "内置", "不会替换", "系统 bundle",
+                "企业 tls 拦截",
+                "扩充",
+                "内置",
+                "不会替换",
+                "系统 bundle",
             ),
         }
         for filename, text in self._texts():

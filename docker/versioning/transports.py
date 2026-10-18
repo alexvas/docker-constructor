@@ -85,40 +85,57 @@ def build_transports(
         def request(self, method, url, *, headers=(), nocache=False):
             import urllib.request
             import urllib.error
+
             req = urllib.request.Request(
-                url, method=method, headers=dict(headers),
+                url,
+                method=method,
+                headers=dict(headers),
             )
             try:
                 with urllib.request.urlopen(req, timeout=30) as resp:
                     body = resp.read()
-                    return type("HttpResponse", (), {
-                        "status": resp.status,
-                        "headers": dict(resp.headers),
-                        "body": body,
-                    })()
+                    return type(
+                        "HttpResponse",
+                        (),
+                        {
+                            "status": resp.status,
+                            "headers": dict(resp.headers),
+                            "body": body,
+                        },
+                    )()
             except urllib.error.HTTPError as e:
                 with OwnedStream(e, label="metadata HTTP error response"):
                     body = e.read() if hasattr(e, "read") else b""
-                    return type("HttpResponse", (), {
-                        "status": e.code,
-                        "headers": dict(e.headers)
-                        if hasattr(e, "headers") else {},
-                        "body": body,
-                    })()
+                    return type(
+                        "HttpResponse",
+                        (),
+                        {
+                            "status": e.code,
+                            "headers": dict(e.headers) if hasattr(e, "headers") else {},
+                            "body": body,
+                        },
+                    )()
             except OSError as e:
-                return type("HttpResponse", (), {
-                    "status": 503,
-                    "headers": {},
-                    "body": f"timeout_or_connection_error: {e}".encode(),
-                })()
+                return type(
+                    "HttpResponse",
+                    (),
+                    {
+                        "status": 503,
+                        "headers": {},
+                        "body": f"timeout_or_connection_error: {e}".encode(),
+                    },
+                )()
 
     class _ProductionGit(GitRefTransport):
         def resolve_ref(self, repository, ref):
             import subprocess
+
             try:
                 result = subprocess.run(
                     ["git", "ls-remote", repository, ref],
-                    capture_output=True, text=True, timeout=30,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
                 )
                 if result.returncode != 0:
                     raise RuntimeError(result.stderr.strip())
@@ -140,39 +157,42 @@ def build_transports(
     if not no_cache:
         # Reviewed inventory policy is the sole TTL source.
         resolved_cache_ttl = (
-            inventory_cache.ttl
-            if isinstance(inventory_cache, CacheConfig)
-            else None
+            inventory_cache.ttl if isinstance(inventory_cache, CacheConfig) else None
         )
         if suggest_mode:
             disk = None
             http = CachingHttpTransport(
-                http, ttl=resolved_cache_ttl, disk_cache=disk,
+                http,
+                ttl=resolved_cache_ttl,
+                disk_cache=disk,
             )
         else:
             # Resolve and prepare the shared dedicated constructor root
             # before constructing DiskCache. cache_storage owns root
             # validation/hardening; DiskCache owns JSON format and TTL.
             local_dir = (
-                local_cache.dir
-                if isinstance(local_cache, LocalCacheConfig)
-                else None
+                local_cache.dir if isinstance(local_cache, LocalCacheConfig) else None
             )
             xdg = _os.environ.get("XDG_CACHE_HOME")
             home = Path(_os.path.expanduser("~"))
 
             if local_dir is not None:
                 prepared_root = prepare_local_root(
-                    local_dir, xdg_cache_home=xdg, home=home,
+                    local_dir,
+                    xdg_cache_home=xdg,
+                    home=home,
                 )
             else:
                 prepared_root = prepare_default_root(xdg, home=home)
 
             disk = DiskCache(
-                versioning_child(prepared_root), ttl=resolved_cache_ttl,
+                versioning_child(prepared_root),
+                ttl=resolved_cache_ttl,
             )
             http = CachingHttpTransport(
-                http, ttl=resolved_cache_ttl, disk_cache=disk,
+                http,
+                ttl=resolved_cache_ttl,
+                disk_cache=disk,
             )
 
     git = _ProductionGit()
@@ -184,7 +204,10 @@ def _collect_tokens() -> dict[str, str]:
     """Harvest provider auth tokens from environment variables."""
     tokens: dict[str, str] = {}
     for var in (
-        "GITHUB_TOKEN", "NPM_TOKEN", "PYPI_TOKEN", "DOCKER_REGISTRY_TOKEN",
+        "GITHUB_TOKEN",
+        "NPM_TOKEN",
+        "PYPI_TOKEN",
+        "DOCKER_REGISTRY_TOKEN",
     ):
         val = _os.environ.get(var)
         if val:

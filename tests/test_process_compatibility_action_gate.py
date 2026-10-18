@@ -4,6 +4,7 @@ This binds the compatibility plan without Docker policy in the process
 layer. The user authorized independent action initiation after failed child
 observation; the original 6BB expectations are revised accordingly.
 """
+
 from unittest import mock
 
 import pytest
@@ -18,7 +19,9 @@ def test_required_compatibility_action_is_independent_of_local_poll_failure(api)
     poll_error = OSError("local child observation")
     child.poll = mock.Mock(side_effect=poll_error)
     required = Action(api)
-    policy = api.StopPolicy((api.StopStage(.01, required, local_stop_before=True),), .025)
+    policy = api.StopPolicy(
+        (api.StopStage(0.01, required, local_stop_before=True),), 0.025
+    )
     owner = launch(api, policy, child)
     try:
         result = owner.shutdown(primary=primary)
@@ -39,7 +42,10 @@ def test_required_compatibility_action_is_independent_of_local_poll_failure(api)
 @pytest.mark.parametrize("start_kind", [OSError, RuntimeError, KeyboardInterrupt])
 @pytest.mark.parametrize("primary_kind", [None, ValueError, KeyboardInterrupt])
 def test_poll_and_action_failure_preserve_authority_and_independent_cleanup(
-    api, poll_kind, start_kind, primary_kind,
+    api,
+    poll_kind,
+    start_kind,
+    primary_kind,
 ):
     child = Child()
     poll_error = poll_kind("context poll")
@@ -55,7 +61,8 @@ def test_poll_and_action_failure_preserve_authority_and_independent_cleanup(
 
     first.start = start
     policy = api.StopPolicy(
-        (api.StopStage(.01, first), api.StopStage(.01, following)), .025)
+        (api.StopStage(0.01, first), api.StopStage(0.01, following)), 0.025
+    )
     owner = launch(api, policy, child)
     try:
         result = owner.shutdown(primary=primary)
@@ -72,7 +79,11 @@ def test_poll_and_action_failure_preserve_authority_and_independent_cleanup(
         before = (tuple(first.calls), tuple(following.calls), tuple(secondary(winner)))
         assert owner.shutdown().failures[0].error is winner
         assert owner.wait_cleanup(1).complete
-        assert before == (tuple(first.calls), tuple(following.calls), tuple(secondary(winner)))
+        assert before == (
+            tuple(first.calls),
+            tuple(following.calls),
+            tuple(secondary(winner)),
+        )
     finally:
         owner.wait_cleanup(1)
         assert not workers()

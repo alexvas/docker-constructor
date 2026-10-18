@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Run host/BuildKit acceptance validation for OpenSpec task 5.4."""
+
 from __future__ import annotations
 
 import argparse
@@ -70,14 +71,21 @@ def stop_process_group(process: subprocess.Popen[str]) -> None:
 
 
 def run(
-    argv: tuple[str, ...] | list[str], *, expect_success: bool,
+    argv: tuple[str, ...] | list[str],
+    *,
+    expect_success: bool,
     timeout_seconds: float,
 ) -> str:
     log(f"START timeout={timeout_seconds:g}s command={' '.join(argv)}")
     started = time.monotonic()
     process = subprocess.Popen(
-        argv, cwd=ROOT, text=True, stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT, start_new_session=True, bufsize=1,
+        argv,
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+        bufsize=1,
     )
     assert process.stdout is not None
     selector = selectors.DefaultSelector()
@@ -90,14 +98,14 @@ def run(
             remaining = timeout_seconds - elapsed
             if remaining <= 0:
                 stop_process_group(process)
-                raise ValidationError(
-                    f"command timed out after {timeout_seconds:g}s"
-                )
+                raise ValidationError(f"command timed out after {timeout_seconds:g}s")
             for key, _events in selector.select(timeout=min(1.0, remaining)):
                 line = key.fileobj.readline()
                 if line:
                     lines.append(line)
-                    print(f"[{timestamp()} +{elapsed:8.1f}s] {line}", end="", flush=True)
+                    print(
+                        f"[{timestamp()} +{elapsed:8.1f}s] {line}", end="", flush=True
+                    )
             elapsed = time.monotonic() - started
             if elapsed >= next_heartbeat:
                 log(
@@ -131,7 +139,8 @@ def run(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--timeout-seconds", type=float,
+        "--timeout-seconds",
+        type=float,
         default=float(os.environ.get("PHASE5_COMMAND_TIMEOUT_SECONDS", "3600")),
         help="timeout for each Docker command (default: 3600, or PHASE5_COMMAND_TIMEOUT_SECONDS)",
     )
@@ -144,21 +153,32 @@ def parse_args() -> argparse.Namespace:
 def require_buildkit() -> None:
     if shutil.which("docker") is None:
         raise ValidationError("docker is required")
-    help_result = subprocess.run(("docker", "build", "--help"), text=True,
-                                 capture_output=True)
+    help_result = subprocess.run(
+        ("docker", "build", "--help"), text=True, capture_output=True
+    )
     if help_result.returncode != 0 or "--build-context" not in help_result.stdout:
-        raise ValidationError("docker build with BuildKit named-context support is required")
+        raise ValidationError(
+            "docker build with BuildKit named-context support is required"
+        )
     info = subprocess.run(("docker", "info"), text=True, capture_output=True)
     if info.returncode != 0:
         raise ValidationError("a reachable Docker daemon is required")
 
 
 def vector(projection, snapshot: Path, *, target: str = "runtime") -> tuple[str, ...]:
-    return render_build_vector(BuildRenderInputs(
-        build_context=os.fspath(ROOT), projection=projection, target_stage=target,
-        image_tag=TAG, platform="linux/amd64", progress="plain",
-        named_context=Materialized(os.fspath(snapshot.resolve()), NoDerivedEnvironment()),
-    ))
+    return render_build_vector(
+        BuildRenderInputs(
+            build_context=os.fspath(ROOT),
+            projection=projection,
+            target_stage=target,
+            image_tag=TAG,
+            platform="linux/amd64",
+            progress="plain",
+            named_context=Materialized(
+                os.fspath(snapshot.resolve()), NoDerivedEnvironment()
+            ),
+        )
+    )
 
 
 def replace_digest(argv: tuple[str, ...], key: str, digest: str) -> tuple[str, ...]:
@@ -229,7 +249,7 @@ def smoke_script() -> str:
     """
     lines = ["set -euo pipefail"]
     for tool in SMOKE_TOOLS:
-        lines.append(f"{tool}_version=\"$({tool} --version)\"")
+        lines.append(f'{tool}_version="$({tool} --version)"')
         lines.append(f"printf '{tool}=%s\\n' \"${tool}_version\"")
     return "\n".join(lines)
 
@@ -278,11 +298,14 @@ def verify_installed_versions(projection, smoke_output: str) -> None:
 def main() -> int:
     args = parse_args()
     try:
-        log(f"Phase 5 validation started; per-command timeout={args.timeout_seconds:g}s")
+        log(
+            f"Phase 5 validation started; per-command timeout={args.timeout_seconds:g}s"
+        )
         log("Checking Docker daemon and BuildKit named-context support")
         require_buildkit()
         projection = resolve_build_projection(
-            load_inventory(ROOT / "docker-constructor.toml").build, {},
+            load_inventory(ROOT / "docker-constructor.toml").build,
+            {},
             platform="linux-amd64",
         )
         selected = select_build_artifacts(projection)
@@ -292,12 +315,17 @@ def main() -> int:
             cache.mkdir(mode=0o700)
             log("Materializing and SHA-256-verifying reviewed host artifacts")
             blobs = materialize_build_artifacts(
-                projection, constructor_project_root=ROOT, cache_root=cache,
+                projection,
+                constructor_project_root=ROOT,
+                cache_root=cache,
                 transport=UrllibStreamingTransport(HostNetworkPolicy()),
             )
             log("Creating immutable named-context snapshot")
             snapshot = create_artifact_snapshot(
-                selected, blobs, constructor_project_root=ROOT, cache_root=cache,
+                selected,
+                blobs,
+                constructor_project_root=ROOT,
+                cache_root=cache,
             )
             valid = snapshot.path
 
@@ -306,9 +334,19 @@ def main() -> int:
             run(baseline, expect_success=True, timeout_seconds=args.timeout_seconds)
             log("STAGE 2/4: smoke-check installed tool versions in the built image")
             smoke_output = run(
-                ("docker", "run", "--rm", TAG, "bash", "-euo", "pipefail", "-c",
-                 smoke_script()),
-                expect_success=True, timeout_seconds=args.timeout_seconds,
+                (
+                    "docker",
+                    "run",
+                    "--rm",
+                    TAG,
+                    "bash",
+                    "-euo",
+                    "pipefail",
+                    "-c",
+                    smoke_script(),
+                ),
+                expect_success=True,
+                timeout_seconds=args.timeout_seconds,
             )
             verify_installed_versions(projection, smoke_output)
 
@@ -316,11 +354,14 @@ def main() -> int:
             tampered = work / "tampered"
             mutate_snapshot(valid, tampered, "rtk")
             tampered_output = run(
-                vector(projection, tampered), expect_success=False,
+                vector(projection, tampered),
+                expect_success=False,
                 timeout_seconds=args.timeout_seconds,
             )
             if "SHA256 mismatch" not in tampered_output:
-                raise ValidationError("tampered snapshot failed without SHA-256 rejection evidence")
+                raise ValidationError(
+                    "tampered snapshot failed without SHA-256 rejection evidence"
+                )
 
             log("STAGE 4/4: rtk/fd plain-progress cache boundaries")
             for changed, digest_arg in (("rtk", "RTK_SHA256"), ("fd", "FD_SHA256")):
@@ -338,10 +379,12 @@ def main() -> int:
                     )
                     unchanged_vector = replace_digest(
                         vector(projection, changed_snapshot, target=unchanged_stage),
-                        digest_arg, digest,
+                        digest_arg,
+                        digest,
                     )
                     output = run(
-                        unchanged_vector, expect_success=True,
+                        unchanged_vector,
+                        expect_success=True,
                         timeout_seconds=args.timeout_seconds,
                     )
                     require_cached(output, (unchanged_stage,), changed)
@@ -352,10 +395,12 @@ def main() -> int:
                 changed_stage = f"{changed}-prebuilt"
                 changed_vector = replace_digest(
                     vector(projection, changed_snapshot, target=changed_stage),
-                    digest_arg, digest,
+                    digest_arg,
+                    digest,
                 )
                 changed_output = run(
-                    changed_vector, expect_success=False,
+                    changed_vector,
+                    expect_success=False,
                     timeout_seconds=args.timeout_seconds,
                 )
                 if "not a Debian format archive" not in changed_output:

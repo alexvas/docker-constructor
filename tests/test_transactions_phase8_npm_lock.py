@@ -21,6 +21,7 @@ These tests pin the migrated contract:
 The lock exposes an injectable L0 ``ops`` seam so these contracts are
 verified through the shared substrate rather than a private ``flock`` loop.
 """
+
 from __future__ import annotations
 
 import errno
@@ -233,15 +234,9 @@ class LockEntrySafetyTests(_NpmLockCase):
         original_name = path.name
 
         def hook(dir_fd, name, flags, mode=0o777):
-            if (
-                name == original_name
-                and flags & os.O_EXCL
-                and not state["raced"]
-            ):
+            if name == original_name and flags & os.O_EXCL and not state["raced"]:
                 state["raced"] = True
-                winner = os.open(
-                    str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600
-                )
+                winner = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
                 os.close(winner)
                 raise FileExistsError(errno.EEXIST, "simulated bootstrap race", name)
 

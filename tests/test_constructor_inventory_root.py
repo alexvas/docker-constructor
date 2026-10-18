@@ -1,5 +1,5 @@
-"""Stage 1 tests — canonical root envelope and typed phase containers.
-"""
+"""Stage 1 tests — canonical root envelope and typed phase containers."""
+
 from __future__ import annotations
 
 import sys
@@ -21,6 +21,7 @@ from versioning.support.inventory_builder import write_toml
 # ---------------------------------------------------------------------------
 # Helper — canonical TOML with build/runtime envelope
 # ---------------------------------------------------------------------------
+
 
 def _canonical_toml() -> str:
     """Minimal valid TOML with build/runtime envelope wrapping existing content."""
@@ -259,6 +260,7 @@ metadata_file = "package.json"
 # Task 1.1 — Root-Envelope Tests
 # ===================================================================
 
+
 class TestRootEnvelopeRequirements(unittest.TestCase):
     """Tests for canonical schema=1 root with build + runtime sections."""
 
@@ -414,9 +416,10 @@ metadata_file = "package.json"
     def test_missing_runtime_reports_path(self):
         """Missing runtime section produces actionable path."""
         import re
+
         bad_toml = re.sub(
-            r'\[runtime[^]]*\]\n(?:[^[\n].*\n)*',
-            '',
+            r"\[runtime[^]]*\]\n(?:[^[\n].*\n)*",
+            "",
             _canonical_toml(),
         )
         p = self._write(bad_toml)
@@ -436,6 +439,7 @@ metadata_file = "package.json"
 # ===================================================================
 # Task 1.2 — Typed-Container Tests
 # ===================================================================
+
 
 class TestTypedPhaseContainers(unittest.TestCase):
     """Inventory, BuildInventory, RuntimeInventory are frozen, typed containers."""
@@ -465,6 +469,7 @@ class TestTypedPhaseContainers(unittest.TestCase):
     def test_inventory_is_frozen_dataclass(self):
         """Inventory must be a frozen dataclass."""
         from dataclasses import is_dataclass, fields
+
         self.assertTrue(is_dataclass(type(self.inv)))
         f = fields(type(self.inv))
         self.assertTrue(len(f) >= 4)
@@ -472,11 +477,13 @@ class TestTypedPhaseContainers(unittest.TestCase):
     def test_build_inventory_is_frozen_dataclass(self):
         """BuildInventory must be a frozen dataclass."""
         from dataclasses import is_dataclass
+
         self.assertTrue(is_dataclass(type(self.inv.build)))
 
     def test_runtime_inventory_is_frozen_dataclass(self):
         """RuntimeInventory must be a frozen dataclass."""
         from dataclasses import is_dataclass
+
         self.assertTrue(is_dataclass(type(self.inv.runtime)))
 
     def test_build_cannot_be_reassigned(self):
@@ -502,6 +509,7 @@ class TestTypedPhaseContainers(unittest.TestCase):
     def test_cache_on_root_inventory_not_in_phases(self):
         """cache is on root Inventory, not in BuildInventory or RuntimeInventory."""
         from dataclasses import fields
+
         build_fields = {f.name for f in fields(type(self.inv.build))}
         self.assertNotIn("cache", build_fields)
         runtime_fields = {f.name for f in fields(type(self.inv.runtime))}
@@ -539,12 +547,14 @@ class TestTypedPhaseContainers(unittest.TestCase):
         self.assertIsNotNone(inv.runtime)
         if inv.cache is not None:
             from dataclasses import is_dataclass
+
             self.assertTrue(is_dataclass(type(inv.cache)))
 
 
 # ===================================================================
 # Task 1.2a — Direct-construction immutability
 # ===================================================================
+
 
 class TestDirectConstructionImmutability(unittest.TestCase):
     """BuildInventory and RuntimeInventory must normalise mutable inputs."""
@@ -573,16 +583,34 @@ class TestDirectConstructionImmutability(unittest.TestCase):
 
     def test_runtime_inventory_normalises_mutable_dict(self):
         """RuntimeInventory normalises a plain dict to MappingProxyType."""
-        from docker.versions import PiExtensionEntry, NpmSource, NpmUpdate, OverridePolicy, parse_constraint, NpmArtifact, RuntimeValidation, RuntimeInventory
+        from docker.versions import (
+            PiExtensionEntry,
+            NpmSource,
+            NpmUpdate,
+            OverridePolicy,
+            parse_constraint,
+            NpmArtifact,
+            RuntimeValidation,
+            RuntimeInventory,
+        )
 
         mutable: dict[str, PiExtensionEntry] = {
             "test-ext": PiExtensionEntry(
                 version="1.0.0",
                 source=NpmSource(package="test"),
                 update=NpmUpdate(stable_only=True),
-                artifacts={"1.0.0": NpmArtifact(url="https://registry.npmjs.org/test/-/test-1.0.0.tgz", integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==")},
+                artifacts={
+                    "1.0.0": NpmArtifact(
+                        url="https://registry.npmjs.org/test/-/test-1.0.0.tgz",
+                        integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                    )
+                },
                 validation=RuntimeValidation(metadata_file="package.json"),
-            override=OverridePolicy(constraint=parse_constraint(">=1.0.0"), allow_prerelease=False, scheme="numeric"),
+                override=OverridePolicy(
+                    constraint=parse_constraint(">=1.0.0"),
+                    allow_prerelease=False,
+                    scheme="numeric",
+                ),
             ),
         }
         ri = RuntimeInventory(pi_extensions=mutable)
@@ -592,25 +620,52 @@ class TestDirectConstructionImmutability(unittest.TestCase):
             version="9.9.9",
             source=NpmSource(package="evil"),
             update=NpmUpdate(stable_only=True),
-            artifacts={"9.9.9": NpmArtifact(url="https://registry.npmjs.org/evil/-/evil-9.9.9.tgz", integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==")},
+            artifacts={
+                "9.9.9": NpmArtifact(
+                    url="https://registry.npmjs.org/evil/-/evil-9.9.9.tgz",
+                    integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                )
+            },
             validation=RuntimeValidation(metadata_file="package.json"),
-            override=OverridePolicy(constraint=parse_constraint(">=1.0.0"), allow_prerelease=False, scheme="numeric"),
+            override=OverridePolicy(
+                constraint=parse_constraint(">=1.0.0"),
+                allow_prerelease=False,
+                scheme="numeric",
+            ),
         )
         self.assertNotIn("intruder", ri.pi_extensions)
 
     def test_runtime_inventory_copies_backing_dict(self):
         """A MappingProxyType backed by a reachable dict must be deep-copied
         so the original dict cannot affect the frozen container."""
-        from docker.versions import PiExtensionEntry, NpmSource, NpmUpdate, OverridePolicy, parse_constraint, NpmArtifact, RuntimeValidation, RuntimeInventory
+        from docker.versions import (
+            PiExtensionEntry,
+            NpmSource,
+            NpmUpdate,
+            OverridePolicy,
+            parse_constraint,
+            NpmArtifact,
+            RuntimeValidation,
+            RuntimeInventory,
+        )
 
         backing: dict[str, PiExtensionEntry] = {
             "safe": PiExtensionEntry(
                 version="1.0.0",
                 source=NpmSource(package="safe"),
                 update=NpmUpdate(stable_only=True),
-                artifacts={"1.0.0": NpmArtifact(url="https://registry.npmjs.org/safe/-/safe-1.0.0.tgz", integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==")},
+                artifacts={
+                    "1.0.0": NpmArtifact(
+                        url="https://registry.npmjs.org/safe/-/safe-1.0.0.tgz",
+                        integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                    )
+                },
                 validation=RuntimeValidation(metadata_file="package.json"),
-            override=OverridePolicy(constraint=parse_constraint(">=1.0.0"), allow_prerelease=False, scheme="numeric"),
+                override=OverridePolicy(
+                    constraint=parse_constraint(">=1.0.0"),
+                    allow_prerelease=False,
+                    scheme="numeric",
+                ),
             ),
         }
         mp = MappingProxyType(backing)
@@ -624,22 +679,43 @@ class TestDirectConstructionImmutability(unittest.TestCase):
             version="9.9.9",
             source=NpmSource(package="evil"),
             update=NpmUpdate(stable_only=True),
-            artifacts={"9.9.9": NpmArtifact(url="https://registry.npmjs.org/evil/-/evil-9.9.9.tgz", integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==")},
+            artifacts={
+                "9.9.9": NpmArtifact(
+                    url="https://registry.npmjs.org/evil/-/evil-9.9.9.tgz",
+                    integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                )
+            },
             validation=RuntimeValidation(metadata_file="package.json"),
-            override=OverridePolicy(constraint=parse_constraint(">=1.0.0"), allow_prerelease=False, scheme="numeric"),
+            override=OverridePolicy(
+                constraint=parse_constraint(">=1.0.0"),
+                allow_prerelease=False,
+                scheme="numeric",
+            ),
         )
         del backing["safe"]
 
-        self.assertIn("safe", ri.pi_extensions,
-                       "container must retain original key after backing dict deletion")
-        self.assertNotIn("evil", ri.pi_extensions,
-                          "container must not see additions to the backing dict")
+        self.assertIn(
+            "safe",
+            ri.pi_extensions,
+            "container must retain original key after backing dict deletion",
+        )
+        self.assertNotIn(
+            "evil",
+            ri.pi_extensions,
+            "container must not see additions to the backing dict",
+        )
 
     def test_inventory_normalises_runtime_pi_extensions(self):
         """Direct Inventory construction normalises runtime_pi_extensions."""
         from docker.versions import (
-            Inventory, PiExtensionEntry, NpmSource, NpmUpdate, NpmArtifact, RuntimeValidation,
-            OverridePolicy, Constraint,
+            Inventory,
+            PiExtensionEntry,
+            NpmSource,
+            NpmUpdate,
+            NpmArtifact,
+            RuntimeValidation,
+            OverridePolicy,
+            Constraint,
         )
         from docker.versions import parse_constraint
 
@@ -648,9 +724,18 @@ class TestDirectConstructionImmutability(unittest.TestCase):
                 version="1.0.0",
                 source=NpmSource(package="ext-a"),
                 update=NpmUpdate(stable_only=True),
-                artifacts={"1.0.0": NpmArtifact(url="https://registry.npmjs.org/ext-a/-/ext-a-1.0.0.tgz", integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==")},
+                artifacts={
+                    "1.0.0": NpmArtifact(
+                        url="https://registry.npmjs.org/ext-a/-/ext-a-1.0.0.tgz",
+                        integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                    )
+                },
                 validation=RuntimeValidation(metadata_file="package.json"),
-            override=OverridePolicy(constraint=parse_constraint(">=1.0.0"), allow_prerelease=False, scheme="numeric"),
+                override=OverridePolicy(
+                    constraint=parse_constraint(">=1.0.0"),
+                    allow_prerelease=False,
+                    scheme="numeric",
+                ),
             ),
         }
 
@@ -667,9 +752,18 @@ class TestDirectConstructionImmutability(unittest.TestCase):
             version="9.9.9",
             source=NpmSource(package="evil"),
             update=NpmUpdate(stable_only=True),
-            artifacts={"9.9.9": NpmArtifact(url="https://registry.npmjs.org/evil/-/evil-9.9.9.tgz", integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==")},
+            artifacts={
+                "9.9.9": NpmArtifact(
+                    url="https://registry.npmjs.org/evil/-/evil-9.9.9.tgz",
+                    integrity="sha512-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+                )
+            },
             validation=RuntimeValidation(metadata_file="package.json"),
-            override=OverridePolicy(constraint=parse_constraint(">=1.0.0"), allow_prerelease=False, scheme="numeric"),
+            override=OverridePolicy(
+                constraint=parse_constraint(">=1.0.0"),
+                allow_prerelease=False,
+                scheme="numeric",
+            ),
         )
         self.assertNotIn("evil", inv.runtime_pi_extensions)
 

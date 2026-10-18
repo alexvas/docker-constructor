@@ -7,6 +7,7 @@ replacement, and `lines`-mode separation of every changed numeric value.  The
 facade worker, timers, mailbox, and renderer belong to later phases and must
 not appear here.
 """
+
 from __future__ import annotations
 
 import unittest
@@ -100,16 +101,24 @@ class TestDiagnosticComparison(unittest.TestCase):
         )
 
     def test_url_fingerprint_mismatch_is_not_a_numeric_variant(self):
-        left = identity_for(_diagnostic("GET <redacted> 1", url_fingerprints=("a" * 64,)))
-        right = identity_for(_diagnostic("GET <redacted> 2", url_fingerprints=("b" * 64,)))
-        self.assertEqual(DiagnosticComparison.DIFFERENT, compare_diagnostics(left, right))
+        left = identity_for(
+            _diagnostic("GET <redacted> 1", url_fingerprints=("a" * 64,))
+        )
+        right = identity_for(
+            _diagnostic("GET <redacted> 2", url_fingerprints=("b" * 64,))
+        )
+        self.assertEqual(
+            DiagnosticComparison.DIFFERENT, compare_diagnostics(left, right)
+        )
 
     def test_identity_mismatch_is_not_a_numeric_variant(self):
         left = identity_for(_diagnostic("progress 1"))
         right = identity_for(
             _diagnostic("progress 2", classification=HostDiagnosticClassification.ERROR)
         )
-        self.assertEqual(DiagnosticComparison.DIFFERENT, compare_diagnostics(left, right))
+        self.assertEqual(
+            DiagnosticComparison.DIFFERENT, compare_diagnostics(left, right)
+        )
 
     def test_format_repetition_uses_the_canonical_suffix(self):
         self.assertEqual("line", format_repetition("line", 1))

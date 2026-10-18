@@ -17,13 +17,17 @@ from unittest.mock import patch
 # Helpers — keep minimal; reuse production wiring.
 # ---------------------------------------------------------------------------
 
-_REAL_INVENTORY = (Path(__file__).resolve().parents[1] / "docker-constructor.toml").read_text()
+_REAL_INVENTORY = (
+    Path(__file__).resolve().parents[1] / "docker-constructor.toml"
+).read_text()
+
 
 def _write_inventory(root: Path, *, policy: str = "") -> Path:
     """Create a minimal inventory with optional [runtime.host-access]."""
     inventory = root / "docker-constructor.toml"
     inventory.write_text(_REAL_INVENTORY + "\n" + policy)
     return inventory
+
 
 class TestDoctorModeAwareRed(unittest.TestCase):
     """3.1–3.3: Doctor dispatch by host-access mode.
@@ -89,7 +93,8 @@ class TestDoctorModeAwareRed(unittest.TestCase):
 
             result = orchestrate_doctor(req)
             self.assertEqual(
-                probe_calls, [],
+                probe_calls,
+                [],
                 "no probe, plan, or persist call must occur for disabled mode",
             )
             self.assertEqual(result.exit_kind.value, "success")
@@ -107,7 +112,7 @@ class TestDoctorModeAwareRed(unittest.TestCase):
             root_path = Path(root)
             inv = _write_inventory(
                 root_path,
-                policy='[runtime.host-access]\nenabled = false\n',
+                policy="[runtime.host-access]\nenabled = false\n",
             )
             companion = root_path / "docker-constructor.local.toml"
             companion.write_text("")
@@ -149,8 +154,11 @@ class TestDoctorModeAwareRed(unittest.TestCase):
                 inventory_path=missing,
             )
             result = orchestrate_doctor(req)
-            self.assertEqual(result.exit_kind.value, "config",
-                             "missing inventory must be CONFIG, not success")
+            self.assertEqual(
+                result.exit_kind.value,
+                "config",
+                "missing inventory must be CONFIG, not success",
+            )
             self.assertIn("cannot load", (result.message or "").lower())
 
     def test_explicit_inventory_malformed_returns_config_error(self):
@@ -172,8 +180,11 @@ class TestDoctorModeAwareRed(unittest.TestCase):
                 inventory_path=malformed,
             )
             result = orchestrate_doctor(req)
-            self.assertEqual(result.exit_kind.value, "config",
-                             "malformed inventory must be CONFIG, not success")
+            self.assertEqual(
+                result.exit_kind.value,
+                "config",
+                "malformed inventory must be CONFIG, not success",
+            )
 
     # ------------------------------------------------------------------
     # 3.2  External-address mode
@@ -193,15 +204,11 @@ class TestDoctorModeAwareRed(unittest.TestCase):
             inv = _write_inventory(
                 root_path,
                 policy=(
-                    '[runtime.host-access]\n'
-                    'enabled = true\n'
-                    'mode = "external-address"\n'
+                    '[runtime.host-access]\nenabled = true\nmode = "external-address"\n'
                 ),
             )
             companion = root_path / "docker-constructor.local.toml"
-            companion.write_text(
-                '[host-access]\naddress = "192.168.99.1"\n'
-            )
+            companion.write_text('[host-access]\naddress = "192.168.99.1"\n')
 
             probe_calls: list[dict] = []
 
@@ -254,18 +261,14 @@ class TestDoctorModeAwareRed(unittest.TestCase):
             inv = _write_inventory(
                 root_path,
                 policy=(
-                    '[runtime.host-access]\n'
-                    'enabled = true\n'
-                    'mode = "docker-gateway"\n'
+                    '[runtime.host-access]\nenabled = true\nmode = "docker-gateway"\n'
                 ),
             )
             companion = root_path / "docker-constructor.local.toml"
 
             # Pre-populate a recognised [cache].dir to prove it is
             # preserved during the atomic write.
-            companion.write_text(
-                '[cache]\ndir = "/var/tmp/my-cache"\n'
-            )
+            companion.write_text('[cache]\ndir = "/var/tmp/my-cache"\n')
 
             def fake_diagnose(**kwargs: object) -> GatewayDiagnosis:
                 return GatewayDiagnosis(
@@ -306,11 +309,13 @@ class TestDoctorModeAwareRed(unittest.TestCase):
             # Companion must contain the diagnosed address
             after = companion.read_text()
             self.assertIn('address = "10.0.2.2"', after)
-            self.assertIn('dir = "/var/tmp/my-cache"', after,
-                          "[cache].dir must be preserved")
+            self.assertIn(
+                'dir = "/var/tmp/my-cache"', after, "[cache].dir must be preserved"
+            )
             # Must not add reviewed-only fields
             self.assertNotIn("enabled", after)
             self.assertNotIn("mode", after)
+
 
 class TestAtomicPersistenceRed(unittest.TestCase):
     """3.4–3.5, 3.13: Atomic local companion writes.
@@ -338,10 +343,7 @@ class TestAtomicPersistenceRed(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             root_path = Path(root)
             companion = root_path / "docker-constructor.local.toml"
-            original = (
-                '[cache]\n'
-                'dir = "/home/user/.cache/pi-cache"\n'
-            )
+            original = '[cache]\ndir = "/home/user/.cache/pi-cache"\n'
             companion.write_text(original)
             original_bytes = companion.read_bytes()
 
@@ -353,7 +355,8 @@ class TestAtomicPersistenceRed(unittest.TestCase):
             after = companion.read_text()
             self.assertIn('address = "172.17.0.2"', after)
             self.assertIn(
-                'dir = "/home/user/.cache/pi-cache"', after,
+                'dir = "/home/user/.cache/pi-cache"',
+                after,
                 "[cache].dir must be preserved",
             )
             # Must NOT add reviewed-only fields
@@ -395,11 +398,11 @@ class TestAtomicPersistenceRed(unittest.TestCase):
             root_path = Path(root)
             companion = root_path / "docker-constructor.local.toml"
             original = (
-                '# my cache directory\n'
-                '[cache]\n'
+                "# my cache directory\n"
+                "[cache]\n"
                 'dir = "/tmp/c"\n'
-                '\n'
-                '# host address will go here\n'
+                "\n"
+                "# host address will go here\n"
             )
             companion.write_text(original)
 
@@ -409,10 +412,10 @@ class TestAtomicPersistenceRed(unittest.TestCase):
             )
             self.assertTrue(result.written)
             after = companion.read_text()
-            self.assertIn('# my cache directory', after)
-            self.assertIn('# host address will go here', after)
+            self.assertIn("# my cache directory", after)
+            self.assertIn("# host address will go here", after)
             self.assertIn('address = "192.168.1.1"', after)
-            self.assertIn('[host-access]', after)
+            self.assertIn("[host-access]", after)
 
     # ------------------------------------------------------------------
     # 3.5  Failure paths preserve prior local file
@@ -429,9 +432,9 @@ class TestAtomicPersistenceRed(unittest.TestCase):
             root_path = Path(root)
             companion = root_path / "docker-constructor.local.toml"
             original = (
-                '[cache]\n'
+                "[cache]\n"
                 'dir = "/tmp/original-cache"\n'
-                '[host-access]\n'
+                "[host-access]\n"
                 'address = "10.0.2.15"\n'
             )
             companion.write_text(original)
@@ -455,7 +458,8 @@ class TestAtomicPersistenceRed(unittest.TestCase):
             # Companion must be byte-for-byte identical.
             after_bytes = companion.read_bytes()
             self.assertEqual(
-                after_bytes, original_bytes,
+                after_bytes,
+                original_bytes,
                 "failed write must not mutate the companion",
             )
 
@@ -493,7 +497,8 @@ class TestAtomicPersistenceRed(unittest.TestCase):
             # Companion must be byte-for-byte identical.
             after_bytes = companion.read_bytes()
             self.assertEqual(
-                after_bytes, original_bytes,
+                after_bytes,
+                original_bytes,
                 "rename failure must not mutate the companion",
             )
 
@@ -510,10 +515,7 @@ class TestAtomicPersistenceRed(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             root_path = Path(root)
             companion = root_path / "docker-constructor.local.toml"
-            original = (
-                '# this is a [host-access] comment\n'
-                '# another [cache] comment\n'
-            )
+            original = "# this is a [host-access] comment\n# another [cache] comment\n"
             companion.write_text(original)
 
             result = _persist_host_access_address(
@@ -522,14 +524,20 @@ class TestAtomicPersistenceRed(unittest.TestCase):
             )
             self.assertTrue(result.written)
             after = companion.read_text()
-            self.assertIn('# this is a [host-access] comment', after,
-                          "comment-like lines must be preserved")
-            self.assertIn('# another [cache] comment', after)
+            self.assertIn(
+                "# this is a [host-access] comment",
+                after,
+                "comment-like lines must be preserved",
+            )
+            self.assertIn("# another [cache] comment", after)
             self.assertIn('address = "10.0.0.1"', after)
             # The comment containing "[host-access]" must be preserved
             # exactly as-is and must NOT trigger section detection.
-            self.assertIn('# this is a [host-access] comment', after,
-                          "comment-like lines must be preserved")
+            self.assertIn(
+                "# this is a [host-access] comment",
+                after,
+                "comment-like lines must be preserved",
+            )
 
     def test_other_key_in_host_access_section_preserved(self):
         """Unrecognised keys in ``[host-access]`` must not be dropped
@@ -542,11 +550,7 @@ class TestAtomicPersistenceRed(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             root_path = Path(root)
             companion = root_path / "docker-constructor.local.toml"
-            original = (
-                '[host-access]\n'
-                'address = "10.0.0.2"\n'
-                'other = true\n'
-            )
+            original = '[host-access]\naddress = "10.0.0.2"\nother = true\n'
             companion.write_text(original)
 
             result = _persist_host_access_address(
@@ -556,8 +560,7 @@ class TestAtomicPersistenceRed(unittest.TestCase):
             self.assertTrue(result.written)
             after = companion.read_text()
             self.assertIn('address = "192.168.1.1"', after)
-            self.assertIn('other = true', after,
-                          "unrecognised key must be preserved")
+            self.assertIn("other = true", after, "unrecognised key must be preserved")
 
     def test_address_embedded_in_quoted_value_not_confused(self):
         """The string ``address`` inside a TOML value must not be
@@ -570,7 +573,7 @@ class TestAtomicPersistenceRed(unittest.TestCase):
             root_path = Path(root)
             companion = root_path / "docker-constructor.local.toml"
             original = (
-                '[host-access]\n'
+                "[host-access]\n"
                 'address = "10.0.0.3"\n'
                 'note = "the address field is above"\n'
             )
@@ -586,7 +589,8 @@ class TestAtomicPersistenceRed(unittest.TestCase):
             self.assertIn('note = "the address field is above"', after)
             # The "address" in the note value must not have been replaced.
             self.assertEqual(
-                after.count('address ='), 1,
+                after.count("address ="),
+                1,
                 "only the real address key must be acknowledged",
             )
 
@@ -622,12 +626,12 @@ class TestAtomicPersistenceRed(unittest.TestCase):
             self.assertIn("symlink", (result.error or "").lower())
 
             # Symlink must still point to the real file
-            self.assertTrue(companion.is_symlink(),
-                            "symlink must not be replaced")
+            self.assertTrue(companion.is_symlink(), "symlink must not be replaced")
 
             # Real file must be byte-for-byte untouched
-            self.assertEqual(real.read_bytes(), real_bytes,
-                             "target file must not be read or mutated")
+            self.assertEqual(
+                real.read_bytes(), real_bytes, "target file must not be read or mutated"
+            )
 
     def test_inline_comment_after_section_header_preserved_and_recognized(self):
         """A ``[host-access]  # comment`` header must be recognised
@@ -642,9 +646,9 @@ class TestAtomicPersistenceRed(unittest.TestCase):
             root_path = Path(root)
             companion = root_path / "docker-constructor.local.toml"
             original = (
-                '[host-access]  # diagnosed gateway\n'
+                "[host-access]  # diagnosed gateway\n"
                 'address = "10.0.0.1"\n'
-                '[cache]\n'
+                "[cache]\n"
                 'dir = "/tmp/c"\n'
             )
             companion.write_text(original)
@@ -657,7 +661,7 @@ class TestAtomicPersistenceRed(unittest.TestCase):
             after = companion.read_text()
 
             # Inline comment preserved on the section header line
-            self.assertIn('[host-access]  # diagnosed gateway', after)
+            self.assertIn("[host-access]  # diagnosed gateway", after)
 
             # Address replaced, not duplicated
             self.assertIn('address = "10.0.2.2"', after)
@@ -665,13 +669,15 @@ class TestAtomicPersistenceRed(unittest.TestCase):
 
             # Exactly one [host-access] section header
             self.assertEqual(
-                after.count('[host-access]'), 1,
+                after.count("[host-access]"),
+                1,
                 "must not duplicate the section header",
             )
 
             # [cache] section preserved
-            self.assertIn('[cache]', after)
+            self.assertIn("[cache]", after)
             self.assertIn('dir = "/tmp/c"', after)
+
 
 class TestDoctorConsentRed(unittest.TestCase):
     """3.6: Rootless override consent remains explicit.
@@ -709,9 +715,7 @@ class TestDoctorConsentRed(unittest.TestCase):
             inv = _write_inventory(
                 root_path,
                 policy=(
-                    '[runtime.host-access]\n'
-                    'enabled = true\n'
-                    'mode = "docker-gateway"\n'
+                    '[runtime.host-access]\nenabled = true\nmode = "docker-gateway"\n'
                 ),
             )
             companion = root_path / "docker-constructor.local.toml"
@@ -767,9 +771,7 @@ class TestDoctorConsentRed(unittest.TestCase):
             inv = _write_inventory(
                 root_path,
                 policy=(
-                    '[runtime.host-access]\n'
-                    'enabled = true\n'
-                    'mode = "docker-gateway"\n'
+                    '[runtime.host-access]\nenabled = true\nmode = "docker-gateway"\n'
                 ),
             )
             companion = root_path / "docker-constructor.local.toml"
@@ -825,9 +827,7 @@ class TestDoctorConsentRed(unittest.TestCase):
             inv = _write_inventory(
                 root_path,
                 policy=(
-                    '[runtime.host-access]\n'
-                    'enabled = true\n'
-                    'mode = "docker-gateway"\n'
+                    '[runtime.host-access]\nenabled = true\nmode = "docker-gateway"\n'
                 ),
             )
             companion = root_path / "docker-constructor.local.toml"
@@ -861,6 +861,7 @@ class TestDoctorConsentRed(unittest.TestCase):
             )
             result = orchestrate_doctor(req)
             self.assertFalse(result.repair_applied)
+
 
 if __name__ == "__main__":
     unittest.main()

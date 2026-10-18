@@ -7,6 +7,7 @@ parses the source with :mod:`ast`, follows multiline path expressions and
 straightforward aliases, and permits a module-level live path only when it
 is a pure path construction (never an import-time load or read).
 """
+
 from __future__ import annotations
 
 import ast
@@ -42,19 +43,27 @@ MIGRATED_BEHAVIOURAL_SOURCES = (
 #: inventory.  A scope is a class or fully-qualified function name; a
 #: behavioral test in the same file is *not* covered by these scopes.
 LIVE_CONTRACT_SCOPES: dict[str, frozenset[str]] = {
-    "tests/test_constructor_inventory_runtime.py": frozenset({
-        "TestLiveInventoryRuntimeContract",
-    }),
-    "tests/test_constructor_pi_inventory.py": frozenset({
-        "TestLiveNodeMetadataContract",
-        "TestReviewedPiReleaseContract",
-    }),
-    "tests/test_version_visual_boundaries.py": frozenset({
-        "TestLiveInventoryVisualHeaders",
-    }),
-    "tests/test_live_inventory_contract.py": frozenset({
-        "TestLiveInventoryContract",
-    }),
+    "tests/test_constructor_inventory_runtime.py": frozenset(
+        {
+            "TestLiveInventoryRuntimeContract",
+        }
+    ),
+    "tests/test_constructor_pi_inventory.py": frozenset(
+        {
+            "TestLiveNodeMetadataContract",
+            "TestReviewedPiReleaseContract",
+        }
+    ),
+    "tests/test_version_visual_boundaries.py": frozenset(
+        {
+            "TestLiveInventoryVisualHeaders",
+        }
+    ),
+    "tests/test_live_inventory_contract.py": frozenset(
+        {
+            "TestLiveInventoryContract",
+        }
+    ),
 }
 
 #: Module-level symbols allowed to bind the repository inventory path for a
@@ -68,26 +77,24 @@ LIVE_CONTRACT_SYMBOLS: dict[str, frozenset[str]] = {
 
 #: Well-known names that resolve to the repository root (or are file-relative
 #: aliases of it).
-_REPOSITORY_ROOT_NAMES = frozenset({
-    "ROOT",
-    "_REPO",
-    "_REPO_ROOT",
-    "REPO_ROOT",
-    "_TEST_PROJECT_ROOT",
-})
+_REPOSITORY_ROOT_NAMES = frozenset(
+    {
+        "ROOT",
+        "_REPO",
+        "_REPO_ROOT",
+        "REPO_ROOT",
+        "_TEST_PROJECT_ROOT",
+    }
+)
 
 
 def _contains_name(node: ast.AST, names: frozenset[str]) -> bool:
-    return any(
-        isinstance(sub, ast.Name) and sub.id in names
-        for sub in ast.walk(node)
-    )
+    return any(isinstance(sub, ast.Name) and sub.id in names for sub in ast.walk(node))
 
 
 def _contains_inventory_literal(node: ast.AST) -> bool:
     return any(
-        isinstance(sub, ast.Constant)
-        and sub.value == REPOSITORY_INVENTORY_NAME
+        isinstance(sub, ast.Constant) and sub.value == REPOSITORY_INVENTORY_NAME
         for sub in ast.walk(node)
     )
 
@@ -135,50 +142,56 @@ def _is_repository_inventory_expr(node: ast.AST, root_names: frozenset[str]) -> 
 
 
 #: Names that construct a filesystem path (never perform inventory IO).
-_PATH_CONSTRUCTOR_NAMES = frozenset({
-    "Path",
-    "PurePath",
-    "PosixPath",
-    "WindowsPath",
-    "str",
-})
+_PATH_CONSTRUCTOR_NAMES = frozenset(
+    {
+        "Path",
+        "PurePath",
+        "PosixPath",
+        "WindowsPath",
+        "str",
+    }
+)
 
 #: Path-object attributes / methods that only navigate (never read bytes).
-_PATH_NAVIGATION_ATTRS = frozenset({
-    "anchor",
-    "absolute",
-    "drive",
-    "expanduser",
-    "joinpath",
-    "name",
-    "parent",
-    "parents",
-    "parts",
-    "relative_to",
-    "resolve",
-    "root",
-    "stem",
-    "suffix",
-    "suffixes",
-    "with_name",
-    "with_stem",
-    "with_suffix",
-})
+_PATH_NAVIGATION_ATTRS = frozenset(
+    {
+        "anchor",
+        "absolute",
+        "drive",
+        "expanduser",
+        "joinpath",
+        "name",
+        "parent",
+        "parents",
+        "parts",
+        "relative_to",
+        "resolve",
+        "root",
+        "stem",
+        "suffix",
+        "suffixes",
+        "with_name",
+        "with_stem",
+        "with_suffix",
+    }
+)
 
 #: Pure ``os.path`` helpers that only manipulate path strings.
-_OS_PATH_FUNCS = frozenset({
-    "abspath",
-    "basename",
-    "dirname",
-    "expanduser",
-    "expandvars",
-    "join",
-    "normpath",
-    "realpath",
-    "relpath",
-    "split",
-    "splitext",
-})
+_OS_PATH_FUNCS = frozenset(
+    {
+        "abspath",
+        "basename",
+        "dirname",
+        "expanduser",
+        "expandvars",
+        "join",
+        "normpath",
+        "realpath",
+        "relpath",
+        "split",
+        "splitext",
+    }
+)
 
 
 def _is_os_path_receiver(node: ast.AST) -> bool:
@@ -203,17 +216,14 @@ def _is_path_construction(node: ast.AST) -> bool:
         return True
     if isinstance(node, ast.BinOp):
         return isinstance(node.op, ast.Div) and (
-            _is_path_construction(node.left)
-            and _is_path_construction(node.right)
+            _is_path_construction(node.left) and _is_path_construction(node.right)
         )
     if isinstance(node, ast.Attribute):
-        return (
-            node.attr in _PATH_NAVIGATION_ATTRS
-            and _is_path_construction(node.value)
-        )
+        return node.attr in _PATH_NAVIGATION_ATTRS and _is_path_construction(node.value)
     if isinstance(node, ast.Subscript):
         return _is_path_construction(node.value) and isinstance(
-            node.slice, ast.Constant,
+            node.slice,
+            ast.Constant,
         )
     if isinstance(node, ast.Call):
         func = node.func
@@ -223,9 +233,8 @@ def _is_path_construction(node: ast.AST) -> bool:
             if _is_os_path_receiver(func.value):
                 allowed = func.attr in _OS_PATH_FUNCS
             else:
-                allowed = (
-                    func.attr in _PATH_NAVIGATION_ATTRS
-                    and _is_path_construction(func.value)
+                allowed = func.attr in _PATH_NAVIGATION_ATTRS and _is_path_construction(
+                    func.value
                 )
         else:
             allowed = False
@@ -273,15 +282,12 @@ class _RepositoryInventoryVisitor(ast.NodeVisitor):
         if scope is None:
             return False
         allowed = LIVE_CONTRACT_SCOPES.get(self.source_name, frozenset())
-        return any(
-            scope == entry or scope.startswith(entry + ".") for entry in allowed
-        )
+        return any(scope == entry or scope.startswith(entry + ".") for entry in allowed)
 
     def visit(self, node: ast.AST):
         previous = self._inside_inventory
-        is_inventory = (
-            isinstance(node, ast.expr)
-            and _is_repository_inventory_expr(node, self.root_names)
+        is_inventory = isinstance(node, ast.expr) and _is_repository_inventory_expr(
+            node, self.root_names
         )
         if (
             is_inventory
@@ -304,7 +310,10 @@ class _RepositoryInventoryVisitor(ast.NodeVisitor):
             and not self._scope_authorized()
         ):
             self.violations.append(
-                (node.lineno, f"uses live-inventory handle {node.id!r} outside its live scope"),
+                (
+                    node.lineno,
+                    f"uses live-inventory handle {node.id!r} outside its live scope",
+                ),
             )
         self.generic_visit(node)
 
@@ -342,7 +351,10 @@ def find_repository_inventory_coupling(
                 allowed_node_ids.add(id(value))
 
     visitor = _RepositoryInventoryVisitor(
-        source_name, root_names, frozenset(live_handles), frozenset(allowed_node_ids),
+        source_name,
+        root_names,
+        frozenset(live_handles),
+        frozenset(allowed_node_ids),
     )
     visitor.visit(module)
     deduped: dict[int, str] = {}
@@ -357,10 +369,12 @@ class TestMigratedSourcesHaveNoRepositoryCoupling(unittest.TestCase):
             path = REPO_ROOT / source_name
             self.assertTrue(path.is_file(), source_name)
             violations = find_repository_inventory_coupling(
-                path.read_text(encoding="utf-8"), source_name,
+                path.read_text(encoding="utf-8"),
+                source_name,
             )
             self.assertEqual(
-                [], violations,
+                [],
+                violations,
                 f"{source_name} reads/copies the repository inventory: {violations}",
             )
 
@@ -377,14 +391,16 @@ class TestAuditDetectsRepresentativeCoupling(unittest.TestCase):
             ")\n"
         )
         violations = find_repository_inventory_coupling(
-            source, "tests/build_test_support.py",
+            source,
+            "tests/build_test_support.py",
         )
         self.assertEqual(1, len(violations))
 
     def test_detects_read_of_repository_inventory(self):
         source = 'inv = load_inventory(ROOT / "docker-constructor.toml")\n'
         violations = find_repository_inventory_coupling(
-            source, "tests/test_version_effective.py",
+            source,
+            "tests/test_version_effective.py",
         )
         self.assertEqual(1, len(violations))
         self.assertEqual(1, violations[0][0])
@@ -398,7 +414,8 @@ class TestAuditDetectsRepresentativeCoupling(unittest.TestCase):
             "shutil.copy2(real, fixture)\n"
         )
         violations = find_repository_inventory_coupling(
-            source, "tests/test_constructor_launcher.py",
+            source,
+            "tests/test_constructor_launcher.py",
         )
         self.assertEqual(1, len(violations))
 
@@ -411,7 +428,8 @@ class TestAuditDetectsRepresentativeCoupling(unittest.TestCase):
             "    return load_inventory(path)\n"
         )
         violations = find_repository_inventory_coupling(
-            source, "tests/test_version_effective.py",
+            source,
+            "tests/test_version_effective.py",
         )
         self.assertEqual(1, len(violations))
         self.assertIn("repository inventory path", violations[0][1])
@@ -423,7 +441,8 @@ class TestAuditDetectsRepresentativeCoupling(unittest.TestCase):
             "    return load_inventory(path)\n"
         )
         violations = find_repository_inventory_coupling(
-            source, "tests/test_version_effective.py",
+            source,
+            "tests/test_version_effective.py",
         )
         self.assertEqual(1, len(violations))
 
@@ -435,7 +454,8 @@ class TestAuditDetectsRepresentativeCoupling(unittest.TestCase):
             "    return load_inventory(path)\n"
         )
         violations = find_repository_inventory_coupling(
-            source, "tests/test_version_effective.py",
+            source,
+            "tests/test_version_effective.py",
         )
         self.assertEqual(1, len(violations))
         self.assertEqual(3, violations[0][0])
@@ -448,7 +468,8 @@ class TestAuditDetectsRepresentativeCoupling(unittest.TestCase):
             "        load_inventory(REAL_INVENTORY)\n"
         )
         violations = find_repository_inventory_coupling(
-            source, "tests/test_live_inventory_contract.py",
+            source,
+            "tests/test_live_inventory_contract.py",
         )
         self.assertEqual(1, len(violations))
         self.assertEqual(4, violations[0][0])
@@ -461,7 +482,8 @@ class TestAuditDetectsRepresentativeCoupling(unittest.TestCase):
             '        load_inventory(_REPO / "docker-constructor.toml")\n'
         )
         violations = find_repository_inventory_coupling(
-            source, "tests/test_constructor_pi_inventory.py",
+            source,
+            "tests/test_constructor_pi_inventory.py",
         )
         self.assertEqual(1, len(violations))
 
@@ -473,7 +495,8 @@ class TestAuditDetectsRepresentativeCoupling(unittest.TestCase):
             ")\n"
         )
         violations = find_repository_inventory_coupling(
-            source, "tests/test_live_inventory_contract.py",
+            source,
+            "tests/test_live_inventory_contract.py",
         )
         self.assertEqual(1, len(violations))
         self.assertIn("repository inventory path", violations[0][1])
@@ -485,7 +508,8 @@ class TestAuditDetectsRepresentativeCoupling(unittest.TestCase):
             ").read_text()\n"
         )
         violations = find_repository_inventory_coupling(
-            source, "tests/test_live_inventory_contract.py",
+            source,
+            "tests/test_live_inventory_contract.py",
         )
         self.assertEqual(1, len(violations))
 
@@ -496,7 +520,8 @@ class TestAuditDetectsRepresentativeCoupling(unittest.TestCase):
             ").read_bytes()\n"
         )
         violations = find_repository_inventory_coupling(
-            source, "tests/test_live_inventory_contract.py",
+            source,
+            "tests/test_live_inventory_contract.py",
         )
         self.assertEqual(1, len(violations))
 
@@ -508,7 +533,8 @@ class TestAuditAcceptsLegitimateSources(unittest.TestCase):
             "inv = load_inventory(stable_inventory_path())\n"
         )
         self.assertEqual(
-            [], find_repository_inventory_coupling(source, "tests/anything.py"),
+            [],
+            find_repository_inventory_coupling(source, "tests/anything.py"),
         )
 
     def test_accepts_temporary_output_named_like_inventory(self):
@@ -518,7 +544,8 @@ class TestAuditAcceptsLegitimateSources(unittest.TestCase):
             'fixture = os.path.join(self._tmpdir.name, "docker-constructor.toml")\n'
         )
         self.assertEqual(
-            [], find_repository_inventory_coupling(source, "tests/anything.py"),
+            [],
+            find_repository_inventory_coupling(source, "tests/anything.py"),
         )
 
     def test_accepts_named_live_contract_symbol(self):
@@ -527,7 +554,8 @@ class TestAuditAcceptsLegitimateSources(unittest.TestCase):
         self.assertEqual(
             [],
             find_repository_inventory_coupling(
-                source, "tests/test_live_inventory_contract.py",
+                source,
+                "tests/test_live_inventory_contract.py",
             ),
         )
 
@@ -540,7 +568,8 @@ class TestAuditAcceptsLegitimateSources(unittest.TestCase):
         self.assertEqual(
             [],
             find_repository_inventory_coupling(
-                source, "tests/test_live_inventory_contract.py",
+                source,
+                "tests/test_live_inventory_contract.py",
             ),
         )
 
@@ -548,7 +577,8 @@ class TestAuditAcceptsLegitimateSources(unittest.TestCase):
         # The same file may not read the inventory another way.
         source = 'other = load_inventory(ROOT / "docker-constructor.toml")\n'
         violations = find_repository_inventory_coupling(
-            source, "tests/test_live_inventory_contract.py",
+            source,
+            "tests/test_live_inventory_contract.py",
         )
         self.assertEqual(1, len(violations))
         self.assertIn("repository inventory path", violations[0][1])
@@ -563,7 +593,8 @@ class TestAuditAcceptsLegitimateSources(unittest.TestCase):
         self.assertEqual(
             [],
             find_repository_inventory_coupling(
-                source, "tests/test_live_inventory_contract.py",
+                source,
+                "tests/test_live_inventory_contract.py",
             ),
         )
 
@@ -576,7 +607,8 @@ class TestAuditAcceptsLegitimateSources(unittest.TestCase):
         self.assertEqual(
             [],
             find_repository_inventory_coupling(
-                source, "tests/test_constructor_pi_inventory.py",
+                source,
+                "tests/test_constructor_pi_inventory.py",
             ),
         )
 
@@ -595,7 +627,7 @@ REPRESENTATIVE_BEHAVIOURAL_TESTS = (
     "tests.test_constructor_pi_inventory.TestSmokeToolConsistency",
 )
 
-_DENIAL_HOOK = '''\
+_DENIAL_HOOK = """\
 import os, sys
 _REPO = os.path.realpath({repo!r})
 _INV = os.path.join(_REPO, "docker-constructor.toml")
@@ -615,9 +647,9 @@ def _deny(event, args):
 
 sys.addaudithook(_deny)
 sys.path.insert(0, _REPO)
-'''
+"""
 
-_SUITE_RUNNER = textwrap.dedent('''\
+_SUITE_RUNNER = textwrap.dedent("""\
 import unittest
 loader = unittest.TestLoader()
 suite = unittest.TestSuite()
@@ -627,9 +659,9 @@ if suite.countTestCases() == 0:
     raise SystemExit(2)
 result = unittest.TextTestRunner(verbosity=1).run(suite)
 raise SystemExit(0 if result.wasSuccessful() else 1)
-''')
+""")
 
-_ORIGINAL_COPY_COUPLING = textwrap.dedent('''\
+_ORIGINAL_COPY_COUPLING = textwrap.dedent("""\
 import shutil, tempfile
 td = tempfile.mkdtemp()
 shutil.copyfile(
@@ -637,7 +669,7 @@ shutil.copyfile(
     os.path.join(td, "copy.toml"),
 )
 print("COPY_SUCCEEDED")
-''')
+""")
 
 
 def _inventory_digest() -> str:
@@ -677,11 +709,11 @@ class TestSubprocessDeniesRepositoryInventoryReads(unittest.TestCase):
         self.assertIn("read denied", completed.stderr)
 
     def test_denial_detects_direct_read_coupling(self):
-        body = textwrap.dedent('''\
+        body = textwrap.dedent("""\
         from pathlib import Path
         Path(_REPO, "docker-constructor.toml").read_text()
         print("READ_SUCCEEDED")
-        ''')
+        """)
         completed = self._run_with_denial(body)
         self.assertNotEqual(0, completed.returncode)
         self.assertNotIn("READ_SUCCEEDED", completed.stdout)

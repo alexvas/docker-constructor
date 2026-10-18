@@ -14,6 +14,7 @@ prefix as a non-match and releases the ordinary preceding text followed by
 one URL marker; abort/overflow retain their fail-closed rules. This settlement
 never changes the original-source validation and secret-coverage gates for facts.
 """
+
 from __future__ import annotations
 
 from collections import deque
@@ -70,8 +71,13 @@ class CoordinatedProjection:
     _url_identity: SessionUrlIdentity | None
     _decoder: codecs.IncrementalDecoder
 
-    def _init_coordination(self, url_display: NetworkUrlDisplay, capture_redacted: bool = False) -> None:
-        if not isinstance(url_display, NetworkUrlDisplay) or url_display not in (NetworkUrlDisplay.REDACTED, NetworkUrlDisplay.HOST_PATH):
+    def _init_coordination(
+        self, url_display: NetworkUrlDisplay, capture_redacted: bool = False
+    ) -> None:
+        if not isinstance(url_display, NetworkUrlDisplay) or url_display not in (
+            NetworkUrlDisplay.REDACTED,
+            NetworkUrlDisplay.HOST_PATH,
+        ):
             raise ValueError("projector requires a safe NetworkUrlDisplay")
         self._url_display = url_display
         self._redacted_chunks: list[str] | None = [] if capture_redacted else None
@@ -102,8 +108,14 @@ class CoordinatedProjection:
 
     @property
     def work_stats(self) -> ProjectionWork:
-        return ProjectionWork(1, self._encoded_bytes, self._appends,
-                              self._pops, self._materialized, self._provenance_visits)
+        return ProjectionWork(
+            1,
+            self._encoded_bytes,
+            self._appends,
+            self._pops,
+            self._materialized,
+            self._provenance_visits,
+        )
 
     @property
     def pending_size(self) -> int:
@@ -152,7 +164,11 @@ class CoordinatedProjection:
         self._recognizer.consume(end)
 
     def _feed(self, text: str) -> tuple[str, ...]:
-        from docker.versioning.diagnostic_projection import PENDING_LIMIT_BYTES, _is_terminator
+        from docker.versioning.diagnostic_projection import (
+            PENDING_LIMIT_BYTES,
+            _is_terminator,
+        )
+
         if self._redacted_chunks is not None:
             self._redacted_chunks.clear()
         out = []
@@ -177,7 +193,11 @@ class CoordinatedProjection:
                     self._url.end = self._recognizer.consumed - 1
                 else:
                     for depth, event in enumerate(self._recognizer.structural_events):
-                        if depth == self._url.depth and event is not None and event[1] >= self._url.detected:
+                        if (
+                            depth == self._url.depth
+                            and event is not None
+                            and event[1] >= self._url.detected
+                        ):
                             symbol, start, _ = event
                             if self._url.authority_end is None:
                                 self._url.authority_end = start
@@ -188,9 +208,11 @@ class CoordinatedProjection:
 
     def _begin_overflow(self) -> list[str]:
         from docker.versioning.diagnostic_projection import OVERSIZED_TOKEN_MARKER
+
         out = []
-        if self._url is None or (self._url_display is NetworkUrlDisplay.HOST_PATH
-                                and not self._url.path_done):
+        if self._url is None or (
+            self._url_display is NetworkUrlDisplay.HOST_PATH and not self._url.path_done
+        ):
             out.append(OVERSIZED_TOKEN_MARKER)
             if self._url is None:
                 self._safe_emit(OVERSIZED_TOKEN_MARKER)
@@ -206,19 +228,30 @@ class CoordinatedProjection:
     def _coverage(self, start: int, end: int) -> bool:
         if start >= end:
             return False
-        return any(match.start < end and match.end > start
-                   for match in self._recognizer.secret_records(decoded=True))
+        return any(
+            match.start < end and match.end > start
+            for match in self._recognizer.secret_records(decoded=True)
+        )
 
-    def _settle_components(self, *, final: bool = False, abort: bool = False) -> list[str]:
+    def _settle_components(
+        self, *, final: bool = False, abort: bool = False
+    ) -> list[str]:
         from docker.versioning.diagnostic_projection import (
-            INCOMPLETE_TOKEN_MARKER, REDACTED_PATH_MARKER, SafeHostPath,
+            INCOMPLETE_TOKEN_MARKER,
+            REDACTED_PATH_MARKER,
+            SafeHostPath,
             _candidate_url_layer,
-            normalized_url_host, _host_contains_secret, _safe_host_path,
+            normalized_url_host,
+            _host_contains_secret,
+            _safe_host_path,
         )
         import urllib.parse
+
         url = self._url
         assert url is not None
-        secrets = self._secrets if url.component_secrets is None else url.component_secrets
+        secrets = (
+            self._secrets if url.component_secrets is None else url.component_secrets
+        )
         if self._url_display is NetworkUrlDisplay.REDACTED or url.path_done:
             return []
         prefix = self._recognizer.secret_prefix_start(decoded=True) if final else None
@@ -227,9 +260,17 @@ class CoordinatedProjection:
             for match in self._recognizer.secret_records(decoded=True)
         ):
             prefix = None
-        if abort or (prefix is not None and
-                     prefix < (url.path_end if url.path_end is not None else
-                               url.end if url.end is not None else self._recognizer.consumed)):
+        if abort or (
+            prefix is not None
+            and prefix
+            < (
+                url.path_end
+                if url.path_end is not None
+                else url.end
+                if url.end is not None
+                else self._recognizer.consumed
+            )
+        ):
             url.path_done = True
             return [INCOMPLETE_TOKEN_MARKER]
         boundary = url.authority_end if url.authority_end is not None else url.end
@@ -245,14 +286,19 @@ class CoordinatedProjection:
                 return ["<redacted>"]
             url.host = host
             raw_host_start = self._raw_host_start(source, layer, url, boundary)
-            url.masked_host = (_host_contains_secret(host, secrets)
-                               or self._coverage(raw_host_start, boundary))
+            url.masked_host = _host_contains_secret(host, secrets) or self._coverage(
+                raw_host_start, boundary
+            )
             if url.masked_host:
                 url.host = "<redacted-host>"
             url.host_done = True
             out.append(url.host)
         path_end = url.path_end if url.path_end is not None else url.end
-        if url.host_done and path_end is not None and self._settled(path_end, final=final, decoded=True):
+        if (
+            url.host_done
+            and path_end is not None
+            and self._settled(path_end, final=final, decoded=True)
+        ):
             source = self._source(url.end)
             layer = _candidate_url_layer(source)
             if layer is None or url.host is None:
@@ -270,7 +316,9 @@ class CoordinatedProjection:
                     self._host_path_displays.append(display)
         return out
 
-    def _raw_host_start(self, source: str, layer: str | None, url: _Url, boundary: int) -> int:
+    def _raw_host_start(
+        self, source: str, layer: str | None, url: _Url, boundary: int
+    ) -> int:
         """Translate userinfo's final '@' without an input-sized source map.
 
         Interpretation is bounded to three passes. This is component
@@ -279,6 +327,7 @@ class CoordinatedProjection:
         """
         from docker.versioning.diagnostic_projection import _decode_percent
         from docker.versioning.diagnostic_recognizer import _Transducer, _MutableStats
+
         view = source
         depth = 0
         while view != layer and depth < 3:
@@ -288,10 +337,12 @@ class CoordinatedProjection:
             view = decoded
             depth += 1
         start = url.detected
+
         def observe(character, source_start, source_end, from_token):
             nonlocal start
             if character == "@" and source_end <= boundary:
                 start = source_end
+
         stats = _MutableStats()
         sink = observe
         decoders = []
@@ -309,16 +360,24 @@ class CoordinatedProjection:
 
     def _record_url(self, source: str, url: _Url) -> None:
         from docker.versioning.diagnostic_projection import (
-            REDACTED_PATH_MARKER, SafeHostPath, _candidate_url_layer,
-            normalized_url_host, _host_contains_secret, _safe_host_path,
+            REDACTED_PATH_MARKER,
+            SafeHostPath,
+            _candidate_url_layer,
+            normalized_url_host,
+            _host_contains_secret,
+            _safe_host_path,
             _canonical_url_identity,
         )
+
         if not url.eligible:
             return
         if self._eof and url.end == self._recognizer.consumed:
             from docker.versioning.diagnostic_projection import (
-                _decode_percent, _is_escape_complete, _is_complete_url_literal,
+                _decode_percent,
+                _is_escape_complete,
+                _is_complete_url_literal,
             )
+
             view = source
             complete = False
             for _ in range(4):
@@ -339,13 +398,17 @@ class CoordinatedProjection:
         boundary = url.authority_end if url.authority_end is not None else url.end
         assert boundary is not None and url.end is not None
         host_start = self._raw_host_start(source, layer, url, boundary)
-        secrets = self._secrets if url.component_secrets is None else url.component_secrets
+        secrets = (
+            self._secrets if url.component_secrets is None else url.component_secrets
+        )
         if _host_contains_secret(host, secrets) or self._coverage(host_start, boundary):
             return
         if host not in self._hostnames:
             self._hostnames.append(host)
         fact = _safe_host_path(layer, host, secrets)
-        if self._coverage(boundary, url.path_end if url.path_end is not None else url.end):
+        if self._coverage(
+            boundary, url.path_end if url.path_end is not None else url.end
+        ):
             fact = SafeHostPath(host, REDACTED_PATH_MARKER)
         if fact not in self._host_paths:
             self._host_paths.append(fact)
@@ -354,8 +417,14 @@ class CoordinatedProjection:
             if identity is not None:
                 self._fingerprints.append(self._url_identity.fingerprint(identity))
 
-    def _drain_coordinated(self, *, final: bool = False, abort: bool = False) -> list[str]:
-        from docker.versioning.diagnostic_projection import INCOMPLETE_TOKEN_MARKER, _find_terminator
+    def _drain_coordinated(
+        self, *, final: bool = False, abort: bool = False
+    ) -> list[str]:
+        from docker.versioning.diagnostic_projection import (
+            INCOMPLETE_TOKEN_MARKER,
+            _find_terminator,
+        )
+
         out = []
         while self._buffer:
             if self._url is not None:
@@ -375,15 +444,27 @@ class CoordinatedProjection:
                 self._url = None
                 continue
             match = self._recognizer.earliest_match()
-            secret = min((record for record in self._recognizer.secret_records()
-                          if record.start >= self._selected_secret_end
-                          or record.start == self._selected_secret_start),
-                         key=lambda record: (record.start, -record.end, record.pattern_index),
-                         default=None)
+            secret = min(
+                (
+                    record
+                    for record in self._recognizer.secret_records()
+                    if record.start >= self._selected_secret_end
+                    or record.start == self._selected_secret_start
+                ),
+                key=lambda record: (record.start, -record.end, record.pattern_index),
+                default=None,
+            )
             prefix = self._recognizer.secret_prefix_start(
-                minimum_start=self._selected_secret_end, include_start=self._selected_secret_start)
-            if (final and not abort and match is not None and prefix is not None
-                    and prefix < match.start):
+                minimum_start=self._selected_secret_end,
+                include_start=self._selected_secret_start,
+            )
+            if (
+                final
+                and not abort
+                and match is not None
+                and prefix is not None
+                and prefix < match.start
+            ):
                 # A literal prefix reaching past an already detected separator
                 # cannot complete at clean EOF. Unlike a standalone ambiguous
                 # secret, it resolves as ordinary preceding source plus URL
@@ -398,7 +479,12 @@ class CoordinatedProjection:
                     self._both(out, self._source(prefix))
                     self._commit(prefix)
                 break
-            if match is not None and prefix is not None and prefix < match.start and secret is None:
+            if (
+                match is not None
+                and prefix is not None
+                and prefix < match.start
+                and secret is None
+            ):
                 if prefix > self._buffer_start:
                     self._both(out, self._source(prefix))
                     self._commit(prefix)
@@ -414,17 +500,27 @@ class CoordinatedProjection:
                 candidate_end = None
                 if match is not None:
                     source = self._source()
-                    relative = _find_terminator(source, max(0, match.start - self._buffer_start))
-                    candidate_end = None if relative is None else self._buffer_start + relative
+                    relative = _find_terminator(
+                        source, max(0, match.start - self._buffer_start)
+                    )
+                    candidate_end = (
+                        None if relative is None else self._buffer_start + relative
+                    )
                 if secret.start >= self._buffer_start:
                     self._both(out, "<secret>")
                     self._selected_secret_start = secret.start
                 self._selected_secret_end = max(self._selected_secret_end, secret.end)
                 from docker.versioning.diagnostic_projection import _is_terminator
-                self._last_secret_end = (None if _is_terminator(
-                    self._secrets[secret.pattern_index][-1]) else secret.end)
+
+                self._last_secret_end = (
+                    None
+                    if _is_terminator(self._secrets[secret.pattern_index][-1])
+                    else secret.end
+                )
                 self._commit(secret.end)
-                if match is None or (candidate_end is not None and candidate_end <= secret.end):
+                if match is None or (
+                    candidate_end is not None and candidate_end <= secret.end
+                ):
                     continue
             if match is not None:
                 component_secrets = self._secrets
@@ -438,19 +534,30 @@ class CoordinatedProjection:
                     previous = source if final and not abort else source[:-1]
                     if len(previous) >= match.separator_end - self._buffer_start:
                         component_secrets = tuple(
-                            secret for secret in self._secrets
-                            if not secret.startswith(previous))
+                            secret
+                            for secret in self._secrets
+                            if not secret.startswith(previous)
+                        )
                     self._both(out, self._source(match.start))
                     self._commit(match.start)
-                eligible = (match.start == self._buffer_start
-                            and (self._last_secret_end is None or self._last_secret_end < match.start))
-                self._url = _Url(match.start, match.separator_end, eligible,
-                                 component_secrets=component_secrets)
+                eligible = match.start == self._buffer_start and (
+                    self._last_secret_end is None or self._last_secret_end < match.start
+                )
+                self._url = _Url(
+                    match.start,
+                    match.separator_end,
+                    eligible,
+                    component_secrets=component_secrets,
+                )
                 if eligible:
                     from docker.versioning.diagnostic_projection import _decode_percent
+
                     view = self._source()
                     for depth in range(4):
-                        if view.partition("://")[0].lower() in SUPPORTED_SCHEMES and "://" in view:
+                        if (
+                            view.partition("://")[0].lower() in SUPPORTED_SCHEMES
+                            and "://" in view
+                        ):
                             self._url.depth = depth
                             break
                         decoded = _decode_percent(view)
@@ -474,14 +581,22 @@ class CoordinatedProjection:
                 if final:
                     continue
                 break
-            url_start = (self._recognizer.retain_from()
-                         if self._recognizer.prefix_state() else None)
+            url_start = (
+                self._recognizer.retain_from()
+                if self._recognizer.prefix_state()
+                else None
+            )
             holds = [start for start in (prefix, url_start) if start is not None]
-            hold = max(self._buffer_start, min(holds)) if holds else self._recognizer.consumed
+            hold = (
+                max(self._buffer_start, min(holds))
+                if holds
+                else self._recognizer.consumed
+            )
             if final:
                 source = self._source()
-                sensitive = prefix is not None or (url_start is not None and
-                    (abort or self._entered_separator(source)))
+                sensitive = prefix is not None or (
+                    url_start is not None and (abort or self._entered_separator(source))
+                )
                 self._both(out, INCOMPLETE_TOKEN_MARKER if sensitive else source)
                 self._commit(self._recognizer.consumed)
                 break
@@ -500,6 +615,7 @@ class CoordinatedProjection:
         separator end comes from recognition, never the activation offset.
         """
         from docker.versioning.diagnostic_recognizer import _Transducer, _MutableStats
+
         stats = _MutableStats()
 
         def observe(character, start, end, from_token):
@@ -526,6 +642,7 @@ class CoordinatedProjection:
     @staticmethod
     def _entered_separator(source: str) -> bool:
         from docker.versioning.diagnostic_projection import _decode_percent
+
         for _ in range(4):
             if ":" in source or "/" in source:
                 return True

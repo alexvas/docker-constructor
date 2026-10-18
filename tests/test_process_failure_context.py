@@ -1,4 +1,5 @@
 """Phase 6BC.8: authority identity, boundary context and independent cleanup."""
+
 import threading
 
 import pytest
@@ -14,22 +15,46 @@ def entries(result):
 @pytest.mark.parametrize("position", [0, 1])
 @pytest.mark.parametrize("primary_name", [None, "ordinary", "interrupt"])
 @pytest.mark.parametrize("cleanup_name", ["ordinary", "unexpected", "interrupt"])
-def test_operation_plus_release_and_repeat_cleanup(position, primary_name, cleanup_name):
-    primary = {None: None, "ordinary": ValueError("operation"), "interrupt": KeyboardInterrupt("operation")}[primary_name]
-    error = {"ordinary": OSError("release"), "unexpected": RuntimeError("release"), "interrupt": SystemExit(9)}[cleanup_name]
+def test_operation_plus_release_and_repeat_cleanup(
+    position, primary_name, cleanup_name
+):
+    primary = {
+        None: None,
+        "ordinary": ValueError("operation"),
+        "interrupt": KeyboardInterrupt("operation"),
+    }[primary_name]
+    error = {
+        "ordinary": OSError("release"),
+        "unexpected": RuntimeError("release"),
+        "interrupt": SystemExit(9),
+    }[cleanup_name]
     child = Child(error=error, position=position)
     owner = launch(child)
     try:
         status = owner.shutdown(primary=primary)
         failures = entries(status)
-        winner = primary if primary_name == "interrupt" or (primary_name == "ordinary" and cleanup_name == "ordinary") else error
+        winner = (
+            primary
+            if primary_name == "interrupt"
+            or (primary_name == "ordinary" and cleanup_name == "ordinary")
+            else error
+        )
         assert failures[0].error is winner
         assert len({id(f.error) for f in failures}) == len(failures)
-        assert {id(f.error) for f in failures} == {id(e) for e in (primary, error) if e is not None}
+        assert {id(f.error) for f in failures} == {
+            id(e) for e in (primary, error) if e is not None
+        }
         failure = next(f for f in failures if f.error is error)
         assert failure.phase.name == "RELEASE"
         assert failure.stream is tuple(process.ProcessStream)[position]
-        assert failure.kind.name == {"ordinary": "ORDINARY", "unexpected": "UNEXPECTED", "interrupt": "INTERRUPTION"}[cleanup_name]
+        assert (
+            failure.kind.name
+            == {
+                "ordinary": "ORDINARY",
+                "unexpected": "UNEXPECTED",
+                "interrupt": "INTERRUPTION",
+            }[cleanup_name]
+        )
         if primary is not None:
             original = next(f for f in failures if f.error is primary)
             assert original.phase.name == "COORDINATION" and original.stream is None
@@ -37,8 +62,10 @@ def test_operation_plus_release_and_repeat_cleanup(position, primary_name, clean
         before = [(f.error, tuple(getattr(f.error, "__notes__", ()))) for f in failures]
         for _ in range(2):
             assert entries(owner.shutdown()) == failures
-            assert entries(owner.wait_cleanup(.1)) == failures
-        assert before == [(f.error, tuple(getattr(f.error, "__notes__", ()))) for f in failures]
+            assert entries(owner.wait_cleanup(0.1)) == failures
+        assert before == [
+            (f.error, tuple(getattr(f.error, "__notes__", ()))) for f in failures
+        ]
         assert child.stdout.close_calls == child.stderr.close_calls == 1
         assert child.wait_calls > 0
     finally:
@@ -47,8 +74,14 @@ def test_operation_plus_release_and_repeat_cleanup(position, primary_name, clean
 
 @pytest.mark.parametrize("position", [0, 1])
 @pytest.mark.parametrize("primary_name", ["ordinary", "interrupt"])
-def test_join_oserror_is_unexpected_and_never_prevents_reaping(monkeypatch, position, primary_name):
-    primary = ValueError("operation") if primary_name == "ordinary" else KeyboardInterrupt("operation")
+def test_join_oserror_is_unexpected_and_never_prevents_reaping(
+    monkeypatch, position, primary_name
+):
+    primary = (
+        ValueError("operation")
+        if primary_name == "ordinary"
+        else KeyboardInterrupt("operation")
+    )
     error = OSError("join defect")
     child = Child()
     owner = launch(child)
@@ -94,7 +127,11 @@ def test_wait_oserror_is_ordinary_wait_context_with_independent_release(monkeypa
         result = owner.capture()
         selected = entries(result)[0]
         assert selected.error is error
-        assert selected.kind.name == "ORDINARY" and selected.phase.name == "WAIT" and selected.stream is None
+        assert (
+            selected.kind.name == "ORDINARY"
+            and selected.phase.name == "WAIT"
+            and selected.stream is None
+        )
         assert child.stdout.close_calls == child.stderr.close_calls == 1
         assert owner.wait_cleanup(1).complete
     finally:
@@ -103,7 +140,9 @@ def test_wait_oserror_is_ordinary_wait_context_with_independent_release(monkeypa
 
 @pytest.mark.parametrize("first", [0, 1])
 @pytest.mark.parametrize("reuse", [False, True])
-def test_competing_readers_and_same_object_join_follow_winning_occurrence(monkeypatch, first, reuse):
+def test_competing_readers_and_same_object_join_follow_winning_occurrence(
+    monkeypatch, first, reuse
+):
     recorded = threading.Event()
     errors = [OSError("stdout read"), OSError("stderr read")]
     join_error = errors[first]
@@ -138,14 +177,24 @@ def test_competing_readers_and_same_object_join_follow_winning_occurrence(monkey
         assert selected.phase.name == ("JOIN" if reuse else "READ")
         assert selected.kind.name == ("UNEXPECTED" if reuse else "ORDINARY")
         assert selected.stream is tuple(process.ProcessStream)[first]
-        assert len(failures) == 2 and {id(f.error) for f in failures} == {id(e) for e in errors}
+        assert len(failures) == 2 and {id(f.error) for f in failures} == {
+            id(e) for e in errors
+        }
         assert child.stdout.close_calls == child.stderr.close_calls == 1
     finally:
         recorded.set()
         settle(owner)
 
 
-@pytest.mark.parametrize("error", [KeyboardInterrupt("launch"), SystemExit(4), GeneratorExit(), BaseException("launch")])
+@pytest.mark.parametrize(
+    "error",
+    [
+        KeyboardInterrupt("launch"),
+        SystemExit(4),
+        GeneratorExit(),
+        BaseException("launch"),
+    ],
+)
 def test_launch_control_flow_keeps_identity_without_snapshot(monkeypatch, error):
     owners = []
     original = process._make_continuation
@@ -170,8 +219,13 @@ def test_launch_control_flow_keeps_identity_without_snapshot(monkeypatch, error)
 
 @pytest.mark.parametrize("method", ["capture", "stream"])
 @pytest.mark.parametrize("position", [0, 1])
-@pytest.mark.parametrize("error", [KeyboardInterrupt("wait"), SystemExit(8), GeneratorExit(), BaseException("wait")])
-def test_coordinator_wait_keeps_first_interruption_and_typed_secondaries(monkeypatch, method, position, error):
+@pytest.mark.parametrize(
+    "error",
+    [KeyboardInterrupt("wait"), SystemExit(8), GeneratorExit(), BaseException("wait")],
+)
+def test_coordinator_wait_keeps_first_interruption_and_typed_secondaries(
+    monkeypatch, method, position, error
+):
     later = KeyboardInterrupt("later")
     close_error = RuntimeError("release defect")
     child = Child(error=close_error, position=position)
@@ -197,7 +251,11 @@ def test_coordinator_wait_keeps_first_interruption_and_typed_secondaries(monkeyp
         assert failures[0].error is error
         for interrupt in (error, later):
             info = next(f for f in failures if f.error is interrupt)
-            assert info.kind.name == "INTERRUPTION" and info.phase.name == "COORDINATION" and info.stream is None
+            assert (
+                info.kind.name == "INTERRUPTION"
+                and info.phase.name == "COORDINATION"
+                and info.stream is None
+            )
         assert any(f.error is close_error for f in failures)
         assert child.stdout.close_calls == child.stderr.close_calls == 1
         assert child.wait_calls > 0
@@ -205,8 +263,12 @@ def test_coordinator_wait_keeps_first_interruption_and_typed_secondaries(monkeyp
         settle(owner)
 
 
-@pytest.mark.parametrize("operation", [ValueError("operation"), KeyboardInterrupt("operation")])
-def test_publication_gap_refreshes_authority_without_mutating_old_value(monkeypatch, operation):
+@pytest.mark.parametrize(
+    "operation", [ValueError("operation"), KeyboardInterrupt("operation")]
+)
+def test_publication_gap_refreshes_authority_without_mutating_old_value(
+    monkeypatch, operation
+):
     close_error = OSError("release")
     child = Child(error=close_error)
     owner = launch(child)
@@ -234,7 +296,7 @@ def test_publication_gap_refreshes_authority_without_mutating_old_value(monkeypa
     monkeypatch.setattr(owner._phase_done, "wait", wait_done)
     caller = threading.Thread(target=deliver, name="orthogonal-gap")
     try:
-        owner._deadline = .01
+        owner._deadline = 0.01
         assert published.wait(1)
         old = owner.cleanup_status
         assert old.complete and entries(old)[0].error is close_error

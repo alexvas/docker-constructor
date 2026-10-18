@@ -1,4 +1,5 @@
 """Phase 5 host-materialization event and output-mode contracts."""
+
 from __future__ import annotations
 
 import dataclasses
@@ -50,9 +51,11 @@ class TestHostEventFacade(unittest.TestCase):
         output = io.StringIO()
         renderer = constructor_cli._HostEventRenderer(output)
         renderer(HostPhaseEvent(HostPhase.LOCKED_ASSEMBLY, HostPhaseState.STARTED))
-        renderer(HostDiagnosticEvent(
-            HostPhase.LOCKED_ASSEMBLY, HostDiagnosticStream.STDERR, "warning"
-        ))
+        renderer(
+            HostDiagnosticEvent(
+                HostPhase.LOCKED_ASSEMBLY, HostDiagnosticStream.STDERR, "warning"
+            )
+        )
         rendered = output.getvalue()
         self.assertIn("locked assembly: started", rendered)
         self.assertIn("locked_assembly [stderr]: warning", rendered)
@@ -65,9 +68,10 @@ class TestHostEventFacade(unittest.TestCase):
             (["--output", "text", "build", "-y"], True, 0),
         )
         for argv, tty, expected in cases:
-            with self.subTest(argv=argv, tty=tty), patch.object(
-                constructor_cli, "_HostEventRenderer"
-            ) as renderer:
+            with (
+                self.subTest(argv=argv, tty=tty),
+                patch.object(constructor_cli, "_HostEventRenderer") as renderer,
+            ):
                 constructor_cli.main(
                     argv,
                     dispatcher=lambda *_args, **_kwargs: constructor_cli.CommandResult(

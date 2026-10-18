@@ -11,6 +11,7 @@ collection-to-presentation interface) while asserting that the external
 rendering is observed through a recording renderer so the exact ordered call
 sequence is visible.
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -56,8 +57,7 @@ RESEARCH_URL = (
     "npm-http-research-fixture-1.0.0.tgz"
 )
 RESEARCH_SAFE = (
-    "registry.npmjs.org/npm-http-research-fixture/-/"
-    "npm-http-research-fixture-1.0.0.tgz"
+    "registry.npmjs.org/npm-http-research-fixture/-/npm-http-research-fixture-1.0.0.tgz"
 )
 OTHER_URL = "https://registry.npmjs.org/other-pkg/-/other-pkg-2.0.0.tgz"
 OTHER_SAFE = "registry.npmjs.org/other-pkg/-/other-pkg-2.0.0.tgz"
@@ -187,15 +187,26 @@ class TestInteractiveRedactedFetchGrouping(unittest.TestCase):
 
     def test_first_fetch_shows_canonical_line_immediately(self):
         renderer = RecordingRenderer()
-        _state(renderer).admit_diagnostic(_fetch_envelope(_fetch_line(), NetworkUrlDisplay.REDACTED), now=0.0)
+        _state(renderer).admit_diagnostic(
+            _fetch_envelope(_fetch_line(), NetworkUrlDisplay.REDACTED), now=0.0
+        )
         self.assertEqual([REDACTED_CANON], renderer.slot_texts())
 
     def test_later_members_replace_slot_in_place_with_admitted_total(self):
         renderer = RecordingRenderer()
         state = _state(renderer)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=15), NetworkUrlDisplay.REDACTED), now=0.0)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=25), NetworkUrlDisplay.REDACTED), now=0.1)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=35), NetworkUrlDisplay.REDACTED), now=0.2)
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=15), NetworkUrlDisplay.REDACTED),
+            now=0.0,
+        )
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=25), NetworkUrlDisplay.REDACTED),
+            now=0.1,
+        )
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=35), NetworkUrlDisplay.REDACTED),
+            now=0.2,
+        )
         self.assertEqual(
             [
                 REDACTED_CANON,
@@ -208,16 +219,25 @@ class TestInteractiveRedactedFetchGrouping(unittest.TestCase):
     def test_admitted_total_includes_the_first_request(self):
         renderer = RecordingRenderer()
         state = _state(renderer)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(), NetworkUrlDisplay.REDACTED), now=0.0)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=99), NetworkUrlDisplay.REDACTED), now=0.1)
-        self.assertEqual(f"{REDACTED_CANON}{REQUEST_SEPARATOR}2 requests", renderer.slot_texts()[-1])
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(), NetworkUrlDisplay.REDACTED), now=0.0
+        )
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=99), NetworkUrlDisplay.REDACTED),
+            now=0.1,
+        )
+        self.assertEqual(
+            f"{REDACTED_CANON}{REQUEST_SEPARATOR}2 requests", renderer.slot_texts()[-1]
+        )
 
     def test_no_observed_qualifier_or_durable_duplicates(self):
         renderer = RecordingRenderer()
         state = _state(renderer)
         for index in range(4):
             state.admit_diagnostic(
-                _fetch_envelope(_fetch_line(latency=10 + index), NetworkUrlDisplay.REDACTED),
+                _fetch_envelope(
+                    _fetch_line(latency=10 + index), NetworkUrlDisplay.REDACTED
+                ),
                 now=float(index),
             )
         self.assertNotIn("observed", " ".join(renderer.slot_texts()))
@@ -225,7 +245,9 @@ class TestInteractiveRedactedFetchGrouping(unittest.TestCase):
         self.assertEqual([], renderer.finalize_texts())
 
     def test_external_structured_diagnostic_shape_is_unchanged(self):
-        field_names = {field.name for field in dataclasses.fields(HostStructuredDiagnostic)}
+        field_names = {
+            field.name for field in dataclasses.fields(HostStructuredDiagnostic)
+        }
         self.assertEqual(
             {
                 "phase",
@@ -258,8 +280,14 @@ class TestInteractiveHostPathFetchGrouping(unittest.TestCase):
     def test_latency_variants_for_one_host_path_aggregate(self):
         renderer = RecordingRenderer()
         state = _state(renderer, display=NetworkUrlDisplay.HOST_PATH)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=15), NetworkUrlDisplay.HOST_PATH), now=0.0)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=42), NetworkUrlDisplay.HOST_PATH), now=0.1)
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=15), NetworkUrlDisplay.HOST_PATH),
+            now=0.0,
+        )
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=42), NetworkUrlDisplay.HOST_PATH),
+            now=0.1,
+        )
         self.assertEqual(
             [HOST_PATH_CANON, f"{HOST_PATH_CANON}{REQUEST_SEPARATOR}2 requests"],
             renderer.slot_texts(),
@@ -310,9 +338,12 @@ class TestInteractiveHostPathFetchGrouping(unittest.TestCase):
     def test_redacted_ignores_hostname_and_path_while_host_path_delimits(self):
         renderer = RecordingRenderer()
         redacted = _state(renderer, display=NetworkUrlDisplay.REDACTED)
-        redacted.admit_diagnostic(_fetch_envelope(_fetch_line(), NetworkUrlDisplay.REDACTED), now=0.0)
         redacted.admit_diagnostic(
-            _fetch_envelope(_fetch_line(url=OTHER_URL), NetworkUrlDisplay.REDACTED), now=0.1
+            _fetch_envelope(_fetch_line(), NetworkUrlDisplay.REDACTED), now=0.0
+        )
+        redacted.admit_diagnostic(
+            _fetch_envelope(_fetch_line(url=OTHER_URL), NetworkUrlDisplay.REDACTED),
+            now=0.1,
         )
         self.assertEqual(
             f"{REDACTED_CANON}{REQUEST_SEPARATOR}2 requests", renderer.slot_texts()[-1]
@@ -339,9 +370,18 @@ class TestFetchBoundaryFinalization(unittest.TestCase):
     def _grouped(self) -> tuple[RecordingRenderer, HostPresentationState]:
         renderer = RecordingRenderer()
         state = _state(renderer)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=15), NetworkUrlDisplay.REDACTED), now=0.0)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=25), NetworkUrlDisplay.REDACTED), now=0.1)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=35), NetworkUrlDisplay.REDACTED), now=0.2)
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=15), NetworkUrlDisplay.REDACTED),
+            now=0.0,
+        )
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=25), NetworkUrlDisplay.REDACTED),
+            now=0.1,
+        )
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=35), NetworkUrlDisplay.REDACTED),
+            now=0.2,
+        )
         return renderer, state
 
     def _summary(self) -> str:
@@ -414,15 +454,26 @@ class TestLinesFetchGrouping(unittest.TestCase):
     def test_first_line_is_durable_immediately(self):
         renderer = RecordingRenderer()
         state = _state(renderer, mode=HostPresentationMode.LINES)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(), NetworkUrlDisplay.REDACTED), now=0.0)
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(), NetworkUrlDisplay.REDACTED), now=0.0
+        )
         self.assertEqual([REDACTED_CANON], renderer.durable_texts())
 
     def test_counted_summary_at_the_one_second_window(self):
         renderer = RecordingRenderer()
         state = _state(renderer, mode=HostPresentationMode.LINES)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=15), NetworkUrlDisplay.REDACTED), now=0.0)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=25), NetworkUrlDisplay.REDACTED), now=0.1)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=35), NetworkUrlDisplay.REDACTED), now=0.2)
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=15), NetworkUrlDisplay.REDACTED),
+            now=0.0,
+        )
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=25), NetworkUrlDisplay.REDACTED),
+            now=0.1,
+        )
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=35), NetworkUrlDisplay.REDACTED),
+            now=0.2,
+        )
         self.assertEqual([REDACTED_CANON], renderer.durable_texts())
         state.due(now=LINES_WINDOW_SECONDS)
         self.assertEqual(
@@ -433,11 +484,23 @@ class TestLinesFetchGrouping(unittest.TestCase):
     def test_fresh_group_after_deadline_finalization(self):
         renderer = RecordingRenderer()
         state = _state(renderer, mode=HostPresentationMode.LINES)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=15), NetworkUrlDisplay.REDACTED), now=0.0)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=25), NetworkUrlDisplay.REDACTED), now=0.1)
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=15), NetworkUrlDisplay.REDACTED),
+            now=0.0,
+        )
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=25), NetworkUrlDisplay.REDACTED),
+            now=0.1,
+        )
         state.due(now=LINES_WINDOW_SECONDS)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=55), NetworkUrlDisplay.REDACTED), now=1.1)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=65), NetworkUrlDisplay.REDACTED), now=1.2)
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=55), NetworkUrlDisplay.REDACTED),
+            now=1.1,
+        )
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=65), NetworkUrlDisplay.REDACTED),
+            now=1.2,
+        )
         state.due(now=2.1)
         self.assertEqual(
             [
@@ -467,11 +530,17 @@ class TestExactPresentation(unittest.TestCase):
 
     def test_exact_disables_repeat_fetch_and_numeric_aggregation(self):
         renderer = RecordingRenderer()
-        state = _state(renderer, mode=HostPresentationMode.LINES, display=NetworkUrlDisplay.EXACT)
+        state = _state(
+            renderer, mode=HostPresentationMode.LINES, display=NetworkUrlDisplay.EXACT
+        )
         for index in range(3):
-            state.admit_diagnostic(_source_envelope("added 1 package"), now=float(index))
+            state.admit_diagnostic(
+                _source_envelope("added 1 package"), now=float(index)
+            )
         for index in range(3):
-            state.admit_diagnostic(_source_envelope(f"progress {index}"), now=3.0 + index)
+            state.admit_diagnostic(
+                _source_envelope(f"progress {index}"), now=3.0 + index
+            )
         state.due(now=10.0)
         texts = renderer.durable_texts()
         self.assertEqual(
@@ -483,7 +552,9 @@ class TestExactPresentation(unittest.TestCase):
 
     def test_exact_lines_ignores_fetch_identity_and_source_latency(self):
         renderer = RecordingRenderer()
-        state = _state(renderer, mode=HostPresentationMode.LINES, display=NetworkUrlDisplay.EXACT)
+        state = _state(
+            renderer, mode=HostPresentationMode.LINES, display=NetworkUrlDisplay.EXACT
+        )
         # An exact envelope carries source text and no fetch key, so two
         # otherwise compatible fetches remain distinct source lines.
         state.admit_diagnostic(_source_envelope(_fetch_line(latency=15)), now=0.0)
@@ -595,7 +666,9 @@ class TestPresentationPolicyConsistency(unittest.TestCase):
     def test_lines_mode_also_rejects_a_mismatched_policy(self):
         renderer = RecordingRenderer()
         state = _state(
-            renderer, mode=HostPresentationMode.LINES, display=NetworkUrlDisplay.REDACTED
+            renderer,
+            mode=HostPresentationMode.LINES,
+            display=NetworkUrlDisplay.REDACTED,
         )
         envelope = _fetch_envelope(_fetch_line(), NetworkUrlDisplay.HOST_PATH)
         with self.assertRaises(ValueError):
@@ -643,7 +716,11 @@ class TestOrdinaryGroupingUnchanged(unittest.TestCase):
 
     def test_legacy_hostname_attachment_is_kept_for_ordinary_diagnostics(self):
         renderer = RecordingRenderer()
-        state = _state(renderer, mode=HostPresentationMode.LINES, display=NetworkUrlDisplay.HOST_PATH)
+        state = _state(
+            renderer,
+            mode=HostPresentationMode.LINES,
+            display=NetworkUrlDisplay.HOST_PATH,
+        )
         state.admit_diagnostic(
             _diagnostic("npm warn see <redacted>", hostnames=("registry.example.com",)),
             now=0.0,
@@ -656,7 +733,9 @@ class TestOrdinaryGroupingUnchanged(unittest.TestCase):
     def test_ordinary_exact_repeat_in_host_path_mode(self):
         renderer = RecordingRenderer()
         state = _state(
-            renderer, mode=HostPresentationMode.LINES, display=NetworkUrlDisplay.HOST_PATH
+            renderer,
+            mode=HostPresentationMode.LINES,
+            display=NetworkUrlDisplay.HOST_PATH,
         )
         for index in range(2):
             state.admit_diagnostic(
@@ -713,8 +792,14 @@ class TestOrdinaryGroupingUnchanged(unittest.TestCase):
     def test_fetch_counts_never_claim_events_dropped_before_admission(self):
         renderer = RecordingRenderer()
         state = _state(renderer)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=15), NetworkUrlDisplay.REDACTED), now=0.0)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=25), NetworkUrlDisplay.REDACTED), now=0.1)
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=15), NetworkUrlDisplay.REDACTED),
+            now=0.0,
+        )
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=25), NetworkUrlDisplay.REDACTED),
+            now=0.1,
+        )
         state.admit_diagnostic(
             _diagnostic("npm warn post-saturation"),
             now=0.2,
@@ -737,13 +822,13 @@ class TestOrdinaryGroupingUnchanged(unittest.TestCase):
         self.assertFalse(hasattr(_diagnostic("x"), "presentation_text"))
 
     def test_fetch_disposition_is_distinct_from_ordinary_repeat(self):
-        self.assertIn("FETCH_REQUEST", {member.name for member in DiagnosticDisposition})
+        self.assertIn(
+            "FETCH_REQUEST", {member.name for member in DiagnosticDisposition}
+        )
         self.assertNotEqual(
             DiagnosticDisposition.FETCH_REQUEST, DiagnosticDisposition.EXACT_REPEAT
         )
-        self.assertEqual(
-            "interactive", PresentationMode.INTERACTIVE.value
-        )
+        self.assertEqual("interactive", PresentationMode.INTERACTIVE.value)
 
 
 class TestFetchLifecycleBoundaryFlush(unittest.TestCase):
@@ -754,8 +839,12 @@ class TestFetchLifecycleBoundaryFlush(unittest.TestCase):
     ) -> tuple[RecordingRenderer, HostPresentationState]:
         renderer = RecordingRenderer()
         state = _state(renderer, mode=mode, display=display)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=15), display), now=0.0)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=25), display), now=0.1)
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=15), display), now=0.0
+        )
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=25), display), now=0.1
+        )
         renderer.calls.clear()
         return renderer, state
 
@@ -823,8 +912,14 @@ class TestFetchLifecycleBoundaryFlush(unittest.TestCase):
             ],
             renderer.calls,
         )
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=35), NetworkUrlDisplay.REDACTED), now=0.3)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=45), NetworkUrlDisplay.REDACTED), now=0.4)
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=35), NetworkUrlDisplay.REDACTED),
+            now=0.3,
+        )
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=45), NetworkUrlDisplay.REDACTED),
+            now=0.4,
+        )
         state.due(now=1.5)
         self.assertEqual(
             [
@@ -847,8 +942,14 @@ class TestFetchLifecycleBoundaryFlush(unittest.TestCase):
             ],
             renderer.calls,
         )
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=35), NetworkUrlDisplay.REDACTED), now=0.3)
-        state.admit_diagnostic(_fetch_envelope(_fetch_line(latency=45), NetworkUrlDisplay.REDACTED), now=0.4)
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=35), NetworkUrlDisplay.REDACTED),
+            now=0.3,
+        )
+        state.admit_diagnostic(
+            _fetch_envelope(_fetch_line(latency=45), NetworkUrlDisplay.REDACTED),
+            now=0.4,
+        )
         state.due(now=1.5)
         self.assertEqual(
             [
@@ -866,9 +967,7 @@ class TestFetchLifecycleBoundaryFlush(unittest.TestCase):
         state.admit_diagnostic(_diagnostic("npm warn retry"), now=0.1)
         renderer.calls.clear()
         state.observe_step(self._step_started(), now=0.2)
-        self.assertEqual(
-            [("durable", "npm execution: started")], renderer.calls
-        )
+        self.assertEqual([("durable", "npm execution: started")], renderer.calls)
 
 
 class TestExactInteractiveSlotClearing(unittest.TestCase):

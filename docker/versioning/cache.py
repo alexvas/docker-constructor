@@ -10,6 +10,7 @@ files are written with owner-only permissions (``0600``); directory
 creation and ``0700`` hardening are owned by ``cache_storage.py`` at
 construction time, not by :class:`DiskCache`.
 """
+
 from __future__ import annotations
 
 import base64
@@ -113,20 +114,31 @@ class DiskCache:
 
     __slots__ = ("_dir", "_ttl", "_read_only")
 
-    def __init__(self, directory: Path, ttl: int | None = None, *, read_only: bool = False) -> None:
+    def __init__(
+        self, directory: Path, ttl: int | None = None, *, read_only: bool = False
+    ) -> None:
         self._dir = directory
         self._ttl = ttl
         self._read_only = read_only
 
     # -- public API ---------------------------------------------------------
 
-    def get(self, method: str, url: str, *, scope: str = "public", representation: str = "wildcard") -> HttpResponse | None:
+    def get(
+        self,
+        method: str,
+        url: str,
+        *,
+        scope: str = "public",
+        representation: str = "wildcard",
+    ) -> HttpResponse | None:
         """Return a cached ``HttpResponse``-compatible object or ``None``."""
         path = self._path_for(method, url, scope, representation)
         try:
-            with owned_file(lambda: open(path, encoding="utf-8"), label="cached response") as fh:
+            with owned_file(
+                lambda: open(path, encoding="utf-8"), label="cached response"
+            ) as fh:
                 data = json.load(fh)
-        except (FileNotFoundError, json.JSONDecodeError, OSError):
+        except FileNotFoundError, json.JSONDecodeError, OSError:
             return None
 
         # Reject structurally corrupt entries (missing required keys)
@@ -134,7 +146,7 @@ class DiskCache:
             status = data["status"]
             stored_headers = dict(data.get("headers", {}))
             body_b64 = data["body_b64"]
-        except (KeyError, TypeError):
+        except KeyError, TypeError:
             return None
 
         if self._ttl is not None:
@@ -150,7 +162,13 @@ class DiskCache:
         return _cached_response(status, stored_headers, body)
 
     def set(
-        self, method: str, url: str, response: object, *, scope: str = "public", representation: str = "wildcard",
+        self,
+        method: str,
+        url: str,
+        response: object,
+        *,
+        scope: str = "public",
+        representation: str = "wildcard",
     ) -> None:
         """Persist *response* to disk.  No-op when the cache is read-only.
 
@@ -179,7 +197,8 @@ class DiskCache:
         tmp_name = path.name + ".tmp"
         fd = open_private_entry(self._dir, tmp_name)
         owner = OwnedDescriptor(
-            cast(DescriptorOps, PosixDescriptorOps()), fd,
+            cast(DescriptorOps, PosixDescriptorOps()),
+            fd,
             label=f"cache entry {tmp_name}",
         )
         fh: TextIO | None = None
@@ -231,7 +250,13 @@ class DiskCache:
 
     # -- helpers ------------------------------------------------------------
 
-    def _path_for(self, method: str, url: str, scope: str = "public", representation: str = "wildcard") -> Path:
+    def _path_for(
+        self,
+        method: str,
+        url: str,
+        scope: str = "public",
+        representation: str = "wildcard",
+    ) -> Path:
         key = f"{method}:{url}:{scope}:{representation}"
         digest = hashlib.sha256(key.encode()).hexdigest()
         return self._dir / digest
@@ -322,7 +347,9 @@ class CachingHttpTransport(HttpTransport):
 
         # 2. Disk (persistent across invocations)
         if self._disk is not None:
-            cached = self._disk.get(method, url, scope=scope, representation=representation)
+            cached = self._disk.get(
+                method, url, scope=scope, representation=representation
+            )
             if cached is not None:
                 self._mem[key] = (now, cached)
                 return cached
@@ -335,7 +362,9 @@ class CachingHttpTransport(HttpTransport):
         resp = self._delegate.request(method, url, headers=headers_dict)
         self._mem[key] = (now, resp)
         if self._disk is not None:
-            self._disk.set(method, url, resp, scope=scope, representation=representation)
+            self._disk.set(
+                method, url, resp, scope=scope, representation=representation
+            )
         return resp
 
     def clear(self) -> None:

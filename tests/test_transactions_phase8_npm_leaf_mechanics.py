@@ -16,6 +16,7 @@ Contract selection pinned here:
   the L2 temporary/link commit do not fit npm's explicit recursive-seal
   ordering, and tree commit/recursive fsync/sealing remain npm L3 authority.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -65,10 +66,15 @@ class ContractSelectionTests(unittest.TestCase):
         # No shared regular-file contract publishes the tree.
         self.assertNotIn("atomic_no_clobber", publish)
         self.assertNotIn("durable_no_clobber", publish)
-        self.assertFalse(hasattr(publication, "RegularFileContracts") and
-                         "RegularFileContracts" in inspect.getsource(publication.publish_environment))
+        self.assertFalse(
+            hasattr(publication, "RegularFileContracts")
+            and "RegularFileContracts"
+            in inspect.getsource(publication.publish_environment)
+        )
 
-    def test_manifest_and_evidence_write_descends_to_l0_with_justification(self) -> None:
+    def test_manifest_and_evidence_write_descends_to_l0_with_justification(
+        self,
+    ) -> None:
         src = inspect.getsource(publication._durable_write)
         # The complete-bytes exclusive write stays a descriptor-relative L0
         # mechanic because the L2 commit/durability boundaries do not fit the
@@ -119,9 +125,7 @@ class IndexLeafReuseTests(unittest.TestCase):
         # The mode is the discriminator: the same bytes read once the
         # npm-owned mode is restored.
         os.chmod(index, 0o600)
-        self.assertEqual(
-            publication.read_index(self.namespace, _INPUT), ("d" * 64,)
-        )
+        self.assertEqual(publication.read_index(self.namespace, _INPUT), ("d" * 64,))
 
 
 class ImmutableReadModeTests(_PublicationTestCase):
@@ -143,7 +147,9 @@ class ImmutableReadModeTests(_PublicationTestCase):
             )
         )
 
-    def test_published_manifest_and_evidence_modes_survive_a_restrictive_umask(self) -> None:
+    def test_published_manifest_and_evidence_modes_survive_a_restrictive_umask(
+        self,
+    ) -> None:
         original = os.umask(0o077)
         try:
             result = self._publish(b"restrictive-umask")

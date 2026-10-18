@@ -1,4 +1,5 @@
 """Docker Registry provider tests."""
+
 from __future__ import annotations
 
 import unittest
@@ -22,18 +23,23 @@ class TestDockerRegistryProvider(unittest.TestCase):
         self.provider = DockerRegistryProvider()
         # The provider probes /v2/ for auth. Reply 200 = no auth required.
         self.http.set(
-            "GET", "https://registry-1.docker.io/v2/",
-            status=200, body=b"{}",
+            "GET",
+            "https://registry-1.docker.io/v2/",
+            status=200,
+            body=b"{}",
         )
 
     def _ctx(self):
         return ProviderContext(
-            http=self.http, git=self.git,
-            include_prerelease=False, tokens={},
+            http=self.http,
+            git=self.git,
+            include_prerelease=False,
+            tokens={},
         )
 
-    def _target(self, tag="24-trixie-slim", registry="docker.io",
-                repository="library/node"):
+    def _target(
+        self, tag="24-trixie-slim", registry="docker.io", repository="library/node"
+    ):
         return UpdateTarget(
             path="build.stages.base.node",
             current=tag,
@@ -43,7 +49,9 @@ class TestDockerRegistryProvider(unittest.TestCase):
         )
 
     def test_unchanged_digest(self):
-        upstream = "sha256:ae91dcc111a68c9d2d81ff2a17bda61be126426176fde6fe7d08ab13b7f50573"
+        upstream = (
+            "sha256:ae91dcc111a68c9d2d81ff2a17bda61be126426176fde6fe7d08ab13b7f50573"
+        )
         self.http.set(
             "GET",
             "https://registry-1.docker.io/v2/library/node/manifests/24-trixie-slim",
@@ -59,7 +67,9 @@ class TestDockerRegistryProvider(unittest.TestCase):
         self.assertNotIn("https://docker.io/", " ".join(request_urls))
 
     def test_changed_digest(self):
-        upstream = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        upstream = (
+            "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        )
         self.http.set(
             "GET",
             "https://registry-1.docker.io/v2/library/node/manifests/24-trixie-slim",
@@ -75,7 +85,9 @@ class TestDockerRegistryProvider(unittest.TestCase):
         """Provider returns the upstream digest as candidate regardless of
         whether the target carries a stored digest. Comparison is done by
         the coordinator."""
-        upstream = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        upstream = (
+            "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        )
         self.http.set(
             "GET",
             "https://registry-1.docker.io/v2/library/node/manifests/24-trixie-slim",
@@ -90,11 +102,14 @@ class TestDockerRegistryProvider(unittest.TestCase):
 
     def test_custom_registry_not_rewritten(self):
         """Non-Docker-Hub registries must not be rewritten."""
-        upstream = "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        upstream = (
+            "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        )
         self.http.set(
             "GET",
             "https://registry.example.com/v2/",
-            status=200, body=b"{}",
+            status=200,
+            body=b"{}",
         )
         self.http.set(
             "GET",
@@ -127,11 +142,14 @@ class TestDockerRegistryProvider(unittest.TestCase):
 
     def test_index_docker_io_alias_normalized(self):
         """index.docker.io is also normalized to registry-1.docker.io."""
-        upstream = "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        upstream = (
+            "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        )
         self.http.set(
             "GET",
             "https://registry-1.docker.io/v2/",
-            status=200, body=b"{}",
+            status=200,
+            body=b"{}",
         )
         self.http.set(
             "GET",
@@ -154,7 +172,9 @@ class TestDockerRegistryProvider(unittest.TestCase):
 
     def test_lowercase_docker_content_digest(self):
         """Digest is found even when Docker-Content-Digest is lowercase."""
-        upstream = "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        upstream = (
+            "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        )
         self.http.set(
             "GET",
             "https://registry-1.docker.io/v2/library/node/manifests/24-trixie-slim",
@@ -189,7 +209,9 @@ class TestDockerRegistryProvider(unittest.TestCase):
             body=b'{"token": "fake-bearer-token"}',
         )
         # Manifest response with digest.
-        upstream = "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        upstream = (
+            "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        )
         self.http.set(
             "GET",
             "https://registry-1.docker.io/v2/library/node/manifests/24-trixie-slim",

@@ -27,6 +27,7 @@ Release is unconditional: unlock and close are both attempted, ordinary
 failures are attached as secondary diagnostics to an existing primary failure,
 and process-control interruptions propagate unchanged.
 """
+
 from __future__ import annotations
 
 import enum
@@ -159,7 +160,9 @@ def _validate_lock(info: os.stat_result, name: str, *, created: bool = False) ->
     if not stat.S_ISREG(info.st_mode):
         raise LockError(STAGE_LOCK_VALIDATE, f"lock {name!r} is not a regular file")
     if info.st_uid != os.geteuid():
-        raise LockError(STAGE_LOCK_VALIDATE, f"lock {name!r} is not owned by the invoking user")
+        raise LockError(
+            STAGE_LOCK_VALIDATE, f"lock {name!r} is not owned by the invoking user"
+        )
     if info.st_nlink != 1:
         raise LockError(STAGE_LOCK_VALIDATE, f"lock {name!r} has multiple hard links")
     # Owner accessibility is authoritative from st_mode, never from whether the
@@ -194,7 +197,9 @@ def _verify_unchanged(
         raise LockError(
             STAGE_LOCK_VALIDATE, f"lock {name!r} changed while acquiring", cause=exc
         ) from exc
-    owner = OwnedDescriptor(cast(DescriptorOps, ops), probe, label=f"lock probe {name!r}")
+    owner = OwnedDescriptor(
+        cast(DescriptorOps, ops), probe, label=f"lock probe {name!r}"
+    )
     try:
         probe_info = ops.fstat(owner.fd)
     except BaseException as exc:
@@ -210,13 +215,19 @@ def _verify_unchanged(
     try:
         owner.close()
     except OSError as exc:
-        raise LockError(STAGE_CLOSE, f"cannot close lock probe {name!r}", cause=exc) from exc
+        raise LockError(
+            STAGE_CLOSE, f"cannot close lock probe {name!r}", cause=exc
+        ) from exc
     if (probe_info.st_dev, probe_info.st_ino) != (info.st_dev, info.st_ino):
-        raise LockError(STAGE_LOCK_VALIDATE, f"lock {name!r} was replaced while acquiring")
+        raise LockError(
+            STAGE_LOCK_VALIDATE, f"lock {name!r} was replaced while acquiring"
+        )
     return probe_info
 
 
-def _release_descriptor(ops: PosixFileOps, fd: int, primary: BaseException | None) -> None:
+def _release_descriptor(
+    ops: PosixFileOps, fd: int, primary: BaseException | None
+) -> None:
     """Unlock and close one not-yet-owned descriptor, preserving *primary*.
 
     Release is unconditional: unlock and close are each attempted exactly once,
@@ -313,7 +324,9 @@ class LockCapability:
         """
         base = directory.child_basename(name)
         if not isinstance(namespace, str) or not namespace or "\x00" in namespace:
-            raise LockError(STAGE_LOCK_PREPARE, "lock namespace must be a non-empty string")
+            raise LockError(
+                STAGE_LOCK_PREPARE, "lock namespace must be a non-empty string"
+            )
         if not isinstance(policy, LockPolicy):
             raise LockError(
                 STAGE_LOCK_PREPARE,
@@ -374,14 +387,14 @@ class LockCapability:
                     ops.fchmod(fd, _LOCK_MODE)
                 except OSError as exc:
                     raise LockError(
-                        STAGE_LOCK_MODE, f"cannot repair lock mode for {base!r}", cause=exc
+                        STAGE_LOCK_MODE,
+                        f"cannot repair lock mode for {base!r}",
+                        cause=exc,
                     ) from exc
         except BaseException as exc:
             _release_descriptor(ops, fd, exc)
             raise
-        return cls(
-            ops, fd, directory, namespace, base, policy, authority=_AUTHORITY
-        )
+        return cls(ops, fd, directory, namespace, base, policy, authority=_AUTHORITY)
 
     @property
     def fd(self) -> int:
@@ -405,7 +418,9 @@ class LockCapability:
     def closed(self) -> bool:
         return self._closed
 
-    def assert_authorizes(self, *, directory: DirectoryCapability, namespace: str) -> None:
+    def assert_authorizes(
+        self, *, directory: DirectoryCapability, namespace: str
+    ) -> None:
         """Fail before protected mutation unless this capability is live and matching.
 
         A released capability, a released directory capability, a capability
@@ -415,7 +430,9 @@ class LockCapability:
         _ = self.fd
         _ = directory.fd
         if directory.token is not self._directory_token:
-            raise CapabilityError(f"lock capability {self._name!r} belongs to a different root")
+            raise CapabilityError(
+                f"lock capability {self._name!r} belongs to a different root"
+            )
         if namespace != self._namespace:
             raise CapabilityError(
                 f"lock capability {self._name!r} is for a different namespace"

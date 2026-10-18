@@ -9,6 +9,7 @@ Phase 6 unit tests and the acceptance suites import from here instead of
 re-deriving the reviewed release bytes, so there is exactly one authoritative
 fixture construction path.
 """
+
 from __future__ import annotations
 
 import atexit
@@ -68,7 +69,9 @@ def pi_install_lock_bytes() -> bytes:
 
 
 def pi_sha256sums_bytes(
-    *, package: bytes | None = None, lock: bytes | None = None,
+    *,
+    package: bytes | None = None,
+    lock: bytes | None = None,
 ) -> bytes:
     """``sha256sum``-format ``SHA256SUMS`` over the two install assets."""
     package = package if package is not None else pi_install_package_bytes()
@@ -141,7 +144,8 @@ def assembled_pi_tree() -> Path:
 
 
 def build_pi_attestation(
-    *, environment_root: Path | None = None,
+    *,
+    environment_root: Path | None = None,
 ) -> SimpleNamespace:
     """Build one self-consistent derived-environment attestation bundle.
 
@@ -204,7 +208,9 @@ def build_pi_attestation(
     )
     evidence_digest = evidence_body_digest(body)
     output_identity = compute_assembled_output_identity(
-        input_identity, manifest.digest, evidence_digest,
+        input_identity,
+        manifest.digest,
+        evidence_digest,
     )
     evidence_bytes = serialize_evidence(
         AssemblerEvidence(

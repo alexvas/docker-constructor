@@ -2,6 +2,7 @@
 
 No Docker, network, or subprocess — pure Python with re and dataclasses.
 """
+
 from __future__ import annotations
 
 import re
@@ -15,9 +16,7 @@ from .errors import ConstraintSyntaxError, VersionSyntaxError
 # Regex
 # ---------------------------------------------------------------------------
 
-VERSION_RE = re.compile(
-    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$"
-)
+VERSION_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 CLAUSE_RE = re.compile(
     r"^(==|>=|<=|>|<)"
     r"(0|[1-9][0-9]*)\."
@@ -29,6 +28,7 @@ CLAUSE_RE = re.compile(
 # ---------------------------------------------------------------------------
 # Data types
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True, order=True)
 class NumericVersion:
@@ -57,9 +57,7 @@ class Constraint:
         return True
 
     def __str__(self) -> str:
-        return ",".join(
-            f"{c.operator}{c.operand}" for c in self.clauses
-        )
+        return ",".join(f"{c.operator}{c.operand}" for c in self.clauses)
 
 
 def _eval_clause(clause: ConstraintClause, version: NumericVersion) -> bool:
@@ -81,6 +79,7 @@ def _eval_clause(clause: ConstraintClause, version: NumericVersion) -> bool:
 # ---------------------------------------------------------------------------
 # Parsing
 # ---------------------------------------------------------------------------
+
 
 def parse_numeric_version(raw: str) -> NumericVersion:
     """Parse a strict X.Y.Z string. Rejects prereleases, v-prefix, etc."""
@@ -111,9 +110,7 @@ def parse_constraint(raw: str) -> Constraint:
     for part in raw.split(","):
         part = part.strip()
         if not part:
-            raise ConstraintSyntaxError(
-                f"Empty clause in constraint {raw!r}"
-            )
+            raise ConstraintSyntaxError(f"Empty clause in constraint {raw!r}")
         m = CLAUSE_RE.match(part)
         if not m:
             raise ConstraintSyntaxError(
@@ -136,6 +133,7 @@ def parse_constraint(raw: str) -> Constraint:
 # Consistency validation
 # ---------------------------------------------------------------------------
 
+
 def validate_constraint_consistency(constraint: Constraint) -> None:
     """Raise ConstraintSyntaxError if clauses contradict each other.
 
@@ -149,17 +147,15 @@ def validate_constraint_consistency(constraint: Constraint) -> None:
     """
     eq: Optional[NumericVersion] = None
     strict_lower: Optional[NumericVersion] = None  # >
-    loose_lower: Optional[NumericVersion] = None   # >=
+    loose_lower: Optional[NumericVersion] = None  # >=
     strict_upper: Optional[NumericVersion] = None  # <
-    loose_upper: Optional[NumericVersion] = None   # <=
+    loose_upper: Optional[NumericVersion] = None  # <=
 
     for c in constraint.clauses:
         op, v = c.operator, c.operand
         if op == "==":
             if eq is not None and eq != v:
-                raise ConstraintSyntaxError(
-                    f"Contradictory equality: =={eq} and =={v}"
-                )
+                raise ConstraintSyntaxError(f"Contradictory equality: =={eq} and =={v}")
             eq = v
         elif op == ">":
             if strict_lower is None or v > strict_lower:
@@ -222,35 +218,23 @@ def validate_constraint_consistency(constraint: Constraint) -> None:
         if lower is not None:
             if lower_inclusive:
                 if eq < lower:
-                    raise ConstraintSyntaxError(
-                        f"Contradictory: =={eq} but >= {lower}"
-                    )
+                    raise ConstraintSyntaxError(f"Contradictory: =={eq} but >= {lower}")
             else:
                 if eq <= lower:
-                    raise ConstraintSyntaxError(
-                        f"Contradictory: =={eq} but > {lower}"
-                    )
+                    raise ConstraintSyntaxError(f"Contradictory: =={eq} but > {lower}")
         if upper is not None:
             if upper_inclusive:
                 if eq > upper:
-                    raise ConstraintSyntaxError(
-                        f"Contradictory: =={eq} but <= {upper}"
-                    )
+                    raise ConstraintSyntaxError(f"Contradictory: =={eq} but <= {upper}")
             else:
                 if eq >= upper:
-                    raise ConstraintSyntaxError(
-                        f"Contradictory: =={eq} but < {upper}"
-                    )
+                    raise ConstraintSyntaxError(f"Contradictory: =={eq} but < {upper}")
         # Also check: ==x with >x (strict equality contradiction)
         for c in constraint.clauses:
             if c.operator == ">" and c.operand == eq:
-                raise ConstraintSyntaxError(
-                    f"Contradictory: =={eq} and >{eq}"
-                )
+                raise ConstraintSyntaxError(f"Contradictory: =={eq} and >{eq}")
             if c.operator == "<" and c.operand == eq:
-                raise ConstraintSyntaxError(
-                    f"Contradictory: =={eq} and <{eq}"
-                )
+                raise ConstraintSyntaxError(f"Contradictory: =={eq} and <{eq}")
 
     # Check lower > upper
     if lower is not None and upper is not None:

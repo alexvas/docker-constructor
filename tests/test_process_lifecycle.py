@@ -1,4 +1,5 @@
 """Generic process contracts; value results, no consumer/domain dependency."""
+
 from __future__ import annotations
 
 import importlib
@@ -62,8 +63,9 @@ class Child:
 
 
 def launch(api, child, **kw):
-    return api.OwnedProcess.launch(["child"], factory=lambda *a, **k: child,
-                                   grace_seconds=.04, **kw)
+    return api.OwnedProcess.launch(
+        ["child"], factory=lambda *a, **k: child, grace_seconds=0.04, **kw
+    )
 
 
 def secondary(error):
@@ -82,11 +84,18 @@ def workers():
     return [t for t in threading.enumerate() if t.name.startswith("owned-process-")]
 
 
-@pytest.mark.parametrize("kw", [{"argv": []}, {"grace_seconds": -1},
-                                  {"capture_limit": -1}, {"deadline_seconds": 0},
-                                  {"popen_kwargs": {"stdout": None}},
-                                  {"popen_kwargs": {"text": True}},
-                                  {"popen_kwargs": {"stdin": subprocess.PIPE}}])
+@pytest.mark.parametrize(
+    "kw",
+    [
+        {"argv": []},
+        {"grace_seconds": -1},
+        {"capture_limit": -1},
+        {"deadline_seconds": 0},
+        {"popen_kwargs": {"stdout": None}},
+        {"popen_kwargs": {"text": True}},
+        {"popen_kwargs": {"stdin": subprocess.PIPE}},
+    ],
+)
 def test_invalid_config_never_launches(api, kw):
     factory = mock.Mock()
     options = {"argv": ["child"], "factory": factory, **kw}
@@ -95,7 +104,9 @@ def test_invalid_config_never_launches(api, kw):
     factory.assert_not_called()
 
 
-@pytest.mark.parametrize("seam", ["_prepare_stream", "_new_event", "_new_lock", "_make_continuation"])
+@pytest.mark.parametrize(
+    "seam", ["_prepare_stream", "_new_event", "_new_lock", "_make_continuation"]
+)
 @pytest.mark.parametrize("position", [1, 2])
 def test_preparation_failure_before_factory(api, seam, position):
     if seam == "_make_continuation" and position == 2:
@@ -150,7 +161,16 @@ def test_factory_failure_stops_prepared_continuation(api):
     assert not workers()
 
 
-@pytest.mark.parametrize("seam", ["_transfer", "_make_reader", "_configure_reader", "_start_reader", "_start_supervisor"])
+@pytest.mark.parametrize(
+    "seam",
+    [
+        "_transfer",
+        "_make_reader",
+        "_configure_reader",
+        "_start_reader",
+        "_start_supervisor",
+    ],
+)
 @pytest.mark.parametrize("position", [1, 2])
 def test_setup_fault_accounts_for_both_pipes(api, seam, position):
     if seam == "_start_supervisor":
@@ -192,12 +212,12 @@ def test_supervision_cannot_race_prepared_transfer(api):
     real_transfer = api.OwnedProcess._transfer
 
     def transfer(self, index):
-        time.sleep(.025)
+        time.sleep(0.025)
         assert not self._requested
         real_transfer(self, index)
 
     with mock.patch.object(api.OwnedProcess, "_transfer", transfer):
-        owner = launch(api, child, deadline_seconds=.01)
+        owner = launch(api, child, deadline_seconds=0.01)
     assert owner.shutdown().complete
     assert child.stdout.attempts == child.stderr.attempts == 1
 
@@ -237,7 +257,9 @@ def test_second_transfer_interruption_outranks_first_ordinary(api):
 
 @pytest.mark.parametrize("position", [0, 1])
 @pytest.mark.parametrize("error_type", [OSError, RuntimeError, KeyboardInterrupt])
-@pytest.mark.parametrize("operation", [None, OSError, ValueError, RuntimeError, KeyboardInterrupt])
+@pytest.mark.parametrize(
+    "operation", [None, OSError, ValueError, RuntimeError, KeyboardInterrupt]
+)
 def test_shutdown_precedence_and_terminal_ledger(api, position, error_type, operation):
     close = error_type("close")
     primary = operation("operation") if operation else None
@@ -246,16 +268,23 @@ def test_shutdown_precedence_and_terminal_ledger(api, position, error_type, oper
     child = Child(faults)
     owner = launch(api, child)
     result = owner.shutdown(primary=primary)
-    expected = primary if primary is not None and (not isinstance(primary, Exception) or error_type is OSError) else close
+    expected = (
+        primary
+        if primary is not None
+        and (not isinstance(primary, Exception) or error_type is OSError)
+        else close
+    )
     assert selected(result) is expected and result.complete
     assert child.stdout.attempts == child.stderr.attempts == 1
-    assert owner.shutdown() == result and owner.wait_cleanup(.01) == result
+    assert owner.shutdown() == result and owner.wait_cleanup(0.01) == result
     assert len(result.failures) == len({id(f.error) for f in result.failures})
 
 
 @pytest.mark.parametrize("close_type", [OSError, RuntimeError])
 @pytest.mark.parametrize("position", [0, 1])
-def test_domain_operation_preserves_identity_and_secondary_diagnostics(api, close_type, position):
+def test_domain_operation_preserves_identity_and_secondary_diagnostics(
+    api, close_type, position
+):
     class DomainError(Exception):
         pass
 
@@ -268,7 +297,9 @@ def test_domain_operation_preserves_identity_and_secondary_diagnostics(api, clos
     child = Child(faults)
     owner = launch(api, child)
     result = owner.shutdown(primary=operation)
-    expected, displaced = (operation, close) if close_type is OSError else (close, operation)
+    expected, displaced = (
+        (operation, close) if close_type is OSError else (close, operation)
+    )
     assert selected(result) is expected
     assert displaced in failure_errors(result)
     assert secondary(operation) == [prior] and secondary(close) == []
@@ -284,7 +315,10 @@ def test_both_close_failures_and_reentrant_concurrent_shutdown(api):
     owner = launch(api, child)
     child.stdout.hook = lambda: owner.shutdown()
     results = []
-    ts = [threading.Thread(target=lambda: results.append(owner.shutdown())) for _ in range(4)]
+    ts = [
+        threading.Thread(target=lambda: results.append(owner.shutdown()))
+        for _ in range(4)
+    ]
     for t in ts:
         t.start()
     for t in ts:
@@ -324,7 +358,10 @@ def stalled(api, child, **kw):
         else:
             original_read(self, index)
 
-    with mock.patch.object(api.OwnedProcess, "_read", read), mock.patch.object(api.OwnedProcess, "_configure_reader"):
+    with (
+        mock.patch.object(api.OwnedProcess, "_read", read),
+        mock.patch.object(api.OwnedProcess, "_configure_reader"),
+    ):
         owner = launch(api, child, **kw)
         assert pipe.entered.wait(1)
     return owner, pipe
@@ -348,7 +385,9 @@ def test_join_failure_cannot_skip_safe_cleanup_and_reap(api, join_error):
 
 
 @pytest.mark.parametrize("late_error", [None, OSError, RuntimeError, KeyboardInterrupt])
-def test_incomplete_retains_same_owner_and_late_outcome_without_mutation(api, late_error):
+def test_incomplete_retains_same_owner_and_late_outcome_without_mutation(
+    api, late_error
+):
     child = Child()
     failure = late_error("late") if late_error else None
     owner, pipe = stalled(api, child, late_error=failure)
@@ -356,13 +395,18 @@ def test_incomplete_retains_same_owner_and_late_outcome_without_mutation(api, la
     try:
         before = time.monotonic()
         delivered = owner.shutdown(primary=primary)
-        assert time.monotonic() - before < .5
+        assert time.monotonic() - before < 0.5
         assert not delivered.complete and selected(delivered) is primary
         notes = list(secondary(primary))
         assert pipe.attempts == 0
-        assert not owner.wait_cleanup(.01).complete and pipe.attempts == 0
+        assert not owner.wait_cleanup(0.01).complete and pipe.attempts == 0
         observations = []
-        ts = [threading.Thread(target=lambda: observations.append(owner.wait_cleanup(.01))) for _ in range(3)]
+        ts = [
+            threading.Thread(
+                target=lambda: observations.append(owner.wait_cleanup(0.01))
+            )
+            for _ in range(3)
+        ]
         for t in ts:
             t.start()
         for t in ts:
@@ -384,7 +428,9 @@ def test_incomplete_context_exit_exposes_observation(api, active):
     owner, pipe = stalled(api, child)
     primary = KeyboardInterrupt("active") if active else None
     try:
-        with pytest.raises(KeyboardInterrupt if active else api.CleanupIncomplete) as caught:
+        with pytest.raises(
+            KeyboardInterrupt if active else api.CleanupIncomplete
+        ) as caught:
             with owner:
                 if primary:
                     raise primary
@@ -412,7 +458,10 @@ def test_failed_launch_exposes_retained_cleanup(api):
         assert pipe.entered.wait(1)
         raise error
 
-    with mock.patch.object(api.OwnedProcess, "_read", read), mock.patch.object(api.OwnedProcess, "_configure_reader"):
+    with (
+        mock.patch.object(api.OwnedProcess, "_read", read),
+        mock.patch.object(api.OwnedProcess, "_configure_reader"),
+    ):
         owner = None
         try:
             owner = launch(api, child, on_launched=callback)
@@ -442,11 +491,17 @@ def test_reap_failure_is_incomplete_and_does_not_skip_pipes(api):
 
 
 def real(api, program, **kw):
-    return api.OwnedProcess.launch([sys.executable, "-c", program], grace_seconds=.2, **kw)
+    return api.OwnedProcess.launch(
+        [sys.executable, "-c", program], grace_seconds=0.2, **kw
+    )
 
 
 def test_real_large_simultaneous_capture_is_bounded_and_drained(api):
-    with real(api, "import os; os.write(1,b'x'*200000); os.write(2,b'y'*200000)", capture_limit=8192) as owner:
+    with real(
+        api,
+        "import os; os.write(1,b'x'*200000); os.write(2,b'y'*200000)",
+        capture_limit=8192,
+    ) as owner:
         result = owner.capture()
     assert result.stdout == b"x" * 8192 and result.stderr == b"y" * 8192
     assert result.returncode == 0 and result.lifecycle.complete
@@ -470,10 +525,15 @@ def test_real_stream_callbacks_are_isolated_and_receive_only_bytes(api, caplog):
 
 def test_real_descendant_held_pipe_and_deadline_are_bounded(api):
     start = time.monotonic()
-    with real(api, "import subprocess,sys; subprocess.Popen([sys.executable,'-c','import time; time.sleep(.8)'])") as owner:
+    with real(
+        api,
+        "import subprocess,sys; subprocess.Popen([sys.executable,'-c','import time; time.sleep(.8)'])",
+    ) as owner:
         result = owner.capture()
-    assert time.monotonic() - start < .7 and result.lifecycle.complete and not workers()
-    with real(api, "import time; time.sleep(10)", deadline_seconds=.08) as owner:
+    assert (
+        time.monotonic() - start < 0.7 and result.lifecycle.complete and not workers()
+    )
+    with real(api, "import time; time.sleep(10)", deadline_seconds=0.08) as owner:
         result = owner.capture()
     assert result.timed_out and result.returncode is not None and not workers()
 
@@ -508,6 +568,7 @@ def test_real_partial_startup_and_reader_failure_do_not_corrupt_unrelated_fd(api
 @pytest.mark.parametrize("position", [1, 2])
 def test_actual_stream_lock_failure_is_prelaunch(api, position):
     import docker.filesystem.streams as streams
+
     real_prepare = api._prepare_stream
     failure = KeyboardInterrupt("actual lock preparation")
     calls = 0
@@ -575,7 +636,7 @@ def test_blocking_close_retains_winning_outcome_without_unbounded_caller_wait(ap
     try:
         result = owner.shutdown()
         assert entered.is_set() and not result.complete
-        assert not owner.wait_cleanup(.01).complete and child.stdout.attempts == 1
+        assert not owner.wait_cleanup(0.01).complete and child.stdout.attempts == 1
     finally:
         release.set()
         final = owner.wait_cleanup(1)
@@ -612,7 +673,7 @@ def test_both_ordinary_close_failures_retained_once(api):
     assert selected(result) is first and secondary(first) == []
     assert failure_errors(result) == (first, second)
     for _ in range(3):
-        assert owner.shutdown() == result and owner.wait_cleanup(.01) == result
+        assert owner.shutdown() == result and owner.wait_cleanup(0.01) == result
     assert secondary(first) == []
 
 
@@ -635,10 +696,16 @@ def test_no_callbacks_after_incomplete_delivery(api):
 
 
 def test_real_ignored_termination_transitions_to_kill_without_cleanup_defect(api):
-    with real(api, "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(10)", deadline_seconds=.15) as owner:
+    with real(
+        api,
+        "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(10)",
+        deadline_seconds=0.15,
+    ) as owner:
         result = owner.capture()
     assert result.timed_out and result.returncode == -9
-    assert result.lifecycle.complete and result.lifecycle.failures == () and not workers()
+    assert (
+        result.lifecycle.complete and result.lifecycle.failures == () and not workers()
+    )
 
 
 def test_join_oserror_remains_a_defect_over_active_ordinary_failure(api):
@@ -661,7 +728,7 @@ def test_operation_interruption_installed_during_concurrent_shutdown(api):
 
     def join(index, timeout):
         entered.set()
-        proceed.wait(.5)
+        proceed.wait(0.5)
         real_join(index, timeout)
 
     results = []
@@ -669,11 +736,13 @@ def test_operation_interruption_installed_during_concurrent_shutdown(api):
         requester = threading.Thread(target=lambda: results.append(owner.shutdown()))
         requester.start()
         assert entered.wait(1)
-        observer = threading.Thread(target=lambda: results.append(owner.shutdown(primary=primary)))
+        observer = threading.Thread(
+            target=lambda: results.append(owner.shutdown(primary=primary))
+        )
         observer.start()
         limit = time.monotonic() + 1
         while primary not in owner._ledger.interruptions and time.monotonic() < limit:
-            time.sleep(.001)
+            time.sleep(0.001)
         assert primary in owner._ledger.interruptions
         proceed.set()
         requester.join(1)
@@ -686,7 +755,9 @@ def test_operation_interruption_installed_during_concurrent_shutdown(api):
 
 def test_concurrent_operation_interruptions_preserve_first_identity(api):
     child = Child()
-    owner = api.OwnedProcess.launch(["child"], factory=lambda *a, **k: child, grace_seconds=1)
+    owner = api.OwnedProcess.launch(
+        ["child"], factory=lambda *a, **k: child, grace_seconds=1
+    )
     first, second = KeyboardInterrupt("first"), KeyboardInterrupt("second")
     entered, proceed, merged = (threading.Event() for _ in range(3))
     real_join = owner._join_reader
@@ -707,12 +778,21 @@ def test_concurrent_operation_interruptions_preserve_first_identity(api):
             merged.set()
         return real_wait(timeout)
 
-    threads = [threading.Thread(target=request, args=("first", first), name="first-shutdown"),
-               threading.Thread(target=request, args=("second", second), name="second-shutdown")]
-    with mock.patch.object(owner, "_join_reader", join), mock.patch.object(owner._phase_done, "wait", wait):
+    threads = [
+        threading.Thread(target=request, args=("first", first), name="first-shutdown"),
+        threading.Thread(
+            target=request, args=("second", second), name="second-shutdown"
+        ),
+    ]
+    with (
+        mock.patch.object(owner, "_join_reader", join),
+        mock.patch.object(owner._phase_done, "wait", wait),
+    ):
         try:
             threads[0].start()
-            assert entered.wait(1) and child.stdout.attempts == child.stderr.attempts == 0
+            assert (
+                entered.wait(1) and child.stdout.attempts == child.stderr.attempts == 0
+            )
             threads[1].start()
             assert merged.wait(1)
         finally:
@@ -727,27 +807,39 @@ def test_concurrent_operation_interruptions_preserve_first_identity(api):
         assert result.complete and selected(result) is first
         assert failure_errors(result) == (first, second)
     assert secondary(first) == []
-    assert owner.shutdown() == results["first"] and owner.wait_cleanup(.01) == results["first"]
+    assert (
+        owner.shutdown() == results["first"]
+        and owner.wait_cleanup(0.01) == results["first"]
+    )
     assert child.stdout.attempts == child.stderr.attempts == 1
-    assert child.actions.count("terminate") == child.actions.count("wait") == 1 and not workers()
+    assert (
+        child.actions.count("terminate") == child.actions.count("wait") == 1
+        and not workers()
+    )
 
 
 @pytest.mark.parametrize("operation_type", [ValueError, KeyboardInterrupt])
 @pytest.mark.parametrize("close_type", [OSError, RuntimeError])
 @pytest.mark.parametrize("position", [0, 1])
 @pytest.mark.parametrize("context_exit", [False, True])
-def test_deadline_completed_undelivered_primary_refreshes_outcome(api, operation_type, close_type, position, context_exit):
+def test_deadline_completed_undelivered_primary_refreshes_outcome(
+    api, operation_type, close_type, position, context_exit
+):
     operation, close = operation_type("operation"), close_type("close")
     faults = [None, None]
     faults[position] = close
     child = Child(faults)
-    owner = launch(api, child, deadline_seconds=.01)
+    owner = launch(api, child, deadline_seconds=0.01)
     try:
         assert owner._phase_done.wait(1) and owner.wait_cleanup(1).complete
         assert not owner._delivered
         old_status = owner.cleanup_status
         assert selected(old_status) is close
-        expected = operation if operation_type is KeyboardInterrupt or close_type is OSError else close
+        expected = (
+            operation
+            if operation_type is KeyboardInterrupt or close_type is OSError
+            else close
+        )
         displaced = close if expected is operation else operation
         if context_exit:
             with pytest.raises(type(expected)) as caught:
@@ -758,11 +850,13 @@ def test_deadline_completed_undelivered_primary_refreshes_outcome(api, operation
         else:
             result = owner.shutdown(primary=operation)
         assert result.complete and selected(result) is expected
-        assert displaced in failure_errors(result) and expected in failure_errors(result)
+        assert displaced in failure_errors(result) and expected in failure_errors(
+            result
+        )
         assert sum(f.error is displaced for f in result.failures) == 1
         assert secondary(expected) == []
         assert operation.__cause__ is None and close.__cause__ is None
-        assert owner.shutdown() == result and owner.wait_cleanup(.01) == result
+        assert owner.shutdown() == result and owner.wait_cleanup(0.01) == result
         assert old_status.complete and selected(old_status) is close
         assert failure_errors(old_status) == (close,)
         assert child.stdout.attempts == child.stderr.attempts == 1
@@ -775,9 +869,13 @@ def test_deadline_completed_undelivered_primary_refreshes_outcome(api, operation
 
 @pytest.mark.parametrize("operation_type", [ValueError, KeyboardInterrupt])
 @pytest.mark.parametrize("context_exit", [False, True])
-def test_primary_merged_between_status_publication_and_phase_completion(api, operation_type, context_exit):
+def test_primary_merged_between_status_publication_and_phase_completion(
+    api, operation_type, context_exit
+):
     child = Child((OSError("close"), None))
-    owner = api.OwnedProcess.launch(["child"], factory=lambda *a, **k: child, grace_seconds=1)
+    owner = api.OwnedProcess.launch(
+        ["child"], factory=lambda *a, **k: child, grace_seconds=1
+    )
     operation = operation_type("operation")
     published, proceed, merged = (threading.Event() for _ in range(3))
     real_set, real_wait = owner._phase_done.set, owner._phase_done.wait
@@ -805,9 +903,12 @@ def test_primary_merged_between_status_publication_and_phase_completion(api, ope
             results.append(owner.shutdown(primary=operation))
 
     caller = threading.Thread(target=deliver, name="gap-shutdown")
-    with mock.patch.object(owner._phase_done, "set", set_phase_done), mock.patch.object(owner._phase_done, "wait", wait_phase_done):
+    with (
+        mock.patch.object(owner._phase_done, "set", set_phase_done),
+        mock.patch.object(owner._phase_done, "wait", wait_phase_done),
+    ):
         try:
-            owner._deadline = .01
+            owner._deadline = 0.01
             assert published.wait(1)
             old_status = owner.cleanup_status
             assert old_status.complete and selected(old_status) is child.stdout.error
@@ -815,7 +916,10 @@ def test_primary_merged_between_status_publication_and_phase_completion(api, ope
             caller.start()
             assert merged.wait(1)
             with owner._lock:
-                assert operation in owner._ledger.interruptions or owner._ledger.original_primary is operation
+                assert (
+                    operation in owner._ledger.interruptions
+                    or owner._ledger.original_primary is operation
+                )
             assert not owner._phase_done.is_set() and not owner._delivered
             proceed.set()
             caller.join(2)
@@ -832,13 +936,16 @@ def test_primary_merged_between_status_publication_and_phase_completion(api, ope
     assert failure_errors(result) == (operation, child.stdout.error)
     assert secondary(operation) == []
     assert old_status.complete and failure_errors(old_status) == (child.stdout.error,)
-    assert owner.shutdown() == result and owner.wait_cleanup(.01) == result
+    assert owner.shutdown() == result and owner.wait_cleanup(0.01) == result
     assert child.stdout.attempts == child.stderr.attempts == 1
-    assert child.actions.count("terminate") == child.actions.count("wait") == 1 and not workers()
+    assert (
+        child.actions.count("terminate") == child.actions.count("wait") == 1
+        and not workers()
+    )
 
 
 def test_real_deadline_concurrent_shutdown(api):
-    owner = real(api, "import time; time.sleep(10)", deadline_seconds=.05)
+    owner = real(api, "import time; time.sleep(10)", deadline_seconds=0.05)
     ts = [threading.Thread(target=owner.shutdown) for _ in range(4)]
     for t in ts:
         t.start()

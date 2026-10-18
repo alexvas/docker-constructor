@@ -1,4 +1,5 @@
 """Diagnostic policy is isolated from the sole collection's authority."""
+
 import inspect
 import logging
 import threading
@@ -26,7 +27,9 @@ def test_reporter_validation_precedes_all_acquisition():
     assert signature.parameters["reporter"].default is None
     assert tuple(inspect.signature(OwnedProcess.capture).parameters) == ("self",)
     factory = mock.Mock()
-    with mock.patch.object(process, "_prepare_stream", side_effect=AssertionError("prepared too early")):
+    with mock.patch.object(
+        process, "_prepare_stream", side_effect=AssertionError("prepared too early")
+    ):
         with pytest.raises(TypeError):
             OwnedProcess.launch(["child"], reporter=object(), factory=factory)
     factory.assert_not_called()
@@ -65,12 +68,17 @@ def test_structured_reporting_outside_locks_without_rendering_or_retention(kind,
     owner = launch(child, reporter=report)
     owners.append(owner)
     try:
-        result = owner.stream(fail if kind == "chunk" else lambda *a: None,
-                              on_stream_end=fail if kind == "end" else None)
+        result = owner.stream(
+            fail if kind == "chunk" else lambda *a: None,
+            on_stream_end=fail if kind == "end" else None,
+        )
         assert type(result) is ProcessResult and not hasattr(result, "callback_errors")
         assert set(callbacks) == set(stream) and len(callbacks) == 2
         assert len(reports) == 2 and all(exc is error for exc, _ in reports)
-        assert result.stream_outcomes == ((stream.STDOUT, outcome.EOF), (stream.STDERR, outcome.EOF))
+        assert result.stream_outcomes == (
+            (stream.STDOUT, outcome.EOF),
+            (stream.STDERR, outcome.EOF),
+        )
         assert all(f.error is not error for f in result.lifecycle.failures)
         if mode == "cleanup_failure":
             assert result.lifecycle.failures[0].error is close_error
@@ -110,12 +118,17 @@ def test_diagnostic_policy_and_fixed_safe_fallback(caplog, reporter_mode):
         assert len(calls) == len(caplog.records) == 2
         assert len(reports) == (0 if reporter_mode == "default" else 2)
         assert not hasattr(result, "callback_errors")
-        assert all(record.exc_info is None and record.stack_info is None for record in caplog.records)
+        assert all(
+            record.exc_info is None and record.stack_info is None
+            for record in caplog.records
+        )
         if reporter_mode == "raw":
             assert text in caplog.text
         else:
             assert "token" not in caplog.text and ".invalid" not in caplog.text
-            assert "reporter-secret" not in caplog.text and "https://" not in caplog.text
+            assert (
+                "reporter-secret" not in caplog.text and "https://" not in caplog.text
+            )
             assert all(len(record.getMessage()) < 256 for record in caplog.records)
     finally:
         owner.shutdown()
@@ -124,16 +137,23 @@ def test_diagnostic_policy_and_fixed_safe_fallback(caplog, reporter_mode):
 
 @pytest.mark.parametrize("fallback_error", [None, OSError("sink failed")])
 @pytest.mark.parametrize("operation_failure", [False, True])
-def test_reporter_failure_uses_independent_once_only_nonrecursive_fallback(fallback_error, operation_failure):
+def test_reporter_failure_uses_independent_once_only_nonrecursive_fallback(
+    fallback_error, operation_failure
+):
     enums()
-    original, report_error = ValueError("callback secret"), ValueError("reporter secret")
+    original, report_error = (
+        ValueError("callback secret"),
+        ValueError("reporter secret"),
+    )
     reporter = mock.Mock(side_effect=report_error)
     child = Child()
     operation_error = OSError("wait operation")
     if operation_failure:
+
         def fail_wait(timeout=None):
             child.wait_attempts += 1
             raise operation_error
+
         child.wait = fail_wait
     owner = launch(child, reporter=reporter)
 
@@ -141,13 +161,19 @@ def test_reporter_failure_uses_independent_once_only_nonrecursive_fallback(fallb
         raise original
 
     try:
-        with mock.patch.object(process, "_fallback_callback_diagnostic", side_effect=fallback_error) as fallback:
+        with mock.patch.object(
+            process, "_fallback_callback_diagnostic", side_effect=fallback_error
+        ) as fallback:
             result = owner.stream(lambda *a: None, on_stream_end=end)
             if operation_failure:
                 child.wait = lambda timeout=None: child.returncode
         assert reporter.call_count == fallback.call_count == 2
-        assert all(call.args == () and call.kwargs == {} for call in fallback.call_args_list)
-        selected = result.lifecycle.failures[0].error if result.lifecycle.failures else None
+        assert all(
+            call.args == () and call.kwargs == {} for call in fallback.call_args_list
+        )
+        selected = (
+            result.lifecycle.failures[0].error if result.lifecycle.failures else None
+        )
         assert selected is (operation_error if operation_failure else None)
         assert all(f.error is operation_error for f in result.lifecycle.failures)
         assert not hasattr(result, "callback_errors")
@@ -160,10 +186,15 @@ def test_reporter_failure_uses_independent_once_only_nonrecursive_fallback(fallb
 @pytest.mark.parametrize("source", ["callback", "reporter", "fallback"])
 @pytest.mark.parametrize("kind", [KeyboardInterrupt, SystemExit, GeneratorExit])
 @pytest.mark.parametrize("prior_kind", [OSError, KeyboardInterrupt])
-def test_rejected_late_interruption_callbacks_cannot_change_prior_delivery(source, kind, prior_kind):
+def test_rejected_late_interruption_callbacks_cannot_change_prior_delivery(
+    source, kind, prior_kind
+):
     enums()
     prior = prior_kind("earlier operation")
-    first, second = kind("rejected interruption"), SystemExit("rejected second interruption")
+    first, second = (
+        kind("rejected interruption"),
+        SystemExit("rejected second interruption"),
+    )
     child = Child(stderr=Pipe(error=prior))
     reports, calls = [], []
     armed = False
@@ -189,7 +220,11 @@ def test_rejected_late_interruption_callbacks_cannot_change_prior_delivery(sourc
         assert owner.wait_cleanup(1).complete
         status, ledger = owner.cleanup_status, owner._ledger
         notes = tuple(getattr(prior, "__notes__", ()))
-        counters = (child.stdout.read_attempts, child.stderr.read_attempts, child.wait_attempts)
+        counters = (
+            child.stdout.read_attempts,
+            child.stderr.read_attempts,
+            child.wait_attempts,
+        )
         armed = True
 
         def end(identity, terminal):
@@ -198,19 +233,37 @@ def test_rejected_late_interruption_callbacks_cannot_change_prior_delivery(sourc
                 raise first
             raise ValueError("ordinary callback")
 
-        with mock.patch.object(owner, "_shutdown", side_effect=AssertionError("cleanup restarted")), \
-             mock.patch.object(owner, "shutdown", side_effect=AssertionError("shutdown restarted")), \
-             mock.patch.object(owner, "_read_chunk", side_effect=AssertionError("reread")), \
-             mock.patch.object(process, "_fallback_callback_diagnostic", side_effect=[first, second]) as fallback:
+        with (
+            mock.patch.object(
+                owner, "_shutdown", side_effect=AssertionError("cleanup restarted")
+            ),
+            mock.patch.object(
+                owner, "shutdown", side_effect=AssertionError("shutdown restarted")
+            ),
+            mock.patch.object(
+                owner, "_read_chunk", side_effect=AssertionError("reread")
+            ),
+            mock.patch.object(
+                process, "_fallback_callback_diagnostic", side_effect=[first, second]
+            ) as fallback,
+        ):
             with pytest.raises(RuntimeError):
-                owner.stream(lambda *a: pytest.fail("replayed output"), on_stream_end=end)
+                owner.stream(
+                    lambda *a: pytest.fail("replayed output"), on_stream_end=end
+                )
         assert calls == reports == [] and fallback.call_count == 0
-        assert not hasattr(first, "process_result") and not hasattr(prior, "process_result")
+        assert not hasattr(first, "process_result") and not hasattr(
+            prior, "process_result"
+        )
         if original is not None:
             assert original.lifecycle == status
         assert tuple(getattr(prior, "__notes__", ())) == notes
         assert owner.cleanup_status == status and owner._ledger is ledger
-        assert counters == (child.stdout.read_attempts, child.stderr.read_attempts, child.wait_attempts)
+        assert counters == (
+            child.stdout.read_attempts,
+            child.stderr.read_attempts,
+            child.wait_attempts,
+        )
         assert child.stdout.close_attempts == child.stderr.close_attempts == 1
     finally:
         owner.shutdown()
@@ -218,7 +271,9 @@ def test_rejected_late_interruption_callbacks_cannot_change_prior_delivery(sourc
 
 
 @pytest.mark.parametrize("prior_kind", [OSError, KeyboardInterrupt])
-def test_rejected_late_ordinary_callbacks_do_not_report_or_return_fresh_output(prior_kind):
+def test_rejected_late_ordinary_callbacks_do_not_report_or_return_fresh_output(
+    prior_kind,
+):
     enums()
     prior = prior_kind("earlier read")
     child = Child(stderr=Pipe(error=prior))
@@ -237,7 +292,9 @@ def test_rejected_late_ordinary_callbacks_do_not_report_or_return_fresh_output(p
         def end(*args):
             raise error
 
-        with mock.patch.object(owner, "_shutdown", side_effect=AssertionError("cleanup restarted")):
+        with mock.patch.object(
+            owner, "_shutdown", side_effect=AssertionError("cleanup restarted")
+        ):
             with pytest.raises(RuntimeError):
                 owner.stream(lambda *a: pytest.fail("output replay"), on_stream_end=end)
         reporter.assert_not_called()

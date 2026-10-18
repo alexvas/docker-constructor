@@ -179,9 +179,7 @@ class SemanticVersion:
 # ---------------------------------------------------------------------------
 
 
-def _compare_prerelease(
-    a: tuple[str, ...], b: tuple[str, ...]
-) -> int:
+def _compare_prerelease(a: tuple[str, ...], b: tuple[str, ...]) -> int:
     """Compare two prerelease identifier tuples per semver.org precedence.
 
     Returns negative if a < b, 0 if equal, positive if a > b.
@@ -255,13 +253,9 @@ def validate(version: str) -> None:
     """
     v = version.strip()
     if not v or v.lower() in _MOVING_VERSION_TAGS:
-        raise SemverError(
-            f"is a moving tag or empty, not an exact semver: {version!r}"
-        )
+        raise SemverError(f"is a moving tag or empty, not an exact semver: {version!r}")
     if not _SEMVER_RE.match(v):
-        raise SemverError(
-            f"invalid semver: {version!r}"
-        )
+        raise SemverError(f"invalid semver: {version!r}")
 
 
 def parse(version: str) -> SemanticVersion:
@@ -274,14 +268,10 @@ def parse(version: str) -> SemanticVersion:
     """
     v = version.strip()
     if not v or v.lower() in _MOVING_VERSION_TAGS:
-        raise SemverError(
-            f"is a moving tag or empty, not an exact semver: {version!r}"
-        )
+        raise SemverError(f"is a moving tag or empty, not an exact semver: {version!r}")
     m = _PARSE_RE.match(v)
     if not m:
-        raise SemverError(
-            f"invalid semver: {version!r}"
-        )
+        raise SemverError(f"invalid semver: {version!r}")
 
     prerelease_str = m.group("prerelease")
     build_str = m.group("build")
@@ -290,8 +280,6 @@ def parse(version: str) -> SemanticVersion:
         major=int(m.group("major")),
         minor=int(m.group("minor")),
         patch=int(m.group("patch")),
-        prerelease=tuple(prerelease_str.split("."))
-        if prerelease_str
-        else (),
+        prerelease=tuple(prerelease_str.split(".")) if prerelease_str else (),
         build=tuple(build_str.split(".")) if build_str else (),
     )

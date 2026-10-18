@@ -79,7 +79,10 @@ class TestNpmCacheAuthority(unittest.TestCase):
     def test_npm_cache_never_returns_as_authority(self):
         # The namespace DTO exposes the npm cache only as an opaque path;
         # no storage primitive reads from it or derives identity from it.
-        ns_fields = {f.name for f in storage_module.AssemblerNamespace.__dataclass_fields__.values()}
+        ns_fields = {
+            f.name
+            for f in storage_module.AssemblerNamespace.__dataclass_fields__.values()
+        }
         self.assertEqual(
             ns_fields,
             {"root", "npm_cache", "locks", "staging", "outputs", "index"},

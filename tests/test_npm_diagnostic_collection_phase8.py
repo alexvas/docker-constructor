@@ -20,6 +20,7 @@ deliverables:
   without Constructor lifecycle classification, coalescing, or an
   assembler-owned presentation timer.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -170,11 +171,7 @@ class TestCollectorBranch(unittest.TestCase):
         observed: list[int] = []
         live: list[StreamChunk] = []
         limit = DIAGNOSTIC_LINE_LIMIT_BYTES
-        payload = (
-            b"npm notice "
-            + b"word " * ((limit - 11) // 5)
-            + b"DISCARDME" * 2000
-        )
+        payload = b"npm notice " + b"word " * ((limit - 11) // 5) + b"DISCARDME" * 2000
         for index in range(0, len(payload), 1024):
             live.extend(stream.feed_bytes(payload[index : index + 1024]))
             observed.append(stream.pending_line_bytes)
@@ -265,9 +262,7 @@ class TestBoundedTail(unittest.TestCase):
             return lambda size: buffer.read(size)
 
         capture = collect_streams(
-            stdout_read=reader(
-                b"npm error see https://registry.example.com/secret\n"
-            ),
+            stdout_read=reader(b"npm error see https://registry.example.com/secret\n"),
             stderr_read=reader(b""),
             stream_factory=make_stream_factory(()),
             tail_projector=project_tail,
@@ -329,9 +324,7 @@ class TestDiagnosticSelection(unittest.TestCase):
         )
         self.assertEqual(live[0].hostnames, ("a.example",))
         self.assertEqual(live[1].hostnames, ("b.example",))
-        self.assertNotEqual(
-            live[0].url_fingerprints, live[1].url_fingerprints
-        )
+        self.assertNotEqual(live[0].url_fingerprints, live[1].url_fingerprints)
 
     def test_make_stream_factory_wires_on_chunk(self):
         received: list[int] = []
@@ -350,9 +343,7 @@ class TestDiagnosticSelection(unittest.TestCase):
 
     def test_structured_diagnostic_is_the_selection_type(self):
         # npm text must never be offered as a Constructor lifecycle type.
-        self.assertNotIn(
-            "HostPhaseEvent", inspect.getsource(classify_npm_diagnostic)
-        )
+        self.assertNotIn("HostPhaseEvent", inspect.getsource(classify_npm_diagnostic))
         self.assertTrue(issubclass(HostStructuredDiagnostic, object))
 
 
@@ -386,12 +377,8 @@ class TestConsumablePerLineFacts(unittest.TestCase):
         self.assertEqual(chunk.hostnames, ("a.example", "b.example"))
         self.assertEqual(len(chunk.url_fingerprints), 3)
         # Order and repeated occurrences are preserved verbatim.
-        self.assertEqual(
-            chunk.url_fingerprints[0], chunk.url_fingerprints[2]
-        )
-        self.assertNotEqual(
-            chunk.url_fingerprints[0], chunk.url_fingerprints[1]
-        )
+        self.assertEqual(chunk.url_fingerprints[0], chunk.url_fingerprints[2])
+        self.assertNotEqual(chunk.url_fingerprints[0], chunk.url_fingerprints[1])
 
     def test_chunk_boundaries_do_not_change_line_metadata(self):
         identity = SessionUrlIdentity()
@@ -414,11 +401,7 @@ class TestConsumablePerLineFacts(unittest.TestCase):
         stream = NpmDiagnosticStream("stdout", (), fingerprinter=identity)
         line = b"npm warn see https://registry.example.com/pkg/a\n"
         for _ in range(2000):
-            produced = [
-                chunk
-                for chunk in stream.feed_bytes(line)
-                if chunk.finalized
-            ]
+            produced = [chunk for chunk in stream.feed_bytes(line) if chunk.finalized]
             self.assertEqual(len(produced), 1)
             self.assertEqual(produced[0].hostnames, ("registry.example.com",))
             # The projector was drained for the completed line, so no metadata
@@ -462,9 +445,7 @@ class TestConsumablePerLineFacts(unittest.TestCase):
         )
         self.assertNotIn("a.example", stream.tail())
         recovered = [
-            chunk
-            for chunk in finalized
-            if chunk.text.startswith("npm warn see")
+            chunk for chunk in finalized if chunk.text.startswith("npm warn see")
         ]
         self.assertEqual(len(recovered), 1)
         self.assertEqual(recovered[0].hostnames, ("b.example",))
@@ -642,9 +623,7 @@ class TestCollectionAbortFinalization(unittest.TestCase):
 
     @staticmethod
     def _host_path_factory(created):
-        base = make_stream_factory(
-            (), network_url_display=NetworkUrlDisplay.HOST_PATH
-        )
+        base = make_stream_factory((), network_url_display=NetworkUrlDisplay.HOST_PATH)
 
         def factory(stream):
             instance = base(stream)
@@ -675,9 +654,7 @@ class TestCollectionAbortFinalization(unittest.TestCase):
 
         with self.assertRaises(StreamReaderFailure):
             collect_streams(
-                stdout_read=self._blocked_reader(
-                    self._HOST_PATH_PREFIX, fed, release
-                ),
+                stdout_read=self._blocked_reader(self._HOST_PATH_PREFIX, fed, release),
                 stderr_read=read_stderr,
                 sink=delivered.append,
                 stream_factory=self._host_path_factory(created),
@@ -710,9 +687,7 @@ class TestCollectionAbortFinalization(unittest.TestCase):
         timer.start()
         with self.assertRaises(KeyboardInterrupt):
             collect_streams(
-                stdout_read=self._blocked_reader(
-                    self._HOST_PATH_PREFIX, fed, release
-                ),
+                stdout_read=self._blocked_reader(self._HOST_PATH_PREFIX, fed, release),
                 stderr_read=read_stderr,
                 sink=delivered.append,
                 stream_factory=self._host_path_factory(created),
@@ -757,41 +732,27 @@ class TestCommittedPrefixDelivery(unittest.TestCase):
 
     def test_split_utf8_prefix_releases_only_committed_bytes(self):
         stream = NpmDiagnosticStream("stdout")
-        first = "".join(
-            chunk.text for chunk in stream.feed_bytes(b"npm \xe2")
-        )
+        first = "".join(chunk.text for chunk in stream.feed_bytes(b"npm \xe2"))
         self.assertEqual(first, "npm ")
-        second = "".join(
-            chunk.text for chunk in stream.feed_bytes(b"\x82\xac")
-        )
+        second = "".join(chunk.text for chunk in stream.feed_bytes(b"\x82\xac"))
         self.assertEqual(second, "\u20ac")
         self.assertEqual(stream.tail(), "npm \u20ac")
 
     def test_fragmented_terminal_control_releases_only_committed_text(self):
         stream = NpmDiagnosticStream("stdout")
-        first = "".join(
-            chunk.text for chunk in stream.feed_bytes(b"npm \x1b[31")
-        )
+        first = "".join(chunk.text for chunk in stream.feed_bytes(b"npm \x1b[31"))
         self.assertEqual(first, "npm ")
         self.assertNotIn("\x1b", first)
-        second = "".join(
-            chunk.text
-            for chunk in stream.feed_bytes(b"mred\x1b[0m")
-        )
+        second = "".join(chunk.text for chunk in stream.feed_bytes(b"mred\x1b[0m"))
         self.assertEqual(second, r"\x1b[31mred\x1b[0m")
         self.assertNotIn("\x1b", second)
 
     def test_secret_prefix_is_withheld_until_committed(self):
         stream = NpmDiagnosticStream("stdout", ("s3cr3t",))
-        first = "".join(
-            chunk.text for chunk in stream.feed_bytes(b"npm token s3c")
-        )
+        first = "".join(chunk.text for chunk in stream.feed_bytes(b"npm token s3c"))
         self.assertEqual(first, "npm token ")
         self.assertNotIn("s3c", first)
-        second = "".join(
-            chunk.text
-            for chunk in stream.feed_bytes(b"r3t done\n")
-        )
+        second = "".join(chunk.text for chunk in stream.feed_bytes(b"r3t done\n"))
         self.assertIn("<secret>", second)
         self.assertNotIn("s3cr3t", second)
         self.assertNotIn("s3cr3t", stream.tail())
@@ -801,15 +762,11 @@ class TestCommittedPrefixDelivery(unittest.TestCase):
         stream = NpmDiagnosticStream("stdout", (), fingerprinter=identity)
         first = "".join(
             chunk.text
-            for chunk in stream.feed_bytes(
-                b"npm see https://registry.example.com"
-            )
+            for chunk in stream.feed_bytes(b"npm see https://registry.example.com")
         )
         self.assertEqual(first, "npm see <redacted>")
         self.assertNotIn("registry.example.com", first)
-        second = "".join(
-            chunk.text for chunk in stream.feed_bytes(b"/pkg done\n")
-        )
+        second = "".join(chunk.text for chunk in stream.feed_bytes(b"/pkg done\n"))
         self.assertNotIn("registry.example.com", second)
         self.assertIn(_REDACTED, second)
         self.assertNotIn("registry.example.com", stream.tail())
@@ -821,9 +778,7 @@ class TestCommittedPrefixDelivery(unittest.TestCase):
         self.assertEqual(stream.tail(), "npm warn one\n")
         finalized = [chunk for chunk in all_chunks if chunk.finalized]
         self.assertEqual([chunk.text for chunk in finalized], ["npm warn one"])
-        prefixes = "".join(
-            chunk.text for chunk in all_chunks if not chunk.finalized
-        )
+        prefixes = "".join(chunk.text for chunk in all_chunks if not chunk.finalized)
         self.assertEqual(prefixes, "npm warn one")
 
 
@@ -834,14 +789,10 @@ def _feed_prefix_chunks(
     secrets: tuple[str, ...] = (),
 ) -> tuple[NpmDiagnosticStream, list[StreamChunk], str]:
     """Feed *payload* (no newline) and return (stream, chunks, local text)."""
-    stream = NpmDiagnosticStream(
-        "stdout", secrets, network_url_display=mode
-    )
+    stream = NpmDiagnosticStream("stdout", secrets, network_url_display=mode)
     chunks = list(stream.feed_bytes(payload))
     local = "".join(
-        chunk.local_text
-        for chunk in chunks
-        if chunk.local_text is not None
+        chunk.local_text for chunk in chunks if chunk.local_text is not None
     )
     return stream, chunks, local
 
@@ -854,10 +805,7 @@ class TestCommittedPrefixDisplayModes(unittest.TestCase):
     structured/SDK-facing ``text`` stays URL-free in every mode.
     """
 
-    _URL = (
-        "https://user:secret@registry.example.com:8443"
-        "/pkg/-/pkg-1.0.0.tgz?q=1#frag"
-    )
+    _URL = "https://user:secret@registry.example.com:8443/pkg/-/pkg-1.0.0.tgz?q=1#frag"
     _LINE = f"npm error network GET {_URL} failed"
     _HOST_PATH = "registry.example.com/pkg/-/pkg-1.0.0.tgz"
 
@@ -919,14 +867,10 @@ class TestCommittedPrefixDisplayModes(unittest.TestCase):
                     self._LINE.encode(), mode, secrets=("secret",)
                 )
                 presentation_only = [
-                    chunk
-                    for chunk in chunks
-                    if chunk.local_text is not None
+                    chunk for chunk in chunks if chunk.local_text is not None
                 ]
                 self.assertTrue(presentation_only)
-                self.assertTrue(
-                    all(chunk.text == "" for chunk in presentation_only)
-                )
+                self.assertTrue(all(chunk.text == "" for chunk in presentation_only))
                 # Any prefix that advances the safe projection carries no
                 # selected local fragment and no source host/URL.
                 for chunk in chunks:
@@ -983,9 +927,7 @@ class TestCommittedPrefixDisplayModes(unittest.TestCase):
             NetworkUrlDisplay.EXACT,
         ):
             with self.subTest(mode=mode):
-                stream = NpmDiagnosticStream(
-                    "stdout", (), network_url_display=mode
-                )
+                stream = NpmDiagnosticStream("stdout", (), network_url_display=mode)
                 first = list(stream.feed_bytes(b"npm \xe2"))
                 self.assertEqual(
                     "npm ",
@@ -1167,9 +1109,7 @@ class TestCompleteLineConsumers(unittest.TestCase):
         )
         self.assertTrue(chunks)
         self.assertTrue(all(not chunk.finalized for chunk in chunks))
-        self.assertEqual(
-            [chunk for chunk in chunks if chunk.finalized], []
-        )
+        self.assertEqual([chunk for chunk in chunks if chunk.finalized], [])
 
     def test_prefix_then_newline_yields_one_finalized_line(self):
         stream = NpmDiagnosticStream("stdout")
@@ -1183,9 +1123,7 @@ class TestCompleteLineConsumers(unittest.TestCase):
 
     def test_research_fixture_is_one_finalized_event(self):
         identity = SessionUrlIdentity()
-        all_chunks, _tail = _collect_all(
-            [self._FIXTURE], fingerprinter=identity
-        )
+        all_chunks, _tail = _collect_all([self._FIXTURE], fingerprinter=identity)
         finalized = [chunk for chunk in all_chunks if chunk.finalized]
         self.assertEqual(len(finalized), 1)
         text = finalized[0].text
@@ -1245,9 +1183,7 @@ class TestFetchCanonicalizationSecretSafety(unittest.TestCase):
         secrets: tuple[str, ...],
         display: NetworkUrlDisplay,
     ) -> tuple[StreamChunk, str]:
-        stream = NpmDiagnosticStream(
-            "stdout", secrets, network_url_display=display
-        )
+        stream = NpmDiagnosticStream("stdout", secrets, network_url_display=display)
         chunks = list(stream.feed_bytes((line + "\n").encode("utf-8")))
         chunks.extend(stream.finish())
         finalized = [chunk for chunk in chunks if chunk.finalized]
@@ -1286,9 +1222,7 @@ class TestFetchCanonicalizationSecretSafety(unittest.TestCase):
             with self.subTest(display=display, field="attempt"):
                 self._assert_falls_back(self._line(attempt=3), "#3", display)
             with self.subTest(display=display, field="substring"):
-                self._assert_falls_back(
-                    self._line(cache="topsecret"), "sec", display
-                )
+                self._assert_falls_back(self._line(cache="topsecret"), "sec", display)
 
     def test_exact_cache_token_secret_falls_back_in_every_mode(self):
         for display in (NetworkUrlDisplay.REDACTED, NetworkUrlDisplay.HOST_PATH):
@@ -1347,9 +1281,7 @@ class TestOverflowBoundaryTagging(unittest.TestCase):
         self.assertNotIn("DISCARDED", finalized[0].text)
         # Recovery: the following complete line is an ordinary diagnostic.
         recovered = [
-            chunk
-            for chunk in stream.feed_bytes(b"npm warn ok\n")
-            if chunk.finalized
+            chunk for chunk in stream.feed_bytes(b"npm warn ok\n") if chunk.finalized
         ]
         self.assertEqual(1, len(recovered))
         self.assertFalse(recovered[0].overflowed)
@@ -1357,9 +1289,7 @@ class TestOverflowBoundaryTagging(unittest.TestCase):
     def test_source_text_containing_the_marker_is_not_an_overflow(self):
         stream = NpmDiagnosticStream("stdout")
         payload = f"npm warn {OVERSIZED_DIAGNOSTIC_MARKER}\n".encode()
-        finalized = [
-            chunk for chunk in stream.feed_bytes(payload) if chunk.finalized
-        ]
+        finalized = [chunk for chunk in stream.feed_bytes(payload) if chunk.finalized]
         self.assertEqual(1, len(finalized))
         self.assertFalse(finalized[0].overflowed)
 
@@ -1386,9 +1316,7 @@ class TestOverflowFinalization(unittest.TestCase):
         limit = DIAGNOSTIC_LINE_LIMIT_BYTES
         prefix = b"pad " * (limit // 4)
         stream.feed_bytes(prefix + b"DISCARDED" * 100)
-        finalized = [
-            chunk for chunk in stream.finish() if chunk.finalized
-        ]
+        finalized = [chunk for chunk in stream.finish() if chunk.finalized]
         self.assertEqual(1, len(finalized))
         self.assertTrue(finalized[0].overflowed)
         self.assertEqual(stream.tail().count(OVERSIZED_DIAGNOSTIC_MARKER), 1)
@@ -1410,9 +1338,7 @@ class TestIncrementalFetchRecognition(unittest.TestCase):
     _RAW = _LINE.encode() + b"\n"
 
     def _stream(self, *, secrets=(), display=NetworkUrlDisplay.REDACTED):
-        return NpmDiagnosticStream(
-            "stdout", secrets, network_url_display=display
-        )
+        return NpmDiagnosticStream("stdout", secrets, network_url_display=display)
 
     def _finalize(
         self,
@@ -1460,9 +1386,7 @@ class TestIncrementalFetchRecognition(unittest.TestCase):
     def test_fragmented_fetch_line_groups_in_redacted(self):
         stream, _chunks, chunk = self._finalize(self._RAW, chunk_size=1)
         self.assertIsNotNone(chunk.fetch_key)
-        self.assertEqual(
-            NetworkUrlDisplay.REDACTED, chunk.fetch_key.display
-        )
+        self.assertEqual(NetworkUrlDisplay.REDACTED, chunk.fetch_key.display)
         self.assertEqual(
             "npm http fetch GET 200 <redacted> (cache miss)",
             chunk.fetch_text,
@@ -1475,9 +1399,7 @@ class TestIncrementalFetchRecognition(unittest.TestCase):
             self._RAW, display=NetworkUrlDisplay.HOST_PATH, chunk_size=1
         )
         self.assertIsNotNone(chunk.fetch_key)
-        self.assertEqual(
-            NetworkUrlDisplay.HOST_PATH, chunk.fetch_key.display
-        )
+        self.assertEqual(NetworkUrlDisplay.HOST_PATH, chunk.fetch_key.display)
         self.assertEqual(
             "npm http fetch GET 200 "
             "registry.npmjs.org/pkg/-/pkg-1.0.0.tgz (cache miss)",
@@ -1502,8 +1424,7 @@ class TestIncrementalFetchRecognition(unittest.TestCase):
             return value
         if isinstance(value, (list, tuple, set, frozenset)):
             return "".join(
-                TestIncrementalFetchRecognition._state_text(item)
-                for item in value
+                TestIncrementalFetchRecognition._state_text(item) for item in value
             )
         if isinstance(value, dict):
             return "".join(
@@ -1527,10 +1448,7 @@ class TestIncrementalFetchRecognition(unittest.TestCase):
     def test_parser_state_never_retains_credentials_query_or_fragment(self):
         from docker.versioning.npm_fetch import NpmFetchRecognizer
 
-        url = (
-            "https://credname:credsecret@example.com/secretpath"
-            "?token=credq#credf"
-        )
+        url = "https://credname:credsecret@example.com/secretpath?token=credq#credf"
         line = f"npm http fetch GET 200 {url} 15ms"
         always_forbidden = (
             "credsecret",
@@ -1554,9 +1472,7 @@ class TestIncrementalFetchRecognition(unittest.TestCase):
                         recognizer.feed(line[start : start + chunk_size])
                         retained = self._retained_state_strings(recognizer)
                         for fragment in always_forbidden:
-                            self.assertNotIn(
-                                fragment, retained, (chunk_size, start)
-                            )
+                            self.assertNotIn(fragment, retained, (chunk_size, start))
                         if "credname:credsecret@" in line[: start + chunk_size]:
                             self.assertNotIn("credname", retained)
                 record = recognizer.finish()
@@ -1572,8 +1488,7 @@ class TestIncrementalFetchRecognition(unittest.TestCase):
 
     def test_split_secret_in_a_source_field_disables_grouping(self):
         payload = (
-            b"npm http fetch GET 200 "
-            b"https://example.com/x 15ms (cache topsecret)\n"
+            b"npm http fetch GET 200 https://example.com/x 15ms (cache topsecret)\n"
         )
         for display in (NetworkUrlDisplay.REDACTED, NetworkUrlDisplay.HOST_PATH):
             with self.subTest(display=display):
@@ -1640,9 +1555,7 @@ class TestIncrementalFetchRecognition(unittest.TestCase):
         self.assertIsNone(finalized[0].fetch_key)
         self.assertIsNone(finalized[0].fetch_text)
         # Parser state is discarded at the boundary: the next valid line groups.
-        recovered = [
-            chunk for chunk in stream.feed_bytes(self._RAW) if chunk.finalized
-        ]
+        recovered = [chunk for chunk in stream.feed_bytes(self._RAW) if chunk.finalized]
         self.assertEqual(1, len(recovered))
         self.assertIsNotNone(recovered[0].fetch_key)
         self.assertFalse(recovered[0].overflowed)
@@ -1677,8 +1590,7 @@ class TestIncrementalFetchRecognition(unittest.TestCase):
         prefixes = "".join(
             stream_chunk.local_text or ""
             for stream_chunk in chunks
-            if not stream_chunk.finalized
-            and stream_chunk.local_text is not None
+            if not stream_chunk.finalized and stream_chunk.local_text is not None
         )
         self.assertEqual(chunk.local_text, prefixes)
         self.assertEqual(chunk.local_text + "\n", stream.tail())
@@ -1702,9 +1614,7 @@ class TestIncrementalFetchRecognition(unittest.TestCase):
         # Aborted EOF keeps a complete URL fail-closed.
         stream = self._stream(display=NetworkUrlDisplay.HOST_PATH)
         stream.feed_bytes(b"hello https://example.com/path")
-        finalized = [
-            chunk for chunk in stream.finish(abort=True) if chunk.finalized
-        ]
+        finalized = [chunk for chunk in stream.finish(abort=True) if chunk.finalized]
         self.assertEqual(1, len(finalized))
         self.assertIn(INCOMPLETE_TOKEN_MARKER, finalized[0].local_text)
 

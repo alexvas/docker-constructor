@@ -95,9 +95,7 @@ def _is_package_placement(path: str) -> bool:
     return True
 
 
-def _dependency_candidate_paths(
-    declaring_path: str, name: str
-) -> tuple[str, ...]:
+def _dependency_candidate_paths(declaring_path: str, name: str) -> tuple[str, ...]:
     """Return npm-style ``node_modules`` lookup paths for *name*.
 
     Node resolves a dependency declared by a package at lock path *P* by
@@ -158,9 +156,7 @@ def _resolve_dependency(
     )
 
 
-def _validate_bin_targets(
-    validated: ValidatedAssemblyInput, root: Path
-) -> None:
+def _validate_bin_targets(validated: ValidatedAssemblyInput, root: Path) -> None:
     """Validate every preserved reviewed-root executable declaration.
 
     Each ``bin`` target is resolved relative to its package lock path, then

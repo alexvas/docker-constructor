@@ -1,4 +1,5 @@
 """One collection claim and launch/value-failure boundaries (Phase 6BC.7)."""
+
 import io
 import threading
 
@@ -42,14 +43,19 @@ class Child:
 
 
 def launch(child, **kwargs):
-    return process.OwnedProcess.launch(["fixture"], factory=lambda *a, **kw: child, grace_seconds=.2, **kwargs)
+    return process.OwnedProcess.launch(
+        ["fixture"], factory=lambda *a, **kw: child, grace_seconds=0.2, **kwargs
+    )
 
 
 def collect(owner, method, events=None):
     if method == "capture":
         return owner.capture()
     events = [] if events is None else events
-    return owner.stream(lambda *event: events.append(event), on_stream_end=lambda *event: events.append(event))
+    return owner.stream(
+        lambda *event: events.append(event),
+        on_stream_end=lambda *event: events.append(event),
+    )
 
 
 def settle(owner):
@@ -79,8 +85,12 @@ def test_reject_repeated_and_mixed_collection_without_work(first, second):
 
 @pytest.mark.parametrize("method", ["capture", "stream"])
 @pytest.mark.parametrize("position", [0, 1])
-@pytest.mark.parametrize("error", [OSError("ordinary release"), RuntimeError("unexpected release")])
-def test_failure_is_returned_as_value_and_cannot_be_recollected(method, position, error):
+@pytest.mark.parametrize(
+    "error", [OSError("ordinary release"), RuntimeError("unexpected release")]
+)
+def test_failure_is_returned_as_value_and_cannot_be_recollected(
+    method, position, error
+):
     child = Child(error=error, position=position)
     owner = launch(child)
     try:
@@ -91,14 +101,16 @@ def test_failure_is_returned_as_value_and_cannot_be_recollected(method, position
         assert result.lifecycle.complete
         selected = result.lifecycle.failures[0]
         assert selected.error is error
-        assert selected.kind.name == ("ORDINARY" if isinstance(error, OSError) else "UNEXPECTED")
+        assert selected.kind.name == (
+            "ORDINARY" if isinstance(error, OSError) else "UNEXPECTED"
+        )
         assert selected.phase.name == "RELEASE"
         assert selected.stream is tuple(process.ProcessStream)[position]
         assert not hasattr(error, "process_result")
         notes = tuple(getattr(error, "__notes__", ()))
         with pytest.raises(RuntimeError):
             collect(owner, method)
-        late = owner.wait_cleanup(.1)
+        late = owner.wait_cleanup(0.1)
         assert late.complete and late.failures[0].error is error
         assert tuple(getattr(error, "__notes__", ())) == notes
         assert child.stdout.close_calls == child.stderr.close_calls == 1
@@ -107,8 +119,18 @@ def test_failure_is_returned_as_value_and_cannot_be_recollected(method, position
 
 
 @pytest.mark.parametrize("method", ["capture", "stream"])
-@pytest.mark.parametrize("error", [KeyboardInterrupt("first"), SystemExit(3), GeneratorExit(), BaseException("control")])
-def test_interruption_claim_is_terminal_and_has_no_generic_output_snapshot(method, error):
+@pytest.mark.parametrize(
+    "error",
+    [
+        KeyboardInterrupt("first"),
+        SystemExit(3),
+        GeneratorExit(),
+        BaseException("control"),
+    ],
+)
+def test_interruption_claim_is_terminal_and_has_no_generic_output_snapshot(
+    method, error
+):
     child = Child(error=error)
     owner = launch(child)
     try:
@@ -122,7 +144,7 @@ def test_interruption_claim_is_terminal_and_has_no_generic_output_snapshot(metho
             collect(owner, "stream", events)
         assert events == []
         assert child.stdout.close_calls == child.stderr.close_calls == 1
-        status = owner.wait_cleanup(.1)
+        status = owner.wait_cleanup(0.1)
         assert status.complete and status.failures[0].error is error
     finally:
         settle(owner)
@@ -161,14 +183,26 @@ def test_late_cleanup_is_a_new_observation_not_a_changed_collection_value():
         result = owner.capture()
         assert started.is_set()
         assert not result.lifecycle.complete
-        saved = (result.stdout, result.stderr, result.returncode, result.lifecycle, result.stream_outcomes)
+        saved = (
+            result.stdout,
+            result.stderr,
+            result.returncode,
+            result.lifecycle,
+            result.stream_outcomes,
+        )
         failures = result.lifecycle.failures
         assert all(f.error is not error for f in failures)
         notes = [tuple(getattr(f.error, "__notes__", ())) for f in failures]
         resume.set()
         late = owner.wait_cleanup(1)
         assert late.complete and any(f.error is error for f in late.failures)
-        assert saved == (result.stdout, result.stderr, result.returncode, result.lifecycle, result.stream_outcomes)
+        assert saved == (
+            result.stdout,
+            result.stderr,
+            result.returncode,
+            result.lifecycle,
+            result.stream_outcomes,
+        )
         assert notes == [tuple(getattr(f.error, "__notes__", ())) for f in failures]
         with pytest.raises(RuntimeError):
             owner.capture()
@@ -192,7 +226,7 @@ def test_factory_failure_after_preparation_returns_same_owner(monkeypatch, metho
         raise error
 
     monkeypatch.setattr(process, "_make_continuation", continuation)
-    owner = process.OwnedProcess.launch(["fixture"], factory=factory, grace_seconds=.2)
+    owner = process.OwnedProcess.launch(["fixture"], factory=factory, grace_seconds=0.2)
     try:
         assert owner is prepared[0]
         result = collect(owner, method)
@@ -207,7 +241,9 @@ def test_factory_failure_after_preparation_returns_same_owner(monkeypatch, metho
 
 
 @pytest.mark.parametrize("position", [0, 1])
-def test_setup_failure_returns_prepared_owner_and_releases_independently(monkeypatch, position):
+def test_setup_failure_returns_prepared_owner_and_releases_independently(
+    monkeypatch, position
+):
     error = OSError("transfer")
     prepared = []
     transfer = process.OwnedProcess._transfer
@@ -227,7 +263,10 @@ def test_setup_failure_returns_prepared_owner_and_releases_independently(monkeyp
         result = owner.capture()
         assert result.lifecycle.failures[0].error is error
         assert result.lifecycle.failures[0].phase.name == "SETUP"
-        assert result.lifecycle.failures[0].stream is tuple(process.ProcessStream)[position]
+        assert (
+            result.lifecycle.failures[0].stream
+            is tuple(process.ProcessStream)[position]
+        )
         assert child.stdout.close_calls == child.stderr.close_calls == 1
     finally:
         settle(owner)
@@ -243,18 +282,26 @@ def test_preparation_failure_raises_before_acquisition(monkeypatch, seam):
 
     monkeypatch.setattr(process, seam, fail)
     with pytest.raises(RuntimeError) as caught:
-        process.OwnedProcess.launch(["fixture"], factory=lambda *a, **kw: launched.append(True))
+        process.OwnedProcess.launch(
+            ["fixture"], factory=lambda *a, **kw: launched.append(True)
+        )
     assert caught.value is error
     assert not hasattr(error, "process_result")
     assert launched == []
 
 
-@pytest.mark.parametrize("seam,position", [
-    ("_make_reader", 0), ("_make_reader", 1),
-    ("_configure_reader", 0), ("_configure_reader", 1),
-    ("_start_reader", 0), ("_start_reader", 1),
-    ("_start_supervisor", None),
-])
+@pytest.mark.parametrize(
+    "seam,position",
+    [
+        ("_make_reader", 0),
+        ("_make_reader", 1),
+        ("_configure_reader", 0),
+        ("_configure_reader", 1),
+        ("_start_reader", 0),
+        ("_start_reader", 1),
+        ("_start_supervisor", None),
+    ],
+)
 def test_ordinary_reader_setup_failure_is_a_value(monkeypatch, seam, position):
     error = OSError("reader setup")
     original = getattr(process.OwnedProcess, seam)
@@ -272,7 +319,9 @@ def test_ordinary_reader_setup_failure_is_a_value(monkeypatch, seam, position):
         assert result.lifecycle.complete
         failure = result.lifecycle.failures[0]
         assert failure.error is error and failure.phase.name == "SETUP"
-        expected = tuple(process.ProcessStream)[position] if position is not None else None
+        expected = (
+            tuple(process.ProcessStream)[position] if position is not None else None
+        )
         assert failure.stream is expected
         assert child.stdout.close_calls == child.stderr.close_calls == 1
         assert not hasattr(error, "process_result")
@@ -287,9 +336,23 @@ def test_validation_failure_does_not_launch_or_fabricate_owner():
     assert called == []
 
 
-@pytest.mark.parametrize("first,second", [("capture", "capture"), ("capture", "stream"), ("stream", "capture"), ("stream", "stream")])
-def test_racing_loser_is_rejected_before_waiting_or_callbacks(monkeypatch, first, second):
-    entered, resume, loser_done = threading.Event(), threading.Event(), threading.Event()
+@pytest.mark.parametrize(
+    "first,second",
+    [
+        ("capture", "capture"),
+        ("capture", "stream"),
+        ("stream", "capture"),
+        ("stream", "stream"),
+    ],
+)
+def test_racing_loser_is_rejected_before_waiting_or_callbacks(
+    monkeypatch, first, second
+):
+    entered, resume, loser_done = (
+        threading.Event(),
+        threading.Event(),
+        threading.Event(),
+    )
     child = Child()
     owner = launch(child)
     results, errors, loser_errors, events = [], [], [], []
@@ -324,7 +387,7 @@ def test_racing_loser_is_rejected_before_waiting_or_callbacks(monkeypatch, first
         two.start()
         # The loser must reject while the winner remains blocked, not queue
         # behind an operation lock and later become another subscription.
-        assert loser_done.wait(.2), "racing collection waited instead of rejecting"
+        assert loser_done.wait(0.2), "racing collection waited instead of rejecting"
         assert len(loser_errors) == 1 and isinstance(loser_errors[0], RuntimeError)
         assert events == []
     finally:
@@ -371,7 +434,7 @@ def test_racing_loser_does_not_wait_on_lifecycle_state_lock(monkeypatch):
         owner._lock.acquire()
         locked = True
         loser.start()
-        assert rejected.wait(.2), "usage rejection waited on lifecycle publication"
+        assert rejected.wait(0.2), "usage rejection waited on lifecycle publication"
     finally:
         if locked:
             owner._lock.release()
@@ -383,9 +446,13 @@ def test_racing_loser_does_not_wait_on_lifecycle_state_lock(monkeypatch):
     assert failures == [] and not winner.is_alive() and not loser.is_alive()
 
 
-@pytest.mark.parametrize("primary", [ValueError("active body"), KeyboardInterrupt("active body")])
+@pytest.mark.parametrize(
+    "primary", [ValueError("active body"), KeyboardInterrupt("active body")]
+)
 @pytest.mark.parametrize("close_error", [OSError("release"), RuntimeError("release")])
-def test_context_before_collection_delivery_still_installs_active_primary(monkeypatch, primary, close_error):
+def test_context_before_collection_delivery_still_installs_active_primary(
+    monkeypatch, primary, close_error
+):
     entered, resume = threading.Event(), threading.Event()
     child = Child(error=close_error)
     owner = launch(child)
@@ -405,7 +472,11 @@ def test_context_before_collection_delivery_still_installs_active_primary(monkey
 
     monkeypatch.setattr(process.OwnedProcess, "_collect", blocked)
     worker = threading.Thread(target=collect_in_thread)
-    expected = primary if not isinstance(primary, Exception) or isinstance(close_error, OSError) else close_error
+    expected = (
+        primary
+        if not isinstance(primary, Exception) or isinstance(close_error, OSError)
+        else close_error
+    )
     try:
         worker.start()
         assert entered.wait(1) and not owner._collection_delivered

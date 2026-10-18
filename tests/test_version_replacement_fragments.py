@@ -6,6 +6,7 @@ shared-block combination, load-inventory round trips, and multi-platform
 artifact retention.  They construct results directly (no network) and never
 touch provider discovery, classification, or JSON serialization.
 """
+
 from __future__ import annotations
 
 import base64
@@ -77,24 +78,34 @@ def _all_family_results() -> list[UpdateResult]:
     node_digest = "sha256:" + _sha256("node")
     return [
         _outdated(
-            "build.stages.base.node", "docker-registry", "24-trixie-slim",
-            node_digest, kind=UpdateKind.DIGEST_REFRESH, digest=node_digest,
+            "build.stages.base.node",
+            "docker-registry",
+            "24-trixie-slim",
+            node_digest,
+            kind=UpdateKind.DIGEST_REFRESH,
+            digest=node_digest,
         ),
         _outdated("build.stages.toolchain.rust", "rust-channel", "1.0.0", "1.1.0"),
         _outdated(
-            "build.stages.toolchain.rust.rustup", "static-url",
+            "build.stages.toolchain.rust.rustup",
+            "static-url",
             "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-            _sha256("rustup"), kind=UpdateKind.DIGEST_REFRESH,
+            _sha256("rustup"),
+            kind=UpdateKind.DIGEST_REFRESH,
             artifacts={
                 "linux-amd64": CandidateArtifact(
-                    platform="linux-amd64", name="rustup-init",
+                    platform="linux-amd64",
+                    name="rustup-init",
                     url="https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init",
                     sha256=_sha256("rustup"),
                 ),
             },
         ),
         _outdated(
-            "build.stages.toolchain.uv", "github-release", "0.1.0", "0.2.0",
+            "build.stages.toolchain.uv",
+            "github-release",
+            "0.1.0",
+            "0.2.0",
             artifacts={
                 "linux-amd64": CandidateArtifact(
                     platform="linux-amd64",
@@ -107,20 +118,28 @@ def _all_family_results() -> list[UpdateResult]:
         _outdated("build.stages.toolchain.python", "uv-python", "3.14.6", "3.15.0"),
         _outdated("build.stages.toolchain.ty", "pypi", "0.0.61", "0.0.62"),
         _outdated(
-            "build.stages.rtk-prebuilt.rtk", "github-release", "v0.43.0", "v0.44.0",
+            "build.stages.rtk-prebuilt.rtk",
+            "github-release",
+            "v0.43.0",
+            "v0.44.0",
             artifacts={
                 "linux-amd64": CandidateArtifact(
-                    platform="linux-amd64", name="rtk_amd64.deb",
+                    platform="linux-amd64",
+                    name="rtk_amd64.deb",
                     url="https://github.com/rtk-ai/rtk/releases/download/v0.44.0/rtk_amd64.deb",
                     sha256=_sha256("rtk"),
                 ),
             },
         ),
         _outdated(
-            "build.stages.fd-prebuilt.fd", "github-release", "v10.4.2", "v10.5.0",
+            "build.stages.fd-prebuilt.fd",
+            "github-release",
+            "v10.4.2",
+            "v10.5.0",
             artifacts={
                 "linux-amd64": CandidateArtifact(
-                    platform="linux-amd64", name="fd_10.5.0_amd64.deb",
+                    platform="linux-amd64",
+                    name="fd_10.5.0_amd64.deb",
                     url="https://github.com/sharkdp/fd/releases/download/v10.5.0/fd_10.5.0_amd64.deb",
                     sha256=_sha256("fd"),
                 ),
@@ -129,57 +148,84 @@ def _all_family_results() -> list[UpdateResult]:
         _outdated("build.stages.pi-tools.pi", "npm", "0.80.10", "0.81.0"),
         _outdated("build.stages.openspec-tools.openspec", "npm", "1.6.0", "1.7.0"),
         _outdated(
-            "build.stages.runtime.oh-my-zsh", "git-ref",
-            "70ad5e3df8f7bed68aa6672029496926e632aedd", "b" * 40,
+            "build.stages.runtime.oh-my-zsh",
+            "git-ref",
+            "70ad5e3df8f7bed68aa6672029496926e632aedd",
+            "b" * 40,
             kind=UpdateKind.REVISION,
         ),
         _outdated(
-            "runtime.pi-extensions.highlight-js", "npm", "10.7.2", "10.7.3",
+            "runtime.pi-extensions.highlight-js",
+            "npm",
+            "10.7.2",
+            "10.7.3",
             artifacts={
                 "10.7.3": CandidateArtifact(
-                    platform="10.7.3", name="highlight.js",
+                    platform="10.7.3",
+                    name="highlight.js",
                     url="https://registry.npmjs.org/highlight.js/-/highlight.js-10.7.3.tgz",
-                    sha256=None, integrity=_sri(b"h" * 64),
+                    sha256=None,
+                    integrity=_sri(b"h" * 64),
                 ),
             },
         ),
         _outdated(
-            "runtime.pi-extensions.pi-read", "npm", "0.2.0", "0.3.0",
+            "runtime.pi-extensions.pi-read",
+            "npm",
+            "0.2.0",
+            "0.3.0",
             artifacts={
                 "0.3.0": CandidateArtifact(
-                    platform="0.3.0", name="pi-read",
+                    platform="0.3.0",
+                    name="pi-read",
                     url="https://registry.npmjs.org/@arcanemachine/pi-read/-/pi-read-0.3.0.tgz",
-                    sha256=None, integrity=_sri(b"n" * 64),
+                    sha256=None,
+                    integrity=_sri(b"n" * 64),
                 ),
             },
         ),
         _outdated(
-            "runtime.pi-extensions.pi-tui-kit", "npm", "0.49.1", "0.49.3",
+            "runtime.pi-extensions.pi-tui-kit",
+            "npm",
+            "0.49.1",
+            "0.49.3",
             artifacts={
                 "0.49.3": CandidateArtifact(
-                    platform="0.49.3", name="pi-tui-kit",
+                    platform="0.49.3",
+                    name="pi-tui-kit",
                     url="https://registry.npmjs.org/@narumitw/pi-tui-kit/-/pi-tui-kit-0.49.3.tgz",
-                    sha256=None, integrity=_sri(b"t" * 64),
+                    sha256=None,
+                    integrity=_sri(b"t" * 64),
                 ),
             },
         ),
         _outdated(
-            "runtime.pi-extensions.pi-usage", "npm", "0.52.3", "0.53.0",
+            "runtime.pi-extensions.pi-usage",
+            "npm",
+            "0.52.3",
+            "0.53.0",
             artifacts={
                 "0.53.0": CandidateArtifact(
-                    platform="0.53.0", name="pi-usage",
+                    platform="0.53.0",
+                    name="pi-usage",
                     url="https://registry.npmjs.org/@narumitw/pi-usage/-/pi-usage-0.53.0.tgz",
-                    sha256=None, integrity=_sri(b"o" * 64),
+                    sha256=None,
+                    integrity=_sri(b"o" * 64),
                 ),
             },
         ),
         _outdated(
-            "runtime.pi-extensions.pi-proxy", "npm", "1.0.0", "1.1.0",
+            "runtime.pi-extensions.pi-proxy",
+            "npm",
+            "1.0.0",
+            "1.1.0",
             artifacts={
                 "1.1.0": CandidateArtifact(
-                    platform="1.1.0", name="pi-proxy",
+                    platform="1.1.0",
+                    name="pi-proxy",
                     url="https://registry.npmjs.org/pi-proxy/-/pi-proxy-1.1.0.tgz",
-                    sha256=None, integrity=_sri(b"p" * 64),
+                    sha256=None,
+                    integrity=_sri(b"p" * 64),
                 ),
             },
         ),
@@ -201,7 +247,7 @@ def _delete_path(root: dict, segments: tuple[str, ...]) -> None:
     del node[segments[-1]]
 
 
-_DOTTED_EXT_TOML = '''
+_DOTTED_EXT_TOML = """
 [runtime.pi-extensions."foo.bar"]
 version = "1.0.0"
 
@@ -224,7 +270,7 @@ scheme = "numeric"
 
 [runtime.pi-extensions."foo.bar".validation]
 metadata_file = "package.json"
-'''
+"""
 
 
 class TestCanonicalFragmentRendering(unittest.TestCase):
@@ -239,12 +285,16 @@ class TestCanonicalFragmentRendering(unittest.TestCase):
         new_sha = _sha256("uv")
         results = [
             _outdated(
-                "build.stages.toolchain.uv", "github-release", "0.1.0", "0.2.0",
+                "build.stages.toolchain.uv",
+                "github-release",
+                "0.1.0",
+                "0.2.0",
                 artifacts={
                     "linux-amd64": CandidateArtifact(
                         platform="linux-amd64",
                         name="uv-x86_64-unknown-linux-gnu.tar.gz",
-                        url=new_url, sha256=new_sha,
+                        url=new_url,
+                        sha256=new_sha,
                     ),
                 },
             ),
@@ -280,20 +330,29 @@ class TestCanonicalFragmentRendering(unittest.TestCase):
         second = render_replacement_fragments(raw, targets, results)
         self.assertEqual(first, second)
         # Complete block: version overlaid, source/update retained.
-        self.assertIn("[build.stages.toolchain.ty]\nversion = \"0.0.62\"", first)
-        self.assertIn("[build.stages.toolchain.ty.source]\npackage = \"ty\"\ntype = \"pypi\"", first)
-        self.assertIn("[build.stages.toolchain.ty.update]\nprovider = \"pypi\"\nstable_only = true", first)
+        self.assertIn('[build.stages.toolchain.ty]\nversion = "0.0.62"', first)
+        self.assertIn(
+            '[build.stages.toolchain.ty.source]\npackage = "ty"\ntype = "pypi"', first
+        )
+        self.assertIn(
+            '[build.stages.toolchain.ty.update]\nprovider = "pypi"\nstable_only = true',
+            first,
+        )
 
     def test_rust_block_renders_array_and_nested_rustup(self) -> None:
         raw, _, targets = _raw_and_targets()
-        results = [_outdated("build.stages.toolchain.rust", "rust-channel", "1.0.0", "1.1.0")]
+        results = [
+            _outdated("build.stages.toolchain.rust", "rust-channel", "1.0.0", "1.1.0")
+        ]
         text = render_replacement_fragments(raw, targets, results)
         self.assertIn('components = ["rustfmt", "clippy"]', text)
         self.assertIn('profile = "minimal"', text)
         self.assertIn('version = "1.1.0"', text)
         # Nested rustup tables retained with full canonical paths.
         self.assertIn("[build.stages.toolchain.rust.rustup.source]", text)
-        self.assertIn("[build.stages.toolchain.rust.rustup.artifacts.linux-amd64]", text)
+        self.assertIn(
+            "[build.stages.toolchain.rust.rustup.artifacts.linux-amd64]", text
+        )
 
     def test_dotted_extension_name_is_quoted_and_round_trips(self) -> None:
         raw = tomllib.loads(minimal_toml() + _DOTTED_EXT_TOML)
@@ -301,12 +360,17 @@ class TestCanonicalFragmentRendering(unittest.TestCase):
         targets = build_update_targets(inventory)
         results = [
             _outdated(
-                "runtime.pi-extensions.foo.bar", "npm", "1.0.0", "1.1.0",
+                "runtime.pi-extensions.foo.bar",
+                "npm",
+                "1.0.0",
+                "1.1.0",
                 artifacts={
                     "1.1.0": CandidateArtifact(
-                        platform="1.1.0", name="foo.bar",
+                        platform="1.1.0",
+                        name="foo.bar",
                         url="https://registry.npmjs.org/foo.bar/-/foo.bar-1.1.0.tgz",
-                        sha256=None, integrity=_sri(b"q" * 64),
+                        sha256=None,
+                        integrity=_sri(b"q" * 64),
                     ),
                 },
             ),
@@ -334,12 +398,15 @@ class TestSharedRustBlock(unittest.TestCase):
         results = [
             _outdated("build.stages.toolchain.rust", "rust-channel", "1.0.0", "1.1.0"),
             _outdated(
-                "build.stages.toolchain.rust.rustup", "static-url",
+                "build.stages.toolchain.rust.rustup",
+                "static-url",
                 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-                rustup_sha, kind=UpdateKind.DIGEST_REFRESH,
+                rustup_sha,
+                kind=UpdateKind.DIGEST_REFRESH,
                 artifacts={
                     "linux-amd64": CandidateArtifact(
-                        platform="linux-amd64", name="rustup-init",
+                        platform="linux-amd64",
+                        name="rustup-init",
                         url="https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init",
                         sha256=rustup_sha,
                     ),
@@ -352,7 +419,8 @@ class TestSharedRustBlock(unittest.TestCase):
         self.assertEqual(owner, "build.stages.toolchain.rust")
         self.assertEqual(block["version"], "1.1.0")
         self.assertEqual(
-            block["rustup"]["artifacts"]["linux-amd64"]["sha256"], rustup_sha,
+            block["rustup"]["artifacts"]["linux-amd64"]["sha256"],
+            rustup_sha,
         )
 
         text = render_replacement_fragments(raw, targets, results)
@@ -439,7 +507,10 @@ sha256 = "%s"
         targets = build_update_targets(inventory)
         results = [
             _outdated(
-                "build.stages.toolchain.uv", "github-release", "0.1.0", "0.2.0",
+                "build.stages.toolchain.uv",
+                "github-release",
+                "0.1.0",
+                "0.2.0",
                 artifacts={
                     "linux-amd64": CandidateArtifact(
                         platform="linux-amd64",

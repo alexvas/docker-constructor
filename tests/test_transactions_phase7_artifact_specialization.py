@@ -12,6 +12,7 @@ boundary rather than ``RegularFileContracts``, revalidates the published
 blob, quarantines corrupt entries, and cleans temporary state — all without
 granting L2 any blob identity, collision, or lifecycle authority.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -51,15 +52,21 @@ class SpecializationBoundaryTests(unittest.TestCase):
         self.assertNotIn("atomic_no_clobber", source)
         # The domain protocol still owns the complete publication surface.
         required = {
-            "atomic_publish", "quarantine_or_remove", "cleanup_temp",
-            "finalize_temp", "inspect_and_digest", "set_permissions",
+            "atomic_publish",
+            "quarantine_or_remove",
+            "cleanup_temp",
+            "finalize_temp",
+            "inspect_and_digest",
+            "set_permissions",
         }
         self.assertTrue(required.issubset(set(dir(CacheFilesystem))))
 
     def test_blob_identity_is_derived_from_sri(self) -> None:
         identity = DigestIdentity.from_sri(_INTEGRITY)
         path = derive_cache_path(
-            identity.algorithm, identity.runtime_safe_digest(), root="/cache",
+            identity.algorithm,
+            identity.runtime_safe_digest(),
+            root="/cache",
         )
         self.assertTrue(path.startswith("/cache/sha512/"))
         self.assertTrue(path.endswith(".tgz"))
@@ -115,7 +122,9 @@ class MaterializationSpecializationTests(unittest.TestCase):
         filesystem = _FakeFilesystem()
         transport = _FakeTransport({_URL: _PAYLOAD})
         with mock.patch.object(
-            artifact_cache, "_validate_published_blob", wraps=artifact_cache._validate_published_blob,
+            artifact_cache,
+            "_validate_published_blob",
+            wraps=artifact_cache._validate_published_blob,
         ) as revalidated:
             results = self._materialize(filesystem=filesystem, transport=transport)
         blob = results[_INTEGRITY]
@@ -131,10 +140,13 @@ class MaterializationSpecializationTests(unittest.TestCase):
     def test_corrupt_entry_is_quarantined_then_replaced(self) -> None:
         identity = DigestIdentity.from_sri(_INTEGRITY)
         path = derive_cache_path(
-            identity.algorithm, identity.runtime_safe_digest(), root=self.cache_root,
+            identity.algorithm,
+            identity.runtime_safe_digest(),
+            root=self.cache_root,
         )
         filesystem = _FakeFilesystem(
-            exists={path}, contents={path: b"corrupt"},
+            exists={path},
+            contents={path: b"corrupt"},
         )
         self._materialize(filesystem=filesystem)
         self.assertEqual(filesystem.quarantined, [path])

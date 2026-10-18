@@ -1,4 +1,5 @@
 """Tests for in-memory HTTP response cache, disk persistence, and security."""
+
 from __future__ import annotations
 
 import hashlib
@@ -41,7 +42,9 @@ class TestCachingHttpTransport(unittest.TestCase):
         resp = cache.request("GET", "https://example.com/a")
         self.assertEqual(resp.status, 200)
         self.assertEqual(resp.body, b"hello")
-        self.assertEqual(self.delegate.call_counts.get(("GET", "https://example.com/a")), 1)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/a")), 1
+        )
 
     def test_cache_hit_avoids_delegate(self):
         cache = CachingHttpTransport(self.delegate)
@@ -50,23 +53,33 @@ class TestCachingHttpTransport(unittest.TestCase):
         self.assertEqual(resp.status, 200)
         self.assertEqual(resp.body, b"hello")
         # Delegate called exactly once for this URL
-        self.assertEqual(self.delegate.call_counts.get(("GET", "https://example.com/a")), 1)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/a")), 1
+        )
 
     def test_different_methods_are_separate_keys(self):
         self.delegate.set("HEAD", "https://example.com/a", status=200, body=b"")
         cache = CachingHttpTransport(self.delegate)
         cache.request("GET", "https://example.com/a")
         cache.request("HEAD", "https://example.com/a")
-        self.assertEqual(self.delegate.call_counts.get(("GET", "https://example.com/a")), 1)
-        self.assertEqual(self.delegate.call_counts.get(("HEAD", "https://example.com/a")), 1)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/a")), 1
+        )
+        self.assertEqual(
+            self.delegate.call_counts.get(("HEAD", "https://example.com/a")), 1
+        )
 
     def test_different_urls_are_separate_keys(self):
         cache = CachingHttpTransport(self.delegate)
         cache.request("GET", "https://example.com/a")
         cache.request("GET", "https://example.com/b")
         cache.request("GET", "https://example.com/a")
-        self.assertEqual(self.delegate.call_counts.get(("GET", "https://example.com/a")), 1)
-        self.assertEqual(self.delegate.call_counts.get(("GET", "https://example.com/b")), 1)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/a")), 1
+        )
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/b")), 1
+        )
         self.assertEqual(cache.size, 2)
 
     def test_omitted_disk_cache_is_memory_only(self):
@@ -113,20 +126,28 @@ class TestCachingHttpTransport(unittest.TestCase):
         cache.request("GET", "https://example.com/a")
         # force monotonic forward
         cache.request("GET", "https://example.com/a")
-        self.assertEqual(self.delegate.call_counts.get(("GET", "https://example.com/a")), 1)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/a")), 1
+        )
 
     def test_finite_ttl_expires_after_duration(self):
-        cache = CachingHttpTransport(self.delegate, ttl=0, disk_cache=None)  # zero = always expired
+        cache = CachingHttpTransport(
+            self.delegate, ttl=0, disk_cache=None
+        )  # zero = always expired
         cache.request("GET", "https://example.com/a")
         cache.request("GET", "https://example.com/a")
-        self.assertEqual(self.delegate.call_counts.get(("GET", "https://example.com/a")), 2)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/a")), 2
+        )
 
     def test_finite_ttl_respected_within_window(self):
         cache = CachingHttpTransport(self.delegate, ttl=3600, disk_cache=None)
         cache.request("GET", "https://example.com/a")
         cache.request("GET", "https://example.com/a")
         cache.request("GET", "https://example.com/a")
-        self.assertEqual(self.delegate.call_counts.get(("GET", "https://example.com/a")), 1)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/a")), 1
+        )
 
     # ------------------------------------------------------------------
     # Clear
@@ -141,7 +162,9 @@ class TestCachingHttpTransport(unittest.TestCase):
         self.assertEqual(cache.size, 0)
         # Next request hits delegate again
         cache.request("GET", "https://example.com/a")
-        self.assertEqual(self.delegate.call_counts.get(("GET", "https://example.com/a")), 2)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/a")), 2
+        )
 
     # ------------------------------------------------------------------
     # Properties
@@ -176,22 +199,24 @@ class TestCachingHttpTransport(unittest.TestCase):
             # First nocache request
             resp1 = cache.request("GET", "https://example.com/a", nocache=True)
             self.assertEqual(resp1.body, b"hello")
-            self.assertEqual(self.delegate.call_counts.get(
-                ("GET", "https://example.com/a")), 1)
+            self.assertEqual(
+                self.delegate.call_counts.get(("GET", "https://example.com/a")), 1
+            )
             self.assertEqual(cache.size, 0)  # not stored in memory
 
             # Second nocache request — must call delegate again
             resp2 = cache.request("GET", "https://example.com/a", nocache=True)
             self.assertEqual(resp2.body, b"hello")
-            self.assertEqual(self.delegate.call_counts.get(
-                ("GET", "https://example.com/a")), 2)
+            self.assertEqual(
+                self.delegate.call_counts.get(("GET", "https://example.com/a")), 2
+            )
 
             # Verify nothing was written to disk
             path = dc._path_for("GET", "https://example.com/a")
-            self.assertFalse(path.exists(),
-                             f"nocache wrote to disk: {path}")
+            self.assertFalse(path.exists(), f"nocache wrote to disk: {path}")
         finally:
             import shutil
+
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     def test_nocache_does_not_read_existing_cache(self):
@@ -204,20 +229,24 @@ class TestCachingHttpTransport(unittest.TestCase):
 
             # First: regular (cacheable) request populates cache
             cache.request("GET", "https://example.com/a")
-            self.assertEqual(self.delegate.call_counts.get(
-                ("GET", "https://example.com/a")), 1)
+            self.assertEqual(
+                self.delegate.call_counts.get(("GET", "https://example.com/a")), 1
+            )
             self.assertEqual(cache.size, 1)
 
             # Second: nocache — must bypass memory and disk cache
-            self.delegate.set("GET", "https://example.com/a",
-                              status=200, body=b"updated")
+            self.delegate.set(
+                "GET", "https://example.com/a", status=200, body=b"updated"
+            )
             resp = cache.request("GET", "https://example.com/a", nocache=True)
             self.assertEqual(resp.body, b"updated")
-            self.assertEqual(self.delegate.call_counts.get(
-                ("GET", "https://example.com/a")), 2)
+            self.assertEqual(
+                self.delegate.call_counts.get(("GET", "https://example.com/a")), 2
+            )
             self.assertEqual(cache.size, 1)  # only original entry remains
         finally:
             import shutil
+
             shutil.rmtree(tmpdir, ignore_errors=True)
 
     # ------------------------------------------------------------------
@@ -231,7 +260,9 @@ class TestCachingHttpTransport(unittest.TestCase):
         self.assertEqual(resp1.status, 500)
         resp2 = cache.request("GET", "https://example.com/err")
         self.assertEqual(resp2.status, 500)
-        self.assertEqual(self.delegate.call_counts.get(("GET", "https://example.com/err")), 1)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/err")), 1
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -247,6 +278,7 @@ class TestDiskCache(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self._dir, ignore_errors=True)
 
     def test_set_and_get(self):
@@ -288,8 +320,7 @@ class TestDiskCache(unittest.TestCase):
         dc.set("GET", "https://example.com/x", resp)
         # No cache files must have been created
         path = dc._path_for("GET", "https://example.com/x")
-        self.assertFalse(path.exists(),
-                         f"read-only cache wrote file: {path}")
+        self.assertFalse(path.exists(), f"read-only cache wrote file: {path}")
         # And get() must miss
         self.assertIsNone(dc.get("GET", "https://example.com/x"))
 
@@ -307,11 +338,13 @@ class TestDiskCachePersistence(unittest.TestCase):
 
     def setUp(self):
         from tests.versioning.support.fake_http import FakeHttpTransport
+
         self._dir = Path(tempfile.mkdtemp())
         self.delegate = _CountingTransport()
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self._dir, ignore_errors=True)
 
     def test_second_invocation_reads_from_disk(self):
@@ -319,7 +352,9 @@ class TestDiskCachePersistence(unittest.TestCase):
         dc = DiskCache(self._dir, ttl=3600)
         cache1 = CachingHttpTransport(self.delegate, ttl=3600, disk_cache=dc)
         cache1.request("GET", "https://example.com/a")
-        self.assertEqual(self.delegate.call_counts.get(("GET", "https://example.com/a")), 1)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/a")), 1
+        )
 
         # Simulate second invocation: new transport, same disk cache
         delegate2 = _CountingTransport()
@@ -361,65 +396,80 @@ class TestAuthIsolation(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self._dir, ignore_errors=True)
 
     def test_authenticated_cache_not_served_to_public(self):
         """Token-scoped response is invisible without the same token."""
-        self.delegate.set("GET", "https://example.com/private",
-                          status=200, body=b"secret")
+        self.delegate.set(
+            "GET", "https://example.com/private", status=200, body=b"secret"
+        )
         dc = DiskCache(self._dir, ttl=3600)
         cache = CachingHttpTransport(self.delegate, ttl=3600, disk_cache=dc)
 
         # First request: with token
         auth_headers = {"Authorization": "Bearer tok-abc"}
-        resp1 = cache.request("GET", "https://example.com/private",
-                              headers=auth_headers)
+        resp1 = cache.request(
+            "GET", "https://example.com/private", headers=auth_headers
+        )
         self.assertEqual(resp1.body, b"secret")
-        self.assertEqual(self.delegate.call_counts.get(
-            ("GET", "https://example.com/private")), 1)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/private")), 1
+        )
 
         # Second request: without token — must miss cache
         resp2 = cache.request("GET", "https://example.com/private")
         # Delegate called again (public scope missed the auth-scoped cache)
-        self.assertEqual(self.delegate.call_counts.get(
-            ("GET", "https://example.com/private")), 2)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/private")), 2
+        )
         self.assertEqual(resp2.body, b"secret")  # delegate returned same body
 
     def test_different_tokens_are_isolated(self):
         """Two different tokens produce independent cache entries."""
-        self.delegate.set("GET", "https://example.com/pkg",
-                          status=200, body=b"private-a")
+        self.delegate.set(
+            "GET", "https://example.com/pkg", status=200, body=b"private-a"
+        )
         dc = DiskCache(self._dir, ttl=3600)
         cache = CachingHttpTransport(self.delegate, ttl=3600, disk_cache=dc)
 
         # Token A
-        resp_a = cache.request("GET", "https://example.com/pkg",
-                               headers={"Authorization": "Bearer tok-a"})
+        resp_a = cache.request(
+            "GET", "https://example.com/pkg", headers={"Authorization": "Bearer tok-a"}
+        )
         self.assertEqual(resp_a.body, b"private-a")
-        self.assertEqual(self.delegate.call_counts.get(
-            ("GET", "https://example.com/pkg")), 1)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/pkg")), 1
+        )
 
         # Token B — different scope, cache miss
-        self.delegate.set("GET", "https://example.com/pkg",
-                          status=200, body=b"private-b")
-        resp_b = cache.request("GET", "https://example.com/pkg",
-                               headers={"Authorization": "Bearer tok-b"})
+        self.delegate.set(
+            "GET", "https://example.com/pkg", status=200, body=b"private-b"
+        )
+        resp_b = cache.request(
+            "GET", "https://example.com/pkg", headers={"Authorization": "Bearer tok-b"}
+        )
         self.assertEqual(resp_b.body, b"private-b")
-        self.assertEqual(self.delegate.call_counts.get(
-            ("GET", "https://example.com/pkg")), 2)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/pkg")), 2
+        )
 
     def test_authorization_stripped_from_stored_response(self):
         """The Authorization header must not appear in the cached payload."""
-        self.delegate.set("GET", "https://example.com/pkg",
-                          status=200, body=b"ok")
+        self.delegate.set("GET", "https://example.com/pkg", status=200, body=b"ok")
         dc = DiskCache(self._dir, ttl=3600)
         cache = CachingHttpTransport(self.delegate, ttl=3600, disk_cache=dc)
 
-        cache.request("GET", "https://example.com/pkg",
-                      headers={"Authorization": "Bearer secret-token"})
+        cache.request(
+            "GET",
+            "https://example.com/pkg",
+            headers={"Authorization": "Bearer secret-token"},
+        )
 
         # Read the raw file from disk
-        scope = "auth:" + hashlib.sha256("Bearer secret-token".encode()).hexdigest()[:16]
+        scope = (
+            "auth:" + hashlib.sha256("Bearer secret-token".encode()).hexdigest()[:16]
+        )
         path = dc._path_for("GET", "https://example.com/pkg", scope)
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
@@ -436,45 +486,59 @@ class TestAuthIsolation(unittest.TestCase):
                 subdir = Path(tempfile.mkdtemp())
                 try:
                     delegate = _CountingTransport()
-                    delegate.set("GET", "https://example.com/private",
-                                 status=200, body=b"secret")
+                    delegate.set(
+                        "GET", "https://example.com/private", status=200, body=b"secret"
+                    )
                     dc = DiskCache(subdir, ttl=3600)
                     cache = CachingHttpTransport(delegate, ttl=3600, disk_cache=dc)
 
                     headers = {casing: "Bearer tok-" + casing}
-                    resp1 = cache.request("GET", "https://example.com/private",
-                                          headers=headers)
+                    resp1 = cache.request(
+                        "GET", "https://example.com/private", headers=headers
+                    )
                     self.assertEqual(resp1.body, b"secret")
-                    self.assertEqual(delegate.call_counts.get(
-                        ("GET", "https://example.com/private")), 1)
+                    self.assertEqual(
+                        delegate.call_counts.get(
+                            ("GET", "https://example.com/private")
+                        ),
+                        1,
+                    )
 
                     # No auth → must miss cache
                     resp2 = cache.request("GET", "https://example.com/private")
-                    self.assertEqual(delegate.call_counts.get(
-                        ("GET", "https://example.com/private")), 2)
+                    self.assertEqual(
+                        delegate.call_counts.get(
+                            ("GET", "https://example.com/private")
+                        ),
+                        2,
+                    )
                 finally:
                     import shutil
+
                     shutil.rmtree(subdir, ignore_errors=True)
 
     def test_any_casing_same_token_shares_scope(self):
         """Same token value with any header casing produces identical scope."""
-        self.delegate.set("GET", "https://example.com/x",
-                          status=200, body=b"shared")
+        self.delegate.set("GET", "https://example.com/x", status=200, body=b"shared")
         dc = DiskCache(self._dir, ttl=3600)
         cache = CachingHttpTransport(self.delegate, ttl=3600, disk_cache=dc)
 
         # First request: standard casing
-        cache.request("GET", "https://example.com/x",
-                      headers={"Authorization": "Bearer tok"})
-        self.assertEqual(self.delegate.call_counts.get(
-            ("GET", "https://example.com/x")), 1)
+        cache.request(
+            "GET", "https://example.com/x", headers={"Authorization": "Bearer tok"}
+        )
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/x")), 1
+        )
 
         # Second request: AUTHORIZATION — same scope → cache hit
-        resp2 = cache.request("GET", "https://example.com/x",
-                              headers={"AUTHORIZATION": "Bearer tok"})
+        resp2 = cache.request(
+            "GET", "https://example.com/x", headers={"AUTHORIZATION": "Bearer tok"}
+        )
         self.assertEqual(resp2.body, b"shared")
-        self.assertEqual(self.delegate.call_counts.get(
-            ("GET", "https://example.com/x")), 1)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/x")), 1
+        )
 
 
 class TestRepresentationIsolation(unittest.TestCase):
@@ -486,48 +550,53 @@ class TestRepresentationIsolation(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self._dir, ignore_errors=True)
 
     def test_different_accept_types_are_isolated(self):
         """``Accept: application/json`` and ``Accept: text/html`` must not collide."""
-        self.delegate.set("GET", "https://example.com/api",
-                          status=200, body=b'{"v":1}')
+        self.delegate.set("GET", "https://example.com/api", status=200, body=b'{"v":1}')
         dc = DiskCache(self._dir, ttl=3600)
         cache = CachingHttpTransport(self.delegate, ttl=3600, disk_cache=dc)
 
-        resp_json = cache.request("GET", "https://example.com/api",
-                                  headers={"Accept": "application/json"})
+        resp_json = cache.request(
+            "GET", "https://example.com/api", headers={"Accept": "application/json"}
+        )
         self.assertEqual(resp_json.body, b'{"v":1}')
-        self.assertEqual(self.delegate.call_counts.get(
-            ("GET", "https://example.com/api")), 1)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/api")), 1
+        )
 
         # Different Accept → cache miss
-        self.delegate.set("GET", "https://example.com/api",
-                          status=200, body=b"<html>")
-        resp_html = cache.request("GET", "https://example.com/api",
-                                  headers={"Accept": "text/html"})
+        self.delegate.set("GET", "https://example.com/api", status=200, body=b"<html>")
+        resp_html = cache.request(
+            "GET", "https://example.com/api", headers={"Accept": "text/html"}
+        )
         self.assertEqual(resp_html.body, b"<html>")
-        self.assertEqual(self.delegate.call_counts.get(
-            ("GET", "https://example.com/api")), 2)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/api")), 2
+        )
 
     def test_no_accept_and_wildcard_are_equivalent(self):
         """Absent Accept and ``Accept: */*`` share the same cache entry."""
-        self.delegate.set("GET", "https://example.com/data",
-                          status=200, body=b"ok")
+        self.delegate.set("GET", "https://example.com/data", status=200, body=b"ok")
         dc = DiskCache(self._dir, ttl=3600)
         cache = CachingHttpTransport(self.delegate, ttl=3600, disk_cache=dc)
 
         resp1 = cache.request("GET", "https://example.com/data")
         self.assertEqual(resp1.body, b"ok")
-        self.assertEqual(self.delegate.call_counts.get(
-            ("GET", "https://example.com/data")), 1)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/data")), 1
+        )
 
         # */* normalises to the same wildcard representation
-        resp2 = cache.request("GET", "https://example.com/data",
-                              headers={"Accept": "*/*"})
+        resp2 = cache.request(
+            "GET", "https://example.com/data", headers={"Accept": "*/*"}
+        )
         self.assertEqual(resp2.body, b"ok")
-        self.assertEqual(self.delegate.call_counts.get(
-            ("GET", "https://example.com/data")), 1)  # cache hit
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/data")), 1
+        )  # cache hit
 
     def test_any_accept_casing_recognised(self):
         """Any casing of ``Accept`` (``ACCEPT``, ``aCcEpT``, etc.) is
@@ -537,45 +606,62 @@ class TestRepresentationIsolation(unittest.TestCase):
                 subdir = Path(tempfile.mkdtemp())
                 try:
                     delegate = _CountingTransport()
-                    delegate.set("GET", "https://example.com/y",
-                                 status=200, body=b"json")
+                    delegate.set(
+                        "GET", "https://example.com/y", status=200, body=b"json"
+                    )
                     dc = DiskCache(subdir, ttl=3600)
                     cache = CachingHttpTransport(delegate, ttl=3600, disk_cache=dc)
 
-                    cache.request("GET", "https://example.com/y",
-                                  headers={"Accept": "application/json"})
-                    self.assertEqual(delegate.call_counts.get(
-                        ("GET", "https://example.com/y")), 1)
+                    cache.request(
+                        "GET",
+                        "https://example.com/y",
+                        headers={"Accept": "application/json"},
+                    )
+                    self.assertEqual(
+                        delegate.call_counts.get(("GET", "https://example.com/y")), 1
+                    )
 
                     # Arbitrary casing, same value → cache hit
-                    resp2 = cache.request("GET", "https://example.com/y",
-                                          headers={casing: "application/json"})
+                    resp2 = cache.request(
+                        "GET",
+                        "https://example.com/y",
+                        headers={casing: "application/json"},
+                    )
                     self.assertEqual(resp2.body, b"json")
-                    self.assertEqual(delegate.call_counts.get(
-                        ("GET", "https://example.com/y")), 1)
+                    self.assertEqual(
+                        delegate.call_counts.get(("GET", "https://example.com/y")), 1
+                    )
                 finally:
                     import shutil
+
                     shutil.rmtree(subdir, ignore_errors=True)
 
     def test_accept_sorted_normalisation(self):
         """Comma-separated Accept values are sorted for stable cache keys."""
-        self.delegate.set("GET", "https://example.com/z",
-                          status=200, body=b"data")
+        self.delegate.set("GET", "https://example.com/z", status=200, body=b"data")
         dc = DiskCache(self._dir, ttl=3600)
         cache = CachingHttpTransport(self.delegate, ttl=3600, disk_cache=dc)
 
         # Order A
-        cache.request("GET", "https://example.com/z",
-                      headers={"Accept": "text/html, application/json"})
-        self.assertEqual(self.delegate.call_counts.get(
-            ("GET", "https://example.com/z")), 1)
+        cache.request(
+            "GET",
+            "https://example.com/z",
+            headers={"Accept": "text/html, application/json"},
+        )
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/z")), 1
+        )
 
         # Order B (reversed) — normalised to same representation → hit
-        resp2 = cache.request("GET", "https://example.com/z",
-                              headers={"Accept": "application/json, text/html"})
+        resp2 = cache.request(
+            "GET",
+            "https://example.com/z",
+            headers={"Accept": "application/json, text/html"},
+        )
         self.assertEqual(resp2.body, b"data")
-        self.assertEqual(self.delegate.call_counts.get(
-            ("GET", "https://example.com/z")), 1)
+        self.assertEqual(
+            self.delegate.call_counts.get(("GET", "https://example.com/z")), 1
+        )
 
 
 class TestFilePermissions(unittest.TestCase):
@@ -584,6 +670,7 @@ class TestFilePermissions(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self._dir, ignore_errors=True)
 
     def test_cache_file_is_owner_only(self):
@@ -592,8 +679,7 @@ class TestFilePermissions(unittest.TestCase):
         dc.set("GET", "https://example.com/x", resp)
         path = dc._path_for("GET", "https://example.com/x")
         mode = path.stat().st_mode & 0o777
-        self.assertEqual(mode, 0o600,
-                         f"expected 0600, got {oct(mode)}")
+        self.assertEqual(mode, 0o600, f"expected 0600, got {oct(mode)}")
 
     def test_cache_dir_is_owner_only(self):
         """A prepared 0700 directory is preserved (never widened) by writes."""
@@ -601,8 +687,7 @@ class TestFilePermissions(unittest.TestCase):
         resp = _cached_response(200, {}, b"x")
         dc.set("GET", "https://example.com/x", resp)
         mode = self._dir.stat().st_mode & 0o777
-        self.assertEqual(mode, 0o700,
-                         f"expected 0700, got {oct(mode)}")
+        self.assertEqual(mode, 0o700, f"expected 0700, got {oct(mode)}")
 
     def test_permissions_survive_second_write(self):
         """Re-writing an entry must not widen permissions."""
@@ -629,12 +714,10 @@ class TestFilePermissions(unittest.TestCase):
         dc.set("GET", "https://example.com/x", _cached_response(200, {}, b"x"))
         # Parent must still have its original 0755 permissions
         parent_mode = parent.stat().st_mode & 0o777
-        self.assertEqual(parent_mode, 0o755,
-                         f"expected 0755, got {oct(parent_mode)}")
+        self.assertEqual(parent_mode, 0o755, f"expected 0755, got {oct(parent_mode)}")
         # Grandparent (self._dir) must also be untouched
         gp_mode = self._dir.stat().st_mode & 0o777
-        self.assertEqual(gp_mode, 0o700,
-                         f"expected 0700, got {oct(gp_mode)}")
+        self.assertEqual(gp_mode, 0o700, f"expected 0700, got {oct(gp_mode)}")
 
     def test_unprepared_0755_directory_fails_closed(self):
         """DiskCache must reject an owned-but-non-private (0755)
@@ -651,8 +734,7 @@ class TestFilePermissions(unittest.TestCase):
         self.assertFalse(path.exists())
         # The directory was rejected, not chmodded.
         mode = self._dir.stat().st_mode & 0o777
-        self.assertEqual(mode, 0o755,
-                         f"expected 0755 unchanged, got {oct(mode)}")
+        self.assertEqual(mode, 0o755, f"expected 0755 unchanged, got {oct(mode)}")
 
     def test_missing_directory_fails_closed(self):
         """DiskCache must not recreate an absent prepared directory as
@@ -671,6 +753,7 @@ class TestCorruptEntryResilience(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self._dir, ignore_errors=True)
 
     def test_missing_status_key_returns_none(self):

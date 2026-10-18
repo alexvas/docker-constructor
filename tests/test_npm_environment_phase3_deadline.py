@@ -64,9 +64,7 @@ def _sri() -> str:
 
 
 def _lock(roots: dict[str, str]) -> bytes:
-    packages = {
-        "": {"name": "root", "version": "1.0.0", "dependencies": dict(roots)}
-    }
+    packages = {"": {"name": "root", "version": "1.0.0", "dependencies": dict(roots)}}
     for name, version in roots.items():
         packages[f"node_modules/{name}"] = {
             "version": version,
@@ -361,9 +359,7 @@ class DeadlineTestCase(unittest.TestCase):
         return root
 
     def _namespace(self, cache_root: Path):
-        return publication.prepare_assembler_namespace(
-            cache_root, _assembler().digest
-        )
+        return publication.prepare_assembler_namespace(cache_root, _assembler().digest)
 
     def _run_streaming(
         self,
@@ -394,9 +390,7 @@ class DeadlineTestCase(unittest.TestCase):
             except BaseException as exc:  # pragma: no cover - test aid
                 result["error"] = exc
 
-        with mock.patch.object(
-            execution_module.subprocess, "Popen", return_value=proc
-        ):
+        with mock.patch.object(execution_module.subprocess, "Popen", return_value=proc):
             thread = threading.Thread(target=run, name="test-deadline-run")
             thread.start()
             thread.join(10.0)
@@ -606,9 +600,7 @@ class TestUrlFreeFailureNotes(DeadlineTestCase):
     def test_supervisor_wait_failure_detail_is_url_free(self):
         proc = _DeadlineProc(
             stdout_data=b"working\n",
-            wait_failure=OSError(
-                f"timed wait exploded {self._URL} SUPERSECRET"
-            ),
+            wait_failure=OSError(f"timed wait exploded {self._URL} SUPERSECRET"),
         )
         result = self._run_streaming(
             proc,
@@ -775,9 +767,7 @@ class TestForcedCleanup(DeadlineTestCase):
 
         timer = threading.Thread(target=interrupt, daemon=True)
         timer.start()
-        with mock.patch.object(
-            execution_module.subprocess, "Popen", return_value=proc
-        ):
+        with mock.patch.object(execution_module.subprocess, "Popen", return_value=proc):
             with self.assertRaises(KeyboardInterrupt):
                 DockerRunExecutor().run_streaming(
                     ("docker", "run", "--rm", "alpine", "true")
@@ -878,12 +868,12 @@ class TestDaemonLifecycle(DeadlineTestCase):
                 return subprocess.CompletedProcess(argv, 1, "", "")
             raise AssertionError(argv)
 
-        with mock.patch.object(
-            execution_module.subprocess, "Popen", side_effect=fake_popen
-        ), mock.patch.object(
-            execution_module, "ASSEMBLY_TOTAL_TIMEOUT_SECONDS", 0.2
-        ), mock.patch.object(
-            execution_module.subprocess, "run", side_effect=fake_run
+        with (
+            mock.patch.object(
+                execution_module.subprocess, "Popen", side_effect=fake_popen
+            ),
+            mock.patch.object(execution_module, "ASSEMBLY_TOTAL_TIMEOUT_SECONDS", 0.2),
+            mock.patch.object(execution_module.subprocess, "run", side_effect=fake_run),
         ):
             try:
                 assemble(
@@ -903,14 +893,14 @@ class TestDaemonLifecycle(DeadlineTestCase):
         self.assertIsInstance(exc, AssemblyTimeoutError)
         # The deterministic named container was force-removed.
         self.assertTrue(
-            any(argv[1] == "rm" and argv[3].startswith("npm-assembler-")
-                for argv in rm_calls)
+            any(
+                argv[1] == "rm" and argv[3].startswith("npm-assembler-")
+                for argv in rm_calls
+            )
         )
         namespace = self._namespace(cache_root)
         # Mutable staging was removed.
-        self.assertEqual(
-            [p for p in namespace.staging.iterdir() if p.is_dir()], []
-        )
+        self.assertEqual([p for p in namespace.staging.iterdir() if p.is_dir()], [])
         # The opaque npm cache and empty outputs are preserved untouched.
         self.assertTrue(namespace.npm_cache.exists())
         self.assertEqual(list(namespace.outputs.iterdir()), [])
@@ -939,12 +929,12 @@ class TestDaemonLifecycle(DeadlineTestCase):
             return subprocess.CompletedProcess(argv, 0, "", "")
 
         started = time.monotonic()
-        with mock.patch.object(
-            execution_module.subprocess, "Popen", side_effect=fake_popen
-        ), mock.patch.object(
-            execution_module, "ASSEMBLY_TOTAL_TIMEOUT_SECONDS", 0.2
-        ), mock.patch.object(
-            execution_module.subprocess, "run", side_effect=fake_run
+        with (
+            mock.patch.object(
+                execution_module.subprocess, "Popen", side_effect=fake_popen
+            ),
+            mock.patch.object(execution_module, "ASSEMBLY_TOTAL_TIMEOUT_SECONDS", 0.2),
+            mock.patch.object(execution_module.subprocess, "run", side_effect=fake_run),
         ):
             with self.assertRaises(AssemblyTimeoutError) as ctx:
                 assemble(
@@ -988,9 +978,7 @@ class TestInterruption(DeadlineTestCase):
             delivered.append(chunk)
             received.set()
 
-        proc = _DeadlineProc(
-            stdout_data=b"working\n", stdout_blocked_event=blocked
-        )
+        proc = _DeadlineProc(stdout_data=b"working\n", stdout_blocked_event=blocked)
 
         def interrupt() -> None:
             self.assertTrue(blocked.wait(5.0))
@@ -1000,9 +988,7 @@ class TestInterruption(DeadlineTestCase):
 
         timer = threading.Thread(target=interrupt, daemon=True)
         timer.start()
-        with mock.patch.object(
-            execution_module.subprocess, "Popen", return_value=proc
-        ):
+        with mock.patch.object(execution_module.subprocess, "Popen", return_value=proc):
             with self.assertRaises(KeyboardInterrupt):
                 DockerRunExecutor().run_streaming(
                     ("docker", "run", "--rm", "alpine", "true"), sink=sink
@@ -1029,6 +1015,7 @@ class TestInterruption(DeadlineTestCase):
         interrupted = False
 
         with ExitStack() as patches:
+
             def request(owner, *args, **kwargs):
                 if kwargs.get("reason") == "reader":
                     recorded.set()  # Poll error is already in the shared ledger.
@@ -1040,23 +1027,37 @@ class TestInterruption(DeadlineTestCase):
 
                 def interrupt_wait(timeout=None):
                     nonlocal interrupted
-                    if threading.current_thread() is threading.main_thread() and not interrupted:
+                    if (
+                        threading.current_thread() is threading.main_thread()
+                        and not interrupted
+                    ):
                         self.assertTrue(recorded.wait(5))
                         interrupted = True
                         raise primary
                     return wait(timeout)
 
-                patches.enter_context(mock.patch.object(owner._phase_done, "wait", interrupt_wait))
+                patches.enter_context(
+                    mock.patch.object(owner._phase_done, "wait", interrupt_wait)
+                )
                 return original_supervisor(owner)
 
-            patches.enter_context(mock.patch.object(execution_module.subprocess, "Popen", return_value=proc))
-            patches.enter_context(mock.patch.object(OwnedProcess, "_start_supervisor", supervise))
+            patches.enter_context(
+                mock.patch.object(
+                    execution_module.subprocess, "Popen", return_value=proc
+                )
+            )
+            patches.enter_context(
+                mock.patch.object(OwnedProcess, "_start_supervisor", supervise)
+            )
             patches.enter_context(mock.patch.object(OwnedProcess, "_shutdown", request))
             try:
                 with self.assertRaises(KeyboardInterrupt) as ctx:
                     DockerRunExecutor().run_streaming(
-                        ("docker", "run", "--rm", "alpine", "true"), secrets=("SUPERSECRET",),
-                        deadline_seconds=1, grace_seconds=.1)
+                        ("docker", "run", "--rm", "alpine", "true"),
+                        secrets=("SUPERSECRET",),
+                        deadline_seconds=1,
+                        grace_seconds=0.1,
+                    )
                 self.assertIs(ctx.exception, primary)
                 notes = "\n".join(getattr(primary, "__notes__", ()))
                 self.assertIn("process wait failed: <redacted> poll failed", notes)
@@ -1079,9 +1080,7 @@ class TestInterruption(DeadlineTestCase):
         rm_started = threading.Event()
         release_rm = threading.Event()
         rm_calls: list[tuple[str, ...]] = []
-        proc = _DeadlineProc(
-            resist_terminate=True, unblock_pipes_on_terminate=False
-        )
+        proc = _DeadlineProc(resist_terminate=True, unblock_pipes_on_terminate=False)
 
         def fake_popen(argv, **kwargs):
             if argv[1] != "rm":
@@ -1162,9 +1161,7 @@ class TestInterruption(DeadlineTestCase):
                 def interrupt() -> None:
                     self.assertTrue(blocked.wait(5.0))
                     time.sleep(0.1)
-                    signal.pthread_kill(
-                        threading.main_thread().ident, signal.SIGINT
-                    )
+                    signal.pthread_kill(threading.main_thread().ident, signal.SIGINT)
 
                 timer = threading.Thread(target=interrupt, daemon=True)
                 timer.start()
@@ -1194,9 +1191,7 @@ class TestInterruption(DeadlineTestCase):
     def test_assemble_interrupt_removes_container_and_staging(self):
         cache_root = self._cache_root()
         blocked = threading.Event()
-        proc = _DeadlineProc(
-            stdout_data=b"working\n", stdout_blocked_event=blocked
-        )
+        proc = _DeadlineProc(stdout_data=b"working\n", stdout_blocked_event=blocked)
         rm_calls: list[tuple[str, ...]] = []
 
         def fake_popen(argv, **kwargs):
@@ -1217,10 +1212,11 @@ class TestInterruption(DeadlineTestCase):
 
         timer = threading.Thread(target=interrupt, daemon=True)
         timer.start()
-        with mock.patch.object(
-            execution_module.subprocess, "Popen", side_effect=fake_popen
-        ), mock.patch.object(
-            execution_module.subprocess, "run", side_effect=fake_run
+        with (
+            mock.patch.object(
+                execution_module.subprocess, "Popen", side_effect=fake_popen
+            ),
+            mock.patch.object(execution_module.subprocess, "run", side_effect=fake_run),
         ):
             with self.assertRaises(KeyboardInterrupt):
                 assemble(
@@ -1233,13 +1229,13 @@ class TestInterruption(DeadlineTestCase):
 
         # Container force-removed and staging removed before propagation.
         self.assertTrue(
-            any(argv[1] == "rm" and argv[3].startswith("npm-assembler-")
-                for argv in rm_calls)
+            any(
+                argv[1] == "rm" and argv[3].startswith("npm-assembler-")
+                for argv in rm_calls
+            )
         )
         namespace = self._namespace(cache_root)
-        self.assertEqual(
-            [p for p in namespace.staging.iterdir() if p.is_dir()], []
-        )
+        self.assertEqual([p for p in namespace.staging.iterdir() if p.is_dir()], [])
         _assert_no_workers(self)
 
     @unittest.skipUnless(
@@ -1283,16 +1279,20 @@ class TestInterruption(DeadlineTestCase):
         timer = threading.Thread(target=interrupt, daemon=True)
         timer.start()
         started = time.monotonic()
-        with mock.patch.object(
-            execution_module.subprocess, "Popen", side_effect=fake_popen
-        ), mock.patch.object(
-            execution_module.subprocess, "run", side_effect=fake_run
+        with (
+            mock.patch.object(
+                execution_module.subprocess, "Popen", side_effect=fake_popen
+            ),
+            mock.patch.object(execution_module.subprocess, "run", side_effect=fake_run),
         ):
             with self.assertRaises(KeyboardInterrupt) as ctx:
                 try:
                     assemble(
-                        validated=_validated(), assembler=_assembler(), cache_root=cache_root,
-                        executor=DockerRunExecutor())
+                        validated=_validated(),
+                        assembler=_assembler(),
+                        cache_root=cache_root,
+                        executor=DockerRunExecutor(),
+                    )
                 except BaseException as exc:
                     result["error"] = exc
                     raise
@@ -1317,13 +1317,13 @@ class TestInterruption(DeadlineTestCase):
         self.assertIn("did not exit after SIGKILL", notes)
         # Container force-removed and staging removed before propagation.
         self.assertTrue(
-            any(argv[1] == "rm" and argv[3].startswith("npm-assembler-")
-                for argv in rm_calls)
+            any(
+                argv[1] == "rm" and argv[3].startswith("npm-assembler-")
+                for argv in rm_calls
+            )
         )
         namespace = self._namespace(cache_root)
-        self.assertEqual(
-            [p for p in namespace.staging.iterdir() if p.is_dir()], []
-        )
+        self.assertEqual([p for p in namespace.staging.iterdir() if p.is_dir()], [])
         _release_owned_clients(self, result, proc)
         _assert_no_workers(self)
 
@@ -1347,9 +1347,7 @@ class TestNonzeroExit(DeadlineTestCase):
         self.assertEqual(ctx.exception.reason, "npm_exit_nonzero")
         namespace = self._namespace(cache_root)
         self.assertEqual(list(namespace.outputs.iterdir()), [])
-        self.assertEqual(
-            [p for p in namespace.staging.iterdir() if p.is_dir()], []
-        )
+        self.assertEqual([p for p in namespace.staging.iterdir() if p.is_dir()], [])
 
     def test_retry_exhaustion_is_structured_and_bounded(self):
         cache_root = self._cache_root()
@@ -1376,7 +1374,9 @@ class TestStoragePreservation(DeadlineTestCase):
     def _write_tree(self, root: Path, name: str, version: str, marker: bytes):
         pkg = root / "node_modules" / name
         pkg.mkdir(parents=True, exist_ok=True)
-        (pkg / "package.json").write_text(json.dumps({"name": name, "version": version}))
+        (pkg / "package.json").write_text(
+            json.dumps({"name": name, "version": version})
+        )
         (pkg / "marker.txt").write_bytes(marker)
 
     def test_failed_path_preserves_cache_and_prior_outputs(self):
@@ -1387,9 +1387,7 @@ class TestStoragePreservation(DeadlineTestCase):
         prior_tree = cache_root.parent / "prior-tree"
         prior_tree.mkdir()
         self._write_tree(prior_tree, "prior", "1.0.0", b"prior-marker")
-        prior_identity = compute_assembler_input_identity(
-            prior_validated, _assembler()
-        )
+        prior_identity = compute_assembler_input_identity(prior_validated, _assembler())
         prior = publish_environment(
             validated=prior_validated,
             tree_root=prior_tree,
@@ -1414,7 +1412,9 @@ class TestStoragePreservation(DeadlineTestCase):
         )
         self.assertTrue(prior.environment_root.exists())
         self.assertEqual(
-            (prior.environment_root / "node_modules" / "prior" / "marker.txt").read_bytes(),
+            (
+                prior.environment_root / "node_modules" / "prior" / "marker.txt"
+            ).read_bytes(),
             b"prior-marker",
         )
         # No partial output was published: only the prior output remains.
@@ -1446,9 +1446,7 @@ class TestStoragePreservation(DeadlineTestCase):
 
 class TestAbandonedStaging(DeadlineTestCase):
     def _staging_name(self):
-        return compute_assembler_input_identity(
-            _validated(), _assembler()
-        ).digest
+        return compute_assembler_input_identity(_validated(), _assembler()).digest
 
     def test_abandoned_staging_is_replaced_not_adopted(self):
         cache_root = self._cache_root()
@@ -1468,9 +1466,7 @@ class TestAbandonedStaging(DeadlineTestCase):
         # The abandoned staging was removed, never adopted as output.
         self.assertFalse((abandoned / "stale-marker.txt").exists())
         self.assertIsNotNone(result.environment_root)
-        self.assertFalse(
-            (result.environment_root / "stale-marker.txt").exists()
-        )
+        self.assertFalse((result.environment_root / "stale-marker.txt").exists())
 
     def test_abandoned_staging_symlink_is_unlinked_not_followed(self):
         cache_root = self._cache_root()

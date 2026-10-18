@@ -73,9 +73,7 @@ def _assembler(**overrides: str) -> object:
     return compute_assembler_identity(**kwargs)
 
 
-def _lock(
-    roots: dict[str, str], packages: dict[str, dict] | None = None
-) -> bytes:
+def _lock(roots: dict[str, str], packages: dict[str, dict] | None = None) -> bytes:
     pkg_nodes: dict[str, dict] = {
         f"node_modules/{name}": _pkg_node(name, version)
         for name, version in roots.items()
@@ -123,8 +121,12 @@ class TestAssemblerIdentity(unittest.TestCase):
     def test_each_component_affects_digest(self):
         base = _assembler()
         for field in (
-            "image_digest", "node_version", "npm_version",
-            "script_digest", "policy_digest", "platform",
+            "image_digest",
+            "node_version",
+            "npm_version",
+            "script_digest",
+            "policy_digest",
+            "platform",
         ):
             changed = _assembler(**{field: f"{field}-changed"})
             self.assertNotEqual(base.digest, changed.digest, field)
@@ -248,9 +250,7 @@ class TestAssemblerInputIdentity(unittest.TestCase):
             node_version=_NODE,
             npm_version=_NPM,
         )
-        ident_linux = compute_assembler_input_identity(
-            validated_linux, _assembler()
-        )
+        ident_linux = compute_assembler_input_identity(validated_linux, _assembler())
         ident_other = compute_assembler_input_identity(
             validated_other, _assembler(platform="darwin-arm64")
         )
@@ -292,18 +292,28 @@ class TestValidatedInputRejection(unittest.TestCase):
         cases = {
             "roots": {"roots": tuple(reversed(validated.roots))},
             "packages": {"packages": ()},
-            "omitted_optionals": {"omitted_optionals": (OmittedOptional(
-                "", "x", "1.0.0", "platform-inapplicable", _PLATFORM),)},
-            "integrity_less": {"integrity_less": (IntegrityLessNode(
-                "x", "node_modules/x", "1.0.0",
-                "https://registry.npmjs.org/x/-/x-1.0.0.tgz"),)},
+            "omitted_optionals": {
+                "omitted_optionals": (
+                    OmittedOptional(
+                        "", "x", "1.0.0", "platform-inapplicable", _PLATFORM
+                    ),
+                )
+            },
+            "integrity_less": {
+                "integrity_less": (
+                    IntegrityLessNode(
+                        "x",
+                        "node_modules/x",
+                        "1.0.0",
+                        "https://registry.npmjs.org/x/-/x-1.0.0.tgz",
+                    ),
+                )
+            },
             "root_metadata": {"root_metadata": ()},
         }
         for label, changes in cases.items():
             with self.subTest(field=label):
-                self._expect_rejected(
-                    validated, "validated_input_mismatch", **changes
-                )
+                self._expect_rejected(validated, "validated_input_mismatch", **changes)
 
 
 class TestInputDeterminism(unittest.TestCase):
@@ -370,9 +380,7 @@ class TestAssemblerTamperRejection(unittest.TestCase):
                 tampered = dataclasses.replace(assembler, **changes)
                 with self.assertRaises(LockedNpmError) as ctx:
                     compute_assembler_input_identity(validated, tampered)
-                self.assertEqual(
-                    ctx.exception.reason, "assembler_identity_mismatch"
-                )
+                self.assertEqual(ctx.exception.reason, "assembler_identity_mismatch")
 
     def test_digest_only_tampering_rejected(self):
         _raw, validated = _validated({"a": "1.0.0"})

@@ -4,6 +4,7 @@ No Docker, no network, no subprocess.  Provider adapters receive injected
 transports so tests can supply deterministic fake responses without needing
 real network access.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -52,8 +53,7 @@ class HttpTransport(Protocol):
         *,
         headers: Mapping[str, str] = MappingProxyType({}),
         nocache: bool = False,
-    ) -> HttpResponse:
-        ...
+    ) -> HttpResponse: ...
 
 
 class GitRefTransport(Protocol):
@@ -62,8 +62,7 @@ class GitRefTransport(Protocol):
     Production code runs ``git ls-remote``; tests provide fakes.
     """
 
-    def resolve_ref(self, repository: str, ref: str) -> str:
-        ...
+    def resolve_ref(self, repository: str, ref: str) -> str: ...
 
 
 # ---------------------------------------------------------------------------
@@ -121,5 +120,4 @@ class UpdateProvider(Protocol):
         self,
         target: UpdateTarget,
         context: ProviderContext,
-    ) -> ProviderResult:
-        ...
+    ) -> ProviderResult: ...

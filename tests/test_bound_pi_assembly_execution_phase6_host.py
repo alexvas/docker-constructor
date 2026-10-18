@@ -1,4 +1,5 @@
 """Task 6.1 host-harness capability checks (no registry required)."""
+
 from __future__ import annotations
 
 import os
@@ -12,12 +13,21 @@ from pathlib import Path
 from typing import cast
 
 from docker.npm_environment import (
-    AssemblyTimeoutError, DockerRunExecutor, RootSpec, assemble_environment,
-    assembler_script_digest, compute_assembler_identity,
-    compute_assembler_input_identity, npm_policy_digest, preflight,
+    AssemblyTimeoutError,
+    DockerRunExecutor,
+    RootSpec,
+    assemble_environment,
+    assembler_script_digest,
+    compute_assembler_identity,
+    compute_assembler_input_identity,
+    npm_policy_digest,
+    preflight,
 )
 from docker.versioning.build_orchestration import (
-    BuildExecutor, BuildRequest, ProcessResult, orchestrate_build,
+    BuildExecutor,
+    BuildRequest,
+    ProcessResult,
+    orchestrate_build,
 )
 from docker.versioning.dispatch_types import ExitKind
 from docker.versioning.effective import resolve_build_projection
@@ -53,10 +63,12 @@ class TestPhase6HostHarness(unittest.TestCase):
                 os.kill(child.process.pid, 0)
 
 
-
 class _StallingDockerExecutor(DockerRunExecutor):
     def run_streaming(self, argv, **kwargs):
-        changed = (*argv[:-1], "printf 'phase6-large-diagnostic %.0s' $(seq 1 100000) >&2; sleep 60")
+        changed = (
+            *argv[:-1],
+            "printf 'phase6-large-diagnostic %.0s' $(seq 1 100000) >&2; sleep 60",
+        )
         kwargs["deadline_seconds"] = 0.2
         kwargs["grace_seconds"] = 1.0
         return super().run_streaming(changed, **kwargs)
@@ -73,12 +85,17 @@ class TestDockerBackedHostAcceptance(unittest.TestCase):
             cache.mkdir(mode=0o700)
             package = make_package()
             projection = resolve_build_projection(
-                load_inventory(Path(__file__).resolve().parents[1] / "docker-constructor.toml").build,
-                {}, platform="linux-amd64",
+                load_inventory(
+                    Path(__file__).resolve().parents[1] / "docker-constructor.toml"
+                ).build,
+                {},
+                platform="linux-amd64",
             )
             validated = preflight(
-                make_lock(package), roots=(RootSpec(package.name, package.version),),
-                platform="linux-x64", node_version=projection.node.node_version,
+                make_lock(package),
+                roots=(RootSpec(package.name, package.version),),
+                platform="linux-x64",
+                node_version=projection.node.node_version,
                 npm_version=projection.node.npm_version,
             )
             assembler = compute_assembler_identity(
@@ -86,7 +103,8 @@ class TestDockerBackedHostAcceptance(unittest.TestCase):
                 node_version=projection.node.node_version,
                 npm_version=projection.node.npm_version,
                 script_digest=assembler_script_digest(),
-                policy_digest=npm_policy_digest(), platform="linux-x64",
+                policy_digest=npm_policy_digest(),
+                platform="linux-x64",
             )
             input_identity = compute_assembler_input_identity(validated, assembler)
             container = "npm-assembler-" + input_identity.digest[:16]
@@ -96,16 +114,22 @@ class TestDockerBackedHostAcceptance(unittest.TestCase):
                     resources.write(container + "\n")
             with self.assertRaises(AssemblyTimeoutError) as raised:
                 assemble_environment(
-                    validated=validated, assembler=assembler, cache_root=cache,
+                    validated=validated,
+                    assembler=assembler,
+                    cache_root=cache,
                     executor=_StallingDockerExecutor(),
                 )
             self.assertEqual(raised.exception.reason, "assembly_timeout")
-            self.assertLessEqual(len(raised.exception.detail.encode()), 2 * 64 * 1024 + 4096)
+            self.assertLessEqual(
+                len(raised.exception.detail.encode()), 2 * 64 * 1024 + 4096
+            )
             self.assertEqual([], list(cache.rglob("staging/*")))
             self.assertNotEqual(
-                subprocess.run(("docker", "inspect", container),
-                               stdout=subprocess.DEVNULL,
-                               stderr=subprocess.DEVNULL).returncode,
+                subprocess.run(
+                    ("docker", "inspect", container),
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                ).returncode,
                 0,
             )
 
@@ -123,30 +147,42 @@ class TestDockerBackedHostAcceptance(unittest.TestCase):
 
             def stall_pi(_projection, **_kwargs):
                 return assemble_environment(
-                    validated=validated, assembler=assembler, cache_root=cache,
+                    validated=validated,
+                    assembler=assembler,
+                    cache_root=cache,
                     executor=_StallingDockerExecutor(),
                 )
 
             class NoMainBuild:
                 calls = 0
+
                 def run(inner_self, _argv: tuple[str, ...]) -> ProcessResult:
                     inner_self.calls += 1
                     raise AssertionError("main Docker build must not run after timeout")
 
             main = NoMainBuild()
-            result = orchestrate_build(BuildRequest(
-                inventory_path=str(repo / "docker-constructor.toml"),
-                context=str(repo), confirmed=True, runner=cast(BuildExecutor, main),
-                _materialize_artifacts=lambda *_args, **_kwargs: (artifact,) * 4,
-                _materialize_pi=stall_pi,
-                _named_context_supported=lambda: True,
-            project_root=Path(str(repo / "docker-constructor.toml")).resolve().parent))
+            result = orchestrate_build(
+                BuildRequest(
+                    inventory_path=str(repo / "docker-constructor.toml"),
+                    context=str(repo),
+                    confirmed=True,
+                    runner=cast(BuildExecutor, main),
+                    _materialize_artifacts=lambda *_args, **_kwargs: (artifact,) * 4,
+                    _materialize_pi=stall_pi,
+                    _named_context_supported=lambda: True,
+                    project_root=Path(str(repo / "docker-constructor.toml"))
+                    .resolve()
+                    .parent,
+                )
+            )
             self.assertEqual(result.exit_kind, ExitKind.OPERATIONAL)
             self.assertEqual(main.calls, 0)
             self.assertNotEqual(
-                subprocess.run(("docker", "inspect", container),
-                               stdout=subprocess.DEVNULL,
-                               stderr=subprocess.DEVNULL).returncode,
+                subprocess.run(
+                    ("docker", "inspect", container),
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                ).returncode,
                 0,
             )
 

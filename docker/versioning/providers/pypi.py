@@ -2,6 +2,7 @@
 
 Checks https://pypi.org/pypi/ for package version updates.
 """
+
 from __future__ import annotations
 
 import json
@@ -104,14 +105,10 @@ class PyPiProvider:
         try:
             data = json.loads(resp.body)
         except Exception as exc:
-            return ProviderResult(
-                unavailable_reason=f"PyPI: invalid JSON ({exc})"
-            )
+            return ProviderResult(unavailable_reason=f"PyPI: invalid JSON ({exc})")
 
         if not isinstance(data, dict):
-            return ProviderResult(
-                unavailable_reason="PyPI: unexpected response format"
-            )
+            return ProviderResult(unavailable_reason="PyPI: unexpected response format")
 
         releases_data = data.get("releases")
         if not isinstance(releases_data, dict):
@@ -132,7 +129,11 @@ class PyPiProvider:
             )
 
         current = target.current
-        selector = _latest_stable if (upd.stable_only and not context.include_prerelease) else _latest_any
+        selector = (
+            _latest_stable
+            if (upd.stable_only and not context.include_prerelease)
+            else _latest_any
+        )
         candidate_raw = selector(releases)
         if candidate_raw is None:
             return ProviderResult(
@@ -145,6 +146,7 @@ class PyPiProvider:
         # when fractional precision differs (Z vs .9Z).
         from datetime import datetime, timezone
         from ..model import _validate_utc_rfc3339
+
         pypi_published_at: str | None = None
         best_dt: datetime | None = None
         cand_files = releases.get(candidate_raw)
@@ -156,8 +158,7 @@ class PyPiProvider:
                 if ut is None:
                     continue
                 try:
-                    dt = datetime.fromisoformat(
-                        ut.replace("Z", "+00:00"))
+                    dt = datetime.fromisoformat(ut.replace("Z", "+00:00"))
                 except ValueError:
                     continue
                 if best_dt is None or dt < best_dt:
