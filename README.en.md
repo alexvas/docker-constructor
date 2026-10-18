@@ -225,15 +225,7 @@ For subprocess coordination, use `OwnedProcess` and the launch-configured polici
 
 ### Validate Dockerfile changes
 
-Run the dependency-free static contracts and the containerized linter independently:
-
-```bash
-python -m unittest discover -s tests -p 'test_*.py'
-scripts/check-types
-scripts/check-dockerfile
-```
-
-The unittest suite uses only the Python standard library and does not invoke Docker. `scripts/check-types` checks maintained production modules under `docker/` with Python 3.14 semantics from `pyproject.toml`; run it in the project image, where `ty` and the sole intended Python installation are available. The Hadolint gate is a separate command that requires Docker and runs the immutably pinned official image; Hadolint is not installed through Python.
+See the [canonical testing guide](docs/testing.md) for instructions on running tests and checks.
 
 ### Verify the image
 

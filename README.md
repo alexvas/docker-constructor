@@ -230,15 +230,7 @@ URL прокси требует явные host и port и поддержива�
 
 ### Проверка изменений Dockerfile
 
-Независимо запустите dependency-free статические контракты и контейнерный линтер:
-
-```bash
-python -m unittest discover -s tests -p 'test_*.py'
-scripts/check-types
-scripts/check-dockerfile
-```
-
-Набор unittest использует только стандартную библиотеку Python и не запускает Docker. `scripts/check-types` проверяет production-модули в `docker/` с семантикой Python 3.14 из `pyproject.toml`; запускайте его в проектном образе, где доступны `ty` и единственная целевая установка Python. Hadolint — отдельная проверка, которой нужен Docker; она использует immutable pinned официальный образ, а не Python-пакет.
+Инструкции по запуску тестов и проверок приведены в [едином руководстве по проверкам](docs/testing.md).
 
 ### Проверка образа
 

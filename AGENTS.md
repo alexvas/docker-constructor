@@ -1,5 +1,10 @@
 # Repository agent rules
 
+## Running tests
+
+Read and follow [docs/testing.md](docs/testing.md) for instructions on running
+tests and checks.
+
 ## Verification evidence
 
 Store verification results and implementation evidence separately from
