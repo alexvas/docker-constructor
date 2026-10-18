@@ -172,7 +172,7 @@ New test-source fingerprints (production fingerprints are in the inventory):
 * `tests/enforcement/test_release_inventory.py` SHA-256
   `5dc794b531850e40e388d2d27407ab1529be8620d0c7f4b63301bc295a4940b2`
 
-### Paused: unsuccessful task 7.6 verification
+### Historical pause: unsuccessful task 7.6 selection (resolved below)
 
 Exact command (complete stdout/stderr captured temporarily, status preserved):
 
@@ -183,9 +183,9 @@ Exact command (complete stdout/stderr captured temporarily, status preserved):
 Exit **5**, `no tests ran in 0.49s`. Diagnosis: the shell pattern
 `tests/test_owned_process*.py` has no matching file and was passed literally.
 This is a test-selection error, not an observed production regression, and is
-**unsuccessful verification**. Task 7.6 remains unchecked. Per apply instructions,
-implementation paused pending guidance; correct the selection before rerunning.
-Final tasks 7.7–7.10 and green-loop remain pending and unchecked.
+**unsuccessful verification**. Implementation paused without checking task 7.6.
+The user subsequently authorized correcting the selection and continuing;
+current results are recorded below, without replacing this unsuccessful run.
 
 ### Pre-test-addition baseline (not final acceptance)
 
@@ -226,8 +226,79 @@ from tests.enforcement.test_filesystem_convergence import _sources
 report = release_inventory(_sources())
 assert report['errors'] == report['implicit_descriptor_errors'] == []
 Path('openspec/changes/eliminate-unsafe-direct-descriptor-closes/'
-     'phase7-release-inventory.json').write_text(json.dumps(report, indent=2) + '\\n')
+     'phase7-release-inventory.json').write_text(json.dumps(report, indent=2) + '\n')
 ```
 
 Generation exited 0: 106 files, 152 close references, eight implicit calls,
 21 process ledger rows, 69 factory candidates, no process/implicit errors.
+
+## Resumed release verification
+
+Checked revision: `3bebc34b1632d443431e58abe03ffafdfb8743c3` (clean source
+state at resumption). Environment remains Linux x86_64, `.venv` CPython 3.14.7.
+No implementation/test source changes were needed; only task checkboxes and
+this evidence record change during resumption. All full logs are captured
+locally until diagnosis/evidence preparation completes; runner statuses are
+preserved. Subsequent evidence-only edits do not change the checked code.
+
+### 7.6 — corrected focused characterization
+
+```bash
+.venv/bin/python -m pytest tests/test_descriptor_close_phase6_*.py tests/test_process*.py tests/test_npm*.py tests/test_constructor_build*.py tests/test_constructor_runtime*.py tests/test_build_context_confinement.py tests/test_constructor_project_state*.py tests/test_transactions*.py -n 8 --dist loadfile --tb=short -q
+```
+
+Exit 0: **4,092 passed, 4 skipped, 7,541 subtests passed, 11 warnings in
+41.02s**. The corrected process pattern matches existing test files; no failing
+test was excluded. Warnings are multiprocessing fork-from-multithreaded-process
+DeprecationWarnings: three transaction-lock cases and eight build bootstrap/lock
+cases. No warning suppression.
+
+These suites retain the characterized lockfile/tree bytes and digests, artifact
+integrity, context contents, paths/identities/modes, domain errors, lock scope,
+publication/durability, output/tails/decoding/redaction, diagnostics, cleanup
+ordering, total/stage budgets, reserved cleanup, incomplete local/helper
+observations, reader draining/barriers and real-pipe/fd-reuse safety. No drift
+was observed beyond the authorized lifecycle/API corrections already covered by
+the regression expectations. This is regression comparison, not a new universal
+liveness proof; the delegated families and analysis limits above remain.
+
+### 7.7 — typecheck
+
+`ty check docker --python-version 3.14 --output-format concise`: exit 0,
+`All checks passed!`.
+
+### 7.8 — explicit unittest discovery
+
+`.venv/bin/python -m unittest discover -s tests -p 'test_*.py'`: exit 0,
+**6,465 tests in 176.102s, OK (skipped=13)**. The project virtual environment
+supplies `python`. Expected negative-fixture CLI/installer diagnostics occur
+in full output; they are not runner failures. Pytest-only cases require the
+separate complete pytest gate below.
+
+### Complete pytest and green-loop
+
+`.venv/bin/python -m pytest tests -n 8 --dist loadfile --tb=short -q`: exit 0,
+**7,899 passed, 13 skipped, 18,026 subtests passed, 11 warnings in 52.40s**.
+Warnings are the same fork-from-multithreaded-process DeprecationWarnings
+(three transaction-lock and eight build bootstrap/lock cases), not suppressed.
+This includes the two new inventory tests and all enforcement/example tests.
+
+`PATH="$PWD/.venv/bin:$PATH" PYTEST_ADDOPTS='-n 8 --dist loadfile --tb=short -q' npx pi-green-loop check --feedback`:
+exit 0, `pi-green-loop: all checks passing`. The wrapper reports no separate
+result counts; explicit project checks above remain the acceptance evidence.
+
+### 7.9 — whitespace check
+
+Initial `git diff --check`: exit 2, one new blank line at EOF in this evidence
+file. This formatting-only issue was corrected; no code/test change was needed.
+Final `git diff --check`: exit 0, no output (clean).
+
+### 7.10 — strict change validation
+
+`openspec validate eliminate-unsafe-direct-descriptor-closes --strict`: exit 0,
+`Change 'eliminate-unsafe-direct-descriptor-closes' is valid`.
+
+All active Phase 7 gates passed for the checked implementation. Delegated
+network/native-file delivery and deferred general liveness analysis remain
+outside this change's acceptance boundary; task 7.2 remains cancelled, not
+implemented. No changes were staged, unstaged or committed during resumption.
