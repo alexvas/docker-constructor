@@ -383,6 +383,16 @@ class TestLifecyclePrimitives(unittest.TestCase):
         self.assertFalse(workers())
 
     def test_small_grace_repeated_runs_do_not_affect_unrelated_descriptors(self):
+        start_supervisor = OwnedProcess._start_supervisor
+
+        def after_child_exit(owner):
+            # Interpreter startup is not the descriptor-reuse behavior under
+            # test. Establish natural exit through the sole owner before the
+            # existing short operation/cleanup allowances become active.
+            owner._wait_child(5)  # Fixture-startup watchdog only.
+            self.assertEqual(owner.returncode, 0)
+            start_supervisor(owner)
+
         ops, read_label, write_label = (
             PosixDescriptorOps(),
             "unrelated read",
@@ -391,7 +401,12 @@ class TestLifecyclePrimitives(unittest.TestCase):
         read_fd, write_fd = os.pipe()
         with OwnedDescriptor(ops, read_fd, label=read_label) as read_owner:
             with OwnedDescriptor(ops, write_fd, label=write_label) as write_owner:
-                with _observed_children() as children:
+                with (
+                    mock.patch.object(
+                        OwnedProcess, "_start_supervisor", after_child_exit
+                    ),
+                    _observed_children() as children,
+                ):
                     for _ in range(20):
                         owner, outcome = run_captured(
                             (sys.executable, "-c", "print('ok')"),
@@ -399,6 +414,8 @@ class TestLifecyclePrimitives(unittest.TestCase):
                         )
                         self.assertIsInstance(owner, OwnedProcess)
                         self.assertEqual(outcome.return_code, 0)
+                        self.assertEqual(outcome.stdout, "ok\n")
+                        self.assertEqual(outcome.errors, [])
                         self.assertTrue(owner.cleanup_status.complete)
                         self.assertTrue(
                             children[-1].stdout.closed and children[-1].stderr.closed

@@ -141,6 +141,7 @@ def test_real_live_reader_value_and_late_release_are_isolated(method):
     entered, release_reader, reader_returned = (threading.Event() for _ in range(3))
     late_error = OSError("late release defect")
     original_read, original_close = OwnedProcess._read_chunk, OwnedStream.close
+    start_supervisor = OwnedProcess._start_supervisor
     children = []
 
     def factory(*args, **kwargs):
@@ -163,14 +164,24 @@ def test_real_live_reader_value_and_late_release_are_isolated(method):
             raise late_error
         return original_close(owner)
 
+    def after_child_exit(owner):
+        # Isolate the live-reader boundary, not scheduling of terminate/kill
+        # and reap inside a 50 ms shutdown allowance. Reap the finite fixture
+        # through its sole owner before activating the short deadline.
+        assert entered.wait(1)
+        owner._wait_child(5)  # Fixture-startup watchdog, not a cleanup budget.
+        assert owner.returncode == 0
+        start_supervisor(owner)
+
     owner = None
     try:
         with (
             mock.patch.object(OwnedProcess, "_read_chunk", read),
             mock.patch.object(OwnedStream, "close", close),
+            mock.patch.object(OwnedProcess, "_start_supervisor", after_child_exit),
         ):
             owner = OwnedProcess.launch(
-                [sys.executable, "-c", "import time; time.sleep(30)"],
+                [sys.executable, "-c", "pass"],
                 factory=factory,
                 grace_seconds=0.05,
                 deadline_seconds=0.05,

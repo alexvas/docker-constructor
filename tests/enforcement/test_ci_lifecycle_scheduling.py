@@ -813,6 +813,42 @@ def test_captured_fault_fixture_observes_final_cleanup_after_early_return(
         release.set()
 
 
+@pytest.mark.parametrize("method", ["capture", "stream"])
+def test_live_reader_fixture_isolates_reader_retention_from_final_reap_timeout(method):
+    from tests import test_process_failure_delivery as fixture
+
+    wait_child = process.OwnedProcess._wait_child
+
+    def short_reap_timeout(owner, timeout):
+        if not owner._reaped and not owner._phase_done.is_set() and timeout <= 0.05:
+            raise lifecycle.subprocess.TimeoutExpired(owner._proc.args, timeout)
+        return wait_child(owner, timeout)
+
+    with mock.patch.object(process.OwnedProcess, "_wait_child", short_reap_timeout):
+        fixture.test_real_live_reader_value_and_late_release_are_isolated(method)
+
+
+def test_small_grace_descriptor_fixture_does_not_charge_interpreter_startup():
+    popen = lifecycle.subprocess.Popen
+    launches = []
+
+    def delayed_start(argv, **kwargs):
+        command = list(argv)
+        assert command[1:] == ["-c", "print('ok')"]
+        command[2] = "import time;time.sleep(0.2);" + command[2]
+        launches.append(command)
+        # Delegated factory, called only inside the prepared OwnedProcess owner.
+        return popen(command, **kwargs)
+
+    result = unittest.TestResult()
+    with mock.patch.object(lifecycle.subprocess, "Popen", delayed_start):
+        lifecycle_fixture.TestLifecyclePrimitives(
+            "test_small_grace_repeated_runs_do_not_affect_unrelated_descriptors"
+        ).run(result)
+    assert result.wasSuccessful(), (result.failures, result.errors)
+    assert len(launches) == 20
+
+
 def test_parent_exit_fixture_establishes_exit_before_short_drain_budget():
     popen = lifecycle.subprocess.Popen
 
