@@ -44,6 +44,7 @@ class Observation:
     first_observation_seconds: float | None
     exit_observation_seconds: float
     confirmed_live_output: bool
+    first_observation_returncode: int | None
     cache_initially_empty: bool
     cache_seeded: bool
     cache_id: str
@@ -89,7 +90,7 @@ def _read_fd(
     fd: int,
     chunks: list[bytes],
     first: list[float],
-    live: list[bool],
+    returncodes: list[int | None],
     lock: threading.Lock,
     process: subprocess.Popen[bytes],
     gate: threading.Event | None = None,
@@ -101,7 +102,7 @@ def _read_fd(
         with lock:
             if not first:
                 first.append(time.monotonic())
-                live.append(process.poll() is None)
+                returncodes.append(process.poll())
         chunks.append(data)
 
 
@@ -126,12 +127,20 @@ def _run(
     out: list[bytes] = []
     err: list[bytes] = []
     first: list[float] = []
-    live: list[bool] = []
+    returncodes: list[int | None] = []
     lock = threading.Lock()
     readers = [
         threading.Thread(
             target=_read_fd,
-            args=(pipe.fileno(), target, first, live, lock, process, reader_gate),
+            args=(
+                pipe.fileno(),
+                target,
+                first,
+                returncodes,
+                lock,
+                process,
+                reader_gate,
+            ),
         )
         for pipe, target in ((process.stdout, out), (process.stderr, err))
     ]
@@ -178,7 +187,8 @@ def _run(
         elapsed_seconds=round(time.monotonic() - started, 3),
         first_observation_seconds=round(first[0] - started, 3) if first else None,
         exit_observation_seconds=round(exit_observed - started, 3),
-        confirmed_live_output=bool(first and live and live[0]),
+        confirmed_live_output=bool(first and returncodes and returncodes[0] is None),
+        first_observation_returncode=returncodes[0] if returncodes else None,
         cache_initially_empty=cache_initially_empty,
         cache_seeded=cache_seeded,
         cache_id=cache_id,

@@ -10,6 +10,7 @@ import sys
 import threading
 import time
 import unittest
+from types import SimpleNamespace
 from unittest import mock
 
 from docker.filesystem.descriptors import OwnedDescriptor
@@ -196,17 +197,49 @@ class TestDeadlineSupervisor(unittest.TestCase):
 
     def test_deadline_shorter_than_poll_interval_is_not_delayed(self):
         proc = _RunningProcess()
-        started = time.monotonic()
-        owner = OwnedProcess.launch(
-            ["client"],
-            factory=lambda *a, **k: proc,
-            deadline_seconds=0.02,
-            grace_seconds=0.05,
-        )
-        result = owner.capture()
-        self.assertTrue(result.timed_out and proc.terminated)
-        self.assertLess(time.monotonic() - started, 0.12)
-        self.assertTrue(owner.wait_cleanup(1).complete)
+        clock, waits = [0.0], []
+        start_supervisor = OwnedProcess._start_supervisor
+
+        def supervise(owner):
+            wait = owner._request.wait
+
+            def tick(timeout=None):
+                if owner._supervising and not owner._requested:
+                    waits.append(timeout)
+                    clock[0] += timeout
+                    return wait(0)
+                return wait(timeout)
+
+            owner._request.wait = tick
+            start_supervisor(owner)
+
+        owner = None
+        # Advance only requested supervisor waits: OS dispatch and interpreter
+        # startup are not deadline-policy time or a real-time scheduling SLA.
+        with (
+            mock.patch(
+                "docker.process.time",
+                SimpleNamespace(monotonic=lambda: clock[0], sleep=time.sleep),
+            ),
+            mock.patch.object(OwnedProcess, "_start_supervisor", supervise),
+        ):
+            try:
+                owner = OwnedProcess.launch(
+                    ["client"],
+                    factory=lambda *a, **k: proc,
+                    deadline_seconds=0.02,
+                    grace_seconds=0.05,
+                )
+                result = owner.capture()
+                self.assertTrue(result.timed_out and proc.terminated)
+                self.assertTrue(waits)
+                self.assertTrue(all(interval <= 0.02 for interval in waits))
+                self.assertLess(sum(waits), 0.12)
+                self.assertTrue(owner.wait_cleanup(1).complete)
+            finally:
+                if owner is not None:
+                    owner.shutdown()
+                    self.assertTrue(owner.wait_cleanup(1).complete)
         self.assertFalse(workers())
 
     def test_cancellation_atomically_takes_cleanup_ownership(self):

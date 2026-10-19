@@ -12,6 +12,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from tests import npm_http_logging_research as research
 from tests.npm_http_logging_research import (
     NPM_VERSION,
     _aggregate_projected_lines,
@@ -38,7 +39,18 @@ class TestNpmHttpLoggingResearch(unittest.TestCase):
                 )
                 if item.first_observation_seconds is None:
                     self.fail("the pipe reader observed no output")
-                self.assertTrue(item.confirmed_live_output)
+                # Research reports what the reader actually observed. A final
+                # npm error burst may be read after exit under CPU contention.
+                self.assertEqual(
+                    item.confirmed_live_output,
+                    item.first_observation_returncode is None,
+                )
+                if item.confirmed_live_output:
+                    self.assertLessEqual(
+                        item.first_observation_seconds, item.exit_observation_seconds
+                    )
+                else:
+                    self.assertEqual(item.first_observation_returncode, item.returncode)
                 self.assertGreater(item.exit_observation_seconds, 0)
                 self.assertGreater(item.line_count, 0)
                 self.assertGreater(item.projected_line_count, 0)
@@ -137,11 +149,68 @@ class TestNpmHttpLoggingResearch(unittest.TestCase):
             )
         )
 
-    def test_output_read_after_child_exit_is_not_confirmed_live(self) -> None:
-        gate = threading.Event()
-        timer = threading.Timer(0.2, gate.set)
-        timer.start()
+    def test_output_read_while_child_waits_for_observation_is_confirmed_live(self):
+        read = research._read_fd
         with tempfile.TemporaryDirectory() as temporary:
+            marker = Path(temporary) / "observed"
+
+            class ObservedReturncodes:
+                def __init__(self, values):
+                    self.values = values
+
+                def append(self, value):
+                    self.values.append(value)
+                    # The child cannot exit until liveness has been sampled.
+                    marker.mkdir()
+
+            def observed_read(fd, chunks, first, returncodes, lock, child, gate=None):
+                return read(
+                    fd,
+                    chunks,
+                    first,
+                    ObservedReturncodes(returncodes),
+                    lock,
+                    child,
+                    gate,
+                )
+
+            with mock.patch.object(research, "_read_fd", observed_read):
+                observation = _run(
+                    (
+                        sys.executable,
+                        "-c",
+                        "import os,time;print('live output',flush=True);"
+                        f"\nwhile not os.path.isdir({str(marker)!r}): time.sleep(0.001)",
+                    ),
+                    cwd=Path(temporary),
+                    env={"PATH": os.environ["PATH"]},
+                    scenario="retry",
+                    cache_initially_empty=True,
+                    cache_seeded=False,
+                    cache_id="live",
+                    loglevel="notice",
+                )
+        self.assertEqual(observation.stdout, "live output\n")
+        self.assertEqual(observation.returncode, 0)
+        self.assertIsNotNone(observation.first_observation_seconds)
+        self.assertIsNone(observation.first_observation_returncode)
+        self.assertTrue(observation.confirmed_live_output)
+
+    def test_output_read_after_child_exit_is_not_confirmed_live(self) -> None:
+        read = research._read_fd
+
+        def after_exit(fd, chunks, first, returncodes, lock, child, gate=None):
+            # Observe the runner's existing wait authority, without another reap.
+            end, pause = time.monotonic() + 5, threading.Event()
+            while child.returncode is None and time.monotonic() < end:
+                pause.wait(0.001)
+            self.assertEqual(child.returncode, 0)
+            return read(fd, chunks, first, returncodes, lock, child, gate)
+
+        with (
+            tempfile.TemporaryDirectory() as temporary,
+            mock.patch.object(research, "_read_fd", after_exit),
+        ):
             observation = _run(
                 (sys.executable, "-c", "print('late output')"),
                 cwd=Path(temporary),
@@ -150,10 +219,10 @@ class TestNpmHttpLoggingResearch(unittest.TestCase):
                 cache_initially_empty=True,
                 cache_seeded=False,
                 cache_id="late",
-                reader_gate=gate,
                 loglevel="notice",
             )
-        timer.join()
+        self.assertEqual(observation.stdout, "late output\n")
+        self.assertEqual(observation.first_observation_returncode, 0)
         self.assertIsNotNone(observation.first_observation_seconds)
         self.assertFalse(observation.confirmed_live_output)
 

@@ -9,10 +9,12 @@ import subprocess
 import sys
 import threading
 import time
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
 
+import docker.process as process
 from docker.filesystem.streams import OwnedStream
 from docker.npm_environment import lifecycle
 from docker.process import (
@@ -405,6 +407,23 @@ def test_real_main_retains_incomplete_captured_helper_and_late_release_outcome()
     read = OwnedProcess._read_chunk
     close = OwnedStream.close
     owner = None
+    clock = [time.monotonic()]
+    monotonic, pause = time.monotonic, process._policy_pause
+
+    def policy_time():
+        if owner is not None and threading.current_thread() is owner._continuation:
+            return clock[0]
+        return monotonic()
+
+    def policy_pause(seconds):
+        if owner is not None and threading.current_thread() is owner._continuation:
+            # Establish real helper ownership before consuming logical stage
+            # time; this fixture tests retained cleanup, not helper startup speed.
+            assert entered.wait(5)
+            assert action.done.wait(5)
+            clock[0] += seconds
+        else:
+            pause(seconds)
 
     def spawn(*args, **kwargs):
         child = factory(*args, **kwargs)
@@ -434,6 +453,13 @@ def test_real_main_retains_incomplete_captured_helper_and_late_release_outcome()
             mock.patch.object(lifecycle.subprocess, "Popen", side_effect=spawn),
             mock.patch.object(OwnedProcess, "_read_chunk", blocked_read),
             mock.patch.object(OwnedStream, "close", late_close),
+            mock.patch.object(
+                process,
+                "time",
+                SimpleNamespace(monotonic=policy_time, sleep=time.sleep),
+            ),
+            mock.patch.object(process, "_policy_pause", policy_pause),
+            mock.patch(__name__ + ".time", SimpleNamespace(monotonic=lambda: clock[0])),
         ):
             owner = OwnedProcess.launch(
                 [sys.executable, "-c", "import time; time.sleep(30)"],
@@ -443,7 +469,13 @@ def test_real_main_retains_incomplete_captured_helper_and_late_release_outcome()
                     (StopStage(0.1, action, local_stop_before=True),), 0.08
                 ),
             )
-            result = owner.shutdown(primary=primary)
+            clock[0] = monotonic()
+            phase_wait = owner._phase_done.wait
+            # Fixture-startup watchdog, not a new production shutdown allowance.
+            with mock.patch.object(
+                owner._phase_done, "wait", lambda timeout=None: phase_wait(5)
+            ):
+                result = owner.shutdown(primary=primary)
             assert entered.is_set(), "captured action must delegate real helper readers"
             assert isinstance(action.owner, OwnedProcess)
             assert not result.complete and result.failures[0].error is primary
