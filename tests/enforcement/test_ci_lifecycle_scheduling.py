@@ -748,6 +748,71 @@ def test_action_authority_fixture_does_not_charge_scheduler_pause_to_stage_cap()
         )
 
 
+@pytest.mark.parametrize("setup_failure", [False, True])
+@pytest.mark.parametrize("primary_kind", [ValueError, KeyboardInterrupt])
+@pytest.mark.parametrize("helper_kind", [OSError, RuntimeError, KeyboardInterrupt])
+def test_captured_fault_fixture_observes_final_cleanup_after_early_return(
+    setup_failure, primary_kind, helper_kind
+):
+    from tests import test_process_captured_action_faults as fixture
+
+    release, entered = threading.Event(), threading.Event()
+    start = fixture.CapturedAction.start
+    prepare = fixture.CapturedAction.prepare
+    shutdown = process.OwnedProcess._shutdown
+    snapshots = []
+
+    def held_start(action, context):
+        start(action, context)
+        entered.set()
+        assert release.wait(5)
+
+    def prepared(action):
+        prepare(action)
+        wait = action.done.wait
+
+        def release_and_wait(timeout=None):
+            try:
+                return wait(timeout)
+            finally:
+                release.set()
+
+        action.done.wait = release_and_wait
+
+    def early_shutdown(owner, *args, **kwargs):
+        if owner._policy is None or release.is_set():
+            return shutdown(owner, *args, **kwargs)
+
+        # Admit the real action before returning an unsettled snapshot. Hold
+        # local cleanup until the fixture observes action completion.
+        def phase_wait(timeout=None):
+            assert entered.wait(5)
+            return False
+
+        with mock.patch.object(owner._phase_done, "wait", phase_wait):
+            result = shutdown(owner, *args, **kwargs)
+        assert not result.complete
+        if not snapshots:
+            snapshots.append(result)
+        return result
+
+    try:
+        with (
+            mock.patch.object(fixture.CapturedAction, "start", held_start),
+            mock.patch.object(process.OwnedProcess, "_shutdown", early_shutdown),
+            mock.patch.object(fixture.CapturedAction, "prepare", prepared),
+        ):
+            fixture.test_main_and_captured_helper_faults_share_precedence_and_single_owners(
+                setup_failure, "transfer", 1, helper_kind, primary_kind
+            )
+        assert len(snapshots) == 1
+        assert not snapshots[0].complete  # Old snapshots do not mutate.
+        assert len(snapshots[0].failures) == 1
+        assert type(snapshots[0].failures[0].error) is primary_kind
+    finally:
+        release.set()
+
+
 def test_parent_exit_fixture_establishes_exit_before_short_drain_budget():
     popen = lifecycle.subprocess.Popen
 

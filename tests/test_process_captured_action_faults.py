@@ -209,6 +209,10 @@ def test_main_and_captured_helper_faults_share_precedence_and_single_owners(
                 else owner.shutdown(primary=primary)
             )
             assert action.done.wait(1)
+            # Bounded shutdown/setup can return an immutable, incomplete
+            # snapshot. Action.done alone proves neither helper nor main
+            # cleanup settled: observe the SAME owner's final continuation.
+            result = owner.wait_cleanup(1)
             assert id(helper) in tracked, (
                 "captured helper must delegate to generic launch"
             )
@@ -235,7 +239,14 @@ def test_main_and_captured_helper_faults_share_precedence_and_single_owners(
             )
             assert result.complete and result.failures[0].error is winner
             if setup_failure:
-                assert raised is (None if isinstance(winner, Exception) else winner)
+                if primary_kind is KeyboardInterrupt:
+                    assert raised is primary
+                elif helper_kind is KeyboardInterrupt:
+                    # A helper interrupt discovered after launch returned is
+                    # retained in the final result, not thrown retroactively.
+                    assert raised is None or raised is helper_error
+                else:
+                    assert raised is None
             assert all(
                 any(f.error is e for f in result.failures)
                 for e in (primary, helper_error, main_join, main_release)
