@@ -813,6 +813,66 @@ def test_captured_fault_fixture_observes_final_cleanup_after_early_return(
         release.set()
 
 
+@pytest.mark.parametrize("primary_kind", [None, ValueError, KeyboardInterrupt])
+@pytest.mark.parametrize("close_kind", [None, OSError, RuntimeError, KeyboardInterrupt])
+@pytest.mark.parametrize("position", [0, 1])
+def test_descriptorless_fixture_observes_late_release_failure(
+    primary_kind, close_kind, position
+):
+    from tests import test_process_adapter_compatibility as fixture
+
+    entered, release = threading.Event(), threading.Event()
+    close = fixture.DescriptorlessPipe.close
+    shutdown = process.OwnedProcess._shutdown
+    wait_cleanup = process.OwnedProcess.wait_cleanup
+    closes, snapshots, settled = [], [], []
+
+    def held_close(pipe):
+        closes.append(pipe)
+        if len(closes) == position + 1:
+            entered.set()
+            assert release.wait(5), "controlled descriptor-less release leaked"
+        return close(pipe)
+
+    def early_shutdown(owner, **kwargs):
+        if release.is_set():
+            return shutdown(owner, **kwargs)
+
+        def early_wait(timeout=None):
+            assert entered.wait(1)
+            return False
+
+        with mock.patch.object(owner._phase_done, "wait", side_effect=early_wait):
+            result = shutdown(owner, **kwargs)
+        snapshots.append(result)
+        return result
+
+    def observe_cleanup(owner, timeout):
+        release.set()
+        result = wait_cleanup(owner, timeout)
+        settled.append(result)
+        return result
+
+    try:
+        with (
+            mock.patch.object(fixture.DescriptorlessPipe, "close", held_close),
+            mock.patch.object(process.OwnedProcess, "_shutdown", early_shutdown),
+            mock.patch.object(process.OwnedProcess, "wait_cleanup", observe_cleanup),
+        ):
+            fixture.test_known_descriptorless_fileno_rejection_allows_sole_unblocking_release(
+                primary_kind, close_kind, position
+            )
+        assert len(snapshots) == 1 and not snapshots[0].complete
+        assert settled[0].complete
+        error = closes[position].error
+        if error is not None:
+            assert not any(f.error is error for f in snapshots[0].failures)
+            assert sum(f.error is error for f in settled[0].failures) == 1
+        assert len(closes) == 2 and all(pipe.close_attempts == 1 for pipe in closes)
+    finally:
+        release.set()
+
+
 @pytest.mark.parametrize("method", ["capture", "stream"])
 def test_live_reader_fixture_isolates_reader_retention_from_final_reap_timeout(method):
     from tests import test_process_failure_delivery as fixture

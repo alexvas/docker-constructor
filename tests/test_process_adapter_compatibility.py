@@ -108,8 +108,12 @@ def test_known_descriptorless_fileno_rejection_allows_sole_unblocking_release(
     )
     try:
         assert all(pipe.entered.wait(1) for pipe in pipes)
-        result = owner.shutdown(primary=primary)
-        assert owner.wait_cleanup(1).complete
+        owner.shutdown(primary=primary)
+        # Shutdown may return an incomplete immutable observation before a
+        # descriptor-less unblocking close records its failure. Inspect the
+        # settled result, not the earlier snapshot, for final precedence.
+        result = owner.wait_cleanup(1)
+        assert result.complete
         assert child.stdout.close_attempts == child.stderr.close_attempts == 1
         selected = result.failures[0].error if result.failures else None
         if primary_kind is KeyboardInterrupt:
