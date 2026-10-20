@@ -278,7 +278,7 @@ This forward-only chain is the chosen DAG. A phase may depend only on an earlier
 - [x] 6.8 Add the contributor-guide link to README.zh.md; accept when the link resolves and its Chinese text describes the same rule.
 - [x] 6.9 Wire local green-loop checks; accept when 6.1 tests pass and every previously configured command remains required.
 - [x] 6.10 Implement skip-review enforcement for local/CI reports; accept when 6.3 tests reject unexplained skips and allow only explicitly documented applicability conditions.
-- [ ] 6.11 Declare CI development/test provisioning; accept when a clean Python 3.14 environment installs the declared Ruff group and all P1 prerequisites, with no separate drifting Ruff version declaration.
+- [x] 6.11 Declare CI development/test provisioning; accept when a clean Python 3.14 environment installs the declared Ruff group and all P1 prerequisites, with no separate drifting Ruff version declaration.
 - [x] 6.12 Extend Validation workflow check execution; accept when 6.2 tests confirm non-mutating Ruff/format/compilation, existing type commands and the full mandated pytest under retained push/PR triggers.
 - [x] 6.13 Add CI diagnostic retention; accept when 6.4 tests pass and artifact-upload success cannot replace a check's failure status. Permanent full-log storage is not required.
 - [x] 6.14 Document permanent check operation; accept when executable commands distinguish local-before-commit checks from post-push/PR verification and state that hooks/automatic commits/branch protection are not implemented here.
