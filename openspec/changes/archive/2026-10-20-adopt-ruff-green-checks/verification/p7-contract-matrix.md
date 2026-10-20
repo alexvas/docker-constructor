@@ -1,6 +1,6 @@
 # P7 contract-to-evidence matrix and acceptance index
 
-Scope: tasks.md §0 outcomes and P1–P7 deliverables/gates. P1–P6 results are historical, not current verification. [phase-7.md](phase-7.md) records the completed boundary/scope/freshness reviews and fresh final local G (tasks 7.3–7.12). The table preserves the initial RED gap assessment. Current unresolved items are only **P7-CI-ENV / 7.13** and dependent final acceptance **7.14**; the complete CI privilege environment is unavailable locally.
+Scope: tasks.md §0 outcomes and P1–P7 deliverables/gates. P1–P6 results are historical, not current verification. [phase-7.md](phase-7.md) records the completed boundary/scope/freshness reviews and fresh final local G (tasks 7.3–7.12). The table preserves the initial RED gap assessment. **Final status: no unresolved items.** [p7-final-acceptance.md](p7-final-acceptance.md) records the user's hosted CI acceptance, provenance limits and completion of 7.13/7.14. The local privilege limitation and initial RED gaps below remain historical observations, not current blockers.
 
 | Contract / deliverable | Evidence | Gap at P7 RED |
 | --- | --- | --- |

@@ -1,6 +1,10 @@
-# Phase 7 — final local verification; acceptance BLOCKED
+# Phase 7 — final local verification
 
-**Status: BLOCKED at 7.13; 7.14 remains unchecked.** Tasks 7.1–7.12 are accepted. P1–P6 exits remain accepted historical evidence. No earlier result is represented as a fresh final-state run.
+**Current status: ACCEPTED.** See [final acceptance](p7-final-acceptance.md) for the user's successful hosted CI confirmation, unchanged-source verification and completion of 7.13/7.14. The original local report below is historical; its BLOCKED decision has been superseded.
+
+## Historical local report
+
+**Status at initial report: BLOCKED at 7.13; 7.14 remained unchecked.** Tasks 7.1–7.12 are accepted. P1–P6 exits remain accepted historical evidence. No earlier result is represented as a fresh final-state run.
 
 ## Acceptance index and boundary review (7.1–7.5)
 

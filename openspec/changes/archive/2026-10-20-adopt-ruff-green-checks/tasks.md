@@ -327,8 +327,8 @@ This forward-only chain is the chosen DAG. A phase may depend only on an earlier
 - [x] 7.10 Execute the complete final check manifest: every command in both sections is mandatory in P7; accept only successful status for every command and zero unresolved ty diagnostics.
 - [x] 7.11 Run final shared compilation; accept only successful compilation for the recorded final source inventory.
 - [x] 7.12 Review final skip reasons; accept only justified environmental/non-applicability dispositions and no hidden collection reductions.
-- [ ] 7.13 Execute CI-equivalent commands in the provisioned environment; accept only successful actual results, explicitly distinguishing local simulation from a remotely observed GitHub run. Lack of a remote run must be disclosed, not invented.
-- [ ] 7.14 Publish final acceptance; accept only if all P1–P7 work orders/exits and final G pass for the final fingerprint. Otherwise publish BLOCKED with unresolved IDs and leave the task unchecked. Confirm no unauthorized version-control operation occurred.
+- [x] 7.13 Execute CI-equivalent commands in the provisioned environment; accept only successful actual results, explicitly distinguishing local simulation from a remotely observed GitHub run. Lack of a remote run must be disclosed, not invented.
+- [x] 7.14 Publish final acceptance; accept only if all P1–P7 work orders/exits and final G pass for the final fingerprint. Otherwise publish BLOCKED with unresolved IDs and leave the task unchecked. Confirm no unauthorized version-control operation occurred.
 
 ## Workflow follow-up
 
