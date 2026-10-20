@@ -306,27 +306,27 @@ This forward-only chain is the chosen DAG. A phase may depend only on an earlier
 
 ### RED
 
-- [ ] 7.1 Produce a contract-to-evidence gap matrix; accept when every required outcome, phase deliverable and gate has a named evidence source or an explicitly missing item. Do not manufacture test failures for absent documentation.
+- [x] 7.1 Produce a contract-to-evidence gap matrix; accept when every required outcome, phase deliverable and gate has a named evidence source or an explicitly missing item. Do not manufacture test failures for absent documentation.
 
 ### GREEN
 
-- [ ] 7.2 Assemble the final acceptance index; accept when the matrix has no missing deliverable and distinguishes historical phase results from current final-state checks.
+- [x] 7.2 Assemble the final acceptance index; accept when the matrix has no missing deliverable and distinguishes historical phase results from current final-state checks.
 
 ### INTROSPECT
 
-- [ ] 7.3 Review migration boundaries; accept when source fingerprints/diffs prove separate preparation, formatter-only, autofix, manual and control deltas without requiring commits or index resets.
-- [ ] 7.4 Review final scope; accept when no runtime inventory, historical verification artifact, stress construction or lifecycle/architecture guarantee was weakened.
-- [ ] 7.5 Review evidence freshness; accept when stale predecessor verification is identified and all affected required checks are scheduled for final rerun rather than represented as current.
+- [x] 7.3 Review migration boundaries; accept when source fingerprints/diffs prove separate preparation, formatter-only, autofix, manual and control deltas without requiring commits or index resets.
+- [x] 7.4 Review final scope; accept when no runtime inventory, historical verification artifact, stress construction or lifecycle/architecture guarantee was weakened.
+- [x] 7.5 Review evidence freshness; accept when stale predecessor verification is identified and all affected required checks are scheduled for final rerun rather than represented as current.
 
 ### VALIDATE
 
-- [ ] 7.6 Run final full-inventory Ruff check; accept only exit 0 with zero unresolved findings.
-- [ ] 7.7 Run final full-inventory format check; accept only exit 0.
-- [ ] 7.8 Verify final formatter idempotence; accept when a second formatter pass changes no source contents.
-- [ ] 7.9 Run final full mandated pytest; accept only exit 0 and the self-contained durable summary of counts/warnings/environment/status.
-- [ ] 7.10 Execute the complete final check manifest: every command in both sections is mandatory in P7; accept only successful status for every command and zero unresolved ty diagnostics.
-- [ ] 7.11 Run final shared compilation; accept only successful compilation for the recorded final source inventory.
-- [ ] 7.12 Review final skip reasons; accept only justified environmental/non-applicability dispositions and no hidden collection reductions.
+- [x] 7.6 Run final full-inventory Ruff check; accept only exit 0 with zero unresolved findings.
+- [x] 7.7 Run final full-inventory format check; accept only exit 0.
+- [x] 7.8 Verify final formatter idempotence; accept when a second formatter pass changes no source contents.
+- [x] 7.9 Run final full mandated pytest; accept only exit 0 and the self-contained durable summary of counts/warnings/environment/status.
+- [x] 7.10 Execute the complete final check manifest: every command in both sections is mandatory in P7; accept only successful status for every command and zero unresolved ty diagnostics.
+- [x] 7.11 Run final shared compilation; accept only successful compilation for the recorded final source inventory.
+- [x] 7.12 Review final skip reasons; accept only justified environmental/non-applicability dispositions and no hidden collection reductions.
 - [ ] 7.13 Execute CI-equivalent commands in the provisioned environment; accept only successful actual results, explicitly distinguishing local simulation from a remotely observed GitHub run. Lack of a remote run must be disclosed, not invented.
 - [ ] 7.14 Publish final acceptance; accept only if all P1–P7 work orders/exits and final G pass for the final fingerprint. Otherwise publish BLOCKED with unresolved IDs and leave the task unchecked. Confirm no unauthorized version-control operation occurred.
 
