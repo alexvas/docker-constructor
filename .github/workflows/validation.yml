@@ -69,6 +69,8 @@ jobs:
 
       - name: Run complete green gate
         if: ${{ !cancelled() }}
+        env:
+          GREEN_CHECKS_WORKERS: "2"
         shell: bash
         run: |
           log="$RUNNER_TEMP/green-checks.log"

@@ -6,6 +6,7 @@ and its existing OwnedProcess path. This module acquires no descriptors or pipes
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -35,10 +36,20 @@ COMMANDS = (
 )
 
 
-def main(*, run=run_streaming) -> int:
-    """Attempt every independent check; preserve the first failing status."""
+def main(*, run=run_streaming, workers="8") -> int:
+    """Attempt every independent check; preserve scope and first failing status."""
+    try:
+        worker_count = int(workers)
+    except ValueError:
+        worker_count = 0
+    if not 1 <= worker_count <= 1024:
+        print("GREEN_CHECKS_WORKERS must be an integer from 1 to 1024", file=sys.stderr)
+        return 2
+    pytest_command = list(COMMANDS[-1])
+    pytest_command[pytest_command.index("-n") + 1] = str(worker_count)
+    commands = (*COMMANDS[:-1], tuple(pytest_command))
     status = 0
-    for argv in COMMANDS:
+    for argv in commands:
         print("\n$ " + " ".join(argv), flush=True)
         result = run(argv, root=ROOT)
         code = result.returncode
@@ -54,4 +65,4 @@ def main(*, run=run_streaming) -> int:
 if __name__ == "__main__":
     if len(sys.argv) != 1:
         sys.exit("check-green does not support narrowing or mutation arguments")
-    sys.exit(main())
+    sys.exit(main(workers=os.environ.get("GREEN_CHECKS_WORKERS", "8")))

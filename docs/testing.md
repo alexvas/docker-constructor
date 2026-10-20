@@ -13,11 +13,17 @@ If these test-runner dependencies are missing, install them with:
 .venv/bin/python -m pip install pytest pytest-xdist
 ```
 
-The default full-suite command uses eight workers, distributing whole files:
+The default local full-suite command uses eight workers, distributing whole files:
 
 ```bash
 .venv/bin/python -m pytest tests -n 8 --dist loadfile --tb=short -q
 ```
+
+`scripts/check-green` defaults to eight workers locally. The CI workflow sets
+`GREEN_CHECKS_WORKERS=2` for its two-core runner, changing only pytest parallelism,
+not the suite or other checks. `GREEN_CHECKS_WORKERS` accepts any integer from
+`1` through `1024` (inclusive); invalid values fail before checks run.
+To reproduce the CI gate locally, run `GREEN_CHECKS_WORKERS=2 scripts/check-green`.
 
 For a focused enforcement-only check (not a substitute for the full suite):
 

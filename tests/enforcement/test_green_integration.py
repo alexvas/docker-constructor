@@ -76,6 +76,36 @@ def test_gate_preserves_failure_and_runs_independent_checks(failed):
     assert tuple(calls) == EXPECTED_COMMANDS
 
 
+@pytest.mark.parametrize("workers", ["1", "2", "3", "8", "16", "1024", "0002"])
+@pytest.mark.parametrize("status", [0, 7])
+def test_worker_counts_preserve_full_scope_and_failure_status(workers, status):
+    gate = load_gate()
+    checks = load_check_module()
+    calls = []
+
+    def run(argv, *, root):
+        calls.append(tuple(argv))
+        return checks.CommandResult(status, b"", b"", True)
+
+    assert gate.main(run=run, workers=workers) == status
+    expected = list(EXPECTED_COMMANDS[-1])
+    expected[expected.index("-n") + 1] = str(int(workers))
+    assert tuple(calls) == (*EXPECTED_COMMANDS[:-1], tuple(expected))
+    assert gate.COMMANDS == EXPECTED_COMMANDS
+
+
+@pytest.mark.parametrize(
+    "workers",
+    ["", "0", "-1", "1025", "999999999999999999999", "1.5", "auto", "2 --ignore=tests"],
+)
+def test_invalid_worker_counts_fail_before_running_checks(workers, capsys):
+    def unexpected_run(*args, **kwargs):
+        pytest.fail("invalid worker setting must not execute checks")
+
+    assert load_gate().main(run=unexpected_run, workers=workers) == 2
+    assert "must be an integer from 1 to 1024" in capsys.readouterr().err
+
+
 def test_gate_does_not_swallow_interruption():
     gate = load_gate()
     interruption = KeyboardInterrupt("injected")
@@ -149,6 +179,7 @@ def workflow_errors(text):
         "sudo -n runuser -u nobody -- id",
         "run: scripts/check-types",
         'scripts/check-green >"$log" 2>&1',
+        '        env:\n          GREEN_CHECKS_WORKERS: "2"\n        shell: bash',
         "status=$?",
         'cat "$log"',
         'exit "$status"',
@@ -195,6 +226,7 @@ def test_validation_workflow_retains_full_nonmutating_gate():
     [
         ("  push:", "  workflow_dispatch:"),
         ("  pull_request:", ""),
+        ('GREEN_CHECKS_WORKERS: "2"', 'GREEN_CHECKS_WORKERS: "8"'),
         ("scripts/check-green", "scripts/check-python-lint docker"),
         ("run: scripts/check-types", "run: ty check docker"),
         ('exit "$status"', "exit 0"),
