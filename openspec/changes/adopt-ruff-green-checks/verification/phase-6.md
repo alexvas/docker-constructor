@@ -1,4 +1,15 @@
-# Phase 6 — permanent control implementation; remote provisioning pending
+# Phase 6 — permanent control accepted
+
+**Current status: ACCEPTED, 25/25 tasks complete.** See the
+[P6 exit report](p6-exit-results.md) for the checked revision, current local/CI
+worker policy, fresh focused and full-gate results, skip review and limits of
+the user-reported hosted acceptance. Phase 7 remains unstarted.
+
+Everything below is the **historical initial partial report**, retained as
+written for its original source state. Its pending statuses, configuration
+references and counts do not describe the accepted exit state above.
+
+## Historical initial partial report
 
 **Status: PARTIAL / exit not yet accepted.** Tasks 6.1–6.10 and 6.12–6.24 are
 accepted locally (23/25). Task **6.11** awaits the user's pushed GitHub

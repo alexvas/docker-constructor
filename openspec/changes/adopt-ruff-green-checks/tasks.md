@@ -298,7 +298,7 @@ This forward-only chain is the chosen DAG. A phase may depend only on an earlier
 - [x] 6.22 Execute all manifest checks mandatory in P6: every command in both sections; accept only successful statuses.
 - [x] 6.23 Run shared compilation for G; accept only exit 0.
 - [x] 6.24 Review phase-exit skips; accept only justified reasons.
-- [ ] 6.25 Publish the P6 exit report; accept when implemented local/CI policy, focused tests and G apply to the same exit state.
+- [x] 6.25 Publish the P6 exit report; accept when implemented local/CI policy, focused tests and G apply to the same exit state.
 
 ## 7. P7 — Final acceptance
 
